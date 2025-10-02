@@ -484,10 +484,10 @@ func (mr *MockApplicationMockRecorder) SetScale(arg0, arg1, arg2 any) *gomock.Ca
 }
 
 // StorageDirectives mocks base method.
-func (m *MockApplication) StorageDirectives() (map[string]state.StorageDirectives, error) {
+func (m *MockApplication) StorageDirectives() (map[string]state.StorageConstraints, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StorageDirectives")
-	ret0, _ := ret[0].(map[string]state.StorageDirectives)
+	ret0, _ := ret[0].(map[string]state.StorageConstraints)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -555,7 +555,7 @@ func (mr *MockApplicationMockRecorder) UpdateCharmConfig(arg0, arg1 any) *gomock
 }
 
 // UpdateStorageDirectives mocks base method.
-func (m *MockApplication) UpdateStorageDirectives(arg0 map[string]state.StorageDirectives) error {
+func (m *MockApplication) UpdateStorageDirectives(arg0 map[string]state.StorageConstraints) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateStorageDirectives", arg0)
 	ret0, _ := ret[0].(error)

@@ -1175,13 +1175,13 @@ func (i *importer) appResourceOps(app description.Application) []txn.Op {
 	return result
 }
 
-func (i *importer) storageConstraints(cons map[string]description.StorageDirective) map[string]StorageDirectives {
+func (i *importer) storageConstraints(cons map[string]description.StorageDirective) map[string]StorageConstraints {
 	if len(cons) == 0 {
 		return nil
 	}
-	result := make(map[string]StorageDirectives)
+	result := make(map[string]StorageConstraints)
 	for key, value := range cons {
-		result[key] = StorageDirectives{
+		result[key] = StorageConstraints{
 			Pool:  value.Pool(),
 			Size:  value.Size(),
 			Count: value.Count(),

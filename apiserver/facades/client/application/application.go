@@ -1160,11 +1160,11 @@ func (api *APIBase) applicationSetCharm(
 	if err := appConfig.Validate(); err != nil {
 		return errors.Annotate(err, "validating config settings")
 	}
-	var stateStorageConstraints map[string]state.StorageDirectives
+	var stateStorageConstraints map[string]state.StorageConstraints
 	if len(params.StorageConstraints) > 0 {
-		stateStorageConstraints = make(map[string]state.StorageDirectives)
+		stateStorageConstraints = make(map[string]state.StorageConstraints)
 		for name, cons := range params.StorageConstraints {
-			stateCons := state.StorageDirectives{Pool: cons.Pool}
+			stateCons := state.StorageConstraints{Pool: cons.Pool}
 			if cons.Size != nil {
 				stateCons.Size = *cons.Size
 			}
@@ -3149,7 +3149,7 @@ func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]p
 }
 
 // GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
-func (api *APIBase) GetApplicationStorage(args params.Entities) (params.ApplicationStorageGetResults, error) {
+func (api *APIBase) GetApplicationStorageDirectives(args params.Entities) (params.ApplicationStorageGetResults, error) {
 	resp := params.ApplicationStorageGetResults{
 		Results: make([]params.ApplicationStorageGetResult, len(args.Entities)),
 	}
@@ -3168,7 +3168,7 @@ func (api *APIBase) GetApplicationStorage(args params.Entities) (params.Applicat
 }
 
 // GetApplicationStorage isn't on the v21 API.
-func (api *APIv21) GetApplicationStorage(_ struct{}) {}
+func (api *APIv21) GetApplicationStorageDirectives(_ struct{}) {}
 
 func (api *APIBase) updateOneApplicationStorage(storageUpdate params.ApplicationStorageUpdate) error {
 	appTag, err := names.ParseTag(storageUpdate.ApplicationTag)
@@ -3180,9 +3180,9 @@ func (api *APIBase) updateOneApplicationStorage(storageUpdate params.Application
 		return errors.Trace(err)
 	}
 
-	sDirectives := make(map[string]state.StorageDirectives)
+	sDirectives := make(map[string]state.StorageConstraints)
 	for storageName, directive := range storageUpdate.StorageDirectives {
-		sd := state.StorageDirectives{
+		sd := state.StorageConstraints{
 			Pool: directive.Pool,
 		}
 		if directive.Size != nil {
@@ -3202,7 +3202,7 @@ func (api *APIBase) updateOneApplicationStorage(storageUpdate params.Application
 // application deployment. The storage constraints passed are validated against the charm's declared storage meta.
 // The following apiserver codes can be returned in each ErrorResult:
 //   - [params.CodeNotSupported]: If the update request includes a storage name not supported by the charm.
-func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdateRequest) (params.ErrorResults, error) {
+func (api *APIBase) UpdateApplicationStorageDirectives(args params.ApplicationStorageUpdateRequest) (params.ErrorResults, error) {
 	resp := params.ErrorResults{}
 	if err := api.checkCanWrite(); err != nil {
 		return resp, errors.Trace(err)
@@ -3220,4 +3220,4 @@ func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdat
 }
 
 // UpdateApplicationStorage isn't on the v21 API.
-func (api *APIv21) UpdateApplicationStorage(_ struct{}) {}
+func (api *APIv21) UpdateApplicationStorageDirectives(_ struct{}) {}

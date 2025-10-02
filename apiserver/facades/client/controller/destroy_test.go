@@ -195,7 +195,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 			Charm: f.MakeCharm(c, &factory.CharmParams{
 				Name: "storage-block",
 			}),
-			Storage: map[string]state.StorageDirectives{
+			Storage: map[string]state.StorageConstraints{
 				"data": {Pool: "modelscoped"},
 			},
 		}),
@@ -218,7 +218,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 			Charm: f.MakeCharm(c, &factory.CharmParams{
 				Name: "storage-block",
 			}),
-			Storage: map[string]state.StorageDirectives{
+			Storage: map[string]state.StorageConstraints{
 				"data": {Pool: "modelscoped"},
 			},
 		}),

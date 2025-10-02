@@ -26,7 +26,7 @@ const (
 	appStorageConfigSummary = "Displays or sets storage directives for an application."
 
 	appStorageConfigDoc = `
-To view all storage directives values for the given application:
+To view all storage directives for the given application:
 
     juju application-storage <application>
 
@@ -36,21 +36,21 @@ print it in ` + "`json`" + ` or ` + "`yaml`" + ` format using the ` + "`--format
    	juju application-storage <application> --format json
     juju application-storage <application> --format yaml
 
-To view the value of a single storage name:
+To view the directive of a single storage name:
 
     juju application-storage <application> <storage-name>
 
-To set storage constraint values on an application:
+To set storage directives on an application:
 
-    juju application-storage <application> name1=size, name2=pool, name3=count
+    juju application-storage <application> name1=size,pool,count name2=size,pool,count
 
 Config values can be imported from a yaml file using the ` + "`--file`" + ` flag:
 
-    juju application-storage <application> --file=path/to/constraints.yaml
+    juju application-storage <application> --file=path/to/config.yaml
 
 This allows you to, e.g., save an application's storage directives to a file:
 
-    juju application-storage <application> --format=yaml > constraints.yaml
+    juju application-storage <application> --format=yaml > config.yaml
 
 and then import the config later. 
 `
@@ -206,8 +206,8 @@ func (c *storageConfigCommand) Run(ctx *cmd.Context) error {
 // StorageDirectivesAPI defines the API methods that the application storage command uses.
 type StorageDirectivesAPI interface {
 	Close() error
-	GetApplicationStorage(applicationName string) (application.ApplicationStorageDirectives, error)
-	UpdateApplicationStorage(applicationStorageUpdateParams application.ApplicationStorageUpdate) error
+	GetApplicationStorageDirectives(applicationName string) (application.ApplicationStorageDirectives, error)
+	UpdateApplicationStorageDirectives(applicationStorageUpdateParams application.ApplicationStorageUpdate) error
 }
 
 // setConfig sets the provided key/value pairs on the application.
@@ -228,7 +228,7 @@ func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs conf
 		StorageDirectives: sd,
 	}
 
-	return client.UpdateApplicationStorage(updateParams)
+	return client.UpdateApplicationStorageDirectives(updateParams)
 }
 
 // setFileConfig sets the provided key/value pairs on the application using values from a file.
@@ -266,12 +266,12 @@ func (c *storageConfigCommand) setFileConfig(client StorageDirectivesAPI, attrs 
 		StorageDirectives: sd,
 	}
 
-	return client.UpdateApplicationStorage(updateParams)
+	return client.UpdateApplicationStorageDirectives(updateParams)
 }
 
 // getConfig writes the value of a single application config key to the cmd.Context.
 func (c *storageConfigCommand) getConfig(client StorageDirectivesAPI, ctx *cmd.Context) error {
-	applicationStorageInfo, err := client.GetApplicationStorage(c.applicationName)
+	applicationStorageInfo, err := client.GetApplicationStorageDirectives(c.applicationName)
 	if err != nil {
 		return err
 	}
@@ -296,7 +296,7 @@ func (c *storageConfigCommand) getConfig(client StorageDirectivesAPI, ctx *cmd.C
 
 // getAllConfig returns the entire configuration for the selected application.
 func (c *storageConfigCommand) getAllConfig(client StorageDirectivesAPI, ctx *cmd.Context) error {
-	applicationStorageInfo, err := client.GetApplicationStorage(c.applicationName)
+	applicationStorageInfo, err := client.GetApplicationStorageDirectives(c.applicationName)
 	if err != nil {
 		return err
 	}

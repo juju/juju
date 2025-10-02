@@ -345,10 +345,10 @@ type mockStorageConstraintsAPI struct {
 
 func (m *mockStorageConstraintsAPI) Close() error { return nil }
 
-func (m *mockStorageConstraintsAPI) GetApplicationStorage(applicationName string) (apiapplication.ApplicationStorageDirectives, error) {
+func (m *mockStorageConstraintsAPI) GetApplicationStorageDirectives(applicationName string) (apiapplication.ApplicationStorageDirectives, error) {
 	return m.getFunc(applicationName)
 }
 
-func (m *mockStorageConstraintsAPI) UpdateApplicationStorage(up apiapplication.ApplicationStorageUpdate) error {
+func (m *mockStorageConstraintsAPI) UpdateApplicationStorageDirectives(up apiapplication.ApplicationStorageUpdate) error {
 	return m.updateFunc(up)
 }

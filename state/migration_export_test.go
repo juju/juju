@@ -117,7 +117,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	// There are test charms called "storage-block" and
 	// "storage-filesystem" which are what you'd expect.
 	ch := s.AddTestingCharm(c, "storage-"+kind)
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
@@ -895,7 +895,7 @@ func (s *MigrationExportSuite) TestCharmDataMigrated(c *gc.C) {
 		Devices: map[string]state.DeviceConstraints{
 			"miner": {Count: 1},
 		},
-		Storage: map[string]state.StorageDirectives{
+		Storage: map[string]state.StorageConstraints{
 			"data": {Count: 1, Size: 1024, Pool: "modelscoped-unreleasable"},
 		},
 	})

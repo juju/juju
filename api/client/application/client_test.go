@@ -1554,7 +1554,7 @@ func (s *applicationSuite) TestGetApplicationStorageSuccessful(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	info, err := client.GetApplicationStorage("storage-block")
+	info, err := client.GetApplicationStorageDirectives("storage-block")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.StorageDirectives, gc.DeepEquals, map[string]storage.Constraints{
@@ -1590,7 +1590,7 @@ func (s *applicationSuite) TestGetApplicationStorageServerError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.GetApplicationStorage("storage-block")
+	_, err := client.GetApplicationStorageDirectives("storage-block")
 
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -1634,7 +1634,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 		},
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.UpdateApplicationStorage(applicationStorageUpdate)
+	err := client.UpdateApplicationStorageDirectives(applicationStorageUpdate)
 
 	c.Assert(err, gc.IsNil)
 }
@@ -1679,7 +1679,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 	}
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.UpdateApplicationStorage(applicationStorageUpdate)
+	err := client.UpdateApplicationStorageDirectives(applicationStorageUpdate)
 
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.DeepEquals, "test error1")

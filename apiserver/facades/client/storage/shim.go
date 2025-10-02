@@ -41,7 +41,7 @@ type storageInterface interface {
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 
 	// AddStorageForUnit is required for storage add functionality.
-	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageDirectives) ([]names.StorageTag, error)
+	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
 
 	// AttachStorage attaches the storage instance with the
 	// specified tag to the unit with the specified tag.

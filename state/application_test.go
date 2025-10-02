@@ -3612,7 +3612,7 @@ func (s *ApplicationSuite) TestDestroyNoRemoveKeepsOwnedSecrets(c *gc.C) {
 
 func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageDirectives(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	app := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
@@ -4144,7 +4144,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestWatchStorageDirectives(c *gc.C) {
-	oldSC := map[string]state.StorageDirectives{
+	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 1),
 	}
 	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
@@ -4163,7 +4163,7 @@ func (s *ApplicationSuite) TestWatchStorageDirectives(c *gc.C) {
 	appWc.AssertOneChange()
 
 	// Make one change, check one event.
-	constraints := map[string]state.StorageDirectives{
+	constraints := map[string]state.StorageConstraints{
 		"data0": {Count: 5, Size: 1024, Pool: "loop"},
 	}
 	err = app.UpdateStorageDirectives(constraints)
@@ -4179,7 +4179,7 @@ func (s *ApplicationSuite) TestWatchStorageDirectives(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make another change, check one event.
-	constraints = map[string]state.StorageDirectives{
+	constraints = map[string]state.StorageConstraints{
 		"data0": {Count: 6, Size: 2048, Pool: "loop"},
 	}
 	err = app.UpdateStorageDirectives(constraints)
@@ -4214,7 +4214,7 @@ func (s *ApplicationSuite) TestWatchStorageDirectivesDoesNotCrossApplications(c 
 	sbWc.AssertOneChange()
 
 	// Check mysql watcher does not react when storage block is updated.
-	constraints := map[string]state.StorageDirectives{
+	constraints := map[string]state.StorageConstraints{
 		"data": {Count: 1, Size: 1024, Pool: "loop"},
 	}
 	err = storageBlockApp.UpdateStorageDirectives(constraints)
@@ -4376,7 +4376,7 @@ func (s *ApplicationSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "test",
 		Charm: oldCh,
-		Storage: map[string]state.StorageDirectives{
+		Storage: map[string]state.StorageConstraints{
 			"data0": {Count: 1},
 			"data1": {Count: 1},
 		},
@@ -4434,7 +4434,7 @@ func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *g
 	cfg := state.SetCharmConfig{
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
-		StorageDirectives: map[string]state.StorageDirectives{
+		StorageDirectives: map[string]state.StorageConstraints{
 			"data1": {Count: 3},
 		},
 	}
@@ -5768,7 +5768,7 @@ func (s *CAASApplicationSuite) setupApplicationWithAttachStorage(c *gc.C, unitNu
 	s.addExistingFilesystems(c, sb, 3, "database")
 
 	cockroachdb := state.AddTestingApplicationWithAttachStorage(c, st, "cockroachdb", ch, unitNum,
-		map[string]state.StorageDirectives{
+		map[string]state.StorageConstraints{
 			"database": {
 				Pool:  "kubernetes",
 				Size:  100,
@@ -6067,7 +6067,7 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestUpdateStorageDirectives(c *gc.C) {
-	oldSC := map[string]state.StorageDirectives{
+	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 5),
 	}
 	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
@@ -6077,13 +6077,13 @@ func (s *ApplicationSuite) TestUpdateStorageDirectives(c *gc.C) {
 	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"], jc.DeepEquals, state.StorageDirectives{
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
 		Pool:  "loop",
 		Count: uint64(5),
 		Size:  uint64(100),
 	})
 
-	newSC := map[string]state.StorageDirectives{
+	newSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 4096, 3),
 	}
 
@@ -6093,7 +6093,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectives(c *gc.C) {
 	cons, err = app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"], jc.DeepEquals, state.StorageDirectives{
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
 		Pool:  "loop",
 		Count: uint64(3),
 		Size:  uint64(4096),
@@ -6101,7 +6101,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectives(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidStoreKey(c *gc.C) {
-	oldSC := map[string]state.StorageDirectives{
+	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 5),
 	}
 	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
@@ -6111,12 +6111,12 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidStoreKey(c *gc.C) {
 	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"], jc.DeepEquals, state.StorageDirectives{
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
 		Pool:  "loop",
 		Count: uint64(5),
 		Size:  uint64(100),
 	})
-	newSC := map[string]state.StorageDirectives{
+	newSC := map[string]state.StorageConstraints{
 		"wrong-storage-name": makeStorageCons("loop", 4096, 3),
 	}
 
@@ -6125,7 +6125,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidStoreKey(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidCount(c *gc.C) {
-	oldSC := map[string]state.StorageDirectives{
+	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 5),
 	}
 	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
@@ -6135,12 +6135,12 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidCount(c *gc.C) {
 	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"], jc.DeepEquals, state.StorageDirectives{
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
 		Pool:  "loop",
 		Count: uint64(5),
 		Size:  uint64(100),
 	})
-	newSC := map[string]state.StorageDirectives{
+	newSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 4096, 6),
 	}
 
@@ -6150,7 +6150,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidCount(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidStorageType(c *gc.C) {
-	oldSC := map[string]state.StorageDirectives{
+	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 5),
 	}
 	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
@@ -6160,13 +6160,13 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidStorageType(c *gc.C
 	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"], jc.DeepEquals, state.StorageDirectives{
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
 		Pool:  "loop",
 		Count: uint64(5),
 		Size:  uint64(100),
 	})
 
-	newSC := map[string]state.StorageDirectives{
+	newSC := map[string]state.StorageConstraints{
 		"data0":          makeStorageCons("loop", 4096, 1),
 		"not-supported1": makeStorageCons("loop", 4096, 1),
 		"not-supported2": makeStorageCons("loop", 4096, 1),
@@ -6177,7 +6177,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidStorageType(c *gc.C
 }
 
 func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdate(c *gc.C) {
-	oldSC := map[string]state.StorageDirectives{
+	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 1),
 	}
 	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
@@ -6187,14 +6187,14 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdate(c *g
 	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"], jc.DeepEquals, state.StorageDirectives{
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
 		Pool:  "loop",
 		Count: uint64(1),
 		Size:  uint64(100),
 	})
 
 	// Storage constraint count of 5 should work for both old and new mysql charms.
-	newSC := map[string]state.StorageDirectives{
+	newSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 4096, 5),
 	}
 
@@ -6207,7 +6207,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdate(c *g
 		err := app.SetCharm(state.SetCharmConfig{
 			Charm:       newCh,
 			CharmOrigin: defaultCharmOrigin(newCh.URL()),
-			StorageDirectives: map[string]state.StorageDirectives{
+			StorageDirectives: map[string]state.StorageConstraints{
 				"database": {
 					Pool:  "loop",
 					Size:  2048,
@@ -6232,7 +6232,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdate(c *g
 	cons, err = app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"], jc.DeepEquals, state.StorageDirectives{
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
 		Pool:  "loop",
 		Count: uint64(5),
 		Size:  uint64(4096),
@@ -6240,7 +6240,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdate(c *g
 }
 
 func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdateIncompatible(c *gc.C) {
-	oldSC := map[string]state.StorageDirectives{
+	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 1),
 	}
 	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
@@ -6250,14 +6250,14 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdateIncom
 	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"], jc.DeepEquals, state.StorageDirectives{
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
 		Pool:  "loop",
 		Count: uint64(1),
 		Size:  uint64(100),
 	})
 
 	// We try to update original application charm storage constraint count to 3.
-	newSC := map[string]state.StorageDirectives{
+	newSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 4096, 3),
 	}
 	newMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(5, 10)
@@ -6269,7 +6269,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdateIncom
 		err := app.SetCharm(state.SetCharmConfig{
 			Charm:       newCh,
 			CharmOrigin: defaultCharmOrigin(newCh.URL()),
-			StorageDirectives: map[string]state.StorageDirectives{
+			StorageDirectives: map[string]state.StorageConstraints{
 				"data0": {
 					Pool:  "loop",
 					Size:  200,
@@ -6292,7 +6292,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdateIncom
 	cons, err = app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"], jc.DeepEquals, state.StorageDirectives{
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
 		Pool:  "loop",
 		Count: uint64(6),
 		Size:  uint64(200),
@@ -6345,7 +6345,7 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	c.Assert(storageTag.Id(), gc.Equals, "database/0")
 
 	ch := state.AddTestingCharmForSeries(c, st, "quantal", "cockroachdb")
-	cockroachdb := state.AddTestingApplicationWithStorage(c, st, "cockroachdb", ch, map[string]state.StorageDirectives{
+	cockroachdb := state.AddTestingApplicationWithStorage(c, st, "cockroachdb", ch, map[string]state.StorageConstraints{
 		"database": {
 			Pool:  "kubernetes",
 			Size:  100,

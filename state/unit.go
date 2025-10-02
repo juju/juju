@@ -2979,7 +2979,7 @@ func (u *Unit) ClearResolved() error {
 }
 
 // StorageConstraints returns the unit's storage constraints.
-func (u *Unit) StorageConstraints() (map[string]StorageDirectives, error) {
+func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 	if u.doc.CharmURL == nil {
 		app, err := u.st.Application(u.doc.Application)
 		if err != nil {

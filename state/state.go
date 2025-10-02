@@ -1131,7 +1131,7 @@ type AddApplicationArgs struct {
 	Name              string
 	Charm             *Charm
 	CharmOrigin       *CharmOrigin
-	Storage           map[string]StorageDirectives
+	Storage           map[string]StorageConstraints
 	Devices           map[string]DeviceConstraints
 	AttachStorage     []names.StorageTag
 	EndpointBindings  map[string]string
@@ -1212,7 +1212,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	// ensure storage
 	if args.Storage == nil {
-		args.Storage = make(map[string]StorageDirectives)
+		args.Storage = make(map[string]StorageConstraints)
 	}
 	sb, err := NewStorageBackend(st)
 	if err != nil {

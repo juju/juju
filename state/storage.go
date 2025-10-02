@@ -751,7 +751,7 @@ func createStorageOps(
 	sb *storageBackend,
 	entityTag names.Tag,
 	charmMeta *charm.Meta,
-	cons map[string]StorageDirectives,
+	cons map[string]StorageConstraints,
 	osname string,
 	maybeMachineAssignable machineAssignable,
 ) (ops []txn.Op, storageTags map[string][]names.StorageTag, numStorageAttachments int, err error) {
@@ -763,7 +763,7 @@ func createStorageOps(
 	type template struct {
 		storageName string
 		meta        charm.Storage
-		cons        StorageDirectives
+		cons        StorageConstraints
 	}
 
 	createdShared := false
@@ -1671,14 +1671,14 @@ func removeStorageInstancesOps(im *storageBackend, owner names.Tag, force bool) 
 
 // storageConstraintsDoc contains storage constraints for an entity.
 type storageConstraintsDoc struct {
-	DocID       string                       `bson:"_id"`
-	ModelUUID   string                       `bson:"model-uuid"`
-	Constraints map[string]StorageDirectives `bson:"constraints"`
+	DocID       string                        `bson:"_id"`
+	ModelUUID   string                        `bson:"model-uuid"`
+	Constraints map[string]StorageConstraints `bson:"constraints"`
 }
 
-// StorageDirectives contains the user-specified directives for provisioning
+// StorageConstraints contains the user-specified constraints for provisioning
 // storage instances for an application unit.
-type StorageDirectives struct {
+type StorageConstraints struct {
 	// Pool is the name of the storage pool from which to provision the
 	// storage instances.
 	Pool string `bson:"pool"`
@@ -1690,7 +1690,7 @@ type StorageDirectives struct {
 	Count uint64 `bson:"count"`
 }
 
-func createStorageConstraintsOp(key string, cons map[string]StorageDirectives) txn.Op {
+func createStorageConstraintsOp(key string, cons map[string]StorageConstraints) txn.Op {
 	return txn.Op{
 		C:      storageConstraintsC,
 		Id:     key,
@@ -1701,7 +1701,7 @@ func createStorageConstraintsOp(key string, cons map[string]StorageDirectives) t
 	}
 }
 
-func replaceStorageConstraintsOp(key string, cons map[string]StorageDirectives) txn.Op {
+func replaceStorageConstraintsOp(key string, cons map[string]StorageConstraints) txn.Op {
 	return txn.Op{
 		C:      storageConstraintsC,
 		Id:     key,
@@ -1718,7 +1718,7 @@ func removeStorageConstraintsOp(key string) txn.Op {
 	}
 }
 
-func readStorageConstraints(mb modelBackend, key string) (map[string]StorageDirectives, error) {
+func readStorageConstraints(mb modelBackend, key string) (map[string]StorageConstraints, error) {
 	coll, closer := mb.db().GetCollection(storageConstraintsC)
 	defer closer()
 
@@ -1744,7 +1744,7 @@ func storageKind(storageType charm.StorageType) storage.StorageKind {
 	return kind
 }
 
-func validateStorageConstraints(sb *storageBackend, allCons map[string]StorageDirectives, charmMeta *charm.Meta) error {
+func validateStorageConstraints(sb *storageBackend, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
 	err := validateStorageConstraintsAgainstCharm(sb, allCons, charmMeta)
 	if err != nil {
 		return errors.Trace(err)
@@ -1761,7 +1761,7 @@ func validateStorageConstraints(sb *storageBackend, allCons map[string]StorageDi
 
 func validateStorageConstraintsAgainstCharm(
 	sb *storageBackend,
-	allCons map[string]StorageDirectives,
+	allCons map[string]StorageConstraints,
 	charmMeta *charm.Meta,
 ) error {
 	for name, cons := range allCons {
@@ -1936,7 +1936,7 @@ var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specified and no defau
 
 // addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
 // in the specified constraints.
-func addDefaultStorageConstraints(sb *storageBackend, allCons map[string]StorageDirectives, charmMeta *charm.Meta) error {
+func addDefaultStorageConstraints(sb *storageBackend, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
 	conf, err := sb.config()
 	if err != nil {
 		return errors.Trace(err)
@@ -1971,8 +1971,8 @@ func storageConstraintsWithDefaults(
 	cfg *config.Config,
 	charmStorage charm.Storage,
 	name string,
-	cons StorageDirectives,
-) (StorageDirectives, error) {
+	cons StorageConstraints,
+) (StorageConstraints, error) {
 	withDefaults := cons
 
 	// If no pool is specified, determine the pool from the env config and other constraints.
@@ -2002,7 +2002,7 @@ func storageConstraintsWithDefaults(
 
 // defaultStoragePool returns the default storage pool for the model.
 // The default pool is either user specified, or one that is registered by the provider itself.
-func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.StorageKind, cons StorageDirectives) (string, error) {
+func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.StorageKind, cons StorageConstraints) (string, error) {
 	switch kind {
 	case storage.StorageKindBlock:
 		fallbackPool := string(provider.LoopProviderType)
@@ -2010,7 +2010,7 @@ func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.St
 			fallbackPool = string(k8sconstants.StorageProviderType)
 		}
 
-		emptyConstraints := StorageDirectives{}
+		emptyConstraints := StorageConstraints{}
 		if cons == emptyConstraints {
 			// No constraints at all: use fallback.
 			return fallbackPool, nil
@@ -2027,7 +2027,7 @@ func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.St
 		if modelType == ModelTypeCAAS {
 			fallbackPool = string(k8sconstants.StorageProviderType)
 		}
-		emptyConstraints := StorageDirectives{}
+		emptyConstraints := StorageConstraints{}
 		if cons == emptyConstraints {
 			return fallbackPool, nil
 		}
@@ -2057,7 +2057,7 @@ func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.St
 // anticipated additional storage instances is validated against the
 // store as specified in the charm.
 func (sb *storageBackend) AddStorageForUnit(
-	tag names.UnitTag, storageName string, cons StorageDirectives,
+	tag names.UnitTag, storageName string, cons StorageConstraints,
 ) ([]names.StorageTag, error) {
 	modelOp, err := sb.AddStorageForUnitOperation(tag, storageName, cons)
 	if err != nil {
@@ -2079,7 +2079,7 @@ func (sb *storageBackend) AddStorageForUnit(
 // for this store. Combination of existing storage instances and
 // anticipated additional storage instances is validated against the
 // store as specified in the charm.
-func (sb *storageBackend) AddStorageForUnitOperation(tag names.UnitTag, storageName string, cons StorageDirectives) (ModelOperation, error) {
+func (sb *storageBackend) AddStorageForUnitOperation(tag names.UnitTag, storageName string, cons StorageConstraints) (ModelOperation, error) {
 	u, err := sb.unit(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2097,7 +2097,7 @@ func (sb *storageBackend) AddStorageForUnitOperation(tag names.UnitTag, storageN
 func (sb *storageBackend) addStorageForUnitOps(
 	u *Unit,
 	storageName string,
-	cons StorageDirectives,
+	cons StorageConstraints,
 ) ([]names.StorageTag, []txn.Op, error) {
 	if u.Life() != Alive {
 		return nil, nil, unitNotAliveErr
@@ -2176,7 +2176,7 @@ func (sb *storageBackend) addUnitStorageOps(
 	charmMeta *charm.Meta,
 	u *Unit,
 	storageName string,
-	cons StorageDirectives,
+	cons StorageConstraints,
 	countMin int,
 ) ([]names.StorageTag, []txn.Op, error) {
 	var ops []txn.Op
@@ -2206,7 +2206,7 @@ func (sb *storageBackend) addUnitStorageOps(
 	}
 
 	if err := validateStorageConstraintsAgainstCharm(sb,
-		map[string]StorageDirectives{storageName: consTotal},
+		map[string]StorageConstraints{storageName: consTotal},
 		charmMeta,
 	); err != nil {
 		return nil, nil, errors.Trace(err)
@@ -2217,7 +2217,7 @@ func (sb *storageBackend) addUnitStorageOps(
 		sb,
 		u.Tag(),
 		charmMeta,
-		map[string]StorageDirectives{storageName: cons},
+		map[string]StorageConstraints{storageName: cons},
 		u.Base().OS,
 		u,
 	)

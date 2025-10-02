@@ -715,7 +715,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 
 	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, map[string]state.StorageDirectives{
+	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
 			Pool:  "machinescoped",
 			Count: 1,
@@ -1804,7 +1804,7 @@ type applicationInfo struct {
 	constraints constraints.Value
 	scale       int
 	exposed     bool
-	storage     map[string]state.StorageDirectives
+	storage     map[string]state.StorageConstraints
 	devices     map[string]state.DeviceConstraints
 }
 

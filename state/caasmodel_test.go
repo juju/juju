@@ -149,7 +149,7 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	f := factory.NewFactory(st, s.StatePool)
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-filesystem"),
-		Storage: map[string]state.StorageDirectives{
+		Storage: map[string]state.StorageConstraints{
 			"data": {Count: 1, Size: 1024},
 		},
 	})

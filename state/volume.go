@@ -1111,7 +1111,7 @@ func (sb *storageBackend) volumeParamsWithDefaults(params VolumeParams) (VolumeP
 		if err != nil {
 			return VolumeParams{}, errors.Trace(err)
 		}
-		cons := StorageDirectives{
+		cons := StorageConstraints{
 			Pool:  params.Pool,
 			Size:  params.Size,
 			Count: 1,

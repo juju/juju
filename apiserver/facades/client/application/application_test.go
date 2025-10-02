@@ -1683,7 +1683,7 @@ func (s *applicationSuite) TestGetOneApplicationStorageSuccess(c *gc.C) {
 	charmStore := "data"
 
 	// Creates an application with storage constraints.
-	sd := map[string]state.StorageDirectives{
+	sd := map[string]state.StorageConstraints{
 		charmStore: {Pool: "loop", Size: 2048, Count: 1},
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sd)
@@ -1691,7 +1691,7 @@ func (s *applicationSuite) TestGetOneApplicationStorageSuccess(c *gc.C) {
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
 	// Asserts that the application has defined resp constraints.
-	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
 		},
@@ -1709,7 +1709,7 @@ func (s *applicationSuite) TestGetMultipleApplicationStorageSuccess(c *gc.C) {
 	// Creates a storage-block application with storage constraints.
 	ch1 := s.AddTestingCharm(c, "storage-block")
 	charmStore1 := "data"
-	sc1 := map[string]state.StorageDirectives{
+	sc1 := map[string]state.StorageConstraints{
 		charmStore1: {Pool: "loop", Size: 2048, Count: 1},
 	}
 	application1 := s.AddTestingApplicationWithStorage(c, "storage-block", ch1, sc1)
@@ -1719,7 +1719,7 @@ func (s *applicationSuite) TestGetMultipleApplicationStorageSuccess(c *gc.C) {
 	// Creates a cockroachdb application with storage constraints.
 	ch2 := s.AddTestingCharm(c, "cockroachdb")
 	charmStore2 := "database"
-	sc2 := map[string]state.StorageDirectives{
+	sc2 := map[string]state.StorageConstraints{
 		charmStore2: {Pool: "loop", Size: 4096, Count: 1},
 	}
 	application2 := s.AddTestingApplicationWithStorage(c, "cockroachdb", ch2, sc2)
@@ -1727,7 +1727,7 @@ func (s *applicationSuite) TestGetMultipleApplicationStorageSuccess(c *gc.C) {
 	c.Assert(application2.Name(), gc.Equals, "cockroachdb")
 
 	// Retrieves info for both applications
-	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application1.Tag().String(),
 		},
@@ -1762,7 +1762,7 @@ func (s *applicationSuite) TestGetApplicationStorageDefaultExists(c *gc.C) {
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
 	// Asserts that the application has default storage constraints.
-	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
 		},
@@ -1776,7 +1776,7 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	charmStore := "data"
 
 	// Creates an application with storage constraints.
-	sd := map[string]state.StorageDirectives{
+	sd := map[string]state.StorageConstraints{
 		charmStore: {Pool: "loop", Size: 2048, Count: 1},
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sd)
@@ -1784,7 +1784,7 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
 	// Asserts that the application has defined resp constraints.
-	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
 		},
@@ -1807,7 +1807,7 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 			Count: &count,
 		},
 	}
-	_, err = s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
+	_, err = s.applicationAPI.UpdateApplicationStorageDirectives(params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
 				ApplicationTag:    application.Tag().String(),
@@ -1818,7 +1818,7 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Asserts that the application has newly defined storage constraints.
-	resp, err = s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
+	resp, err = s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
 		},
@@ -1836,7 +1836,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 	// Creates a storage-block application with storage constraints.
 	ch1 := s.AddTestingCharm(c, "storage-block")
 	charmStore1 := "data"
-	sc1 := map[string]state.StorageDirectives{
+	sc1 := map[string]state.StorageConstraints{
 		charmStore1: {Pool: "loop", Size: 2048, Count: 1},
 	}
 	application1 := s.AddTestingApplicationWithStorage(c, "storage-block", ch1, sc1)
@@ -1846,7 +1846,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 	// Creates a cockroachdb application with storage constraints.
 	ch2 := s.AddTestingCharm(c, "cockroachdb")
 	charmStore2 := "database"
-	sc2 := map[string]state.StorageDirectives{
+	sc2 := map[string]state.StorageConstraints{
 		charmStore2: {Pool: "loop", Size: 4096, Count: 1},
 	}
 	application2 := s.AddTestingApplicationWithStorage(c, "cockroachdb", ch2, sc2)
@@ -1854,7 +1854,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 	c.Assert(application2.Name(), gc.Equals, "cockroachdb")
 
 	// Asserts that both the applications have defined resp constraints.
-	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application1.Tag().String(),
 		},
@@ -1899,7 +1899,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 			Count: &count,
 		},
 	}
-	_, err = s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
+	_, err = s.applicationAPI.UpdateApplicationStorageDirectives(params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
 				ApplicationTag:    application1.Tag().String(),
@@ -1914,7 +1914,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Asserts that the applications have newly defined storage constraints.
-	resp, err = s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
+	resp, err = s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application1.Tag().String(),
 		},
@@ -1945,8 +1945,8 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameServerError(c *gc.C) 
 	charmStore := "data"
 
 	// Creates an application with storage constraints.
-	sd := state.StorageDirectives{Pool: "loop", Size: 2048, Count: 1}
-	sDirectives := map[string]state.StorageDirectives{
+	sd := state.StorageConstraints{Pool: "loop", Size: 2048, Count: 1}
+	sDirectives := map[string]state.StorageConstraints{
 		charmStore: sd,
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sDirectives)
@@ -1954,7 +1954,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameServerError(c *gc.C) 
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
 	// Asserts that the application has defined resp constraints.
-	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
 		},
@@ -1970,7 +1970,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameServerError(c *gc.C) 
 	// Updates the application with newly defined storage constraints that contains 2 unsupported storage names.
 	size := uint64(4096)
 	count := uint64(2)
-	res, err := s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
+	res, err := s.applicationAPI.UpdateApplicationStorageDirectives(params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
 				ApplicationTag: application.Tag().String(),

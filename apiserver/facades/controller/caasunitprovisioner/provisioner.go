@@ -467,7 +467,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 
 func filesystemParams(
 	app Application,
-	cons state.StorageDirectives,
+	cons state.StorageConstraints,
 	storageName string,
 	controllerUUID string,
 	modelConfig *config.Config,

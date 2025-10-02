@@ -61,7 +61,7 @@ For example, the following are equivalent:
 
 ## Details
 
-To view all storage directives values for the given application:
+To view all storage directives for the given application:
 
     juju application-storage <application>
 
@@ -71,20 +71,20 @@ print it in `json` or `yaml` format using the `--format` flag:
    	juju application-storage &lt;application&gt; --format json
     juju application-storage <application> --format yaml
 
-To view the value of a single storage name:
+To view the directive of a single storage name:
 
     juju application-storage <application> <storage-name>
 
-To set storage constraint values on an application:
+To set storage directives on an application:
 
-    juju application-storage <application> name1=size, name2=pool, name3=count
+    juju application-storage <application> name1=size,pool,count name2=size,pool,count
 
 Config values can be imported from a yaml file using the `--file` flag:
 
-    juju application-storage <application> --file=path/to/constraints.yaml
+    juju application-storage <application> --file=path/to/config.yaml
 
 This allows you to, e.g., save an application's storage directives to a file:
 
-    juju application-storage <application> --format=yaml > constraints.yaml
+    juju application-storage <application> --format=yaml > config.yaml
 
 and then import the config later.

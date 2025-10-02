@@ -400,7 +400,7 @@ func (acpm addCharmProfileToMachine) step(c *gc.C, ctx *testContext) {
 
 type createApplicationAndUnit struct {
 	applicationName string
-	storage         map[string]state.StorageDirectives
+	storage         map[string]state.StorageConstraints
 	container       bool
 }
 

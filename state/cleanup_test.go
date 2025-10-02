@@ -619,7 +619,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
@@ -1032,7 +1032,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
@@ -1065,7 +1065,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"allecto": makeStorageCons("modelscoped-block", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
@@ -1104,7 +1104,7 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("modelscoped", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
@@ -1190,7 +1190,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	}
 
 	ch := state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-filesystem")
-	storCons := map[string]state.StorageDirectives{
+	storCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
 	application := state.AddTestingApplicationWithStorage(c, st, "storage-filesystem", ch, storCons)
@@ -1536,7 +1536,7 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
