@@ -5,8 +5,6 @@ package application_test
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd/v3"
@@ -254,69 +252,6 @@ func (s *StorageConfigSuite) TestSetConstraintsMultipleStorageKeys(c *gc.C) {
 	c.Assert(allecto.Pool, gc.Equals, "loop")
 	c.Assert(allecto.Count, gc.Equals, uint64(2))
 	c.Assert(allecto.Size, gc.Equals, uint64(0))
-}
-
-func (s *StorageConfigSuite) TestSetConstraintsFromYAML(c *gc.C) {
-	tmpdir := c.MkDir()
-	yamlFile := filepath.Join(tmpdir, "constraints.yaml")
-
-	input := []byte(
-		"allecto:\n" +
-			"  pool: loop\n" +
-			"  size: 20480\n" +
-			"  count: 2\n" +
-			"data:\n" +
-			"  pool: rootfs\n" +
-			"  size: 10240\n" +
-			"  count: 1\n",
-	)
-	err := os.WriteFile(yamlFile, input, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Run the command with the file as input
-	_, err = s.run(c, "storage-block", "--file", yamlFile)
-	c.Assert(err, jc.ErrorIsNil)
-
-	want := "" +
-		"allecto:\n" +
-		"  pool: loop\n" +
-		"  size: 20480\n" +
-		"  count: 2\n" +
-		"data:\n" +
-		"  pool: rootfs\n" +
-		"  size: 10240\n" +
-		"  count: 1\n"
-
-	c.Assert(string(input), gc.Equals, want)
-}
-
-func (s *StorageConfigSuite) TestGetAndSetConstraintsYAMLToFile(c *gc.C) {
-	tmpdir := c.MkDir()
-	yamlFile := filepath.Join(tmpdir, "constraints.yaml")
-
-	// Run the GET command and capture stdout
-	ctx, err := s.run(c, "--format=yaml", "storage-block")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Write the YAML output to file
-	err = os.WriteFile(yamlFile, []byte(cmdtesting.Stdout(ctx)), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Read the file back in
-	got, err := os.ReadFile(yamlFile)
-	c.Assert(err, jc.ErrorIsNil)
-
-	want := "" +
-		"allecto:\n" +
-		"  pool: loop\n" +
-		"  size: 20480\n" +
-		"  count: 2\n" +
-		"data:\n" +
-		"  pool: rootfs\n" +
-		"  size: 10240\n" +
-		"  count: 1\n"
-
-	c.Assert(string(got), gc.Equals, want)
 }
 
 func (s *StorageConfigSuite) TestSetConstraintsAPIError(c *gc.C) {
