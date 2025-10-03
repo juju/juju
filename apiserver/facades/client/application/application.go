@@ -470,7 +470,7 @@ type caasDeployParams struct {
 	charm           CharmMeta
 	config          map[string]string
 	placement       []*instance.Placement
-	storage         map[string]storage.Constraints
+	storage         map[string]storage.Directive
 }
 
 // precheck, checks the deploy config based on caas specific
@@ -1192,7 +1192,7 @@ func (api *APIBase) applicationSetCharm(
 		ForceUnits:         force.ForceUnits,
 		Force:              force.Force,
 		PendingResourceIDs: params.ResourceIDs,
-		StorageDirectives:  stateStorageConstraints,
+		StorageConstraints: stateStorageConstraints,
 		EndpointBindings:   params.EndpointBindings,
 	}
 	if len(charmSettings) > 0 {
@@ -3123,7 +3123,7 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 	}, nil
 }
 
-func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]params.StorageConstraints, error) {
+func (api *APIBase) getOneApplicationStorageDirective(entity params.Entity) (map[string]params.StorageConstraints, error) {
 	appTag, err := names.ParseTag(entity.Tag)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -3132,7 +3132,7 @@ func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]p
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageDirectives, err := app.StorageDirectives()
+	storageDirectives, err := app.StorageConstraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -3148,7 +3148,7 @@ func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]p
 	return sd, nil
 }
 
-// GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
+// GetApplicationStorageDirectives returns the current storage constraints for the specified applications in bulk.
 func (api *APIBase) GetApplicationStorageDirectives(args params.Entities) (params.ApplicationStorageGetResults, error) {
 	resp := params.ApplicationStorageGetResults{
 		Results: make([]params.ApplicationStorageGetResult, len(args.Entities)),
@@ -3157,7 +3157,7 @@ func (api *APIBase) GetApplicationStorageDirectives(args params.Entities) (param
 		return resp, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		sd, err := api.getOneApplicationStorage(entity)
+		sd, err := api.getOneApplicationStorageDirective(entity)
 		if err != nil {
 			resp.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -3167,10 +3167,10 @@ func (api *APIBase) GetApplicationStorageDirectives(args params.Entities) (param
 	return resp, nil
 }
 
-// GetApplicationStorage isn't on the v21 API.
+// GetApplicationStorageDirectives isn't on the v21 API.
 func (api *APIv21) GetApplicationStorageDirectives(_ struct{}) {}
 
-func (api *APIBase) updateOneApplicationStorage(storageUpdate params.ApplicationStorageUpdate) error {
+func (api *APIBase) updateOneApplicationStorageDirective(storageUpdate params.ApplicationStorageUpdate) error {
 	appTag, err := names.ParseTag(storageUpdate.ApplicationTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -3180,7 +3180,7 @@ func (api *APIBase) updateOneApplicationStorage(storageUpdate params.Application
 		return errors.Trace(err)
 	}
 
-	sDirectives := make(map[string]state.StorageConstraints)
+	sCons := make(map[string]state.StorageConstraints)
 	for storageName, directive := range storageUpdate.StorageDirectives {
 		sd := state.StorageConstraints{
 			Pool: directive.Pool,
@@ -3191,13 +3191,13 @@ func (api *APIBase) updateOneApplicationStorage(storageUpdate params.Application
 		if directive.Count != nil {
 			sd.Count = *directive.Count
 		}
-		sDirectives[storageName] = sd
+		sCons[storageName] = sd
 	}
 
-	return app.UpdateStorageDirectives(sDirectives)
+	return app.UpdateStorageConstraints(sCons)
 }
 
-// UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
+// UpdateApplicationStorageDirectives updates the storage constraints for multiple existing applications in bulk.
 // We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
 // application deployment. The storage constraints passed are validated against the charm's declared storage meta.
 // The following apiserver codes can be returned in each ErrorResult:
@@ -3212,12 +3212,12 @@ func (api *APIBase) UpdateApplicationStorageDirectives(args params.ApplicationSt
 	resp.Results = res
 
 	for i, storageUpdate := range args.ApplicationStorageUpdates {
-		err := api.updateOneApplicationStorage(storageUpdate)
+		err := api.updateOneApplicationStorageDirective(storageUpdate)
 		res[i].Error = apiservererrors.ServerError(err)
 	}
 
 	return resp, nil
 }
 
-// UpdateApplicationStorage isn't on the v21 API.
+// UpdateApplicationStorageDirectives isn't on the v21 API.
 func (api *APIv21) UpdateApplicationStorageDirectives(_ struct{}) {}

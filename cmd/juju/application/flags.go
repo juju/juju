@@ -15,8 +15,8 @@ import (
 )
 
 type storageFlag struct {
-	stores       *map[string]storage.Constraints
-	bundleStores *map[string]map[string]storage.Constraints
+	stores       *map[string]storage.Directive
+	bundleStores *map[string]map[string]storage.Directive
 }
 
 // Set implements gnuflag.Value.Set.
@@ -42,19 +42,19 @@ func (f storageFlag) Set(s string) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot parse disk constraints")
 	}
-	var stores map[string]storage.Constraints
+	var stores map[string]storage.Directive
 	if applicationName != "" {
 		if *f.bundleStores == nil {
-			*f.bundleStores = make(map[string]map[string]storage.Constraints)
+			*f.bundleStores = make(map[string]map[string]storage.Directive)
 		}
 		stores = (*f.bundleStores)[applicationName]
 		if stores == nil {
-			stores = make(map[string]storage.Constraints)
+			stores = make(map[string]storage.Directive)
 			(*f.bundleStores)[applicationName] = stores
 		}
 	} else {
 		if *f.stores == nil {
-			*f.stores = make(map[string]storage.Constraints)
+			*f.stores = make(map[string]storage.Directive)
 		}
 		stores = *f.stores
 	}

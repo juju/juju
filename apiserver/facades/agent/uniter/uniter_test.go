@@ -3143,10 +3143,10 @@ func checkUnorderedActionIdsEqual(c *gc.C, ids []string, results params.StringsW
 func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	// We need to set up a unit that has storage metadata defined.
 	ch := s.AddTestingCharm(c, "storage-block")
-	sDirectives := map[string]state.StorageConstraints{
+	sCons := map[string]state.StorageConstraints{
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
-	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sDirectives)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)

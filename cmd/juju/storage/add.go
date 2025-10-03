@@ -110,7 +110,7 @@ type addCommand struct {
 
 	// storageCons is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata.
-	storageCons map[string]storage.Constraints
+	storageCons map[string]storage.Directive
 	newAPIFunc  func() (StorageAddAPI, error)
 }
 

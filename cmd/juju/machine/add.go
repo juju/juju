@@ -168,7 +168,7 @@ type addCommand struct {
 	// NumMachines is the number of machines to add.
 	NumMachines int
 	// Disks describes disks that are to be attached to the machine.
-	Disks []storage.Constraints
+	Disks []storage.Directive
 	// PrivateKey is the path for a file containing the private key required
 	// by the server
 	PrivateKey string

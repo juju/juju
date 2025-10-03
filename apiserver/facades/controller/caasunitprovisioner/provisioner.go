@@ -503,7 +503,7 @@ func (f *Facade) applicationFilesystemParams(
 	controllerConfig controller.Config,
 	modelConfig *config.Config,
 ) ([]params.KubernetesFilesystemParams, error) {
-	storageDirectives, err := app.StorageDirectives()
+	storageDirectives, err := app.StorageConstraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

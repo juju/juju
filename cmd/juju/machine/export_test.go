@@ -75,6 +75,6 @@ func NewUpgradeMachineCommandForTest(statusAPI StatusAPI, upgradeAPI UpgradeMach
 	return modelcmd.Wrap(command)
 }
 
-func NewDisksFlag(disks *[]storage.Constraints) *disksFlag {
+func NewDisksFlag(disks *[]storage.Directive) *disksFlag {
 	return &disksFlag{disks}
 }

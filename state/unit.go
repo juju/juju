@@ -2985,7 +2985,7 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return app.StorageDirectives()
+		return app.StorageConstraints()
 	}
 	key := applicationStorageConstraintsKey(u.doc.Application, u.doc.CharmURL)
 	cons, err := readStorageConstraints(u.st, key)

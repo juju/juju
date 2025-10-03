@@ -45,7 +45,7 @@ type deployBundle struct {
 
 	useExistingMachines bool
 	bundleMachines      map[string]string
-	bundleStorage       map[string]map[string]storage.Constraints
+	bundleStorage       map[string]map[string]storage.Directive
 	bundleDevices       map[string]map[string]devices.Constraints
 
 	targetModelName string

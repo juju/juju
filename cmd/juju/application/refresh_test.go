@@ -270,7 +270,7 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 				Base:         s.testBase,
 			},
 		},
-		StorageConstraints: map[string]storage.Constraints{
+		StorageConstraints: map[string]storage.Directive{
 			"bar": {Pool: "baz", Count: 1},
 		},
 		ConfigSettings:   map[string]string{},

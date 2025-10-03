@@ -68,7 +68,7 @@ type bundleDeploySpec struct {
 
 	useExistingMachines bool
 	bundleMachines      map[string]string
-	bundleStorage       map[string]map[string]storage.Constraints
+	bundleStorage       map[string]map[string]storage.Directive
 	bundleDevices       map[string]map[string]devices.Constraints
 
 	targetModelName string
@@ -148,7 +148,7 @@ type bundleHandler struct {
 	// constraints. For each application, the storage constraints in the
 	// map will replace or augment the storage constraints specified
 	// in the bundle itself.
-	bundleStorage map[string]map[string]storage.Constraints
+	bundleStorage map[string]map[string]storage.Directive
 
 	// bundleDevices contains a mapping of application-specific device
 	// constraints. For each application, the device constraints in the
@@ -922,11 +922,11 @@ func (h *bundleHandler) writeAddedResources(resNames2IDs map[string]string) {
 	}
 }
 
-func (h *bundleHandler) storageConstraints(application string, storageMap map[string]string) (map[string]storage.Constraints, error) {
+func (h *bundleHandler) storageConstraints(application string, storageMap map[string]string) (map[string]storage.Directive, error) {
 	storageConstraints := h.bundleStorage[application]
 	if len(storageMap) > 0 {
 		if storageConstraints == nil {
-			storageConstraints = make(map[string]storage.Constraints)
+			storageConstraints = make(map[string]storage.Directive)
 		}
 		for k, v := range storageMap {
 			if _, ok := storageConstraints[k]; ok {

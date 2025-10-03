@@ -222,7 +222,7 @@ type mockApplication struct {
 	charm                     caasapplicationprovisioner.Charm
 	units                     []*mockUnit
 	constraints               constraints.Value
-	storageDirectives         map[string]state.StorageConstraints
+	storageConstraints        map[string]state.StorageConstraints
 	deviceConstraints         map[string]state.DeviceConstraints
 	charmModifiedVersion      int
 	config                    coreconfig.ConfigAttributes
@@ -293,12 +293,12 @@ func (a *mockApplication) UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
 	return a.NextErr()
 }
 
-func (a *mockApplication) StorageDirectives() (map[string]state.StorageConstraints, error) {
-	a.MethodCall(a, "StorageDirectives")
+func (a *mockApplication) StorageConstraints() (map[string]state.StorageConstraints, error) {
+	a.MethodCall(a, "StorageConstraints")
 	if err := a.NextErr(); err != nil {
 		return nil, err
 	}
-	return a.storageDirectives, nil
+	return a.storageConstraints, nil
 }
 
 func (a *mockApplication) DeviceConstraints() (map[string]state.DeviceConstraints, error) {
@@ -365,8 +365,8 @@ func (a *mockApplication) Watch() state.NotifyWatcher {
 	return a.watcher
 }
 
-func (a *mockApplication) WatchStorageDirectives() (state.NotifyWatcher, error) {
-	a.MethodCall(a, "WatchStorageDirectives")
+func (a *mockApplication) WatchStorageConstraints() (state.NotifyWatcher, error) {
+	a.MethodCall(a, "WatchStorageConstraints")
 	return a.storageConstraintsWatcher, a.NextErr()
 }
 

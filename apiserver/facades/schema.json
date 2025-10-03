@@ -1285,7 +1285,7 @@
                         }
                     }
                 },
-                "GetApplicationStorage": {
+                "GetApplicationStorageDirectives": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -1463,7 +1463,7 @@
                         }
                     }
                 },
-                "UpdateApplicationStorage": {
+                "UpdateApplicationStorageDirectives": {
                     "type": "object",
                     "properties": {
                         "Params": {

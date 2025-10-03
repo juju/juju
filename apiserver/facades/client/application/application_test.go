@@ -1683,10 +1683,10 @@ func (s *applicationSuite) TestGetOneApplicationStorageSuccess(c *gc.C) {
 	charmStore := "data"
 
 	// Creates an application with storage constraints.
-	sd := map[string]state.StorageConstraints{
+	sc := map[string]state.StorageConstraints{
 		charmStore: {Pool: "loop", Size: 2048, Count: 1},
 	}
-	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sd)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sc)
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
@@ -1700,9 +1700,9 @@ func (s *applicationSuite) TestGetOneApplicationStorageSuccess(c *gc.C) {
 	c.Assert(len(resp.Results), gc.Equals, 1)
 	resultSC := resp.Results[0].StorageConstraints[charmStore]
 	c.Assert(resultSC, gc.NotNil)
-	c.Assert(resultSC.Pool, gc.Equals, sd[charmStore].Pool)
-	c.Assert(*resultSC.Count, gc.Equals, sd[charmStore].Count)
-	c.Assert(*resultSC.Size, gc.Equals, sd[charmStore].Size)
+	c.Assert(resultSC.Pool, gc.Equals, sc[charmStore].Pool)
+	c.Assert(*resultSC.Count, gc.Equals, sc[charmStore].Count)
+	c.Assert(*resultSC.Size, gc.Equals, sc[charmStore].Size)
 }
 
 func (s *applicationSuite) TestGetMultipleApplicationStorageSuccess(c *gc.C) {
@@ -1776,10 +1776,10 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	charmStore := "data"
 
 	// Creates an application with storage constraints.
-	sd := map[string]state.StorageConstraints{
+	sc := map[string]state.StorageConstraints{
 		charmStore: {Pool: "loop", Size: 2048, Count: 1},
 	}
-	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sd)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sc)
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
@@ -1793,9 +1793,9 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	c.Assert(len(resp.Results), gc.Equals, 1)
 	resultSC := resp.Results[0].StorageConstraints[charmStore]
 	c.Assert(resultSC, gc.NotNil)
-	c.Assert(resultSC.Pool, gc.Equals, sd[charmStore].Pool)
-	c.Assert(*resultSC.Count, gc.Equals, sd[charmStore].Count)
-	c.Assert(*resultSC.Size, gc.Equals, sd[charmStore].Size)
+	c.Assert(resultSC.Pool, gc.Equals, sc[charmStore].Pool)
+	c.Assert(*resultSC.Count, gc.Equals, sc[charmStore].Count)
+	c.Assert(*resultSC.Size, gc.Equals, sc[charmStore].Size)
 
 	// Updates the application with newly defined storage constraints.
 	size := uint64(4096)
@@ -1945,11 +1945,11 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameServerError(c *gc.C) 
 	charmStore := "data"
 
 	// Creates an application with storage constraints.
-	sd := state.StorageConstraints{Pool: "loop", Size: 2048, Count: 1}
-	sDirectives := map[string]state.StorageConstraints{
-		charmStore: sd,
+	sc := state.StorageConstraints{Pool: "loop", Size: 2048, Count: 1}
+	sCons := map[string]state.StorageConstraints{
+		charmStore: sc,
 	}
-	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sDirectives)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
@@ -1963,9 +1963,9 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameServerError(c *gc.C) 
 	c.Assert(len(resp.Results), gc.Equals, 1)
 	resultSC := resp.Results[0].StorageConstraints[charmStore]
 	c.Assert(resultSC, gc.NotNil)
-	c.Assert(resultSC.Pool, gc.Equals, sDirectives[charmStore].Pool)
-	c.Assert(*resultSC.Count, gc.Equals, sDirectives[charmStore].Count)
-	c.Assert(*resultSC.Size, gc.Equals, sDirectives[charmStore].Size)
+	c.Assert(resultSC.Pool, gc.Equals, sCons[charmStore].Pool)
+	c.Assert(*resultSC.Count, gc.Equals, sCons[charmStore].Count)
+	c.Assert(*resultSC.Size, gc.Equals, sCons[charmStore].Size)
 
 	// Updates the application with newly defined storage constraints that contains 2 unsupported storage names.
 	size := uint64(4096)

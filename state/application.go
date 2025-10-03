@@ -1532,7 +1532,7 @@ func (a *Application) newCharmStorageOps(
 	// constraints, remove any keys that are no longer referenced by the
 	// charm, and update the constraints that the user has specified.
 	var storageConstraintsOp txn.Op
-	oldStorageConstraints, err := a.StorageDirectives()
+	oldStorageConstraints, err := a.StorageConstraints()
 	if err != nil {
 		return fail(err)
 	}
@@ -1657,13 +1657,13 @@ type SetCharmConfig struct {
 	// the upgrade.
 	PendingResourceIDs map[string]string
 
-	// StorageDirectives contains the storage constraints to add or update when
+	// StorageConstraints contains the storage constraints to add or update when
 	// upgrading the charm.
 	//
 	// Any existing storage instances for the named stores will be
 	// unaffected; the storage constraints will only be used for
 	// provisioning new storage instances.
-	StorageDirectives map[string]StorageConstraints
+	StorageConstraints map[string]StorageConstraints
 
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
@@ -1807,7 +1807,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				cfg.Charm,
 				updatedSettings,
 				cfg.ForceUnits,
-				cfg.StorageDirectives,
+				cfg.StorageConstraints,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -2437,7 +2437,7 @@ func (a *Application) addUnitOps(
 			return "", nil, errors.NotSupportedf("non-empty machineID")
 		}
 	}
-	storageDirectives, err := a.StorageDirectives()
+	storageCons, err := a.StorageConstraints()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -2445,7 +2445,7 @@ func (a *Application) addUnitOps(
 		cons:               cons,
 		principalName:      principalName,
 		principalMachineID: args.machineID,
-		storageCons:        storageDirectives,
+		storageCons:        storageCons,
 		attachStorage:      args.AttachStorage,
 		providerId:         args.ProviderId,
 		address:            args.Address,
@@ -3620,7 +3620,7 @@ func (a *Application) SetMetricCredentials(b []byte) error {
 }
 
 // StorageConstraints returns the storage constraints for the application.
-func (a *Application) StorageDirectives() (map[string]StorageConstraints, error) {
+func (a *Application) StorageConstraints() (map[string]StorageConstraints, error) {
 	cons, err := readStorageConstraints(a.st, a.storageConstraintsKey())
 	if errors.IsNotFound(err) {
 		return nil, nil
@@ -3631,7 +3631,7 @@ func (a *Application) StorageDirectives() (map[string]StorageConstraints, error)
 }
 
 // UpdateStorageConstraints updates the storage constraints for the application.
-func (a *Application) UpdateStorageDirectives(cons map[string]StorageConstraints) error {
+func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraints) error {
 	if len(cons) == 0 {
 		return nil
 	}
