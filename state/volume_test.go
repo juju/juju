@@ -112,7 +112,7 @@ func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 		Storage: testStorage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	cons, err := app.StorageDirectives()
+	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
@@ -146,7 +146,7 @@ func (s *VolumeStateSuite) TestAddApplicationDefaultPool(c *gc.C) {
 		"data": makeStorageCons("", 1024, 1),
 	}
 	app := s.AddTestingApplicationWithStorage(c, "storage-block", ch, testStorage)
-	cons, err := app.StorageDirectives()
+	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {

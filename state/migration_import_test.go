@@ -2468,7 +2468,7 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 
 	app, err = newSt.Application(appName)
 	c.Assert(err, jc.ErrorIsNil)
-	cons, err := app.StorageDirectives()
+	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data":    {Pool: "modelscoped", Size: 0x400, Count: 1},

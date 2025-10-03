@@ -700,7 +700,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 		charmDir.Meta(),
 		charmDir.Metrics(),
 		false, false, 1, nil, nil,
-		map[string]storage.Constraints{
+		map[string]storage.Directive{
 			"data": {
 				Pool:  "machinescoped",
 				Size:  1024,
@@ -713,7 +713,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app, _ := s.AssertApplication(c, "storage-block", curl.String(), 1, 0)
 
-	cons, err := app.StorageDirectives()
+	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
@@ -1746,7 +1746,7 @@ func (s *FakeStoreStateSuite) assertApplicationsDeployed(c *gc.C, info map[strin
 		c.Assert(err, jc.ErrorIsNil)
 		constr, err := app.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
-		stor, err := app.StorageDirectives()
+		stor, err := app.StorageConstraints()
 		c.Assert(err, jc.ErrorIsNil)
 		if len(stor) == 0 {
 			stor = nil
@@ -2560,7 +2560,7 @@ func withCharmDeployableWithStorage(
 	numUnits int,
 	attachStorage []string,
 	config map[string]string,
-	storage map[string]storage.Constraints,
+	storage map[string]storage.Directive,
 ) {
 	withCharmDeployableWithDevicesAndStorage(
 		fakeAPI,
@@ -2591,7 +2591,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	numUnits int,
 	attachStorage []string,
 	config map[string]string,
-	storage map[string]storage.Constraints,
+	storage map[string]storage.Directive,
 	devices map[string]devices.Constraints,
 ) {
 	deployURL := *url

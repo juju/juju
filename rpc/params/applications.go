@@ -59,7 +59,7 @@ type ApplicationDeploy struct {
 	Constraints      constraints.Value              `json:"constraints"`
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Policy           string                         `json:"policy,omitempty"`
-	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	Storage          map[string]storage.Directive   `json:"storage,omitempty"`
 	Devices          map[string]devices.Constraints `json:"devices,omitempty"`
 	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
@@ -646,7 +646,7 @@ type DeployFromRepositoryArg struct {
 
 	// Storage contains Constraints specifying how storage should be
 	// handled.
-	Storage map[string]storage.Constraints
+	Storage map[string]storage.Directive
 
 	//  Trust allows charm to run hooks that require access credentials
 	Trust bool

@@ -340,10 +340,10 @@ func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
 func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	// We need to set up a unit that has storage metadata defined.
 	ch := s.AddTestingCharm(c, "storage-block")
-	sDirectives := map[string]state.StorageConstraints{
+	sCons := map[string]state.StorageConstraints{
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
-	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sDirectives)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
 	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, application)
 

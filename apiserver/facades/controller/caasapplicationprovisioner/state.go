@@ -58,7 +58,7 @@ type Application interface {
 	AllUnits() ([]Unit, error)
 	GetUnitAttachmentInfos() ([]state.UnitAttachmentInfo, error)
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
-	StorageDirectives() (map[string]state.StorageConstraints, error)
+	StorageConstraints() (map[string]state.StorageConstraints, error)
 	DeviceConstraints() (map[string]state.DeviceConstraints, error)
 	Name() string
 	Constraints() (constraints.Value, error)
@@ -71,7 +71,7 @@ type Application interface {
 	GetScale() int
 	ClearResources() error
 	Watch() state.NotifyWatcher
-	WatchStorageDirectives() (state.NotifyWatcher, error)
+	WatchStorageConstraints() (state.NotifyWatcher, error)
 	WatchUnits() state.StringsWatcher
 	ProvisioningState() *state.ApplicationProvisioningState
 	SetProvisioningState(state.ApplicationProvisioningState) error

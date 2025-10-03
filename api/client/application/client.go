@@ -83,7 +83,7 @@ type DeployArgs struct {
 
 	// Storage contains Constraints specifying how storage should be
 	// handled.
-	Storage map[string]storage.Constraints
+	Storage map[string]storage.Directive
 
 	// Devices contains Constraints specifying how devices should be
 	// handled.
@@ -285,7 +285,7 @@ type SetCharmConfig struct {
 	// StorageConstraints is a map of storage names to storage constraints to
 	// update during the upgrade. This field is only understood by Application
 	// facade version 2 and greater.
-	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
+	StorageConstraints map[string]storage.Directive `json:"storage-constraints,omitempty"`
 
 	// EndpointBindings is a map of operator-defined endpoint names to
 	// space names to be merged with any existing endpoint bindings.
@@ -1128,7 +1128,7 @@ type DeployFromRepositoryArg struct {
 	Resources map[string]string `json:"resources,omitempty"`
 	// Storage contains Constraints specifying how storage should be
 	// handled.
-	Storage map[string]storage.Constraints
+	Storage map[string]storage.Directive
 	//  Trust allows charm to run hooks that require access credentials
 	Trust bool
 }
@@ -1225,15 +1225,15 @@ func paramsFromDeployFromRepositoryArg(arg DeployFromRepositoryArg) params.Deplo
 type ApplicationStorageDirectives struct {
 	// StorageDirectives is a map of storage names to storage directives to
 	// update. This field is only understood by Application facade version 22 and greater.
-	StorageDirectives map[string]storage.Constraints
+	StorageDirectives map[string]storage.Directive
 }
 
-// GetApplicationStorage retrieves storage information for the specified applications.
+// GetApplicationStorageDirectives retrieves storage information for the specified applications.
 func (c *Client) GetApplicationStorageDirectives(applicationName string) (ApplicationStorageDirectives, error) {
 	application := names.NewApplicationTag(applicationName)
 	in := params.Entities{Entities: []params.Entity{{Tag: application.String()}}}
 	var out params.ApplicationStorageGetResults
-	err := c.facade.FacadeCall("GetApplicationStorage", in, &out)
+	err := c.facade.FacadeCall("GetApplicationStorageDirectives", in, &out)
 	if err != nil {
 		return ApplicationStorageDirectives{}, errors.Trace(err)
 	}
@@ -1248,9 +1248,9 @@ func (c *Client) GetApplicationStorageDirectives(applicationName string) (Applic
 }
 
 func makeApplicationStorageDirectiveInfo(param params.ApplicationStorageGetResult) ApplicationStorageDirectives {
-	sd := make(map[string]storage.Constraints, len(param.StorageConstraints))
+	sd := make(map[string]storage.Directive, len(param.StorageConstraints))
 	for k, v := range param.StorageConstraints {
-		con := storage.Constraints{
+		con := storage.Directive{
 			Pool: v.Pool,
 		}
 		if v.Size != nil {
@@ -1273,10 +1273,10 @@ type ApplicationStorageUpdate struct {
 
 	// StorageDirectives is a map of storage names to storage directives to
 	// update. This field is only understood by Application facade version 22 and greater.
-	StorageDirectives map[string]storage.Constraints
+	StorageDirectives map[string]storage.Directive
 }
 
-// UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
+// UpdateApplicationStorageDirectives updates the storage constraints for multiple existing applications in bulk.
 func (c *Client) UpdateApplicationStorageDirectives(applicationStorageUpdate ApplicationStorageUpdate) error {
 	sd := make(map[string]params.StorageConstraints)
 	for k, v := range applicationStorageUpdate.StorageDirectives {
@@ -1296,7 +1296,7 @@ func (c *Client) UpdateApplicationStorageDirectives(applicationStorageUpdate App
 	}
 
 	var out params.ErrorResults
-	err := c.facade.FacadeCall("UpdateApplicationStorage", in, &out)
+	err := c.facade.FacadeCall("UpdateApplicationStorageDirectives", in, &out)
 	if err != nil {
 		return errors.Trace(err)
 	}

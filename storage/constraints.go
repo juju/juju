@@ -13,8 +13,8 @@ import (
 	"github.com/juju/utils/v3"
 )
 
-// Constraints describes a set of storage constraints.
-type Constraints struct {
+// Directive describes a set of storage directive.
+type Directive struct {
 	// Pool is the name of the storage pool (ebs, ceph, custompool, ...)
 	// that must provide the storage, or "" if the default pool should be
 	// used.
@@ -51,8 +51,8 @@ var (
 //	create. SIZE is a floating point number and multiplier from
 //	the set (M, G, T, P, E, Z, Y), which are all treated as
 //	powers of 1024.
-func ParseConstraints(s string) (Constraints, error) {
-	var cons Constraints
+func ParseConstraints(s string) (Directive, error) {
+	var cons Directive
 	fields := strings.Split(s, ",")
 	for _, field := range fields {
 		if field == "" {
@@ -88,7 +88,7 @@ func ParseConstraints(s string) (Constraints, error) {
 		return cons, errors.NotValidf("unrecognized storage constraint %q", field)
 	}
 	if cons.Count == 0 && cons.Size == 0 && cons.Pool == "" {
-		return Constraints{}, errors.New("storage constraints require at least one field to be specified")
+		return Directive{}, errors.New("storage constraints require at least one field to be specified")
 	}
 	if cons.Count == 0 {
 		cons.Count = 1
@@ -117,8 +117,8 @@ func IsValidPoolName(s string) bool {
 //
 // Duplicate storage names cause an error to be returned.
 // Constraints presence can be enforced.
-func ParseConstraintsMap(args []string, mustHaveConstraints bool) (map[string]Constraints, error) {
-	results := make(map[string]Constraints, len(args))
+func ParseConstraintsMap(args []string, mustHaveConstraints bool) (map[string]Directive, error) {
+	results := make(map[string]Directive, len(args))
 	for _, kv := range args {
 		parts := strings.SplitN(kv, "=", -1)
 		name := parts[0]
@@ -179,7 +179,7 @@ func parseSize(s string) (uint64, bool, error) {
 }
 
 // ToString returns a parsable string representation of the storage constraints.
-func ToString(c Constraints) (string, error) {
+func ToString(c Directive) (string, error) {
 	if c.Pool == "" && c.Size <= 0 && c.Count <= 0 {
 		return "", errors.Errorf("must provide one of pool or size or count")
 	}

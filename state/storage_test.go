@@ -484,7 +484,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	constraints, err := storageBlock.StorageDirectives()
+	constraints, err := storageBlock.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
@@ -508,7 +508,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	constraints, err = storageFilesystem.StorageDirectives()
+	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	defaultStorage := "rootfs"
 	if s.series == "kubernetes" {
@@ -574,7 +574,7 @@ func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc
 		Storage: cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	savedCons, err := app.StorageDirectives()
+	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCons, jc.DeepEquals, expect)
 	// TODO(wallyworld) - test pool name stored in data model
@@ -653,7 +653,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 		Storage: storageCons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	savedCons, err := app.StorageDirectives()
+	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCons, jc.DeepEquals, expectedCons)
 }

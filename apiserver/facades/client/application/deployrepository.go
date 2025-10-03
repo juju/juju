@@ -244,7 +244,7 @@ type deployTemplate struct {
 	origin                 corecharm.Origin
 	placement              []*instance.Placement
 	resources              map[string]string
-	storage                map[string]storage.Constraints
+	storage                map[string]storage.Directive
 	pendingResourceUploads []*params.PendingResourceUpload
 	resolvedResources      []resource.Resource
 }

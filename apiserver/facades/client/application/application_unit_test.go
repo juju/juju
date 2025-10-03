@@ -481,7 +481,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	app := s.expectDefaultApplication(ctrl)
 	cfg := state.SetCharmConfig{
 		CharmOrigin: createStateCharmOriginFromURL(curl),
-		StorageDirectives: map[string]state.StorageConstraints{
+		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
 			"b": {Pool: "radiant"},
 			"c": {Size: 123},
@@ -1509,7 +1509,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 	s.model.EXPECT().UUID().Return("")
 
-	storageConstraints := map[string]storage.Constraints{
+	storageConstraints := map[string]storage.Directive{
 		"data": {
 			Count: 1,
 			Size:  1024,
@@ -2143,7 +2143,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 			CharmURL:        "local:foo-0",
 			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
-			Storage: map[string]storage.Constraints{
+			Storage: map[string]storage.Directive{
 				"database": {},
 			},
 		}},
@@ -2181,7 +2181,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 			CharmURL:        "local:foo-0",
 			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
-			Storage: map[string]storage.Constraints{
+			Storage: map[string]storage.Directive{
 				"database": {},
 			},
 		}},
