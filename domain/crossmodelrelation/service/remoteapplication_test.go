@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/errors"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -231,4 +232,39 @@ func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOfferersError(c 
 
 	_, err := service.GetRemoteApplicationOfferers(c.Context())
 	c.Assert(err, tc.ErrorMatches, "front fell off")
+}
+
+func (s *remoteApplicationServiceSuite) TestSaveMacaroonForRelation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	mac := newMacaroon(c, "test")
+	encodedMac := tc.Must(c, mac.MarshalJSON)
+
+	s.modelState.EXPECT().SaveMacaroonForRelation(gomock.Any(), relationUUID.String(), encodedMac).Return(nil)
+
+	service := s.service(c)
+
+	err := service.SaveMacaroonForRelation(c.Context(), relationUUID, mac)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *remoteApplicationServiceSuite) TestSaveMacaroonForRelationInvalidRelationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := s.service(c)
+
+	err := service.SaveMacaroonForRelation(c.Context(), "foo", nil)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestSaveMacaroonForRelationInvalidMacaroon(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	service := s.service(c)
+
+	err := service.SaveMacaroonForRelation(c.Context(), relationUUID, nil)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }

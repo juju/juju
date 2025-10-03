@@ -54,6 +54,16 @@ CREATE TABLE application_remote_offerer_status (
     REFERENCES workload_status_value (id)
 );
 
+-- application_remote_offerer_relation_macaroon represents the macaroon
+-- used to authenticate against the offering model for a given relation.
+CREATE TABLE application_remote_offerer_relation_macaroon (
+    relation_uuid TEXT NOT NULL PRIMARY KEY,
+    macaroon TEXT NOT NULL,
+    CONSTRAINT fk_relation_uuid
+    FOREIGN KEY (relation_uuid)
+    REFERENCES relation (uuid)
+);
+
 -- application_remote_consumer represents a remote consumer application
 -- inside of the offering model.
 CREATE TABLE application_remote_consumer (
