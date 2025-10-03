@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	"gopkg.in/check.v1"
 
 	remoteapplicationtesting "github.com/juju/juju/core/remoteapplication/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -17,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/statushistory"
 )
 
-func (s *serviceSuite) TestSetRemoteApplicationOffererStatus(c *check.C) {
+func (s *serviceSuite) TestSetRemoteApplicationOffererStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now().UTC()
@@ -51,7 +50,7 @@ func (s *serviceSuite) TestSetRemoteApplicationOffererStatus(c *check.C) {
 	}})
 }
 
-func (s *serviceSuite) TestSetRemoteApplicationOffererStatusError(c *check.C) {
+func (s *serviceSuite) TestSetRemoteApplicationOffererStatusError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now().UTC()
