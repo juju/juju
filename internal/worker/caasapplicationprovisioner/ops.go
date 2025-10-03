@@ -213,7 +213,8 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		// TODO(jneo8): Now units scaling from 0->N follow the same flow.
 		// The provisionInfo.Scale is no longer used, so in theory we
 		// could delete this field. Should investigate refactoring.
-		InitialScale: 0,
+		InitialScale:    0,
+		StorageUniqueID: provisionInfo.StorageUniqueID,
 	}
 	switch ch.Meta().CharmUser {
 	case charm.RunAsDefault:
@@ -786,7 +787,7 @@ func ensureScaleWithFsAttachments(appName string, app caas.Application, scaleTar
 	}
 
 	// Ensure PVCs exist.
-	if err := app.EnsurePVCs(info.Filesystems, info.FilesystemUnitAttachments); err != nil {
+	if err := app.EnsurePVCs(info.Filesystems, info.FilesystemUnitAttachments, info.StorageUniqueID); err != nil {
 		return err
 	}
 	return app.Scale(scaleTarget)

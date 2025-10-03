@@ -284,18 +284,13 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			return errors.Annotatef(err, "creating or updating headless service for %q %q", a.deploymentType, a.name)
 		}
 		exists := true
-		ss, getErr := a.getStatefulSet()
+		_, getErr := a.getStatefulSet()
 		if errors.IsNotFound(getErr) {
 			exists = false
 		} else if getErr != nil {
 			return errors.Trace(getErr)
 		}
-		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
-			return ss, getErr
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
+
 		var numPods *int32
 		if !exists {
 			numPods = pointer.Int32(int32(config.InitialScale))
@@ -307,7 +302,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Namespace: a.namespace,
 				Labels:    a.labels(),
 				Annotations: a.annotations(config).
-					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
 			},
 			Spec: appsv1.StatefulSetSpec{
 				Replicas: numPods,
@@ -328,7 +323,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		statefulset := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, sts)
 
 		if err = configureStorage(
-			storageUniqueID,
+			config.StorageUniqueID,
 			func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
 				if err := storage.PushUniqueVolumeClaimTemplate(&statefulset.Spec, pvc); err != nil {
 					return nil, errors.Trace(err)
@@ -346,15 +341,13 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		applier.Apply(statefulset)
 	case caas.DeploymentStateless:
 		exists := true
-		d, getErr := a.getDeployment()
+		_, getErr := a.getDeployment()
 		if errors.IsNotFound(getErr) {
 			exists = false
 		} else if getErr != nil {
 			return errors.Trace(getErr)
 		}
-		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
-			return d, getErr
-		})
+
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -363,7 +356,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 		// Config storage to update the podspec with storage info.
-		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
+		if err = configureStorage(config.StorageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -373,7 +366,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Namespace: a.namespace,
 				Labels:    a.labels(),
 				Annotations: a.annotations(config).
-					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: numPods,
@@ -393,14 +386,8 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 		applier.Apply(deployment)
 	case caas.DeploymentDaemon:
-		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
-			return a.getDaemonSet()
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
 		// Config storage to update the podspec with storage info.
-		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
+		if err = configureStorage(config.StorageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
 		}
 		ds := &appsv1.DaemonSet{
@@ -409,7 +396,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Namespace: a.namespace,
 				Labels:    a.labels(),
 				Annotations: a.annotations(config).
-					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
 			},
 			Spec: appsv1.DaemonSetSpec{
 				Selector: &metav1.LabelSelector{
@@ -882,14 +869,6 @@ func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
 
 func (a *app) getDeployment() (*resources.Deployment, error) {
 	ss := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
-	if err := ss.Get(context.Background()); err != nil {
-		return nil, err
-	}
-	return ss, nil
-}
-
-func (a *app) getDaemonSet() (*resources.DaemonSet, error) {
-	ss := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
 	if err := ss.Get(context.Background()); err != nil {
 		return nil, err
 	}
@@ -2123,22 +2102,6 @@ func (a *app) matchImagePullSecret(name string) bool {
 		return false
 	}
 	return strings.HasPrefix(name, a.name+"-") && strings.HasSuffix(name, "-secret")
-}
-
-type annotationGetter interface {
-	GetAnnotations() map[string]string
-}
-
-func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
-	if r, err := getMeta(); err == nil {
-		// TODO: remove this function with existing one once we consolidated the annotation keys.
-		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(a.labelVersion)]; len(uniqID) > 0 {
-			return uniqID, nil
-		}
-	} else if !errors.IsNotFound(err) {
-		return "", errors.Trace(err)
-	}
-	return a.randomPrefix()
 }
 
 type handleVolumeFunc func(vol corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
