@@ -129,6 +129,7 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(arg params.ModelParam) error {
 // UpgradeModel upgrades a model.
 func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
 	logger.Tracef("UpgradeModel arg %#v", arg)
+	logger.Infof("[adis] here in upgrade model server with arg: %+v", arg)
 	targetVersion := arg.TargetVersion
 	defer func() {
 		if err == nil {
