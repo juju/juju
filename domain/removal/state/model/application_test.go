@@ -63,7 +63,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccess(c *
 
 	// We don't have any units, so we expect an empty slice for both unit and
 	// machine UUIDs.
-	c.Check(artifacts.Empty(), tc.Equals, true)
+	c.Check(artifacts.IsEmpty(), tc.Equals, true)
 
 	// Unit had life "alive" and should now be "dying".
 	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
@@ -119,6 +119,7 @@ VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 0)
 	s.checkUnitContents(c, artifacts.UnitUUIDs, allUnitUUIDs)
 	s.checkMachineContents(c, artifacts.MachineUUIDs, allMachineUUIDs)
+	c.Check(artifacts.StorageAttachmentUUIDs, tc.DeepEquals, []string{"storage-attachment-uuid"})
 
 	s.checkApplicationDyingState(c, appUUID)
 	s.checkUnitDyingState(c, allUnitUUIDs)
@@ -317,7 +318,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeDyingSuccess(c *t
 
 	// We don't have any units, so we expect an empty slice for both unit and
 	// machine UUIDs.
-	c.Check(artifacts.Empty(), tc.Equals, true)
+	c.Check(artifacts.IsEmpty(), tc.Equals, true)
 
 	// Unit was already "dying" and should be unchanged.
 	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())

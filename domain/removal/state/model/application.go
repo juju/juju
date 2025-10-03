@@ -57,7 +57,9 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 // also set to dying. The affected machine UUIDs are returned.
 func (st *State) EnsureApplicationNotAliveCascade(
 	ctx context.Context, aUUID string, destroyStorage bool,
-) (res internal.CascadedApplicationLives, err error) {
+) (internal.CascadedApplicationLives, error) {
+	var res internal.CascadedApplicationLives
+
 	db, err := st.DB(ctx)
 	if err != nil {
 		return res, errors.Capture(err)
@@ -107,11 +109,6 @@ AND    life_id = 0`, applicationUUID)
 		return res, errors.Errorf("preparing unit uuids query: %w", err)
 	}
 
-	var (
-		relations []string
-		machines  []string
-		units     []string
-	)
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, updateApplicationStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("advancing application life: %w", err)
@@ -123,10 +120,10 @@ AND    life_id = 0`, applicationUUID)
 		).GetAll(&relationUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("selecting relation UUIDs: %w", err)
 		}
-		relations = transform.Slice(relationUUIDs, func(e entityUUID) string { return e.UUID })
+		res.RelationUUIDs = transform.Slice(relationUUIDs, func(e entityUUID) string { return e.UUID })
 
-		if len(relations) > 0 {
-			if err := tx.Query(ctx, updateRelationStmt, uuids(relations)).Run(); err != nil {
+		if len(res.RelationUUIDs) > 0 {
+			if err := tx.Query(ctx, updateRelationStmt, uuids(res.RelationUUIDs)).Run(); err != nil {
 				return errors.Errorf("advancing relation life: %w", err)
 			}
 		}
@@ -143,15 +140,18 @@ AND    life_id = 0`, applicationUUID)
 		}
 
 		const checkEmptyMachine = true
-		units = transform.Slice(unitUUIDsRec, func(e entityUUID) string { return e.UUID })
-		for _, u := range units {
+		res.UnitUUIDs = transform.Slice(unitUUIDsRec, func(e entityUUID) string { return e.UUID })
+		for _, u := range res.UnitUUIDs {
 			cascaded, err := st.ensureUnitNotAliveCascade(ctx, tx, u, checkEmptyMachine, destroyStorage)
 			if err != nil {
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}
+
 			if cascaded.MachineUUID != nil {
-				machines = append(machines, *cascaded.MachineUUID)
+				res.MachineUUIDs = append(res.MachineUUIDs, *cascaded.MachineUUID)
 			}
+
+			res.StorageAttachmentUUIDs = append(res.StorageAttachmentUUIDs, cascaded.StorageAttachmentUUIDs...)
 		}
 
 		return nil
@@ -159,11 +159,7 @@ AND    life_id = 0`, applicationUUID)
 		return res, errors.Capture(err)
 	}
 
-	return internal.CascadedApplicationLives{
-		MachineUUIDs:  machines,
-		UnitUUIDs:     units,
-		RelationUUIDs: relations,
-	}, nil
+	return res, nil
 }
 
 // ApplicationScheduleRemoval schedules a removal job for the application with
