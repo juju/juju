@@ -330,6 +330,70 @@ func (s *startSuite) TestAddExecOperationOnAllMachinesWithDeadMachine(c *tc.C) {
 	c.Check(result.Machines[0].ReceiverName, tc.Equals, machine.Name("0"))
 }
 
+func (s *startSuite) TestAddExecOperationMixedSuccessAndErrors(c *tc.C) {
+	charmUUID := s.addCharm(c)
+	_ = s.addMachine(c, "0")
+	s.addCharmAction(c, charmUUID)
+	_ = s.addUnitWithName(c, s.addCharm(c), "mixed-exec/0")
+
+	operationUUID := internaluuid.MustNewUUID()
+	target := internal.ReceiversWithResolvedLeaders{
+		Machines: []machine.Name{"0/non-existent/1", "0"},
+		Units:    []unit.Name{"mixed-exec/0", "nonexistent/0"},
+	}
+	args := operation.ExecArgs{
+		Command:        "mixed command",
+		Parallel:       true,
+		ExecutionGroup: "mixed",
+	}
+
+	result, err := s.state.AddExecOperation(c.Context(), operationUUID, target, args)
+	c.Assert(err, tc.IsNil)
+	c.Check(result.OperationID, tc.Not(tc.Equals), "")
+	c.Assert(result.Machines, tc.HasLen, 2)
+	c.Assert(result.Units, tc.HasLen, 2)
+
+	// First unit should succeed.
+	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("mixed-exec/0"))
+	c.Check(result.Units[0].TaskInfo.Error, tc.IsNil)
+	c.Check(result.Units[0].TaskInfo.ID, tc.Not(tc.Equals), "")
+
+	// Second unit should have error.
+	c.Check(result.Units[1].ReceiverName, tc.Equals, unit.Name("nonexistent/0"))
+	c.Check(result.Units[1].TaskInfo.Error, tc.ErrorMatches, ".*unit UUID.*")
+
+	// First machine should have error.
+	c.Check(result.Machines[0].ReceiverName, tc.Equals, machine.Name("0/non-existent/1"))
+	c.Check(result.Machines[0].TaskInfo.Error, tc.ErrorMatches, ".*machine UUID.*")
+
+	// Second machine should succeed.
+	c.Check(result.Machines[1].ReceiverName, tc.Equals, machine.Name("0"))
+	c.Check(result.Machines[1].TaskInfo.Error, tc.IsNil)
+	c.Check(result.Machines[1].TaskInfo.ID, tc.Not(tc.Equals), "")
+
+	// Verify the valid task was stored, and the invalid one didn't put any data in the DB.
+	tasks := s.queryRows(c, `
+SELECT DISTINCT uuid, task_id, unit_uuid, machine_uuid 
+FROM operation_task
+LEFT JOIN operation_unit_task ON operation_task.uuid = operation_unit_task.task_uuid
+LEFT JOIN operation_machine_task ON operation_task.uuid = operation_machine_task.task_uuid`)
+	var validIDs, validUnitTaskUUIDs, validMachineTaskUUIDs []string
+	for _, task := range tasks {
+		validIDs = append(validIDs, task["task_id"].(string))
+		if uuid := task["unit_uuid"]; uuid != nil {
+			validUnitTaskUUIDs = append(validUnitTaskUUIDs, task["uuid"].(string))
+		}
+		if uuid := task["machine_uuid"]; uuid != nil {
+			validMachineTaskUUIDs = append(validMachineTaskUUIDs, task["uuid"].(string))
+		}
+	}
+	c.Check(validIDs, tc.HasLen, 2)
+	c.Check(s.selectDistinctValues(c, "task_uuid", "operation_task_status"), tc.SameContents,
+		append(validUnitTaskUUIDs, validMachineTaskUUIDs...))
+	c.Check(s.selectDistinctValues(c, "task_uuid", "operation_unit_task"), tc.SameContents, validUnitTaskUUIDs)
+	c.Check(s.selectDistinctValues(c, "task_uuid", "operation_machine_task"), tc.SameContents, validMachineTaskUUIDs)
+}
+
 func (s *startSuite) TestAddActionOperationSingleUnit(c *tc.C) {
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -504,16 +568,17 @@ func (s *startSuite) TestAddActionOperationMixedSuccessAndErrors(c *tc.C) {
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
 	_ = s.addUnitWithName(c, charmUUID, "test-action-mixed/0")
+	_ = s.addUnitWithName(c, charmUUID, "test-action-mixed/1")
 
 	operationUUID := internaluuid.MustNewUUID()
-	targetUnits := []unit.Name{"test-action-mixed/0", "nonexistent/0"}
+	targetUnits := []unit.Name{"test-action-mixed/0", "nonexistent/0", "test-action-mixed/1"}
 	args := operation.TaskArgs{
 		ActionName: "test-action",
 	}
 
 	result, err := s.state.AddActionOperation(c.Context(), operationUUID, targetUnits, args)
 	c.Assert(err, tc.IsNil)
-	c.Assert(result.Units, tc.HasLen, 2)
+	c.Assert(result.Units, tc.HasLen, 3)
 
 	// First unit should succeed.
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("test-action-mixed/0"))
@@ -523,6 +588,22 @@ func (s *startSuite) TestAddActionOperationMixedSuccessAndErrors(c *tc.C) {
 	// Second unit should have error.
 	c.Check(result.Units[1].ReceiverName, tc.Equals, unit.Name("nonexistent/0"))
 	c.Check(result.Units[1].TaskInfo.Error, tc.ErrorMatches, ".*unit UUID.*")
+
+	// Third unit should succeed.
+	c.Check(result.Units[2].ReceiverName, tc.Equals, unit.Name("test-action-mixed/1"))
+	c.Check(result.Units[2].TaskInfo.Error, tc.IsNil)
+	c.Check(result.Units[2].TaskInfo.ID, tc.Not(tc.Equals), "")
+
+	// Verify the valid task was stored, and the invalid one didn't put any data in the DB.
+	tasks := s.queryRows(c, `SELECT uuid, task_id FROM operation_task`)
+	var validIDs, validUUIDs []string
+	for _, task := range tasks {
+		validIDs = append(validIDs, task["task_id"].(string))
+		validUUIDs = append(validUUIDs, task["uuid"].(string))
+	}
+	c.Check(validIDs, tc.SameContents, []string{"1", "3"})
+	c.Check(s.selectDistinctValues(c, "task_uuid", "operation_task_status"), tc.SameContents, validUUIDs)
+	c.Check(s.selectDistinctValues(c, "task_uuid", "operation_unit_task"), tc.SameContents, validUUIDs)
 }
 
 // Sequence tests

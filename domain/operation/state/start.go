@@ -417,44 +417,56 @@ func (st *State) addMachineTask(
 	return st.addMachineTaskWithID(ctx, tx, strconv.FormatUint(taskID, 10), taskUUID, operationUUID, machineName)
 }
 
-func (st *State) addMachineTaskWithID(ctx context.Context, tx *sqlair.TX, taskID string, taskUUID string, operationUUID string, machineName machine.Name) operation.MachineTaskResult {
+// insertTaskWithRollback inserts a task and rolls back the transaction if the
+// insert fails.
+func (st *State) insertTaskWithRollback(
+	ctx context.Context,
+	tx *sqlair.TX, taskUUID string, insert func(ctx context.Context, tx *sqlair.TX) error) error {
+	err := insert(ctx, tx)
+	if err != nil {
+		if _, err := st.deleteTaskByUUIDs(ctx, tx, []string{taskUUID}); err != nil {
+			st.logger.Errorf(ctx, "failed to completely rollback inserted task %q: %v", taskUUID, err)
+		}
+	}
+	return errors.Capture(err)
+}
+
+func (st *State) addMachineTaskWithID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	taskID string,
+	taskUUID string,
+	operationUUID string,
+	machineName machine.Name,
+) operation.MachineTaskResult {
 	now := time.Now().UTC()
 
-	err := st.insertOperationTask(ctx, tx, insertOperationTask{UUID: taskUUID, OperationUUID: operationUUID, TaskID: taskID, EnqueuedAt: now})
-	if err != nil {
-		return operation.MachineTaskResult{
-			ReceiverName: machineName,
-			TaskInfo: operation.TaskInfo{
-				Error: errors.Errorf("inserting operation task: %w", err),
-			},
+	// Since the insert of task doesn't fail the transaction, we need to cleanup
+	// the task if any of its inserts fail.
+	err := st.insertTaskWithRollback(ctx, tx, taskUUID, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.insertOperationTask(ctx, tx, insertOperationTask{UUID: taskUUID, OperationUUID: operationUUID,
+			TaskID: taskID, EnqueuedAt: now}); err != nil {
+			return errors.Errorf("inserting operation task: %w", err)
 		}
-	}
-	err = st.insertOperationTaskStatus(ctx, tx, taskUUID, corestatus.Pending)
-	if err != nil {
-		return operation.MachineTaskResult{
-			ReceiverName: machineName,
-			TaskInfo: operation.TaskInfo{
-				Error: errors.Errorf("inserting operation task status: %w", err),
-			},
+		if err := st.insertOperationTaskStatus(ctx, tx, taskUUID, corestatus.Pending); err != nil {
+			return errors.Errorf("inserting operation task status: %w", err)
 		}
-	}
-
-	machineUUID, err := st.getMachineUUID(ctx, tx, machineName)
-	if err != nil {
-		return operation.MachineTaskResult{
-			ReceiverName: machineName,
-			TaskInfo: operation.TaskInfo{
-				Error: errors.Errorf("getting machine UUID for %q: %w", machineName, err),
-			},
+		machineUUID, err := st.getMachineUUID(ctx, tx, machineName)
+		if err != nil {
+			return errors.Errorf("getting machine UUID for %q: %w", machineName, err)
 		}
-	}
-	err = st.insertOperationMachineTask(ctx, tx, taskUUID, machineUUID)
+		if err := st.insertOperationMachineTask(ctx, tx, taskUUID, machineUUID); err != nil {
+			return errors.Errorf("linking task to machine: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
 		return operation.MachineTaskResult{
-			ReceiverName: machineName,
 			TaskInfo: operation.TaskInfo{
-				Error: errors.Errorf("linking task to machine: %w", err),
+				ID:    taskID,
+				Error: err,
 			},
+			ReceiverName: machineName,
 		}
 	}
 
@@ -485,34 +497,31 @@ func (st *State) addUnitTask(ctx context.Context, tx *sqlair.TX, operationUUID s
 func (st *State) addUnitTaskWithID(ctx context.Context, tx *sqlair.TX, taskID string, taskUUID string, operationUUID string, unitName coreunit.Name) operation.UnitTaskResult {
 	now := time.Now().UTC()
 
-	err := st.insertOperationTask(ctx, tx, insertOperationTask{UUID: taskUUID, OperationUUID: operationUUID,
-		TaskID: taskID, EnqueuedAt: now})
-	if err != nil {
-		return operation.UnitTaskResult{
-			ReceiverName: unitName,
-			TaskInfo: operation.TaskInfo{
-				Error: errors.Errorf("inserting operation task: %w", err),
-			},
-		}
-	}
+	// Since the insert of task doesn't fail the transaction, we need to cleanup
+	// the task if any of its inserts fail.
+	err := st.insertTaskWithRollback(ctx, tx, taskUUID, func(ctx context.Context, tx *sqlair.TX) error {
 
-	err = st.insertOperationTaskStatus(ctx, tx, taskUUID, corestatus.Pending)
-	if err != nil {
-		return operation.UnitTaskResult{
-			ReceiverName: unitName,
-			TaskInfo: operation.TaskInfo{
-				Error: errors.Errorf("inserting operation task status: %w", err),
-			},
+		if err := st.insertOperationTask(ctx, tx, insertOperationTask{UUID: taskUUID, OperationUUID: operationUUID,
+			TaskID: taskID, EnqueuedAt: now}); err != nil {
+			return errors.Errorf("inserting operation task: %w", err)
 		}
-	}
 
-	err = st.insertOperationUnitTask(ctx, tx, taskUUID, unitName)
+		if err := st.insertOperationTaskStatus(ctx, tx, taskUUID, corestatus.Pending); err != nil {
+			return errors.Errorf("inserting operation task status: %w", err)
+		}
+
+		if err := st.insertOperationUnitTask(ctx, tx, taskUUID, unitName); err != nil {
+			return errors.Errorf("linking task to unit: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
 		return operation.UnitTaskResult{
-			ReceiverName: unitName,
 			TaskInfo: operation.TaskInfo{
-				Error: errors.Errorf("linking task to unit: %w", err),
+				ID:    taskID,
+				Error: err,
 			},
+			ReceiverName: unitName,
 		}
 	}
 
