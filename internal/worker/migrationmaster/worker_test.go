@@ -181,7 +181,7 @@ func (s *Suite) SetUpTest(c *tc.C) {
 		controllerVersion: params.ControllerVersionResults{
 			Version: "2.9.99",
 		},
-		facadeVersion: 6,
+		facadeVersion: 7,
 	}
 	s.connectionErr = nil
 
