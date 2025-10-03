@@ -136,7 +136,9 @@ func (w *deploymentWorker) loop() error {
 				provisionChan = nil
 			}
 			logger.Debugf("no units for %v", w.application)
-			err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, &caas.ServiceParams{}, 0, nil)
+			err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, &caas.ServiceParams{
+				StorageUniqueID: info.StorageUniqueID,
+			}, 0, nil)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -231,6 +233,7 @@ func provisionInfoToServiceParams(info *apicaasunitprovisioner.ProvisioningInfo)
 			DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),
 			ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),
 		},
+		StorageUniqueID: info.StorageUniqueID,
 	}
 	if len(info.PodSpec) > 0 {
 		if serviceParams.PodSpec, err = k8sspecs.ParsePodSpec(info.PodSpec); err != nil {
