@@ -37,6 +37,7 @@ func TestApplicationWorker(t *stdtesting.T) {
 type applicationWorkerSuite struct {
 	baseSuite
 
+	applicationName string
 	applicationUUID application.UUID
 	remoteModelUUID string
 	offerUUID       string
@@ -46,6 +47,7 @@ type applicationWorkerSuite struct {
 func (s *applicationWorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.applicationName = "foo"
 	s.applicationUUID = tc.Must(c, application.NewID)
 	s.remoteModelUUID = tc.Must(c, model.NewUUID).String()
 	s.offerUUID = tc.Must(c, uuid.NewUUID).String()
@@ -197,11 +199,11 @@ func (s *applicationWorkerSuite) TestStartNoRemoteClient(c *tc.C) {
 		Return(s.remoteModelRelationClient, errors.NotFound)
 
 	s.crossModelService.EXPECT().
-		SetRemoteApplicationOffererStatus(gomock.Any(), s.applicationUUID, status.StatusInfo{
+		SetRemoteApplicationOffererStatus(gomock.Any(), s.applicationName, status.StatusInfo{
 			Status:  status.Error,
 			Message: "cannot connect to external controller: not found",
 		}).
-		DoAndReturn(func(ctx context.Context, i application.UUID, si status.StatusInfo) error {
+		DoAndReturn(func(context.Context, string, status.StatusInfo) error {
 			defer close(done)
 			return nil
 		})
@@ -266,7 +268,7 @@ func (s *applicationWorkerSuite) newApplicationConfig(c *tc.C) RemoteApplication
 		CrossModelService:          s.crossModelService,
 		RemoteRelationClientGetter: s.remoteRelationClientGetter,
 		OfferUUID:                  s.offerUUID,
-		ApplicationName:            "foo",
+		ApplicationName:            s.applicationName,
 		ApplicationUUID:            s.applicationUUID,
 		LocalModelUUID:             tc.Must(c, model.NewUUID),
 		RemoteModelUUID:            s.remoteModelUUID,

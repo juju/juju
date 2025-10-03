@@ -351,7 +351,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		case changes := <-offerStatusChanges:
 			w.logger.Debugf(ctx, "offer status changed: %#v", changes)
 			for _, change := range changes {
-				if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationUUID, change.Status); err != nil {
+				if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, change.Status); err != nil {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 				}
 
@@ -388,7 +388,7 @@ func (w *remoteApplicationWorker) setupRemoteModelClient(ctx context.Context) (R
 	// we cannot connect to the remote model. If this fails, log the error,
 	// as we don't want the worker to bounce on this error. Instead, we want
 	// to bounce on the original error.
-	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationUUID, status.StatusInfo{
+	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
 		Status:  status.Error,
 		Message: fmt.Sprintf("cannot connect to external controller: %v", err.Error()),
 	}); err != nil {
@@ -425,7 +425,7 @@ func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context
 		return
 	}
 
-	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationUUID, status.StatusInfo{
+	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
 		Status:  status.Error,
 		Message: err.Error(),
 	}); err != nil {
@@ -461,7 +461,7 @@ func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error 
 	// and not removing any additional workers? If the offer has been removed,
 	// surely we want to some how trigger a cleanup of the remote application
 	// and data associated with it?
-	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationUUID, status.StatusInfo{
+	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
 		Status:  status.Terminated,
 		Message: "offer has been removed",
 	}); err != nil {

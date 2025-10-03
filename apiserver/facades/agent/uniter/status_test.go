@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -212,7 +213,7 @@ func (s *ApplicationStatusAPISuite) TesApplicationStatustNotATag(c *tc.C) {
 func (s *ApplicationStatusAPISuite) TesApplicationStatustNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(status.StatusInfo{}, nil, statuserrors.ApplicationNotFound)
+	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(status.StatusInfo{}, nil, applicationerrors.ApplicationNotFound)
 
 	result, err := s.api.ApplicationStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: names.NewUnitTag("foo/0").String(),

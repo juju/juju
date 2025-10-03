@@ -19,6 +19,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
@@ -217,9 +218,9 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 
 	unitName := coreunit.Name("foo/0")
 
-	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return("", statuserrors.ApplicationNotFound)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
 	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplicationStatusSet(c *tc.C) {

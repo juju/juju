@@ -22,6 +22,7 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -173,12 +174,12 @@ func (s *serviceSuite) TestSetApplicationStatus(c *tc.C) {
 func (s *serviceSuite) TestSetApplicationStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "gitlab").Return("", applicationerrors.ApplicationNotFound)
 
 	err := s.modelService.SetApplicationStatus(c.Context(), "gitlab", corestatus.StatusInfo{
 		Status: corestatus.Active,
 	})
-	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *serviceSuite) TestSetApplicationStatusInvalidStatus(c *tc.C) {
@@ -198,10 +199,10 @@ func (s *serviceSuite) TestSetApplicationStatusInvalidStatus(c *tc.C) {
 func (s *serviceSuite) TestGetApplicationDisplayStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "gitlab").Return("", applicationerrors.ApplicationNotFound)
 
 	_, err := s.modelService.GetApplicationDisplayStatus(c.Context(), "gitlab")
-	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *serviceSuite) TestGetApplicationDisplayStatusApplicationStatusSet(c *tc.C) {

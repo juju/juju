@@ -10,14 +10,6 @@ const (
 	// valid.
 	InvalidStatus = errors.ConstError("invalid status")
 
-	// ApplicationNotFound describes an error that occurs when the application
-	// being operated on does not exist.
-	ApplicationNotFound = errors.ConstError("application not found")
-
-	// ApplicationIsDead describes an error that occurs when trying to access
-	// an application that is dead.
-	ApplicationIsDead = errors.ConstError("application is dead")
-
 	// RelationNotFound describes an error that occurs when the relation
 	// being operated on does not exist.
 	RelationNotFound = errors.ConstError("relation not found")
@@ -53,4 +45,6 @@ const (
 	// VolumeStatusTransitionNotValid describes an error that occurs when the
 	// current volume status cannot transition to the new volume status.
 	VolumeStatusTransitionNotValid = errors.ConstError("volume status transition not valid")
+
+	RemoteApplicationStatusNotFound = errors.ConstError("remote application status not found")
 )

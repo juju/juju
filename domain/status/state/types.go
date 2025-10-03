@@ -21,6 +21,10 @@ type applicationUUID struct {
 	ID coreapplication.UUID `db:"uuid"`
 }
 
+type applicationName struct {
+	Name string `db:"name"`
+}
+
 type applicationUUIDAndName struct {
 	ID   coreapplication.UUID `db:"uuid"`
 	Name string               `db:"name"`
@@ -41,6 +45,10 @@ type unitName struct {
 type unitPresence struct {
 	UnitUUID coreunit.UUID `db:"unit_uuid"`
 	LastSeen time.Time     `db:"last_seen"`
+}
+
+type remoteApplicationUUID struct {
+	RemoteApplicationUUID string `db:"uuid"`
 }
 
 type statusInfo struct {
@@ -441,6 +449,14 @@ type machineSpaceAddress struct {
 	Scope       string         `db:"scope_name"`
 	SpaceUUID   sql.NullString `db:"space_uuid"`
 	SubnetCIDR  sql.NullString `db:"cidr"`
+}
+
+type remoteApplicationStatus struct {
+	RemoteApplicationUUID string     `db:"application_remote_offerer_uuid"`
+	StatusID              int        `db:"status_id"`
+	Message               string     `db:"message"`
+	Data                  []byte     `db:"data"`
+	UpdatedAt             *time.Time `db:"updated_at"`
 }
 
 func decodeHardwareCharacteristics(

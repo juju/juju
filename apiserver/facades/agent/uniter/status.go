@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -181,7 +182,7 @@ func (s *StatusAPI) ApplicationStatus(ctx context.Context, args params.Entities)
 		}
 
 		appStatus, unitStatuses, err := s.statusService.GetApplicationAndUnitStatusesForUnitWithLeader(ctx, unitName)
-		if errors.Is(err, statuserrors.ApplicationNotFound) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", unitName.Application()))
 			continue
 		} else if errors.Is(err, statuserrors.UnitNotLeader) {
