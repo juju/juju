@@ -119,12 +119,14 @@ type outputStore struct {
 }
 
 type insertOperation struct {
-	UUID           string    `db:"uuid"`
-	OperationID    string    `db:"operation_id"`
-	Summary        string    `db:"summary"`
-	EnqueuedAt     time.Time `db:"enqueued_at"`
-	Parallel       bool      `db:"parallel"`
-	ExecutionGroup string    `db:"execution_group"`
+	UUID           string     `db:"uuid"`
+	OperationID    string     `db:"operation_id"`
+	Summary        string     `db:"summary"`
+	EnqueuedAt     time.Time  `db:"enqueued_at"`
+	StartedAt      *time.Time `db:"started_at"`
+	CompletedAt    *time.Time `db:"completed_at"`
+	Parallel       bool       `db:"parallel"`
+	ExecutionGroup string     `db:"execution_group"`
 }
 
 type insertOperationAction struct {
@@ -134,10 +136,12 @@ type insertOperationAction struct {
 }
 
 type insertOperationTask struct {
-	UUID          string    `db:"uuid"`
-	OperationUUID string    `db:"operation_uuid"`
-	TaskID        string    `db:"task_id"`
-	EnqueuedAt    time.Time `db:"enqueued_at"`
+	UUID          string     `db:"uuid"`
+	OperationUUID string     `db:"operation_uuid"`
+	TaskID        string     `db:"task_id"`
+	EnqueuedAt    time.Time  `db:"enqueued_at"`
+	StartedAt     *time.Time `db:"started_at"`
+	CompletedAt   *time.Time `db:"completed_at"`
 }
 
 type insertTaskStatus struct {
