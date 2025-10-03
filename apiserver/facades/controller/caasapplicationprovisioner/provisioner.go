@@ -435,6 +435,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		CharmURL:             *charmURL,
 		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),
 		Scale:                app.GetScale(),
+		StorageUniqueID:      app.StorageUniqueID(),
 	}, nil
 }
 
@@ -469,15 +470,13 @@ func (a *API) FilesystemProvisioningInfo(args params.Entity) (params.CAASApplica
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if err != nil {
-		return result, errors.Trace(err)
-	}
 	filesystemUnitAttachmentParams, err := a.applicationFilesystemUnitAttachmentParams(app)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	result.Filesystems = filesystemParams
 	result.FilesystemUnitAttachments = filesystemUnitAttachmentParams
+	result.StorageUniqueID = app.StorageUniqueID()
 	return result, nil
 }
 
