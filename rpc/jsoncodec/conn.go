@@ -5,8 +5,12 @@ package jsoncodec
 
 import (
 	"encoding/json"
+	stderrors "errors"
 	"io"
+	"net"
+	"os"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -60,18 +64,77 @@ func (conn *wsJSONConn) Receive(msg interface{}) error {
 const closingIODeadline = 10 * time.Second
 
 func (conn *wsJSONConn) Close() error {
-	// Ater we close, all readers and writers must be forced to unblock.
+	c := conn.conn.NetConn()
+
+	// After we close, all readers and writers
+	// must be forced to unblock immediately.
 	defer func() {
-		c := conn.conn.NetConn()
-		_ = c.SetWriteDeadline(time.Now().Add(closingIODeadline))
-		_ = c.SetReadDeadline(time.Now().Add(closingIODeadline))
+		_ = c.SetDeadline(time.Now())
 	}()
 
-	if err := conn.writeClose(); err != nil {
-		conn.readClose()
+	var closeErr error
+
+	closedNormally := false
+	if err := conn.writeClose(); err == nil {
+		closedNormally = conn.readClose()
+	} else if websocket.IsUnexpectedCloseError(err) {
+		// The websocket connection was already closed by the other side.
+		closedNormally = true
+	} else {
+		closeErr = err
 	}
 
-	return conn.conn.Close()
+	// The underlying connection for the socket is a tls.Conn.
+	// This sends a TLS close notification message to the peer.
+	type closer interface {
+		CloseWrite() error
+	}
+	if cl, ok := c.(closer); ok {
+		err := cl.CloseWrite()
+		if err != nil {
+			closeErr = stderrors.Join(closeErr, err)
+		}
+	}
+
+	// Now get the inner TCPConn from the TLS conn.
+	// Use it to disable keep-alives, drop any unsent/unacked data,
+	// and send FIN to the peer.
+	type netConner interface {
+		NetConn() net.Conn
+	}
+	if nc, ok := c.(netConner); ok {
+		if tcpConn, ok := nc.NetConn().(*net.TCPConn); ok {
+			_ = tcpConn.SetKeepAlive(false)
+			_ = tcpConn.SetLinger(0)
+			_ = tcpConn.CloseWrite()
+		}
+	}
+
+	if err := conn.conn.Close(); errors.Is(err, syscall.EPIPE) {
+		// This is expected due to tls.Conn writing on every Close and the local
+		// socket having been shutdown to writing above.
+		// See net.TCPConn.CloseWrite.
+		// See tls.Conn.Close.
+	} else if err != nil {
+		closeErr = stderrors.Join(closeErr, err)
+	}
+
+	if !closedNormally {
+		return closeErr
+	}
+
+	// If the websocket closed normally, a possible send/recv error during a
+	// call to close is expected, since it is possible the other side has
+	// already gone away, or the operation takes longer than the currently set
+	// deadline, it is safe to discard this error as the other side has already
+	// acknowledged the close.
+	if errors.Is(closeErr, syscall.ECONNRESET) ||
+		errors.Is(closeErr, syscall.ETIMEDOUT) ||
+		errors.Is(closeErr, os.ErrDeadlineExceeded) {
+		return nil
+	}
+
+	return closeErr
 }
 
 // WriteClose sets a write deadline to start a count-down for any existing
@@ -88,28 +151,34 @@ func (conn *wsJSONConn) writeClose() error {
 
 // readClose sets a read deadline to start a count-down for any existing
 // readers. It then attempts to drain all remaining reads looking for the
-// socket close acknowledgement.
-func (conn *wsJSONConn) readClose() {
+// socket close acknowledgement. If the closure was normal, true is returned.
+func (conn *wsJSONConn) readClose() bool {
 	_ = conn.conn.NetConn().SetReadDeadline(time.Now().Add(closingIODeadline))
 
 	conn.readMutex.Lock()
 	defer conn.readMutex.Unlock()
 
+	closedNormally := false
+	conn.conn.SetCloseHandler(func(code int, text string) error {
+		closedNormally = true
+		// Since this websocket was the closer, a close message does not need to
+		// be reciprocated and should not be attempted.
+		return nil
+	})
+
 	for {
 		_, _, err := conn.conn.NextReader()
-		if websocket.IsCloseError(err,
-			websocket.CloseNormalClosure,
-			websocket.CloseGoingAway,
-			websocket.CloseNoStatusReceived,
-			websocket.CloseAbnormalClosure) ||
-			errors.Is(err, websocket.ErrCloseSent) {
+		if websocket.IsUnexpectedCloseError(err) {
 			break
-		}
-		if err != nil {
+		} else if err != nil && closedNormally {
+			break
+		} else if err != nil {
 			logger.Debugf("waiting for websocket close message: %v", err)
 			break
 		}
 	}
+
+	return closedNormally
 }
 
 // NewNet returns an rpc codec that uses the given connection
