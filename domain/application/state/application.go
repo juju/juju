@@ -3168,7 +3168,10 @@ SELECT
 FROM application AS a
 JOIN charm_config AS cc ON a.charm_uuid = cc.charm_uuid
 JOIN charm_config_type AS cct ON cc.type_id = cct.id
-LEFT JOIN application_config AS ac ON cc.key = ac.key AND cc.type_id = ac.type_id
+LEFT JOIN application_config AS ac 
+	ON  ac.application_uuid = a.uuid
+	AND ac.type_id  = cc.type_id 
+	AND ac.key = cc.key 
 WHERE a.uuid = $entityUUID.uuid;
 `, applicationConfig{}, appID)
 	if err != nil {
