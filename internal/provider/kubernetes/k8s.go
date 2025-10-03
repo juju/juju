@@ -1164,18 +1164,18 @@ func (k *kubernetesClient) ensureService(
 			return errors.Annotate(err, "creating or updating headless service")
 		}
 		cleanups = append(cleanups, func() { _ = k.deleteService(headlessServiceName(deploymentName)) })
-		if err := k.configureStatefulSet(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems, params.StorageUniqueID); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { _ = k.deleteDeployment(appName) })
 	case caas.DeploymentStateless:
-		cleanUpDeployment, err := k.configureDeployment(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems)
+		cleanUpDeployment, err := k.configureDeployment(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems, params.StorageUniqueID)
 		cleanups = append(cleanups, cleanUpDeployment...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating Deployment")
 		}
 	case caas.DeploymentDaemon:
-		cleanUpDaemonSet, err := k.configureDaemonSet(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, params.Filesystems)
+		cleanUpDaemonSet, err := k.configureDaemonSet(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, params.Filesystems, params.StorageUniqueID)
 		cleanups = append(cleanups, cleanUpDaemonSet...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating DaemonSet")
@@ -1226,25 +1226,6 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 	deployment.Spec.Replicas = &zero
 	_, err = deployments.Update(context.TODO(), deployment, v1.UpdateOptions{})
 	return errors.Trace(err)
-}
-
-type annotationGetter interface {
-	GetAnnotations() map[string]string
-}
-
-// This random snippet will be included to the pvc name so that if the same app
-// is deleted and redeployed again, the pvc retains a unique name.
-// Only generate it once, and record it on the workload resource annotations .
-func (k *kubernetesClient) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
-	r, err := getMeta()
-	if err == nil {
-		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(k.LabelVersion())]; uniqID != "" {
-			return uniqID, nil
-		}
-	} else if !errors.IsNotFound(err) {
-		return "", errors.Trace(err)
-	}
-	return k.randomPrefix()
 }
 
 func (k *kubernetesClient) configureDevices(unitSpec *workloadSpec, devices []devices.KubernetesDeviceParams) error {
@@ -1493,6 +1474,7 @@ func (k *kubernetesClient) configureDaemonSet(
 	workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec,
 	filesystems []storage.KubernetesFilesystemParams,
+	storageUniqueID string,
 ) (cleanUps []func(), err error) {
 	logger.Debugf("creating/updating daemon set for %s", appName)
 
@@ -1501,13 +1483,6 @@ func (k *kubernetesClient) configureDaemonSet(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
-		return cleanUps, errors.Trace(err)
-	}
-
-	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
-		return k.getDaemonSet(deploymentName)
-	})
-	if err != nil {
 		return cleanUps, errors.Trace(err)
 	}
 
@@ -1597,6 +1572,7 @@ func (k *kubernetesClient) configureDeployment(
 	containers []specs.ContainerSpec,
 	replicas *int32,
 	filesystems []storage.KubernetesFilesystemParams,
+	storageUniqueID string,
 ) (cleanUps []func(), err error) {
 	logger.Debugf("creating/updating deployment for %s", appName)
 
@@ -1605,13 +1581,6 @@ func (k *kubernetesClient) configureDeployment(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
-		return cleanUps, errors.Trace(err)
-	}
-
-	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
-		return k.getDeployment(deploymentName)
-	})
-	if err != nil {
 		return cleanUps, errors.Trace(err)
 	}
 
