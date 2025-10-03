@@ -15,9 +15,11 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/wrench"
@@ -241,7 +243,16 @@ func (w *upgradeDB) runUpgrade() error {
 // runUpgradeSteps runs the required database upgrade steps for the agent,
 // retrying on failure.
 func (w *upgradeDB) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
-	contextGetter := w.contextGetter(agentConfig)
+	st, err := w.pool.(*pool).StatePool.SystemState()
+	if err != nil {
+		return err
+	}
+	model, err := st.Model()
+	if err != nil {
+		return err
+	}
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
+	contextGetter := w.contextGetter(agentConfig, broker)
 
 	retryStrategy := w.retryStrategy
 	retryStrategy.Func = func() error {
@@ -250,7 +261,7 @@ func (w *upgradeDB) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	retryStrategy.NotifyFunc = func(lastError error, attempt int) {
 		w.reportUpgradeFailure(lastError, attempt != retryStrategy.Attempts)
 	}
-	err := retry.Call(retryStrategy)
+	err = retry.Call(retryStrategy)
 	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
 		err = retry.LastError(err)
 	}
@@ -261,9 +272,9 @@ func (w *upgradeDB) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 // Note that the performUpgrade method passed by the manifold calls
 // upgrades.PerformStateUpgrade, which only uses the StateContext from this
 // context. We can set the API connection to nil - it should never be used.
-func (w *upgradeDB) contextGetter(agentConfig agent.ConfigSetter) func() upgrades.Context {
+func (w *upgradeDB) contextGetter(agentConfig agent.ConfigSetter, broker caas.Broker) func() upgrades.Context {
 	return func() upgrades.Context {
-		return upgrades.NewContext(agentConfig, nil, upgrades.NewStateBackend(w.pool.(*pool).StatePool))
+		return upgrades.NewContext(agentConfig, nil, upgrades.NewStateBackend(w.pool.(*pool).StatePool, broker))
 	}
 }
 
