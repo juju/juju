@@ -445,6 +445,39 @@ WHERE uuid = $machine.uuid;
 		return errors.Capture(err)
 	}
 
+	// Prepare query for deleting ip addresses.
+	deleteIPAddresses := `
+DELETE FROM ip_address 
+WHERE net_node_uuid = $node.uuid;
+`
+	deleteIPAddressesStmt, err := st.Prepare(deleteIPAddresses, node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Prepare query for deleting provider link layer devices.
+	deleteProviderLinkLayerDevices := `
+WITH devices AS (
+	SELECT uuid FROM link_layer_device WHERE net_node_uuid = $node.uuid
+)
+DELETE FROM provider_link_layer_device
+WHERE device_uuid IN devices;
+`
+	deleteProviderLinkLayerDevicesStmt, err := st.Prepare(deleteProviderLinkLayerDevices, node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Prepare query for deleting link layer devices.
+	deleteLinkLayerDevices := `
+DELETE FROM link_layer_device 
+WHERE net_node_uuid = $node.uuid;
+`
+	deleteLinkLayerDevicesStmt, err := st.Prepare(deleteLinkLayerDevices, node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Prepare query for deleting net node row.
 	// TODO (stickupkid): We need to ensure that no unit is still using this
 	//    net node. If it is, we need to return an error.
@@ -507,6 +540,21 @@ WHERE uuid = $node.uuid
 		// Remove the machine entry
 		if err := tx.Query(ctx, deleteMachineStmt, machine(machineUUIDParam)).Run(); err != nil {
 			return errors.Errorf("deleting machine: %w", err)
+		}
+
+		// Remove IP addresses associated with the machine's net node.
+		if err := tx.Query(ctx, deleteIPAddressesStmt, node).Run(); err != nil {
+			return errors.Errorf("removing ip addresses: %w", err)
+		}
+
+		// Remove provider link layer devices associated with the machine's net node.
+		if err := tx.Query(ctx, deleteProviderLinkLayerDevicesStmt, node).Run(); err != nil {
+			return errors.Errorf("removing provider link layer devices: %w", err)
+		}
+
+		// Remove link layer devices associated with the machine's net node.
+		if err := tx.Query(ctx, deleteLinkLayerDevicesStmt, node).Run(); err != nil {
+			return errors.Errorf("removing link layer devices: %w", err)
 		}
 
 		// Remove the net node for the machine.
