@@ -32,7 +32,7 @@ func (c CascadedUnitLives) IsEmpty() bool {
 // "dying" along with a machine. It is intended to inform the service layer
 // which entities should have removal jobs scheduled for them.
 type CascadedMachineLives struct {
-	// MachineUUIDs identify containers on the machine, 
+	// MachineUUIDs identify containers on the machine,
 	// who's life advanced to dying as well.
 	MachineUUIDs []string
 
@@ -46,17 +46,46 @@ type CascadedMachineLives struct {
 
 	// StorageInstanceUUIDs contain machine-scoped storage instances that have
 	// had a life advancement along with the machine.
-	// Note that we do not invoke storage instance destruction along with unit 
+	// Note that we do not invoke storage instance destruction along with unit
 	// removals for a machine. These will be the machine's local storage
 	// instances.
 	StorageInstanceUUIDs []string
 }
 
 // IsEmpty returns true if the struct value indicates that no associated
-// entites were ensured to be "dying" along with a unit.
+// entites were ensured to be "dying" along with a machine.
 func (c CascadedMachineLives) IsEmpty() bool {
 	return len(c.MachineUUIDs) == 0 &&
 		len(c.UnitUUIDs) == 0 &&
 		len(c.StorageAttachmentUUIDs) == 0 &&
 		len(c.StorageInstanceUUIDs) == 0
+}
+
+// CascadedApplicationLives contains identifiers for entities that were ensured
+// to be "dying" along with an application. It is intended to inform the service
+// layer which entities should have removal jobs scheduled for them.
+type CascadedApplicationLives struct {
+	// MachineUUIDs identify machines that advanced to dying as a result of
+	// the application's units being the last on the machine.
+	MachineUUIDs []string
+
+	// UnitUUIDs identify the app's units that became dying along with it.
+	UnitUUIDs []string
+
+	// RelationUUIDs identify relations that this application was participating
+	// in that advanced to dying along with it.
+	RelationUUIDs []string
+
+	// StorageAttachmentUUIDs identify storage attachments for units dying along
+	// with the application, that are were alive, but are now dying.
+	StorageAttachmentUUIDs []string
+}
+
+// IsEmpty returns true if the struct value indicates that no associated
+// entites were ensured to be "dying" along with an application.
+func (c CascadedApplicationLives) IsEmpty() bool {
+	return len(c.MachineUUIDs) == 0 &&
+		len(c.UnitUUIDs) == 0 &&
+		len(c.RelationUUIDs) == 0 &&
+		len(c.StorageAttachmentUUIDs) == 0
 }

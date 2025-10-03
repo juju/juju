@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	removal "github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -36,7 +37,7 @@ func (s *applicationSuite) TestRemoveApplicationDestroyStorageNoForceSuccess(c *
 
 	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), true).Return(removal.ApplicationArtifacts{}, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), true).Return(internal.CascadedApplicationLives{}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, true, false, 0)
@@ -54,7 +55,7 @@ func (s *applicationSuite) TestRemoveApplicationForceNoWaitSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(removal.ApplicationArtifacts{}, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(internal.CascadedApplicationLives{}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, true, 0)
@@ -72,7 +73,7 @@ func (s *applicationSuite) TestRemoveApplicationForceWaitSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(removal.ApplicationArtifacts{}, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(internal.CascadedApplicationLives{}, nil)
 
 	// The first normal removal scheduled immediately.
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
@@ -106,7 +107,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithUnits(c *tc.C)
 
 	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(removal.ApplicationArtifacts{
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(internal.CascadedApplicationLives{
 		UnitUUIDs: []string{"unit-1", "unit-2"},
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
@@ -132,7 +133,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithMachines(c *tc
 
 	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(removal.ApplicationArtifacts{
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(internal.CascadedApplicationLives{
 		MachineUUIDs: []string{"machine-1", "machine-2"},
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
@@ -158,7 +159,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithRelations(c *t
 
 	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(removal.ApplicationArtifacts{
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(internal.CascadedApplicationLives{
 		RelationUUIDs: []string{"relation-1", "relation-2"},
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)

@@ -12,8 +12,8 @@ import (
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -57,7 +57,7 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 // also set to dying. The affected machine UUIDs are returned.
 func (st *State) EnsureApplicationNotAliveCascade(
 	ctx context.Context, aUUID string, destroyStorage bool,
-) (res removal.ApplicationArtifacts, err error) {
+) (res internal.CascadedApplicationLives, err error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return res, errors.Capture(err)
@@ -159,7 +159,7 @@ AND    life_id = 0`, applicationUUID)
 		return res, errors.Capture(err)
 	}
 
-	return removal.ApplicationArtifacts{
+	return internal.CascadedApplicationLives{
 		MachineUUIDs:  machines,
 		UnitUUIDs:     units,
 		RelationUUIDs: relations,

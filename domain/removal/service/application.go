@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -31,7 +32,7 @@ type ApplicationState interface {
 	// also set to dying. The affected machine UUIDs are returned.
 	EnsureApplicationNotAliveCascade(
 		ctx context.Context, appUUID string, destroyStorage bool,
-	) (removal.ApplicationArtifacts, error)
+	) (internal.CascadedApplicationLives, error)
 
 	// ApplicationScheduleRemoval schedules a removal job for the application
 	// with the input application UUID, qualified with the input force boolean.

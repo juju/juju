@@ -642,10 +642,10 @@ func (c *MockModelDBStateDeleteUnitCall) DoAndReturn(f func(context.Context, str
 }
 
 // EnsureApplicationNotAliveCascade mocks base method.
-func (m *MockModelDBState) EnsureApplicationNotAliveCascade(arg0 context.Context, arg1 string, arg2 bool) (removal.ApplicationArtifacts, error) {
+func (m *MockModelDBState) EnsureApplicationNotAliveCascade(arg0 context.Context, arg1 string, arg2 bool) (internal.CascadedApplicationLives, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureApplicationNotAliveCascade", arg0, arg1, arg2)
-	ret0, _ := ret[0].(removal.ApplicationArtifacts)
+	ret0, _ := ret[0].(internal.CascadedApplicationLives)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -663,19 +663,19 @@ type MockModelDBStateEnsureApplicationNotAliveCascadeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDBStateEnsureApplicationNotAliveCascadeCall) Return(arg0 removal.ApplicationArtifacts, arg1 error) *MockModelDBStateEnsureApplicationNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureApplicationNotAliveCascadeCall) Return(arg0 internal.CascadedApplicationLives, arg1 error) *MockModelDBStateEnsureApplicationNotAliveCascadeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateEnsureApplicationNotAliveCascadeCall) Do(f func(context.Context, string, bool) (removal.ApplicationArtifacts, error)) *MockModelDBStateEnsureApplicationNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureApplicationNotAliveCascadeCall) Do(f func(context.Context, string, bool) (internal.CascadedApplicationLives, error)) *MockModelDBStateEnsureApplicationNotAliveCascadeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateEnsureApplicationNotAliveCascadeCall) DoAndReturn(f func(context.Context, string, bool) (removal.ApplicationArtifacts, error)) *MockModelDBStateEnsureApplicationNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureApplicationNotAliveCascadeCall) DoAndReturn(f func(context.Context, string, bool) (internal.CascadedApplicationLives, error)) *MockModelDBStateEnsureApplicationNotAliveCascadeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

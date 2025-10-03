@@ -55,3 +55,23 @@ func (s *typesSuite) TestCascadedMachineLivesEmpty(c *tc.C) {
 	cml.StorageInstanceUUIDs = []string{"burp"}
 	c.Check(cml.IsEmpty(), tc.IsFalse)
 }
+
+func (s *typesSuite) TestCascadedApplicationLivesEmpty(c *tc.C) {
+	cal := CascadedApplicationLives{}
+	c.Check(cal.IsEmpty(), tc.IsTrue)
+
+	cal.MachineUUIDs = []string{"burp"}
+	c.Check(cal.IsEmpty(), tc.IsFalse)
+
+	cal.MachineUUIDs = nil
+	cal.UnitUUIDs = []string{"burp"}
+	c.Check(cal.IsEmpty(), tc.IsFalse)
+
+	cal.UnitUUIDs = nil
+	cal.StorageAttachmentUUIDs = []string{"burp"}
+	c.Check(cal.IsEmpty(), tc.IsFalse)
+
+	cal.StorageAttachmentUUIDs = nil
+	cal.RelationUUIDs = []string{"burp"}
+	c.Check(cal.IsEmpty(), tc.IsFalse)
+}
