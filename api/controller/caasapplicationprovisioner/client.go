@@ -212,6 +212,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		CharmModifiedVersion: r.CharmModifiedVersion,
 		Trust:                r.Trust,
 		Scale:                r.Scale,
+		StorageUniqueID:      r.StorageUniqueID,
 	}
 	for _, fs := range r.Filesystems {
 		f, err := filesystemFromParams(fs)

@@ -4,10 +4,14 @@
 package state
 
 import (
+	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
+
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/pki/ssh"
 )
 
@@ -248,5 +252,75 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 			Update: bson.D{{"$unset", bson.D{{"status-message", nil}}}},
 		})
 	}
+	return st.runRawTransaction(ops)
+}
+
+func PopulateApplicationStorageUniqueID(pool *StatePool, getAnnotation func(appName string, mode string, includeClusterIP bool) (map[string]interface{}, error), labelVersion func() constants.LabelVersion) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if model.Type() != ModelTypeCAAS {
+		logger.Debugf("skipping because model %q is not a caas model", model.Name())
+		return nil
+	}
+
+	logger.Infof("[adis] model %q preparing for populating storage id", model.Name())
+
+	applications, closer := st.db().GetCollection(applicationsC)
+
+	defer closer()
+
+	var ops []txn.Op
+	iter := applications.Find(nil).Iter()
+	defer iter.Close()
+
+	var appDoc applicationDoc
+	for iter.Next(&appDoc) {
+		app := newApplication(st, &appDoc)
+
+		if app.StorageUniqueID() != "" {
+			logger.Infof("[adis] skipping because storageUniqueId is already populated for app %q", app.Name())
+			continue
+		}
+
+		ch, _, err := app.Charm()
+		if err != nil {
+			return err
+		}
+		var mode charm.DeploymentMode
+		if d := ch.Meta().Deployment; d != nil {
+			mode = d.DeploymentMode
+		}
+		if mode == "" {
+			mode = charm.ModeWorkload
+		}
+
+		annotation, err := getAnnotation(app.Name(), string(mode), false)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		appIDKey := utils.AnnotationKeyApplicationUUID(labelVersion())
+		storageUniqueID, ok := annotation[appIDKey]
+		if !ok {
+			logger.Infof("[adis] skipping because appIDKey is missing for app %q", app.Name())
+			continue
+		}
+		logger.Infof("[adis] app %q storageUniqueID is %s", app.Name(), storageUniqueID)
+
+		ops = append(ops, txn.Op{
+			C:      applicationsC,
+			Id:     app.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"storage-unique-id", storageUniqueID}}}},
+		})
+	}
+
 	return st.runRawTransaction(ops)
 }
