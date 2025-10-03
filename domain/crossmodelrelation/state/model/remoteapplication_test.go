@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -59,12 +60,14 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       applicationUUID,
-		CharmUUID:             charmUUID,
-		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
-		OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
-		Charm:                 charm,
-		EncodedMacaroon:       []byte("encoded macaroon"),
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+			Charm:                 charm,
+		},
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -105,12 +108,14 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       applicationUUID,
-		CharmUUID:             charmUUID,
-		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
-		OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
-		Charm:                 charm,
-		EncodedMacaroon:       []byte("encoded macaroon"),
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+			Charm:                 charm,
+		},
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -140,12 +145,14 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       applicationUUID,
-		CharmUUID:             charmUUID,
-		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
-		OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
-		Charm:                 charm,
-		EncodedMacaroon:       []byte("encoded macaroon"),
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+			Charm:                 charm,
+		},
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -193,12 +200,14 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       applicationUUID,
-		CharmUUID:             charmUUID,
-		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
-		OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
-		Charm:                 charm,
-		EncodedMacaroon:       []byte("encoded macaroon"),
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+			Charm:                 charm,
+		},
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -207,12 +216,14 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm)
 
 	err = s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       applicationUUID,
-		CharmUUID:             charmUUID,
-		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
-		OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
-		Charm:                 charm,
-		EncodedMacaroon:       []byte("encoded macaroon"),
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+			Charm:                 charm,
+		},
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationAlreadyExists)
 }
@@ -250,12 +261,14 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 	}
 
 	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       applicationUUID,
-		CharmUUID:             charmUUID,
-		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
-		OfferUUID:             offerUUID,
-		Charm:                 charm,
-		EncodedMacaroon:       []byte("encoded macaroon"),
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charm,
+		},
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -264,12 +277,14 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm)
 
 	err = s.state.AddRemoteApplicationOfferer(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       applicationUUID,
-		CharmUUID:             charmUUID,
-		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
-		OfferUUID:             offerUUID,
-		Charm:                 charm,
-		EncodedMacaroon:       []byte("encoded macaroon"),
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charm,
+		},
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferAlreadyConsumed)
 }
@@ -288,12 +303,14 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsVers
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       applicationUUID,
-		CharmUUID:             charmUUID,
-		OfferUUID:             offerUUID,
-		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
-		Charm:                 charm,
-		EncodedMacaroon:       []byte("encoded macaroon"),
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			OfferUUID:             offerUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			Charm:                 charm,
+		},
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -334,12 +351,14 @@ VALUES (?, ?)
 	}
 
 	err = s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       applicationUUID,
-		CharmUUID:             charmUUID,
-		OfferUUID:             offerUUID,
-		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
-		Charm:                 charm,
-		EncodedMacaroon:       []byte("encoded macaroon"),
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			OfferUUID:             offerUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			Charm:                 charm,
+		},
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -391,13 +410,15 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferers(c *tc.C) 
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       applicationUUID,
-		CharmUUID:             charmUUID,
-		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
-		OfferUUID:             offerUUID,
-		OffererModelUUID:      offererModelUUID,
-		Charm:                 charm,
-		EncodedMacaroon:       macBytes,
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charm,
+		},
+		OffererModelUUID: offererModelUUID,
+		EncodedMacaroon:  macBytes,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -419,6 +440,409 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferersEmpty(c *t
 	results, err := s.state.GetRemoteApplicationOfferers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.HasLen, 0)
+}
+
+func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumer(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Local resources needed:
+	localApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
+	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, localCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, localApplicationUUID, localCharmUUID, offerUUID)
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charm,
+		},
+		RelationUUID: relationUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertApplicationRemoteConsumer(c, applicationUUID)
+	s.assertApplication(c, applicationUUID)
+	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm)
+
+	endpoints := s.fetchApplicationEndpoints(c, applicationUUID)
+	c.Assert(endpoints, tc.HasLen, 3)
+
+	c.Check(endpoints[0].charmRelationName, tc.Equals, "cache")
+	c.Check(endpoints[1].charmRelationName, tc.Equals, "db")
+	c.Check(endpoints[2].charmRelationName, tc.Equals, "juju-info")
+
+	// Fetch the synthetic relation from the application_remote_relation table:
+	var syntheticRelationUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT r.uuid
+FROM   relation AS r
+JOIN   application_remote_relation AS arr ON r.uuid = arr.relation_uuid
+WHERE  arr.consumer_relation_uuid = ?`, relationUUID).
+			Scan(&syntheticRelationUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	// Check that the synthetic relation has been created with the expected
+	// UUID and ID 0 (the first relation created in the model).
+	s.assertRelation(c, syntheticRelationUUID, 0)
+}
+
+func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwiceSameApp(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID0 := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Local resources needed:
+	localApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
+	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, localCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, localApplicationUUID, localCharmUUID, offerUUID)
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charm,
+		},
+		RelationUUID: relationUUID0,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertApplicationRemoteConsumer(c, applicationUUID)
+	s.assertApplication(c, applicationUUID)
+	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm)
+
+	err = s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charm,
+		},
+		RelationUUID: relationUUID1,
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationAlreadyExists)
+}
+
+func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwoApps(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID0 := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Local resources needed:
+	localApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
+	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, localCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, localApplicationUUID, localCharmUUID, offerUUID)
+
+	charm1 := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+
+	charm2 := charm.Charm{
+		ReferenceName: "baz",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "bar",
+			Description: "remote consumer application 2",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charm1,
+		},
+		RelationUUID: relationUUID0,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertApplicationRemoteConsumer(c, applicationUUID)
+	s.assertApplication(c, applicationUUID)
+	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm1)
+
+	err = s.state.AddRemoteApplicationConsumer(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       tc.Must(c, internaluuid.NewUUID).String(),
+			CharmUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charm2,
+		},
+		RelationUUID: relationUUID1,
+	})
+	c.Assert(err, tc.ErrorIsNil) // Should succeed since different applications can consume same offer
+}
+
+func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerCheckVersion(c *tc.C) {
+	applicationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	applicationUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID0 := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Local resources needed:
+	localApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
+	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, localCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, localApplicationUUID, localCharmUUID, offerUUID)
+
+	charm1 := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+		},
+	}
+
+	charm2 := charm.Charm{
+		ReferenceName: "baz",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "bar",
+			Description: "remote consumer application 2",
+		},
+	}
+
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID1,
+			CharmUUID:             charmUUID1,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charm1,
+		},
+		RelationUUID: relationUUID0,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddRemoteApplicationConsumer(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID2,
+			CharmUUID:             charmUUID2,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charm2,
+		},
+		RelationUUID: relationUUID1,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	remoteApp1Version := s.getApplicationRemoteConsumerVersion(c, applicationUUID1)
+	c.Check(remoteApp1Version, tc.Equals, uint64(0))
+
+	remoteApp2Version := s.getApplicationRemoteConsumerVersion(c, applicationUUID2)
+	c.Check(remoteApp2Version, tc.Equals, uint64(1)) // Same offer, so version increments
+}
+
+func (s *modelRemoteApplicationSuite) assertApplicationRemoteConsumer(c *tc.C, applicationUUID string) {
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT COUNT(*)
+FROM application_remote_consumer
+WHERE consumer_application_uuid = ?
+`, applicationUUID).Scan(&count)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+}
+
+func (s *modelRemoteApplicationSuite) getApplicationRemoteConsumerVersion(c *tc.C, applicationUUID string) uint64 {
+
+	var version uint64
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT version
+FROM application_remote_consumer
+WHERE consumer_application_uuid = ?
+`, applicationUUID).Scan(&version)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return version
+}
+
+func (s *modelRemoteApplicationSuite) createOffer(c *tc.C, offerUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Create an offer record
+		_, err := tx.Exec(`
+INSERT INTO offer (uuid, name)
+VALUES (?, 'test-offer')
+`, offerUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelRemoteApplicationSuite) createApplication(c *tc.C, applicationUUID string, charmUUID string, offerUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Create an application record
+		_, err := tx.Exec(`
+INSERT INTO application (uuid, name, charm_uuid, life_id, space_uuid)
+VALUES (?, 'existing-app', ?, 0, ?)
+`, applicationUUID, charmUUID, network.AlphaSpaceId)
+		if err != nil {
+			return err
+		}
+		// Insert charm_relation and application_endpoint records
+		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", charmUUID, "0", "0", "endpoint0")
+		if err != nil {
+			return err
+		}
+		insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", applicationUUID, network.AlphaSpaceId, "charm-relation0-uuid")
+		if err != nil {
+			return err
+		}
+		// Insert an offer endpoint record
+		insertOfferEndpoint := `INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertOfferEndpoint, offerUUID, "app-endpoint0-uuid")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelRemoteApplicationSuite) createCharm(c *tc.C, charmUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Create a charm record
+		_, err := tx.Exec(`
+INSERT INTO charm (uuid, reference_name, source_id)
+VALUES (?, 'existing-charm', 1)
+`, charmUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelRemoteApplicationSuite) assertApplicationRemoteOfferer(c *tc.C, uuid string) {
@@ -480,6 +904,28 @@ func (s *modelRemoteApplicationSuite) assertApplication(c *tc.C, uuid string) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotName, tc.Equals, "foo")
+}
+
+func (s *modelRemoteApplicationSuite) assertRelation(c *tc.C, relationUUID string, relationID int) {
+	var (
+		gotUUID    string
+		gotID      int
+		gotLifID   int
+		gotScopeID int
+	)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT * FROM relation WHERE relation_id=?", relationID).
+			Scan(&gotUUID, &gotID, &gotLifID, &gotScopeID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotUUID, tc.Equals, relationUUID)
+	c.Check(gotID, tc.Equals, relationID)
+	c.Check(gotLifID, tc.Equals, 0)   // life.Alive
+	c.Check(gotScopeID, tc.Equals, 0) // scope.Global
 }
 
 func (s *modelRemoteApplicationSuite) assertCharmMetadata(c *tc.C, appUUID, charmUUID string, expected charm.Charm) {

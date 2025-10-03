@@ -9,4 +9,7 @@ const (
 	// ApplicationRemoteOffererSequenceNamespace is the namespace for remote
 	// offerer application sequences.
 	ApplicationRemoteOffererSequenceNamespace = sequence.StaticNamespace("remote-offerer-application")
+	// ApplicationRemoteConsumerSequenceNamespace is the namespace for remote
+	// consumer application sequences.
+	ApplicationRemoteConsumerSequenceNamespace = sequence.StaticNamespace("remote-consumer-application")
 )

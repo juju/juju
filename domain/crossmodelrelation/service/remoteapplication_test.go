@@ -97,8 +97,10 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 	received.CharmUUID = ""
 
 	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationOffererArgs{
-		Charm:                 syntheticCharm,
-		OfferUUID:             offerUUID,
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			Charm:     syntheticCharm,
+			OfferUUID: offerUUID,
+		},
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      offererModelUUID,
 		EncodedMacaroon:       tc.Must(c, macaroon.MarshalJSON),

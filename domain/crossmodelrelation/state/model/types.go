@@ -209,6 +209,49 @@ type remoteApplicationStatus struct {
 	UpdatedAt             *time.Time `db:"updated_at"`
 }
 
+type remoteApplicationConsumer struct {
+	UUID                    string    `db:"uuid"`
+	OffererApplicationUUID  string    `db:"offerer_application_uuid"`
+	ConsumerApplicationUUID string    `db:"consumer_application_uuid"`
+	OfferConnectionUUID     string    `db:"offer_connection_uuid"`
+	Version                 uint64    `db:"version"`
+	LifeID                  life.Life `db:"life_id"`
+}
+
+type offerConnection struct {
+	UUID                          string `db:"uuid"`
+	OfferUUID                     string `db:"offer_uuid"`
+	ApplicationRemoteRelationUUID string `db:"application_remote_relation_uuid"`
+	Username                      string `db:"username"`
+}
+
+type offerConnectionQuery struct {
+	OfferUUID string `db:"offer_uuid"`
+}
+
+type relation struct {
+	UUID       string `db:"uuid"`
+	LifeID     int    `db:"life_id"`
+	RelationID uint64 `db:"relation_id"`
+}
+
+type applicationRemoteRelation struct {
+	RelationUUID         string `db:"relation_uuid"`
+	ConsumerRelationUUID string `db:"consumer_relation_uuid"`
+}
+
+type consumerRelationUUID struct {
+	ConsumerRelationUUID string `db:"consumer_relation_uuid"`
+}
+
+type consumerApplicationUUID struct {
+	ConsumerApplicationUUID string `db:"consumer_application_uuid"`
+}
+
+type charmScope struct {
+	Name string `db:"name"`
+}
+
 type setApplicationEndpointBinding struct {
 	UUID          string `db:"uuid"`
 	ApplicationID string `db:"application_uuid"`
