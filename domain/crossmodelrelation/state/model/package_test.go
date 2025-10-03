@@ -16,6 +16,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -26,14 +27,19 @@ import (
 type baseSuite struct {
 	schematesting.ModelSuite
 	state *State
+
+	relationCount int
 }
 
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
+
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	s.relationCount = 0
 
 	c.Cleanup(func() {
 		s.state = nil
+		s.relationCount = 0
 	})
 }
 
@@ -140,6 +146,18 @@ INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `, charmRelationUUID, charmUUID, r.Name, s.encodeRoleID(r.Role), r.Interface, r.Optional, r.Limit, s.encodeScopeID(r.Scope))
 	return charmRelationUUID
+}
+
+// addRelation inserts a new relation into the database with default relation
+// and life IDs. Returns the relation UUID.
+func (s *baseSuite) addRelation(c *tc.C) corerelation.UUID {
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	s.query(c, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id) 
+VALUES (?, 0, ?, 0)
+`, relationUUID, s.relationCount)
+	s.relationCount++
+	return relationUUID
 }
 
 // addOffer inserts a new offer with offer_endpoints into the database. Returns

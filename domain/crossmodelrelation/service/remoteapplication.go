@@ -42,6 +42,10 @@ type ModelRemoteApplicationState interface {
 	// NamespaceRemoteApplicationOfferers returns the database namespace
 	// for remote application offerers.
 	NamespaceRemoteApplicationOfferers() string
+
+	// SaveMacaroonForRelation saves the given macaroon for the specified
+	// remote application.
+	SaveMacaroonForRelation(context.Context, string, []byte) error
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -175,8 +179,23 @@ func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
 
 // SaveMacaroonForRelation saves the given macaroon for the specified remote
 // application.
-func (s *Service) SaveMacaroonForRelation(context.Context, corerelation.UUID, *macaroon.Macaroon) error {
-	return nil
+func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID corerelation.UUID, mac *macaroon.Macaroon) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return internalerrors.Errorf("relation UUID %q is not valid: %w", relationUUID, err).Add(errors.NotValid)
+	}
+	if mac == nil {
+		return internalerrors.New("macaroon cannot be nil").Add(errors.NotValid)
+	}
+
+	bytes, err := mac.MarshalJSON()
+	if err != nil {
+		return internalerrors.Errorf("marshalling macaroon: %w", err)
+	}
+
+	return s.modelState.SaveMacaroonForRelation(ctx, relationUUID.String(), bytes)
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {

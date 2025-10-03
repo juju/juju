@@ -490,6 +490,44 @@ func (c *MockModelStateNamespaceRemoteApplicationOfferersCall) DoAndReturn(f fun
 	return c
 }
 
+// SaveMacaroonForRelation mocks base method.
+func (m *MockModelState) SaveMacaroonForRelation(arg0 context.Context, arg1 string, arg2 []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveMacaroonForRelation", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveMacaroonForRelation indicates an expected call of SaveMacaroonForRelation.
+func (mr *MockModelStateMockRecorder) SaveMacaroonForRelation(arg0, arg1, arg2 any) *MockModelStateSaveMacaroonForRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveMacaroonForRelation", reflect.TypeOf((*MockModelState)(nil).SaveMacaroonForRelation), arg0, arg1, arg2)
+	return &MockModelStateSaveMacaroonForRelationCall{Call: call}
+}
+
+// MockModelStateSaveMacaroonForRelationCall wrap *gomock.Call
+type MockModelStateSaveMacaroonForRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateSaveMacaroonForRelationCall) Return(arg0 error) *MockModelStateSaveMacaroonForRelationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateSaveMacaroonForRelationCall) Do(f func(context.Context, string, []byte) error) *MockModelStateSaveMacaroonForRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateSaveMacaroonForRelationCall) DoAndReturn(f func(context.Context, string, []byte) error) *MockModelStateSaveMacaroonForRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateOffer mocks base method.
 func (m *MockModelState) UpdateOffer(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
