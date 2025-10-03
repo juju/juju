@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/storage"
 )
@@ -351,6 +352,10 @@ type ServiceManager interface {
 	// WatchService returns a watcher which notifies when there
 	// are changes to the deployment of the specified application.
 	WatchService(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
+
+	// LabelVersion returns the detected label version for k8s resources created
+	// for this model.
+	LabelVersion() constants.LabelVersion
 }
 
 // Service represents information about the status of a caas service entity.
