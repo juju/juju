@@ -1696,7 +1696,7 @@
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
-                                    "$ref": "#/definitions/Constraints"
+                                    "$ref": "#/definitions/Directive"
                                 }
                             }
                         }
@@ -2427,21 +2427,26 @@
                 "Constraints": {
                     "type": "object",
                     "properties": {
+                        "Attributes": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "Count": {
                             "type": "integer"
                         },
-                        "Pool": {
+                        "Type": {
                             "type": "string"
-                        },
-                        "Size": {
-                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "Pool",
-                        "Size",
-                        "Count"
+                        "Type",
+                        "Count",
+                        "Attributes"
                     ]
                 },
                 "ConsumeApplicationArgV5": {
@@ -2551,7 +2556,7 @@
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
-                                    "$ref": "#/definitions/Constraints"
+                                    "$ref": "#/definitions/Directive"
                                 }
                             }
                         },
@@ -2914,6 +2919,26 @@
                     "additionalProperties": false,
                     "required": [
                         "units"
+                    ]
+                },
+                "Directive": {
+                    "type": "object",
+                    "properties": {
+                        "Count": {
+                            "type": "integer"
+                        },
+                        "Pool": {
+                            "type": "string"
+                        },
+                        "Size": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Pool",
+                        "Size",
+                        "Count"
                     ]
                 },
                 "EndpointRelationData": {
@@ -10477,7 +10502,7 @@
                         "disks": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/Constraints"
+                                "$ref": "#/definitions/Directive"
                             }
                         },
                         "hardware-characteristics": {
@@ -10610,26 +10635,6 @@
                         "channel"
                     ]
                 },
-                "Constraints": {
-                    "type": "object",
-                    "properties": {
-                        "Count": {
-                            "type": "integer"
-                        },
-                        "Pool": {
-                            "type": "string"
-                        },
-                        "Size": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Pool",
-                        "Size",
-                        "Count"
-                    ]
-                },
                 "DestroyMachineInfo": {
                     "type": "object",
                     "properties": {
@@ -10715,6 +10720,26 @@
                     "additionalProperties": false,
                     "required": [
                         "machine-tags"
+                    ]
+                },
+                "Directive": {
+                    "type": "object",
+                    "properties": {
+                        "Count": {
+                            "type": "integer"
+                        },
+                        "Pool": {
+                            "type": "string"
+                        },
+                        "Size": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Pool",
+                        "Size",
+                        "Count"
                     ]
                 },
                 "Entities": {
