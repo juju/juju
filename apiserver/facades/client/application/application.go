@@ -2222,6 +2222,9 @@ func (api *APIBase) GetApplicationStorage(ctx context.Context, args params.Entit
 	return resp, nil
 }
 
+// GetApplicationStorage isn't on the v21 API.
+func (api *APIv21) GetApplicationStorage(_ struct{}) {}
+
 func (api *APIBase) updateOneApplicationStorage(storageUpdate params.ApplicationStorageUpdate) error {
 	// TODO(storage): implement and add test.
 	return errors.NotImplementedf("UpdateApplicationStorage")
@@ -2248,3 +2251,6 @@ func (api *APIBase) UpdateApplicationStorage(ctx context.Context, args params.Ap
 
 	return resp, nil
 }
+
+// UpdateApplicationStorage isn't on the v21 API.
+func (api *APIv21) UpdateApplicationStorage(_ struct{}) {}

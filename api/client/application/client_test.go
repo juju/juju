@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	stderrors "errors"
 	"testing"
 	"time"
@@ -1593,4 +1594,167 @@ func (s *applicationSuite) TestDeployFromRepository(c *tc.C) {
 		Revision:         7,
 	})
 
+}
+
+func (s *applicationSuite) TestGetApplicationStorageSuccessful(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-storage-block"},
+		}}
+
+	sbSize := uint64(5)
+	sbCount := uint64(1)
+
+	result := new(params.ApplicationStorageGetResults)
+	results := params.ApplicationStorageGetResults{
+		Results: []params.ApplicationStorageGetResult{
+			{
+				StorageConstraints: map[string]params.StorageDirectives{
+					"storage-block": {
+						Pool:    "loop",
+						SizeMiB: &sbSize,
+						Count:   &sbCount,
+					},
+				},
+			},
+		},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(context.Background(), "GetApplicationStorage", args, result).SetArg(3, results).Return(nil)
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	info, err := client.GetApplicationStorage("storage-block")
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info.StorageConstraints, tc.DeepEquals, map[string]storage.Directive{
+		"storage-block": {
+			Pool:  "loop",
+			Size:  uint64(5),
+			Count: uint64(1),
+		},
+	})
+}
+
+func (s *applicationSuite) TestGetApplicationStorageServerError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-storage-block"},
+		}}
+
+	result := new(params.ApplicationStorageGetResults)
+	results := params.ApplicationStorageGetResults{
+		Results: []params.ApplicationStorageGetResult{
+			{
+				Error: &params.Error{
+					Code:    params.CodeNotFound,
+					Message: "Not Found Error",
+				},
+			},
+		},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(context.Background(), "GetApplicationStorage", args, result).SetArg(3, results).Return(nil)
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	info, err := client.GetApplicationStorage("storage-block")
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info.Error, tc.ErrorIs, errors.NotFound)
+}
+
+func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	sbSize := uint64(5)
+	sbCount := uint64(1)
+
+	args := params.ApplicationStorageUpdateRequest{
+		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
+			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageDirectives{
+				"storage-block": {
+					Pool:    "loop",
+					SizeMiB: &sbSize,
+					Count:   &sbCount,
+				},
+			}},
+		}}
+
+	result := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: nil,
+			},
+		},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(context.Background(), "UpdateApplicationStorage", args, result).SetArg(3, results).Return(nil)
+
+	applicationStorageUpdate := application.ApplicationStorageUpdate{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Directive{
+			"storage-block": {
+				Pool:  "loop",
+				Size:  uint64(5),
+				Count: uint64(1),
+			},
+		},
+	}
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	err := client.UpdateApplicationStorage(applicationStorageUpdate)
+
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	sbSize := uint64(5)
+	sbCount := uint64(1)
+
+	args := params.ApplicationStorageUpdateRequest{
+		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
+			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageDirectives{
+				"storage-block": {
+					Pool:    "loop",
+					SizeMiB: &sbSize,
+					Count:   &sbCount,
+				},
+			}},
+		}}
+
+	result := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: &params.Error{Message: "test error1", Code: params.CodeNotFound},
+			},
+		},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(context.Background(), "UpdateApplicationStorage", args, result).SetArg(3, results).Return(nil)
+
+	applicationStorageUpdate := application.ApplicationStorageUpdate{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Directive{
+			"storage-block": {
+				Pool:  "loop",
+				Size:  uint64(5),
+				Count: uint64(1),
+			},
+		},
+	}
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	err := client.UpdateApplicationStorage(applicationStorageUpdate)
+
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.DeepEquals, "test error1")
 }
