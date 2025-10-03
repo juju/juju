@@ -632,7 +632,7 @@ func (s *applicationWorkerSuite) TestHandleRelationChangePeerRelation(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *applicationWorkerSuite) TestRegisterRemoteRelation(c *tc.C) {
+func (s *applicationWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	token := tc.Must(c, application.NewID)
@@ -679,7 +679,7 @@ func (s *applicationWorkerSuite) TestRegisterRemoteRelation(c *tc.C) {
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	result, err := w.registerRemoteRelation(c.Context(),
+	result, err := w.registerConsumerRelation(c.Context(),
 		relationUUID,
 		s.offerUUID,
 		1,
@@ -694,13 +694,13 @@ func (s *applicationWorkerSuite) TestRegisterRemoteRelation(c *tc.C) {
 		"blog",
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, remoteRelationResult{
+	c.Check(result, tc.DeepEquals, consumerRelationResult{
 		offeringApplicationUUID: token,
 		macaroon:                mac,
 	})
 }
 
-func (s *applicationWorkerSuite) TestRegisterRemoteRelationFailedRequest(c *tc.C) {
+func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedRequest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -736,7 +736,7 @@ func (s *applicationWorkerSuite) TestRegisterRemoteRelationFailedRequest(c *tc.C
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	_, err := w.registerRemoteRelation(c.Context(),
+	_, err := w.registerConsumerRelation(c.Context(),
 		relationUUID,
 		s.offerUUID,
 		1,
@@ -753,7 +753,7 @@ func (s *applicationWorkerSuite) TestRegisterRemoteRelationFailedRequest(c *tc.C
 	c.Assert(err, tc.ErrorMatches, `.*front fell off.*`)
 }
 
-func (s *applicationWorkerSuite) TestRegisterRemoteRelationInvalidResultLength(c *tc.C) {
+func (s *applicationWorkerSuite) TestRegisterConsumerRelationInvalidResultLength(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -789,7 +789,7 @@ func (s *applicationWorkerSuite) TestRegisterRemoteRelationInvalidResultLength(c
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	_, err := w.registerRemoteRelation(c.Context(),
+	_, err := w.registerConsumerRelation(c.Context(),
 		relationUUID,
 		s.offerUUID,
 		1,
@@ -806,7 +806,7 @@ func (s *applicationWorkerSuite) TestRegisterRemoteRelationInvalidResultLength(c
 	c.Assert(err, tc.ErrorMatches, `.*no result from registering remote relation.*`)
 }
 
-func (s *applicationWorkerSuite) TestRegisterRemoteRelationFailedRequestError(c *tc.C) {
+func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedRequestError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -847,7 +847,7 @@ func (s *applicationWorkerSuite) TestRegisterRemoteRelationFailedRequestError(c 
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	_, err := w.registerRemoteRelation(c.Context(),
+	_, err := w.registerConsumerRelation(c.Context(),
 		relationUUID,
 		s.offerUUID,
 		1,
@@ -864,7 +864,7 @@ func (s *applicationWorkerSuite) TestRegisterRemoteRelationFailedRequestError(c 
 	c.Assert(err, tc.ErrorMatches, `.*registering relation.*`)
 }
 
-func (s *applicationWorkerSuite) TestRegisterRemoteRelationFailedToSaveMacaroon(c *tc.C) {
+func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacaroon(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	token := tc.Must(c, application.NewID)
@@ -911,7 +911,7 @@ func (s *applicationWorkerSuite) TestRegisterRemoteRelationFailedToSaveMacaroon(
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	_, err := w.registerRemoteRelation(c.Context(),
+	_, err := w.registerConsumerRelation(c.Context(),
 		relationUUID,
 		s.offerUUID,
 		1,
