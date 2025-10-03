@@ -28,24 +28,29 @@ type StorageService interface {
 		context.Context, coreapplication.UUID,
 	) ([]application.StorageDirective, error)
 
-	// GetRegisterCAASUnitStorageArg is responsible for getting the storage
-	// arguments required to register a CAAS unit in the model. This func
-	// considers pre existing storage already in the model for the unit and any
-	// new storage that needs to be created.
+	// MakeRegisterExistingCAASUnitStorageArg is responsible for constructing the
+	// storage arguments for registering an existing caas unit in the model. This
+	// ends up being a set of arguments that are making sure eventual consistency
+	// of the unit's storage.MakeRegisterExistingCAASUnitStorageArg
 	//
-	// This function will first use all the existing storage in the model for
-	// the unit before creating new storage to meet the storage directives of
-	// the unit. Storage created by this func will be associated with the
-	// providers information on first creation. All storage created and re-used
-	// will also now be owned by the unit being registered.
+	// The following errors may be expected:
+	// - [applicationerrors.UnitNotFound] when the unit no longer exists.
+	MakeRegisterExistingCAASUnitStorageArg(
+		ctx context.Context,
+		unitUUID coreunit.UUID,
+		attachmentNetNodeUUID domainnetwork.NetNodeUUID,
+		providerFilesystemInfo []caas.FilesystemInfo,
+	) (application.RegisterUnitStorageArg, error)
+
+	// MakeRegisterNewCAASUnitStorageArg is responsible for constructing the storage
+	// arguments for registering a new caas unit in the model.
 	//
 	// The following errors may be expected:
 	// - [applicationerrors.ApplicationNotFound] when the application no longer
 	// exists.
-	GetRegisterCAASUnitStorageArg(
+	MakeRegisterNewCAASUnitStorageArg(
 		ctx context.Context,
 		appUUID coreapplication.ID,
-		unitUUID coreunit.UUID,
 		attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 		providerFilesystemInfo []caas.FilesystemInfo,
 	) (application.RegisterUnitStorageArg, error)

@@ -492,7 +492,6 @@ func (s *ProviderService) RegisterCAASUnit(
 
 	isRegistered, unitUUID, unitNetNodeUUID, err :=
 		s.st.CheckCAASUnitRegistered(ctx, unitName)
-	fmt.Println(unitUUID)
 	if err != nil {
 		return "", "", errors.Errorf(
 			"checking if unit %q is already registered in the model: %w",
@@ -501,13 +500,9 @@ func (s *ProviderService) RegisterCAASUnit(
 	}
 
 	if !isRegistered {
-		unitUUID, err = coreunit.NewUUID()
-		if err != nil {
-			return "", "", errors.Errorf(
-				"generating new unit %q uuid: %w", unitName, err,
-			)
-		}
-
+		// TODO (tlm): This code SHOULD be responsible for generating the unit
+		// uuid of a new CAAS unit. However this is still done in state. We need
+		// to fix this and have this driven from above.
 		unitNetNodeUUID, err = domainnetwork.NewNetNodeUUID()
 		if err != nil {
 			return "", "", errors.Errorf(
@@ -547,12 +542,19 @@ func (s *ProviderService) RegisterCAASUnit(
 		registerArgs.Ports = &caasUnit.Ports
 	}
 
-	storageArg, err := s.storageService.GetRegisterCAASUnitStorageArg(
-		ctx, appUUID, unitUUID, "", caasUnit.FilesystemInfo,
-	)
+	var storageArg application.RegisterUnitStorageArg
+	if isRegistered {
+		storageArg, err = s.storageService.MakeRegisterExistingCAASUnitStorageArg(
+			ctx, unitUUID, unitNetNodeUUID, caasUnit.FilesystemInfo,
+		)
+	} else {
+		storageArg, err = s.storageService.MakeRegisterNewCAASUnitStorageArg(
+			ctx, appUUID, unitNetNodeUUID, caasUnit.FilesystemInfo,
+		)
+	}
 	if err != nil {
 		return "", "", errors.Errorf(
-			"creating storage registrations for caas unit %q: %w",
+			"making storage registration arg for caas unit %q: %w",
 			unitName, err,
 		)
 	}
