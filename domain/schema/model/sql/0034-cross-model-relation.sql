@@ -96,6 +96,10 @@ CREATE TABLE application_remote_relation (
     REFERENCES relation (uuid)
 );
 
+-- Offering model relations (synthetic) are 1:1 with consumer model relations.
+CREATE UNIQUE INDEX idx_application_remote_relation_consumer_relation_uuid
+ON application_remote_relation (consumer_relation_uuid);
+
 -- offer connection links the application remote consumer to the offer.
 CREATE TABLE offer_connection (
     uuid TEXT NOT NULL PRIMARY KEY,
@@ -106,7 +110,7 @@ CREATE TABLE offer_connection (
     -- synthetic relation.
     -- It is foreign keyed to application_remote_relation, which allows us to
     -- find the relation uuid of the relation in the consumer model.
-    application_remote_relation_uuid TEXT NOT NULL, 
+    application_remote_relation_uuid TEXT NOT NULL,
     -- username is the user in the consumer model that created the offer
     -- connection. This is not a user, but an offer user for which offers are
     -- granted permissions on.
@@ -115,6 +119,6 @@ CREATE TABLE offer_connection (
     FOREIGN KEY (offer_uuid)
     REFERENCES offer (uuid),
     CONSTRAINT fk_remote_relation_uuid
-    FOREIGN KEY (remote_relation_uuid)
+    FOREIGN KEY (application_remote_relation_uuid)
     REFERENCES application_remote_relation (relation_uuid)
 );

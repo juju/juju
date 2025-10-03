@@ -498,7 +498,21 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumer(c *tc.C) 
 	c.Check(endpoints[0].charmRelationName, tc.Equals, "cache")
 	c.Check(endpoints[1].charmRelationName, tc.Equals, "db")
 	c.Check(endpoints[2].charmRelationName, tc.Equals, "juju-info")
-	s.assertRelation(c, relationUUID, 0)
+
+	// Fetch the synthetic relation from the application_remote_relation table:
+	var syntheticRelationUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT r.uuid
+FROM   relation AS r
+JOIN   application_remote_relation AS arr ON r.uuid = arr.relation_uuid
+WHERE  arr.consumer_relation_uuid = ?`, relationUUID).
+			Scan(&syntheticRelationUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	// Check that the synthetic relation has been created with the expected
+	// UUID and ID 0 (the first relation created in the model).
+	s.assertRelation(c, syntheticRelationUUID, 0)
 }
 
 func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwiceSameApp(c *tc.C) {

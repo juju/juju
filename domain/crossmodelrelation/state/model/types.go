@@ -210,31 +210,38 @@ type remoteApplicationStatus struct {
 }
 
 type remoteApplicationConsumer struct {
-	// UUID is the unique identifier for this remote application consuemr.
-	UUID string `db:"uuid"`
-	// LifeID is the life state of the remote application consumer.
-	LifeID life.Life `db:"life_id"`
-	// ApplicationUUID is the unique identifier for the application
-	// that is consumed on the consuming model.
-	ApplicationUUID string `db:"application_uuid"`
-	// OfferConnectionUUID is the offer connection uuid that ties both the
-	// offerer and consumer together.
-	OfferConnectionUUID string `db:"offer_connection_uuid"`
-	// Version is the version of the remote application offerer.
-	Version uint64 `db:"version"`
+	UUID                string    `db:"uuid"`
+	LifeID              life.Life `db:"life_id"`
+	ApplicationUUID     string    `db:"application_uuid"`
+	OfferConnectionUUID string    `db:"offer_connection_uuid"`
+	Version             uint64    `db:"version"`
 }
 
 type offerConnection struct {
-	UUID               string `db:"uuid"`
-	OfferUUID          string `db:"offer_uuid"`
-	RemoteRelationUUID string `db:"remote_relation_uuid"`
-	Username           string `db:"username"`
+	UUID                          string `db:"uuid"`
+	OfferUUID                     string `db:"offer_uuid"`
+	ApplicationRemoteRelationUUID string `db:"application_remote_relation_uuid"`
+	Username                      string `db:"username"`
+}
+
+type offerConnectionQuery struct {
+	OfferUUID                     string `db:"offer_uuid"`
+	ApplicationRemoteRelationUUID string `db:"application_remote_relation_uuid"`
 }
 
 type relation struct {
 	UUID       string `db:"uuid"`
 	LifeID     int    `db:"life_id"`
 	RelationID uint64 `db:"relation_id"`
+}
+
+type applicationRemoteRelation struct {
+	RelationUUID         string `db:"relation_uuid"`
+	ConsumerRelationUUID string `db:"consumer_relation_uuid"`
+}
+
+type consumerRelationUUID struct {
+	ConsumerRelationUUID string `db:"consumer_relation_uuid"`
 }
 
 type charmScope struct {
