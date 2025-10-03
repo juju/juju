@@ -58,26 +58,35 @@ CREATE TABLE application_remote_offerer_status (
 -- inside of the offering model.
 CREATE TABLE application_remote_consumer (
     uuid TEXT NOT NULL PRIMARY KEY,
-    life_id INT NOT NULL,
-    -- application_uuid is the synthetic application in the offerer model.
-    -- Locating charm is done through the application.
-    application_uuid TEXT NOT NULL,
+    -- offerer_application_uuid is application UUID of the offer in the offering
+    -- model.
+    offerer_application_uuid TEXT NOT NULL,
+    -- consumed_application_uuid is the (remote, synthetic) application UUID in 
+    -- the consumer model.
+    consumer_application_uuid TEXT NOT NULL,
     -- offer_connection_uuid is the offer connection that links the remote
     -- consumer to the offer.
     offer_connection_uuid TEXT NOT NULL,
     -- version is the unique version number that is incremented when the
     -- consumer model changes the consumer application.
     version INT NOT NULL,
+    life_id INT NOT NULL,
     CONSTRAINT fk_life_id
     FOREIGN KEY (life_id)
     REFERENCES life (id),
-    CONSTRAINT fk_application_uuid
-    FOREIGN KEY (application_uuid)
+    CONSTRAINT fk_offerer_application_uuid
+    FOREIGN KEY (offerer_application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_consumer_application_uuid
+    FOREIGN KEY (consumer_application_uuid)
     REFERENCES application (uuid),
     CONSTRAINT fk_offer_connection_uuid
     FOREIGN KEY (offer_connection_uuid)
     REFERENCES offer_connection (uuid)
 );
+
+CREATE UNIQUE INDEX idx_application_remote_consumer_consumed_application_uuid
+ON application_remote_consumer (consumer_application_uuid);
 
 -- application_remote_relation represents a look up table to find the consumer
 -- relation UUID for a given (syntethic) relation in the offerer model.

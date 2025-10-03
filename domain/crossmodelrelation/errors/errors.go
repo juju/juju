@@ -18,7 +18,7 @@ const (
 	// create an offer that already exists for the same UUID.
 	OfferAlreadyConsumed = errors.ConstError("offer already consumed")
 
-	// OfferConnectionAlreadyExists describes an error that occurs when trying
-	// to connection that already exists.
-	OfferConnectionAlreadyExists = errors.ConstError("offer connection already exists")
+	// RemoteRelationAlreadyRegistered describes an error that occurs when
+	// trying to register a remote relation that already exists.
+	RemoteRelationAlreadyRegistered = errors.ConstError("remote relation already registered")
 )

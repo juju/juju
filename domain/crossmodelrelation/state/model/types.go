@@ -210,11 +210,12 @@ type remoteApplicationStatus struct {
 }
 
 type remoteApplicationConsumer struct {
-	UUID                string    `db:"uuid"`
-	LifeID              life.Life `db:"life_id"`
-	ApplicationUUID     string    `db:"application_uuid"`
-	OfferConnectionUUID string    `db:"offer_connection_uuid"`
-	Version             uint64    `db:"version"`
+	UUID                    string    `db:"uuid"`
+	OffererApplicationUUID  string    `db:"offerer_application_uuid"`
+	ConsumerApplicationUUID string    `db:"consumer_application_uuid"`
+	OfferConnectionUUID     string    `db:"offer_connection_uuid"`
+	Version                 uint64    `db:"version"`
+	LifeID                  life.Life `db:"life_id"`
 }
 
 type offerConnection struct {
@@ -225,8 +226,7 @@ type offerConnection struct {
 }
 
 type offerConnectionQuery struct {
-	OfferUUID                     string `db:"offer_uuid"`
-	ApplicationRemoteRelationUUID string `db:"application_remote_relation_uuid"`
+	OfferUUID string `db:"offer_uuid"`
 }
 
 type relation struct {
@@ -242,6 +242,10 @@ type applicationRemoteRelation struct {
 
 type consumerRelationUUID struct {
 	ConsumerRelationUUID string `db:"consumer_relation_uuid"`
+}
+
+type consumerApplicationUUID struct {
+	ConsumerApplicationUUID string `db:"consumer_application_uuid"`
 }
 
 type charmScope struct {

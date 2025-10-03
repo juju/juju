@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -447,8 +448,15 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumer(c *tc.C) 
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
 	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
 
-	// Create an offer in the database
+	// Local resources needed:
+	localApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, localCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, localApplicationUUID, localCharmUUID, offerUUID)
 
 	charm := charm.Charm{
 		ReferenceName: "bar",
@@ -522,8 +530,15 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwiceSameA
 	relationUUID0 := tc.Must(c, internaluuid.NewUUID).String()
 	relationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
 
-	// Create an offer in the database
+	// Local resources needed:
+	localApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, localCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, localApplicationUUID, localCharmUUID, offerUUID)
 
 	charm := charm.Charm{
 		ReferenceName: "bar",
@@ -587,8 +602,15 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwoApps(c 
 	relationUUID0 := tc.Must(c, internaluuid.NewUUID).String()
 	relationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
 
-	// Create an offer in the database
+	// Local resources needed:
+	localApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, localCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, localApplicationUUID, localCharmUUID, offerUUID)
 
 	charm1 := charm.Charm{
 		ReferenceName: "bar",
@@ -682,8 +704,15 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerCheckVersi
 	relationUUID0 := tc.Must(c, internaluuid.NewUUID).String()
 	relationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
 
-	// Create an offer in the database
+	// Local resources needed:
+	localApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, localCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, localApplicationUUID, localCharmUUID, offerUUID)
 
 	charm1 := charm.Charm{
 		ReferenceName: "bar",
@@ -727,11 +756,11 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerCheckVersi
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	remoteApp1 := s.getApplicationRemoteConsumer(c, applicationUUID1)
-	c.Check(remoteApp1.Version, tc.Equals, uint64(0))
+	remoteApp1Version := s.getApplicationRemoteConsumerVersion(c, applicationUUID1)
+	c.Check(remoteApp1Version, tc.Equals, uint64(0))
 
-	remoteApp2 := s.getApplicationRemoteConsumer(c, applicationUUID2)
-	c.Check(remoteApp2.Version, tc.Equals, uint64(1)) // Same offer, so version increments
+	remoteApp2Version := s.getApplicationRemoteConsumerVersion(c, applicationUUID2)
+	c.Check(remoteApp2Version, tc.Equals, uint64(1)) // Same offer, so version increments
 }
 
 func (s *modelRemoteApplicationSuite) assertApplicationRemoteConsumer(c *tc.C, applicationUUID string) {
@@ -740,7 +769,7 @@ func (s *modelRemoteApplicationSuite) assertApplicationRemoteConsumer(c *tc.C, a
 		err := tx.QueryRow(`
 SELECT COUNT(*)
 FROM application_remote_consumer
-WHERE application_uuid = ?
+WHERE consumer_application_uuid = ?
 `, applicationUUID).Scan(&count)
 		return err
 	})
@@ -748,28 +777,19 @@ WHERE application_uuid = ?
 	c.Check(count, tc.Equals, 1)
 }
 
-func (s *modelRemoteApplicationSuite) getApplicationRemoteConsumer(c *tc.C, applicationUUID string) struct {
-	UUID                string
-	ApplicationUUID     string
-	OfferConnectionUUID string
-	Version             uint64
-} {
-	var result struct {
-		UUID                string
-		ApplicationUUID     string
-		OfferConnectionUUID string
-		Version             uint64
-	}
+func (s *modelRemoteApplicationSuite) getApplicationRemoteConsumerVersion(c *tc.C, applicationUUID string) uint64 {
+
+	var version uint64
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
-SELECT uuid, application_uuid, offer_connection_uuid, version
+SELECT version
 FROM application_remote_consumer
-WHERE application_uuid = ?
-`, applicationUUID).Scan(&result.UUID, &result.ApplicationUUID, &result.OfferConnectionUUID, &result.Version)
+WHERE consumer_application_uuid = ?
+`, applicationUUID).Scan(&version)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	return result
+	return version
 }
 
 func (s *modelRemoteApplicationSuite) createOffer(c *tc.C, offerUUID string) {
@@ -779,6 +799,47 @@ func (s *modelRemoteApplicationSuite) createOffer(c *tc.C, offerUUID string) {
 INSERT INTO offer (uuid, name)
 VALUES (?, 'test-offer')
 `, offerUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelRemoteApplicationSuite) createApplication(c *tc.C, applicationUUID string, charmUUID string, offerUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Create an application record
+		_, err := tx.Exec(`
+INSERT INTO application (uuid, name, charm_uuid, life_id, space_uuid)
+VALUES (?, 'existing-app', ?, 0, ?)
+`, applicationUUID, charmUUID, network.AlphaSpaceId)
+		if err != nil {
+			return err
+		}
+		// Insert charm_relation and application_endpoint records
+		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", charmUUID, "0", "0", "endpoint0")
+		if err != nil {
+			return err
+		}
+		insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", applicationUUID, network.AlphaSpaceId, "charm-relation0-uuid")
+		if err != nil {
+			return err
+		}
+		// Insert an offer endpoint record
+		insertOfferEndpoint := `INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertOfferEndpoint, offerUUID, "app-endpoint0-uuid")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelRemoteApplicationSuite) createCharm(c *tc.C, charmUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Create a charm record
+		_, err := tx.Exec(`
+INSERT INTO charm (uuid, reference_name, source_id)
+VALUES (?, 'existing-charm', 1)
+`, charmUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
