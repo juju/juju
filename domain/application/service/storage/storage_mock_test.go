@@ -186,45 +186,6 @@ func (c *MockStateAttachStorageCall) DoAndReturn(f func(context.Context, storage
 	return c
 }
 
-// CheckUnitExists mocks base method.
-func (m *MockState) CheckUnitExists(arg0 context.Context, arg1 unit.UUID) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckUnitExists", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CheckUnitExists indicates an expected call of CheckUnitExists.
-func (mr *MockStateMockRecorder) CheckUnitExists(arg0, arg1 any) *MockStateCheckUnitExistsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckUnitExists", reflect.TypeOf((*MockState)(nil).CheckUnitExists), arg0, arg1)
-	return &MockStateCheckUnitExistsCall{Call: call}
-}
-
-// MockStateCheckUnitExistsCall wrap *gomock.Call
-type MockStateCheckUnitExistsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateCheckUnitExistsCall) Return(arg0 bool, arg1 error) *MockStateCheckUnitExistsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateCheckUnitExistsCall) Do(f func(context.Context, unit.UUID) (bool, error)) *MockStateCheckUnitExistsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCheckUnitExistsCall) DoAndReturn(f func(context.Context, unit.UUID) (bool, error)) *MockStateCheckUnitExistsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DetachStorage mocks base method.
 func (m *MockState) DetachStorage(arg0 context.Context, arg1 storage0.StorageInstanceUUID) error {
 	m.ctrl.T.Helper()
