@@ -228,9 +228,8 @@ func (st *State) getObjectStorePathByTaskUUIDs(
 	}
 	tasks := uuids(taskUUIDs)
 	stmt, err := st.Prepare(`
-SELECT &store.path
-FROM object_store_metadata_path AS osp
-JOIN operation_task_output AS oto ON osp.metadata_uuid = oto.store_uuid
+SELECT oto.store_path AS &store.path
+FROM operation_task_output AS oto
 WHERE task_uuid IN ($uuids[:])`, tasks, store{})
 	if err != nil {
 		return nil, errors.Capture(err)

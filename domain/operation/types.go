@@ -76,7 +76,6 @@ type QueryResult struct {
 type OperationInfo struct {
 	OperationID string
 	Summary     string
-	Fail        string
 	Enqueued    time.Time
 	Started     time.Time
 	Completed   time.Time

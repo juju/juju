@@ -331,7 +331,6 @@ func toOperationResult(op operation.OperationInfo) params.OperationResult {
 	return params.OperationResult{
 		OperationTag: names.NewOperationTag(op.OperationID).String(),
 		Summary:      op.Summary,
-		Fail:         op.Fail,
 		Enqueued:     op.Enqueued,
 		Started:      op.Started,
 		Completed:    op.Completed,

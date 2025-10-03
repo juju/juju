@@ -54,15 +54,15 @@ func (s *Service) InsertMigratingOperations(ctx context.Context, args internal.I
 				continue
 			}
 
-			var storeUUID string
+			var storePath string
 			var rollback func()
 			// warning: err should be setted, not defined to properly handle rollbacks
-			storeUUID, rollback, err = s.storeTaskResults(ctx, task.UUID, task.Output)
+			storePath, rollback, err = s.storeTaskResults(ctx, task.UUID, task.Output)
 			if err != nil {
 				return errors.Errorf("putting task result %q in store: %w", task.UUID, err)
 			}
 			rollbacks = append(rollbacks, rollback)
-			task.StoreUUID = storeUUID
+			task.StorePath = storePath
 		}
 	}
 	// warning: err should be setted, not defined to properly handle rollbacks

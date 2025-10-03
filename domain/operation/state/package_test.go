@@ -310,8 +310,8 @@ func (s *baseSuite) addOperationTaskOutputWithData(c *tc.C, taskUUID, sha256, sh
 	s.query(c, `
 INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
 VALUES (?, ?, ?, ?)`, storeUUID, sha256, sha384, size)
-	s.addMetadataStorePath(c, storeUUID, path)
-	s.query(c, `INSERT INTO operation_task_output (task_uuid, store_uuid) VALUES (?, ?)`, taskUUID, storeUUID)
+	s.linkMetadataStorePath(c, storeUUID, path)
+	s.linkOperationTaskOutput(c, taskUUID, path)
 	return storeUUID
 }
 
@@ -319,22 +319,29 @@ VALUES (?, ?, ?, ?)`, storeUUID, sha256, sha384, size)
 // store metadata uuid
 func (s *baseSuite) addOperationTaskOutputWithPath(c *tc.C, taskUUID string, path string) string {
 	storeUUID := s.addFakeMetadataStore(c, 42)
-	s.query(c, `INSERT INTO operation_task_output (task_uuid, store_uuid) VALUES (?, ?)`, taskUUID, storeUUID)
-	s.addMetadataStorePath(c, storeUUID, path)
+	s.linkMetadataStorePath(c, storeUUID, path)
+	s.linkOperationTaskOutput(c, taskUUID, path)
 	return storeUUID
-}
-
-// addMetadataStorePath links a store metadata to a path
-func (s *baseSuite) addMetadataStorePath(c *tc.C, storeUUID, path string) {
-	s.query(c, `INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)`, path, storeUUID)
 }
 
 // addOperationTaskOutput links a task to an object store metadata, return the
 // store metadata uuid
 func (s *baseSuite) addOperationTaskOutput(c *tc.C, taskUUID string) string {
 	storeUUID := s.addFakeMetadataStore(c, 42)
-	s.query(c, `INSERT INTO operation_task_output (task_uuid, store_uuid) VALUES (?, ?)`, taskUUID, storeUUID)
+	// taskUUID is the path
+	s.linkMetadataStorePath(c, storeUUID, taskUUID)
+	s.linkOperationTaskOutput(c, taskUUID, taskUUID)
 	return storeUUID
+}
+
+// linkMetadataStorePath links a store metadata to a path
+func (s *baseSuite) linkMetadataStorePath(c *tc.C, storeUUID, path string) {
+	s.query(c, `INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)`, path, storeUUID)
+}
+
+// linkOperationTaskOutput links an operation task to an object store metadata entry in the database.
+func (s *baseSuite) linkOperationTaskOutput(c *tc.C, taskUUID, path string) {
+	s.query(c, `INSERT INTO operation_task_output (task_uuid, store_path) VALUES (?, ?)`, taskUUID, path)
 }
 
 // addOperationTaskStatus sets a status for the task with the given textual status name.

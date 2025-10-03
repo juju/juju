@@ -678,15 +678,20 @@ VALUES (?, ?, ?, ?)`, storeUUID, storeUUID, storeUUID, size)
 // store metadata uuid
 func (s *baseSuite) addOperationTaskOutputWithPath(c *tc.C, taskUUID string, path string) string {
 	storeUUID := s.addFakeMetadataStore(c, 42)
-	_, err := s.DB().Exec(`INSERT INTO operation_task_output (task_uuid, store_uuid) VALUES (?, ?)`, taskUUID, storeUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	s.addMetadataStorePath(c, storeUUID, path)
+	s.linkMetadataStorePath(c, storeUUID, path)
+	s.linkOperationTaskOutput(c, taskUUID, path)
 	return storeUUID
 }
 
-// addMetadataStorePath links a store metadata to a path
-func (s *baseSuite) addMetadataStorePath(c *tc.C, storeUUID, path string) {
+// linkMetadataStorePath links a store metadata to a path
+func (s *baseSuite) linkMetadataStorePath(c *tc.C, storeUUID, path string) {
 	_, err := s.DB().Exec(`INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)`, path, storeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// linkOperationTaskOutput links an operation task to an object store metadata entry in the database.
+func (s *baseSuite) linkOperationTaskOutput(c *tc.C, taskUUID, path string) {
+	_, err := s.DB().Exec(`INSERT INTO operation_task_output (task_uuid, store_path) VALUES (?, ?)`, taskUUID, path)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -299,6 +299,70 @@ func (s *FactorySuite) TestNewActionRunnerBadParams(c *tc.C) {
 	c.Check(err, tc.Satisfies, charmrunner.IsBadActionError)
 }
 
+func (s *FactorySuite) TestNewActionRunnerInsertsDefaultParams(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupFactory(c, ctrl)
+
+	actionName := "snapshot"
+	payload := map[string]interface{}{}
+
+	actionTag := names.NewActionTag("2")
+	action := apiuniter.NewAction(
+		actionTag.ID,
+		actionName,
+		payload,
+		false,
+		"",
+	)
+	s.setCharm(c, "dummy")
+	rnr, err := s.factory.NewActionRunner(c.Context(), action, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	s.AssertPaths(c, rnr)
+	ctx := rnr.Context()
+	data, err := ctx.ActionData()
+	c.Assert(err, tc.ErrorIsNil)
+	// Expect default for outfile to be inserted from the charm's actions.yaml (foo.bz2).
+	expected := map[string]interface{}{"outfile": "foo.bz2"}
+	c.Assert(data, tc.DeepEquals, &context.ActionData{
+		Name:       actionName,
+		Tag:        actionTag,
+		Params:     expected,
+		ResultsMap: map[string]interface{}{},
+	})
+}
+
+func (s *FactorySuite) TestNewActionRunnerInsertsDefaultParamsNoOverwrite(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupFactory(c, ctrl)
+
+	actionName := "snapshot"
+	payload := map[string]interface{}{"outfile": "bar.bz2"} // instead of foo.bz2 (default)
+
+	actionTag := names.NewActionTag("2")
+	action := apiuniter.NewAction(
+		actionTag.ID,
+		actionName,
+		payload,
+		false,
+		"",
+	)
+	s.setCharm(c, "dummy")
+	rnr, err := s.factory.NewActionRunner(c.Context(), action, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	s.AssertPaths(c, rnr)
+	ctx := rnr.Context()
+	data, err := ctx.ActionData()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(data, tc.DeepEquals, &context.ActionData{
+		Name:       actionName,
+		Tag:        actionTag,
+		Params:     payload,
+		ResultsMap: map[string]interface{}{},
+	})
+}
+
 func (s *FactorySuite) TestNewActionRunnerWithCancel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

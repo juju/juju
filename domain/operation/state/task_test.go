@@ -6,10 +6,15 @@ package state
 import (
 	"context"
 	"database/sql"
+	"maps"
+	"slices"
 	"testing"
 
+	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
+	coreoperation "github.com/juju/juju/core/operation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/domain/operation/internal"
@@ -35,7 +40,7 @@ func (s *taskSuite) TestGetTaskNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `getting task \"42\": task with ID \"42\" not found`)
 }
 
-func (s *taskSuite) TestGetTask(c *tc.C) {
+func (s *taskSuite) TestGetTaskAction(c *tc.C) {
 	taskID := "42"
 
 	charmUUID := s.addCharm(c)
@@ -52,6 +57,23 @@ func (s *taskSuite) TestGetTask(c *tc.C) {
 	c.Check(task.ActionName, tc.Equals, "test-action")
 	c.Check(task.Receiver, tc.Equals, "test-app/0")
 	c.Check(task.Status, tc.Equals, corestatus.Running)
+	c.Check(task.ExecutionGroup, tc.DeepEquals, ptr("test-group"))
+}
+
+func (s *taskSuite) TestGetTaskExec(c *tc.C) {
+	taskID := "67"
+
+	operationUUID := s.addOperationWithExecutionGroup(c, "test-group")
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "pending")
+	machineUUID := s.addMachine(c, "0")
+	s.addOperationMachineTask(c, taskUUID, machineUUID)
+
+	task, outputPath, err := s.state.GetTask(c.Context(), taskID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(outputPath, tc.IsNil)
+	c.Check(task.ActionName, tc.Equals, coreoperation.JujuExecActionName) // defaulted
+	c.Check(task.Receiver, tc.Equals, "0")
+	c.Check(task.Status, tc.Equals, corestatus.Pending)
 	c.Check(task.ExecutionGroup, tc.DeepEquals, ptr("test-group"))
 }
 
@@ -84,6 +106,54 @@ func (s *taskSuite) TestGetTaskWithParameters(c *tc.C) {
 	c.Assert(task.Parameters, tc.HasLen, 2)
 	c.Check(task.Parameters["param1"], tc.Equals, "value1")
 	c.Check(task.Parameters["param2"], tc.Equals, "value2")
+}
+
+func (s *taskSuite) TestGetTaskWithTypedParameters(c *tc.C) {
+	// Arrange: create an operation and a task, add parameters that look like different types
+	taskID := "43"
+	operationUUID := s.addOperation(c)
+	s.addOperationTaskWithID(c, operationUUID, taskID, "running")
+	// Values that should be decoded to specific types by encodeTask
+	s.addOperationParameter(c, operationUUID, "int", "42")
+	s.addOperationParameter(c, operationUUID, "neg-int", "-7")
+	s.addOperationParameter(c, operationUUID, "float", "3.14")
+	s.addOperationParameter(c, operationUUID, "bool-true", "true")
+	s.addOperationParameter(c, operationUUID, "bool-false", "False")
+	// Values that should remain as strings
+	s.addOperationParameter(c, operationUUID, "str", "hello")
+	s.addOperationParameter(c, operationUUID, "quoted-num", `"42"`)
+
+	// Act
+	task, _, err := s.state.GetTask(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	// int64
+	vInt, ok := task.Parameters["int"].(int64)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vInt, tc.Equals, int64(42))
+	vNegInt, ok := task.Parameters["neg-int"].(int64)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vNegInt, tc.Equals, int64(-7))
+	// float64
+	vFloat, ok := task.Parameters["float"].(float64)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vFloat, tc.Equals, 3.14)
+	// bool
+	vTrue, ok := task.Parameters["bool-true"].(bool)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vTrue, tc.Equals, true)
+	vFalse, ok := task.Parameters["bool-false"].(bool)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vFalse, tc.Equals, false)
+	// string stays string
+	vStr, ok := task.Parameters["str"].(string)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vStr, tc.Equals, "hello")
+	vQte, ok := task.Parameters["quoted-num"].(string)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vQte, tc.Equals, "42")
 }
 
 func (s *taskSuite) TestGetTaskWithLogs(c *tc.C) {
@@ -323,12 +393,12 @@ func (s *taskSuite) TestFinishTaskNotOperation(c *tc.C) {
 	s.addOperationTaskStatus(c, taskUUID, corestatus.Running.String())
 
 	// Setup the object store data to save
-	storeUUID := s.addFakeMetadataStore(c, 4)
-	s.addMetadataStorePath(c, storeUUID, taskUUID)
+	storePath := "store/path"
+	s.linkMetadataStorePath(c, s.addFakeMetadataStore(c, 4), storePath)
 
 	arg := internal.CompletedTask{
 		TaskUUID:  taskUUID,
-		StoreUUID: storeUUID,
+		StorePath: storePath,
 		Status:    corestatus.Completed.String(),
 		Message:   "done",
 	}
@@ -371,16 +441,17 @@ func (s *taskSuite) TestFinishTaskAndOperation(c *tc.C) {
 	// an error state.
 	operationUUID := s.addOperation(c)
 	s.addOperationTaskStatus(c, s.addOperationTask(c, operationUUID), corestatus.Error.String())
-	taskUUID := s.addOperationTask(c, operationUUID)
-	s.addOperationTaskStatus(c, taskUUID, corestatus.Running.String())
+	// Use a known task ID so we can retrieve it later and validate the message.
+	taskID := "finish-op-task"
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, corestatus.Running.String())
 
 	// Setup the object store data to save
-	storeUUID := s.addFakeMetadataStore(c, 4)
-	s.addMetadataStorePath(c, storeUUID, taskUUID)
+	storePath := "store/path"
+	s.linkMetadataStorePath(c, s.addFakeMetadataStore(c, 4), storePath)
 
 	arg := internal.CompletedTask{
 		TaskUUID:  taskUUID,
-		StoreUUID: storeUUID,
+		StorePath: storePath,
 		Status:    corestatus.Completed.String(),
 		Message:   "done",
 	}
@@ -392,6 +463,11 @@ func (s *taskSuite) TestFinishTaskAndOperation(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.checkTaskStatus(c, taskUUID, arg.Status)
 	s.checkOperationCompleted(c, operationUUID, true)
+
+	// Also assert that the task message is correctly returned when retrieving the task.
+	task, _, err := s.state.GetTask(c.Context(), taskID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(task.Message, tc.Equals, "done")
 }
 
 func (s *taskSuite) TestLogTaskMessage(c *tc.C) {
@@ -417,6 +493,39 @@ WHERE  task_uuid = ?
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(obtainedTaskMsg, tc.Equals, taskMsg)
+}
+
+// TestGetOperationTasksWithSameStoreMetadata verifies that tasks are not
+// duplicated on fetch when they share the same store metadata.
+func (s *taskSuite) TestGetOperationTasksWithSameStoreMetadata(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	taskID1 := "42"
+	taskID2 := "84"
+	taskUUID1 := s.addOperationTaskWithID(c, operationUUID, taskID1, corestatus.Completed.String())
+	taskUUID2 := s.addOperationTaskWithID(c, operationUUID, taskID2, corestatus.Completed.String())
+	storeUUID := s.addFakeMetadataStore(c, 4)
+	// the store metadata is shared by both tasks, as if they output the same datas
+	s.linkMetadataStorePath(c, storeUUID, taskUUID1)
+	s.linkMetadataStorePath(c, storeUUID, taskUUID2)
+	s.linkOperationTaskOutput(c, taskUUID1, taskUUID1)
+	s.linkOperationTaskOutput(c, taskUUID2, taskUUID2)
+
+	// Act
+	var tasks map[string][]taskResult
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		tasks, err = s.state.getOperationTasks(ctx, tx, []string{operationUUID})
+		return err
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(slices.Collect(maps.Keys(tasks)), tc.SameContents, []string{operationUUID})
+	taskIDs := transform.Slice(tasks[operationUUID], func(f taskResult) string {
+		return f.TaskID
+	})
+	c.Check(taskIDs, tc.SameContents, []string{taskID1, taskID2})
+
 }
 
 func (s *taskSuite) checkTaskStatus(c *tc.C, taskUUID, status string) {

@@ -109,6 +109,9 @@ func (f *factory) NewActionRunner(stdCtx stdcontext.Context, action *uniter.Acti
 	if err := spec.ValidateParams(params); err != nil {
 		return nil, charmrunner.NewBadActionError(name, err.Error())
 	}
+	if params, err = spec.InsertDefaults(params); err != nil {
+		return nil, charmrunner.NewBadActionError(name, err.Error())
+	}
 
 	tag := names.NewActionTag(action.ID())
 	actionData := context.NewActionData(name, &tag, params, cancel)
