@@ -60,18 +60,17 @@ func (s *registerCAASStorageSuite) newFilesystemStoragePool(
 	return poolUUID
 }
 
-// TestGetRegisterCAASUnitStorageArgNewUnit tests the happy path of seeing new
+// TestMakeRegisterCAASUnitStorageArgNewUnit tests the happy path of seeing new
 // storage instances created for a unit that does not exist in the model yet.
 //
 // This test asserts the following preconditions:
 // - The unit does not exist in the model.
 // - No existing provider storage exists in the model.
-func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgNewUnit(c *tc.C) {
+func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewID)
-	unitUUID := tc.Must(c, coreunit.NewUUID)
 	poolUUID := s.newFilesystemStoragePool(c, ctrl)
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	providerFSInfo := []caas.FilesystemInfo{
@@ -84,7 +83,6 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgNewUnit(c *t
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
 		"fs-1",
 	}).Return([]internal.StorageInstanceComposition{}, nil)
-	s.state.EXPECT().CheckUnitExists(gomock.Any(), unitUUID).Return(false, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
 		[]application.StorageDirective{
 			{
@@ -104,8 +102,8 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgNewUnit(c *t
 		storagePoolProvider: s.poolProvider,
 	}
 
-	arg, err := svc.GetRegisterCAASUnitStorageArg(
-		c.Context(), appUUID, unitUUID, attachNetNodeUUID, providerFSInfo,
+	arg, err := svc.MakeRegisterNewCAASUnitStorageArg(
+		c.Context(), appUUID, attachNetNodeUUID, providerFSInfo,
 	)
 	c.Check(err, tc.IsNil)
 
@@ -159,17 +157,16 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgNewUnit(c *t
 	})
 }
 
-// TestGetRegisterCAASUnitStorageArgExistingUnit tests the happy path of seeing
+// TestMakeRegisterExistingCAASUnitStorageArg tests the happy path of seeing
 // an already existing unit being registered with it's own storage.
 //
 // This test asserts the following preconditions:
 // - No new storage is created for the unit.
 // - The already re-identified storage for the unit is consumed again.
-func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgExistingUnit(c *tc.C) {
+func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	appUUID := tc.Must(c, coreapplication.NewID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	poolUUID := s.newFilesystemStoragePool(c, ctrl)
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
@@ -213,7 +210,6 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgExistingUnit
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
 		"fs-1", "fs-2",
 	}).Return([]internal.StorageInstanceComposition{}, nil).AnyTimes()
-	s.state.EXPECT().CheckUnitExists(gomock.Any(), unitUUID).Return(true, nil).AnyTimes()
 	s.state.EXPECT().GetUnitStorageDirectives(gomock.Any(), unitUUID).Return(
 		[]application.StorageDirective{
 			{
@@ -246,8 +242,8 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgExistingUnit
 		st:                  s.state,
 		storagePoolProvider: s.poolProvider,
 	}
-	arg, err := svc.GetRegisterCAASUnitStorageArg(
-		c.Context(), appUUID, unitUUID, attachNetNodeUUID, providerFSInfo,
+	arg, err := svc.MakeRegisterExistingCAASUnitStorageArg(
+		c.Context(), unitUUID, attachNetNodeUUID, providerFSInfo,
 	)
 	c.Check(err, tc.IsNil)
 
@@ -302,7 +298,7 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgExistingUnit
 	})
 }
 
-// TestGetRegisterCAASUnitStorageArgExistingUnitAttachStorage tests the happy
+// TestMakeRegisterExistingCAASUnitStorageArgeExistingStorage tests the happy
 // path of seeing an already existing unit being registered with it's own
 // storage. This tests wants to see that when the unit has new storage that
 // isn't owned or attached we correctly associate it with the unit.
@@ -311,11 +307,10 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgExistingUnit
 // - No new storage is created for the unit.
 // - The already re-identified storage for the unit is consumed again.
 // - The existing provider storage in the model is associated with the unit.
-func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgExistingUnitAttachStorage(c *tc.C) {
+func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeExistingStorage(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	appUUID := tc.Must(c, coreapplication.NewID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	poolUUID := s.newFilesystemStoragePool(c, ctrl)
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
@@ -361,7 +356,6 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgExistingUnit
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
 		"fs-1", "fs-2",
 	}).Return(existingProviderStorage, nil).AnyTimes()
-	s.state.EXPECT().CheckUnitExists(gomock.Any(), unitUUID).Return(true, nil).AnyTimes()
 	s.state.EXPECT().GetUnitStorageDirectives(gomock.Any(), unitUUID).Return(
 		[]application.StorageDirective{
 			{
@@ -394,8 +388,8 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgExistingUnit
 		st:                  s.state,
 		storagePoolProvider: s.poolProvider,
 	}
-	arg, err := svc.GetRegisterCAASUnitStorageArg(
-		c.Context(), appUUID, unitUUID, attachNetNodeUUID, providerFSInfo,
+	arg, err := svc.MakeRegisterExistingCAASUnitStorageArg(
+		c.Context(), unitUUID, attachNetNodeUUID, providerFSInfo,
 	)
 	c.Check(err, tc.IsNil)
 
@@ -452,7 +446,7 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgExistingUnit
 	})
 }
 
-// TestGetRegisterCAASUnitNewUnitExistingStorage is a test to assert that when
+// TestMakeRegisterNewCAASUnitWithExistingStorage is a test to assert that when
 // a new unit comes into the model it uses all of the existing storage in the
 // model and doesn't re-create any new storage.
 //
@@ -465,12 +459,11 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitStorageArgExistingUnit
 // This test asserts the following preconditions:
 // - No new storage is created for the unit.
 // - The existing provider storage in the model is associated with the unit.
-func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitNewUnitExistingStorage(c *tc.C) {
+func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorage(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewID)
-	unitUUID := tc.Must(c, coreunit.NewUUID)
 	poolUUID := s.newFilesystemStoragePool(c, ctrl)
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	providerFSInfo := []caas.FilesystemInfo{
@@ -511,8 +504,7 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitNewUnitExistingStorage
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
 		"fs-1", "fs-2",
 	}).Return(existingProviderStorage, nil).AnyTimes()
-	s.state.EXPECT().CheckUnitExists(gomock.Any(), unitUUID).Return(true, nil).AnyTimes()
-	s.state.EXPECT().GetUnitStorageDirectives(gomock.Any(), unitUUID).Return(
+	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
 		[]application.StorageDirective{
 			{
 				CharmMetadataName: "big-beautiful-charm",
@@ -534,18 +526,13 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitNewUnitExistingStorage
 			},
 		}, nil,
 	).AnyTimes()
-	// The storage instances associated with the provider ids are return here
-	// because they are already owned by the unit in question.
-	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).Return(
-		[]internal.StorageInstanceComposition{}, nil,
-	).AnyTimes()
 
 	svc := Service{
 		st:                  s.state,
 		storagePoolProvider: s.poolProvider,
 	}
-	arg, err := svc.GetRegisterCAASUnitStorageArg(
-		c.Context(), appUUID, unitUUID, attachNetNodeUUID, providerFSInfo,
+	arg, err := svc.MakeRegisterNewCAASUnitStorageArg(
+		c.Context(), appUUID, attachNetNodeUUID, providerFSInfo,
 	)
 	c.Check(err, tc.IsNil)
 
@@ -603,16 +590,15 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitNewUnitExistingStorage
 	})
 }
 
-// TestGetRegisterCAASUnitApplicationNotFound tests that when the application
+// TestMakeRegisterNewCAASUnitApplicationNotFound tests that when the application
 // does not exist anymore the caller gets back an error satisfying
 // [applicationerrors.ApplicationNotFound].
-func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitApplicationNotFound(c *tc.C) {
+func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitApplicationNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewID)
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
-	unitUUID := tc.Must(c, coreunit.NewUUID)
 	providerFSInfo := []caas.FilesystemInfo{
 		{
 			FilesystemId: "fs-1",
@@ -620,10 +606,6 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitApplicationNotFound(c 
 		},
 	}
 
-	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
-		"fs-1",
-	}).Return([]internal.StorageInstanceComposition{}, nil)
-	s.state.EXPECT().CheckUnitExists(gomock.Any(), unitUUID).Return(false, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
 		[]application.StorageDirective{},
 		applicationerrors.ApplicationNotFound,
@@ -633,8 +615,8 @@ func (s *registerCAASStorageSuite) TestGetRegisterCAASUnitApplicationNotFound(c 
 		storagePoolProvider: s.poolProvider,
 	}
 
-	_, err := svc.GetRegisterCAASUnitStorageArg(
-		c.Context(), appUUID, unitUUID, attachNetNodeUUID, providerFSInfo,
+	_, err := svc.MakeRegisterNewCAASUnitStorageArg(
+		c.Context(), appUUID, attachNetNodeUUID, providerFSInfo,
 	)
 	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }

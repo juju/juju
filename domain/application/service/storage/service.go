@@ -76,10 +76,6 @@ type State interface {
 		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, directive storage.Directive,
 	) ([]corestorage.ID, error)
 
-	// CheckUnitExists checks if a unit for the supplied uuid already exists in
-	// the model. If the unit exists true is returned otherwise false.
-	CheckUnitExists(context.Context, coreunit.UUID) (bool, error)
-
 	// DetachStorageForUnit detaches the specified storage from the specified unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
@@ -218,71 +214,79 @@ func encodeStorageKindFromCharmStorageType(
 	}
 }
 
-// getRegisterCAASUnitStorage is reponsible for getting storage information for
-// a CAAS unit that is being registered into the model.
+// MakeRegisterExistingCAASUnitStorageArg is responsible for constructing the
+// storage arguments for registering an existing caas unit in the model. This
+// ends up being a set of arguments that are making sure eventual consistency
+// of the unit's storage.MakeRegisterExistingCAASUnitStorageArg
+//
+// The following errors may be expected:
+// - [applicationerrors.UnitNotFound] when the unit no longer exists.
+func (s Service) MakeRegisterExistingCAASUnitStorageArg(
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
+	providerFilesystemInfo []caas.FilesystemInfo,
+) (application.RegisterUnitStorageArg, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	existingUnitStorage, err := s.st.GetUnitOwnedStorageInstances(ctx, unitUUID)
+	if err != nil {
+		return application.RegisterUnitStorageArg{}, errors.Errorf(
+			"getting unit %q owned storage instances: %w", unitUUID, err,
+		)
+	}
+
+	directivesToFollow, err := s.st.GetUnitStorageDirectives(ctx, unitUUID)
+	if err != nil {
+		return application.RegisterUnitStorageArg{}, errors.Errorf(
+			"getting unit %q storage directives: %w", unitUUID, err,
+		)
+	}
+
+	return s.makeRegisterCAASUnitStorageArg(
+		ctx,
+		attachmentNetNodeUUID,
+		providerFilesystemInfo,
+		directivesToFollow,
+		existingUnitStorage,
+	)
+}
+
+// MakeRegisterNewCAASUnitStorageArg is responsible for constructing the storage
+// arguments for registering a new caas unit in the model.
 //
 // The following errors may be expected:
 // - [applicationerrors.ApplicationNotFound] when the application no longer
 // exists.
-// - [applicationerrors.UnitNotFound] when the unit no longer exists. This error
-// will only trigger when the unit had existed but was removed before this
-// operation completed.
-func (s Service) getRegisterCAASUnitStorageInfo(
+func (s Service) MakeRegisterNewCAASUnitStorageArg(
 	ctx context.Context,
 	appUUID coreapplication.ID,
-	unitUUID coreunit.UUID,
-) ([]application.StorageDirective, []internal.StorageInstanceComposition, error) {
-	var (
-		// existingUnitStorage records any existing storage in the model that
-		// is owned by the unit
-		existingUnitStorage []internal.StorageInstanceComposition
+	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
+	providerFilesystemInfo []caas.FilesystemInfo,
+) (application.RegisterUnitStorageArg, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 
-		// directivesToFollow is the set of storage directives that the unit is
-		// to use when provisioning new storage in the model.
-		directivesToFollow []application.StorageDirective
+	directivesToFollow, err := s.st.GetApplicationStorageDirectives(
+		ctx, appUUID,
 	)
-
-	unitExists, err := s.st.CheckUnitExists(ctx, unitUUID)
 	if err != nil {
-		return nil, nil, errors.Errorf(
-			"checking if unit %q already exists in the model or is being created: %w",
-			unitUUID, err,
+		return application.RegisterUnitStorageArg{}, errors.Errorf(
+			"getting application %q storage directives: %w", appUUID, err,
 		)
 	}
 
-	if unitExists {
-		var err error
-		existingUnitStorage, err = s.st.GetUnitOwnedStorageInstances(ctx, unitUUID)
-		if err != nil {
-			return nil, nil, errors.Errorf(
-				"getting unit %q owned storage instances: %w", unitUUID, err,
-			)
-		}
-
-		directivesToFollow, err = s.st.GetUnitStorageDirectives(ctx, unitUUID)
-		if err != nil {
-			return nil, nil, errors.Errorf(
-				"getting unit %q storage directives: %w", unitUUID, err,
-			)
-		}
-	} else {
-		// If the unit does not exist, we will instead get and follow the
-		// storage directives of the application.
-		var err error
-		directivesToFollow, err = s.st.GetApplicationStorageDirectives(
-			ctx, appUUID,
-		)
-		if err != nil {
-			return nil, nil, errors.Errorf(
-				"getting application %q storage directives: %w", appUUID, err,
-			)
-		}
-	}
-
-	return directivesToFollow, existingUnitStorage, nil
+	return s.makeRegisterCAASUnitStorageArg(
+		ctx,
+		attachmentNetNodeUUID,
+		providerFilesystemInfo,
+		directivesToFollow,
+		nil, // new unit so there is no existing storage to supply.
+	)
 }
 
-// GetRegisterCAASUnitStorageArg is responsible for getting the storage
+// makeRegisterCAASUnitStorageArg is responsible for making the storage
 // arguments required to register a CAAS unit in the model. This func considers
 // pre existing storage already in the model for the unit and any new storage
 // that needs to be created.
@@ -296,16 +300,13 @@ func (s Service) getRegisterCAASUnitStorageInfo(
 // The following errors may be expected:
 // - [applicationerrors.ApplicationNotFound] when the application no longer
 // exists.
-func (s Service) GetRegisterCAASUnitStorageArg(
+func (s Service) makeRegisterCAASUnitStorageArg(
 	ctx context.Context,
-	appUUID coreapplication.UUID,
-	unitUUID coreunit.UUID,
 	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 	providerFilesystemInfo []caas.FilesystemInfo,
+	directivesToFollow []application.StorageDirective,
+	existingUnitOwnedStorage []internal.StorageInstanceComposition,
 ) (application.RegisterUnitStorageArg, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
 	// We don't consider the volume information in the caas filesystem info.
 	providerIDs := make([]string, 0, len(providerFilesystemInfo))
 	for _, fsInfo := range providerFilesystemInfo {
@@ -324,14 +325,6 @@ func (s Service) GetRegisterCAASUnitStorageArg(
 		)
 	}
 
-	directivesToFollow, existingUnitOwnedStorage, err :=
-		s.getRegisterCAASUnitStorageInfo(
-			ctx, appUUID, unitUUID,
-		)
-	if err != nil {
-		return application.RegisterUnitStorageArg{}, errors.Capture(err)
-	}
-
 	unitStorageArgs, err := s.MakeUnitStorageArgs(
 		ctx,
 		attachmentNetNodeUUID,
@@ -340,7 +333,7 @@ func (s Service) GetRegisterCAASUnitStorageArg(
 	)
 	if err != nil {
 		return application.RegisterUnitStorageArg{}, errors.Errorf(
-			"making register caas unit %q storage args: %w", unitUUID, err,
+			"making register caas unit storage args: %w", err,
 		)
 	}
 
