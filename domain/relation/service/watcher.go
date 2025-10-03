@@ -45,7 +45,7 @@ type WatcherState interface {
 	GetMapperDataForWatchLifeSuspendedStatus(
 		ctx context.Context,
 		relUUID corerelation.UUID,
-		appID application.UUID,
+		appUUID application.UUID,
 	) (relation.RelationLifeSuspendedData, error)
 
 	// GetRelationEndpointScope returns the scope of the relation endpoint
@@ -127,7 +127,7 @@ func NewWatchableService(
 // WatchUnitApplicationLifeSuspendedStatus returns a watcher that notifies of
 // changes to the life or suspended status any relation the unit's application
 // is part of. If the unit is a subordinate, its principal application is
-// watched.
+// watched. The watcher notifies with the relation keys.
 func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 	ctx context.Context,
 	unitUUID unit.UUID,
@@ -162,9 +162,8 @@ func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 }
 
 // WatchApplicationLifeSuspendedStatus returns a watcher that notifies of
-// changes to the life or suspended status any relation the unit's application
-// is part of. If the unit is a subordinate, its principal application is
-// watched.
+// changes to the life or suspended status for any relation the application
+// is part of. The watcher notifies with the relation UUIDs.
 func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 	ctx context.Context,
 	applicationUUID application.UUID,
@@ -184,7 +183,7 @@ func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 		return nil, errors.Errorf("checking application exists: %w", err)
 	}
 
-	w := newPrincipalLifeSuspendedStatusWatcher(s, applicationUUID)
+	w := newApplicationLifeSuspendedStatusWatcher(s, applicationUUID)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
 		w.GetInitialQuery(),
@@ -193,6 +192,50 @@ func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 		w.GetFirstFilterOption(),
 		w.GetFilterOptions()...,
 	)
+}
+
+// WatchRelatedUnits returns a watcher that notifies of changes to counterpart
+// units in the relation.
+func (s *WatchableService) WatchRelatedUnits(
+	ctx context.Context,
+	unitUUID unit.UUID,
+	relationUUID corerelation.UUID,
+) (watcher.StringsWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := unitUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	namespaces, initialQuery, mapper, err := s.st.InitialWatchRelatedUnits(ctx, unitUUID.String(), relationUUID.String())
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if len(namespaces) < 1 {
+		// This is an error while updating underlying function. It shouldn't happen.
+		return nil, errors.New("no namespaces found")
+	}
+	filters := transform.Slice(namespaces, func(ns string) eventsource.FilterOption {
+		return eventsource.NamespaceFilter(ns, changestream.All)
+	})
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
+		initialQuery,
+		fmt.Sprintf("related units watcher for %q in %q", unitUUID, relationUUID),
+		mapper,
+		filters[0], filters[1:]...,
+	)
+}
+
+// WatchRelationUnits returns a watcher for changes to the units
+// in the given relation in the local model.
+func (s *WatchableService) WatchRelationUnits(context.Context, application.UUID) (watcher.NotifyWatcher, error) {
+	return nil, errors.Errorf("WatchRelationUnits").Add(coreerrors.NotImplemented)
 }
 
 // namespaceMapper represents methods required to be satisfy the arguments of
@@ -215,19 +258,35 @@ type namespaceMapper interface {
 	GetFilterOptions() []eventsource.FilterOption
 }
 
-// lifeSuspendedStatusWatcher implements the functionality common to both
-// the principal and subordinate versions of the LifeSuspendedStatus Watcher.
-type lifeSuspendedStatusWatcher struct {
+// lifeSuspendedStatusKey allows either corerelation.Key or corerelation.UUID
+// to be used as the type for the lifeSuspendedStatusWatcher.
+type lifeSuspendedStatusKey interface {
+	corerelation.Key | corerelation.UUID
+	fmt.Stringer
+}
+
+// lifeSuspendedStatusWatcher implements the functionality common to both the
+// principal, subordinate and application versions of the LifeSuspendedStatus
+// Watcher.
+type lifeSuspendedStatusWatcher[T lifeSuspendedStatusKey] struct {
 	s *WatchableService
 
-	// appID is the application UUID of the application whose relations are
+	// appUUID is the application UUID of the application whose relations are
 	// being watched for life and being suspended. It is a subordinate
 	// application.
-	appID application.UUID
+	appUUID application.UUID
 	// currentRelations holds the life and suspended status of each relation
 	// being watched, to check if the values have changed when the Mapper is
 	// triggered.
 	currentRelations map[corerelation.UUID]relation.RelationLifeSuspendedData
+
+	// processInitialChange is used by GetInitialQuery to process the
+	// initial set of relations the application is part of.
+	processInitialChange func(
+		ctx context.Context,
+		relUUID corerelation.UUID,
+		data relation.RelationLifeSuspendedData,
+	) (T, error)
 
 	// processChange is used by GetMapper to decide if the watcher should
 	// emit an event for the provided relation UUID.
@@ -235,7 +294,7 @@ type lifeSuspendedStatusWatcher struct {
 		ctx context.Context,
 		relUUID corerelation.UUID,
 		relationsIgnored set.Strings,
-	) (corerelation.Key, error)
+	) (T, error)
 
 	// lifeNameSpace is the namespace where the relation's life can be found.
 	lifeNameSpace string
@@ -247,7 +306,7 @@ type lifeSuspendedStatusWatcher struct {
 // GetInitialQuery returns a function to get the initial results of the
 // watcher and setups data to decide whether future notification of those
 // relations should be made.
-func (w *lifeSuspendedStatusWatcher) GetInitialQuery() eventsource.NamespaceQuery {
+func (w *lifeSuspendedStatusWatcher[T]) GetInitialQuery() eventsource.NamespaceQuery {
 	return func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 		ctx, span := trace.Start(ctx, trace.NameFromFunc())
 		defer span.End()
@@ -260,18 +319,18 @@ func (w *lifeSuspendedStatusWatcher) GetInitialQuery() eventsource.NamespaceQuer
 		var initialResults []string
 		for _, relUUID := range relationUUIDStrings {
 			relUUID := corerelation.UUID(relUUID)
-			relationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appID)
+			relationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appUUID)
 			if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
 				continue
 			} else if err != nil {
 				return nil, errors.Capture(err)
 			}
 			w.currentRelations[relUUID] = relationData
-			key, err := corerelation.NewKey(relationData.EndpointIdentifiers)
+			change, err := w.processInitialChange(ctx, relUUID, relationData)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
-			initialResults = append(initialResults, key.String())
+			initialResults = append(initialResults, change.String())
 		}
 
 		return initialResults, nil
@@ -280,7 +339,7 @@ func (w *lifeSuspendedStatusWatcher) GetInitialQuery() eventsource.NamespaceQuer
 
 // GetMapper returns a function which decides which relations
 // the watcher should notify on for future events.
-func (w *lifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
+func (w *lifeSuspendedStatusWatcher[T]) GetMapper() eventsource.Mapper {
 	// relationsIgnored is the set of relations which are not relevant to
 	// this unit. No need to evaluate them again.
 	relationsIgnored := set.NewStrings()
@@ -309,7 +368,7 @@ func (w *lifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 // loop rather than error or assume the happy case.
 const continueError = errors.ConstError("continue")
 
-func (w *lifeSuspendedStatusWatcher) filterChangeEvents(
+func (w *lifeSuspendedStatusWatcher[T]) filterChangeEvents(
 	ctx context.Context,
 	changes []changestream.ChangeEvent,
 	relationsIgnored set.Strings,
@@ -330,13 +389,13 @@ func (w *lifeSuspendedStatusWatcher) filterChangeEvents(
 		changedRelations[relUUID] = struct{}{}
 	}
 	for relUUID := range changedRelations {
-		key, err := w.processChange(ctx, relUUID, relationsIgnored)
+		change, err := w.processChange(ctx, relUUID, relationsIgnored)
 		if errors.Is(err, continueError) {
 			continue
 		} else if err != nil {
 			return nil, errors.Capture(err)
 		}
-		changeEvents = append(changeEvents, key.String())
+		changeEvents = append(changeEvents, change.String())
 	}
 
 	return changeEvents, nil
@@ -345,36 +404,49 @@ func (w *lifeSuspendedStatusWatcher) filterChangeEvents(
 // GetFirstFilterOption returns a predicate filter for the lifeTableNamespace.
 // Relations the Mapper has chosen to ignore will be filtered out of future
 // calls to the Mapper.
-func (w *lifeSuspendedStatusWatcher) GetFirstFilterOption() eventsource.FilterOption {
+func (w *lifeSuspendedStatusWatcher[T]) GetFirstFilterOption() eventsource.FilterOption {
 	return eventsource.NamespaceFilter(w.lifeNameSpace, changestream.All)
 }
 
 // GetFilterOptions returns a predicate filter for the suspendedNameSpace.
 // Relations the Mapper has chosen to ignore will be filtered out of future
 // calls to the Mapper.
-func (w *lifeSuspendedStatusWatcher) GetFilterOptions() []eventsource.FilterOption {
-	return []eventsource.FilterOption{eventsource.NamespaceFilter(w.suspendedNameSpace, changestream.All)}
+func (w *lifeSuspendedStatusWatcher[T]) GetFilterOptions() []eventsource.FilterOption {
+	return []eventsource.FilterOption{
+		eventsource.NamespaceFilter(w.suspendedNameSpace, changestream.All),
+	}
 }
 
 // principalLifeSuspendedStatusWatcher implements the processChange method
 // unique to watching LifeSuspendedStatus for a principal application.
 type principalLifeSuspendedStatusWatcher struct {
-	lifeSuspendedStatusWatcher
+	lifeSuspendedStatusWatcher[corerelation.Key]
 }
 
-func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID application.UUID) namespaceMapper {
+func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appUUID application.UUID) namespaceMapper {
 	w := &principalLifeSuspendedStatusWatcher{}
-	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher{
-		s:                s,
-		appID:            appID,
-		currentRelations: make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
-		processChange:    w.processChange,
+	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher[corerelation.Key]{
+		s:                    s,
+		appUUID:              appUUID,
+		currentRelations:     make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
+		processChange:        w.processChange,
+		processInitialChange: w.processInitialChange,
 	}
 	// returns a set of relation keys if the life or suspended status has changed
 	// for any relation this application is part of.
-	w.lifeNameSpace, w.suspendedNameSpace, w.initialQuery = s.st.InitialWatchLifeSuspendedStatus(appID)
+	w.lifeNameSpace, w.suspendedNameSpace, w.initialQuery = s.st.InitialWatchLifeSuspendedStatus(appUUID)
 
 	return w
+}
+
+// processInitialChange returns the relation key for the initial set of
+// relations the application is part of.
+func (w *principalLifeSuspendedStatusWatcher) processInitialChange(
+	ctx context.Context,
+	relUUID corerelation.UUID,
+	data relation.RelationLifeSuspendedData,
+) (corerelation.Key, error) {
+	return corerelation.NewKey(data.EndpointIdentifiers)
 }
 
 // processChange returns a relation key when the relation change should
@@ -387,7 +459,7 @@ func (w *principalLifeSuspendedStatusWatcher) processChange(
 	relUUID corerelation.UUID,
 	relationsIgnored set.Strings,
 ) (corerelation.Key, error) {
-	changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appID)
+	changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appUUID)
 	if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
 		relationsIgnored.Add(relUUID.String())
 		return nil, continueError
@@ -417,10 +489,10 @@ func (w *principalLifeSuspendedStatusWatcher) processChange(
 // subordinateLifeSuspendedStatusWatcher implements the processChange method
 // unique to watching LifeSuspendedStatus for a subordinate application.
 type subordinateLifeSuspendedStatusWatcher struct {
-	lifeSuspendedStatusWatcher
+	lifeSuspendedStatusWatcher[corerelation.Key]
 
 	// parentAppID is the application UUID of the parent or principal application
-	// of the appID.
+	// of the appUUID.
 	parentAppID application.UUID
 }
 
@@ -428,16 +500,27 @@ func newSubordinateLifeSuspendedStatusWatcher(s *WatchableService, subordinateID
 	w := &subordinateLifeSuspendedStatusWatcher{
 		parentAppID: principalID,
 	}
-	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher{
-		s:                s,
-		appID:            subordinateID,
-		currentRelations: make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
-		processChange:    w.processChange,
+	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher[corerelation.Key]{
+		s:                    s,
+		appUUID:              subordinateID,
+		currentRelations:     make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
+		processChange:        w.processChange,
+		processInitialChange: w.processInitialChange,
 	}
 	// returns a set of relation keys if the life or suspended status has changed
 	// for any relation this application is part of.
 	w.lifeNameSpace, w.suspendedNameSpace, w.initialQuery = s.st.InitialWatchLifeSuspendedStatus(subordinateID)
 	return w
+}
+
+// processInitialChange returns the relation key for the initial set of
+// relations the application is part of.
+func (w *subordinateLifeSuspendedStatusWatcher) processInitialChange(
+	ctx context.Context,
+	relUUID corerelation.UUID,
+	data relation.RelationLifeSuspendedData,
+) (corerelation.Key, error) {
+	return corerelation.NewKey(data.EndpointIdentifiers)
 }
 
 // processChange returns a relation key when the relation change should
@@ -451,7 +534,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) processChange(
 	relUUID corerelation.UUID,
 	relationsIgnored set.Strings,
 ) (corerelation.Key, error) {
-	changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appID)
+	changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appUUID)
 	if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
 		relationsIgnored.Add(relUUID.String())
 		return nil, continueError
@@ -503,7 +586,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) watchNewRelation(
 	relUUID corerelation.UUID,
 ) (bool, error) {
 	// Relation endpoint for subordinate - is it global? yes - send event
-	scope, err := w.s.st.GetRelationEndpointScope(ctx, relUUID, w.appID)
+	scope, err := w.s.st.GetRelationEndpointScope(ctx, relUUID, w.appUUID)
 	if errors.Is(err, relationerrors.RelationNotFound) {
 		return false, nil
 	} else if err != nil {
@@ -515,53 +598,74 @@ func (w *subordinateLifeSuspendedStatusWatcher) watchNewRelation(
 
 	// Only allow container relations if the other end is our
 	// principal or the other end is a subordinate.
-	otherApp, err := w.s.st.GetOtherRelatedEndpointApplicationData(ctx, relUUID, w.appID)
+	otherApp, err := w.s.st.GetOtherRelatedEndpointApplicationData(ctx, relUUID, w.appUUID)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 	return otherApp.ApplicationID == w.parentAppID || otherApp.Subordinate, nil
 }
 
-// WatchRelatedUnits returns a watcher that notifies of changes to counterpart
-// units in the relation.
-func (s *WatchableService) WatchRelatedUnits(
-	ctx context.Context,
-	unitUUID unit.UUID,
-	relationUUID corerelation.UUID,
-) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := unitUUID.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-	if err := relationUUID.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	namespaces, initialQuery, mapper, err := s.st.InitialWatchRelatedUnits(ctx, unitUUID.String(), relationUUID.String())
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	if len(namespaces) < 1 {
-		// This is an error while updating underlying function. It shouldn't happen.
-		return nil, errors.New("no namespaces found")
-	}
-	filters := transform.Slice(namespaces, func(ns string) eventsource.FilterOption {
-		return eventsource.NamespaceFilter(ns, changestream.All)
-	})
-	return s.watcherFactory.NewNamespaceMapperWatcher(
-		ctx,
-		initialQuery,
-		fmt.Sprintf("related units watcher for %q in %q", unitUUID, relationUUID),
-		mapper,
-		filters[0], filters[1:]...,
-	)
+// applicationLifeSuspendedStatusWatcher implements the processChange method
+// unique to watching LifeSuspendedStatus for a application.
+type applicationLifeSuspendedStatusWatcher struct {
+	lifeSuspendedStatusWatcher[corerelation.UUID]
 }
 
-// WatchRelationUnits returns a watcher for changes to the units
-// in the given relation in the local model.
-func (s *WatchableService) WatchRelationUnits(context.Context, application.UUID) (watcher.NotifyWatcher, error) {
-	return nil, errors.Errorf("WatchRelationUnits").Add(coreerrors.NotImplemented)
+func newApplicationLifeSuspendedStatusWatcher(s *WatchableService, appUUID application.UUID) namespaceMapper {
+	w := &applicationLifeSuspendedStatusWatcher{}
+	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher[corerelation.UUID]{
+		s:                    s,
+		appUUID:              appUUID,
+		currentRelations:     make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
+		processChange:        w.processChange,
+		processInitialChange: w.processInitialChange,
+	}
+	// returns a set of relation keys if the life or suspended status has changed
+	// for any relation this application is part of.
+	w.lifeNameSpace, w.suspendedNameSpace, w.initialQuery = s.st.InitialWatchLifeSuspendedStatus(appUUID)
+
+	return w
+}
+
+// processInitialChange returns the relation UUID for the initial set of
+// relations the application is part of.
+func (w *applicationLifeSuspendedStatusWatcher) processInitialChange(
+	ctx context.Context,
+	relUUID corerelation.UUID,
+	data relation.RelationLifeSuspendedData,
+) (corerelation.UUID, error) {
+	return relUUID, nil
+}
+
+// processChange returns a relation key when the relation change should
+// trigger a notify event from the LifeSuspendedStatusWatcher. For
+// principal units, this is when either it's life value has changed, or the
+// relation has been suspended. Notify on any new relation for the application
+// and continue watching it.
+func (w *applicationLifeSuspendedStatusWatcher) processChange(
+	ctx context.Context,
+	relUUID corerelation.UUID,
+	relationsIgnored set.Strings,
+) (corerelation.UUID, error) {
+	changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appUUID)
+	if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
+		relationsIgnored.Add(relUUID.String())
+		return "", continueError
+	} else if errors.Is(err, relationerrors.RelationNotFound) {
+		delete(w.currentRelations, relUUID)
+		return "", continueError
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	// If this is a known relation where neither the Life nor
+	// Suspended value have changed, do not notify.
+	currentRelationData, ok := w.currentRelations[relUUID]
+	if ok && changedRelationData.Life == currentRelationData.Life &&
+		changedRelationData.Suspended == currentRelationData.Suspended {
+		return "", continueError
+	}
+
+	w.currentRelations[relUUID] = changedRelationData
+	return relUUID, nil
 }

@@ -298,20 +298,20 @@ func (s *watcherSuite) expectChanged(ctrl *gomock.Controller, uuid corerelation.
 
 func (s *watcherSuite) expectGetMapperDataForWatchLifeSuspendedStatus(
 	relUUID corerelation.UUID,
-	appID coreapplication.UUID,
+	appUUID coreapplication.UUID,
 	data relation.RelationLifeSuspendedData,
 	err error,
 ) {
-	s.state.EXPECT().GetMapperDataForWatchLifeSuspendedStatus(gomock.Any(), relUUID, appID).Return(data, err)
+	s.state.EXPECT().GetMapperDataForWatchLifeSuspendedStatus(gomock.Any(), relUUID, appUUID).Return(data, err)
 }
 
-func (s *watcherSuite) getSubordinateWatcher(principalID coreapplication.UUID, subordinateID coreapplication.UUID) *subordinateLifeSuspendedStatusWatcher {
+func (s *watcherSuite) getSubordinateWatcher(principalID, subordinateID coreapplication.UUID) *subordinateLifeSuspendedStatusWatcher {
 	w := &subordinateLifeSuspendedStatusWatcher{
 		parentAppID: principalID,
 	}
-	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher{
+	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher[corerelation.Key]{
 		s:             s.service,
-		appID:         subordinateID,
+		appUUID:       subordinateID,
 		processChange: w.processChange,
 	}
 	return w

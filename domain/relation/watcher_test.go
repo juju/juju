@@ -284,7 +284,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusSubordinate(c 
 	harness.Run(c, []string{relationKey})
 }
 
-func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatusPrincipal(c *tc.C) {
+func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatus(c *tc.C) {
 	// Arrange: create the required state, with one relation and its status.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
 
@@ -296,7 +296,6 @@ func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatusPrincipal(c *tc.C)
 	watcher, err := svc.WatchApplicationLifeSuspendedStatus(c.Context(), applicationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Act 0: change the relation life.
@@ -311,7 +310,7 @@ func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatusPrincipal(c *tc.C)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: received changed of relation key.
 		w.Check(
-			watchertest.StringSliceAssert(relationKey),
+			watchertest.StringSliceAssert(relationUUID.String()),
 		)
 	})
 
@@ -347,7 +346,7 @@ func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatusPrincipal(c *tc.C)
 		// Assert: received change of relation key,
 		// relation status changed to suspended.
 		w.Check(
-			watchertest.StringSliceAssert(relationKey),
+			watchertest.StringSliceAssert(relationUUID.String()),
 		)
 	})
 
@@ -377,11 +376,11 @@ func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatusPrincipal(c *tc.C)
 		// Assert: with changes in both tables at the same time, the relation
 		// key is sent once.
 		w.Check(
-			watchertest.StringSliceAssert(relationKey),
+			watchertest.StringSliceAssert(relationUUID.String()),
 		)
 	})
 
-	harness.Run(c, []string{relationKey})
+	harness.Run(c, []string{relationUUID.String()})
 }
 
 func (s *watcherSuite) setupSecondAppAndRelate(

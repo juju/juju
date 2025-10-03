@@ -1,6 +1,3 @@
--- Copyright 2024 Canonical Ltd.
--- Licensed under the AGPLv3, see LICENCE file for details.
-
 -- The application_endpoint ties an application's relation definition to an
 -- endpoint binding via a space. A null space_uuid represents the endpoint
 -- is bound to the application's default space. Each relation has 2 endpoints,

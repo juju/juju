@@ -21,7 +21,6 @@ import (
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
 	relation0 "github.com/juju/juju/domain/relation"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 	macaroon "gopkg.in/macaroon.v2"
 )
@@ -582,46 +581,6 @@ func (c *MockCrossModelServiceConsumeRemoteSecretChangesCall) DoAndReturn(f func
 	return c
 }
 
-// ExportApplicationAndRelationToken mocks base method.
-func (m *MockCrossModelService) ExportApplicationAndRelationToken(arg0 context.Context, arg1, arg2 names.Tag) (string, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportApplicationAndRelationToken", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ExportApplicationAndRelationToken indicates an expected call of ExportApplicationAndRelationToken.
-func (mr *MockCrossModelServiceMockRecorder) ExportApplicationAndRelationToken(arg0, arg1, arg2 any) *MockCrossModelServiceExportApplicationAndRelationTokenCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportApplicationAndRelationToken", reflect.TypeOf((*MockCrossModelService)(nil).ExportApplicationAndRelationToken), arg0, arg1, arg2)
-	return &MockCrossModelServiceExportApplicationAndRelationTokenCall{Call: call}
-}
-
-// MockCrossModelServiceExportApplicationAndRelationTokenCall wrap *gomock.Call
-type MockCrossModelServiceExportApplicationAndRelationTokenCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelServiceExportApplicationAndRelationTokenCall) Return(arg0, arg1 string, arg2 error) *MockCrossModelServiceExportApplicationAndRelationTokenCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceExportApplicationAndRelationTokenCall) Do(f func(context.Context, names.Tag, names.Tag) (string, string, error)) *MockCrossModelServiceExportApplicationAndRelationTokenCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceExportApplicationAndRelationTokenCall) DoAndReturn(f func(context.Context, names.Tag, names.Tag) (string, string, error)) *MockCrossModelServiceExportApplicationAndRelationTokenCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetRelationDetails mocks base method.
 func (m *MockCrossModelService) GetRelationDetails(arg0 context.Context, arg1 relation.UUID) (relation0.RelationDetails, error) {
 	m.ctrl.T.Helper()
@@ -739,46 +698,8 @@ func (c *MockCrossModelServiceGetRemoteApplicationOfferersCall) DoAndReturn(f fu
 	return c
 }
 
-// ImportRemoteApplicationToken mocks base method.
-func (m *MockCrossModelService) ImportRemoteApplicationToken(arg0 context.Context, arg1 names.Tag, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportRemoteApplicationToken", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ImportRemoteApplicationToken indicates an expected call of ImportRemoteApplicationToken.
-func (mr *MockCrossModelServiceMockRecorder) ImportRemoteApplicationToken(arg0, arg1, arg2 any) *MockCrossModelServiceImportRemoteApplicationTokenCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRemoteApplicationToken", reflect.TypeOf((*MockCrossModelService)(nil).ImportRemoteApplicationToken), arg0, arg1, arg2)
-	return &MockCrossModelServiceImportRemoteApplicationTokenCall{Call: call}
-}
-
-// MockCrossModelServiceImportRemoteApplicationTokenCall wrap *gomock.Call
-type MockCrossModelServiceImportRemoteApplicationTokenCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelServiceImportRemoteApplicationTokenCall) Return(arg0 error) *MockCrossModelServiceImportRemoteApplicationTokenCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceImportRemoteApplicationTokenCall) Do(f func(context.Context, names.Tag, string) error) *MockCrossModelServiceImportRemoteApplicationTokenCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceImportRemoteApplicationTokenCall) DoAndReturn(f func(context.Context, names.Tag, string) error) *MockCrossModelServiceImportRemoteApplicationTokenCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SaveMacaroonForRelation mocks base method.
-func (m *MockCrossModelService) SaveMacaroonForRelation(arg0 context.Context, arg1 names.Tag, arg2 *macaroon.Macaroon) error {
+func (m *MockCrossModelService) SaveMacaroonForRelation(arg0 context.Context, arg1 relation.UUID, arg2 *macaroon.Macaroon) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveMacaroonForRelation", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -804,13 +725,13 @@ func (c *MockCrossModelServiceSaveMacaroonForRelationCall) Return(arg0 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceSaveMacaroonForRelationCall) Do(f func(context.Context, names.Tag, *macaroon.Macaroon) error) *MockCrossModelServiceSaveMacaroonForRelationCall {
+func (c *MockCrossModelServiceSaveMacaroonForRelationCall) Do(f func(context.Context, relation.UUID, *macaroon.Macaroon) error) *MockCrossModelServiceSaveMacaroonForRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceSaveMacaroonForRelationCall) DoAndReturn(f func(context.Context, names.Tag, *macaroon.Macaroon) error) *MockCrossModelServiceSaveMacaroonForRelationCall {
+func (c *MockCrossModelServiceSaveMacaroonForRelationCall) DoAndReturn(f func(context.Context, relation.UUID, *macaroon.Macaroon) error) *MockCrossModelServiceSaveMacaroonForRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1248,46 +1169,6 @@ func (c *MockCrossModelRelationServiceConsumeRemoteSecretChangesCall) DoAndRetur
 	return c
 }
 
-// ExportApplicationAndRelationToken mocks base method.
-func (m *MockCrossModelRelationService) ExportApplicationAndRelationToken(arg0 context.Context, arg1, arg2 names.Tag) (string, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportApplicationAndRelationToken", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ExportApplicationAndRelationToken indicates an expected call of ExportApplicationAndRelationToken.
-func (mr *MockCrossModelRelationServiceMockRecorder) ExportApplicationAndRelationToken(arg0, arg1, arg2 any) *MockCrossModelRelationServiceExportApplicationAndRelationTokenCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportApplicationAndRelationToken", reflect.TypeOf((*MockCrossModelRelationService)(nil).ExportApplicationAndRelationToken), arg0, arg1, arg2)
-	return &MockCrossModelRelationServiceExportApplicationAndRelationTokenCall{Call: call}
-}
-
-// MockCrossModelRelationServiceExportApplicationAndRelationTokenCall wrap *gomock.Call
-type MockCrossModelRelationServiceExportApplicationAndRelationTokenCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceExportApplicationAndRelationTokenCall) Return(arg0, arg1 string, arg2 error) *MockCrossModelRelationServiceExportApplicationAndRelationTokenCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceExportApplicationAndRelationTokenCall) Do(f func(context.Context, names.Tag, names.Tag) (string, string, error)) *MockCrossModelRelationServiceExportApplicationAndRelationTokenCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceExportApplicationAndRelationTokenCall) DoAndReturn(f func(context.Context, names.Tag, names.Tag) (string, string, error)) *MockCrossModelRelationServiceExportApplicationAndRelationTokenCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetRemoteApplicationOfferers mocks base method.
 func (m *MockCrossModelRelationService) GetRemoteApplicationOfferers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
 	m.ctrl.T.Helper()
@@ -1327,46 +1208,8 @@ func (c *MockCrossModelRelationServiceGetRemoteApplicationOfferersCall) DoAndRet
 	return c
 }
 
-// ImportRemoteApplicationToken mocks base method.
-func (m *MockCrossModelRelationService) ImportRemoteApplicationToken(arg0 context.Context, arg1 names.Tag, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportRemoteApplicationToken", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ImportRemoteApplicationToken indicates an expected call of ImportRemoteApplicationToken.
-func (mr *MockCrossModelRelationServiceMockRecorder) ImportRemoteApplicationToken(arg0, arg1, arg2 any) *MockCrossModelRelationServiceImportRemoteApplicationTokenCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRemoteApplicationToken", reflect.TypeOf((*MockCrossModelRelationService)(nil).ImportRemoteApplicationToken), arg0, arg1, arg2)
-	return &MockCrossModelRelationServiceImportRemoteApplicationTokenCall{Call: call}
-}
-
-// MockCrossModelRelationServiceImportRemoteApplicationTokenCall wrap *gomock.Call
-type MockCrossModelRelationServiceImportRemoteApplicationTokenCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceImportRemoteApplicationTokenCall) Return(arg0 error) *MockCrossModelRelationServiceImportRemoteApplicationTokenCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceImportRemoteApplicationTokenCall) Do(f func(context.Context, names.Tag, string) error) *MockCrossModelRelationServiceImportRemoteApplicationTokenCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceImportRemoteApplicationTokenCall) DoAndReturn(f func(context.Context, names.Tag, string) error) *MockCrossModelRelationServiceImportRemoteApplicationTokenCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SaveMacaroonForRelation mocks base method.
-func (m *MockCrossModelRelationService) SaveMacaroonForRelation(arg0 context.Context, arg1 names.Tag, arg2 *macaroon.Macaroon) error {
+func (m *MockCrossModelRelationService) SaveMacaroonForRelation(arg0 context.Context, arg1 relation.UUID, arg2 *macaroon.Macaroon) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveMacaroonForRelation", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1392,13 +1235,13 @@ func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) Return(arg0 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) Do(f func(context.Context, names.Tag, *macaroon.Macaroon) error) *MockCrossModelRelationServiceSaveMacaroonForRelationCall {
+func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) Do(f func(context.Context, relation.UUID, *macaroon.Macaroon) error) *MockCrossModelRelationServiceSaveMacaroonForRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) DoAndReturn(f func(context.Context, names.Tag, *macaroon.Macaroon) error) *MockCrossModelRelationServiceSaveMacaroonForRelationCall {
+func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) DoAndReturn(f func(context.Context, relation.UUID, *macaroon.Macaroon) error) *MockCrossModelRelationServiceSaveMacaroonForRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
