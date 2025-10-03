@@ -116,12 +116,12 @@ type remoteApplicationWorker struct {
 
 	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
-	offerUUID       string
-	applicationName string
-	applicationUUID application.UUID
-	localModelUUID  model.UUID // uuid of the model hosting the local application
-	remoteModelUUID string     // uuid of the model hosting the remote offer
-	consumeVersion  int
+	offerUUID         string
+	applicationName   string
+	applicationUUID   application.UUID
+	consumerModelUUID model.UUID
+	offererModelUUID  string
+	consumeVersion    int
 
 	localRelationUnitChanges  chan relation.RelationUnitChange
 	remoteRelationUnitChanges chan remoteunitrelations.RelationUnitChange
@@ -166,13 +166,13 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 		remoteRelationUnitChanges: make(chan remoteunitrelations.RelationUnitChange),
 		remoteRelationChanges:     make(chan remoterelations.RelationChange),
 
-		offerUUID:       config.OfferUUID,
-		applicationName: config.ApplicationName,
-		applicationUUID: config.ApplicationUUID,
-		localModelUUID:  config.LocalModelUUID,
-		remoteModelUUID: config.RemoteModelUUID,
-		consumeVersion:  config.ConsumeVersion,
-		offerMacaroon:   config.Macaroon,
+		offerUUID:         config.OfferUUID,
+		applicationName:   config.ApplicationName,
+		applicationUUID:   config.ApplicationUUID,
+		consumerModelUUID: config.LocalModelUUID,
+		offererModelUUID:  config.RemoteModelUUID,
+		consumeVersion:    config.ConsumeVersion,
+		offerMacaroon:     config.Macaroon,
 
 		remoteRelationClientGetter: config.RemoteRelationClientGetter,
 
@@ -217,7 +217,7 @@ func (w *remoteApplicationWorker) ConsumeVersion() int {
 func (w *remoteApplicationWorker) Report() map[string]interface{} {
 	result := make(map[string]interface{})
 
-	result["remote-model-uuid"] = w.remoteModelUUID
+	result["remote-model-uuid"] = w.offererModelUUID
 	result["offer-uuid"] = w.offerUUID
 
 	return result
@@ -314,7 +314,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 
 			for _, change := range changes {
 				if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, change.Status); err != nil {
-					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
+					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
 				}
 
 				// TODO (stickupkid): Handle terminated status.
@@ -324,7 +324,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 }
 
 func (w *remoteApplicationWorker) setupRemoteModelClient(ctx context.Context) (RemoteModelRelationsClient, error) {
-	remoteModelClient, err := w.remoteRelationClientGetter.GetRemoteRelationClient(ctx, w.remoteModelUUID)
+	remoteModelClient, err := w.remoteRelationClientGetter.GetRemoteRelationClient(ctx, w.offererModelUUID)
 	if err == nil {
 		return remoteModelClient, nil
 	}
@@ -337,7 +337,7 @@ func (w *remoteApplicationWorker) setupRemoteModelClient(ctx context.Context) (R
 		Status:  status.Error,
 		Message: fmt.Sprintf("cannot connect to external controller: %v", err.Error()),
 	}); err != nil {
-		w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v", w.applicationName, w.remoteModelUUID, err)
+		w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v", w.applicationName, w.offererModelUUID, err)
 	}
 	return nil, errors.Annotate(err, "cannot connect to external controller")
 }
@@ -376,7 +376,7 @@ func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context
 	}); err != nil {
 		w.logger.Errorf(ctx,
 			"updating remote application %v status from remote model %v: %v",
-			w.applicationName, w.remoteModelUUID, err)
+			w.applicationName, w.offererModelUUID, err)
 	}
 
 	// If we don't have the tokens, we can't do anything more.
@@ -409,14 +409,14 @@ func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error 
 		Status:  status.Terminated,
 		Message: "offer has been removed",
 	}); err != nil {
-		return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
+		return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
 	}
 	return nil
 }
 
 func (w *remoteApplicationWorker) handleRelationRemoved(ctx context.Context, relationUUID corerelation.UUID) error {
 	w.logger.Debugf(ctx, "relation %q removed", relationUUID)
-	return nil
+	return errors.NotImplemented
 }
 
 // relationChanged processes changes to the relation as recorded in the
@@ -496,7 +496,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	// from this model to the remote arg values and visa versa.
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: w.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(w.localModelUUID.String()).String(),
+		SourceModelTag:   names.NewModelTag(w.consumerModelUUID.String()).String(),
 		RelationToken:    relationUUID.String(),
 		OfferUUID:        offerUUID,
 		RemoteEndpoint: params.RemoteEndpoint{
