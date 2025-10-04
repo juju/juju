@@ -3440,7 +3440,7 @@ func (s *SecretsSuite) TestDeleteRevisionsMultiple(c *gc.C) {
 	_, err = s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	for i := 0; i < 15; i++ {
+	for i := 0; i < 21; i++ {
 		_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": fmt.Sprintf("bar%d", i)},
@@ -3452,6 +3452,8 @@ func (s *SecretsSuite) TestDeleteRevisionsMultiple(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(external, gc.HasLen, 0)
 
-	_, _, err = s.store.GetSecretValue(uri, 11)
+	// If you use an unterminated regex prefix search, you end up removing all of the 10,11,12 etc.
+	// We want to make sure that we have only removed the first one.
+	_, _, err = s.store.GetSecretValue(uri, 18)
 	c.Check(err, jc.ErrorIsNil)
 }
