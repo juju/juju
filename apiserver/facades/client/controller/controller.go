@@ -36,7 +36,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
-	"github.com/juju/juju/domain/blockcommand"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/docker"
 	interrors "github.com/juju/juju/internal/errors"
@@ -308,7 +307,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		}
 		blockTypes := set.NewStrings()
 		for _, block := range blocks {
-			blockTypes.Add(encodeBlockType(block.Type))
+			blockTypes.Add(block.Type.String())
 		}
 		results.Models = append(results.Models, params.ModelBlockInfo{
 			UUID:      model.UUID.String(),
@@ -321,19 +320,6 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 	// Sort the resulting sequence by model name, then owner.
 	sort.Sort(orderedBlockInfo(results.Models))
 	return results, nil
-}
-
-func encodeBlockType(t blockcommand.BlockType) string {
-	switch t {
-	case blockcommand.DestroyBlock:
-		return "BlockDestroy"
-	case blockcommand.RemoveBlock:
-		return "BlockRemove"
-	case blockcommand.ChangeBlock:
-		return "BlockChange"
-	default:
-		return "unknown"
-	}
 }
 
 // HostedModelConfigs returns all the information that the client needs in
