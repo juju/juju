@@ -6,6 +6,7 @@ package localunitrelations
 import (
 	context "context"
 	"testing"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -168,6 +169,171 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 		},
 		UnitCount: 3,
 		LegacyDepartedUnits: []int{
+			4,
+		},
+	})
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *localUnitRelationsWorker) TestChangeEventIsEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan struct{})
+
+	sync := make(chan struct{})
+	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerApplicationUUID).
+		DoAndReturn(func(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error) {
+			defer close(sync)
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		})
+	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerApplicationUUID).
+		Return(relation.RelationUnitChange{}, nil)
+
+	w := s.newWorker(c, s.newConfig(c))
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchRelationUnits to be called")
+	}
+
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting to send change event")
+	}
+
+	select {
+	case <-s.changes:
+		c.Fatalf("unexpected change received")
+	case <-time.After(500 * time.Millisecond):
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *localUnitRelationsWorker) TestGetRelationUnitsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan struct{})
+
+	done := make(chan struct{})
+	sync := make(chan struct{})
+	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerApplicationUUID).
+		DoAndReturn(func(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error) {
+			defer close(sync)
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		})
+	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerApplicationUUID).
+		DoAndReturn(func(ctx context.Context, u coreapplication.UUID) (relation.RelationUnitChange, error) {
+			defer close(done)
+			return relation.RelationUnitChange{}, errors.NotFound
+		})
+
+	w := s.newWorker(c, s.newConfig(c))
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchRelationUnits to be called")
+	}
+
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting to send change event")
+	}
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for GetRelationUnits to be called")
+	}
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
+}
+
+func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan struct{})
+
+	sync := make(chan struct{})
+	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerApplicationUUID).
+		DoAndReturn(func(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error) {
+			defer close(sync)
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		})
+	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerApplicationUUID).
+		Return(relation.RelationUnitChange{
+			ChangedUnits: []relation.UnitChange{{
+				UnitID: 0,
+				Settings: map[string]any{
+					"foo": "baz",
+				},
+			}},
+			AvailableUnits: []int{
+				0, 1, 2,
+			},
+			ApplicationSettings: map[string]any{
+				"foo": "bar",
+			},
+			UnitCount: 3,
+			LegacyDepartedUnits: []int{
+				4,
+			},
+		}, nil)
+
+	w := s.newWorker(c, s.newConfig(c))
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchRelationUnits to be called")
+	}
+
+	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
+		"application-uuid":      s.consumerApplicationUUID.String(),
+		"relation-uuid":         s.consumerRelationUUID.String(),
+		"changed-units":         []relation.UnitChange(nil),
+		"available-units":       []int(nil),
+		"settings":              map[string]any(nil),
+		"unit-count":            0,
+		"legacy-departed-units": []int(nil),
+	})
+
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting to send change event")
+	}
+
+	select {
+	case <-s.changes:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for changes to be sent")
+	}
+
+	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
+		"application-uuid": s.consumerApplicationUUID.String(),
+		"relation-uuid":    s.consumerRelationUUID.String(),
+		"changed-units": []relation.UnitChange{{
+			UnitID: 0,
+			Settings: map[string]any{
+				"foo": "baz",
+			},
+		}},
+		"available-units": []int{0, 1, 2},
+		"settings": map[string]any{
+			"foo": "bar",
+		},
+		"unit-count": 3,
+		"legacy-departed-units": []int{
 			4,
 		},
 	})
