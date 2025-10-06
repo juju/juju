@@ -102,9 +102,6 @@ type app struct {
 	newWatcher     k8swatcher.NewK8sWatcherFunc
 	clock          clock.Clock
 
-	// randomPrefix generates an annotation for stateful sets.
-	randomPrefix utils.RandomPrefixFunc
-
 	newApplier     func() resources.Applier
 	controllerUUID string
 }
@@ -129,7 +126,6 @@ func NewApplication(
 	dynamicClient dynamic.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
-	randomPrefix utils.RandomPrefixFunc,
 	controllerUUID string,
 ) caas.Application {
 	return newApplication(
@@ -144,7 +140,6 @@ func NewApplication(
 		dynamicClient,
 		newWatcher,
 		clock,
-		randomPrefix,
 		resources.NewApplier,
 		controllerUUID,
 	)
@@ -162,7 +157,6 @@ func newApplication(
 	dynamicClient dynamic.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
-	randomPrefix utils.RandomPrefixFunc,
 	newApplier func() resources.Applier,
 	controllerUUID string,
 ) *app {
@@ -178,7 +172,6 @@ func newApplication(
 		dynamicClient:  dynamicClient,
 		newWatcher:     newWatcher,
 		clock:          clock,
-		randomPrefix:   randomPrefix,
 		newApplier:     newApplier,
 		controllerUUID: controllerUUID,
 	}

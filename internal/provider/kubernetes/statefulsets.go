@@ -55,7 +55,7 @@ func (k *kubernetesClient) configureStatefulSet(
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 	storageUniqueID string,
 ) error {
-	logger.Debugf("creating/updating stateful set for %s", appName)
+	logger.Debugf("creating/updating stateful set for %s storageuniqueid %s", appName, storageUniqueID)
 
 	// Add the specified file to the pod spec.
 	cfgName := func(fileSetName string) string {
