@@ -8,13 +8,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/core/application"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/relation"
 )
@@ -23,10 +22,10 @@ import (
 type Service interface {
 	// WatchRelationUnits returns a watcher for changes to the units
 	// in the given relation in the local model.
-	WatchRelationUnits(context.Context, application.UUID) (watcher.NotifyWatcher, error)
+	WatchRelationUnits(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error)
 
 	// GetRelationUnits returns the current state of the relation units.
-	GetRelationUnits(context.Context, application.UUID) (relation.RelationUnitChange, error)
+	GetRelationUnits(context.Context, coreapplication.UUID) (relation.RelationUnitChange, error)
 }
 
 // ReportableWorker is an interface that allows a worker to be reported
@@ -40,9 +39,8 @@ type ReportableWorker interface {
 // worker.
 type Config struct {
 	Service         Service
-	ApplicationUUID application.UUID
-	RelationTag     names.RelationTag
-	Macaroon        *macaroon.Macaroon
+	ApplicationUUID coreapplication.UUID
+	RelationUUID    corerelation.UUID
 
 	Changes chan<- relation.RelationUnitChange
 
@@ -58,8 +56,8 @@ func (c Config) Validate() error {
 	if c.ApplicationUUID.IsEmpty() {
 		return errors.NotValidf("application UUID cannot be empty")
 	}
-	if c.Macaroon == nil {
-		return errors.NotValidf("macaroon cannot be nil")
+	if c.RelationUUID.IsEmpty() {
+		return errors.NotValidf("relation UUID cannot be empty")
 	}
 	if c.Changes == nil {
 		return errors.NotValidf("changes channel cannot be nil")
@@ -81,8 +79,8 @@ type localWorker struct {
 
 	service Service
 
-	applicationUUID application.UUID
-	relationTag     names.RelationTag
+	applicationUUID coreapplication.UUID
+	relationUUID    corerelation.UUID
 	changes         chan<- relation.RelationUnitChange
 
 	clock  clock.Clock
@@ -97,18 +95,18 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 	}
 
 	w := &localWorker{
-		service:     cfg.Service,
-		relationTag: cfg.RelationTag,
-		changes:     cfg.Changes,
-		clock:       cfg.Clock,
-		logger:      cfg.Logger,
+		service:      cfg.Service,
+		relationUUID: cfg.RelationUUID,
+		changes:      cfg.Changes,
+		clock:        cfg.Clock,
+		logger:       cfg.Logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "local-relation-units",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
-		return nil, errors.Annotatef(err, "starting relation units worker for %v", cfg.RelationTag)
+		return nil, errors.Annotatef(err, "starting relation units worker for %v", cfg.RelationUUID)
 	}
 	return w, nil
 }
@@ -129,11 +127,11 @@ func (w *localWorker) loop() error {
 
 	watcher, err := w.service.WatchRelationUnits(ctx, w.applicationUUID)
 	if err != nil {
-		return errors.Annotatef(err, "watching local side of relation %v", w.relationTag.Id())
+		return errors.Annotatef(err, "watching local side of relation %v", w.relationUUID)
 	}
 
 	if err := w.catacomb.Add(watcher); err != nil {
-		return errors.Annotatef(err, "adding watcher to catacomb for %v", w.relationTag)
+		return errors.Annotatef(err, "adding watcher to catacomb for %v", w.relationUUID)
 	}
 
 	for {
@@ -143,16 +141,20 @@ func (w *localWorker) loop() error {
 
 		case _, ok := <-watcher.Changes():
 			if !ok {
-				// We are dying.
-				return w.catacomb.ErrDying()
+				select {
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				default:
+					return errors.New("relation units watcher closed")
+				}
 			}
 
-			w.logger.Debugf(ctx, "local relation units changed for %v", w.relationTag)
+			w.logger.Debugf(ctx, "local relation units changed for %v", w.relationUUID)
 
 			unitRelationInfo, err := w.service.GetRelationUnits(ctx, w.applicationUUID)
 			if err != nil {
 				return errors.Annotatef(
-					err, "fetching local side of relation %v", w.relationTag.Id())
+					err, "fetching local side of relation %v", w.relationUUID)
 			}
 
 			if isEmpty(unitRelationInfo) {

@@ -123,13 +123,13 @@ type remoteApplicationWorker struct {
 	offererModelUUID  string
 	consumeVersion    int
 
-	localRelationUnitChanges  chan relation.RelationUnitChange
-	remoteRelationUnitChanges chan remoteunitrelations.RelationUnitChange
-	remoteRelationChanges     chan remoterelations.RelationChange
-
 	// offerMacaroon is used to confirm that permission has been granted to
 	// consume the remote application to which this worker pertains.
 	offerMacaroon *macaroon.Macaroon
+
+	consumerRelationUnitChanges chan relation.RelationUnitChange
+	offererRelationUnitChanges  chan remoteunitrelations.RelationUnitChange
+	offererRelationChanges      chan remoterelations.RelationChange
 
 	newConsumerUnitRelationsWorker NewConsumerUnitRelationsWorkerFunc
 	newOffererUnitRelationsWorker  NewOffererUnitRelationsWorkerFunc
@@ -162,10 +162,6 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 		runner:            runner,
 		crossModelService: config.CrossModelService,
 
-		localRelationUnitChanges:  make(chan relation.RelationUnitChange),
-		remoteRelationUnitChanges: make(chan remoteunitrelations.RelationUnitChange),
-		remoteRelationChanges:     make(chan remoterelations.RelationChange),
-
 		offerUUID:         config.OfferUUID,
 		applicationName:   config.ApplicationName,
 		applicationUUID:   config.ApplicationUUID,
@@ -175,6 +171,10 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 		offerMacaroon:     config.Macaroon,
 
 		remoteRelationClientGetter: config.RemoteRelationClientGetter,
+
+		consumerRelationUnitChanges: make(chan relation.RelationUnitChange),
+		offererRelationUnitChanges:  make(chan remoteunitrelations.RelationUnitChange),
+		offererRelationChanges:      make(chan remoterelations.RelationChange),
 
 		newConsumerUnitRelationsWorker: config.NewConsumerUnitRelationsWorker,
 		newOffererUnitRelationsWorker:  config.NewOffererUnitRelationsWorker,
@@ -502,9 +502,9 @@ func (w *remoteApplicationWorker) ensureOffererRelationWorker(
 			ConsumerRelationUUID:   relationUUID,
 			OffererApplicationUUID: offererApplicationUUID,
 			Macaroon:               mac,
-			Changes:                w.remoteRelationChanges,
+			Changes:                w.offererRelationChanges,
 			Clock:                  w.clock,
-			Logger:                 w.logger,
+			Logger:                 w.logger.Child("offerer-relation"),
 		})
 
 	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
@@ -522,7 +522,14 @@ func (w *remoteApplicationWorker) createUnitRelationWorkers(
 ) error {
 	consumerName := fmt.Sprintf("consumer-unit:%s", details.UUID)
 	if err := w.runner.StartWorker(ctx, consumerName, func(ctx context.Context) (worker.Worker, error) {
-		return w.newConsumerUnitRelationsWorker(localunitrelations.Config{})
+		return w.newConsumerUnitRelationsWorker(localunitrelations.Config{
+			Service:         w.crossModelService,
+			ApplicationUUID: w.applicationUUID,
+			RelationUUID:    details.UUID,
+			Changes:         w.consumerRelationUnitChanges,
+			Clock:           w.clock,
+			Logger:          w.logger.Child("consumer-unit"),
+		})
 	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return errors.Annotatef(err, "starting consumer unit relation worker for %q", details.UUID)
 	}
