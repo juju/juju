@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"strings"
 
 	"gopkg.in/macaroon.v2"
 
@@ -129,9 +129,13 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if !uuid.IsValidUUIDString(args.RemoteApplicationUUID) {
+		return internalerrors.Errorf("remote application UUID %q is not a valid UUID", args.RemoteApplicationUUID).Add(errors.NotValid)
+	}
+
 	// The synthetic application name is prefixed with "remote-" to avoid
 	// name clashes with local applications.
-	synthApplicationName := fmt.Sprintf("remote-%s", args.RemoteApplicationName)
+	synthApplicationName := "remote-" + strings.Replace(args.RemoteApplicationUUID, "-", "", -1)
 	if !application.IsValidApplicationName(synthApplicationName) {
 		return applicationerrors.ApplicationNameNotValid
 	}
@@ -154,11 +158,6 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 		return internalerrors.Errorf("creating remote application uuid: %w", err)
 	}
 
-	applicationUUID, err := coreapplication.NewID()
-	if err != nil {
-		return internalerrors.Errorf("creating application uuid: %w", err)
-	}
-
 	charmUUID, err := corecharm.NewID()
 	if err != nil {
 		return internalerrors.Errorf("creating charm uuid: %w", err)
@@ -167,10 +166,13 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 	if err := s.modelState.AddRemoteApplicationConsumer(ctx, synthApplicationName, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			RemoteApplicationUUID: remoteApplicationUUID.String(),
-			ApplicationUUID:       applicationUUID.String(),
-			CharmUUID:             charmUUID.String(),
-			Charm:                 syntheticCharm,
-			OfferUUID:             args.OfferUUID,
+			// NOTE: We use the same UUID as in the remote (consuming) model for
+			// the synthetic application we are creating in the offering model.
+			// We can do that because we know it's a valid UUID at this point.
+			ApplicationUUID: remoteApplicationUUID.String(),
+			CharmUUID:       charmUUID.String(),
+			Charm:           syntheticCharm,
+			OfferUUID:       args.OfferUUID,
 		},
 		RelationUUID: args.RelationUUID,
 	}); err != nil {

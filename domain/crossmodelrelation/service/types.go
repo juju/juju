@@ -35,10 +35,10 @@ type AddRemoteApplicationOffererArgs struct {
 // AddRemoteApplicationConsumerArgs contains the parameters required to add a
 // new remote application consumer.
 type AddRemoteApplicationConsumerArgs struct {
-	// RemoteApplicationName is the application named as as it exists in the
+	// RemoteApplicationUUID is the application UUID as as it exists in the
 	// remote (consuming) model. It contains the value from the RPC param
 	// ApplicationToken.
-	RemoteApplicationName string
+	RemoteApplicationUUID string
 
 	// OfferUUID is the UUID of the offer that the remote application is
 	// consuming.
