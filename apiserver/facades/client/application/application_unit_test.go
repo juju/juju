@@ -1509,7 +1509,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 	s.model.EXPECT().UUID().Return("")
 
-	storageConstraints := map[string]storage.Directive{
+	storageDirectives := map[string]storage.Directive{
 		"data": {
 			Count: 1,
 			Size:  1024,
@@ -1521,7 +1521,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 		CharmURL:        curl,
 		CharmOrigin:     createCharmOriginFromURL(curl),
 		NumUnits:        1,
-		Storage:         storageConstraints,
+		Storage:         storageDirectives,
 	}
 	results, err := s.api.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{args}},
@@ -1531,7 +1531,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
-	c.Assert(s.deployParams["my-app"].Storage, gc.DeepEquals, storageConstraints)
+	c.Assert(s.deployParams["my-app"].Storage, gc.DeepEquals, storageDirectives)
 }
 
 func (s *ApplicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C) {

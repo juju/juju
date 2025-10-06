@@ -3182,16 +3182,16 @@ func (api *APIBase) updateOneApplicationStorageDirective(storageUpdate params.Ap
 
 	sCons := make(map[string]state.StorageConstraints)
 	for storageName, directive := range storageUpdate.StorageDirectives {
-		sd := state.StorageConstraints{
+		sc := state.StorageConstraints{
 			Pool: directive.Pool,
 		}
 		if directive.Size != nil {
-			sd.Size = *directive.Size
+			sc.Size = *directive.Size
 		}
 		if directive.Count != nil {
-			sd.Count = *directive.Count
+			sc.Count = *directive.Count
 		}
-		sCons[storageName] = sd
+		sCons[storageName] = sc
 	}
 
 	return app.UpdateStorageConstraints(sCons)

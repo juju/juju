@@ -1,6 +1,6 @@
 (command-juju-application-storage)=
 # `juju application-storage`
-> See also: [storage](#storage), [storage-pools](#storage-pools), [add-unit](#add-unit)
+> See also: [storage](#storage), [storage-pools](#storage-pools), [add-storage](#add-storage), [add-unit](#add-unit)
 
 ## Summary
 Displays or sets storage directives for an application.
@@ -29,9 +29,13 @@ Print the storage directives for the storage name 'pgdata' of the postgresql app
 
     juju application-storage postgresql pgdata
 
-Set the size to 100GiB, pool name to "rootfs", and count to 1 for the mysql application's 'database' storage:
+Set the size to 10GiB, pool name to "rootfs", and count to 1 for the mysql application's 'database' storage:
 
-    juju application-storage mysql database=100G,rootfs,1
+    juju application-storage mysql database=10G,rootfs,1
+	OR
+    juju application-storage mysql database=rootfs,1,10G
+	OR
+    juju application-storage mysql database=1,10G,rootfs
 
 If no size is provided, Juju uses the minimum size required by the charm. If the charm does not specify a minimum, the default is 1 GiB. 
 This value is then applied when updating the application’s storage.
@@ -41,22 +45,12 @@ This value is then applied when updating the application’s storage.
 If no pool is provided, Juju selects the default storage pool from the model.
 This pool will be recorded as the updated value for the application’s storage.
 
-	juju application-storage mysql database=100G,,1
+	juju application-storage mysql database=10G,,1
 
 If no count is provided, Juju uses the minimum count required by the charm. 
 That count will be used when updating the application’s storage.
 
-	juju application-storage mysql database=100G,rootfs,
-
-To set a storage directives for an application from a file:
-
-    juju application-storage mysql --file=path/to/cfg.yaml
-
-Note: The order of size, pool, and count in the assignment does not matter.
-For example, the following are equivalent:
-
-    juju application-storage mysql database=100G,rootfs,1
-    juju application-storage mysql database=rootfs,1,100G
+	juju application-storage mysql database=10G,rootfs,
 
 
 ## Details
@@ -77,14 +71,38 @@ To view the directive of a single storage name:
 
 To set storage directives on an application:
 
-    juju application-storage <application> name1=size,pool,count name2=size,pool,count
+    juju application-storage <application> <storagename1>=<storage-directive> <storagename2>=<storage-directive> ...
 
-Config values can be imported from a yaml file using the `--file` flag:
+`<storage-directive>` describes to the charm how to refer to the storage,
+and where to provision it from. `<storage-directive>` takes the following form:
 
-    juju application-storage <application> --file=path/to/config.yaml
+    <storage-name>[=<storage-configuration>]
 
-This allows you to, e.g., save an application's storage directives to a file:
+`<storage-name>` is defined in the charm's `metadata.yaml` file.
 
-    juju application-storage <application> --format=yaml > config.yaml
+`<storage-configuration>` is a description of how Juju should provision storage
+instances for the unit. They are made up of up to three parts: `<pool>`,
+`<count>`, and `<size>`. They can be provided in any order, but we recommend the
+following:
 
-and then import the config later.
+    <pool>,<count>,<size>
+
+Each parameter is optional, so long as at least one is present. So the following
+storage constraints are also valid:
+
+    <pool>,<size>
+    <count>,<size>
+    <size>
+
+`<pool>` is the storage pool to provision storage instances from. Must
+be a name from `juju storage-pools`.  The default pool is available via
+executing `juju model-config storage-default-block-source` or `storage-default-filesystem-source`.
+
+`<count>` is the number of storage instances to provision from `<storage-pool>` of
+`<size>`. Must be a positive integer. The default count is `1`. May be restricted
+by the charm, which can specify a maximum number of storage instances per unit.
+
+`<size>` is the number of bytes to provision per storage instance. Must be a
+positive number, followed by a size suffix.  Valid suffixes include M, G, T,
+and P.  Defaults to "1024M", or the which can specify a minimum size required
+by the charm.
