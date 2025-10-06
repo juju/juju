@@ -303,5 +303,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
+	_, err = s.DB().Exec("INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, key, value) VALUES (?, ?, ?, ?)",
+		rel, "unit-name-does-not-matter-no-fk", "key", "value",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
 	return rel, unit
 }
