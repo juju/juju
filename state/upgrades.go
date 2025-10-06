@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
-
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
