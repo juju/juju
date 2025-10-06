@@ -206,11 +206,11 @@ func (c *storageConfigCommand) Run(ctx *cmd.Context) error {
 		var err error
 		switch action {
 		case config.GetOne:
-			err = c.getConfig(client, ctx)
+			err = c.getConfig(ctx, client)
 		case config.SetArgs:
 			err = c.setConfig(client, c.configBase.ValsToSet)
 		default:
-			err = c.getAllConfig(client, ctx)
+			err = c.getAllConfig(ctx, client)
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -230,7 +230,7 @@ type StorageDirectivesAPI interface {
 func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs config.Attrs) error {
 	sd := make(map[string]storage.Directive, len(attrs))
 	for k, v := range attrs {
-		// This should give us a string of the form "10G,rootfs,1"
+		// This should give us a string of the form "10G,rootfs,1".
 		constraintsStr := fmt.Sprint(v)
 		parsedCons, err := storage.ParseConstraints(constraintsStr)
 		if err != nil {
@@ -248,7 +248,7 @@ func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs conf
 }
 
 // getConfig writes the value of a single application config key to the cmd.Context.
-func (c *storageConfigCommand) getConfig(client StorageDirectivesAPI, ctx *cmd.Context) error {
+func (c *storageConfigCommand) getConfig(ctx *cmd.Context, client StorageDirectivesAPI) error {
 	applicationStorageInfo, err := client.GetApplicationStorageDirectives(c.applicationName)
 	if err != nil {
 		return err
@@ -273,7 +273,7 @@ func (c *storageConfigCommand) getConfig(client StorageDirectivesAPI, ctx *cmd.C
 }
 
 // getAllConfig returns the entire configuration for the selected application.
-func (c *storageConfigCommand) getAllConfig(client StorageDirectivesAPI, ctx *cmd.Context) error {
+func (c *storageConfigCommand) getAllConfig(ctx *cmd.Context, client StorageDirectivesAPI) error {
 	applicationStorageInfo, err := client.GetApplicationStorageDirectives(c.applicationName)
 	if err != nil {
 		return err

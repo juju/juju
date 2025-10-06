@@ -503,7 +503,7 @@ func (f *Facade) applicationFilesystemParams(
 	controllerConfig controller.Config,
 	modelConfig *config.Config,
 ) ([]params.KubernetesFilesystemParams, error) {
-	storageDirectives, err := app.StorageConstraints()
+	storageConstraints, err := app.StorageConstraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -516,12 +516,12 @@ func (f *Facade) applicationFilesystemParams(
 	var allFilesystemParams []params.KubernetesFilesystemParams
 	// To always guarantee the same order, sort by names.
 	var sNames []string
-	for name := range storageDirectives {
+	for name := range storageConstraints {
 		sNames = append(sNames, name)
 	}
 	sort.Strings(sNames)
 	for _, name := range sNames {
-		cons := storageDirectives[name]
+		cons := storageConstraints[name]
 		fsParams, err := filesystemParams(
 			app, cons, name,
 			controllerConfig.ControllerUUID(),

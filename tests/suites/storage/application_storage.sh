@@ -29,7 +29,7 @@ run_application_storage_directives() {
 		exit 1
 	fi
 
-	# Update the storage directive pgdata=3G
+	# Update the storage directive pgdata=3G.
 	juju application-storage "$app_name" pgdata=3G
 	new_size=$(juju application-storage "$app_name" --format=json | jq -r '.pgdata.Size')
 	if [ "$new_size" != "3072" ]; then
@@ -37,7 +37,7 @@ run_application_storage_directives() {
 		exit 1
 	fi
 
-	# Add 2 more units and check their storage size is 3G
+	# Add 2 more units and check their storage size is 3G.
 	juju add-unit "$app_name" -n 2
 	wait_for "${app_name}/1" ".applications"
 	wait_for "${app_name}/2" ".applications"
