@@ -496,11 +496,12 @@ type RelationService interface {
 		appUUIDs []coreapplication.UUID,
 	) (relation.RelationUnitsChange, error)
 
-	// GetRelationUnitSettings returns the unit settings for the
-	// given relation unit identifier.
+	// GetRelationUnitSettings returns the relation settings for the input unit
+	// in the input relation.
 	GetRelationUnitSettings(
 		ctx context.Context,
-		relationUnitUUID corerelation.UnitUUID,
+		relationUUID corerelation.UUID,
+		unitName coreunit.Name,
 	) (map[string]string, error)
 
 	// GetRelationUUIDByKey returns a relation UUID for the given relation Key.
