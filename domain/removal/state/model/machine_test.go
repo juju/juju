@@ -12,16 +12,13 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
-	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type machineSuite struct {
@@ -953,7 +950,11 @@ func (s *machineSuite) TestDeleteMachineWithLinkLayerDevice(c *tc.C) {
 	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	ipUUID, lldUUID := s.addIpAndLinkLayerDevice(c, machineUUID)
+	// Add networking objects associated with the machine.
+	// These should be deleted when the machine is deleted.
+	subnetUUID := s.addSubnet(c, "10.0.0.53/16", "test-space")
+	lldUUID := s.addLinkLayerDevice(c, machineUUID.String())
+	ipUUID := s.addIPAddress(c, machineUUID.String(), lldUUID, subnetUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -977,60 +978,4 @@ func (s *machineSuite) TestDeleteMachineWithLinkLayerDevice(c *tc.C) {
 	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device WHERE uuid = ?", lldUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
-}
-
-// addIpAndLinkLayerDevice adds an IP address and link layer device to the given machine
-// It returns the UUIDs of the created IP address and link layer device.
-func (s *machineSuite) addIpAndLinkLayerDevice(c *tc.C, machineUUID machine.UUID) (string, string) {
-	ipAddrUUID := uuid.MustNewUUID().String()
-	lldUUID := uuid.MustNewUUID().String()
-	subnetUUID := uuid.MustNewUUID().String()
-	spaceUUID := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var netNodeUUID string
-		err := tx.QueryRowContext(ctx, `
-SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID).Scan(&netNodeUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO space (uuid, name)
-VALUES (?, ?)`, spaceUUID, "test-space")
-		if err != nil {
-			return errors.Errorf("failed to insert space: %v", err)
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO subnet (uuid, cidr, space_uuid) 
-VALUES (?, ?, ?)`, subnetUUID, "10.0.0.1/24", spaceUUID)
-		if err != nil {
-			return errors.Errorf("failed to insert subnet: %v", err)
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
-VALUES (?, ?, ?, ?, ?, ?, ?)`, lldUUID, netNodeUUID, "lld-name", 1500, "00:11:22:33:44:55", 0, 0)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO provider_link_layer_device (provider_id, device_uuid)
-VALUES (?, ?)`, "provider-id", lldUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) 
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, ipAddrUUID, lldUUID, "10.16.42.9/24", netNodeUUID, 0, 0, 0, 0, subnetUUID)
-		if err != nil {
-			return errors.Errorf("failed to insert ip_address: %v", err)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	return ipAddrUUID, lldUUID
 }
