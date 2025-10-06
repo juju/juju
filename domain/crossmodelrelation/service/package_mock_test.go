@@ -221,6 +221,44 @@ func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
 }
 
+// AddRemoteApplicationConsumer mocks base method.
+func (m *MockModelState) AddRemoteApplicationConsumer(arg0 context.Context, arg1 string, arg2 crossmodelrelation.AddRemoteApplicationConsumerArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddRemoteApplicationConsumer", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddRemoteApplicationConsumer indicates an expected call of AddRemoteApplicationConsumer.
+func (mr *MockModelStateMockRecorder) AddRemoteApplicationConsumer(arg0, arg1, arg2 any) *MockModelStateAddRemoteApplicationConsumerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteApplicationConsumer", reflect.TypeOf((*MockModelState)(nil).AddRemoteApplicationConsumer), arg0, arg1, arg2)
+	return &MockModelStateAddRemoteApplicationConsumerCall{Call: call}
+}
+
+// MockModelStateAddRemoteApplicationConsumerCall wrap *gomock.Call
+type MockModelStateAddRemoteApplicationConsumerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateAddRemoteApplicationConsumerCall) Return(arg0 error) *MockModelStateAddRemoteApplicationConsumerCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateAddRemoteApplicationConsumerCall) Do(f func(context.Context, string, crossmodelrelation.AddRemoteApplicationConsumerArgs) error) *MockModelStateAddRemoteApplicationConsumerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateAddRemoteApplicationConsumerCall) DoAndReturn(f func(context.Context, string, crossmodelrelation.AddRemoteApplicationConsumerArgs) error) *MockModelStateAddRemoteApplicationConsumerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddRemoteApplicationOfferer mocks base method.
 func (m *MockModelState) AddRemoteApplicationOfferer(arg0 context.Context, arg1 string, arg2 crossmodelrelation.AddRemoteApplicationOffererArgs) error {
 	m.ctrl.T.Helper()
