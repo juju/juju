@@ -268,3 +268,248 @@ func (s *remoteApplicationServiceSuite) TestSaveMacaroonForRelationInvalidMacaro
 	err := service.SaveMacaroonForRelation(c.Context(), relationUUID, nil)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
+
+func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumer(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+
+	syntheticCharm := charm.Charm{
+		Metadata: charm.Metadata{
+			Name:        "remote-test-app",
+			Description: "remote offerer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "database",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+		ReferenceName: "remote-test-app",
+		Source:        charm.CMRSource,
+	}
+
+	var received crossmodelrelation.AddRemoteApplicationConsumerArgs
+	s.modelState.EXPECT().AddRemoteApplicationConsumer(gomock.Any(), "remote-test-app", gomock.Any()).DoAndReturn(func(_ context.Context, _ string, args crossmodelrelation.AddRemoteApplicationConsumerArgs) error {
+		received = args
+		return nil
+	})
+
+	service := s.service(c)
+
+	err := service.AddRemoteApplicationConsumer(c.Context(), AddRemoteApplicationConsumerArgs{
+		RemoteApplicationName: "test-app",
+		OfferUUID:             offerUUID,
+		RelationUUID:          relationUUID,
+		Endpoints: []charm.Relation{{
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Limit:     1,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(received.RemoteApplicationUUID, tc.IsUUID)
+	c.Check(received.ApplicationUUID, tc.IsUUID)
+	c.Check(received.CharmUUID, tc.IsUUID)
+
+	received.RemoteApplicationUUID = ""
+	received.ApplicationUUID = ""
+	received.CharmUUID = ""
+
+	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			Charm:     syntheticCharm,
+			OfferUUID: offerUUID,
+		},
+		RelationUUID: relationUUID,
+	})
+}
+
+func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidApplicationName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := s.service(c)
+
+	err := service.AddRemoteApplicationConsumer(c.Context(), AddRemoteApplicationConsumerArgs{
+		RemoteApplicationName: "!foo",
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidOfferUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := s.service(c)
+
+	err := service.AddRemoteApplicationConsumer(c.Context(), AddRemoteApplicationConsumerArgs{
+		RemoteApplicationName: "foo",
+		OfferUUID:             "!!",
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidRelationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+
+	service := s.service(c)
+
+	err := service.AddRemoteApplicationConsumer(c.Context(), AddRemoteApplicationConsumerArgs{
+		RemoteApplicationName: "foo",
+		OfferUUID:             offerUUID,
+		RelationUUID:          "!!",
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerNoEndpoints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+
+	service := s.service(c)
+
+	err := service.AddRemoteApplicationConsumer(c.Context(), AddRemoteApplicationConsumerArgs{
+		RemoteApplicationName: "foo",
+		OfferUUID:             offerUUID,
+		RelationUUID:          relationUUID,
+		Endpoints:             []charm.Relation{},
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidEndpointScope(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+
+	service := s.service(c)
+
+	err := service.AddRemoteApplicationConsumer(c.Context(), AddRemoteApplicationConsumerArgs{
+		RemoteApplicationName: "foo",
+		OfferUUID:             offerUUID,
+		RelationUUID:          relationUUID,
+		Endpoints: []charm.Relation{{
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Limit:     1,
+			Scope:     charm.ScopeContainer,
+		}},
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+
+	s.modelState.EXPECT().AddRemoteApplicationConsumer(gomock.Any(), "remote-foo", gomock.Any()).Return(internalerrors.Errorf("database error"))
+
+	service := s.service(c)
+
+	err := service.AddRemoteApplicationConsumer(c.Context(), AddRemoteApplicationConsumerArgs{
+		RemoteApplicationName: "foo",
+		OfferUUID:             offerUUID,
+		RelationUUID:          relationUUID,
+		Endpoints: []charm.Relation{{
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Limit:     1,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, tc.ErrorMatches, "inserting remote application consumer: database error")
+}
+
+func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerMixedEndpoints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+
+	syntheticCharm := charm.Charm{
+		Metadata: charm.Metadata{
+			Name:        "remote-mixed-app",
+			Description: "remote offerer application",
+			Provides: map[string]charm.Relation{
+				"web": {
+					Name:      "web",
+					Role:      charm.RoleProvider,
+					Interface: "http",
+					Limit:     0,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleRequirer,
+					Interface: "database",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+		ReferenceName: "remote-mixed-app",
+		Source:        charm.CMRSource,
+	}
+
+	var received crossmodelrelation.AddRemoteApplicationConsumerArgs
+	s.modelState.EXPECT().AddRemoteApplicationConsumer(gomock.Any(), "remote-mixed-app", gomock.Any()).DoAndReturn(func(_ context.Context, _ string, args crossmodelrelation.AddRemoteApplicationConsumerArgs) error {
+		received = args
+		return nil
+	})
+
+	service := s.service(c)
+
+	err := service.AddRemoteApplicationConsumer(c.Context(), AddRemoteApplicationConsumerArgs{
+		RemoteApplicationName: "mixed-app",
+		OfferUUID:             offerUUID,
+		RelationUUID:          relationUUID,
+		Endpoints: []charm.Relation{{
+			Name:      "web",
+			Role:      charm.RoleProvider,
+			Interface: "http",
+			Limit:     0,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(received.RemoteApplicationUUID, tc.IsUUID)
+	c.Check(received.ApplicationUUID, tc.IsUUID)
+	c.Check(received.CharmUUID, tc.IsUUID)
+
+	received.RemoteApplicationUUID = ""
+	received.ApplicationUUID = ""
+	received.CharmUUID = ""
+
+	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			Charm:     syntheticCharm,
+			OfferUUID: offerUUID,
+		},
+		RelationUUID: relationUUID,
+	})
+}

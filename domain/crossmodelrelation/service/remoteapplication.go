@@ -125,11 +125,14 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 
 // AddRemoteApplicationConsumer adds a new synthetic application representing
 // a remote relation on the consuming model, to this, the offering model.
-func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, applicationName string, args AddRemoteApplicationConsumerArgs) error {
+func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemoteApplicationConsumerArgs) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !application.IsValidApplicationName(applicationName) {
+	// The synthetic application name is prefixed with "remote-" to avoid
+	// name clashes with local applications.
+	synthApplicationName := fmt.Sprintf("remote-%s", args.RemoteApplicationName)
+	if !application.IsValidApplicationName(synthApplicationName) {
 		return applicationerrors.ApplicationNameNotValid
 	}
 	if !uuid.IsValidUUIDString(args.OfferUUID) {
@@ -141,7 +144,7 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, applicationN
 
 	// Construct a synthetic charm to represent the remote application charm,
 	// so we can track the endpoints it offers.
-	syntheticCharm, err := constructSyntheticCharm(applicationName, args.Endpoints)
+	syntheticCharm, err := constructSyntheticCharm(synthApplicationName, args.Endpoints)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -160,9 +163,6 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, applicationN
 	if err != nil {
 		return internalerrors.Errorf("creating charm uuid: %w", err)
 	}
-	// The synthetic application name is prefixed with "remote-" to avoid
-	// name clashes with local applications.
-	synthApplicationName := fmt.Sprintf("remote-%s", args.RemoteApplicationName)
 
 	if err := s.modelState.AddRemoteApplicationConsumer(ctx, synthApplicationName, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
@@ -177,7 +177,7 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, applicationN
 		return internalerrors.Errorf("inserting remote application consumer: %w", err)
 	}
 
-	s.recordInitRemoteApplicationStatusHistory(ctx, applicationName)
+	s.recordInitRemoteApplicationStatusHistory(ctx, synthApplicationName)
 
 	return nil
 }
