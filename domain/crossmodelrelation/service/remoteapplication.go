@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"gopkg.in/macaroon.v2"
 
@@ -33,6 +34,14 @@ type ModelRemoteApplicationState interface {
 		context.Context,
 		string,
 		crossmodelrelation.AddRemoteApplicationOffererArgs,
+	) error
+
+	// AddRemoteApplicationConsumer adds a new synthetic application representing
+	// the remote relation on the consuming model, to this, the offering model.
+	AddRemoteApplicationConsumer(
+		context.Context,
+		string,
+		crossmodelrelation.AddRemoteApplicationConsumerArgs,
 	) error
 
 	// GetRemoteApplicationOfferers returns all the current non-dead remote
@@ -65,18 +74,6 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	}
 	if args.Macaroon == nil {
 		return internalerrors.New("macaroon cannot be nil").Add(errors.NotValid)
-	}
-	if len(args.Endpoints) == 0 {
-		return internalerrors.New("endpoints cannot be empty").Add(errors.NotValid)
-	}
-	// Ensure that we don't have any endpoints that are non-global scope.
-	for _, endpoint := range args.Endpoints {
-		if endpoint.Scope == "" {
-			continue
-		}
-		if endpoint.Scope != charm.ScopeGlobal {
-			return internalerrors.Errorf("endpoint %q has non-global scope %q", endpoint.Name, endpoint.Scope).Add(errors.NotValid)
-		}
 	}
 
 	// Construct a synthetic charm to represent the remote application charm,
@@ -122,6 +119,67 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	}
 
 	s.recordInitRemoteApplicationStatusHistory(ctx, applicationName)
+
+	return nil
+}
+
+// AddRemoteApplicationConsumer adds a new synthetic application representing
+// a remote relation on the consuming model, to this, the offering model.
+func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemoteApplicationConsumerArgs) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !uuid.IsValidUUIDString(args.RemoteApplicationUUID) {
+		return internalerrors.Errorf("remote application UUID %q is not a valid UUID", args.RemoteApplicationUUID).Add(errors.NotValid)
+	}
+
+	// The synthetic application name is prefixed with "remote-" to avoid
+	// name clashes with local applications.
+	synthApplicationName := "remote-" + strings.Replace(args.RemoteApplicationUUID, "-", "", -1)
+	if !application.IsValidApplicationName(synthApplicationName) {
+		return applicationerrors.ApplicationNameNotValid
+	}
+	if !uuid.IsValidUUIDString(args.OfferUUID) {
+		return internalerrors.Errorf("offer UUID %q is not a valid UUID", args.OfferUUID).Add(errors.NotValid)
+	}
+	if !uuid.IsValidUUIDString(args.RelationUUID) {
+		return internalerrors.Errorf("relation UUID %q is not a valid UUID", args.RelationUUID).Add(errors.NotValid)
+	}
+
+	// Construct a synthetic charm to represent the remote application charm,
+	// so we can track the endpoints it offers.
+	syntheticCharm, err := constructSyntheticCharm(synthApplicationName, args.Endpoints)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	remoteApplicationUUID, err := coreremoteapplication.NewUUID()
+	if err != nil {
+		return internalerrors.Errorf("creating remote application uuid: %w", err)
+	}
+
+	charmUUID, err := corecharm.NewID()
+	if err != nil {
+		return internalerrors.Errorf("creating charm uuid: %w", err)
+	}
+
+	if err := s.modelState.AddRemoteApplicationConsumer(ctx, synthApplicationName, crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			RemoteApplicationUUID: remoteApplicationUUID.String(),
+			// NOTE: We use the same UUID as in the remote (consuming) model for
+			// the synthetic application we are creating in the offering model.
+			// We can do that because we know it's a valid UUID at this point.
+			ApplicationUUID: remoteApplicationUUID.String(),
+			CharmUUID:       charmUUID.String(),
+			Charm:           syntheticCharm,
+			OfferUUID:       args.OfferUUID,
+		},
+		RelationUUID: args.RelationUUID,
+	}); err != nil {
+		return internalerrors.Errorf("inserting remote application consumer: %w", err)
+	}
+
+	s.recordInitRemoteApplicationStatusHistory(ctx, synthApplicationName)
 
 	return nil
 }
@@ -201,6 +259,19 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {
+	if len(endpoints) == 0 {
+		return charm.Charm{}, internalerrors.New("endpoints cannot be empty").Add(errors.NotValid)
+	}
+	// Ensure that we don't have any endpoints that are non-global scope.
+	for _, endpoint := range endpoints {
+		if endpoint.Scope == "" {
+			continue
+		}
+		if endpoint.Scope != charm.ScopeGlobal {
+			return charm.Charm{}, internalerrors.Errorf("endpoint %q has non-global scope %q", endpoint.Name, endpoint.Scope).Add(errors.NotValid)
+		}
+	}
+
 	provides, requires, err := splitRelationsByType(endpoints)
 	if err != nil {
 		return charm.Charm{}, internalerrors.Errorf("parsing relations by type: %w", err)

@@ -31,3 +31,23 @@ type AddRemoteApplicationOffererArgs struct {
 	// authenticate with the offerer model.
 	Macaroon *macaroon.Macaroon
 }
+
+// AddRemoteApplicationConsumerArgs contains the parameters required to add a
+// new remote application consumer.
+type AddRemoteApplicationConsumerArgs struct {
+	// RemoteApplicationUUID is the application UUID as as it exists in the
+	// remote (consuming) model. It contains the value from the RPC param
+	// ApplicationToken.
+	RemoteApplicationUUID string
+
+	// OfferUUID is the UUID of the offer that the remote application is
+	// consuming.
+	OfferUUID string
+
+	// RelationUUID is the UUID of the relation created to connect the remote
+	// application to a local application, on the consuming model.
+	RelationUUID string
+
+	// Endpoints is the collection of endpoint relations offered.
+	Endpoints []charm.Relation
+}
