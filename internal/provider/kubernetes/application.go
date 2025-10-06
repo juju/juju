@@ -21,7 +21,6 @@ func (k *kubernetesClient) Application(name string, deploymentType caas.Deployme
 		k.dynamicClient(),
 		k.newWatcher,
 		k.clock,
-		k.randomPrefix,
 		k.controllerUUID,
 	)
 }
