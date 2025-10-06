@@ -4707,7 +4707,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 		Checksum: "checksum3",
 	}})
 	b.AddTrackLatest([]string{uri3.ID})
-	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{URI: uri3, Revision: ptr(1)}})
+	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{URI: uri3, Revisions: []int{1}}})
 	b.AddSecretGrants([]apiuniter.SecretGrantRevokeArgs{{
 		URI:             uri,
 		ApplicationName: ptr(s.mysql.Name()),
