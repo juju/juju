@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/macaroon.v2"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
@@ -22,11 +23,11 @@ import (
 
 // RelationChange encapsulates a remote relation event.
 type RelationChange struct {
-	ConsumerRelationUUID corerelation.UUID
-	OffererRelationUUID  corerelation.UUID
-	Life                 life.Value
-	Suspended            bool
-	SuspendedReason      string
+	ConsumerRelationUUID   corerelation.UUID
+	OffererApplicationUUID coreapplication.UUID
+	Life                   life.Value
+	Suspended              bool
+	SuspendedReason        string
 }
 
 // RemoteModelRelationsClient watches for changes to relations in a remote
@@ -46,13 +47,13 @@ type ReportableWorker interface {
 
 // Config contains the configuration parameters for a remote relation worker.
 type Config struct {
-	Client               RemoteModelRelationsClient
-	ConsumerRelationUUID corerelation.UUID
-	OffererRelationUUID  corerelation.UUID
-	Macaroon             *macaroon.Macaroon
-	Changes              chan<- RelationChange
-	Clock                clock.Clock
-	Logger               logger.Logger
+	Client                 RemoteModelRelationsClient
+	ConsumerRelationUUID   corerelation.UUID
+	OffererApplicationUUID coreapplication.UUID
+	Macaroon               *macaroon.Macaroon
+	Changes                chan<- RelationChange
+	Clock                  clock.Clock
+	Logger                 logger.Logger
 }
 
 // Validate ensures the configuration is valid.
@@ -63,8 +64,8 @@ func (c Config) Validate() error {
 	if c.ConsumerRelationUUID == "" {
 		return errors.NotValidf("consumer relation token cannot be empty")
 	}
-	if c.OffererRelationUUID == "" {
-		return errors.NotValidf("offerer relation token cannot be empty")
+	if c.OffererApplicationUUID == "" {
+		return errors.NotValidf("offerer application UUID cannot be empty")
 	}
 	if c.Macaroon == nil {
 		return errors.NotValidf("macaroon cannot be nil")
@@ -89,9 +90,9 @@ type remoteRelationsWorker struct {
 	client   RemoteModelRelationsClient
 	macaroon *macaroon.Macaroon
 
-	consumerRelationUUID corerelation.UUID
-	offererRelationUUID  corerelation.UUID
-	changes              chan<- RelationChange
+	consumerRelationUUID   corerelation.UUID
+	offererApplicationUUID coreapplication.UUID
+	changes                chan<- RelationChange
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -104,13 +105,13 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &remoteRelationsWorker{
-		client:               cfg.Client,
-		macaroon:             cfg.Macaroon,
-		consumerRelationUUID: cfg.ConsumerRelationUUID,
-		offererRelationUUID:  cfg.OffererRelationUUID,
-		changes:              cfg.Changes,
-		clock:                cfg.Clock,
-		logger:               cfg.Logger,
+		client:                 cfg.Client,
+		macaroon:               cfg.Macaroon,
+		consumerRelationUUID:   cfg.ConsumerRelationUUID,
+		offererApplicationUUID: cfg.OffererApplicationUUID,
+		changes:                cfg.Changes,
+		clock:                  cfg.Clock,
+		logger:                 cfg.Logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "remote-relations",
@@ -140,11 +141,11 @@ func (w *remoteRelationsWorker) loop() error {
 		BakeryVersion: bakery.LatestVersion,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "watching remote side of relation for %q", w.consumerRelationUUID)
+		return errors.Annotatef(err, "watching offerer side of relation for %q", w.consumerRelationUUID)
 	}
 
 	if err := w.catacomb.Add(watcher); err != nil {
-		return errors.Annotatef(err, "adding remote relation status watcher for %q", w.consumerRelationUUID)
+		return errors.Annotatef(err, "adding offerer relation status watcher for %q", w.consumerRelationUUID)
 	}
 
 	for {
@@ -154,8 +155,12 @@ func (w *remoteRelationsWorker) loop() error {
 
 		case changes, ok := <-watcher.Changes():
 			if !ok {
-				// We are dying.
-				return w.catacomb.ErrDying()
+				select {
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				default:
+					return errors.NotValidf("relation status watcher closed unexpectedly for %q", w.consumerRelationUUID)
+				}
 			}
 			if len(changes) == 0 {
 				w.logger.Warningf(ctx, "relation status watcher event with no changes")
@@ -167,11 +172,11 @@ func (w *remoteRelationsWorker) loop() error {
 			w.logger.Debugf(ctx, "relation status changed for %v: %v", w.consumerRelationUUID, change)
 
 			event := RelationChange{
-				ConsumerRelationUUID: w.consumerRelationUUID,
-				OffererRelationUUID:  w.offererRelationUUID,
-				Life:                 change.Life,
-				Suspended:            change.Suspended,
-				SuspendedReason:      change.SuspendedReason,
+				ConsumerRelationUUID:   w.consumerRelationUUID,
+				OffererApplicationUUID: w.offererApplicationUUID,
+				Life:                   change.Life,
+				Suspended:              change.Suspended,
+				SuspendedReason:        change.SuspendedReason,
 			}
 
 			select {

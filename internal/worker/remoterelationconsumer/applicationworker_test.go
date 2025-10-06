@@ -6,6 +6,7 @@ package remoterelationconsumer
 import (
 	"context"
 	stdtesting "testing"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
@@ -50,6 +51,8 @@ type applicationWorkerSuite struct {
 	consumerModelUUID model.UUID
 	offerUUID         string
 	macaroon          *macaroon.Macaroon
+
+	remoteRelationWorkerStarted chan struct{}
 }
 
 func (s *applicationWorkerSuite) SetUpTest(c *tc.C) {
@@ -695,8 +698,8 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, consumerRelationResult{
-		offeringApplicationUUID: token,
-		macaroon:                mac,
+		offererApplicationUUID: token,
+		macaroon:               mac,
 	})
 }
 
@@ -928,6 +931,207 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacaroo
 	c.Assert(err, tc.ErrorMatches, `.*front fell off.*`)
 }
 
+func (s *applicationWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	token := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, relation.NewUUID)
+	mac := newMacaroon(c, "test")
+
+	done := s.expectWorkerStartup(c)
+
+	arg := params.RegisterRemoteRelationArg{
+		ApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:    relationUUID.String(),
+		OfferUUID:        s.offerUUID,
+		Macaroons:        macaroon.Slice{s.macaroon},
+		RemoteEndpoint: params.RemoteEndpoint{
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Interface: "db",
+		},
+		LocalEndpointName: "blog",
+		ConsumeVersion:    1,
+		BakeryVersion:     bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		RegisterRemoteRelations(gomock.Any(), arg).
+		Return([]params.RegisterRemoteRelationResult{{
+			Result: &params.RemoteRelationDetails{
+				Token:         token.String(),
+				Macaroon:      mac,
+				BakeryVersion: bakery.LatestVersion,
+			},
+		}}, nil)
+	s.crossModelService.EXPECT().
+		SaveMacaroonForRelation(gomock.Any(), relationUUID, mac).
+		Return(nil)
+
+	w := s.newRemoteRelationsWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	err := w.handleRelationConsumption(c.Context(), domainrelation.RelationDetails{
+		UUID: relationUUID,
+		Life: life.Alive,
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: false,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.remoteRelationWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for remote relation worker to be started")
+	}
+
+	// Ensure that we create remote relation worker.
+	names := w.runner.WorkerNames()
+	c.Assert(names, tc.HasLen, 1)
+	c.Check(names[0], tc.Equals, "offerer-relation:"+relationUUID.String())
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *applicationWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	token := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, relation.NewUUID)
+	mac := newMacaroon(c, "test")
+
+	done := s.expectWorkerStartup(c)
+
+	arg := params.RegisterRemoteRelationArg{
+		ApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:    relationUUID.String(),
+		OfferUUID:        s.offerUUID,
+		Macaroons:        macaroon.Slice{s.macaroon},
+		RemoteEndpoint: params.RemoteEndpoint{
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Interface: "db",
+		},
+		LocalEndpointName: "blog",
+		ConsumeVersion:    1,
+		BakeryVersion:     bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		RegisterRemoteRelations(gomock.Any(), arg).
+		Return([]params.RegisterRemoteRelationResult{{
+			Result: &params.RemoteRelationDetails{
+				Token:         token.String(),
+				Macaroon:      mac,
+				BakeryVersion: bakery.LatestVersion,
+			},
+		}}, nil).Times(2)
+	s.crossModelService.EXPECT().
+		SaveMacaroonForRelation(gomock.Any(), relationUUID, mac).
+		Return(nil).Times(2)
+
+	w := s.newRemoteRelationsWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	err := w.handleRelationConsumption(c.Context(), domainrelation.RelationDetails{
+		UUID: relationUUID,
+		Life: life.Alive,
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: false,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.remoteRelationWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for remote relation worker to be started")
+	}
+
+	// Ensure that we create remote relation worker.
+	names := w.runner.WorkerNames()
+	c.Assert(names, tc.HasLen, 1)
+	c.Check(names[0], tc.Equals, "offerer-relation:"+relationUUID.String())
+
+	err = w.handleRelationConsumption(c.Context(), domainrelation.RelationDetails{
+		UUID: relationUUID,
+		Life: life.Alive,
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: false,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.remoteRelationWorkerStarted:
+		c.Fatalf("remote relation worker started more than once")
+	case <-time.After(500 * time.Millisecond):
+		// Wait for a bit to ensure we don't get a second start.
+	}
+
+	// Ensure that calling handleRelationConsumption again doesn't create
+	// another remote relation worker.
+	names = w.runner.WorkerNames()
+	c.Assert(names, tc.HasLen, 1)
+	c.Check(names[0], tc.Equals, "offerer-relation:"+relationUUID.String())
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *applicationWorkerSuite) newRemoteRelationsWorker(c *tc.C) *remoteApplicationWorker {
 	return tc.Must1(c, NewRemoteApplicationWorker, s.newApplicationConfig(c)).(*remoteApplicationWorker)
 }
@@ -949,7 +1153,14 @@ func (s *applicationWorkerSuite) newApplicationConfig(c *tc.C) RemoteApplication
 		NewRemoteUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
+		NewRemoteRelationsWorker: func(remoterelations.Config) (remoterelations.ReportableWorker, error) {
+			defer func() {
+				select {
+				case s.remoteRelationWorkerStarted <- struct{}{}:
+				case <-c.Context().Done():
+					c.Fatalf("timed out trying to send on remoteRelationWorkerStarted channel")
+				}
+			}()
 			return newErrWorker(nil), nil
 		},
 		Clock:  clock.WallClock,
@@ -983,4 +1194,12 @@ func (s *applicationWorkerSuite) expectWorkerStartup(c *tc.C) <-chan struct{} {
 		})
 
 	return done
+}
+
+func (s *applicationWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := s.baseSuite.setupMocks(c)
+
+	s.remoteRelationWorkerStarted = make(chan struct{}, 1)
+
+	return ctrl
 }

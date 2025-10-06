@@ -466,7 +466,7 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 	// Start the remote relation worker to watch for offerer relation changes.
 	// The aim is to ensure that we can track the suspended status of the
 	// relation so we can correctly react to that.
-	if err := w.createOffererRelationWorker(ctx, details.UUID, result.macaroon); err != nil {
+	if err := w.createOffererRelationWorker(ctx, details.UUID, result.offererApplicationUUID, result.macaroon); err != nil {
 		return errors.Annotatef(err, "creating offerer relation worker for %q", details.UUID)
 	}
 
@@ -475,14 +475,27 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 
 // Create a new worker to watch for changes to the relation in the offering
 // model.
-func (w *remoteApplicationWorker) createOffererRelationWorker(ctx context.Context, relationUUID corerelation.UUID, mac *macaroon.Macaroon) error {
-	if err := w.runner.StartWorker(ctx, relationUUID.String(), func(ctx context.Context) (worker.Worker, error) {
+//
+// The worker is identified by the relation UUID, so it can track that
+// information, along with the offering application UUID and macaroon used to
+// access the relation in the offering model. If we have this information, we
+// should be able to pin point the relation in the offering model.
+func (w *remoteApplicationWorker) createOffererRelationWorker(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	offererApplicationUUID application.UUID,
+	mac *macaroon.Macaroon,
+) error {
+	name := fmt.Sprintf("offerer-relation:%s", relationUUID)
+	if err := w.runner.StartWorker(ctx, name, func(ctx context.Context) (worker.Worker, error) {
 		return w.newRemoteRelationsWorker(remoterelations.Config{
-			Client:   w.remoteModelClient,
-			Macaroon: mac,
-			Changes:  w.remoteRelationChanges,
-			Clock:    w.clock,
-			Logger:   w.logger,
+			Client:                 w.remoteModelClient,
+			ConsumerRelationUUID:   relationUUID,
+			OffererApplicationUUID: offererApplicationUUID,
+			Macaroon:               mac,
+			Changes:                w.remoteRelationChanges,
+			Clock:                  w.clock,
+			Logger:                 w.logger,
 		})
 
 	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
@@ -544,7 +557,7 @@ func (w *remoteApplicationWorker) registerConsumerRelation(
 	// anything that the remote model is running.
 	//
 	// See: https://github.com/juju/juju/blob/43e381811d9e330ee2d095c1e0562300bd78b68a/state/remoteentities.go#L110-L115
-	offeringAppUUID, err := application.ParseID(registerResult.Token)
+	offererAppUUID, err := application.ParseID(registerResult.Token)
 	if err != nil {
 		return consumerRelationResult{}, errors.Annotatef(err, "parsing offering application token %q", registerResult.Token)
 	}
@@ -556,14 +569,14 @@ func (w *remoteApplicationWorker) registerConsumerRelation(
 	}
 
 	return consumerRelationResult{
-		offeringApplicationUUID: offeringAppUUID,
-		macaroon:                registerResult.Macaroon,
+		offererApplicationUUID: offererAppUUID,
+		macaroon:               registerResult.Macaroon,
 	}, nil
 }
 
 type consumerRelationResult struct {
-	offeringApplicationUUID application.UUID
-	macaroon                *macaroon.Macaroon
+	offererApplicationUUID application.UUID
+	macaroon               *macaroon.Macaroon
 }
 
 // isNotFound allows either type of not found error
