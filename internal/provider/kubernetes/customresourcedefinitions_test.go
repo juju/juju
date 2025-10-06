@@ -106,8 +106,6 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	}...)
@@ -118,8 +116,9 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentStateful,
 		},
-		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
-		ResourceTags: map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		ImageDetails:    resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ResourceTags:    map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, e string, _ map[string]interface{}) error {
 		c.Logf("EnsureService error -> %q", e)
@@ -826,8 +825,6 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	}...)
@@ -840,8 +837,9 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 			Deployment: caas.DeploymentParams{
 				DeploymentType: caas.DeploymentStateful,
 			},
-			ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
-			ResourceTags: map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+			ImageDetails:    resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+			ResourceTags:    map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+			StorageUniqueID: "appuuid",
 		}
 		errChan <- s.broker.EnsureService("app-name",
 			func(_ string, _ status.Status, e string, _ map[string]interface{}) error {

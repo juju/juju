@@ -331,14 +331,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	// Eventually the namespace wil be set to controllerName.
 	// So we have to specify the final namespace(controllerName) for later use.
 	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 	_, err := s.mockNamespaces.Get(context.TODO(), s.namespace, v1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 
 	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
-	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc, &bootstrapWatchers)
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &bootstrapWatchers)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.Namespace(), jc.DeepEquals, s.namespace)
@@ -1229,14 +1226,11 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 	// Eventually the namespace wil be set to controllerName.
 	// So we have to specify the final namespace(controllerName) for later use.
 	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 	_, err := s.mockNamespaces.Get(context.TODO(), s.namespace, v1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 
 	var watchers []k8swatcher.KubernetesNotifyWatcher
-	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc, &watchers)
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &watchers)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.Namespace(), jc.DeepEquals, s.namespace)
