@@ -999,15 +999,17 @@ func (w *RemoteStateWatcher) secretsChanged(secretURIs []string) error {
 		return errors.Trace(err)
 	}
 	w.logger.Debugf("got latest secret info: %#v", info)
+	toDelete := set.NewStrings()
 	for _, uri := range secretURIs {
 		if latest, ok := info[uri]; ok {
 			w.current.ConsumedSecretInfo[uri] = latest
 		} else {
-			deleted := set.NewStrings(w.current.DeletedSecrets...)
-			deleted.Add(uri)
-			w.current.DeletedSecrets = deleted.SortedValues()
+			toDelete.Add(uri)
 		}
 	}
+	deleted := set.NewStrings(w.current.DeletedSecrets...)
+	w.current.DeletedSecrets = deleted.Union(toDelete).SortedValues()
+
 	// For any deleted secrets, ensure we don't carry forward consumed revisions.
 	for _, uri := range w.current.DeletedSecrets {
 		delete(w.current.ConsumedSecretInfo, uri)

@@ -595,7 +595,6 @@ func allCollections() CollectionSchema {
 		secretRevisionsC: {
 			indexes: []mgo.Index{
 				{Key: []string{"model-uuid", "_id", "revision"}},
-				{Key: []string{"model-uuid", "_id"}},
 				{Key: []string{"model-uuid", "_id", "owner-tag"}},
 				{Key: []string{"model-uuid", "owner-tag"}},
 			},
