@@ -47,7 +47,6 @@ import (
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/mocks"
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -221,21 +220,17 @@ func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 
 	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
 		Return(nil, s.k8sNotFoundError())
 
-	return s.setupBroker(c, ctrl, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "")
+	return s.setupBroker(c, ctrl, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, "")
 }
 
 func (s *BaseSuite) setupBroker(
 	c *gc.C, ctrl *gomock.Controller, controllerUUID string,
 	newK8sClientFunc provider.NewK8sClientFunc,
 	newK8sRestFunc k8sspecs.NewK8sRestClientFunc,
-	randomPrefixFunc utils.RandomPrefixFunc,
 	expectErr string,
 ) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Time{})
@@ -262,7 +257,7 @@ func (s *BaseSuite) setupBroker(
 
 	var err error
 	s.broker, err = provider.NewK8sBroker(controllerUUID, s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
-		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
+		watcherFn, stringsWatcherFn, s.clock)
 	if expectErr == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -528,10 +523,7 @@ func (s *fakeClientSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
-	s.setupBroker(c, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, nil)
+	s.setupBroker(c, newK8sClientFunc, newK8sRestFunc, nil)
 }
 
 func (s *fakeClientSuite) getNamespace() string {
@@ -545,7 +537,6 @@ func (s *fakeClientSuite) setupBroker(
 	c *gc.C,
 	newK8sClientFunc provider.NewK8sClientFunc,
 	newK8sRestFunc k8sspecs.NewK8sRestClientFunc,
-	randomPrefixFunc utils.RandomPrefixFunc,
 	watchers *[]k8swatcher.KubernetesNotifyWatcher,
 ) {
 	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
@@ -570,7 +561,7 @@ func (s *fakeClientSuite) setupBroker(
 
 	var err error
 	s.broker, err = provider.NewK8sBroker(coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
-		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
+		watcherFn, stringsWatcherFn, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
