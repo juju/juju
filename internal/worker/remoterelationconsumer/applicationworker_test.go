@@ -52,7 +52,9 @@ type applicationWorkerSuite struct {
 	offerUUID         string
 	macaroon          *macaroon.Macaroon
 
-	remoteRelationWorkerStarted chan struct{}
+	consumerUnitRelationsWorkerStarted chan struct{}
+	offererUnitRelationsWorkerStarted  chan struct{}
+	offererRelationWorkerStarted       chan struct{}
 }
 
 func (s *applicationWorkerSuite) SetUpTest(c *tc.C) {
@@ -806,7 +808,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelationInvalidResultLength
 		},
 		"blog",
 	)
-	c.Assert(err, tc.ErrorMatches, `.*no result from registering remote relation.*`)
+	c.Assert(err, tc.ErrorMatches, `.*no result from registering consumer relation.*`)
 }
 
 func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedRequestError(c *tc.C) {
@@ -1000,16 +1002,16 @@ func (s *applicationWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	select {
-	case <-s.remoteRelationWorkerStarted:
-	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for remote relation worker to be started")
-	}
+	s.waitForAllWorkersStarted(c)
 
 	// Ensure that we create remote relation worker.
 	names := w.runner.WorkerNames()
-	c.Assert(names, tc.HasLen, 1)
-	c.Check(names[0], tc.Equals, "offerer-relation:"+relationUUID.String())
+	c.Assert(names, tc.HasLen, 3)
+	c.Check(names, tc.SameContents, []string{
+		"offerer-relation:" + relationUUID.String(),
+		"offerer-unit-relation:" + relationUUID.String(),
+		"consumer-unit-relation:" + relationUUID.String(),
+	})
 
 	workertest.CleanKill(c, w)
 }
@@ -1083,16 +1085,16 @@ func (s *applicationWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c *
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	select {
-	case <-s.remoteRelationWorkerStarted:
-	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for remote relation worker to be started")
-	}
+	s.waitForAllWorkersStarted(c)
 
 	// Ensure that we create remote relation worker.
 	names := w.runner.WorkerNames()
-	c.Assert(names, tc.HasLen, 1)
-	c.Check(names[0], tc.Equals, "offerer-relation:"+relationUUID.String())
+	c.Assert(names, tc.HasLen, 3)
+	c.Check(names, tc.SameContents, []string{
+		"offerer-relation:" + relationUUID.String(),
+		"offerer-unit-relation:" + relationUUID.String(),
+		"consumer-unit-relation:" + relationUUID.String(),
+	})
 
 	err = w.handleRelationConsumption(c.Context(), domainrelation.RelationDetails{
 		UUID: relationUUID,
@@ -1117,7 +1119,7 @@ func (s *applicationWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c *
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
-	case <-s.remoteRelationWorkerStarted:
+	case <-s.offererRelationWorkerStarted:
 		c.Fatalf("remote relation worker started more than once")
 	case <-time.After(500 * time.Millisecond):
 		// Wait for a bit to ensure we don't get a second start.
@@ -1126,8 +1128,12 @@ func (s *applicationWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c *
 	// Ensure that calling handleRelationConsumption again doesn't create
 	// another remote relation worker.
 	names = w.runner.WorkerNames()
-	c.Assert(names, tc.HasLen, 1)
-	c.Check(names[0], tc.Equals, "offerer-relation:"+relationUUID.String())
+	c.Assert(names, tc.HasLen, 3)
+	c.Check(names, tc.SameContents, []string{
+		"offerer-relation:" + relationUUID.String(),
+		"offerer-unit-relation:" + relationUUID.String(),
+		"consumer-unit-relation:" + relationUUID.String(),
+	})
 
 	workertest.CleanKill(c, w)
 }
@@ -1147,18 +1153,32 @@ func (s *applicationWorkerSuite) newApplicationConfig(c *tc.C) RemoteApplication
 		OffererModelUUID:           s.offererModelUUID,
 		ConsumeVersion:             1,
 		Macaroon:                   s.macaroon,
-		NewConsumerUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+		NewConsumerUnitRelationsWorker: func(localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+			defer func() {
+				select {
+				case s.consumerUnitRelationsWorkerStarted <- struct{}{}:
+				case <-c.Context().Done():
+					c.Fatalf("timed out trying to send on offererRelationWorkerStarted channel")
+				}
+			}()
 			return newErrWorker(nil), nil
 		},
-		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+		NewOffererUnitRelationsWorker: func(remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+			defer func() {
+				select {
+				case s.offererUnitRelationsWorkerStarted <- struct{}{}:
+				case <-c.Context().Done():
+					c.Fatalf("timed out trying to send on offererUnitRelationsWorkerStarted channel")
+				}
+			}()
 			return newErrWorker(nil), nil
 		},
 		NewOffererRelationsWorker: func(remoterelations.Config) (remoterelations.ReportableWorker, error) {
 			defer func() {
 				select {
-				case s.remoteRelationWorkerStarted <- struct{}{}:
+				case s.offererRelationWorkerStarted <- struct{}{}:
 				case <-c.Context().Done():
-					c.Fatalf("timed out trying to send on remoteRelationWorkerStarted channel")
+					c.Fatalf("timed out trying to send on offererRelationWorkerStarted channel")
 				}
 			}()
 			return newErrWorker(nil), nil
@@ -1199,7 +1219,29 @@ func (s *applicationWorkerSuite) expectWorkerStartup(c *tc.C) <-chan struct{} {
 func (s *applicationWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.remoteRelationWorkerStarted = make(chan struct{}, 1)
+	s.offererRelationWorkerStarted = make(chan struct{}, 1)
+	s.offererUnitRelationsWorkerStarted = make(chan struct{}, 1)
+	s.consumerUnitRelationsWorkerStarted = make(chan struct{}, 1)
 
 	return ctrl
+}
+
+func (s *applicationWorkerSuite) waitForAllWorkersStarted(c *tc.C) {
+	select {
+	case <-s.consumerUnitRelationsWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for remote relation worker to be started")
+	}
+
+	select {
+	case <-s.offererUnitRelationsWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for remote relation worker to be started")
+	}
+
+	select {
+	case <-s.offererRelationWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for remote relation worker to be started")
+	}
 }

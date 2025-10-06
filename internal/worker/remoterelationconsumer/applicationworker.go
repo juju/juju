@@ -219,6 +219,12 @@ func (w *remoteApplicationWorker) Report() map[string]interface{} {
 
 	result["remote-model-uuid"] = w.offererModelUUID
 	result["offer-uuid"] = w.offerUUID
+	result["application-name"] = w.applicationName
+	result["application-uuid"] = w.applicationUUID
+	result["consumer-model-uuid"] = w.consumerModelUUID
+	result["consume-version"] = w.consumeVersion
+
+	result["workers"] = w.runner.Report()
 
 	return result
 }
@@ -516,13 +522,15 @@ func (w *remoteApplicationWorker) ensureOffererRelationWorker(
 
 // Create the unit relation workers for both the consumer and offerer sides
 // of the relation.
+// This is idempotent, if the workers already exist, they will not be created
+// again.
 func (w *remoteApplicationWorker) createUnitRelationWorkers(
 	ctx context.Context,
 	details relation.RelationDetails,
 	offferApplicationUUID application.UUID,
 	mac *macaroon.Macaroon,
 ) error {
-	consumerName := fmt.Sprintf("consumer-unit:%s", details.UUID)
+	consumerName := fmt.Sprintf("consumer-unit-relation:%s", details.UUID)
 	if err := w.runner.StartWorker(ctx, consumerName, func(ctx context.Context) (worker.Worker, error) {
 		return w.newConsumerUnitRelationsWorker(localunitrelations.Config{
 			Service:                 w.crossModelService,
@@ -536,7 +544,7 @@ func (w *remoteApplicationWorker) createUnitRelationWorkers(
 		return errors.Annotatef(err, "starting consumer unit relation worker for %q", details.UUID)
 	}
 
-	offererName := fmt.Sprintf("offerer-unit:%s", details.UUID)
+	offererName := fmt.Sprintf("offerer-unit-relation:%s", details.UUID)
 	if err := w.runner.StartWorker(ctx, offererName, func(ctx context.Context) (worker.Worker, error) {
 		return w.newOffererUnitRelationsWorker(remoteunitrelations.Config{
 			Client:                 w.remoteModelClient,
