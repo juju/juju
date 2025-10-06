@@ -21,7 +21,7 @@ func TestNetConfigSuite(t *testing.T) {
 	tc.Run(t, &netConfigSuite{})
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfig(c *tc.C) {
 	db := s.DB()
 
 	// Arrange
@@ -67,7 +67,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfig(c *tc.C) {
 	checkScalarResult(c, db, "SELECT dns_address FROM link_layer_device_dns_address", "8.8.8.8")
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
 	db := s.DB()
 
 	// Arrange
@@ -126,7 +126,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
 	checkScalarResult(c, db, "SELECT subnet_uuid FROM ip_address", newSubUUID)
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	db := s.DB()
 
 	// Arrange
@@ -161,7 +161,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	c.Check(addrCount, tc.Equals, 0)
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigUpdatedNIC(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigUpdatedNIC(c *tc.C) {
 	db := s.DB()
 
 	// Arrange
@@ -193,7 +193,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigUpdatedNIC(c *tc.C) {
 	checkScalarResult(c, db, "SELECT vlan_tag FROM link_layer_device", "30")
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {
 	db := s.DB()
 
 	// Arrange
@@ -238,7 +238,7 @@ WHERE  dc.name = 'eth0'`
 	checkScalarResult(c, db, parentSQL, brName)
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigUpdateConfigType(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigUpdateConfigType(c *tc.C) {
 	db := s.DB()
 
 	// Arrange
@@ -287,7 +287,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigUpdateConfigType(c *tc.C) {
 	checkScalarResult(c, db, "SELECT config_type_id FROM ip_address", "4")
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigUpdateProviderAddressMovesDevices(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigUpdateProviderAddressMovesDevices(c *tc.C) {
 	db := s.DB()
 
 	// Arrange: set a device with an address, then give it a provider origin.
@@ -377,7 +377,7 @@ WHERE  a.address_value = '192.168.0.50/24'`
 	checkScalarResult(c, db, q, brName)
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigLinkedSubnetWithDifferentCIDRNotUpdated(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigLinkedSubnetWithDifferentCIDRNotUpdated(c *tc.C) {
 	db := s.DB()
 
 	// Arrange
@@ -431,7 +431,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigLinkedSubnetWithDifferentCIDRNot
 	checkScalarResult(c, db, "SELECT subnet_uuid FROM ip_address", subnetUUID)
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigDeleteAddressAndDevice(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigDeleteAddressAndDevice(c *tc.C) {
 	db := s.DB()
 
 	// Arrange: run an update to get an existing device and address.
@@ -485,7 +485,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigDeleteAddressAndDevice(c *tc.C) 
 	checkScalarResult(c, db, "SELECT name FROM link_layer_device", newDevName)
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigProviderAddressNotDeleted(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigProviderAddressNotDeleted(c *tc.C) {
 	db := s.DB()
 
 	// Arrange: run an update to get an existing device and address,
@@ -544,7 +544,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigProviderAddressNotDeleted(c *tc.
 	checkScalarResult(c, db, "SELECT name FROM link_layer_device WHERE name = 'eth0'", devName)
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigParentNotDeleted(c *tc.C) {
+func (s *netConfigSuite) TestSetMachineNetConfigParentNotDeleted(c *tc.C) {
 	db := s.DB()
 
 	// Arrange: run an update to get an existing parent and child device.

@@ -953,8 +953,10 @@ func (s *machineSuite) TestDeleteMachineWithLinkLayerDevice(c *tc.C) {
 	// Add networking objects associated with the machine.
 	// These should be deleted when the machine is deleted.
 	subnetUUID := s.addSubnet(c, "10.0.0.53/16", "test-space")
-	lldUUID := s.addLinkLayerDevice(c, machineUUID.String())
-	ipUUID := s.addIPAddress(c, machineUUID.String(), lldUUID, subnetUUID)
+	lldParentUUID := s.addLinkLayerDevice(c, "lld-1", machineUUID.String())
+	lldChildUUID := s.addLinkLayerDevice(c, "lld-2", machineUUID.String())
+	s.addLinkLayerDeviceParent(c, lldChildUUID, lldParentUUID)
+	ipUUID := s.addIPAddress(c, machineUUID.String(), lldParentUUID, subnetUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -975,7 +977,11 @@ func (s *machineSuite) TestDeleteMachineWithLinkLayerDevice(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 
-	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device WHERE uuid = ?", lldUUID).Scan(&count)
+	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device WHERE uuid = ?", lldParentUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device WHERE uuid = ?", lldChildUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 }
