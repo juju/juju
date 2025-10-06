@@ -5,6 +5,7 @@ package remoterelations
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
@@ -96,6 +97,8 @@ type remoteRelationsWorker struct {
 
 	clock  clock.Clock
 	logger logger.Logger
+
+	requests chan chan map[string]any
 }
 
 // Worker creates a new worker that watches for changes
@@ -112,6 +115,7 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 		changes:                cfg.Changes,
 		clock:                  cfg.Clock,
 		logger:                 cfg.Logger,
+		requests:               make(chan chan map[string]any),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "remote-relations",
@@ -148,6 +152,7 @@ func (w *remoteRelationsWorker) loop() error {
 		return errors.Annotatef(err, "adding offerer relation status watcher for %q", w.consumerRelationUUID)
 	}
 
+	var event RelationChange
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -168,10 +173,11 @@ func (w *remoteRelationsWorker) loop() error {
 			}
 
 			// We only care about the most recent change.
+			// We must ensure that all changes being sent must be sent in order.
 			change := changes[len(changes)-1]
 			w.logger.Debugf(ctx, "relation status changed for %v: %v", w.consumerRelationUUID, change)
 
-			event := RelationChange{
+			event = RelationChange{
 				ConsumerRelationUUID:   w.consumerRelationUUID,
 				OffererApplicationUUID: w.offererApplicationUUID,
 				Life:                   change.Life,
@@ -184,13 +190,49 @@ func (w *remoteRelationsWorker) loop() error {
 				return w.catacomb.ErrDying()
 			case w.changes <- event:
 			}
+
+		case req := <-w.requests:
+			select {
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
+
+			case req <- map[string]any{
+				"consumer-relation-uuid":   w.consumerRelationUUID.String(),
+				"offerer-application-uuid": w.offererApplicationUUID.String(),
+				"life":                     string(event.Life),
+				"suspended":                event.Suspended,
+				"suspended-reason":         event.SuspendedReason,
+			}:
+			}
 		}
 	}
 }
 
 // Report provides information for the engine report.
-func (w *remoteRelationsWorker) Report() map[string]interface{} {
-	result := make(map[string]interface{})
+func (w *remoteRelationsWorker) Report() map[string]any {
+	result := make(map[string]any)
+
+	ch := make(chan map[string]any, 1)
+	select {
+	case <-w.catacomb.Dying():
+		return result
+	case <-w.clock.After(time.Second):
+		// Timeout trying to report.
+		result["error"] = "timed out trying to report"
+		return result
+	case w.requests <- ch:
+	}
+
+	select {
+	case <-w.catacomb.Dying():
+		return result
+	case <-w.clock.After(time.Second):
+		// Timeout trying to report.
+		result["error"] = "timed out waiting for report response"
+		return result
+	case resp := <-ch:
+		result = resp
+	}
 
 	return result
 }
