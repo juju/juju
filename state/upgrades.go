@@ -10,7 +10,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
-	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/pki/ssh"
 )
@@ -255,71 +255,95 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 	return st.runRawTransaction(ops)
 }
 
-func PopulateApplicationStorageUniqueID(pool *StatePool, getAnnotation func(appName string, mode string, includeClusterIP bool) (map[string]interface{}, error), labelVersion func() constants.LabelVersion) error {
+func PopulateApplicationStorageUniqueID(pool *StatePool, getBrokerFunc func(model *Model) (caas.Broker, error)) error {
+	logger.Infof("[adis] inside PopulateApplicationStorageUniqueID")
 	st, err := pool.SystemState()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if model.Type() != ModelTypeCAAS {
-		logger.Debugf("skipping because model %q is not a caas model", model.Name())
-		return nil
-	}
-
-	logger.Infof("[adis] model %q preparing for populating storage id", model.Name())
-
-	applications, closer := st.db().GetCollection(applicationsC)
-
-	defer closer()
-
 	var ops []txn.Op
-	iter := applications.Find(nil).Iter()
-	defer iter.Close()
 
-	var appDoc applicationDoc
-	for iter.Next(&appDoc) {
-		app := newApplication(st, &appDoc)
-
-		if app.StorageUniqueID() != "" {
-			logger.Infof("[adis] skipping because storageUniqueId is already populated for app %q", app.Name())
-			continue
-		}
-
-		ch, _, err := app.Charm()
-		if err != nil {
-			return err
-		}
-		var mode charm.DeploymentMode
-		if d := ch.Meta().Deployment; d != nil {
-			mode = d.DeploymentMode
-		}
-		if mode == "" {
-			mode = charm.ModeWorkload
-		}
-
-		annotation, err := getAnnotation(app.Name(), string(mode), false)
+	err = runForAllModelStates(pool, func(st *State) error {
+		model, err := st.Model()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		appIDKey := utils.AnnotationKeyApplicationUUID(labelVersion())
-		storageUniqueID, ok := annotation[appIDKey]
-		if !ok {
-			logger.Infof("[adis] skipping because appIDKey is missing for app %q", app.Name())
-			continue
-		}
-		logger.Infof("[adis] app %q storageUniqueID is %s", app.Name(), storageUniqueID)
+		logger.Infof("[adis] trying to upgrade applications for model %q", model.Name())
 
-		ops = append(ops, txn.Op{
-			C:      applicationsC,
-			Id:     app.doc.DocID,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{{"storage-unique-id", storageUniqueID}}}},
-		})
+		if model.Type() != ModelTypeCAAS {
+			logger.Infof("[adis] skipping because model %q is not a caas model", model.Name())
+			return nil
+		}
+
+		logger.Infof("[adis] model %q preparing for populating storage id", model.Name())
+
+		applications, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		iter := applications.Find(nil).Iter()
+		defer iter.Close()
+
+		broker, err := getBrokerFunc(model)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		getAnnotation := func(appName string, mode string, includeClusterIP bool) (map[string]interface{}, error) {
+			service, err := broker.GetService(appName, caas.DeploymentMode(mode), includeClusterIP)
+			if err != nil {
+				return map[string]interface{}{}, err
+			}
+			logger.Infof("[adis] getAnnotation data is: %+v", service.Status.Data)
+			return service.Status.Data, nil
+		}
+
+		var appDoc applicationDoc
+		for iter.Next(&appDoc) {
+			app := newApplication(st, &appDoc)
+
+			if app.StorageUniqueID() != "" {
+				logger.Infof("[adis] skipping because storageUniqueId is already populated for app %q", app.Name())
+				continue
+			}
+
+			ch, _, err := app.Charm()
+			if err != nil {
+				return err
+			}
+			var mode charm.DeploymentMode
+			if d := ch.Meta().Deployment; d != nil {
+				mode = d.DeploymentMode
+			}
+			if mode == "" {
+				mode = charm.ModeWorkload
+			}
+
+			annotation, err := getAnnotation(app.Name(), string(mode), false)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Infof("[adis] annotation for app %q is %+v", app.Name(), annotation)
+			appIDKey := utils.AnnotationKeyApplicationUUID(broker.LabelVersion())
+			storageUniqueID, ok := annotation[appIDKey]
+			if !ok {
+				logger.Infof("[adis] skipping because appIDKey is missing for app %q", app.Name())
+				continue
+			}
+			logger.Infof("[adis] app %q storageUniqueID is %s", app.Name(), storageUniqueID)
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     app.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"storage-unique-id", storageUniqueID}}}},
+			})
+		}
+		return nil
+	})
+
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	return st.runRawTransaction(ops)

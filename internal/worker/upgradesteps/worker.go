@@ -17,12 +17,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/caas"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/wrench"
@@ -320,16 +318,7 @@ func (w *upgradeSteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	if err := w.entity.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil); err != nil {
 		return errors.Trace(err)
 	}
-	st, err := w.pool.SystemState()
-	if err != nil {
-		return err
-	}
-	model, err := st.Model()
-	if err != nil {
-		return err
-	}
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
-	stBackend := upgrades.NewStateBackend(w.pool, broker)
+	stBackend := upgrades.NewStateBackend(w.pool)
 	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
@@ -351,7 +340,7 @@ func (w *upgradeSteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 		return err
 	}
 
-	err = retry.Call(retryStrategy)
+	err := retry.Call(retryStrategy)
 	// w.entity.SetStatus(status.Error, fmt.Sprintf("TEST outer %v", err), nil)
 	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
 		err = retry.LastError(err)
