@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+const leader = "/leader"
+
 // EnqueueOperation takes a list of Actions and queues them up to be executed as
 // an operation, each action running as a task on the designated ActionReceiver.
 // We return the ID of the overall operation and each individual task.
@@ -35,7 +37,6 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 		return params.EnqueuedActions{}, apiservererrors.ServerError(errors.New("no actions specified"))
 	}
 
-	const leader = "/leader"
 	actionResults := make([]params.ActionResult, len(arg.Actions))
 	actionResultByUnitName := make(map[string]*params.ActionResult)
 	receivers := make([]operation.ActionReceiver, 0, len(arg.Actions))
