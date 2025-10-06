@@ -7,7 +7,6 @@ import (
 	"github.com/juju/juju/caas"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -25,14 +24,6 @@ type Model interface {
 	Config() (*config.Config, error)
 	CloudSpec() (environscloudspec.CloudSpec, error)
 }
-
-type CAASGetter interface {
-	getAnnotationFunc(appName string, mode string, includeClusterIP bool) (map[string]interface{}, error)
-	labelVersionFunc() constants.LabelVersion
-}
-
-type getAnnotationFunc func(appName string, mode string, includeClusterIP bool) (map[string]interface{}, error)
-type labelVersionFunc func() constants.LabelVersion
 
 // NewStateBackend returns a new StateBackend using a *state.StatePool object.
 func NewStateBackend(pool *state.StatePool) StateBackend {
