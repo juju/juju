@@ -43,17 +43,17 @@ type NewRemoteApplicationWorkerFunc func(RemoteApplicationConfig) (ReportableWor
 // cross-model services.
 type GetCrossModelServicesFunc func(getter dependency.Getter, domainServicesName string) (CrossModelService, error)
 
-// NewLocalUnitRelationsWorkerFunc defines the function signature for creating
-// a new local unit relations worker.
-type NewLocalUnitRelationsWorkerFunc func(localunitrelations.Config) (localunitrelations.ReportableWorker, error)
+// NewConsumerUnitRelationsWorkerFunc defines the function signature for
+// creating a new local unit relations worker.
+type NewConsumerUnitRelationsWorkerFunc func(localunitrelations.Config) (localunitrelations.ReportableWorker, error)
 
-// NewRemoteUnitRelationsWorkerFunc defines the function signature for creating
+// NewOffererUnitRelationsWorkerFunc defines the function signature for creating
 // a new remote unit relations worker.
-type NewRemoteUnitRelationsWorkerFunc func(remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error)
+type NewOffererUnitRelationsWorkerFunc func(remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error)
 
-// NewRemoteRelationsWorkerFunc defines the function signature for creating
+// NewOffererRelationsWorkerFunc defines the function signature for creating
 // a new remote relations worker.
-type NewRemoteRelationsWorkerFunc func(remoterelations.Config) (remoterelations.ReportableWorker, error)
+type NewOffererRelationsWorkerFunc func(remoterelations.Config) (remoterelations.ReportableWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
@@ -69,9 +69,9 @@ type ManifoldConfig struct {
 	NewWorker                  NewWorkerFunc
 	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
 
-	NewLocalUnitRelationsWorker  NewLocalUnitRelationsWorkerFunc
-	NewRemoteUnitRelationsWorker NewRemoteUnitRelationsWorkerFunc
-	NewRemoteRelationsWorker     NewRemoteRelationsWorkerFunc
+	NewConsumerUnitRelationsWorker NewConsumerUnitRelationsWorkerFunc
+	NewOffererUnitRelationsWorker  NewOffererUnitRelationsWorkerFunc
+	NewOffererRelationsWorker      NewOffererRelationsWorkerFunc
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -100,14 +100,14 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewRemoteApplicationWorker == nil {
 		return errors.NotValidf("nil NewRemoteApplicationWorker")
 	}
-	if config.NewLocalUnitRelationsWorker == nil {
-		return errors.NotValidf("nil NewLocalUnitRelationsWorker")
+	if config.NewConsumerUnitRelationsWorker == nil {
+		return errors.NotValidf("nil NewConsumerUnitRelationsWorker")
 	}
-	if config.NewRemoteUnitRelationsWorker == nil {
-		return errors.NotValidf("nil NewRemoteUnitRelationsWorker")
+	if config.NewOffererUnitRelationsWorker == nil {
+		return errors.NotValidf("nil NewOffererUnitRelationsWorker")
 	}
-	if config.NewRemoteRelationsWorker == nil {
-		return errors.NotValidf("nil NewRemoteRelationsWorker")
+	if config.NewOffererRelationsWorker == nil {
+		return errors.NotValidf("nil NewOffererRelationsWorker")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -148,9 +148,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 				NewRemoteApplicationWorker: config.NewRemoteApplicationWorker,
 
-				NewLocalUnitRelationsWorker:  config.NewLocalUnitRelationsWorker,
-				NewRemoteUnitRelationsWorker: config.NewRemoteUnitRelationsWorker,
-				NewRemoteRelationsWorker:     config.NewRemoteRelationsWorker,
+				NewConsumerUnitRelationsWorker: config.NewConsumerUnitRelationsWorker,
+				NewOffererUnitRelationsWorker:  config.NewOffererUnitRelationsWorker,
+				NewOffererRelationsWorker:      config.NewOffererRelationsWorker,
 
 				Clock:  config.Clock,
 				Logger: config.Logger,

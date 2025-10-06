@@ -140,9 +140,9 @@ type Config struct {
 	RemoteRelationClientGetter RemoteRelationClientGetter
 	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
 
-	NewLocalUnitRelationsWorker  NewLocalUnitRelationsWorkerFunc
-	NewRemoteUnitRelationsWorker NewRemoteUnitRelationsWorkerFunc
-	NewRemoteRelationsWorker     NewRemoteRelationsWorkerFunc
+	NewConsumerUnitRelationsWorker NewConsumerUnitRelationsWorkerFunc
+	NewOffererUnitRelationsWorker  NewOffererUnitRelationsWorkerFunc
+	NewOffererRelationsWorker      NewOffererRelationsWorkerFunc
 
 	Clock  clock.Clock
 	Logger logger.Logger
@@ -162,11 +162,11 @@ func (config Config) Validate() error {
 	if config.NewRemoteApplicationWorker == nil {
 		return errors.NotValidf("nil NewRemoteApplicationWorker")
 	}
-	if config.NewLocalUnitRelationsWorker == nil {
-		return errors.NotValidf("nil NewLocalUnitRelationsWorker")
+	if config.NewConsumerUnitRelationsWorker == nil {
+		return errors.NotValidf("nil NewConsumerUnitRelationsWorker")
 	}
-	if config.NewRemoteUnitRelationsWorker == nil {
-		return errors.NotValidf("nil NewRemoteUnitRelationsWorker")
+	if config.NewOffererUnitRelationsWorker == nil {
+		return errors.NotValidf("nil NewOffererUnitRelationsWorker")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -305,20 +305,20 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 		// Start the application worker to watch for things like new relations.
 		if err := w.runner.StartWorker(ctx, appUUID, func(ctx context.Context) (worker.Worker, error) {
 			return w.config.NewRemoteApplicationWorker(RemoteApplicationConfig{
-				OfferUUID:                    remoteApp.OfferUUID,
-				ApplicationName:              remoteApp.ApplicationName,
-				ApplicationUUID:              application.UUID(remoteApp.ApplicationUUID),
-				LocalModelUUID:               w.config.ModelUUID,
-				RemoteModelUUID:              remoteApp.OffererModelUUID,
-				ConsumeVersion:               remoteApp.ConsumeVersion,
-				Macaroon:                     remoteApp.Macaroon,
-				CrossModelService:            w.crossModelService,
-				RemoteRelationClientGetter:   w.config.RemoteRelationClientGetter,
-				NewLocalUnitRelationsWorker:  w.config.NewLocalUnitRelationsWorker,
-				NewRemoteUnitRelationsWorker: w.config.NewRemoteUnitRelationsWorker,
-				NewRemoteRelationsWorker:     w.config.NewRemoteRelationsWorker,
-				Clock:                        w.config.Clock,
-				Logger:                       w.logger,
+				OfferUUID:                      remoteApp.OfferUUID,
+				ApplicationName:                remoteApp.ApplicationName,
+				ApplicationUUID:                application.UUID(remoteApp.ApplicationUUID),
+				ConsumerModelUUID:              w.config.ModelUUID,
+				OffererModelUUID:               remoteApp.OffererModelUUID,
+				ConsumeVersion:                 remoteApp.ConsumeVersion,
+				Macaroon:                       remoteApp.Macaroon,
+				CrossModelService:              w.crossModelService,
+				RemoteRelationClientGetter:     w.config.RemoteRelationClientGetter,
+				NewConsumerUnitRelationsWorker: w.config.NewConsumerUnitRelationsWorker,
+				NewOffererUnitRelationsWorker:  w.config.NewOffererUnitRelationsWorker,
+				NewOffererRelationsWorker:      w.config.NewOffererRelationsWorker,
+				Clock:                          w.config.Clock,
+				Logger:                         w.logger,
 			})
 		}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return errors.Annotate(err, "error starting remote application worker")

@@ -261,13 +261,13 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 				applicationName:  config.ApplicationName,
 			}, nil
 		},
-		NewLocalUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+		NewConsumerUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
+		NewOffererRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
 		Clock:  clock.WallClock,

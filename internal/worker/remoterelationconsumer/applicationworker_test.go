@@ -94,11 +94,11 @@ func (s *applicationWorkerSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newApplicationConfig(c)
-	cfg.LocalModelUUID = ""
+	cfg.ConsumerModelUUID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newApplicationConfig(c)
-	cfg.RemoteModelUUID = ""
+	cfg.OffererModelUUID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newApplicationConfig(c)
@@ -106,15 +106,15 @@ func (s *applicationWorkerSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newApplicationConfig(c)
-	cfg.NewLocalUnitRelationsWorker = nil
+	cfg.NewConsumerUnitRelationsWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newApplicationConfig(c)
-	cfg.NewRemoteUnitRelationsWorker = nil
+	cfg.NewOffererUnitRelationsWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newApplicationConfig(c)
-	cfg.NewRemoteRelationsWorker = nil
+	cfg.NewOffererRelationsWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newApplicationConfig(c)
@@ -1143,17 +1143,17 @@ func (s *applicationWorkerSuite) newApplicationConfig(c *tc.C) RemoteApplication
 		OfferUUID:                  s.offerUUID,
 		ApplicationName:            s.applicationName,
 		ApplicationUUID:            s.applicationUUID,
-		LocalModelUUID:             s.consumerModelUUID,
-		RemoteModelUUID:            s.offererModelUUID,
+		ConsumerModelUUID:          s.consumerModelUUID,
+		OffererModelUUID:           s.offererModelUUID,
 		ConsumeVersion:             1,
 		Macaroon:                   s.macaroon,
-		NewLocalUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+		NewConsumerUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteRelationsWorker: func(remoterelations.Config) (remoterelations.ReportableWorker, error) {
+		NewOffererRelationsWorker: func(remoterelations.Config) (remoterelations.ReportableWorker, error) {
 			defer func() {
 				select {
 				case s.remoteRelationWorkerStarted <- struct{}{}:
