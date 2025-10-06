@@ -20,6 +20,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	config0 "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
+	constants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	proxy "github.com/juju/juju/proxy"
 	storage "github.com/juju/juju/storage"
 	names "github.com/juju/names/v5"
@@ -348,6 +349,20 @@ func (m *MockBroker) GetService(arg0 string, arg1 caas.DeploymentMode, arg2 bool
 func (mr *MockBrokerMockRecorder) GetService(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetService", reflect.TypeOf((*MockBroker)(nil).GetService), arg0, arg1, arg2)
+}
+
+// LabelVersion mocks base method.
+func (m *MockBroker) LabelVersion() constants.LabelVersion {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LabelVersion")
+	ret0, _ := ret[0].(constants.LabelVersion)
+	return ret0
+}
+
+// LabelVersion indicates an expected call of LabelVersion.
+func (mr *MockBrokerMockRecorder) LabelVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LabelVersion", reflect.TypeOf((*MockBroker)(nil).LabelVersion))
 }
 
 // ModelOperator mocks base method.
