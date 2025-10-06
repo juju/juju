@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -112,9 +114,6 @@ func (s *Service) RemoveUnit(
 			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal")
 			wait = 0
 		}
-
-		// TODO (stickupkid): Check that we don't have any storage attachments.
-		// If we do, we need to schedule a removal job for the unit.
 	}
 
 	unitJobUUID, err := s.unitScheduleRemoval(ctx, unitUUID, force, wait)
@@ -128,7 +127,19 @@ func (s *Service) RemoveUnit(
 
 	s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", *cascaded.MachineUUID)
 
-	s.removeMachines(ctx, []string{*cascaded.MachineUUID}, force, wait)
+	if cascaded.MachineUUID != nil {
+		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(*cascaded.MachineUUID), force, wait); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	for _, a := range cascaded.StorageAttachmentUUIDs {
+		if _, err := s.storageAttachmentScheduleRemoval(
+			ctx, storageprovisioning.StorageAttachmentUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
 
 	return unitJobUUID, nil
 }
