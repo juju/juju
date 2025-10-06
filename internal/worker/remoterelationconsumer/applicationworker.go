@@ -474,7 +474,7 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 	// relation is not suspended. It is expected that the unit watchers will
 	// clean themselves up if the relation is suspended or removed.
 	if !details.Suspended {
-		if err := w.createUnitRelationWorkers(ctx, details); err != nil {
+		if err := w.createUnitRelationWorkers(ctx, details, result.offererApplicationUUID, result.macaroon); err != nil {
 			return errors.Annotatef(err, "creating unit relation workers for %q", details.UUID)
 		}
 	}
@@ -519,6 +519,8 @@ func (w *remoteApplicationWorker) ensureOffererRelationWorker(
 func (w *remoteApplicationWorker) createUnitRelationWorkers(
 	ctx context.Context,
 	details relation.RelationDetails,
+	offferApplicationUUID application.UUID,
+	mac *macaroon.Macaroon,
 ) error {
 	consumerName := fmt.Sprintf("consumer-unit:%s", details.UUID)
 	if err := w.runner.StartWorker(ctx, consumerName, func(ctx context.Context) (worker.Worker, error) {
@@ -536,7 +538,15 @@ func (w *remoteApplicationWorker) createUnitRelationWorkers(
 
 	offererName := fmt.Sprintf("offerer-unit:%s", details.UUID)
 	if err := w.runner.StartWorker(ctx, offererName, func(ctx context.Context) (worker.Worker, error) {
-		return w.newOffererUnitRelationsWorker(remoteunitrelations.Config{})
+		return w.newOffererUnitRelationsWorker(remoteunitrelations.Config{
+			Client:                 w.remoteModelClient,
+			ConsumerRelationUUID:   details.UUID,
+			OffererApplicationUUID: offferApplicationUUID,
+			Macaroon:               mac,
+			Changes:                w.offererRelationUnitChanges,
+			Clock:                  w.clock,
+			Logger:                 w.logger.Child("offerer-unit"),
+		})
 	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return errors.Annotatef(err, "starting offerer unit relation worker for %q", details.UUID)
 	}

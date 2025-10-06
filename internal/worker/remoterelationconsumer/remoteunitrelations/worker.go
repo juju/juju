@@ -5,34 +5,55 @@ package remoteunitrelations
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/watcher"
+	coreapplication "github.com/juju/juju/core/application"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/rpc/params"
 )
 
 // RelationUnitChange encapsulates a remote relation event,
 // adding the tag of the relation which changed.
 type RelationUnitChange struct {
+	// ConsumerRelationUUID is the UUID of the relation in the local model.
+	ConsumerRelationUUID corerelation.UUID
+
+	// OffererApplicationUUID is the UUID of the application in the remote
+	// model that is offering the relation.
+	OffererApplicationUUID coreapplication.UUID
+
 	// ChangedUnits represents the changed units in this relation.
 	ChangedUnits []UnitChange
 
-	// DepartedUnits represents the units that have departed in this relation.
-	DepartedUnits []int
+	// LegacyDepartedUnits represents the units that have departed in this
+	// relation.
+	LegacyDepartedUnits []int
 
 	// ApplicationSettings represent the updated application-level settings in
 	// this relation.
 	ApplicationSettings map[string]any
 
-	// Tag is the relation tag that this change relates to.
-	Tag names.Tag
+	// UnitCount is the total number of units in the relation.
+	UnitCount int
+
+	// Life is the current life state of the relation.
+	Life corelife.Value
+
+	// Suspended indicates whether the relation is currently suspended.
+	Suspended bool
+
+	// SuspendedReason provides additional context if the relation is suspended.
+	SuspendedReason string
 }
 
 // UnitChange represents a change to a single unit in a relation.
@@ -66,14 +87,13 @@ type ReportableWorker interface {
 // Config contains the configuration parameters for a remote relation units
 // worker.
 type Config struct {
-	Client         RemoteModelRelationsClient
-	RelationTag    names.RelationTag
-	RelationToken  string
-	RemoteAppToken string
-	Macaroon       *macaroon.Macaroon
-	Changes        chan<- RelationUnitChange
-	Clock          clock.Clock
-	Logger         logger.Logger
+	Client                 RemoteModelRelationsClient
+	ConsumerRelationUUID   corerelation.UUID
+	OffererApplicationUUID coreapplication.UUID
+	Macaroon               *macaroon.Macaroon
+	Changes                chan<- RelationUnitChange
+	Clock                  clock.Clock
+	Logger                 logger.Logger
 }
 
 // Validate ensures the configuration is valid.
@@ -81,11 +101,11 @@ func (c Config) Validate() error {
 	if c.Client == nil {
 		return errors.NotValidf("remote model relations client cannot be nil")
 	}
-	if c.RelationToken == "" {
-		return errors.NotValidf("relation token cannot be empty")
+	if c.ConsumerRelationUUID == "" {
+		return errors.NotValidf("consumer relation uuid cannot be empty")
 	}
-	if c.RemoteAppToken == "" {
-		return errors.NotValidf("remote application token cannot be empty")
+	if c.OffererApplicationUUID == "" {
+		return errors.NotValidf("offerer application token cannot be empty")
 	}
 	if c.Macaroon == nil {
 		return errors.NotValidf("macaroon cannot be nil")
@@ -112,14 +132,15 @@ type remoteWorker struct {
 	client   RemoteModelRelationsClient
 	macaroon *macaroon.Macaroon
 
-	relationTag    names.RelationTag
-	relationToken  string
-	remoteAppToken string
+	consumerRelationUUID   corerelation.UUID
+	offererApplicationUUID coreapplication.UUID
 
 	changes chan<- RelationUnitChange
 
 	clock  clock.Clock
 	logger logger.Logger
+
+	requests chan chan map[string]any
 }
 
 // NewWorker creates a new worker that watches for remote relation unit
@@ -128,24 +149,26 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	w := &remoteWorker{
 		client: cfg.Client,
 
-		relationTag:    cfg.RelationTag,
-		macaroon:       cfg.Macaroon,
-		relationToken:  cfg.RelationToken,
-		remoteAppToken: cfg.RemoteAppToken,
+		consumerRelationUUID:   cfg.ConsumerRelationUUID,
+		offererApplicationUUID: cfg.OffererApplicationUUID,
+		macaroon:               cfg.Macaroon,
 
 		changes: cfg.Changes,
 		clock:   cfg.Clock,
 		logger:  cfg.Logger,
+
+		requests: make(chan chan map[string]any),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "relation-units",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
-		return nil, errors.Annotatef(err, "starting relation units worker for %v", cfg.RelationTag)
+		return nil, errors.Annotatef(err, "starting relation units worker for %v", cfg.ConsumerRelationUUID)
 	}
 	return w, nil
 }
@@ -167,33 +190,85 @@ func (w *remoteWorker) loop() error {
 	// Start a watcher to track changes to the units in the relation in the
 	// remote model.
 	watcher, err := w.client.WatchRelationChanges(
-		ctx, w.relationToken, w.remoteAppToken, macaroon.Slice{w.macaroon},
+		ctx, w.consumerRelationUUID.String(), w.offererApplicationUUID.String(), macaroon.Slice{w.macaroon},
 	)
 	if err != nil {
-		return errors.Annotatef(err, "watching remote relation %v", w.relationTag.Id())
+		return errors.Annotatef(err, "watching remote relation %v", w.consumerRelationUUID)
 	}
 
+	if err := w.catacomb.Add(watcher); err != nil {
+		return errors.Annotatef(err, "adding remote relation units watcher for %v", w.consumerRelationUUID)
+	}
+
+	var event params.RemoteRelationChangeEvent
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case changes, ok := <-watcher.Changes():
+		case change, ok := <-watcher.Changes():
 			if !ok {
-				// We are dying.
-				return w.catacomb.ErrDying()
+				select {
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				default:
+					return errors.New("remote relation units watcher closed")
+				}
 			}
-			if isEmpty(changes) {
+			if isEmpty(change) {
 				continue
 			}
 
-			w.logger.Debugf(ctx, "remote relation units changed for %v: %v", w.relationTag, changes)
+			w.logger.Debugf(ctx, "remote relation units changed for %v: %v", w.consumerRelationUUID, change)
+
+			event = change
 
 			// Send in lockstep so we don't drop events.
 			select {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
-			case w.changes <- RelationUnitChange{}:
+			case w.changes <- RelationUnitChange{
+				ConsumerRelationUUID:   w.consumerRelationUUID,
+				OffererApplicationUUID: w.offererApplicationUUID,
+				ChangedUnits: transform.Slice(change.ChangedUnits, func(c params.RemoteRelationUnitChange) UnitChange {
+					return UnitChange{
+						UnitID:   c.UnitId,
+						Settings: c.Settings,
+					}
+				}),
+				LegacyDepartedUnits: change.DepartedUnits,
+				ApplicationSettings: change.ApplicationSettings,
+				UnitCount:           change.UnitCount,
+				Life:                change.Life,
+				Suspended:           unptr(change.Suspended, false),
+				SuspendedReason:     change.SuspendedReason,
+			}:
+			}
+
+		case resp := <-w.requests:
+			select {
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
+
+			case resp <- map[string]any{
+				"application-uuid": w.offererApplicationUUID.String(),
+				"relation-uuid":    w.consumerRelationUUID.String(),
+				"unit-count":       event.UnitCount,
+				"changed-units": transform.Slice(event.ChangedUnits, func(c params.RemoteRelationUnitChange) map[string]any {
+					return map[string]any{
+						"unit-id":  c.UnitId,
+						"settings": c.Settings,
+					}
+				}),
+				"settings":         event.ApplicationSettings,
+				"life":             event.Life,
+				"suspended":        unptr(event.Suspended, false),
+				"suspended-reason": event.SuspendedReason,
+
+				// This only exists for legacy reasons (3.x compatibility).
+				// Although it's a good proxy for if the relation has changed.
+				"legacy-departed-units": event.DepartedUnits,
+			}:
 			}
 		}
 	}
@@ -203,9 +278,38 @@ func (w *remoteWorker) loop() error {
 func (w *remoteWorker) Report() map[string]any {
 	result := make(map[string]any)
 
+	ch := make(chan map[string]any, 1)
+	select {
+	case <-w.catacomb.Dying():
+		return result
+	case <-w.clock.After(time.Second):
+		// Timeout trying to report.
+		result["error"] = "timed out trying to report"
+		return result
+	case w.requests <- ch:
+	}
+
+	select {
+	case <-w.catacomb.Dying():
+		return result
+	case <-w.clock.After(time.Second):
+		// Timeout trying to report.
+		result["error"] = "timed out waiting for report response"
+		return result
+	case resp := <-ch:
+		result = resp
+	}
+
 	return result
 }
 
 func isEmpty(change params.RemoteRelationChangeEvent) bool {
 	return len(change.ChangedUnits)+len(change.DepartedUnits) == 0 && change.ApplicationSettings == nil
+}
+
+func unptr[T any](v *T, d T) T {
+	if v == nil {
+		return d
+	}
+	return *v
 }
