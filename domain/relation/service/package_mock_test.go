@@ -986,7 +986,7 @@ func (c *MockStateIsPeerRelationCall) DoAndReturn(f func(context.Context, string
 }
 
 // LeaveScope mocks base method.
-func (m *MockState) LeaveScope(arg0 context.Context, arg1 relation.UnitUUID) error {
+func (m *MockState) LeaveScope(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LeaveScope", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1012,13 +1012,13 @@ func (c *MockStateLeaveScopeCall) Return(arg0 error) *MockStateLeaveScopeCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateLeaveScopeCall) Do(f func(context.Context, relation.UnitUUID) error) *MockStateLeaveScopeCall {
+func (c *MockStateLeaveScopeCall) Do(f func(context.Context, string) error) *MockStateLeaveScopeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateLeaveScopeCall) DoAndReturn(f func(context.Context, relation.UnitUUID) error) *MockStateLeaveScopeCall {
+func (c *MockStateLeaveScopeCall) DoAndReturn(f func(context.Context, string) error) *MockStateLeaveScopeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

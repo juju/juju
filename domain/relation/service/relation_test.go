@@ -656,7 +656,7 @@ func (s *relationServiceSuite) TestLeaveScope(c *tc.C) {
 	// Arrange.
 	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
 
-	s.state.EXPECT().LeaveScope(gomock.Any(), relationUnitUUID).Return(nil)
+	s.state.EXPECT().LeaveScope(gomock.Any(), relationUnitUUID.String()).Return(nil)
 
 	// Act.
 	err := s.service.LeaveScope(c.Context(), relationUnitUUID)

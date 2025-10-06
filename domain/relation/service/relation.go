@@ -132,7 +132,7 @@ type State interface {
 	IsPeerRelation(ctx context.Context, relationUUID string) (bool, error)
 
 	// LeaveScope updates the given relation to indicate it is not in scope.
-	LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error
+	LeaveScope(ctx context.Context, relationUnitUUID string) error
 
 	// SetRelationApplicationAndUnitSettings records settings for a unit and
 	// an application in a relation.
@@ -735,7 +735,7 @@ func (s *Service) LeaveScope(ctx context.Context, relationUnitUUID corerelation.
 		return errors.Errorf(
 			"%w:%w", relationerrors.RelationUUIDNotValid, err)
 	}
-	return s.st.LeaveScope(ctx, relationUnitUUID)
+	return s.st.LeaveScope(ctx, relationUnitUUID.String())
 }
 
 // RelationUnitInScopeByID returns a boolean to indicate whether the given
