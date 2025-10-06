@@ -98,13 +98,16 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 	}
 
 	w := &localWorker{
-		service:                 cfg.Service,
+		service: cfg.Service,
+
 		consumerRelationUUID:    cfg.ConsumerRelationUUID,
 		consumerApplicationUUID: cfg.ConsumerApplicationUUID,
-		changes:                 cfg.Changes,
-		clock:                   cfg.Clock,
-		logger:                  cfg.Logger,
-		requests:                make(chan chan map[string]any),
+
+		changes: cfg.Changes,
+		clock:   cfg.Clock,
+		logger:  cfg.Logger,
+
+		requests: make(chan chan map[string]any),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "local-relation-units",
@@ -228,5 +231,5 @@ func (w *localWorker) Report() map[string]any {
 }
 
 func isEmpty(change relation.RelationUnitChange) bool {
-	return len(change.ChangedUnits)+len(change.LegacyDepartedUnits) == 0 && change.ApplicationSettings == nil
+	return len(change.ChangedUnits)+len(change.LegacyDepartedUnits) == 0
 }

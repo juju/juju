@@ -32,7 +32,7 @@ type localUnitRelationsWorker struct {
 	changes chan relation.RelationUnitChange
 }
 
-func TestRemoteRelationsWorker(t *testing.T) {
+func TestLocalUnitRelationsWorker(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &localUnitRelationsWorker{})
 }
