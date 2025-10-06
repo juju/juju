@@ -5,6 +5,7 @@ package localunitrelations
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -38,9 +39,9 @@ type ReportableWorker interface {
 // Config contains the configuration parameters for a remote relation units
 // worker.
 type Config struct {
-	Service         Service
-	ApplicationUUID coreapplication.UUID
-	RelationUUID    corerelation.UUID
+	Service                 Service
+	ConsumerApplicationUUID coreapplication.UUID
+	ConsumerRelationUUID    corerelation.UUID
 
 	Changes chan<- relation.RelationUnitChange
 
@@ -53,10 +54,10 @@ func (c Config) Validate() error {
 	if c.Service == nil {
 		return errors.NotValidf("service cannot be nil")
 	}
-	if c.ApplicationUUID.IsEmpty() {
+	if c.ConsumerApplicationUUID.IsEmpty() {
 		return errors.NotValidf("application UUID cannot be empty")
 	}
-	if c.RelationUUID.IsEmpty() {
+	if c.ConsumerRelationUUID.IsEmpty() {
 		return errors.NotValidf("relation UUID cannot be empty")
 	}
 	if c.Changes == nil {
@@ -79,12 +80,14 @@ type localWorker struct {
 
 	service Service
 
-	applicationUUID coreapplication.UUID
-	relationUUID    corerelation.UUID
-	changes         chan<- relation.RelationUnitChange
+	consumerApplicationUUID coreapplication.UUID
+	consumerRelationUUID    corerelation.UUID
+	changes                 chan<- relation.RelationUnitChange
 
 	clock  clock.Clock
 	logger logger.Logger
+
+	requests chan chan map[string]any
 }
 
 // NewWorker creates a new worker that watches for local relation unit
@@ -95,18 +98,20 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 	}
 
 	w := &localWorker{
-		service:      cfg.Service,
-		relationUUID: cfg.RelationUUID,
-		changes:      cfg.Changes,
-		clock:        cfg.Clock,
-		logger:       cfg.Logger,
+		service:                 cfg.Service,
+		consumerRelationUUID:    cfg.ConsumerRelationUUID,
+		consumerApplicationUUID: cfg.ConsumerApplicationUUID,
+		changes:                 cfg.Changes,
+		clock:                   cfg.Clock,
+		logger:                  cfg.Logger,
+		requests:                make(chan chan map[string]any),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "local-relation-units",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
-		return nil, errors.Annotatef(err, "starting relation units worker for %v", cfg.RelationUUID)
+		return nil, errors.Annotatef(err, "starting relation units worker for %v", cfg.ConsumerRelationUUID)
 	}
 	return w, nil
 }
@@ -125,15 +130,16 @@ func (w *localWorker) Wait() error {
 func (w *localWorker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
-	watcher, err := w.service.WatchRelationUnits(ctx, w.applicationUUID)
+	watcher, err := w.service.WatchRelationUnits(ctx, w.consumerApplicationUUID)
 	if err != nil {
-		return errors.Annotatef(err, "watching local side of relation %v", w.relationUUID)
+		return errors.Annotatef(err, "watching local side of relation %v", w.consumerRelationUUID)
 	}
 
 	if err := w.catacomb.Add(watcher); err != nil {
-		return errors.Annotatef(err, "adding watcher to catacomb for %v", w.relationUUID)
+		return errors.Annotatef(err, "adding watcher to catacomb for %v", w.consumerRelationUUID)
 	}
 
+	var event relation.RelationUnitChange
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -149,23 +155,44 @@ func (w *localWorker) loop() error {
 				}
 			}
 
-			w.logger.Debugf(ctx, "local relation units changed for %v", w.relationUUID)
+			w.logger.Debugf(ctx, "local relation units changed for %v", w.consumerRelationUUID)
 
-			unitRelationInfo, err := w.service.GetRelationUnits(ctx, w.applicationUUID)
+			unitRelationInfo, err := w.service.GetRelationUnits(ctx, w.consumerApplicationUUID)
 			if err != nil {
 				return errors.Annotatef(
-					err, "fetching local side of relation %v", w.relationUUID)
+					err, "fetching local side of relation %v", w.consumerRelationUUID)
 			}
 
 			if isEmpty(unitRelationInfo) {
 				continue
 			}
 
+			event = unitRelationInfo
+
 			// Send in lockstep so we don't drop events.
 			select {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
-			case w.changes <- unitRelationInfo:
+			case w.changes <- event:
+			}
+
+		case resp := <-w.requests:
+			select {
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
+
+			case resp <- map[string]any{
+				"application-uuid": w.consumerApplicationUUID.String(),
+				"relation-uuid":    w.consumerRelationUUID.String(),
+				"changed-units":    event.ChangedUnits,
+				"available-units":  event.AvailableUnits,
+				"settings":         event.ApplicationSettings,
+				"unit-count":       event.UnitCount,
+
+				// This only exists for legacy reasons (3.x compatibility).
+				// Although it's a good proxy for if the relation has changed.
+				"legacy-departed-units": event.LegacyDepartedUnits,
+			}:
 			}
 		}
 	}
@@ -175,9 +202,31 @@ func (w *localWorker) loop() error {
 func (w *localWorker) Report() map[string]any {
 	result := make(map[string]any)
 
+	ch := make(chan map[string]any, 1)
+	select {
+	case <-w.catacomb.Dying():
+		return result
+	case <-w.clock.After(time.Second):
+		// Timeout trying to report.
+		result["error"] = "timed out trying to report"
+		return result
+	case w.requests <- ch:
+	}
+
+	select {
+	case <-w.catacomb.Dying():
+		return result
+	case <-w.clock.After(time.Second):
+		// Timeout trying to report.
+		result["error"] = "timed out waiting for report response"
+		return result
+	case resp := <-ch:
+		result = resp
+	}
+
 	return result
 }
 
 func isEmpty(change relation.RelationUnitChange) bool {
-	return len(change.ChangedUnits)+len(change.DepartedUnits) == 0 && change.ApplicationSettings == nil
+	return len(change.ChangedUnits)+len(change.LegacyDepartedUnits) == 0 && change.ApplicationSettings == nil
 }

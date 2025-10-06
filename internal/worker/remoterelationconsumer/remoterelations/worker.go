@@ -194,16 +194,17 @@ func (w *remoteRelationsWorker) loop() error {
 			case w.changes <- event:
 			}
 
-		case req := <-w.requests:
+		case resp := <-w.requests:
 			// The requests channel handles the reporting requests from the
 			// engine. This happens in another goroutine so we need to ensure
 			// that we don't create data races, we need to synchronise access to
 			// the state.
+
 			select {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
 
-			case req <- map[string]any{
+			case resp <- map[string]any{
 				"consumer-relation-uuid":   w.consumerRelationUUID.String(),
 				"offerer-application-uuid": w.offererApplicationUUID.String(),
 				"life":                     string(event.Life),

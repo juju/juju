@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/names/v6"
-
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
@@ -342,21 +340,20 @@ type RelationUnitChange struct {
 	// ChangedUnits represents the changed units in this relation.
 	ChangedUnits []UnitChange
 
-	// DepartedUnits represents the units that have departed in this relation.
-	DepartedUnits []int
+	// AvailableUnits represents all the units that are available in the
+	// relation.
+	AvailableUnits []int
 
 	// ApplicationSettings represent the updated application-level settings in
 	// this relation.
 	ApplicationSettings map[string]any
 
-	// Tag is the relation tag that this change relates to.
-	Tag names.Tag
-
-	ApplicationOrOfferToken string
-
-	RelationToken string
-
+	// UnitCount is the total number of units in this relation.
 	UnitCount int
+
+	// LegacyDepartedUnits is the list of units that have departed in this
+	// change. This field is deprecated and will be removed in future.
+	LegacyDepartedUnits []int
 }
 
 // UnitChange represents a change to a single unit in a relation.

@@ -523,12 +523,12 @@ func (w *remoteApplicationWorker) createUnitRelationWorkers(
 	consumerName := fmt.Sprintf("consumer-unit:%s", details.UUID)
 	if err := w.runner.StartWorker(ctx, consumerName, func(ctx context.Context) (worker.Worker, error) {
 		return w.newConsumerUnitRelationsWorker(localunitrelations.Config{
-			Service:         w.crossModelService,
-			ApplicationUUID: w.applicationUUID,
-			RelationUUID:    details.UUID,
-			Changes:         w.consumerRelationUnitChanges,
-			Clock:           w.clock,
-			Logger:          w.logger.Child("consumer-unit"),
+			Service:                 w.crossModelService,
+			ConsumerApplicationUUID: w.applicationUUID,
+			ConsumerRelationUUID:    details.UUID,
+			Changes:                 w.consumerRelationUnitChanges,
+			Clock:                   w.clock,
+			Logger:                  w.logger.Child("consumer-unit"),
 		})
 	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return errors.Annotatef(err, "starting consumer unit relation worker for %q", details.UUID)
