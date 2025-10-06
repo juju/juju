@@ -138,9 +138,6 @@ type kubernetesClient struct {
 	// labelVersion describes if this client should use and implement legacy
 	// labels or new ones
 	labelVersion constants.LabelVersion
-
-	// randomPrefix generates an annotation for stateful sets.
-	randomPrefix utils.RandomPrefixFunc
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -179,7 +176,6 @@ func newK8sBroker(
 	newRestClient k8sspecs.NewK8sRestClientFunc,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	newStringsWatcher k8swatcher.NewK8sStringsWatcherFunc,
-	randomPrefix utils.RandomPrefixFunc,
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
 	k8sClient, apiextensionsClient, dynamicClient, err := newClient(k8sRestConfig)
@@ -229,7 +225,6 @@ func newK8sBroker(
 		newStringsWatcher: newStringsWatcher,
 		newClient:         newClient,
 		newRestClient:     newRestClient,
-		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
 			Add(utils.AnnotationModelUUIDKey(labelVersion), modelUUID),
 		labelVersion: labelVersion,
