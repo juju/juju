@@ -5,6 +5,7 @@ package service
 
 import (
 	context "context"
+	"strings"
 	"testing"
 	"time"
 
@@ -226,13 +227,8 @@ func (s *startSuite) TestStartExecOperationLeaderResolutionError(c *tc.C) {
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("", errors.New("leadership error"))
 
 	// Return early since there are no valid targets to pass to state layer.
-	result, err := s.service(c).AddExecOperation(c.Context(), target, args)
-	c.Assert(err, tc.IsNil)
-	c.Check(result.OperationID, tc.Equals, "")
-	c.Assert(result.Units, tc.HasLen, 1)
-	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("test-app/0"))
-	c.Check(result.Units[0].IsLeader, tc.Equals, true)
-	c.Check(result.Units[0].TaskInfo.Error, tc.ErrorMatches, "getting leader unit for test-app:.*leadership error")
+	_, err := s.service(c).AddExecOperation(c.Context(), target, args)
+	c.Check(err, tc.ErrorMatches, "getting leader unit for test-app:.*leadership error")
 }
 
 func (s *startSuite) TestStartExecOperationLeaderUnitNameParsingError(c *tc.C) {
@@ -248,13 +244,8 @@ func (s *startSuite) TestStartExecOperationLeaderUnitNameParsingError(c *tc.C) {
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("invalid-unit-name", nil)
 
 	// Return early since there are no valid targets to pass to state layer.
-	result, err := s.service(c).AddExecOperation(c.Context(), target, args)
-	c.Assert(err, tc.IsNil)
-	c.Check(result.OperationID, tc.Equals, "")
-	c.Assert(result.Units, tc.HasLen, 1)
-	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("test-app/0"))
-	c.Check(result.Units[0].IsLeader, tc.Equals, true)
-	c.Check(result.Units[0].TaskInfo.Error, tc.ErrorMatches, "parsing unit name for invalid-unit-name:.*")
+	_, err := s.service(c).AddExecOperation(c.Context(), target, args)
+	c.Check(err, tc.ErrorMatches, "parsing unit name for invalid-unit-name:.*")
 }
 
 func (s *startSuite) TestStartExecOperationMixedLeaderResults(c *tc.C) {
@@ -778,13 +769,11 @@ func (s *startSuite) TestStartActionOperationAllLeaderResolutionErrors(c *tc.C) 
 	s.mockLeadershipService.EXPECT().ApplicationLeader("bad-app-2").Return("", errors.New("error 2"))
 
 	// No units should be passed to state layer, so it should return early
-	result, err := s.service(c).AddActionOperation(c.Context(), target, args)
-	c.Assert(err, tc.IsNil)
-	c.Assert(result.Units, tc.HasLen, 2)
-
-	// Both units should have errors.
-	c.Check(result.Units[0].TaskInfo.Error, tc.ErrorMatches, "getting leader unit for bad-app-1:.*error 1")
-	c.Check(result.Units[1].TaskInfo.Error, tc.ErrorMatches, "getting leader unit for bad-app-2:.*error 2")
+	_, err := s.service(c).AddActionOperation(c.Context(), target, args)
+	c.Assert(err, tc.NotNil)
+	errStr := strings.ReplaceAll(err.Error(), "\n", " ")
+	c.Check(errStr, tc.Matches, ".*getting leader unit for bad-app-1:.*error 1.*")
+	c.Check(errStr, tc.Matches, ".*getting leader unit for bad-app-2:.*error 2.*")
 }
 
 func (s *startSuite) TestStartActionOperationStateError(c *tc.C) {

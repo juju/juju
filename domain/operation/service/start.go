@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/operation"
@@ -99,7 +101,7 @@ func (s *Service) AddExecOperation(
 		len(targetWithResolvedLeaders.Machines) == 0 &&
 		len(targetWithResolvedLeaders.Units) == 0 &&
 		len(targetWithResolvedLeaders.LeaderUnits) == 0 {
-		return result, nil
+		return operation.RunResult{}, runResultAsError(result)
 	}
 
 	runResult, err := s.st.AddExecOperation(ctx, operationUUID, targetWithResolvedLeaders, args)
@@ -250,7 +252,8 @@ func (s *Service) AddActionOperation(
 
 	// If no valid units to process, return early.
 	if len(targetUnits) == 0 {
-		return result, nil
+
+		return operation.RunResult{}, runResultAsError(result)
 	}
 
 	runResult, err := s.st.AddActionOperation(ctx, operationUUID, targetUnits, args)
@@ -281,4 +284,19 @@ func (s *Service) AddActionOperation(
 	}
 
 	return result, nil
+}
+
+// runResultAsError converts an operation.RunResult into a single error by
+// concatenating its error. It should be used whenever we don't have any
+// OperationID, for ie before the insertion has been tried.
+func runResultAsError(result operation.RunResult) error {
+	machineErrors := transform.Slice(result.Machines, func(res operation.MachineTaskResult) error {
+		return res.Error
+	})
+	unitErrors := transform.Slice(result.Units, func(res operation.UnitTaskResult) error {
+		return res.Error
+	})
+	// There is no operation inserted, so we can't return a valid result which
+	// requires an operation ID. The better thing we can do is return joined errors
+	return errors.Join(append(machineErrors, unitErrors...)...)
 }
