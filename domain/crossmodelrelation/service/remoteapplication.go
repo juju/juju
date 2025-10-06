@@ -55,6 +55,10 @@ type ModelRemoteApplicationState interface {
 	// SaveMacaroonForRelation saves the given macaroon for the specified
 	// remote application.
 	SaveMacaroonForRelation(context.Context, string, []byte) error
+
+	// CheckOfferByUUID checks if an offer with the given UUID exists.
+	// Returns crossmodelrelationerrors.OfferNotFound if the offer is not found.
+	CheckOfferByUUID(context.Context, string) error
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -256,6 +260,19 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 	}
 
 	return s.modelState.SaveMacaroonForRelation(ctx, relationUUID.String(), bytes)
+}
+
+// CheckOfferByUUID checks if an offer with the given UUID exists.
+// Returns crossmodelrelationerrors.OfferNotFound if the offer is not found.
+func (s *Service) CheckOfferByUUID(ctx context.Context, offerUUID string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !uuid.IsValidUUIDString(offerUUID) {
+		return internalerrors.Errorf("offer UUID %q is not a valid UUID", offerUUID).Add(errors.NotValid)
+	}
+
+	return s.modelState.CheckOfferByUUID(ctx, offerUUID)
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {

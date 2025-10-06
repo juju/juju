@@ -699,6 +699,43 @@ WHERE offer_uuid = $uuid.uuid
 	return nil
 }
 
+// CheckOfferByUUID checks if an offer with the given UUID exists.
+// Returns [crossmodelrelationerrors.OfferNotFound] if the offer is not found.
+func (st *State) CheckOfferByUUID(ctx context.Context, offerUUID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var result countResult
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+
+		uuid := uuid{UUID: offerUUID}
+		existsQueryStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM offer
+WHERE uuid = $uuid.uuid
+`, uuid, result)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, existsQueryStmt, uuid).Get(&result); err != nil {
+			return errors.Errorf("checking if offer %q exists: %w", offerUUID, err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return errors.Capture(err)
+	} else if result.Count == 0 {
+		return crossmodelrelationerrors.OfferNotFound
+	}
+
+	return nil
+}
+
 func (st *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid string, ch charm.Charm) error {
 	if err := st.addCharmState(ctx, tx, uuid, ch); err != nil {
 		return errors.Capture(err)

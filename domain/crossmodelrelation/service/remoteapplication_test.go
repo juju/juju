@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -526,4 +527,54 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerMixedEnd
 		},
 		RelationUUID: relationUUID,
 	})
+}
+
+func (s *remoteApplicationServiceSuite) TestCheckOfferByUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+
+	s.modelState.EXPECT().CheckOfferByUUID(gomock.Any(), offerUUID).Return(nil)
+
+	service := s.service(c)
+
+	err := service.CheckOfferByUUID(c.Context(), offerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *remoteApplicationServiceSuite) TestCheckOfferByUUIDNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+
+	s.modelState.EXPECT().CheckOfferByUUID(gomock.Any(), offerUUID).Return(crossmodelrelationerrors.OfferNotFound)
+
+	service := s.service(c)
+
+	err := service.CheckOfferByUUID(c.Context(), offerUUID)
+	c.Assert(err, tc.ErrorMatches, "offer not found")
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
+}
+
+func (s *remoteApplicationServiceSuite) TestCheckOfferByUUIDInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := s.service(c)
+
+	err := service.CheckOfferByUUID(c.Context(), "invalid-uuid")
+	c.Assert(err, tc.ErrorMatches, `offer UUID "invalid-uuid" is not a valid UUID`)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestCheckOfferByUUIDStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+
+	s.modelState.EXPECT().CheckOfferByUUID(gomock.Any(), offerUUID).Return(internalerrors.Errorf("boom"))
+
+	service := s.service(c)
+
+	err := service.CheckOfferByUUID(c.Context(), offerUUID)
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

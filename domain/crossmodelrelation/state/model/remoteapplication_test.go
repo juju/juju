@@ -763,6 +763,24 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerCheckVersi
 	c.Check(remoteApp2Version, tc.Equals, uint64(1)) // Same offer, so version increments
 }
 
+func (s *modelRemoteApplicationSuite) TestCheckOfferByUUID(c *tc.C) {
+	// Create an offer first
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+
+	// Test with existing offer UUID - should return no error
+	err := s.state.CheckOfferByUUID(c.Context(), offerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelRemoteApplicationSuite) TestCheckOfferByUUIDNotExists(c *tc.C) {
+	// Test with non-existing offer UUID - should return OfferNotFound error
+	nonExistentUUID := tc.Must(c, internaluuid.NewUUID).String()
+	err := s.state.CheckOfferByUUID(c.Context(), nonExistentUUID)
+	c.Assert(err, tc.ErrorMatches, "offer not found")
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
+}
+
 func (s *modelRemoteApplicationSuite) assertApplicationRemoteConsumer(c *tc.C, applicationUUID string) {
 	var count int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
