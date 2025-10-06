@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 // StateBackend provides an interface for upgrading the global state database.
@@ -34,23 +35,18 @@ type getAnnotationFunc func(appName string, mode string, includeClusterIP bool) 
 type labelVersionFunc func() constants.LabelVersion
 
 // NewStateBackend returns a new StateBackend using a *state.StatePool object.
-func NewStateBackend(pool *state.StatePool, broker caas.Broker) StateBackend {
-	var getAnnotation getAnnotationFunc = func(appName string, mode string, includeClusterIP bool) (map[string]interface{}, error) {
-		service, err := broker.GetService(appName, caas.DeploymentMode(mode), includeClusterIP)
-		if err != nil {
-			return map[string]interface{}{}, err
-		}
-		return service.Status.Data, nil
+func NewStateBackend(pool *state.StatePool) StateBackend {
+	return stateBackend{
+		pool: pool,
+		getBrokerFunc: func(model *state.Model) (caas.Broker, error) {
+			return stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
+		},
 	}
-	var labelVersion labelVersionFunc = broker.LabelVersion
-
-	return stateBackend{pool: pool, getAnnotation: getAnnotation, labelVersion: labelVersion}
 }
 
 type stateBackend struct {
 	pool          *state.StatePool
-	getAnnotation getAnnotationFunc
-	labelVersion  labelVersionFunc
+	getBrokerFunc func(model *state.Model) (caas.Broker, error)
 }
 
 // AddVirtualHostKeys runs an upgrade to
@@ -66,5 +62,5 @@ func (s stateBackend) SplitMigrationStatusMessages() error {
 }
 
 func (s stateBackend) PopulateApplicationStorageUniqueID() error {
-	return state.PopulateApplicationStorageUniqueID(s.pool, s.getAnnotation, s.labelVersion)
+	return state.PopulateApplicationStorageUniqueID(s.pool, s.getBrokerFunc)
 }
