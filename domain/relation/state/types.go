@@ -169,10 +169,6 @@ type unitSettingsHash struct {
 
 type keys []string
 
-type relationUnitUUID struct {
-	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
-}
-
 type relationEndpointUUID struct {
 	UUID string `db:"uuid"`
 }

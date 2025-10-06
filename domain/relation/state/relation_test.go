@@ -1860,11 +1860,18 @@ func (s *relationSuite) TestLeaveScope(c *tc.C) {
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
 	// Arrange: Add some relation unit settings.
-	s.addRelationUnitSetting(c, relationUnitUUID, "test-key", "test-value")
+	s.addRelationUnitSetting(c, relationUnitUUID, "key-1", "value-1")
+	s.addRelationUnitSetting(c, relationUnitUUID, "key-2", "value-2")
 	s.addRelationUnitSettingsHash(c, relationUnitUUID, "hash")
 
+	// Arrange: Add some archived relation settings to simulate this unit
+	// leaving and re-entering the relation scope.
+	s.query(c, `
+INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", value)
+VALUES (?, ?, 'old-key', 'old-value')`, relationUUID.String(), unitUUID.String())
+
 	// Act: Leave scope with the first unit.
-	err := s.state.LeaveScope(c.Context(), relationUnitUUID)
+	err := s.state.LeaveScope(c.Context(), relationUnitUUID.String())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -1873,13 +1880,21 @@ func (s *relationSuite) TestLeaveScope(c *tc.C) {
 	// deleted if the unit settings have also been deleted, so no need to check
 	// them separately.
 	c.Assert(s.doesRelationUnitExist(c, relationUnitUUID.String()), tc.IsFalse)
+
+	// Assert: the unit's latest relation settings were archived.
+	settings, err := s.state.GetRelationUnitSettingsArchive(c.Context(), relationUUID.String(), unitName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settings, tc.DeepEquals, map[string]string{
+		"key-1": "value-1",
+		"key-2": "value-2",
+	})
 }
 
 func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
 	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
 
 	// Act: Leave scope with the first unit.
-	err := s.state.LeaveScope(c.Context(), relationUnitUUID)
+	err := s.state.LeaveScope(c.Context(), relationUnitUUID.String())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)

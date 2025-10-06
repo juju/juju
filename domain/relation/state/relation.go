@@ -1820,28 +1820,69 @@ AND    u.uuid = $relationUnit.unit_uuid
 	return uuid.String(), nil
 }
 
-// LeaveScope updates the given relation to indicate it is not in scope.
-//
+// LeaveScope updates the relation to indicate that the unit represented by
+// the input relation unit UUID is not in the relation scope.
+// It archives the unit's relation settings, then deletes all associated
+// relation unit records.
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be
 //     found.
-func (st *State) LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error {
+func (st *State) LeaveScope(ctx context.Context, relUnitUUID string) error {
 	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	id := entityUUID{UUID: relUnitUUID}
+
+	delStmt, err := st.Prepare(`
+DELETE FROM relation_unit_setting_archive
+WHERE (relation_uuid, unit_name) IN (
+    SELECT re.relation_uuid, u.name
+    FROM   relation_unit ru
+    JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
+    JOIN   unit u ON ru.unit_uuid = u.uuid
+    WHERE  ru.uuid = $entityUUID.uuid
+)`, id)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	copyStmt, err := st.Prepare(`
+INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", value)	
+SELECT re.relation_uuid, u.name, rus."key", rus.value
+FROM   relation_unit ru
+JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
+JOIN   unit u ON ru.unit_uuid = u.uuid
+JOIN   relation_unit_setting rus ON ru.uuid = rus.relation_unit_uuid
+WHERE  ru.uuid = $entityUUID.uuid`, id)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check the relation unit exists.
-		exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID.String())
+		exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relUnitUUID)
 		if err != nil {
 			return errors.Errorf("checking relation unit exists: %w", err)
 		} else if !exists {
 			return relationerrors.RelationUnitNotFound
 		}
 
+		// Archive the relation unit settings so that they can be accessed for
+		// the lifetime of the relation regardless of whether the unit still
+		// exists.
+		err = tx.Query(ctx, delStmt, id).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, copyStmt, id).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
+
 		// Leave scope by deleting the relation unit.
-		err = st.deleteRelationUnit(ctx, tx, relationUnitUUID)
+		err = st.deleteRelationUnit(ctx, tx, id)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1855,18 +1896,10 @@ func (st *State) LeaveScope(ctx context.Context, relationUnitUUID corerelation.U
 	return nil
 }
 
-func (st *State) deleteRelationUnit(
-	ctx context.Context,
-	tx *sqlair.TX,
-	uuid corerelation.UnitUUID,
-) error {
-	id := relationUnitUUID{
-		RelationUnitUUID: uuid,
-	}
+func (st *State) deleteRelationUnit(ctx context.Context, tx *sqlair.TX, id entityUUID) error {
 	deleteSettingsStmt, err := st.Prepare(`
 DELETE FROM relation_unit_setting
-WHERE relation_unit_uuid = $relationUnitUUID.uuid
-`, id)
+WHERE relation_unit_uuid = $entityUUID.uuid`, id)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1877,8 +1910,7 @@ WHERE relation_unit_uuid = $relationUnitUUID.uuid
 
 	deleteSettingsHashStmt, err := st.Prepare(`
 DELETE FROM relation_unit_settings_hash
-WHERE relation_unit_uuid = $relationUnitUUID.uuid
-`, id)
+WHERE relation_unit_uuid = $entityUUID.uuid`, id)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1889,8 +1921,7 @@ WHERE relation_unit_uuid = $relationUnitUUID.uuid
 
 	deleteRelationUnitStmt, err := st.Prepare(`
 DELETE FROM relation_unit 
-WHERE uuid = $relationUnitUUID.uuid
-`, id)
+WHERE uuid = $entityUUID.uuid`, id)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2024,6 +2055,51 @@ func (st *State) GetRelationUnitSettings(
 			return errors.Capture(err)
 		}
 
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	relationSettings := make(map[string]string, len(settings))
+	for _, setting := range settings {
+		relationSettings[setting.Key] = setting.Value
+	}
+	return relationSettings, nil
+}
+
+// GetRelationUnitSettingsArchive returns the archived settings for the input
+// unit name and relation UUID.
+func (st *State) GetRelationUnitSettingsArchive(
+	ctx context.Context, relUUID, unitName string,
+) (map[string]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type name struct {
+		Name string `db:"unit_name"`
+	}
+
+	rUUID := entityUUID{UUID: relUUID}
+	uName := name{Name: unitName}
+	stmt, err := st.Prepare(`
+SELECT &relationSetting.*
+FROM   relation_unit_setting_archive
+WHERE  relation_uuid = $entityUUID.uuid
+AND    unit_name = $name.unit_name
+`, rUUID, uName, relationSetting{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var settings []relationSetting
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, rUUID, uName).GetAll(&settings)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
 		return nil
 	})
 	if err != nil {
