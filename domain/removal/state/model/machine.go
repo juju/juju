@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -646,7 +647,11 @@ WHERE  net_node_uuid = $node.uuid
 		}
 
 		if err := tx.Query(ctx, stmt, llDevicesToDelete).Run(); err != nil {
-			return errors.Errorf("deleting reference to machine network in query %q: %w", query, err)
+			removeErr := errors.Errorf("deleting reference to machine network in query %q: %w", query, err)
+			if database.IsErrConstraintForeignKey(err) {
+				removeErr = removeErr.Add(removalerrors.RemovalJobIncomplete)
+			}
+			return removeErr
 		}
 	}
 
@@ -665,7 +670,11 @@ WHERE  net_node_uuid = $node.uuid
 		}
 
 		if err := tx.Query(ctx, stmt, netNodeUUIDRec).Run(); err != nil {
-			return errors.Errorf("deleting reference to machine network in query %q: %w", query, err)
+			removeErr := errors.Errorf("deleting net node in query %q: %w", query, err)
+			if database.IsErrConstraintForeignKey(err) {
+				removeErr = removeErr.Add(removalerrors.RemovalJobIncomplete)
+			}
+			return removeErr
 		}
 	}
 	return nil
