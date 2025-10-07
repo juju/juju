@@ -13,7 +13,7 @@ run_deploy_default_series() {
 	ubuntu_base_name=$(juju status --format=json | jq ".applications.ubuntu.base.name")
 	ubuntu_base_ch=$(juju status --format=json | jq ".applications.ubuntu.base.channel")
 	echo "$ubuntu_base_name" | check "ubuntu"
-	echo "$ubuntu_base_ch" | check "22.04"
+	echo "$ubuntu_base_ch" | check "24.04"
 
 	destroy_model "${model_name}"
 }
