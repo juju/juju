@@ -13,7 +13,7 @@ import (
 )
 
 type disksFlag struct {
-	disks *[]storage.Directive
+	disks *[]storage.Constraints
 }
 
 // Set implements gnuflag.Value.Set.

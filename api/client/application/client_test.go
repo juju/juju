@@ -51,7 +51,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 				Constraints:      constraints.MustParse("mem=4G"),
 				Placement:        []*instance.Placement{{"scope", "directive"}},
 				EndpointBindings: map[string]string{"foo": "bar"},
-				Storage:          map[string]storage.Directive{"data": {Pool: "pool"}},
+				Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
 				AttachStorage:    []string{"storage-data-0"},
 				Resources:        map[string]string{"foo": "bar"},
 			},
@@ -74,7 +74,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 		Config:           map[string]string{"foo": "bar"},
 		Cons:             constraints.MustParse("mem=4G"),
 		Placement:        []*instance.Placement{{"scope", "directive"}},
-		Storage:          map[string]storage.Directive{"data": {Pool: "pool"}},
+		Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
 		AttachStorage:    []string{"data/0"},
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},
@@ -104,7 +104,7 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 				Constraints:      constraints.MustParse("mem=4G"),
 				Placement:        []*instance.Placement{{"scope", "directive"}},
 				EndpointBindings: map[string]string{"foo": "bar"},
-				Storage:          map[string]storage.Directive{"data": {Pool: "pool"}},
+				Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
 				AttachStorage:    []string{"storage-data-0"},
 				Resources:        map[string]string{"foo": "bar"},
 			},
@@ -127,7 +127,7 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 		Config:           map[string]string{"foo": "bar"},
 		Cons:             constraints.MustParse("mem=4G"),
 		Placement:        []*instance.Placement{{"scope", "directive"}},
-		Storage:          map[string]storage.Directive{"data": {Pool: "pool"}},
+		Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
 		AttachStorage:    []string{"data/0"},
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},
@@ -279,7 +279,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		Force:              true,
 		ForceBase:          true,
 		ForceUnits:         true,
-		StorageConstraints: map[string]storage.Directive{
+		StorageConstraints: map[string]storage.Constraints{
 			"a": {Pool: "radiant"},
 			"b": {Count: 123},
 			"c": {Size: 123},
@@ -1557,7 +1557,7 @@ func (s *applicationSuite) TestGetApplicationStorageSuccessful(c *gc.C) {
 	info, err := client.GetApplicationStorageDirectives("storage-block")
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.StorageDirectives, gc.DeepEquals, map[string]storage.Directive{
+	c.Assert(info.StorageDirectives, gc.DeepEquals, map[string]storage.Constraints{
 		"storage-block": {
 			Pool:  "loop",
 			Size:  uint64(5),
@@ -1625,7 +1625,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorageDirectives", args, result).SetArg(2, results).Return(nil)
 
 	applicationStorageUpdate := application.ApplicationStorageUpdate{
-		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Directive{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Constraints{
 			"storage-block": {
 				Pool:  "loop",
 				Size:  uint64(5),
@@ -1669,7 +1669,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorageDirectives", args, result).SetArg(2, results).Return(nil)
 
 	applicationStorageUpdate := application.ApplicationStorageUpdate{
-		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Directive{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Constraints{
 			"storage-block": {
 				Pool:  "loop",
 				Size:  uint64(5),

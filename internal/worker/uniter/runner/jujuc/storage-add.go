@@ -66,7 +66,7 @@ func (s *StorageAddCommand) Init(args []string) error {
 	s.all = make(map[string]params.StorageConstraints, len(constraintsMap))
 	for k, v := range constraintsMap {
 		cons := v
-		if cons != (storage.Directive{Count: cons.Count}) {
+		if cons != (storage.Constraints{Count: cons.Count}) {
 			return errors.Errorf("only count can be specified for %q", k)
 		}
 		s.all[k] = params.StorageConstraints{Count: &cons.Count}

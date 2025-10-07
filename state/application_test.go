@@ -3610,7 +3610,7 @@ func (s *ApplicationSuite) TestDestroyNoRemoveKeepsOwnedSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageDirectives(c *gc.C) {
+func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),

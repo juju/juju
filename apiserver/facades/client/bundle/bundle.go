@@ -623,7 +623,7 @@ func (b *BundleAPI) bundleDataApplications(
 		if cons := application.StorageDirectives(); len(cons) != 0 {
 			newApplication.Storage = make(map[string]string)
 			for name, constr := range cons {
-				if newApplication.Storage[name], err = storage.ToString(storage.Directive{
+				if newApplication.Storage[name], err = storage.ToString(storage.Constraints{
 					Pool:  constr.Pool(),
 					Size:  constr.Size(),
 					Count: constr.Count(),

@@ -48,7 +48,7 @@ func (s *StorageConfigSuite) SetUpTest(c *gc.C) {
 	s.mockAPI = &mockStorageConstraintsAPI{
 		getFunc: func(app string) (apiapplication.ApplicationStorageDirectives, error) {
 			return apiapplication.ApplicationStorageDirectives{
-				StorageDirectives: map[string]storage.Directive{
+				StorageDirectives: map[string]storage.Constraints{
 					"data":    {Pool: "rootfs", Size: 10240, Count: 1}, // 10 GiB (MiB units)
 					"allecto": {Pool: "loop", Size: 20480, Count: 2},   // 20 GiB
 				},
