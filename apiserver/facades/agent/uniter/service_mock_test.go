@@ -1957,44 +1957,6 @@ func (c *MockRelationServiceGetRelationsStatusForUnitCall) DoAndReturn(f func(co
 	return c
 }
 
-// LeaveScope mocks base method.
-func (m *MockRelationService) LeaveScope(arg0 context.Context, arg1 relation.UnitUUID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LeaveScope", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// LeaveScope indicates an expected call of LeaveScope.
-func (mr *MockRelationServiceMockRecorder) LeaveScope(arg0, arg1 any) *MockRelationServiceLeaveScopeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaveScope", reflect.TypeOf((*MockRelationService)(nil).LeaveScope), arg0, arg1)
-	return &MockRelationServiceLeaveScopeCall{Call: call}
-}
-
-// MockRelationServiceLeaveScopeCall wrap *gomock.Call
-type MockRelationServiceLeaveScopeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRelationServiceLeaveScopeCall) Return(arg0 error) *MockRelationServiceLeaveScopeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceLeaveScopeCall) Do(f func(context.Context, relation.UnitUUID) error) *MockRelationServiceLeaveScopeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceLeaveScopeCall) DoAndReturn(f func(context.Context, relation.UnitUUID) error) *MockRelationServiceLeaveScopeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetRelationApplicationAndUnitSettings mocks base method.
 func (m *MockRelationService) SetRelationApplicationAndUnitSettings(arg0 context.Context, arg1 unit.Name, arg2 relation.UnitUUID, arg3, arg4 map[string]string) error {
 	m.ctrl.T.Helper()
@@ -3155,6 +3117,44 @@ func NewMockRemovalService(ctrl *gomock.Controller) *MockRemovalService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRemovalService) EXPECT() *MockRemovalServiceMockRecorder {
 	return m.recorder
+}
+
+// LeaveScope mocks base method.
+func (m *MockRemovalService) LeaveScope(arg0 context.Context, arg1 relation.UnitUUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LeaveScope", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LeaveScope indicates an expected call of LeaveScope.
+func (mr *MockRemovalServiceMockRecorder) LeaveScope(arg0, arg1 any) *MockRemovalServiceLeaveScopeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaveScope", reflect.TypeOf((*MockRemovalService)(nil).LeaveScope), arg0, arg1)
+	return &MockRemovalServiceLeaveScopeCall{Call: call}
+}
+
+// MockRemovalServiceLeaveScopeCall wrap *gomock.Call
+type MockRemovalServiceLeaveScopeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemovalServiceLeaveScopeCall) Return(arg0 error) *MockRemovalServiceLeaveScopeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemovalServiceLeaveScopeCall) Do(f func(context.Context, relation.UnitUUID) error) *MockRemovalServiceLeaveScopeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemovalServiceLeaveScopeCall) DoAndReturn(f func(context.Context, relation.UnitUUID) error) *MockRemovalServiceLeaveScopeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // MarkUnitAsDead mocks base method.

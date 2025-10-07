@@ -1739,7 +1739,7 @@ func (u *UniterAPI) oneLeaveScope(ctx context.Context, canAccess common.AuthFunc
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
-	return u.relationService.LeaveScope(ctx, relUnitUUID)
+	return u.removalService.LeaveScope(ctx, relUnitUUID)
 }
 
 // ReadSettings returns the local settings of each given set of

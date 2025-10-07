@@ -528,9 +528,6 @@ type RelationService interface {
 		applicationID coreapplication.UUID,
 	) (map[string]string, error)
 
-	// LeaveScope updates the given relation to indicate it is not in scope.
-	LeaveScope(ctx context.Context, relationID corerelation.UnitUUID) error
-
 	// SetRelationApplicationAndUnitSettings records settings for a unit and
 	// an application in a relation.
 	SetRelationApplicationAndUnitSettings(
@@ -579,6 +576,10 @@ type RemovalService interface {
 	// that is a separate operation. This will advance the unit's life to dead
 	// and will not allow it to be transitioned back to alive.
 	MarkUnitAsDead(context.Context, coreunit.UUID) error
+
+	// LeaveScope updates the relation to indicate that the unit represented by
+	// the input relation unit UUID is not in the implied relation scope.
+	LeaveScope(ctx context.Context, relationID corerelation.UnitUUID) error
 }
 
 // BlockDeviceService provides methods to watch and manage block devices.
