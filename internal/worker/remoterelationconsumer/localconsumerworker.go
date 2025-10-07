@@ -496,8 +496,8 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	return nil
 }
 
-// handleRelationDying notifies the offerer relation worker that the relation
-// is dying, so it can clean up any resources associated with it.
+// handleRelationDying "notifies the offering model that the relation is dying,
+// so it can clean up any resources associated with it.
 func (w *localConsumerWorker) handleRelationDying(ctx context.Context, relationUUID corerelation.UUID, mac *macaroon.Macaroon) error {
 	w.logger.Debugf(ctx, "relation %q is dying", relationUUID)
 
@@ -532,8 +532,8 @@ func (w *localConsumerWorker) handleDischargeRequiredWhilstDying(ctx context.Con
 		return nil
 	}
 
-	// If consume permission has been revoked for the offer, set the
-	// status of the local remote application entity.
+	// If consume permission has been revoked for the offer, set the status of
+	// of the local application entity representing the remote offerer.
 	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
 		Status:  status.Error,
 		Message: fmt.Sprintf("offer permission revoked: %v", err.Error()),
@@ -551,8 +551,8 @@ func (w *localConsumerWorker) handleDischargeRequiredWhilstDying(ctx context.Con
 	// We won't ever be able to tell the offerer side that the relation has gone
 	// away, because if we bounce, we won't ever be in this state again. This
 	// won't re-establish itself on the consumer side, because the relation
-	// doesn't exist. The only way to recover this is to remove the offerer
-	// hidden relation.
+	// doesn't exist. The only way to recover this is to remove the synthetic
+	// relation from the offering mode.
 	return internalerrors.Errorf("%w: relation %q", ErrPermissionRevokedWhilstDying, relationUUID)
 }
 
