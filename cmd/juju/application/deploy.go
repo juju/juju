@@ -284,7 +284,7 @@ type DeployCommand struct {
 	//
 	// Storage is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata.
-	Storage map[string]storage.DConstraints
+	Storage map[string]storage.Constraints
 
 	// BundleStorage maps application names to maps of storage constraints keyed on
 	// the storage name defined in that application's charm storage metadata.
