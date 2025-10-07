@@ -345,7 +345,7 @@ WHERE  relation_endpoint_uuid IN (
 }
 
 // LeaveScope updates the relation to indicate that the unit represented by
-// the input relation unit UUID is not in the relation scope.
+// the input relation unit UUID is not in the implied relation scope.
 // It archives the unit's relation settings, then deletes all associated
 // relation unit records.
 // The following error types can be expected to be returned:

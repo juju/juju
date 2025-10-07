@@ -44,6 +44,12 @@ type RelationState interface {
 
 	// DeleteRelation removes a relation from the database completely.
 	DeleteRelation(ctx context.Context, rUUID string) error
+
+	// LeaveScope updates the relation to indicate that the unit represented by
+	// the input relation unit UUID is not in the implied relation scope.
+	// It archives the unit's relation settings, then deletes all associated
+	// relation unit records.
+	LeaveScope(ctx context.Context, relationUnitUUID string) error
 }
 
 // RemoveRelation checks if a relation with the input UUID exists.
@@ -94,6 +100,22 @@ func (s *Service) RemoveRelation(
 
 	jUUID, err = s.relationScheduleRemoval(ctx, relUUID, force, wait)
 	return jUUID, errors.Capture(err)
+}
+
+// LeaveScope updates the relation to indicate that the unit represented by
+// the input relation unit UUID is not in the implied relation scope.
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotValid] if an invalid UUID is supplied.
+//   - [relationerrors.RelationUnitNotFound] if the relation unit is not found.
+func (s *Service) LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUnitUUID.Validate(); err != nil {
+		return errors.Errorf("%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
+	return errors.Capture(s.modelState.LeaveScope(ctx, relationUnitUUID.String()))
 }
 
 func (s *Service) relationScheduleRemoval(
