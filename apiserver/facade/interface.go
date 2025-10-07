@@ -15,6 +15,7 @@ import (
 	"github.com/juju/description/v10"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
+	"gopkg.in/macaroon.v2"
 
 	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
 	corehttp "github.com/juju/juju/core/http"
@@ -270,15 +271,37 @@ type Authorizer interface {
 	EntityHasPermission(ctx context.Context, entity names.Tag, operation permission.Access, target names.Tag) error
 }
 
+// MacaroonAuthenticator provides methods to authenticate macaroons for cross
+// model operations.
+type MacaroonAuthenticator interface {
+	// CheckOfferMacaroons verifies that the specified macaroons allow access to the
+	// offer.
+	CheckOfferMacaroons(ctx context.Context, offeringModelUUID, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error)
+}
+
 // CrossModelAuthContext provides methods to create macaroons for cross model
 // operations.
 type CrossModelAuthContext interface {
+	// Authenticator returns an instance used to authenticate macaroons used to
+	// access offers.
+	Authenticator() MacaroonAuthenticator
+
 	// CreateConsumeOfferMacaroon creates a macaroon that authorizes access to the
 	// specified offer.
 	CreateConsumeOfferMacaroon(
 		ctx context.Context,
 		modelUUID model.UUID,
 		offerUUID, username string,
+		version bakery.Version,
+	) (*bakery.Macaroon, error)
+
+	// CreateRemoteRelationMacaroon creates a macaroon that authorizes access to the
+	// specified relation.
+	CreateRemoteRelationMacaroon(
+		ctx context.Context,
+		modelUUID model.UUID,
+		offerUUID, username string,
+		rel names.RelationTag,
 		version bakery.Version,
 	) (*bakery.Macaroon, error)
 

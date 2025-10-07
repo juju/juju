@@ -6,16 +6,39 @@ package crossmodelrelations
 import (
 	"context"
 
+	"github.com/juju/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/application/charm"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/rpc/params"
 )
 
 // CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPIv3 struct {
+	modelUUID model.UUID
+	auth      facade.CrossModelAuthContext
+
+	crossModelRelationService CrossModelRelationService
+
+	logger logger.Logger
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
-func NewCrossModelRelationsAPI() (*CrossModelRelationsAPIv3, error) {
-	return &CrossModelRelationsAPIv3{}, nil
+func NewCrossModelRelationsAPI(
+	modelUUID model.UUID,
+	auth facade.CrossModelAuthContext,
+	crossModelRelationService CrossModelRelationService,
+	logger logger.Logger,
+) (*CrossModelRelationsAPIv3, error) {
+	return &CrossModelRelationsAPIv3{
+		modelUUID:                 modelUUID,
+		auth:                      auth,
+		crossModelRelationService: crossModelRelationService,
+		logger:                    logger,
+	}, nil
 }
 
 // PublishRelationChanges publishes relation changes to the
@@ -33,7 +56,68 @@ func (api *CrossModelRelationsAPIv3) RegisterRemoteRelations(
 	ctx context.Context,
 	relations params.RegisterRemoteRelationArgs,
 ) (params.RegisterRemoteRelationResults, error) {
-	return params.RegisterRemoteRelationResults{}, nil
+	results := params.RegisterRemoteRelationResults{
+		Results: make([]params.RegisterRemoteRelationResult, len(relations.Relations)),
+	}
+	for i, relation := range relations.Relations {
+		id, err := api.registerOneRemoteRelation(ctx, relation)
+		results.Results[i].Result = id
+		results.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
+	ctx context.Context,
+	relation params.RegisterRemoteRelationArg,
+) (*params.RemoteRelationDetails, error) {
+	// Make sure the provided offer UUID exists.
+	err := api.crossModelRelationService.CheckOfferByUUID(ctx, relation.OfferUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check that the supplied macaroon allows access.
+	attr, err := api.auth.Authenticator().CheckOfferMacaroons(ctx, api.modelUUID.String(), relation.OfferUUID, relation.Macaroons, relation.BakeryVersion)
+	if err != nil {
+		return nil, err
+	}
+	// The macaroon needs to be attenuated to a user.
+	username, ok := attr["username"]
+	if username == "" || !ok {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	// Insert the remote relation.
+	if err := api.crossModelRelationService.AddRemoteApplicationConsumer(
+		ctx,
+		crossmodelrelationservice.AddRemoteApplicationConsumerArgs{
+			RemoteApplicationUUID: relation.ApplicationToken,
+			OfferUUID:             relation.OfferUUID,
+			RelationUUID:          relation.RelationToken,
+			// We only have the actual consumed endpoint.
+			Endpoints: []charm.Relation{
+				{
+					Name:      relation.RemoteEndpoint.Name,
+					Role:      charm.RelationRole(relation.RemoteEndpoint.Role),
+					Interface: relation.RemoteEndpoint.Interface,
+				},
+			},
+		},
+	); err != nil {
+		return nil, errors.Annotate(err, "adding remote application consumer")
+	}
+
+	// Mint a new macaroon attenuated to the actual relation.
+	relationMacaroon, err := api.auth.CreateRemoteRelationMacaroon(
+		ctx, api.modelUUID, relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating relation macaroon")
+	}
+	return &params.RemoteRelationDetails{
+		Token:    token,
+		Macaroon: relationMacaroon.M(),
+	}, nil
 }
 
 // WatchRelationChanges starts a RemoteRelationChangesWatcher for each

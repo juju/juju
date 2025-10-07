@@ -30,8 +30,8 @@ type Authenticator struct {
 }
 
 // CheckOfferMacaroons verifies that the specified macaroons allow access to the offer.
-func (a *Authenticator) CheckOfferMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error) {
-	requiredValues, err := a.bakery.GetOfferRequiredValues(sourceModelUUID, offerUUID)
+func (a *Authenticator) CheckOfferMacaroons(ctx context.Context, offeringModelUUID, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error) {
+	requiredValues, err := a.bakery.GetOfferRequiredValues(offeringModelUUID, offerUUID)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting required values for offer access: %w", err)
 	}

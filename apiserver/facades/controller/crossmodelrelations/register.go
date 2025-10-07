@@ -14,7 +14,7 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CrossModelRelations", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		api, err := makeStateCrossModelRelationsAPI(stdCtx, ctx) // Removes remote spaces
+		api, err := newCrossModelRelationsAPI(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("creating CrossModelRelations facade: %w", err)
 		}
@@ -22,8 +22,13 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*CrossModelRelationsAPIv3)(nil)))
 }
 
-// makeStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
+// newCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
-func makeStateCrossModelRelationsAPI(stdCtx context.Context, ctx facade.ModelContext) (*CrossModelRelationsAPIv3, error) {
-	return NewCrossModelRelationsAPI()
+func newCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelationsAPIv3, error) {
+	return NewCrossModelRelationsAPI(
+		ctx.ModelUUID(),
+		ctx.CrossModelAuthContext(),
+		ctx.DomainServices().CrossModelRelation(),
+		ctx.Logger().Child("caasapplication"),
+	)
 }
