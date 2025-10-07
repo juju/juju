@@ -110,16 +110,3 @@ func (s *Service) SetMachineCloudInstance(
 	}
 	return nil
 }
-
-// DeleteMachineCloudInstance removes an entry in the machine cloud instance
-// table along with the instance tags and the link to a lxd profile if any, as
-// well as any associated status data.
-func (s *Service) DeleteMachineCloudInstance(ctx context.Context, machineUUID machine.UUID) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := s.st.DeleteMachineCloudInstance(ctx, machineUUID.String()); err != nil {
-		return errors.Errorf("deleting machine cloud instance for machine %q: %w", machineUUID, err)
-	}
-	return nil
-}

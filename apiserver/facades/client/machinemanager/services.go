@@ -91,9 +91,6 @@ type MachineService interface {
 	// machine names that were created as part of the placement.
 	AddMachine(context.Context, domainmachine.AddMachineArgs) (machineservice.AddMachineResults, error)
 
-	// DeleteMachine deletes a machine with the given name.
-	DeleteMachine(context.Context, coremachine.Name) error
-
 	// AllMachineNames returns the names of all machines in the model.
 	AllMachineNames(context.Context) ([]coremachine.Name, error)
 

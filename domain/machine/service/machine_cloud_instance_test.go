@@ -101,24 +101,6 @@ func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "setting machine cloud instance for machine \"42\": boom")
 }
 
-func (s *serviceSuite) TestDeleteMachineCloudInstance(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), "42").Return(nil)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).DeleteMachineCloudInstance(c.Context(), "42")
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestDeleteMachineCloudInstanceFails(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), "42").Return(errors.New("boom"))
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).DeleteMachineCloudInstance(c.Context(), "42")
-	c.Assert(err, tc.ErrorMatches, "deleting machine cloud instance for machine \"42\": boom")
-}
-
 func (s *serviceSuite) TestGetPollingInfosSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

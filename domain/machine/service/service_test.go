@@ -46,31 +46,6 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-// TestDeleteMachineSuccess asserts the happy path of the DeleteMachine service.
-func (s *serviceSuite) TestDeleteMachineSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().DeleteMachine(gomock.Any(), machine.Name("666")).Return(nil)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		DeleteMachine(c.Context(), "666")
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestDeleteMachineError asserts that an error coming from the state layer is
-// preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestDeleteMachineError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().DeleteMachine(gomock.Any(), machine.Name("666")).Return(rErr)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		DeleteMachine(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, rErr)
-	c.Check(err, tc.ErrorMatches, `deleting machine "666": boom`)
-}
-
 // TestGetLifeSuccess asserts the happy path of the GetMachineLife service.
 func (s *serviceSuite) TestGetLifeSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()

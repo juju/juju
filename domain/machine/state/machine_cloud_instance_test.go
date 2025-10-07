@@ -263,29 +263,6 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineCloudInstanceAlreadyExists)
 }
 
-// TestDeleteInstanceData asserts the happy path of DeleteMachineCloudInstance
-// at the state layer.
-func (s *stateSuite) TestDeleteInstanceData(c *tc.C) {
-	db := s.DB()
-
-	machineUUID, _ := s.ensureInstance(c)
-
-	err := s.state.DeleteMachineCloudInstance(c.Context(), machineUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Check that all rows've been deleted.
-	rows, err := db.QueryContext(c.Context(), "SELECT * FROM machine_cloud_instance WHERE instance_id='1'")
-	defer func() { _ = rows.Close() }()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(rows.Err(), tc.ErrorIsNil)
-	c.Check(rows.Next(), tc.IsFalse)
-	rows, err = db.QueryContext(c.Context(), "SELECT * FROM instance_tag WHERE machine_uuid='"+machineUUID.String()+"'")
-	defer func() { _ = rows.Close() }()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(rows.Err(), tc.ErrorIsNil)
-	c.Check(rows.Next(), tc.IsFalse)
-}
-
 func (s *stateSuite) TestInstanceIdSuccess(c *tc.C) {
 	machineUUID, _ := s.ensureInstance(c)
 

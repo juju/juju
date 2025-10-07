@@ -144,13 +144,6 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
-	// Should fire on machine deletes.
-	harness.AddTest(c, func(c *tc.C) {
-		err := s.svc.DeleteMachine(c.Context(), "1")
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.SliceAssert([]string{"1"}))
-	})
 
 	harness.Run(c, []string(nil))
 }
@@ -269,13 +262,6 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 		w.Check(watchertest.SliceAssert([]string{"0"}))
 	})
 
-	harness.AddTest(c, func(c *tc.C) {
-		err = s.svc.DeleteMachine(c.Context(), "0")
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.SliceAssert([]string{"0"}))
-	})
-
 	harness.Run(c, nil)
 }
 
@@ -304,42 +290,6 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 	// Should notify when the machine cloud instance is set.
 	harness.AddTest(c, func(c *tc.C) {
 		err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", "nonce", hc)
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.Check(watchertest.SliceAssert(struct{}{}))
-	})
-
-	harness.Run(c, struct{}{})
-}
-
-func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
-	// Create a machineUUID and set its cloud instance.
-	res, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
-		Platform: deployment.Platform{
-			Channel: "24.04",
-			OSType:  deployment.Ubuntu,
-		},
-		Nonce: ptr("nonce-123"),
-	})
-	c.Assert(err, tc.IsNil)
-	machineUUID, err := s.svc.GetMachineUUID(c.Context(), res.MachineName)
-	c.Assert(err, tc.IsNil)
-	hc := &instance.HardwareCharacteristics{
-		Mem:      ptr[uint64](1024),
-		RootDisk: ptr[uint64](256),
-		CpuCores: ptr[uint64](4),
-		CpuPower: ptr[uint64](75),
-	}
-	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", "nonce", hc)
-	c.Assert(err, tc.ErrorIsNil)
-
-	watcher, err := s.svc.WatchMachineCloudInstances(c.Context(), machineUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// Should notify when the machine cloud instance is deleted.
-	harness.AddTest(c, func(c *tc.C) {
-		err = s.svc.DeleteMachineCloudInstance(c.Context(), machineUUID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
