@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package offererrelations
 
 import (
 	"context"
@@ -83,9 +83,9 @@ func (c Config) Validate() error {
 	return nil
 }
 
-// remoteRelationsWorker listens for changes to the
+// offererRelationsWorker listens for changes to the
 // life and status of a relation in the offering model.
-type remoteRelationsWorker struct {
+type offererRelationsWorker struct {
 	catacomb catacomb.Catacomb
 
 	client   RemoteModelRelationsClient
@@ -110,7 +110,7 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	w := &remoteRelationsWorker{
+	w := &offererRelationsWorker{
 		client:                 cfg.Client,
 		macaroon:               cfg.Macaroon,
 		consumerRelationUUID:   cfg.ConsumerRelationUUID,
@@ -129,16 +129,16 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 }
 
 // Kill is defined on worker.Worker
-func (w *remoteRelationsWorker) Kill() {
+func (w *offererRelationsWorker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is defined on worker.Worker
-func (w *remoteRelationsWorker) Wait() error {
+func (w *offererRelationsWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *remoteRelationsWorker) loop() error {
+func (w *offererRelationsWorker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
 	// Totally new so start the lifecycle watcher.
@@ -217,7 +217,7 @@ func (w *remoteRelationsWorker) loop() error {
 }
 
 // Report provides information for the engine report.
-func (w *remoteRelationsWorker) Report() map[string]any {
+func (w *offererRelationsWorker) Report() map[string]any {
 	result := make(map[string]any)
 
 	ch := make(chan map[string]any, 1)

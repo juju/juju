@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 )
 
@@ -267,7 +267,7 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewOffererRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
+		NewOffererRelationsWorker: func(c offererrelations.Config) (offererrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
 		Clock:  clock.WallClock,

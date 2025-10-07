@@ -18,7 +18,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 )
 
@@ -129,7 +129,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewOffererRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
+		NewOffererRelationsWorker: func(c offererrelations.Config) (offererrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
 		GetCrossModelServices: func(getter dependency.Getter, domainServicesName string) (CrossModelService, error) {
@@ -168,7 +168,7 @@ func (s *manifoldSuite) validConfig(c *tc.C) ManifoldConfig {
 		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
 			return nil, nil
 		},
-		NewOffererRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
+		NewOffererRelationsWorker: func(c offererrelations.Config) (offererrelations.ReportableWorker, error) {
 			return nil, nil
 		},
 		Clock:  clock.WallClock,

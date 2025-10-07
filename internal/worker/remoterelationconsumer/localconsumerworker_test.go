@@ -32,7 +32,7 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 	"github.com/juju/juju/rpc/params"
 )
@@ -1173,7 +1173,7 @@ func (s *localConsumerWorkerSuite) newLocalConsumerWorkerConfig(c *tc.C) LocalCo
 			}()
 			return newErrWorker(nil), nil
 		},
-		NewOffererRelationsWorker: func(remoterelations.Config) (remoterelations.ReportableWorker, error) {
+		NewOffererRelationsWorker: func(offererrelations.Config) (offererrelations.ReportableWorker, error) {
 			defer func() {
 				select {
 				case s.offererRelationWorkerStarted <- struct{}{}:

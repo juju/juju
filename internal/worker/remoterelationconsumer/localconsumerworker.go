@@ -27,7 +27,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 	"github.com/juju/juju/rpc/params"
 )
@@ -129,7 +129,7 @@ type localConsumerWorker struct {
 
 	consumerRelationUnitChanges chan relation.RelationUnitChange
 	offererRelationUnitChanges  chan remoteunitrelations.RelationUnitChange
-	offererRelationChanges      chan remoterelations.RelationChange
+	offererRelationChanges      chan offererrelations.RelationChange
 
 	newConsumerUnitRelationsWorker NewConsumerUnitRelationsWorkerFunc
 	newOffererUnitRelationsWorker  NewOffererUnitRelationsWorkerFunc
@@ -174,7 +174,7 @@ func NewLocalConsumerWorker(config LocalConsumerWorkerConfig) (ReportableWorker,
 
 		consumerRelationUnitChanges: make(chan relation.RelationUnitChange),
 		offererRelationUnitChanges:  make(chan remoteunitrelations.RelationUnitChange),
-		offererRelationChanges:      make(chan remoterelations.RelationChange),
+		offererRelationChanges:      make(chan offererrelations.RelationChange),
 
 		newConsumerUnitRelationsWorker: config.NewConsumerUnitRelationsWorker,
 		newOffererUnitRelationsWorker:  config.NewOffererUnitRelationsWorker,
@@ -503,7 +503,7 @@ func (w *localConsumerWorker) ensureOffererRelationWorker(
 ) error {
 	name := fmt.Sprintf("offerer-relation:%s", relationUUID)
 	if err := w.runner.StartWorker(ctx, name, func(ctx context.Context) (worker.Worker, error) {
-		return w.newOffererRelationsWorker(remoterelations.Config{
+		return w.newOffererRelationsWorker(offererrelations.Config{
 			Client:                 w.remoteModelClient,
 			ConsumerRelationUUID:   relationUUID,
 			OffererApplicationUUID: offererApplicationUUID,

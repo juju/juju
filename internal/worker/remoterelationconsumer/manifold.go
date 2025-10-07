@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 )
 
@@ -53,7 +53,7 @@ type NewOffererUnitRelationsWorkerFunc func(remoteunitrelations.Config) (remoteu
 
 // NewOffererRelationsWorkerFunc defines the function signature for creating
 // a new remote relations worker.
-type NewOffererRelationsWorkerFunc func(remoterelations.Config) (remoterelations.ReportableWorker, error)
+type NewOffererRelationsWorkerFunc func(offererrelations.Config) (offererrelations.ReportableWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.

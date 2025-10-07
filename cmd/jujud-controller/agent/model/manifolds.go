@@ -50,7 +50,7 @@ import (
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationofferer"
 	"github.com/juju/juju/internal/worker/removal"
@@ -320,7 +320,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewLocalConsumerWorker:         remoterelationconsumer.NewLocalConsumerWorker,
 			NewConsumerUnitRelationsWorker: consumerunitrelations.NewWorker,
 			NewOffererUnitRelationsWorker:  remoteunitrelations.NewWorker,
-			NewOffererRelationsWorker:      remoterelations.NewWorker,
+			NewOffererRelationsWorker:      offererrelations.NewWorker,
 			Clock:                          config.Clock,
 			Logger:                         config.LoggingContext.GetLogger("juju.worker.remoterelationconsumer", corelogger.CMR),
 		})),
