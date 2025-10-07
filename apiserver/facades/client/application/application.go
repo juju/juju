@@ -3180,21 +3180,21 @@ func (api *APIBase) updateOneApplicationStorageDirective(storageUpdate params.Ap
 		return errors.Trace(err)
 	}
 
-	sCons := make(map[string]state.StorageConstraints)
+	storageDirectivesUpdate := make(map[string]state.StorageDirectivesUpdate)
 	for storageName, directive := range storageUpdate.StorageDirectives {
-		sc := state.StorageConstraints{
+		sd := state.StorageDirectivesUpdate{
 			Pool: directive.Pool,
 		}
 		if directive.Size != nil {
-			sc.Size = *directive.Size
+			sd.Size = directive.Size
 		}
 		if directive.Count != nil {
-			sc.Count = *directive.Count
+			sd.Count = directive.Count
 		}
-		sCons[storageName] = sc
+		storageDirectivesUpdate[storageName] = sd
 	}
 
-	return app.UpdateStorageConstraints(sCons)
+	return app.UpdateStorageConstraints(storageDirectivesUpdate)
 }
 
 // UpdateApplicationStorageDirectives updates the storage constraints for multiple existing applications in bulk.

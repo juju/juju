@@ -225,8 +225,7 @@ func (s *StorageConfigSuite) TestSetConstraintsOneField(c *gc.C) {
 
 	data := got.StorageDirectives["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
-	// ParseConstraints defaults count to 1 if count is not provided.
-	c.Assert(data.Count, gc.Equals, uint64(1))
+	c.Assert(data.Count, gc.Equals, uint64(0))
 	c.Assert(data.Size, gc.Equals, uint64(0))
 }
 
