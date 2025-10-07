@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 	"github.com/juju/juju/rpc/params"
@@ -1153,7 +1153,7 @@ func (s *localConsumerWorkerSuite) newLocalConsumerWorkerConfig(c *tc.C) LocalCo
 		OffererModelUUID:           s.offererModelUUID,
 		ConsumeVersion:             1,
 		Macaroon:                   s.macaroon,
-		NewConsumerUnitRelationsWorker: func(localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+		NewConsumerUnitRelationsWorker: func(consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error) {
 			defer func() {
 				select {
 				case s.consumerUnitRelationsWorkerStarted <- struct{}{}:

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 )
@@ -45,7 +45,7 @@ type GetCrossModelServicesFunc func(getter dependency.Getter, domainServicesName
 
 // NewConsumerUnitRelationsWorkerFunc defines the function signature for
 // creating a new local unit relations worker.
-type NewConsumerUnitRelationsWorkerFunc func(localunitrelations.Config) (localunitrelations.ReportableWorker, error)
+type NewConsumerUnitRelationsWorkerFunc func(consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error)
 
 // NewOffererUnitRelationsWorkerFunc defines the function signature for creating
 // a new remote unit relations worker.

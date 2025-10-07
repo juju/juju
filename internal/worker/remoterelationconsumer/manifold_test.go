@@ -17,7 +17,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 )
@@ -123,7 +123,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		NewLocalConsumerWorker: func(rac LocalConsumerWorkerConfig) (ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewConsumerUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+		NewConsumerUnitRelationsWorker: func(c consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
 		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
@@ -162,7 +162,7 @@ func (s *manifoldSuite) validConfig(c *tc.C) ManifoldConfig {
 		NewLocalConsumerWorker: func(rac LocalConsumerWorkerConfig) (ReportableWorker, error) {
 			return nil, nil
 		},
-		NewConsumerUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+		NewConsumerUnitRelationsWorker: func(c consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error) {
 			return nil, nil
 		},
 		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {

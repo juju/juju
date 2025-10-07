@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 	"github.com/juju/juju/rpc/params"
@@ -532,7 +532,7 @@ func (w *localConsumerWorker) ensureUnitRelationWorkers(
 ) error {
 	consumerName := fmt.Sprintf("consumer-unit-relation:%s", details.UUID)
 	if err := w.runner.StartWorker(ctx, consumerName, func(ctx context.Context) (worker.Worker, error) {
-		return w.newConsumerUnitRelationsWorker(localunitrelations.Config{
+		return w.newConsumerUnitRelationsWorker(consumerunitrelations.Config{
 			Service:                 w.crossModelService,
 			ConsumerApplicationUUID: w.applicationUUID,
 			ConsumerRelationUUID:    details.UUID,

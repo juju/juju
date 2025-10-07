@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 )
@@ -261,7 +261,7 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 				applicationName:  config.ApplicationName,
 			}, nil
 		},
-		NewConsumerUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+		NewConsumerUnitRelationsWorker: func(c consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
 		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
