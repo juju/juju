@@ -487,6 +487,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(application.NewDiffBundleCommand())
 	r.Register(application.NewShowApplicationCommand())
 	r.Register(application.NewShowUnitCommand())
+	r.Register(application.NewStorageCommand())
 
 	// Operation protection commands
 	r.Register(block.NewDisableCommand())
