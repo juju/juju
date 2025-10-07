@@ -1710,10 +1710,13 @@ func (ctx *HookContext) doFlush(process string) error {
 			continue
 		}
 		var toDelete []int
-		if d.Revision == nil {
+		if d.Revisions == nil {
+			// Delete all known revisions, this avoids a race condition where a new revision is being created
+			// concurrently with us asking to delete existing revisions
 			toDelete = md.Revisions
 		} else {
-			toDelete = []int{*d.Revision}
+			// Delete only the requested revisions
+			toDelete = d.Revisions
 		}
 		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.ID, toDelete)
 		for _, rev := range toDelete {
