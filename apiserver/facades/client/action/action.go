@@ -5,6 +5,7 @@ package action
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -303,10 +304,20 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 
 // makeOperationReceivers creates a Receivers from the given application names, machine names and unit names.
 func makeOperationReceivers(applicationNames []string, machineNames []string, unitNames []string) operation.Receivers {
+	var units, leaderUnits []string
+	for _, unitName := range unitNames {
+		if strings.HasSuffix(unitName, leader) {
+			leaderUnits = append(leaderUnits, strings.TrimSuffix(unitName, leader))
+		} else {
+			units = append(units, unitName)
+		}
+	}
+
 	return operation.Receivers{
 		Applications: applicationNames,
 		Machines:     transform.Slice(machineNames, as[machine.Name]),
-		Units:        transform.Slice(unitNames, as[unit.Name]),
+		Units:        transform.Slice(units, as[unit.Name]),
+		LeaderUnit:   leaderUnits,
 	}
 }
 

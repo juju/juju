@@ -448,7 +448,7 @@ func (s *runSuite) TestRunSuccessMapping(c *tc.C) {
 	runParams := params.RunParams{
 		Applications:   []string{"a1", "a2"},
 		Machines:       []string{"0", "42"},
-		Units:          []string{"app/1", "db/0"},
+		Units:          []string{"bass/leader", "app/1", "db/0", "boss/leader"},
 		Commands:       "echo hello",
 		Timeout:        5 * time.Second,
 		Parallel:       ptr(false),
@@ -456,9 +456,10 @@ func (s *runSuite) TestRunSuccessMapping(c *tc.C) {
 	}
 	s.OperationService.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error) {
-			c.Check(target.Applications, tc.DeepEquals, []string{"a1", "a2"})
-			c.Check(target.Machines, tc.DeepEquals, []machine.Name{"0", "42"})
-			c.Check(target.Units, tc.DeepEquals, []unit.Name{"app/1", "db/0"})
+			c.Check(target.Applications, tc.SameContents, []string{"a1", "a2"})
+			c.Check(target.Machines, tc.SameContents, []machine.Name{"0", "42"})
+			c.Check(target.Units, tc.SameContents, []unit.Name{"app/1", "db/0"})
+			c.Check(target.LeaderUnit, tc.SameContents, []string{"boss", "bass"})
 			c.Check(args, tc.Equals, operation.ExecArgs{
 				Command:        runParams.Commands,
 				Timeout:        runParams.Timeout,
