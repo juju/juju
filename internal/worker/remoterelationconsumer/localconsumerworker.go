@@ -28,7 +28,7 @@ import (
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererunitrelations"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -128,7 +128,7 @@ type localConsumerWorker struct {
 	offerMacaroon *macaroon.Macaroon
 
 	consumerRelationUnitChanges chan relation.RelationUnitChange
-	offererRelationUnitChanges  chan remoteunitrelations.RelationUnitChange
+	offererRelationUnitChanges  chan offererunitrelations.RelationUnitChange
 	offererRelationChanges      chan offererrelations.RelationChange
 
 	newConsumerUnitRelationsWorker NewConsumerUnitRelationsWorkerFunc
@@ -173,7 +173,7 @@ func NewLocalConsumerWorker(config LocalConsumerWorkerConfig) (ReportableWorker,
 		remoteRelationClientGetter: config.RemoteRelationClientGetter,
 
 		consumerRelationUnitChanges: make(chan relation.RelationUnitChange),
-		offererRelationUnitChanges:  make(chan remoteunitrelations.RelationUnitChange),
+		offererRelationUnitChanges:  make(chan offererunitrelations.RelationUnitChange),
 		offererRelationChanges:      make(chan offererrelations.RelationChange),
 
 		newConsumerUnitRelationsWorker: config.NewConsumerUnitRelationsWorker,
@@ -546,7 +546,7 @@ func (w *localConsumerWorker) ensureUnitRelationWorkers(
 
 	offererName := fmt.Sprintf("offerer-unit-relation:%s", details.UUID)
 	if err := w.runner.StartWorker(ctx, offererName, func(ctx context.Context) (worker.Worker, error) {
-		return w.newOffererUnitRelationsWorker(remoteunitrelations.Config{
+		return w.newOffererUnitRelationsWorker(offererunitrelations.Config{
 			Client:                 w.remoteModelClient,
 			ConsumerRelationUUID:   details.UUID,
 			OffererApplicationUUID: offferApplicationUUID,

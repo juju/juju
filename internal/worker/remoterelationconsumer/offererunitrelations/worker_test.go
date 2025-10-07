@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoteunitrelations
+package offererunitrelations
 
 import (
 	context "context"
@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type remoteUnitRelationsWorker struct {
+type offererUnitRelationsWorker struct {
 	client *MockRemoteModelRelationsClient
 
 	consumerRelationUUID   corerelation.UUID
@@ -36,12 +36,12 @@ type remoteUnitRelationsWorker struct {
 	changes chan RelationUnitChange
 }
 
-func TestRemoteUnitRelationsWorker(t *testing.T) {
+func TestOffererUnitRelationsWorker(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	tc.Run(t, &remoteUnitRelationsWorker{})
+	tc.Run(t, &offererUnitRelationsWorker{})
 }
 
-func (s *remoteUnitRelationsWorker) SetUpTest(c *tc.C) {
+func (s *offererUnitRelationsWorker) SetUpTest(c *tc.C) {
 	s.consumerRelationUUID = tc.Must(c, corerelation.NewUUID)
 	s.offererApplicationUUID = tc.Must(c, coreapplication.NewID)
 
@@ -50,7 +50,7 @@ func (s *remoteUnitRelationsWorker) SetUpTest(c *tc.C) {
 	s.changes = make(chan RelationUnitChange, 1)
 }
 
-func (s *remoteUnitRelationsWorker) TestValidate(c *tc.C) {
+func (s *offererUnitRelationsWorker) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
@@ -88,7 +88,7 @@ func (s *remoteUnitRelationsWorker) TestValidate(c *tc.C) {
 	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *remoteUnitRelationsWorker) TestStart(c *tc.C) {
+func (s *offererUnitRelationsWorker) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -111,7 +111,7 @@ func (s *remoteUnitRelationsWorker) TestStart(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *remoteUnitRelationsWorker) TestChangeEvent(c *tc.C) {
+func (s *offererUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan params.RemoteRelationChangeEvent)
@@ -187,7 +187,7 @@ func (s *remoteUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *remoteUnitRelationsWorker) TestChangeEventIsEmpty(c *tc.C) {
+func (s *offererUnitRelationsWorker) TestChangeEventIsEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan params.RemoteRelationChangeEvent)
@@ -224,7 +224,7 @@ func (s *remoteUnitRelationsWorker) TestChangeEventIsEmpty(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *remoteUnitRelationsWorker) TestReport(c *tc.C) {
+func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan params.RemoteRelationChangeEvent)
@@ -247,15 +247,15 @@ func (s *remoteUnitRelationsWorker) TestReport(c *tc.C) {
 	}
 
 	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
-		"application-uuid":      s.offererApplicationUUID.String(),
-		"relation-uuid":         s.consumerRelationUUID.String(),
-		"changed-units":         []map[string]any(nil),
-		"settings":              map[string]any(nil),
-		"unit-count":            0,
-		"legacy-departed-units": []int(nil),
-		"life":                  life.Value(""),
-		"suspended":             false,
-		"suspended-reason":      "",
+		"application-uuid": s.offererApplicationUUID.String(),
+		"relation-uuid":    s.consumerRelationUUID.String(),
+		"changed-units":    []map[string]any(nil),
+		"settings":         map[string]any(nil),
+		"unit-count":       0,
+		"departed-units":   []int(nil),
+		"life":             life.Value(""),
+		"suspended":        false,
+		"suspended-reason": "",
 	})
 
 	select {
@@ -295,7 +295,7 @@ func (s *remoteUnitRelationsWorker) TestReport(c *tc.C) {
 			"foo": "bar",
 		},
 		"unit-count": 3,
-		"legacy-departed-units": []int{
+		"departed-units": []int{
 			4,
 		},
 		"life":             life.Alive,
@@ -306,7 +306,7 @@ func (s *remoteUnitRelationsWorker) TestReport(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *remoteUnitRelationsWorker) newConfig(c *tc.C) Config {
+func (s *offererUnitRelationsWorker) newConfig(c *tc.C) Config {
 	return Config{
 		Client:                 s.client,
 		OffererApplicationUUID: s.offererApplicationUUID,
@@ -318,14 +318,14 @@ func (s *remoteUnitRelationsWorker) newConfig(c *tc.C) Config {
 	}
 }
 
-func (s *remoteUnitRelationsWorker) newWorker(c *tc.C, cfg Config) *remoteWorker {
+func (s *offererUnitRelationsWorker) newWorker(c *tc.C, cfg Config) *remoteWorker {
 	w, err := NewWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return w.(*remoteWorker)
 }
 
-func (s *remoteUnitRelationsWorker) setupMocks(c *tc.C) *gomock.Controller {
+func (s *offererUnitRelationsWorker) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.client = NewMockRemoteModelRelationsClient(ctrl)

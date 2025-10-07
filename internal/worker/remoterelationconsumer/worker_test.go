@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererunitrelations"
 )
 
 func TestWorkerSuite(t *stdtesting.T) {
@@ -264,7 +264,7 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 		NewConsumerUnitRelationsWorker: func(c consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+		NewOffererUnitRelationsWorker: func(c offererunitrelations.Config) (offererunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
 		NewOffererRelationsWorker: func(c offererrelations.Config) (offererrelations.ReportableWorker, error) {

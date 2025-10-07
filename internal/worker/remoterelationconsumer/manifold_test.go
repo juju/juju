@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererunitrelations"
 )
 
 type manifoldSuite struct {
@@ -126,7 +126,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		NewConsumerUnitRelationsWorker: func(c consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+		NewOffererUnitRelationsWorker: func(c offererunitrelations.Config) (offererunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
 		NewOffererRelationsWorker: func(c offererrelations.Config) (offererrelations.ReportableWorker, error) {
@@ -165,7 +165,7 @@ func (s *manifoldSuite) validConfig(c *tc.C) ManifoldConfig {
 		NewConsumerUnitRelationsWorker: func(c consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error) {
 			return nil, nil
 		},
-		NewOffererUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+		NewOffererUnitRelationsWorker: func(c offererunitrelations.Config) (offererunitrelations.ReportableWorker, error) {
 			return nil, nil
 		},
 		NewOffererRelationsWorker: func(c offererrelations.Config) (offererrelations.ReportableWorker, error) {

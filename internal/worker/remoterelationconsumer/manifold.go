@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererunitrelations"
 )
 
 // RemoteRelationClientGetter defines the interface for a remote relation facade.
@@ -49,7 +49,7 @@ type NewConsumerUnitRelationsWorkerFunc func(consumerunitrelations.Config) (cons
 
 // NewOffererUnitRelationsWorkerFunc defines the function signature for creating
 // a new remote unit relations worker.
-type NewOffererUnitRelationsWorkerFunc func(remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error)
+type NewOffererUnitRelationsWorkerFunc func(offererunitrelations.Config) (offererunitrelations.ReportableWorker, error)
 
 // NewOffererRelationsWorkerFunc defines the function signature for creating
 // a new remote relations worker.

@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoteunitrelations
+package offererunitrelations
 
 import (
 	"context"
@@ -274,7 +274,7 @@ func (w *remoteWorker) loop() error {
 
 				// This only exists for legacy reasons (3.x compatibility).
 				// Although it's a good proxy for if the relation has changed.
-				"legacy-departed-units": event.DepartedUnits,
+				"departed-units": event.DepartedUnits,
 			}:
 			}
 		}
