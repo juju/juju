@@ -1,3 +1,4 @@
+
 CREATE TABLE storage_pool_origin (
     id INT NOT NULL PRIMARY KEY,
     origin TEXT NOT NULL UNIQUE,
@@ -49,6 +50,30 @@ CREATE TABLE storage_pool_attribute (
     FOREIGN KEY (storage_pool_uuid)
     REFERENCES storage_pool (uuid),
     PRIMARY KEY (storage_pool_uuid, "key")
+);
+
+-- storage_kind defines what type Juju considers a storage instance in the model
+-- to be of. While we have the concept of charm storage kind it is not
+-- necessarily the same as the storage instance. This is even more true when we
+-- are trying to understand the composition of a storage_instance and not the
+-- purpose it may be fulfilling.
+CREATE TABLE storage_kind (
+    id INT PRIMARY KEY,
+    kind TEXT NOT NULL
+);
+
+-- model_storage_pool instructs the model what is considered the default
+-- storage pool to use for a given storage kind.
+CREATE TABLE model_storage_pool (
+    storage_kind_id INT NOT NULL,
+    storage_pool_uuid TEXT NOT NULL,
+    PRIMARY KEY (storage_kind_id, storage_pool_uuid),
+    CONSTRAINT fk_model_storage_pool_storage_kind
+    FOREIGN KEY (storage_kind_id)
+    REFERENCES storage_kind (id),
+    CONSTRAINT fk_model_storage_pool_storage_pool_uuid
+    FOREIGN KEY (storage_pool_uuid)
+    REFERENCES storage_poold (uuid)
 );
 
 -- This table stores storage directive values for each named storage item
@@ -108,15 +133,6 @@ CREATE TABLE unit_storage_directive (
 CREATE INDEX idx_unit_storage_directive
 ON unit_storage_directive (unit_uuid);
 
--- storage_kind defines what type Juju considers a storage instance in the model
--- to be of. While we have the concept of charm storage kind it is not
--- necessarily the same as the storage instance. This is even more true when we
--- are trying to understand the composition of a storage_instance and not the
--- purpose it may be fulfilling.
-CREATE TABLE storage_kind (
-    id INT PRIMARY KEY,
-    kind TEXT NOT NULL
-);
 
 CREATE UNIQUE INDEX idx_storage_kind_kind
 ON storage_kind (kind);
