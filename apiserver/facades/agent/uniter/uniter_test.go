@@ -1762,12 +1762,11 @@ func (s *uniterRelationSuite) TestReadSettingsUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectGetRelationUnit(relUUID, relUnitUUID, s.wordpressUnitTag.Id())
-	s.expectGetRelationUnitSettings(relUnitUUID, settings)
+	s.relationService.EXPECT().GetRelationUnitSettings(
+		gomock.Any(), relUUID, coreunit.Name(s.wordpressUnitTag.Id())).Return(settings, nil)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -1921,12 +1920,11 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForUnit(c *tc.C) {
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	remoteUnitTag := names.NewUnitTag("mysql/2")
 	relUUID := relationtesting.GenRelationUUID(c)
-	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectGetRelationUnit(relUUID, relUnitUUID, remoteUnitTag.Id())
-	s.expectGetRelationUnitSettings(relUnitUUID, settings)
+	s.relationService.EXPECT().GetRelationUnitSettings(
+		gomock.Any(), relUUID, coreunit.Name(remoteUnitTag.Id())).Return(settings, nil)
 
 	// act
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
@@ -2531,14 +2529,6 @@ func (s *uniterRelationSuite) expectGetRelationApplicationSettingsWithLeader(uni
 
 func (s *uniterRelationSuite) expectGetRelationApplicationSettings(uuid corerelation.UUID, id coreapplication.UUID, settings map[string]string) {
 	s.relationService.EXPECT().GetRelationApplicationSettings(gomock.Any(), uuid, id).Return(settings, nil)
-}
-
-func (s *uniterRelationSuite) expectGetRelationUnit(relUUID corerelation.UUID, uuid corerelation.UnitUUID, unitTagID string) {
-	s.relationService.EXPECT().GetRelationUnit(gomock.Any(), relUUID, coreunit.Name(unitTagID)).Return(uuid, nil)
-}
-
-func (s *uniterRelationSuite) expectGetRelationUnitSettings(uuid corerelation.UnitUUID, settings map[string]string) {
-	s.relationService.EXPECT().GetRelationUnitSettings(gomock.Any(), uuid).Return(settings, nil)
 }
 
 func (s *uniterRelationSuite) expectGetUnitUUID(name string, unitUUID coreunit.UUID, err error) {

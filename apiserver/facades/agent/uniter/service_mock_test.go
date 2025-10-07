@@ -1880,18 +1880,18 @@ func (c *MockRelationServiceGetRelationUnitChangesCall) DoAndReturn(f func(conte
 }
 
 // GetRelationUnitSettings mocks base method.
-func (m *MockRelationService) GetRelationUnitSettings(arg0 context.Context, arg1 relation.UnitUUID) (map[string]string, error) {
+func (m *MockRelationService) GetRelationUnitSettings(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationUnitSettings", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetRelationUnitSettings", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRelationUnitSettings indicates an expected call of GetRelationUnitSettings.
-func (mr *MockRelationServiceMockRecorder) GetRelationUnitSettings(arg0, arg1 any) *MockRelationServiceGetRelationUnitSettingsCall {
+func (mr *MockRelationServiceMockRecorder) GetRelationUnitSettings(arg0, arg1, arg2 any) *MockRelationServiceGetRelationUnitSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitSettings", reflect.TypeOf((*MockRelationService)(nil).GetRelationUnitSettings), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitSettings", reflect.TypeOf((*MockRelationService)(nil).GetRelationUnitSettings), arg0, arg1, arg2)
 	return &MockRelationServiceGetRelationUnitSettingsCall{Call: call}
 }
 
@@ -1907,13 +1907,13 @@ func (c *MockRelationServiceGetRelationUnitSettingsCall) Return(arg0 map[string]
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceGetRelationUnitSettingsCall) Do(f func(context.Context, relation.UnitUUID) (map[string]string, error)) *MockRelationServiceGetRelationUnitSettingsCall {
+func (c *MockRelationServiceGetRelationUnitSettingsCall) Do(f func(context.Context, relation.UUID, unit.Name) (map[string]string, error)) *MockRelationServiceGetRelationUnitSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceGetRelationUnitSettingsCall) DoAndReturn(f func(context.Context, relation.UnitUUID) (map[string]string, error)) *MockRelationServiceGetRelationUnitSettingsCall {
+func (c *MockRelationServiceGetRelationUnitSettingsCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name) (map[string]string, error)) *MockRelationServiceGetRelationUnitSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

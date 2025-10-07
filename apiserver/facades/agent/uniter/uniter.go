@@ -1829,12 +1829,8 @@ func (u *UniterAPI) readLocalUnitSettings(
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
-	relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, unitName)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
 
-	return u.relationService.GetRelationUnitSettings(ctx, relUnitUUID)
+	return u.relationService.GetRelationUnitSettings(ctx, relUUID, unitName)
 }
 
 // ReadLocalApplicationSettings returns the local application settings for a
@@ -1985,11 +1981,7 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
-		relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, remoteUnitName)
-		if err != nil {
-			return nil, internalerrors.Capture(err)
-		}
-		settings, err = u.relationService.GetRelationUnitSettings(ctx, relUnitUUID)
+		settings, err = u.relationService.GetRelationUnitSettings(ctx, relUUID, remoteUnitName)
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}

@@ -24,16 +24,10 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testhelpers"
 )
 
 type relationServiceSuite struct {
-	testhelpers.IsolationSuite
-
-	state              *MockState
-	subordinateCreator *MockSubordinateCreator
-
-	service *Service
+	baseServiceSuite
 }
 
 func TestRelationServiceSuite(t *testing.T) {
@@ -678,14 +672,18 @@ func (s *relationServiceSuite) TestGetRelationUnitSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app/0")
 	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
 	expectedSettings := map[string]string{
 		"key": "value",
 	}
+
+	s.state.EXPECT().GetRelationUnit(gomock.Any(), relationUUID, unitName).Return(relationUnitUUID, nil)
 	s.state.EXPECT().GetRelationUnitSettings(gomock.Any(), relationUnitUUID).Return(expectedSettings, nil)
 
 	// Act:
-	settings, err := s.service.GetRelationUnitSettings(c.Context(), relationUnitUUID)
+	settings, err := s.service.GetRelationUnitSettings(c.Context(), relationUUID, unitName)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -695,11 +693,37 @@ func (s *relationServiceSuite) TestGetRelationUnitSettings(c *tc.C) {
 func (s *relationServiceSuite) TestGetRelationUnitSettingsUnitIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	_, err := s.service.GetRelationUnitSettings(c.Context(), corerelationtesting.GenRelationUUID(c), "bad-uuid")
+	c.Check(err, tc.ErrorMatches, "invalid unit name.*")
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitSettingsRelationIDNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetRelationUnitSettings(c.Context(), "nah", coreunittesting.GenNewName(c, "app/0"))
+	c.Check(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitSettingsFallback(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	expectedSettings := map[string]string{
+		"key": "value",
+	}
+
+	exp := s.state.EXPECT()
+	exp.GetRelationUnit(gomock.Any(), relationUUID, unitName).Return("", relationerrors.RelationUnitNotFound)
+	exp.GetRelationUnitSettingsArchive(gomock.Any(), relationUUID.String(), unitName.String()).Return(expectedSettings, nil)
+
 	// Act:
-	_, err := s.service.GetRelationUnitSettings(c.Context(), "bad-uuid")
+	settings, err := s.service.GetRelationUnitSettings(c.Context(), relationUUID, unitName)
 
 	// Assert:
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(settings, tc.DeepEquals, expectedSettings)
 }
 
 func (s *relationServiceSuite) TestGetRelationApplicationSettings(c *tc.C) {
@@ -993,19 +1017,8 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeerFail(c *tc.C
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.state = NewMockState(ctrl)
-	s.subordinateCreator = NewMockSubordinateCreator(ctrl)
-
-	s.service = NewService(s.state, loggertesting.WrapCheckLog(c))
-
-	return ctrl
-}
-
 type relationLeadershipServiceSuite struct {
-	relationServiceSuite
+	baseServiceSuite
 
 	leadershipService *LeadershipService
 	leaderEnsurer     *MockEnsurer
@@ -1198,7 +1211,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 }
 
 func (s *relationLeadershipServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := s.relationServiceSuite.setupMocks(c)
+	ctrl := s.baseServiceSuite.setupMocks(c)
 
 	s.leaderEnsurer = NewMockEnsurer(ctrl)
 	s.leadershipService = NewLeadershipService(s.state, s.leaderEnsurer, loggertesting.WrapCheckLog(c))
