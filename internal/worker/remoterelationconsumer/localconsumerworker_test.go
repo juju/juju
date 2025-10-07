@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/crossmodelrelation"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
@@ -1350,12 +1349,7 @@ func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedDischargeError
 		}).
 		Return(nil)
 	s.crossModelService.EXPECT().
-		ConsumeRemoteRelationChange(gomock.Any(), crossmodelrelation.RemoteRelationChangedArgs{
-			RelationUUID:    relationUUID,
-			ApplicationUUID: s.applicationUUID,
-			Suspended:       true,
-			SuspendedReason: "offer permission revoked",
-		}).
+		SuspendRelation(gomock.Any(), s.applicationUUID, relationUUID, "offer permission revoked").
 		Return(nil)
 
 	w := s.newLocalConsumerWorker(c)

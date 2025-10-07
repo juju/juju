@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -544,12 +543,7 @@ func (w *localConsumerWorker) notifyOfferPermissionDenied(ctx context.Context, e
 	w.logger.Debugf(ctx, "discharge required error: app token: %q rel token: %q", w.applicationUUID, relationUUID)
 
 	// If we know a specific relation, update that too.
-	if err := w.crossModelService.ConsumeRemoteRelationChange(ctx, crossmodelrelation.RemoteRelationChangedArgs{
-		RelationUUID:    relationUUID,
-		ApplicationUUID: w.applicationUUID,
-		Suspended:       true,
-		SuspendedReason: "offer permission revoked",
-	}); err != nil {
+	if err := w.crossModelService.SuspendRelation(ctx, w.applicationUUID, relationUUID, "offer permission revoked"); err != nil {
 		w.logger.Errorf(ctx, "updating relation status: %v", err)
 	}
 }
