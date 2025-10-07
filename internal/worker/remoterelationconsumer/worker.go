@@ -114,7 +114,7 @@ type CrossModelRelationService interface {
 
 	// ConsumeRemoteRelationChange applies a relation change event received
 	// from a remote model to the local model.
-	ConsumeRemoteRelationChange(context.Context) error
+	ConsumeRemoteRelationChange(context.Context, crossmodelrelation.RemoteRelationChangedArgs) error
 
 	// ConsumeRemoteSecretChanges applies secret changes received
 	// from a remote model to the local model.

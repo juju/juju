@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -485,10 +486,75 @@ func (w *localConsumerWorker) handleRelationConsumption(
 		}
 	}
 
+	// The relation is not alive, notify the offerer relation worker
+	// that the relation is dying, so it can clean up.
+	if details.Life != life.Alive {
+		return w.handleRelationDying(ctx, details, result.macaroon)
+	}
+
 	return nil
 }
 
-// Ensure a new worker to watch for changes to the relation in the offering
+// handleRelationDying notifies the offerer relation worker that the relation
+// is dying, so it can clean up any resources associated with it.
+func (w *localConsumerWorker) handleRelationDying(ctx context.Context, details relation.RelationDetails, mac *macaroon.Macaroon) error {
+	w.logger.Debugf(ctx, "relation %q is dying", details.UUID)
+
+	change := params.RemoteRelationChangeEvent{
+		RelationToken:           details.UUID.String(),
+		Life:                    life.Dying,
+		ApplicationOrOfferToken: w.applicationUUID.String(),
+		Macaroons:               macaroon.Slice{mac},
+		BakeryVersion:           bakery.LatestVersion,
+	}
+
+	if err := w.remoteModelClient.PublishRelationChange(ctx, change); isNotFound(err) {
+		w.notifyOfferPermissionDenied(ctx, err, details.UUID)
+		w.logger.Debugf(ctx, "relation %q dying, but offerer side already removed", details.UUID)
+		return nil
+	} else if err != nil {
+		w.notifyOfferPermissionDenied(ctx, err, details.UUID)
+		return errors.Annotatef(err, "notifying offerer relation worker that relation %q is dying", details.UUID)
+	}
+
+	return nil
+}
+
+func (w *localConsumerWorker) notifyOfferPermissionDenied(ctx context.Context, err error, relationUUID corerelation.UUID) {
+	if params.ErrCode(err) != params.CodeDischargeRequired {
+		return
+	}
+
+	// If consume permission has been revoked for the offer, set the
+	// status of the local remote application entity.
+	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
+		Status:  status.Error,
+		Message: fmt.Sprintf("offer permission revoked: %v", err.Error()),
+	}); err != nil {
+		w.logger.Errorf(ctx,
+			"updating remote application %q status from remote model %q: %v",
+			w.applicationName, w.offererModelUUID, err)
+	}
+
+	// We don't know a specific relation, so return.
+	if relationUUID.IsEmpty() {
+		return
+	}
+
+	w.logger.Debugf(ctx, "discharge required error: app token: %q rel token: %q", w.applicationUUID, relationUUID)
+
+	// If we know a specific relation, update that too.
+	if err := w.crossModelService.ConsumeRemoteRelationChange(ctx, crossmodelrelation.RemoteRelationChangedArgs{
+		RelationUUID:    relationUUID,
+		ApplicationUUID: w.applicationUUID,
+		Suspended:       true,
+		SuspendedReason: "offer permission revoked",
+	}); err != nil {
+		w.logger.Errorf(ctx, "updating relation status: %v", err)
+	}
+}
+
+// Create a new worker to watch for changes to the relation in the offering
 // model.
 //
 // The worker is identified by the relation UUID, so it can track that

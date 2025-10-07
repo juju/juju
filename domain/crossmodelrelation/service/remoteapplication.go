@@ -227,7 +227,7 @@ func (s *Service) SetRemoteApplicationOffererStatus(context.Context, coreapplica
 
 // ConsumeRemoteRelationChange applies a relation change event received
 // from a remote model to the local model.
-func (s *Service) ConsumeRemoteRelationChange(context.Context) error {
+func (s *Service) ConsumeRemoteRelationChange(context.Context, crossmodelrelation.RemoteRelationChangedArgs) error {
 	return nil
 }
 
