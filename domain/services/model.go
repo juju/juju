@@ -262,6 +262,7 @@ func (s *ModelServices) Status() *statusservice.LeadershipService {
 		statusstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
 		statusstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB), s.modelUUID),
 		domain.NewLeaseService(s.leaseManager),
+		s.modelWatcherFactory("status"),
 		s.modelUUID,
 		domain.NewStatusHistory(logger, s.clock),
 		func() (statusservice.StatusHistoryReader, error) {

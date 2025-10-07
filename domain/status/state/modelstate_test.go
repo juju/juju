@@ -2490,6 +2490,23 @@ func (s *modelStateSuite) TestSetInstanceStatusNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+func (s *modelStateSuite) TestIsUnitForApplicationTrue(c *tc.C) {
+	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
+
+	ret, err := s.state.IsUnitForApplication(c.Context(), unitUUIDs[0].String(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ret, tc.IsTrue)
+}
+
+func (s *modelStateSuite) TestIsUnitForApplicationFalse(c *tc.C) {
+	appUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", 1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "bar", 1)
+
+	ret, err := s.state.IsUnitForApplication(c.Context(), unitUUIDs[0].String(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ret, tc.IsFalse)
+}
+
 // addRelationWithLifeAndID inserts a new relation into the database with the
 // given details.
 func (s *modelStateSuite) addRelationWithLifeAndID(c *tc.C, life corelife.Value, relationID int) corerelation.UUID {

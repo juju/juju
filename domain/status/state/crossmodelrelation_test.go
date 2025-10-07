@@ -4,12 +4,17 @@
 package state
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/offer"
+	coreoffertesting "github.com/juju/juju/core/offer/testing"
 	remoteapplicationtesting "github.com/juju/juju/core/remoteapplication/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
@@ -33,6 +38,27 @@ func (s *crossModelRelationSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.state = NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
+func (s *crossModelRelationSuite) TestApplicationUUIDForOffer(c *tc.C) {
+	// Arrange
+	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
+	offerUUID := s.insertOffer(c, "test-offer", appUUID, "endpoint")
+
+	// Act
+	obtainedUUID, err := s.state.GetApplicationUUIDForOffer(c.Context(), offerUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedUUID, tc.Equals, appUUID.String())
+}
+
+func (s *crossModelRelationSuite) TestGetOfferUUIDForUnknownOffer(c *tc.C) {
+	// Act
+	_, err := s.state.GetApplicationUUIDForOffer(c.Context(), "unknown-offer")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }
 
 func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererUUIDByName(c *tc.C) {
@@ -144,4 +170,35 @@ func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatusNotSet(c 
 
 	_, err := s.state.GetRemoteApplicationOffererStatus(c.Context(), remoteAppUUID.String())
 	c.Assert(err, tc.ErrorIs, statuserrors.RemoteApplicationStatusNotFound)
+}
+
+func (s *crossModelRelationSuite) insertOffer(c *tc.C, name string, appUUID coreapplication.UUID, endpointName string) offer.UUID {
+	offerUUID := coreoffertesting.GenOfferUUID(c)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var endpointUUID string
+		err := tx.QueryRowContext(ctx, `
+SELECT ae.uuid
+FROM application_endpoint AS ae
+JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+WHERE ae.application_uuid = ? AND cr.name = ?
+`, appUUID, endpointName).Scan(&endpointUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO offer (uuid, name) VALUES (?, ?)`, offerUUID, name)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`, offerUUID, endpointUUID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return offerUUID
 }

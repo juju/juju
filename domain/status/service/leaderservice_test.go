@@ -392,6 +392,7 @@ func (s *leaderServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.modelState,
 		s.controllerState,
 		s.leadership,
+		nil,
 		model.UUID("test-model"),
 		s.statusHistory,
 		func() (StatusHistoryReader, error) {

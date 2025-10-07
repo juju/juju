@@ -17,8 +17,12 @@ import (
 	"github.com/juju/juju/domain/status"
 )
 
+type count struct {
+	Count int `db:"count"`
+}
+
 type applicationUUID struct {
-	ID coreapplication.UUID `db:"uuid"`
+	UUID string `db:"uuid"`
 }
 
 type applicationName struct {
@@ -35,7 +39,7 @@ type relationUUID struct {
 }
 
 type unitUUID struct {
-	UnitUUID coreunit.UUID `db:"uuid"`
+	UnitUUID string `db:"uuid"`
 }
 
 type unitName struct {
@@ -43,12 +47,16 @@ type unitName struct {
 }
 
 type unitPresence struct {
-	UnitUUID coreunit.UUID `db:"unit_uuid"`
-	LastSeen time.Time     `db:"last_seen"`
+	UnitUUID string    `db:"unit_uuid"`
+	LastSeen time.Time `db:"last_seen"`
 }
 
 type remoteApplicationUUID struct {
 	RemoteApplicationUUID string `db:"uuid"`
+}
+
+type offerUUID struct {
+	OfferUUID string `db:"uuid"`
 }
 
 type statusInfo struct {

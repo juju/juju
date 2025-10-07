@@ -26,6 +26,8 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/operation-triggers.gen.go -package=triggers -tables=operation_task_log
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer,application_remote_consumer
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/offer-triggers.gen.go -package=triggers -tables=offer
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/status-triggers.gen.go -package=triggers -tables=application_status,unit_agent_status,unit_workload_status,k8s_pod_status
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -89,11 +91,16 @@ const (
 	tableRelation
 	tableRelationStatus
 	tableRelationUnit
-	tableIpAddress
+	tableIPAddress
 	tableApplicationEndpoint
 	tableOperationTaskLog
 	tableCrossModelRelationApplicationRemoteOfferers
 	tableCrossModelRelationApplicationRemoteConsumers
+	tableOffer
+	tableApplicationStatus
+	tableUnitAgentStatus
+	tableUnitWorkloadStatus
+	tableK8sPodStatus
 )
 
 // ModelDDL is used to create model databases.
@@ -169,13 +176,18 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForRelationStatus("relation_uuid",
 			tableRelationStatus),
 		triggers.ChangeLogTriggersForRelationUnit("unit_uuid", tableRelationUnit),
-		triggers.ChangeLogTriggersForIpAddress("net_node_uuid", tableIpAddress),
+		triggers.ChangeLogTriggersForIpAddress("net_node_uuid", tableIPAddress),
 		triggers.ChangeLogTriggersForApplicationEndpoint("application_uuid", tableApplicationEndpoint),
 		triggers.ChangeLogTriggersForOperationTaskLog("task_uuid", tableOperationTaskLog),
 		triggers.ChangeLogTriggersForApplicationRemoteOfferer("uuid",
 			tableCrossModelRelationApplicationRemoteOfferers),
 		triggers.ChangeLogTriggersForApplicationRemoteConsumer("uuid",
 			tableCrossModelRelationApplicationRemoteConsumers),
+		triggers.ChangeLogTriggersForOffer("uuid", tableOffer),
+		triggers.ChangeLogTriggersForApplicationStatus("application_uuid", tableApplicationStatus),
+		triggers.ChangeLogTriggersForUnitAgentStatus("unit_uuid", tableUnitAgentStatus),
+		triggers.ChangeLogTriggersForUnitWorkloadStatus("unit_uuid", tableUnitWorkloadStatus),
+		triggers.ChangeLogTriggersForK8sPodStatus("unit_uuid", tableK8sPodStatus),
 	)
 
 	// Generic triggers.

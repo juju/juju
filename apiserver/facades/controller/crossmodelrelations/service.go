@@ -6,8 +6,9 @@ package crossmodelrelations
 import (
 	"context"
 
-	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/offer"
+	"github.com/juju/juju/core/watcher"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 )
 
@@ -17,9 +18,21 @@ type CrossModelRelationService interface {
 	// for the given offer UUID.
 	// Returns crossmodelrelationerrors.OfferNotFound if the offer or associated
 	// application is not found.
-	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, coreapplication.UUID, error)
+	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, application.UUID, error)
 
 	// AddRemoteApplicationConsumer adds a new synthetic application representing
 	// a remote relation on the consuming model, to this, the offering model.
 	AddRemoteApplicationConsumer(ctx context.Context, args crossmodelrelationservice.AddRemoteApplicationConsumerArgs) error
+}
+
+type CrossModelRelationsService interface {
+	// GetApplicationUUIDForOffer returns the UUID of the application that the
+	// specified offer belongs to.
+	GetApplicationUUIDForOffer(context.Context, offer.UUID) (application.UUID, error)
+}
+
+type StatusService interface {
+	// WatchApplicationStatus watches the changes to the derived display status of
+	// the specified application.
+	WatchApplicationStatus(context.Context, application.UUID) (watcher.NotifyWatcher, error)
 }

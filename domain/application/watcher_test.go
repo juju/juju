@@ -1848,4 +1848,4 @@ func (s *stubCharm) Revision() int {
 
 func (s *stubCharm) Version() string {
 	return ""
-}
+

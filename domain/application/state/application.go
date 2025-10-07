@@ -2981,7 +2981,7 @@ func (*State) NamespaceForWatchApplicationConfig() string {
 	return "application_config_hash"
 }
 
-// NamesapceForWatchApplicationSetting returns the namespace string identifier
+// NamespaceForWatchApplicationSetting returns the namespace string identifier
 // for application setting changes.
 func (*State) NamespaceForWatchApplicationSetting() string {
 	return "application_setting"

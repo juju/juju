@@ -222,6 +222,18 @@ type ModelState interface {
 	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model
 	// does not exist.
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
+
+	// GetApplicationUUIDForOffer returns the UUID of the application that the
+	// specified offer belongs to.
+	GetApplicationUUIDForOffer(context.Context, string) (string, error)
+
+	// IsUnitForApplication returns true if the specified unit is a unit of the
+	// specified application.
+	IsUnitForApplication(ctx context.Context, unitUUID, applicationUUID string) (bool, error)
+
+	// NamespacesForWatchOfferStatus returns the namespace string identifiers
+	// for application status changes.
+	NamespacesForWatchOfferStatus() (offer, application, unitAgent, unitWorkload, unitPod string)
 }
 
 // ControllerState is the controller state required by the service.
@@ -331,6 +343,10 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
+	return s.getApplicationDisplayStatus(ctx, appID)
+}
+
+func (s *Service) getApplicationDisplayStatus(ctx context.Context, appID coreapplication.UUID) (corestatus.StatusInfo, error) {
 	applicationStatus, err := s.modelState.GetApplicationStatus(ctx, appID)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)

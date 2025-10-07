@@ -24,7 +24,7 @@ import (
 // LeadershipService provides the API for working with the statuses of applications
 // and units, including the API handlers that require leadership checks.
 type LeadershipService struct {
-	*Service
+	*WatchableService
 	leaderEnsurer leadership.Ensurer
 }
 
@@ -34,6 +34,7 @@ func NewLeadershipService(
 	modelState ModelState,
 	controllerState ControllerState,
 	leaderEnsurer leadership.Ensurer,
+	watcherFactory WatcherFactory,
 	modelUUID model.UUID,
 	statusHistory StatusHistory,
 	statusHistoryReaderFn StatusHistoryReaderFunc,
@@ -41,9 +42,10 @@ func NewLeadershipService(
 	logger logger.Logger,
 ) *LeadershipService {
 	return &LeadershipService{
-		Service: NewService(
+		WatchableService: NewWatchableService(
 			modelState,
 			controllerState,
+			watcherFactory,
 			statusHistory,
 			statusHistoryReaderFn,
 			clock,
