@@ -194,7 +194,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	}
 	// Loop through the new storage instances being created and set their
 	// attachment expectations.
-	slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
+	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
 		attachArg := application.CreateUnitStorageAttachmentArg{
 			StorageInstanceUUID: si.UUID,
