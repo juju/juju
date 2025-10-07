@@ -23,8 +23,8 @@ run_block_remove_object() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu-lite --base ubuntu@20.04 ubuntu
-	juju deploy ntp
+	juju deploy ubuntu-lite --base ubuntu@24.04 ubuntu
+	juju deploy ntp --base ubuntu@24.04
 	juju integrate ntp ubuntu
 
 	juju disable-command remove-object
@@ -56,7 +56,7 @@ run_block_all() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu-lite --base ubuntu@20.04 ubuntu
+	juju deploy ubuntu-lite --base ubuntu@24.04 ubuntu
 	juju expose ubuntu
 
 	juju disable-command all
@@ -66,13 +66,13 @@ run_block_all() {
 	juju status --format json | jq '.applications | .["ubuntu"] | .exposed' | check true
 	juju offers | grep -q 'Offer' || true
 
-	juju deploy ntp | grep -q 'the operation has been blocked' || true
+	juju deploy ntp --base ubuntu@24.04 | grep -q 'the operation has been blocked' || true
 	juju integrate ntp ubuntu | grep -q 'the operation has been blocked' || true
 	juju unexpose ubuntu | grep -q 'the operation has been blocked' || true
 
 	juju enable-command all
 
-	juju deploy ntp
+	juju deploy ntp --base ubuntu@24.04
 	juju integrate ntp ubuntu
 
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "ubuntu" 0)"
