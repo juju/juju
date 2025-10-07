@@ -232,7 +232,7 @@ func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs conf
 	for k, v := range attrs {
 		// This should give us a string of the form "10G,rootfs,1".
 		constraintsStr := fmt.Sprint(v)
-		parsedCons, err := storage.ParseConstraints(constraintsStr)
+		parsedCons, err := storage.ParseConstraintsWithoutDefaults(constraintsStr)
 		if err != nil {
 			return errors.Annotatef(err, "parsing storage constraints for %q", k)
 		}

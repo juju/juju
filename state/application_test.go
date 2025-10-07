@@ -4163,8 +4163,8 @@ func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
 	appWc.AssertOneChange()
 
 	// Make one change, check one event.
-	constraints := map[string]state.StorageConstraints{
-		"data0": {Count: 5, Size: 1024, Pool: "loop"},
+	constraints := map[string]state.StorageDirectivesUpdate{
+		"data0": makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(5)),
 	}
 	err = app.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4179,8 +4179,8 @@ func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make another change, check one event.
-	constraints = map[string]state.StorageConstraints{
-		"data0": {Count: 6, Size: 2048, Pool: "loop"},
+	constraints = map[string]state.StorageDirectivesUpdate{
+		"data0": makeStorageDirectivesToUpdate("loop", uint64p(2048), uint64p(6)),
 	}
 	err = app.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4214,8 +4214,8 @@ func (s *ApplicationSuite) TestWatchStorageConstraintsDoesNotCrossApplications(c
 	sbWc.AssertOneChange()
 
 	// Check mysql watcher does not react when storage block is updated.
-	constraints := map[string]state.StorageConstraints{
-		"data": {Count: 1, Size: 1024, Pool: "loop"},
+	constraints := map[string]state.StorageDirectivesUpdate{
+		"data": makeStorageDirectivesToUpdate("loop", uint64p(1024), uint64p(1)),
 	}
 	err = storageBlockApp.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
@@ -6083,8 +6083,8 @@ func (s *ApplicationSuite) TestUpdateStorageConstraints(c *gc.C) {
 		Size:  uint64(100),
 	})
 
-	newSC := map[string]state.StorageConstraints{
-		"data0": makeStorageCons("loop", 4096, 3),
+	newSC := map[string]state.StorageDirectivesUpdate{
+		"data0": makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(3)),
 	}
 
 	err = app.UpdateStorageConstraints(newSC)
@@ -6097,6 +6097,108 @@ func (s *ApplicationSuite) TestUpdateStorageConstraints(c *gc.C) {
 		Pool:  "loop",
 		Count: uint64(3),
 		Size:  uint64(4096),
+	})
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraintsCountOnly(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("loop", 100, 5),
+	}
+	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	charm := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	app := s.AddTestingApplicationWithStorage(c, "testing", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(5),
+		Size:  uint64(100),
+	})
+
+	newSC := map[string]state.StorageDirectivesUpdate{
+		"data0": makeStorageDirectivesToUpdate("", nil, uint64p(3)),
+	}
+
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err = app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(3),
+		Size:  uint64(100),
+	})
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraintsSizeOnly(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("loop", 100, 5),
+	}
+	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	charm := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	app := s.AddTestingApplicationWithStorage(c, "testing", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(5),
+		Size:  uint64(100),
+	})
+
+	newSC := map[string]state.StorageDirectivesUpdate{
+		"data0": makeStorageDirectivesToUpdate("", uint64p(2048), nil),
+	}
+
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err = app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(5),
+		Size:  uint64(2048),
+	})
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraintsPoolOnly(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("filesystem", 100, 5),
+	}
+	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	charm := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	app := s.AddTestingApplicationWithStorage(c, "testing", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(5),
+		Size:  uint64(100),
+	})
+
+	newSC := map[string]state.StorageDirectivesUpdate{
+		"data0": makeStorageDirectivesToUpdate("loop", nil, nil),
+	}
+
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err = app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(5),
+		Size:  uint64(100),
 	})
 }
 
@@ -6116,8 +6218,8 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidStoreKey(c *gc.C) 
 		Count: uint64(5),
 		Size:  uint64(100),
 	})
-	newSC := map[string]state.StorageConstraints{
-		"wrong-storage-name": makeStorageCons("loop", 4096, 3),
+	newSC := map[string]state.StorageDirectivesUpdate{
+		"data0": makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(3)),
 	}
 
 	err = app.UpdateStorageConstraints(newSC)
@@ -6140,8 +6242,8 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidCount(c *gc.C) {
 		Count: uint64(5),
 		Size:  uint64(100),
 	})
-	newSC := map[string]state.StorageConstraints{
-		"data0": makeStorageCons("loop", 4096, 6),
+	newSC := map[string]state.StorageDirectivesUpdate{
+		"data0": makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(6)),
 	}
 
 	// This fails because storage constraint count of first mysql charm is 1-5.
@@ -6166,10 +6268,10 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidStorageType(c *gc.
 		Size:  uint64(100),
 	})
 
-	newSC := map[string]state.StorageConstraints{
-		"data0":          makeStorageCons("loop", 4096, 1),
-		"not-supported1": makeStorageCons("loop", 4096, 1),
-		"not-supported2": makeStorageCons("loop", 4096, 1),
+	newSC := map[string]state.StorageDirectivesUpdate{
+		"data0":          makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(3)),
+		"not-supported1": makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(1)),
+		"not-supported2": makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(1)),
 	}
 
 	err = app.UpdateStorageConstraints(newSC)
@@ -6194,8 +6296,8 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdate(c *
 	})
 
 	// Storage constraint count of 5 should work for both old and new mysql charms.
-	newSC := map[string]state.StorageConstraints{
-		"data0": makeStorageCons("loop", 4096, 5),
+	newSC := map[string]state.StorageDirectivesUpdate{
+		"data0": makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(5)),
 	}
 
 	newMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(5, 10)
@@ -6257,9 +6359,10 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdateInco
 	})
 
 	// We try to update original application charm storage constraint count to 3.
-	newSC := map[string]state.StorageConstraints{
-		"data0": makeStorageCons("loop", 4096, 3),
+	newSC := map[string]state.StorageDirectivesUpdate{
+		"data0": makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(3)),
 	}
+
 	newMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(5, 10)
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
 

@@ -34,7 +34,7 @@ var (
 )
 
 // ParseConstraints parses the specified string and creates a
-// Constraints structure.
+// Constraints structure. It defaults count to 1 if count is not specified.
 //
 // The acceptable format for storage constraints is a comma separated
 // sequence of: POOL, COUNT, and SIZE, where
@@ -52,6 +52,35 @@ var (
 //	the set (M, G, T, P, E, Z, Y), which are all treated as
 //	powers of 1024.
 func ParseConstraints(s string) (Constraints, error) {
+	cons, err := ParseConstraintsWithoutDefaults(s)
+	if err != nil {
+		return Constraints{}, err
+	}
+	if cons.Count == 0 {
+		cons.Count = 1
+	}
+	return cons, nil
+}
+
+// ParseConstraintsWithoutDefaults parses the specified string and creates a
+// Constraints structure.
+//
+// The acceptable format for storage constraints is a comma separated
+// sequence of: POOL, COUNT, and SIZE, where
+//
+//	POOL identifies the storage pool. POOL can be a string
+//	starting with a letter, followed by zero or more digits
+//	or letters optionally separated by hyphens.
+//
+//	COUNT is a positive integer indicating how many instances
+//	of the storage to create. If unspecified, and SIZE is
+//	specified, COUNT defaults to 1.
+//
+//	SIZE describes the minimum size of the storage instances to
+//	create. SIZE is a floating point number and multiplier from
+//	the set (M, G, T, P, E, Z, Y), which are all treated as
+//	powers of 1024.
+func ParseConstraintsWithoutDefaults(s string) (Constraints, error) {
 	var cons Constraints
 	fields := strings.Split(s, ",")
 	for _, field := range fields {
@@ -89,9 +118,6 @@ func ParseConstraints(s string) (Constraints, error) {
 	}
 	if cons.Count == 0 && cons.Size == 0 && cons.Pool == "" {
 		return Constraints{}, errors.New("storage constraints require at least one field to be specified")
-	}
-	if cons.Count == 0 {
-		cons.Count = 1
 	}
 	return cons, nil
 }
