@@ -368,7 +368,7 @@ FROM ops AS o
 	}
 
 	if len(receiverClauses) > 0 {
-		whereClauses = append(whereClauses, "("+strings.Join(receiverClauses, " OR ")+")")
+		whereClauses = append(whereClauses, "("+strings.Join(receiverClauses, " AND ")+")")
 	}
 
 	// Assemble the query

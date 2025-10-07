@@ -205,12 +205,13 @@ func (f *Facade) WatchActionNotifications(ctx context.Context, args params.Entit
 			continue
 		}
 
-		id, _, err := internal.EnsureRegisterWatcher(ctx, f.watcherRegistry, watcher)
+		id, changes, err := internal.EnsureRegisterWatcher(ctx, f.watcherRegistry, watcher)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 			continue
 		}
 
+		result.Changes = changes
 		result.StringsWatcherId = id
 	}
 	return params.StringsWatchResults{Results: results}
