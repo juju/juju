@@ -125,16 +125,6 @@ type UnitState interface {
 	// Note: This method should mirror the model domain method of the same name.
 	GetModelConstraints(context.Context) (constraints.Constraints, error)
 
-	// SetUnitConstraints sets the unit constraints for the
-	// specified application UUID.
-	// This method overwrites the full constraints on every call.
-	// If invalid constraints are provided (e.g. invalid container type or
-	// non-existing space), a [applicationerrors.InvalidUnitConstraints]
-	// error is returned.
-	// If the unit is dead, an error satisfying [applicationerrors.UnitIsDead]
-	// is returned.
-	SetUnitConstraints(context.Context, coreunit.UUID, constraints.Constraints) error
-
 	// GetUnitRefreshAttributes returns the unit refresh attributes for the
 	// specified unit. If the unit is not found, an error satisfying
 	// [applicationerrors.UnitNotFound] is returned.

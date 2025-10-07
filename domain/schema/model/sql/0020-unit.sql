@@ -215,43 +215,6 @@ CREATE TABLE k8s_pod_status (
     REFERENCES k8s_pod_status_value (id)
 );
 
-CREATE TABLE unit_constraint (
-    unit_uuid TEXT NOT NULL PRIMARY KEY,
-    constraint_uuid TEXT,
-    CONSTRAINT fk_unit_constraint_unit
-    FOREIGN KEY (unit_uuid)
-    REFERENCES unit (uuid),
-    CONSTRAINT fk_unit_constraint_constraint
-    FOREIGN KEY (constraint_uuid)
-    REFERENCES "constraint" (uuid)
-);
-
-CREATE VIEW v_unit_constraint AS
-SELECT
-    uc.unit_uuid,
-    c.arch,
-    c.cpu_cores,
-    c.cpu_power,
-    c.mem,
-    c.root_disk,
-    c.root_disk_source,
-    c.instance_role,
-    c.instance_type,
-    ctype.value AS container_type,
-    c.virt_type,
-    c.allocate_public_ip,
-    c.image_id,
-    ctag.tag,
-    cspace.space AS space_name,
-    cspace."exclude" AS space_exclude,
-    czone.zone
-FROM unit_constraint AS uc
-JOIN "constraint" AS c ON uc.constraint_uuid = c.uuid
-LEFT JOIN container_type AS ctype ON c.container_type_id = ctype.id
-LEFT JOIN constraint_tag AS ctag ON c.uuid = ctag.constraint_uuid
-LEFT JOIN constraint_space AS cspace ON c.uuid = cspace.constraint_uuid
-LEFT JOIN constraint_zone AS czone ON c.uuid = czone.constraint_uuid;
-
 CREATE TABLE unit_agent_presence (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     last_seen DATETIME,
