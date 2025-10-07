@@ -90,6 +90,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"domain-services",
 			"external-controller-updater",
 			"file-notify-watcher",
+			"flight-recorder",
 			"host-key-reporter",
 			"http-client",
 			"http-server-args",
@@ -177,6 +178,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"domain-services",
 			"external-controller-updater",
 			"file-notify-watcher",
+			"flight-recorder",
 			"http-client",
 			"http-server-args",
 			"http-server",
@@ -269,6 +271,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"deployer",
 		"domain-services",
 		"file-notify-watcher",
+		"flight-recorder",
 		"global-clock-updater",
 		"http-client",
 		"http-server-args",
@@ -938,6 +941,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"state-config-watcher",
 	},
+
+	"flight-recorder": {},
 
 	"host-key-reporter": {
 		"agent",
@@ -1994,6 +1999,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"state-config-watcher",
 	},
+
+	"flight-recorder": {},
 
 	"trace": {
 		"agent",

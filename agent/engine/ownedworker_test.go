@@ -32,46 +32,46 @@ func (s *OwnedWorkerSuite) TestNewOwnedWorker_Success(c *tc.C) {
 
 func (s *OwnedWorkerSuite) TestNewOwnedWorker_NilValue(c *tc.C) {
 	w, err := engine.NewOwnedWorker(nil)
-	c.Check(err, tc.ErrorMatches, "NewOwnedWorker expects a value")
+	c.Check(err, tc.ErrorMatches, "NewOwnedWorker expects a worker")
 	c.Check(w, tc.IsNil)
 }
 
-func (s *OwnedWorkerSuite) TestValueWorkerOutput_Success(c *tc.C) {
-	value := &testType{}
+func (s *OwnedWorkerSuite) TestOwnedWorkerOutput_Success(c *tc.C) {
+	value := newTextOwnedType()
 	w, err := engine.NewOwnedWorker(value)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var outVal testInterface
-	err = engine.ValueWorkerOutput(w, &outVal)
+	err = engine.OwnedWorkerOutput(w, &outVal)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(outVal, tc.DeepEquals, value)
 }
 
-func (s *OwnedWorkerSuite) TestValueWorkerOutput_BadInput(c *tc.C) {
+func (s *OwnedWorkerSuite) TestOwnedWorkerOutput_BadInput(c *tc.C) {
 	var outVal testInterface
-	err := engine.ValueWorkerOutput(&testType{}, &outVal)
-	c.Check(err, tc.ErrorMatches, "in should be a \\*valueWorker; is .*")
+	err := engine.OwnedWorkerOutput(newTextOwnedType(), &outVal)
+	c.Check(err, tc.ErrorMatches, "in should be a \\*ownedWorker; is .*")
 	c.Check(outVal, tc.IsNil)
 }
 
-func (s *OwnedWorkerSuite) TestValueWorkerOutput_BadOutputIndirection(c *tc.C) {
-	value := &testType{}
+func (s *OwnedWorkerSuite) TestOwnedWorkerOutput_BadOutputIndirection(c *tc.C) {
+	value := newTextOwnedType()
 	w, err := engine.NewOwnedWorker(value)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var outVal string
-	err = engine.ValueWorkerOutput(w, outVal)
+	err = engine.OwnedWorkerOutput(w, outVal)
 	c.Check(err, tc.ErrorMatches, "out should be a pointer; is .*")
 	c.Check(outVal, tc.Equals, "")
 }
 
-func (s *OwnedWorkerSuite) TestValueWorkerOutput_BadOutputType(c *tc.C) {
-	value := &testType{}
+func (s *OwnedWorkerSuite) TestOwnedWorkerOutput_BadOutputType(c *tc.C) {
+	value := newTextOwnedType()
 	w, err := engine.NewOwnedWorker(value)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var outVal string
-	err = engine.ValueWorkerOutput(w, &outVal)
+	err = engine.OwnedWorkerOutput(w, &outVal)
 	c.Check(err, tc.ErrorMatches, "cannot output into \\*string")
 	c.Check(outVal, tc.Equals, "")
 }
@@ -80,7 +80,7 @@ type errWorker struct {
 	tomb tomb.Tomb
 }
 
-func newErrWorker(err error) worker.Worker {
+func newErrWorker(err error) *errWorker {
 	w := &errWorker{}
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -97,11 +97,19 @@ func (e *errWorker) Wait() error {
 	return e.tomb.Wait()
 }
 
+func (e *errWorker) Foobar() {}
+
 type testOwnedInterface interface {
-	errWorker
+	worker.Worker
 	Foobar()
 }
 
 type testOwnedType struct {
-	testInterface
+	testOwnedInterface
+}
+
+func newTextOwnedType() *testOwnedType {
+	return &testOwnedType{
+		testOwnedInterface: newErrWorker(nil),
+	}
 }
