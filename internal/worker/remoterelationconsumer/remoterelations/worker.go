@@ -98,6 +98,9 @@ type remoteRelationsWorker struct {
 	clock  clock.Clock
 	logger logger.Logger
 
+	// requests is used to request a report of the current state.
+	// This is to allow the worker to be reported on by the engine, without
+	// needing to add locking around the state.
 	requests chan chan map[string]any
 }
 
@@ -192,6 +195,10 @@ func (w *remoteRelationsWorker) loop() error {
 			}
 
 		case req := <-w.requests:
+			// The requests channel handles the reporting requests from the
+			// engine. This happens in another goroutine so we need to ensure
+			// that we don't create data races, we need to synchronise access to
+			// the state.
 			select {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()

@@ -466,21 +466,21 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 	// Start the remote relation worker to watch for offerer relation changes.
 	// The aim is to ensure that we can track the suspended status of the
 	// relation so we can correctly react to that.
-	if err := w.createOffererRelationWorker(ctx, details.UUID, result.offererApplicationUUID, result.macaroon); err != nil {
+	if err := w.ensureOffererRelationWorker(ctx, details.UUID, result.offererApplicationUUID, result.macaroon); err != nil {
 		return errors.Annotatef(err, "creating offerer relation worker for %q", details.UUID)
 	}
 
 	return nil
 }
 
-// Create a new worker to watch for changes to the relation in the offering
+// Ensure a new worker to watch for changes to the relation in the offering
 // model.
 //
 // The worker is identified by the relation UUID, so it can track that
 // information, along with the offering application UUID and macaroon used to
 // access the relation in the offering model. If we have this information, we
 // should be able to pin point the relation in the offering model.
-func (w *remoteApplicationWorker) createOffererRelationWorker(
+func (w *remoteApplicationWorker) ensureOffererRelationWorker(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	offererApplicationUUID application.UUID,
@@ -539,7 +539,7 @@ func (w *remoteApplicationWorker) registerConsumerRelation(
 	} else if len(offererRelations) == 0 {
 		return consumerRelationResult{}, errors.New("no result from registering remote relation")
 	} else if len(offererRelations) > 1 {
-		w.logger.Infof(ctx, "expected one result from registering remote relation, got %d", len(offererRelations))
+		w.logger.Warningf(ctx, "expected one result from registering remote relation, got %d", len(offererRelations))
 	}
 
 	// We've guarded against this from being out of bounds, so it's safe to do
