@@ -16,7 +16,9 @@ import (
 	bakery "github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	checkers "github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	bakery0 "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
+	facade "github.com/juju/juju/apiserver/facade"
 	model "github.com/juju/juju/core/model"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -156,6 +158,83 @@ func (c *MockCrossModelAuthContextCreateConsumeOfferMacaroonCall) Do(f func(cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelAuthContextCreateConsumeOfferMacaroonCall) DoAndReturn(f func(context.Context, model.UUID, string, string, bakery.Version) (*bakery.Macaroon, error)) *MockCrossModelAuthContextCreateConsumeOfferMacaroonCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Authenticator mocks base method.
+func (m *MockCrossModelAuthContext) Authenticator() facade.MacaroonAuthenticator {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Authenticator")
+	ret0, _ := ret[0].(facade.MacaroonAuthenticator)
+	return ret0
+}
+
+// Authenticator indicates an expected call of Authenticator.
+func (mr *MockCrossModelAuthContextMockRecorder) Authenticator() *MockCrossModelAuthContextAuthenticatorCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authenticator", reflect.TypeOf((*MockCrossModelAuthContext)(nil).Authenticator))
+	return &MockCrossModelAuthContextAuthenticatorCall{Call: call}
+}
+
+// MockCrossModelAuthContextAuthenticatorCall wrap *gomock.Call
+type MockCrossModelAuthContextAuthenticatorCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelAuthContextAuthenticatorCall) Return(arg0 facade.MacaroonAuthenticator) *MockCrossModelAuthContextAuthenticatorCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelAuthContextAuthenticatorCall) Do(f func() facade.MacaroonAuthenticator) *MockCrossModelAuthContextAuthenticatorCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelAuthContextAuthenticatorCall) DoAndReturn(f func() facade.MacaroonAuthenticator) *MockCrossModelAuthContextAuthenticatorCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CreateRemoteRelationMacaroon mocks base method.
+func (m *MockCrossModelAuthContext) CreateRemoteRelationMacaroon(arg0 context.Context, arg1 model.UUID, arg2, arg3 string, arg4 names.RelationTag, arg5 bakery.Version) (*bakery.Macaroon, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateRemoteRelationMacaroon", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(*bakery.Macaroon)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateRemoteRelationMacaroon indicates an expected call of CreateRemoteRelationMacaroon.
+func (mr *MockCrossModelAuthContextMockRecorder) CreateRemoteRelationMacaroon(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockCrossModelAuthContextCreateRemoteRelationMacaroonCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRemoteRelationMacaroon", reflect.TypeOf((*MockCrossModelAuthContext)(nil).CreateRemoteRelationMacaroon), arg0, arg1, arg2, arg3, arg4, arg5)
+	return &MockCrossModelAuthContextCreateRemoteRelationMacaroonCall{Call: call}
+}
+
+// MockCrossModelAuthContextCreateRemoteRelationMacaroonCall wrap *gomock.Call
+type MockCrossModelAuthContextCreateRemoteRelationMacaroonCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelAuthContextCreateRemoteRelationMacaroonCall) Return(arg0 *bakery.Macaroon, arg1 error) *MockCrossModelAuthContextCreateRemoteRelationMacaroonCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelAuthContextCreateRemoteRelationMacaroonCall) Do(f func(context.Context, model.UUID, string, string, names.RelationTag, bakery.Version) (*bakery.Macaroon, error)) *MockCrossModelAuthContextCreateRemoteRelationMacaroonCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelAuthContextCreateRemoteRelationMacaroonCall) DoAndReturn(f func(context.Context, model.UUID, string, string, names.RelationTag, bakery.Version) (*bakery.Macaroon, error)) *MockCrossModelAuthContextCreateRemoteRelationMacaroonCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

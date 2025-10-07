@@ -33,4 +33,8 @@ const (
 	// RemoteRelationAlreadyRegistered describes an error that occurs when
 	// trying to register a remote relation that already exists.
 	RemoteRelationAlreadyRegistered = errors.ConstError("remote relation already registered")
+
+	// RemoteRelationNotFound describes an error that occurs when looking up a
+	// remote relation by consumer relation UUID and it does not exist.
+	RemoteRelationNotFound = errors.ConstError("remote relation not found")
 )

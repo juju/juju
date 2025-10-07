@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/names/v6"
 )
 
 // CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.
@@ -108,9 +109,16 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 		return nil, errors.Annotate(err, "adding remote application consumer")
 	}
 
+	// Now get the relation UUID of the "synthetic" remote relation.
+	offererRemoteRelationUUID, err := api.crossModelRelationService.GetApplicationRemoteRelationByConsumerRelationUUID(ctx, relation.RelationToken)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting remote relation UUID")
+	}
+	offererRemoteRelationTag := names.NewRelationTag(offererRemoteRelationUUID.String())
+
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.auth.CreateRemoteRelationMacaroon(
-		ctx, api.modelUUID, relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
+		ctx, api.modelUUID, relation.OfferUUID, username, offererRemoteRelationTag, relation.BakeryVersion)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}

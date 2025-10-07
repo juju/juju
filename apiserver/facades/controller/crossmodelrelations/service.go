@@ -6,7 +6,8 @@ package crossmodelrelations
 import (
 	"context"
 
-	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation/service"
+	corerelation "github.com/juju/juju/core/relation"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 )
 
 // CrossModelRelationService provides access to cross-model relations.
@@ -17,5 +18,12 @@ type CrossModelRelationService interface {
 
 	// AddRemoteApplicationConsumer adds a new synthetic application representing
 	// a remote relation on the consuming model, to this, the offering model.
-	AddRemoteApplicationConsumer(ctx context.Context, args crossmodelrelation.AddRemoteApplicationConsumerArgs) error
+	AddRemoteApplicationConsumer(ctx context.Context, args crossmodelrelationservice.AddRemoteApplicationConsumerArgs) error
+
+	// GetApplicationRemoteRelationByConsumerRelationUUID retrieves the relation UUID
+	// for a remote relation given the consumer relation UUID.
+	GetApplicationRemoteRelationByConsumerRelationUUID(
+		ctx context.Context,
+		consumerRelationUUID string,
+	) (corerelation.UUID, error)
 }

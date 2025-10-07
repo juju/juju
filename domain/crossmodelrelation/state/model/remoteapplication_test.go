@@ -781,6 +781,85 @@ func (s *modelRemoteApplicationSuite) TestCheckOfferByUUIDNotExists(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }
 
+func (s *modelRemoteApplicationSuite) TestGetApplicationRemoteRelationByConsumerRelationUUID(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Local resources needed:
+	localApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
+	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, localCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, localApplicationUUID, localCharmUUID, offerUUID)
+
+	charmObj := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 charmObj,
+		},
+		RelationUUID: relationUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Fetch the synthetic relation UUID for assertion.
+	var syntheticRelationUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT r.uuid
+FROM   relation AS r
+JOIN   application_remote_relation AS arr ON r.uuid = arr.relation_uuid
+WHERE  arr.consumer_relation_uuid = ?`, relationUUID).Scan(&syntheticRelationUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	relUUID, err := s.state.GetApplicationRemoteRelationByConsumerRelationUUID(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relUUID.String(), tc.Equals, syntheticRelationUUID)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetApplicationRemoteRelationByConsumerRelationUUIDNotFound(c *tc.C) {
+	unknownRelationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	_, err := s.state.GetApplicationRemoteRelationByConsumerRelationUUID(c.Context(), unknownRelationUUID)
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteRelationNotFound)
+	c.Assert(err, tc.ErrorMatches, "remote relation not found")
+}
+
 func (s *modelRemoteApplicationSuite) assertApplicationRemoteConsumer(c *tc.C, applicationUUID string) {
 	var count int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

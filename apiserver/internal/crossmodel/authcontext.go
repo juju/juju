@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
 	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -176,7 +177,7 @@ func (a *AuthContext) CreateRemoteRelationMacaroon(
 
 // Authenticator returns an instance used to authenticate macaroons used to
 // access offers.
-func (a *AuthContext) Authenticator() *Authenticator {
+func (a *AuthContext) Authenticator() facade.MacaroonAuthenticator {
 	return &Authenticator{
 		bakery: a.bakery,
 		logger: a.logger.Child("authenticator"),

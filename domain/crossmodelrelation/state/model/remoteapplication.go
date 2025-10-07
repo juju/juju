@@ -192,6 +192,47 @@ WHERE   aro.life_id < 2;`
 	return result, nil
 }
 
+// GetApplicationRemoteRelationByConsumerRelationUUID retrieves the application
+// remote relation (relation_uuid and consumer_relation_uuid) for the supplied
+// consumer relation UUID. Returns
+// [crossmodelrelationerrors.RemoteRelationNotFound] if no such relation exists.
+func (st *State) GetApplicationRemoteRelationByConsumerRelationUUID(
+	ctx context.Context,
+	consumerRelUUID string,
+) (corerelation.UUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	ident := consumerRelationUUID{ConsumerRelationUUID: consumerRelUUID}
+
+	stmt, err := st.Prepare(`
+SELECT arr.relation_uuid AS &uuid.uuid
+FROM   application_remote_relation AS arr
+JOIN   relation AS r ON r.uuid = arr.relation_uuid
+WHERE  arr.consumer_relation_uuid = $consumerRelationUUID.consumer_relation_uuid
+`, uuid{}, ident)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result uuid
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, ident).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+			return crossmodelrelationerrors.RemoteRelationNotFound
+		} else if err != nil {
+			return errors.Errorf("retrieving application remote relation %q: %w", consumerRelUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return corerelation.UUID(result.UUID), nil
+}
+
 func (st *State) insertApplication(
 	ctx context.Context,
 	tx *sqlair.TX,

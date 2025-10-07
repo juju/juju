@@ -578,3 +578,61 @@ func (s *remoteApplicationServiceSuite) TestCheckOfferByUUIDStateError(c *tc.C) 
 	err := service.CheckOfferByUUID(c.Context(), offerUUID)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
+
+func (s *remoteApplicationServiceSuite) TestGetApplicationRemoteRelationByConsumerRelationUUIDSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	consumerRelationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := corerelation.UUID(tc.Must(c, uuid.NewUUID).String())
+
+	s.modelState.EXPECT().
+		GetApplicationRemoteRelationByConsumerRelationUUID(gomock.Any(), consumerRelationUUID).
+		Return(relationUUID, nil)
+
+	service := s.service(c)
+
+	result, err := service.GetApplicationRemoteRelationByConsumerRelationUUID(c.Context(), consumerRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, relationUUID)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetApplicationRemoteRelationByConsumerRelationUUIDInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := s.service(c)
+
+	_, err := service.GetApplicationRemoteRelationByConsumerRelationUUID(c.Context(), "invalid-uuid")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorMatches, `consumer relation UUID "invalid-uuid" is not a valid UUID`)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetApplicationRemoteRelationByConsumerRelationUUIDNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	consumerRelationUUID := tc.Must(c, uuid.NewUUID).String()
+
+	s.modelState.EXPECT().
+		GetApplicationRemoteRelationByConsumerRelationUUID(gomock.Any(), consumerRelationUUID).
+		Return(corerelation.UUID(""), crossmodelrelationerrors.RemoteRelationNotFound)
+
+	service := s.service(c)
+
+	_, err := service.GetApplicationRemoteRelationByConsumerRelationUUID(c.Context(), consumerRelationUUID)
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteRelationNotFound)
+	c.Assert(err, tc.ErrorMatches, "remote relation not found")
+}
+
+func (s *remoteApplicationServiceSuite) TestGetApplicationRemoteRelationByConsumerRelationUUIDStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	consumerRelationUUID := tc.Must(c, uuid.NewUUID).String()
+
+	s.modelState.EXPECT().
+		GetApplicationRemoteRelationByConsumerRelationUUID(gomock.Any(), consumerRelationUUID).
+		Return(corerelation.UUID(""), internalerrors.Errorf("kaput"))
+
+	service := s.service(c)
+
+	_, err := service.GetApplicationRemoteRelationByConsumerRelationUUID(c.Context(), consumerRelationUUID)
+	c.Assert(err, tc.ErrorMatches, "kaput")
+}

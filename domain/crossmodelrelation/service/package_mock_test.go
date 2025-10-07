@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	corerelation "github.com/juju/juju/core/relation"
 	user "github.com/juju/juju/core/user"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
 	internal "github.com/juju/juju/domain/crossmodelrelation/internal"
@@ -407,6 +408,45 @@ func (c *MockModelStateDeleteFailedOfferCall) Do(f func(context.Context, uuid.UU
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateDeleteFailedOfferCall) DoAndReturn(f func(context.Context, uuid.UUID) error) *MockModelStateDeleteFailedOfferCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationRemoteRelationByConsumerRelationUUID mocks base method.
+func (m *MockModelState) GetApplicationRemoteRelationByConsumerRelationUUID(arg0 context.Context, arg1 string) (corerelation.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationRemoteRelationByConsumerRelationUUID", arg0, arg1)
+	ret0, _ := ret[0].(corerelation.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationRemoteRelationByConsumerRelationUUID indicates an expected call of GetApplicationRemoteRelationByConsumerRelationUUID.
+func (mr *MockModelStateMockRecorder) GetApplicationRemoteRelationByConsumerRelationUUID(arg0, arg1 any) *MockModelStateGetApplicationRemoteRelationByConsumerRelationUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationRemoteRelationByConsumerRelationUUID", reflect.TypeOf((*MockModelState)(nil).GetApplicationRemoteRelationByConsumerRelationUUID), arg0, arg1)
+	return &MockModelStateGetApplicationRemoteRelationByConsumerRelationUUIDCall{Call: call}
+}
+
+// MockModelStateGetApplicationRemoteRelationByConsumerRelationUUIDCall wrap *gomock.Call
+type MockModelStateGetApplicationRemoteRelationByConsumerRelationUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetApplicationRemoteRelationByConsumerRelationUUIDCall) Return(arg0 corerelation.UUID, arg1 error) *MockModelStateGetApplicationRemoteRelationByConsumerRelationUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetApplicationRemoteRelationByConsumerRelationUUIDCall) Do(f func(context.Context, string) (corerelation.UUID, error)) *MockModelStateGetApplicationRemoteRelationByConsumerRelationUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetApplicationRemoteRelationByConsumerRelationUUIDCall) DoAndReturn(f func(context.Context, string) (corerelation.UUID, error)) *MockModelStateGetApplicationRemoteRelationByConsumerRelationUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

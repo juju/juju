@@ -59,6 +59,11 @@ type ModelRemoteApplicationState interface {
 	// CheckOfferByUUID checks if an offer with the given UUID exists.
 	// Returns crossmodelrelationerrors.OfferNotFound if the offer is not found.
 	CheckOfferByUUID(context.Context, string) error
+
+	// GetApplicationRemoteRelationByConsumerRelationUUID returns the synthetic relation UUID
+	// for a remote relation given the consumer relation UUID. Returns
+	// crossmodelrelationerrors.RemoteRelationNotFound if the relation does not exist.
+	GetApplicationRemoteRelationByConsumerRelationUUID(context.Context, string) (corerelation.UUID, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -186,6 +191,26 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 	s.recordInitRemoteApplicationStatusHistory(ctx, synthApplicationName)
 
 	return nil
+}
+
+// GetApplicationRemoteRelationByConsumerRelationUUID retrieves the synthetic relation UUID
+// for a remote relation given the consumer relation UUID.
+func (s *Service) GetApplicationRemoteRelationByConsumerRelationUUID(
+	ctx context.Context,
+	consumerRelationUUID string,
+) (corerelation.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !uuid.IsValidUUIDString(consumerRelationUUID) {
+		return "", internalerrors.Errorf("consumer relation UUID %q is not a valid UUID", consumerRelationUUID).Add(errors.NotValid)
+	}
+
+	relationUUID, err := s.modelState.GetApplicationRemoteRelationByConsumerRelationUUID(ctx, consumerRelationUUID)
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+	return relationUUID, nil
 }
 
 // recordInitRemoteApplicationStatusHistory records the initial status history
