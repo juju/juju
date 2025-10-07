@@ -2048,7 +2048,14 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 		)
 
 		machineAddresses := addresses[s.UUID.String()]
-		matchedAddrs := machineAddresses.AllMatchingScope(corenetwork.ScopeMatchPublic)
+		matchedAddrs := make(corenetwork.SpaceAddresses, 0, len(machineAddresses))
+		for _, mAddr := range machineAddresses {
+			switch mAddr.Scope {
+			case corenetwork.ScopeMachineLocal, corenetwork.ScopeLinkLocal:
+				continue
+			}
+			matchedAddrs = append(matchedAddrs, mAddr)
+		}
 		sort.Sort(matchedAddrs)
 		ipAddresses := transform.Slice(matchedAddrs, func(addr corenetwork.SpaceAddress) string {
 			return addr.Value
