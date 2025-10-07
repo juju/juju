@@ -480,7 +480,7 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 	// relation is not suspended. It is expected that the unit watchers will
 	// clean themselves up if the relation is suspended or removed.
 	if !details.Suspended {
-		if err := w.createUnitRelationWorkers(ctx, details, result.offererApplicationUUID, result.macaroon); err != nil {
+		if err := w.ensureUnitRelationWorkers(ctx, details, result.offererApplicationUUID, result.macaroon); err != nil {
 			return errors.Annotatef(err, "creating unit relation workers for %q", details.UUID)
 		}
 	}
@@ -520,11 +520,11 @@ func (w *remoteApplicationWorker) ensureOffererRelationWorker(
 	return nil
 }
 
-// Create the unit relation workers for both the consumer and offerer sides
+// Ensure the unit relation workers for both the consumer and offerer sides
 // of the relation.
 // This is idempotent, if the workers already exist, they will not be created
 // again.
-func (w *remoteApplicationWorker) createUnitRelationWorkers(
+func (w *remoteApplicationWorker) ensureUnitRelationWorkers(
 	ctx context.Context,
 	details relation.RelationDetails,
 	offferApplicationUUID application.UUID,
