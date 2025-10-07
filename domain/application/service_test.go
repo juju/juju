@@ -24,6 +24,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
+	applicationservicestorage "github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/application/state"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/schema/testing"
@@ -381,17 +382,19 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.caasProvider = NewMockCAASProvider(ctrl)
 
-	registryGetter := corestorage.ConstModelStorageRegistry(func() internalstorage.ProviderRegistry {
-		return internalstorage.NotImplementedProviderRegistry{}
-	})
 	state := state.NewState(
 		func(context.Context) (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
+	registryGetter := corestorage.ConstModelStorageRegistry(func() internalstorage.ProviderRegistry {
+		return internalstorage.NotImplementedProviderRegistry{}
+	})
+	poolProvider := applicationservicestorage.NewStoragePoolProvider(registryGetter, state)
 
 	s.svc = service.NewProviderService(
 		state,
+		applicationservicestorage.NewService(state, poolProvider),
 		domaintesting.NoopLeaderEnsurer(),
 		nil,
 		func(ctx context.Context) (service.Provider, error) {
@@ -400,7 +403,6 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		func(ctx context.Context) (service.CAASProvider, error) {
 			return s.caasProvider, nil
 		},
-		service.NewStoragePoolProvider(registryGetter, state),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

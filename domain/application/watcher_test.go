@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
+	appstorageservice "github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
@@ -1691,14 +1692,18 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	})
 	state := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
 
+	storageSvc := appstorageservice.NewService(
+		state, appstorageservice.NewStoragePoolProvider(registryGetter, state),
+	)
+
 	return service.NewWatchableService(
 		state,
+		storageSvc,
 		domaintesting.NoopLeaderEnsurer(),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil,
 		providerGetter,
 		caasProviderGetter,
-		service.NewStoragePoolProvider(registryGetter, state),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
