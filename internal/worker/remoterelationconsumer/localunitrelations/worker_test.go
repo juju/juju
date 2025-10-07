@@ -129,7 +129,7 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 				"foo": "bar",
 			},
 			UnitCount: 3,
-			LegacyDepartedUnits: []int{
+			DeprecatedDepartedUnits: []int{
 				4,
 			},
 		}, nil)
@@ -168,7 +168,7 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 			"foo": "bar",
 		},
 		UnitCount: 3,
-		LegacyDepartedUnits: []int{
+		DeprecatedDepartedUnits: []int{
 			4,
 		},
 	})
@@ -283,7 +283,7 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 				"foo": "bar",
 			},
 			UnitCount: 3,
-			LegacyDepartedUnits: []int{
+			DeprecatedDepartedUnits: []int{
 				4,
 			},
 		}, nil)
@@ -298,13 +298,12 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 	}
 
 	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
-		"application-uuid":      s.consumerApplicationUUID.String(),
-		"relation-uuid":         s.consumerRelationUUID.String(),
-		"changed-units":         []relation.UnitChange(nil),
-		"available-units":       []int(nil),
-		"settings":              map[string]any(nil),
-		"unit-count":            0,
-		"legacy-departed-units": []int(nil),
+		"application-uuid": s.consumerApplicationUUID.String(),
+		"relation-uuid":    s.consumerRelationUUID.String(),
+		"changed-units":    []relation.UnitChange(nil),
+		"available-units":  []int(nil),
+		"settings":         map[string]any(nil),
+		"departed-units":   []int(nil),
 	})
 
 	select {
@@ -332,8 +331,7 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 		"settings": map[string]any{
 			"foo": "bar",
 		},
-		"unit-count": 3,
-		"legacy-departed-units": []int{
+		"departed-units": []int{
 			4,
 		},
 	})

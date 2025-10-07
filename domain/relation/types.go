@@ -351,9 +351,11 @@ type RelationUnitChange struct {
 	// UnitCount is the total number of units in this relation.
 	UnitCount int
 
-	// LegacyDepartedUnits is the list of units that have departed in this
-	// change. This field is deprecated and will be removed in future.
-	LegacyDepartedUnits []int
+	// DeprecatedDepartedUnits is the list of units that have departed in this
+	// change.
+	// Deprecated: This field is deprecated and will be removed in future,
+	// instead use AvailableUnits.
+	DeprecatedDepartedUnits []int
 }
 
 // UnitChange represents a change to a single unit in a relation.

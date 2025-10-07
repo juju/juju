@@ -198,11 +198,10 @@ func (w *localWorker) loop() error {
 				"changed-units":    event.ChangedUnits,
 				"available-units":  event.AvailableUnits,
 				"settings":         event.ApplicationSettings,
-				"unit-count":       event.UnitCount,
 
 				// This only exists for legacy reasons (3.x compatibility).
 				// Although it's a good proxy for if the relation has changed.
-				"legacy-departed-units": event.LegacyDepartedUnits,
+				"departed-units": event.DeprecatedDepartedUnits,
 			}:
 			}
 		}
@@ -239,5 +238,5 @@ func (w *localWorker) Report() map[string]any {
 }
 
 func isEmpty(change relation.RelationUnitChange) bool {
-	return len(change.ChangedUnits)+len(change.LegacyDepartedUnits) == 0
+	return len(change.ChangedUnits)+len(change.DeprecatedDepartedUnits) == 0
 }

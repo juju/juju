@@ -35,16 +35,16 @@ type RelationUnitChange struct {
 	// ChangedUnits represents the changed units in this relation.
 	ChangedUnits []UnitChange
 
-	// LegacyDepartedUnits represents the units that have departed in this
+	// DeprecatedDepartedUnits represents the units that have departed in this
 	// relation.
-	LegacyDepartedUnits []int
+	// Deprecated: this will be removed in future releases in favour of using
+	// AvailableUnits. We can then determine departed units by comparing
+	// the previous set of available units with the current set.
+	DeprecatedDepartedUnits []int
 
 	// ApplicationSettings represent the updated application-level settings in
 	// this relation.
 	ApplicationSettings map[string]any
-
-	// UnitCount is the total number of units in the relation.
-	UnitCount int
 
 	// Life is the current life state of the relation.
 	Life corelife.Value
@@ -239,12 +239,11 @@ func (w *remoteWorker) loop() error {
 						Settings: c.Settings,
 					}
 				}),
-				LegacyDepartedUnits: change.DepartedUnits,
-				ApplicationSettings: change.ApplicationSettings,
-				UnitCount:           change.UnitCount,
-				Life:                change.Life,
-				Suspended:           unptr(change.Suspended, false),
-				SuspendedReason:     change.SuspendedReason,
+				DeprecatedDepartedUnits: change.DepartedUnits,
+				ApplicationSettings:     change.ApplicationSettings,
+				Life:                    change.Life,
+				Suspended:               unptr(change.Suspended, false),
+				SuspendedReason:         change.SuspendedReason,
 			}:
 			}
 

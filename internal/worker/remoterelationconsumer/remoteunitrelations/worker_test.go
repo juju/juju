@@ -176,8 +176,7 @@ func (s *remoteUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 		ApplicationSettings: map[string]any{
 			"foo": "bar",
 		},
-		UnitCount: 3,
-		LegacyDepartedUnits: []int{
+		DeprecatedDepartedUnits: []int{
 			4,
 		},
 		Life:            "alive",

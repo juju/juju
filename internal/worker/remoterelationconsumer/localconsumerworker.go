@@ -107,7 +107,7 @@ type localConsumerWorker struct {
 	runner   *worker.Runner
 
 	// crossModelService is the domain services used to interact with the
-	// consumers database for cross model relations.
+	// consumer's database for cross model relations.
 	crossModelService CrossModelService
 
 	// remoteModelClient interacts with the remote (offering) model.
