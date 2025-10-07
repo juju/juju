@@ -6024,7 +6024,7 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 	})
 }
 
-func (s *ApplicationSuite) TestUpdateStorageDirectives(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateStorageConstraints(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 5),
 	}
@@ -6058,7 +6058,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectives(c *gc.C) {
 	})
 }
 
-func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidStoreKey(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidStoreKey(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 5),
 	}
@@ -6082,7 +6082,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidStoreKey(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidCount(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidCount(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 5),
 	}
@@ -6107,7 +6107,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidCount(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidStorageType(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidStorageType(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 5),
 	}
@@ -6134,7 +6134,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesInvalidStorageType(c *gc.C
 	c.Assert(err, gc.NotNil)
 }
 
-func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdate(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdate(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 1),
 	}
@@ -6160,7 +6160,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdate(c *g
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
 
 	// Set charm to new charm with storage constraint count
-	// from 6-10 before running replaceStorageDirectivesOp txn.
+	// from 6-10 before running replaceStorageConstraintsOp txn.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := app.SetCharm(state.SetCharmConfig{
 			Charm:       newCh,
@@ -6197,7 +6197,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdate(c *g
 	})
 }
 
-func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdateIncompatible(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdateIncompatible(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 100, 1),
 	}
@@ -6222,7 +6222,7 @@ func (s *ApplicationSuite) TestUpdateStorageDirectivesConcurrentCharmUpdateIncom
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
 
 	// Set charm to new charm with storage constraint count
-	// from 6-10 before running replaceStorageDirectivesOp txn.
+	// from 6-10 before running replaceStorageConstraintsOp txn.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := app.SetCharm(state.SetCharmConfig{
 			Charm:       newCh,
