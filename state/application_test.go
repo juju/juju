@@ -6170,9 +6170,9 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsSizeOnly(c *gc.C) {
 
 func (s *ApplicationSuite) TestUpdateStorageConstraintsPoolOnly(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
-		"data0": makeStorageCons("filesystem", 100, 5),
+		"data0": makeStorageCons("rootfs", 100, 5),
 	}
-	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	oldMeta := mysqlBaseMeta + oneRequiredFilesystemStorageMeta + storageRange(1, 5)
 	charm := s.AddMetaCharm(c, "mysql", oldMeta, 2)
 	app := s.AddTestingApplicationWithStorage(c, "testing", charm, oldSC)
 
@@ -6180,7 +6180,7 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsPoolOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
 	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
-		Pool:  "loop",
+		Pool:  "rootfs",
 		Count: uint64(5),
 		Size:  uint64(100),
 	})
@@ -6219,7 +6219,7 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidStoreKey(c *gc.C) 
 		Size:  uint64(100),
 	})
 	newSC := map[string]state.StorageDirectivesUpdate{
-		"data0": makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(3)),
+		"wrong-storage-key": makeStorageDirectivesToUpdate("loop", uint64p(4096), uint64p(3)),
 	}
 
 	err = app.UpdateStorageConstraints(newSC)
