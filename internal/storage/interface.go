@@ -25,6 +25,17 @@ const (
 	ScopeMachine
 )
 
+// PoolAdvisor is an interface that can be offered in addition to those which
+// already implement the [ProviderRegistry] interface. The advisor is
+// responsible for recommending a default storage pool which can be used to
+// fulfill a request for a particular kind of storage.
+type PoolAdvisor interface {
+	// RecommendedPoolForKind returns a recommended storage pool to use for
+	// providing the specified kind of storage, or nil if no recommendations
+	// exist.
+	RecommendedPoolForKind(StorageKind) *Config
+}
+
 // ProviderRegistry is an interface for obtaining storage providers.
 type ProviderRegistry interface {
 	// StorageProviderTypes returns the storage provider types
