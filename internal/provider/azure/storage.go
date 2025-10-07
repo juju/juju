@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -34,16 +35,21 @@ const (
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (env *azureEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{azureStorageProviderType}, nil
+func (*azureEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return append(
+		common.CommonIAASStorageProviderTypes(),
+		azureStorageProviderType,
+	), nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
 func (env *azureEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t == azureStorageProviderType {
+	switch t {
+	case azureStorageProviderType:
 		return &azureStorageProvider{env}, nil
+	default:
+		return common.GetCommonIAASStorageProvider(t)
 	}
-	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 // azureStorageProvider is a storage provider for Azure disks.
