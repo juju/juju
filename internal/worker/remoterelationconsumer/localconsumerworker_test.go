@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
@@ -1136,6 +1137,240 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c
 	})
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionSuspended(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	token := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, relation.NewUUID)
+	mac := newMacaroon(c, "test")
+
+	done := s.expectWorkerStartup(c)
+
+	arg := params.RegisterRemoteRelationArg{
+		ApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:    relationUUID.String(),
+		OfferUUID:        s.offerUUID,
+		Macaroons:        macaroon.Slice{s.macaroon},
+		RemoteEndpoint: params.RemoteEndpoint{
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Interface: "db",
+		},
+		LocalEndpointName: "blog",
+		ConsumeVersion:    1,
+		BakeryVersion:     bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		RegisterRemoteRelations(gomock.Any(), arg).
+		Return([]params.RegisterRemoteRelationResult{{
+			Result: &params.RemoteRelationDetails{
+				Token:         token.String(),
+				Macaroon:      mac,
+				BakeryVersion: bakery.LatestVersion,
+			},
+		}}, nil)
+	s.crossModelService.EXPECT().
+		SaveMacaroonForRelation(gomock.Any(), relationUUID, mac).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	err := w.handleRelationConsumption(c.Context(), domainrelation.RelationDetails{
+		UUID: relationUUID,
+		Life: life.Alive,
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.offererRelationWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for remote relation worker to be started")
+	}
+
+	// Ensure that we create remote relation worker.
+	names := w.runner.WorkerNames()
+	c.Assert(names, tc.HasLen, 1)
+	c.Check(names, tc.SameContents, []string{
+		"offerer-relation:" + relationUUID.String(),
+	})
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	token := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, relation.NewUUID)
+	mac := newMacaroon(c, "test")
+
+	done := s.expectWorkerStartup(c)
+
+	arg := params.RegisterRemoteRelationArg{
+		ApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:    relationUUID.String(),
+		OfferUUID:        s.offerUUID,
+		Macaroons:        macaroon.Slice{s.macaroon},
+		RemoteEndpoint: params.RemoteEndpoint{
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Interface: "db",
+		},
+		LocalEndpointName: "blog",
+		ConsumeVersion:    1,
+		BakeryVersion:     bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		RegisterRemoteRelations(gomock.Any(), arg).
+		Return([]params.RegisterRemoteRelationResult{{
+			Result: &params.RemoteRelationDetails{
+				Token:         token.String(),
+				Macaroon:      mac,
+				BakeryVersion: bakery.LatestVersion,
+			},
+		}}, nil)
+	s.crossModelService.EXPECT().
+		SaveMacaroonForRelation(gomock.Any(), relationUUID, mac).
+		Return(nil)
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
+			RelationToken:           relationUUID.String(),
+			Life:                    life.Dying,
+			ApplicationOrOfferToken: s.applicationUUID.String(),
+			Macaroons:               macaroon.Slice{s.macaroon},
+			BakeryVersion:           bakery.LatestVersion,
+		}).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	err := w.handleRelationConsumption(c.Context(), domainrelation.RelationDetails{
+		UUID: relationUUID,
+		Life: life.Dying,
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: false,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.waitForAllWorkersStarted(c)
+
+	// Ensure that we create remote relation worker.
+	names := w.runner.WorkerNames()
+	c.Assert(names, tc.HasLen, 3)
+	c.Check(names, tc.SameContents, []string{
+		"offerer-relation:" + relationUUID.String(),
+		"offerer-unit-relation:" + relationUUID.String(),
+		"consumer-unit-relation:" + relationUUID.String(),
+	})
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedNonDischargeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup(c)
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	w.notifyOfferPermissionDenied(c.Context(), internalerrors.Errorf("front fell off"), relationUUID)
+}
+
+func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedDischargeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup(c)
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	s.crossModelService.EXPECT().
+		SetRemoteApplicationOffererStatus(gomock.Any(), s.applicationName, status.StatusInfo{
+			Status:  status.Error,
+			Message: "offer permission revoked: discharge required",
+		}).
+		Return(nil)
+	s.crossModelService.EXPECT().
+		ConsumeRemoteRelationChange(gomock.Any(), crossmodelrelation.RemoteRelationChangedArgs{
+			RelationUUID:    relationUUID,
+			ApplicationUUID: s.applicationUUID,
+			Suspended:       true,
+			SuspendedReason: "offer permission revoked",
+		}).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	w.notifyOfferPermissionDenied(c.Context(), params.Error{
+		Code:    params.CodeDischargeRequired,
+		Message: "discharge required",
+	}, relationUUID)
 }
 
 func (s *localConsumerWorkerSuite) newLocalConsumerWorker(c *tc.C) *localConsumerWorker {

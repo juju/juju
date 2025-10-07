@@ -489,7 +489,7 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	// The relation is not alive, notify the offerer relation worker
 	// that the relation is dying, so it can clean up.
 	if details.Life != life.Alive {
-		return w.handleRelationDying(ctx, details, result.macaroon)
+		return w.handleRelationDying(ctx, details.UUID, result.macaroon)
 	}
 
 	return nil
@@ -497,11 +497,11 @@ func (w *localConsumerWorker) handleRelationConsumption(
 
 // handleRelationDying notifies the offerer relation worker that the relation
 // is dying, so it can clean up any resources associated with it.
-func (w *localConsumerWorker) handleRelationDying(ctx context.Context, details relation.RelationDetails, mac *macaroon.Macaroon) error {
-	w.logger.Debugf(ctx, "relation %q is dying", details.UUID)
+func (w *localConsumerWorker) handleRelationDying(ctx context.Context, relationUUID corerelation.UUID, mac *macaroon.Macaroon) error {
+	w.logger.Debugf(ctx, "relation %q is dying", relationUUID)
 
 	change := params.RemoteRelationChangeEvent{
-		RelationToken:           details.UUID.String(),
+		RelationToken:           relationUUID.String(),
 		Life:                    life.Dying,
 		ApplicationOrOfferToken: w.applicationUUID.String(),
 		Macaroons:               macaroon.Slice{mac},
@@ -509,12 +509,12 @@ func (w *localConsumerWorker) handleRelationDying(ctx context.Context, details r
 	}
 
 	if err := w.remoteModelClient.PublishRelationChange(ctx, change); isNotFound(err) {
-		w.notifyOfferPermissionDenied(ctx, err, details.UUID)
-		w.logger.Debugf(ctx, "relation %q dying, but offerer side already removed", details.UUID)
+		w.notifyOfferPermissionDenied(ctx, err, relationUUID)
+		w.logger.Debugf(ctx, "relation %q dying, but offerer side already removed", relationUUID)
 		return nil
 	} else if err != nil {
-		w.notifyOfferPermissionDenied(ctx, err, details.UUID)
-		return errors.Annotatef(err, "notifying offerer relation worker that relation %q is dying", details.UUID)
+		w.notifyOfferPermissionDenied(ctx, err, relationUUID)
+		return errors.Annotatef(err, "notifying offerer relation worker that relation %q is dying", relationUUID)
 	}
 
 	return nil
