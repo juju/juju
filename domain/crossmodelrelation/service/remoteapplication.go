@@ -56,9 +56,11 @@ type ModelRemoteApplicationState interface {
 	// remote application.
 	SaveMacaroonForRelation(context.Context, string, []byte) error
 
-	// CheckOfferByUUID checks if an offer with the given UUID exists.
-	// Returns crossmodelrelationerrors.OfferNotFound if the offer is not found.
-	CheckOfferByUUID(context.Context, string) error
+	// GetApplicationUUIDByOfferUUID returns the application UUID for the given
+	// offer UUID.
+	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
+	// application is not found.
+	GetApplicationUUIDByOfferUUID(ctx context.Context, offerUUID string) (coreapplication.UUID, error)
 
 	// GetApplicationRemoteRelationByConsumerRelationUUID returns the synthetic relation UUID
 	// for a remote relation given the consumer relation UUID. Returns
@@ -287,17 +289,21 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 	return s.modelState.SaveMacaroonForRelation(ctx, relationUUID.String(), bytes)
 }
 
-// CheckOfferByUUID checks if an offer with the given UUID exists.
-// Returns crossmodelrelationerrors.OfferNotFound if the offer is not found.
-func (s *Service) CheckOfferByUUID(ctx context.Context, offerUUID string) error {
+// GetApplicationUUIDByOfferUUID returns the application UUID for the given offer UUID.
+// Returns crossmodelrelationerrors.OfferNotFound if the offer or associated application is not found.
+func (s *Service) GetApplicationUUIDByOfferUUID(ctx context.Context, offerUUID string) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if !uuid.IsValidUUIDString(offerUUID) {
-		return internalerrors.Errorf("offer UUID %q is not a valid UUID", offerUUID).Add(errors.NotValid)
+		return "", internalerrors.Errorf("offer UUID %q is not a valid UUID", offerUUID).Add(errors.NotValid)
 	}
 
-	return s.modelState.CheckOfferByUUID(ctx, offerUUID)
+	appUUID, err := s.modelState.GetApplicationUUIDByOfferUUID(ctx, offerUUID)
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+	return appUUID, nil
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {

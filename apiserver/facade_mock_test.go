@@ -15,8 +15,8 @@ import (
 
 	bakery "github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	checkers "github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	bakery0 "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
 	facade "github.com/juju/juju/apiserver/facade"
+	bakery0 "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
 	model "github.com/juju/juju/core/model"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
@@ -43,6 +43,44 @@ func NewMockCrossModelAuthContext(ctrl *gomock.Controller) *MockCrossModelAuthCo
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCrossModelAuthContext) EXPECT() *MockCrossModelAuthContextMockRecorder {
 	return m.recorder
+}
+
+// Authenticator mocks base method.
+func (m *MockCrossModelAuthContext) Authenticator() facade.MacaroonAuthenticator {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Authenticator")
+	ret0, _ := ret[0].(facade.MacaroonAuthenticator)
+	return ret0
+}
+
+// Authenticator indicates an expected call of Authenticator.
+func (mr *MockCrossModelAuthContextMockRecorder) Authenticator() *MockCrossModelAuthContextAuthenticatorCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authenticator", reflect.TypeOf((*MockCrossModelAuthContext)(nil).Authenticator))
+	return &MockCrossModelAuthContextAuthenticatorCall{Call: call}
+}
+
+// MockCrossModelAuthContextAuthenticatorCall wrap *gomock.Call
+type MockCrossModelAuthContextAuthenticatorCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelAuthContextAuthenticatorCall) Return(arg0 facade.MacaroonAuthenticator) *MockCrossModelAuthContextAuthenticatorCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelAuthContextAuthenticatorCall) Do(f func() facade.MacaroonAuthenticator) *MockCrossModelAuthContextAuthenticatorCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelAuthContextAuthenticatorCall) DoAndReturn(f func() facade.MacaroonAuthenticator) *MockCrossModelAuthContextAuthenticatorCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // CheckLocalAccessRequest mocks base method.
@@ -158,44 +196,6 @@ func (c *MockCrossModelAuthContextCreateConsumeOfferMacaroonCall) Do(f func(cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelAuthContextCreateConsumeOfferMacaroonCall) DoAndReturn(f func(context.Context, model.UUID, string, string, bakery.Version) (*bakery.Macaroon, error)) *MockCrossModelAuthContextCreateConsumeOfferMacaroonCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Authenticator mocks base method.
-func (m *MockCrossModelAuthContext) Authenticator() facade.MacaroonAuthenticator {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Authenticator")
-	ret0, _ := ret[0].(facade.MacaroonAuthenticator)
-	return ret0
-}
-
-// Authenticator indicates an expected call of Authenticator.
-func (mr *MockCrossModelAuthContextMockRecorder) Authenticator() *MockCrossModelAuthContextAuthenticatorCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authenticator", reflect.TypeOf((*MockCrossModelAuthContext)(nil).Authenticator))
-	return &MockCrossModelAuthContextAuthenticatorCall{Call: call}
-}
-
-// MockCrossModelAuthContextAuthenticatorCall wrap *gomock.Call
-type MockCrossModelAuthContextAuthenticatorCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelAuthContextAuthenticatorCall) Return(arg0 facade.MacaroonAuthenticator) *MockCrossModelAuthContextAuthenticatorCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelAuthContextAuthenticatorCall) Do(f func() facade.MacaroonAuthenticator) *MockCrossModelAuthContextAuthenticatorCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelAuthContextAuthenticatorCall) DoAndReturn(f func() facade.MacaroonAuthenticator) *MockCrossModelAuthContextAuthenticatorCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

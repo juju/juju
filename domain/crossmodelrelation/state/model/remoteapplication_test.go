@@ -763,22 +763,26 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerCheckVersi
 	c.Check(remoteApp2Version, tc.Equals, uint64(1)) // Same offer, so version increments
 }
 
-func (s *modelRemoteApplicationSuite) TestCheckOfferByUUID(c *tc.C) {
-	// Create an offer first
+func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUID(c *tc.C) {
+	// Create application, charm and offer first
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
 	s.createOffer(c, offerUUID)
+	s.createCharm(c, charmUUID)
+	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
-	// Test with existing offer UUID - should return no error
-	err := s.state.CheckOfferByUUID(c.Context(), offerUUID)
+	// Retrieve application UUID by offer UUID - should return the correct UUID
+	got, err := s.state.GetApplicationUUIDByOfferUUID(c.Context(), offerUUID)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(got), tc.Equals, applicationUUID)
 }
 
-func (s *modelRemoteApplicationSuite) TestCheckOfferByUUIDNotExists(c *tc.C) {
-	// Test with non-existing offer UUID - should return OfferNotFound error
+func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUIDNotExists(c *tc.C) {
+	// Test with non-existing offer UUID - should return application not found (no linked application)
 	nonExistentUUID := tc.Must(c, internaluuid.NewUUID).String()
-	err := s.state.CheckOfferByUUID(c.Context(), nonExistentUUID)
-	c.Assert(err, tc.ErrorMatches, "offer not found")
-	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
+	_, err := s.state.GetApplicationUUIDByOfferUUID(c.Context(), nonExistentUUID)
+	c.Assert(err, tc.ErrorMatches, "application not found")
 }
 
 func (s *modelRemoteApplicationSuite) TestGetApplicationRemoteRelationByConsumerRelationUUID(c *tc.C) {

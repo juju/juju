@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/logger"
@@ -14,7 +16,6 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v6"
 )
 
 // CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.
@@ -72,8 +73,8 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	ctx context.Context,
 	relation params.RegisterRemoteRelationArg,
 ) (*params.RemoteRelationDetails, error) {
-	// Make sure the provided offer UUID exists.
-	err := api.crossModelRelationService.CheckOfferByUUID(ctx, relation.OfferUUID)
+	// Retrieve the application UUID for the provided offer UUID (also validates offer exists).
+	appUUID, err := api.crossModelRelationService.GetApplicationUUIDByOfferUUID(ctx, relation.OfferUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +124,9 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}
 	return &params.RemoteRelationDetails{
-		Token:    token,
+		// The offering model application UUID is used as the token for the
+		// remote model.
+		Token:    appUUID.String(),
 		Macaroon: relationMacaroon.M(),
 	}, nil
 }
