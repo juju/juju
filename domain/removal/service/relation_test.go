@@ -106,7 +106,7 @@ func (s *relationSuite) TestLeaveScope(c *tc.C) {
 
 func (s *relationSuite) TestLeaveScopeRelationUnitNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	
+
 	err := s.newService(c).LeaveScope(c.Context(), "bad-relation-unit-uuid")
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
