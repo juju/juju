@@ -99,7 +99,7 @@ CREATE UNIQUE INDEX idx_application_remote_consumer_consumed_application_uuid
 ON application_remote_consumer (consumer_application_uuid);
 
 -- application_remote_relation represents a look up table to find the consumer
--- relation UUID for a given (syntethic) relation in the offerer model.
+-- relation UUID for a given (synthetic) relation in the offerer model.
 CREATE TABLE application_remote_relation (
     -- relation_uuid is the relation UUID as created in the offerer model. This
     -- is effectively a synthetic relation.

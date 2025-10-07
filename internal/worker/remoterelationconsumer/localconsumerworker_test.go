@@ -1316,7 +1316,97 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDying(c 
 	workertest.CleanKill(c, w)
 }
 
-func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedNonDischargeError(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDischargeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	token := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, relation.NewUUID)
+	mac := newMacaroon(c, "test")
+
+	done := s.expectWorkerStartup(c)
+
+	arg := params.RegisterRemoteRelationArg{
+		ApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:    relationUUID.String(),
+		OfferUUID:        s.offerUUID,
+		Macaroons:        macaroon.Slice{s.macaroon},
+		RemoteEndpoint: params.RemoteEndpoint{
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Interface: "db",
+		},
+		LocalEndpointName: "blog",
+		ConsumeVersion:    1,
+		BakeryVersion:     bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		RegisterRemoteRelations(gomock.Any(), arg).
+		Return([]params.RegisterRemoteRelationResult{{
+			Result: &params.RemoteRelationDetails{
+				Token:         token.String(),
+				Macaroon:      mac,
+				BakeryVersion: bakery.LatestVersion,
+			},
+		}}, nil)
+	s.crossModelService.EXPECT().
+		SaveMacaroonForRelation(gomock.Any(), relationUUID, mac).
+		Return(nil)
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
+			RelationToken:           relationUUID.String(),
+			Life:                    life.Dying,
+			ApplicationOrOfferToken: s.applicationUUID.String(),
+			Macaroons:               macaroon.Slice{s.macaroon},
+			BakeryVersion:           bakery.LatestVersion,
+		}).
+		Return(params.Error{
+			Code:    params.CodeDischargeRequired,
+			Message: "discharge required",
+		})
+
+	s.crossModelService.EXPECT().
+		SetRemoteApplicationOffererStatus(gomock.Any(), s.applicationName, status.StatusInfo{
+			Status:  status.Error,
+			Message: "offer permission revoked: discharge required",
+		}).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	err := w.handleRelationConsumption(c.Context(), domainrelation.RelationDetails{
+		UUID: relationUUID,
+		Life: life.Dying,
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: false,
+	})
+	c.Assert(err, tc.ErrorIs, ErrPermissionRevokedWhilstDying)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleDischargeRequiredWhilstDyingNonDischargeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := s.expectWorkerStartup(c)
@@ -1332,7 +1422,8 @@ func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedNonDischargeEr
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	w.notifyOfferPermissionDenied(c.Context(), internalerrors.Errorf("front fell off"), relationUUID)
+	err := w.handleDischargeRequiredWhilstDying(c.Context(), internalerrors.Errorf("front fell off"), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedDischargeError(c *tc.C) {
@@ -1348,9 +1439,6 @@ func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedDischargeError
 			Message: "offer permission revoked: discharge required",
 		}).
 		Return(nil)
-	s.crossModelService.EXPECT().
-		SuspendRelation(gomock.Any(), s.applicationUUID, relationUUID, "offer permission revoked").
-		Return(nil)
 
 	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -1361,10 +1449,11 @@ func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedDischargeError
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	w.notifyOfferPermissionDenied(c.Context(), params.Error{
+	err := w.handleDischargeRequiredWhilstDying(c.Context(), params.Error{
 		Code:    params.CodeDischargeRequired,
 		Message: "discharge required",
 	}, relationUUID)
+	c.Assert(err, tc.ErrorIs, ErrPermissionRevokedWhilstDying)
 }
 
 func (s *localConsumerWorkerSuite) newLocalConsumerWorker(c *tc.C) *localConsumerWorker {
