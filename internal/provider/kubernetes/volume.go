@@ -21,61 +21,7 @@ import (
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/storage"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
-	jujustorage "github.com/juju/juju/internal/storage"
 )
-
-// RecommendedPoolForKind returns the recommended storage pool to use for
-// supplied storage kind. At the moment the only supported recommended kind is
-// filesystem.
-//
-// This func implements the [jujustorage.PoolAdvisor] interface.
-func (k *kubernetesClient) RecommendedPoolForKind(
-	kind jujustorage.StorageKind,
-) *jujustorage.Config {
-	// NOTE (tlm): The Juju logic around if a storage provider through either
-	// it's filesystem or volume source is capable of supporting a given storage
-	// kind is not owned by a provider today. This determinantion is made by
-	// storage provisoning where the assumption is that a volume source can be a
-	// volume or filesystem source. This divorses the provider from being
-	// involved in the decision making even though it provides the storage.
-	//
-	// For now we assume that the Kubernetes provider is always capable of
-	// creating filesystems and block devices are not supported on Kubernetes.
-	if kind != jujustorage.StorageKindFilesystem {
-		return nil
-	}
-
-	s := storageProvider{k}
-	defaultPools := s.DefaultPools()
-	// We take the first default pool offered by the storage provider.
-	if len(defaultPools) != 0 {
-		return defaultPools[0]
-	}
-	return nil
-}
-
-// StorageProviderTypes is defined on the jujustorage.ProviderRegistry interface.
-func (*kubernetesClient) StorageProviderTypes() ([]jujustorage.ProviderType, error) {
-	return []jujustorage.ProviderType{
-		constants.StorageProviderType,
-		constants.StorageProviderTypeRootfs,
-		constants.StorageProviderTypeTmpfs,
-	}, nil
-}
-
-// StorageProvider is defined on the jujustorage.ProviderRegistry interface.
-func (k *kubernetesClient) StorageProvider(t jujustorage.ProviderType) (jujustorage.Provider, error) {
-	switch t {
-	case constants.StorageProviderType:
-		return &storageProvider{k}, nil
-	case constants.StorageProviderTypeRootfs:
-		return &rootfsStorageProvider{}, nil
-	case constants.StorageProviderTypeTmpfs:
-		return &tmpfsStorageProvider{}, nil
-	default:
-		return nil, errors.NotFoundf("storage provider %q", t)
-	}
-}
 
 func (k *kubernetesClient) deleteStorageClasses(ctx context.Context, selector k8slabels.Selector) error {
 	err := k.client().StorageV1().StorageClasses().DeleteCollection(ctx, v1.DeleteOptions{
