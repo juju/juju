@@ -7,10 +7,10 @@ import "gopkg.in/tomb.v2"
 
 type MockWatcher[T any] struct {
 	tomb tomb.Tomb
-	ch   <-chan []T
+	ch   <-chan T
 }
 
-func NewMockWatcher[T any](ch <-chan []T) *MockWatcher[T] {
+func NewMockWatcher[T any](ch <-chan T) *MockWatcher[T] {
 	w := &MockWatcher[T]{ch: ch}
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -19,7 +19,7 @@ func NewMockWatcher[T any](ch <-chan []T) *MockWatcher[T] {
 	return w
 }
 
-func (w *MockWatcher[T]) Changes() <-chan []T {
+func (w *MockWatcher[T]) Changes() <-chan T {
 	return w.ch
 }
 

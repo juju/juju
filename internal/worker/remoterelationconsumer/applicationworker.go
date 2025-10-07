@@ -349,10 +349,11 @@ func (w *remoteApplicationWorker) watchRemoteOfferStatus(ctx context.Context) (w
 		BakeryVersion: bakery.LatestVersion,
 	})
 	if isNotFound(err) {
-		w.checkOfferPermissionDenied(ctx, err, "", "")
 		return nil, w.remoteOfferRemoved(ctx)
 	} else if err != nil {
-		w.checkOfferPermissionDenied(ctx, err, "", "")
+		if statusErr := w.setApplicationOffererStatusMacaroonError(ctx, err); statusErr != nil {
+			w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v", w.applicationName, w.offererModelUUID, statusErr)
+		}
 		return nil, errors.Annotate(err, "watching status for offer")
 	}
 
@@ -363,39 +364,18 @@ func (w *remoteApplicationWorker) watchRemoteOfferStatus(ctx context.Context) (w
 	return offerStatusWatcher, nil
 }
 
-func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context, err error, appToken, localRelationToken string) {
-	// If consume permission has been revoked for the offer, set the
-	// status of the local remote application entity.
+func (w *remoteApplicationWorker) setApplicationOffererStatusMacaroonError(ctx context.Context, err error) error {
 	if params.ErrCode(err) != params.CodeDischargeRequired {
-		return
+		return nil
 	}
 
 	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
 		Status:  status.Error,
 		Message: err.Error(),
 	}); err != nil {
-		w.logger.Errorf(ctx,
-			"updating remote application %v status from remote model %v: %v",
-			w.applicationName, w.offererModelUUID, err)
+		return err
 	}
-
-	// If we don't have the tokens, we can't do anything more.
-	if localRelationToken == "" {
-		return
-	}
-
-	w.logger.Debugf(ctx, "discharge required error: app token: %v rel token: %v", appToken, localRelationToken)
-
-	event := params.RemoteRelationChangeEvent{
-		RelationToken:           localRelationToken,
-		ApplicationOrOfferToken: appToken,
-		Suspended:               ptr(true),
-		SuspendedReason:         "offer permission revoked",
-	}
-	_ = event
-	if err := w.crossModelService.ConsumeRemoteRelationChange(ctx); err != nil {
-		w.logger.Errorf(ctx, "updating relation status: %v", err)
-	}
+	return nil
 }
 
 func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error {
@@ -469,27 +449,70 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 
 	// We have not seen the relation before, or the relation was suspended, make
 	// sure it is registered (ack'd) on the offering side.
-	remoteRelation, err := w.registerRemoteRelation(
+	result, err := w.registerConsumerRelation(
 		ctx,
 		details.UUID, w.offerUUID, w.consumeVersion,
 		synthEndpoint, otherEndpointName,
 	)
 	if err != nil {
-		w.checkOfferPermissionDenied(ctx, err, "", "")
+		if statusErr := w.setApplicationOffererStatusMacaroonError(ctx, err); statusErr != nil {
+			w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v", w.applicationName, w.offererModelUUID, statusErr)
+		}
 		return errors.Annotatef(err, "registering application %q and relation %q", w.applicationName, details.UUID)
 	}
-	w.logger.Debugf(ctx, "consumer relation registered for %q: %v", details.UUID, remoteRelation)
 
-	_ = remoteRelation
+	w.logger.Debugf(ctx, "consumer relation registered for %q: %v", details.UUID, result)
+
+	// Start the remote relation worker to watch for offerer relation changes.
+	// The aim is to ensure that we can track the suspended status of the
+	// relation so we can correctly react to that.
+	if err := w.ensureOffererRelationWorker(ctx, details.UUID, result.offererApplicationUUID, result.macaroon); err != nil {
+		return errors.Annotatef(err, "creating offerer relation worker for %q", details.UUID)
+	}
 
 	return nil
 }
 
-func (w *remoteApplicationWorker) registerRemoteRelation(
+// Ensure a new worker to watch for changes to the relation in the offering
+// model.
+//
+// The worker is identified by the relation UUID, so it can track that
+// information, along with the offering application UUID and macaroon used to
+// access the relation in the offering model. If we have this information, we
+// should be able to pin point the relation in the offering model.
+func (w *remoteApplicationWorker) ensureOffererRelationWorker(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	offererApplicationUUID application.UUID,
+	mac *macaroon.Macaroon,
+) error {
+	name := fmt.Sprintf("offerer-relation:%s", relationUUID)
+	if err := w.runner.StartWorker(ctx, name, func(ctx context.Context) (worker.Worker, error) {
+		return w.newRemoteRelationsWorker(remoterelations.Config{
+			Client:                 w.remoteModelClient,
+			ConsumerRelationUUID:   relationUUID,
+			OffererApplicationUUID: offererApplicationUUID,
+			Macaroon:               mac,
+			Changes:                w.remoteRelationChanges,
+			Clock:                  w.clock,
+			Logger:                 w.logger,
+		})
+
+	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
+		return errors.Annotatef(err, "starting offerer relation worker for %q", relationUUID)
+	}
+
+	return nil
+}
+
+// registerConsumerRelation registers the relation in the offering model,
+// and returns the offering application UUID and macaroon for the relation.
+// The relation has been created in the consumer model.
+func (w *remoteApplicationWorker) registerConsumerRelation(
 	ctx context.Context,
 	relationUUID corerelation.UUID, offerUUID string, consumeVersion int,
 	applicationEndpointIdent relation.Endpoint, remoteEndpointName string,
-) (remoteRelationResult, error) {
+) (consumerRelationResult, error) {
 	w.logger.Debugf(ctx, "register consumer relation %q to synthetic offerer application %q", relationUUID, w.applicationName)
 
 	// This data goes to the remote model so we map local info
@@ -510,50 +533,50 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 		Macaroons:         macaroon.Slice{w.offerMacaroon},
 		BakeryVersion:     bakery.LatestVersion,
 	}
-	remoteRelations, err := w.remoteModelClient.RegisterRemoteRelations(ctx, arg)
+	offererRelations, err := w.remoteModelClient.RegisterRemoteRelations(ctx, arg)
 	if err != nil {
-		return remoteRelationResult{}, errors.Trace(err)
-	} else if len(remoteRelations) == 0 {
-		return remoteRelationResult{}, errors.New("no result from registering remote relation")
-	} else if len(remoteRelations) > 1 {
-		w.logger.Infof(ctx, "expected one result from registering remote relation, got %d", len(remoteRelations))
+		return consumerRelationResult{}, errors.Trace(err)
+	} else if len(offererRelations) == 0 {
+		return consumerRelationResult{}, errors.New("no result from registering remote relation")
+	} else if len(offererRelations) > 1 {
+		w.logger.Warningf(ctx, "expected one result from registering remote relation, got %d", len(offererRelations))
 	}
 
 	// We've guarded against this from being out of bounds, so it's safe to do
 	// a raw access.
-	remoteRelation := remoteRelations[0]
-	if err := remoteRelation.Error; err != nil {
-		return remoteRelationResult{}, errors.Annotatef(err, "registering relation %q", relationUUID)
+	offererRelation := offererRelations[0]
+	if err := offererRelation.Error; err != nil {
+		return consumerRelationResult{}, errors.Annotatef(err, "registering relation %q", relationUUID)
 	}
 
 	// Import the application UUID from the offering model.
-	registerResult := *remoteRelation.Result
+	registerResult := *offererRelation.Result
 
 	// The register result token is always a UUID. This is the case for 3.x
 	// and onwards. This should ensure that we're backwards compatible with
 	// anything that the remote model is running.
 	//
 	// See: https://github.com/juju/juju/blob/43e381811d9e330ee2d095c1e0562300bd78b68a/state/remoteentities.go#L110-L115
-	offeringAppUUID, err := application.ParseID(registerResult.Token)
+	offererAppUUID, err := application.ParseID(registerResult.Token)
 	if err != nil {
-		return remoteRelationResult{}, errors.Annotatef(err, "parsing offering application token %q", registerResult.Token)
+		return consumerRelationResult{}, errors.Annotatef(err, "parsing offering application token %q", registerResult.Token)
 	}
 
 	// We have a new macaroon attenuated to the relation.
 	// Save for the firewaller.
 	if err := w.crossModelService.SaveMacaroonForRelation(ctx, relationUUID, registerResult.Macaroon); err != nil {
-		return remoteRelationResult{}, errors.Annotatef(err, "saving macaroon for %q", relationUUID)
+		return consumerRelationResult{}, errors.Annotatef(err, "saving macaroon for %q", relationUUID)
 	}
 
-	return remoteRelationResult{
-		offeringApplicationUUID: offeringAppUUID,
-		macaroon:                registerResult.Macaroon,
+	return consumerRelationResult{
+		offererApplicationUUID: offererAppUUID,
+		macaroon:               registerResult.Macaroon,
 	}, nil
 }
 
-type remoteRelationResult struct {
-	offeringApplicationUUID application.UUID
-	macaroon                *macaroon.Macaroon
+type consumerRelationResult struct {
+	offererApplicationUUID application.UUID
+	macaroon               *macaroon.Macaroon
 }
 
 // isNotFound allows either type of not found error
@@ -564,8 +587,4 @@ func isNotFound(err error) bool {
 		return false
 	}
 	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
