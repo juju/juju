@@ -57,15 +57,16 @@ func (st *State) GetApplicationStorageDirectives(
 
 	appUUIDInput := entityUUID{UUID: appUUID.String()}
 	query, err := st.Prepare(`
-SELECT &storageDirective.* (
+SELECT &storageDirective.* FROM (
     SELECT asd.count,
            asd.size_mib,
            asd.storage_name,
            asd.storage_pool_uuid,
            cm.name AS charm_metadata_name,
-           csk.kind AS charm_storage_kind
+           csk.kind AS charm_storage_kind,
+           cs.count_max AS count_max
     FROM   application_storage_directive asd
-    JOIN   charm_storage cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.name
+    JOIN   charm_storage cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.storage_name
     JOIN   charm_metadata cm ON cm.charm_uuid = asd.charm_uuid
     JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
     WHERE  application_uuid = $entityUUID.uuid
@@ -104,12 +105,12 @@ SELECT &storageDirective.* (
 
 	rval := make([]application.StorageDirective, 0, len(dbVals))
 	for _, val := range dbVals {
-
 		rval = append(rval, application.StorageDirective{
 			CharmMetadataName: val.CharmMetadataName,
-			Count:             val.Count,
-			Name:              domainstorage.Name(val.StorageName),
 			CharmStorageType:  charm.StorageType(val.CharmStorageKind),
+			Count:             val.Count,
+			MaxCount:          val.CountMax,
+			Name:              domainstorage.Name(val.StorageName),
 			PoolUUID:          domainstorage.StoragePoolUUID(val.StoragePoolUUID),
 			Size:              val.SizeMiB,
 		})

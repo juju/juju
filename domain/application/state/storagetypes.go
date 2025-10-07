@@ -120,8 +120,9 @@ type storageVolumeUUIDRef struct {
 // model or an application.
 type storageDirective struct {
 	CharmMetadataName string `db:"charm_metadata_name"`
-	Count             uint32 `db:"count"`
 	CharmStorageKind  string `db:"charm_storage_kind"`
+	Count             uint32 `db:"count"`
+	CountMax          uint32 `db:"count_max"`
 	SizeMiB           uint64 `db:"size_mib"`
 	StorageName       string `db:"storage_name"`
 	StoragePoolUUID   string `db:"storage_pool_uuid"`
