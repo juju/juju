@@ -287,6 +287,12 @@ WHERE  relation_endpoint_uuid IN (
 		return errors.Errorf("preparing relation endpoint deletion: %w", err)
 	}
 
+	archiveStmt, err := st.Prepare(
+		"DELETE FROM relation_unit_setting_archive WHERE relation_uuid = $entityUUID.uuid ", relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation unit settings archive deletion: %w", err)
+	}
+
 	statusStmt, err := st.Prepare("DELETE FROM relation_status WHERE relation_uuid = $entityUUID.uuid ", relationUUID)
 	if err != nil {
 		return errors.Errorf("preparing relation status deletion: %w", err)
@@ -314,6 +320,11 @@ WHERE  relation_endpoint_uuid IN (
 				err = removalerrors.UnitsStillInScope
 			}
 			return errors.Errorf("running relation endpoint deletion: %w", err)
+		}
+
+		err = tx.Query(ctx, archiveStmt, relationUUID).Run()
+		if err != nil {
+			return errors.Errorf("running relation unit settings archive deletion: %w", err)
 		}
 
 		err = tx.Query(ctx, statusStmt, relationUUID).Run()

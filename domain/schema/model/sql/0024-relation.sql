@@ -137,6 +137,27 @@ CREATE TABLE relation_unit_settings_hash (
     REFERENCES relation_unit (uuid)
 );
 
+-- relation_unit_setting_archive is used to fullfil a contract we have, whereby
+-- the settings for a relation unit are accessible for the lifetime of a
+-- relation, regardless of whether the unit has departed the relation, or even
+-- exists any longer.
+-- Upon leaving scope, we copy the unit's relation settings into this table.
+-- Accessing relation settings via the relation-get hook tool will cause Juju to
+-- check this table if the requested unit is not in scope.
+-- We need no triggers for this table, because we copy the settings before doing
+-- the relation_unit_settings deletion, and once copied they are static until
+-- the relation itself is deleted.
+CREATE TABLE relation_unit_setting_archive (
+    relation_uuid TEXT NOT NULL,
+    unit_name TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT,
+    CONSTRAINT fk_relation_uuid
+    FOREIGN KEY (relation_uuid)
+    REFERENCES relation (uuid),
+    PRIMARY KEY (relation_uuid, unit_name, "key")
+);
+
 -- The relation_application_setting holds key value pair settings
 -- for a relation at the application level. Keys must be unique
 -- per application.

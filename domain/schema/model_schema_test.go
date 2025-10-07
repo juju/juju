@@ -288,6 +288,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"relation_status",
 		"relation_unit_setting",
 		"relation_unit_settings_hash",
+		"relation_unit_setting_archive",
 		"relation_unit",
 		"relation",
 
