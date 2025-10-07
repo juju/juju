@@ -121,6 +121,12 @@ type State interface {
 	// relation unit.
 	GetRelationUnitSettings(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (map[string]string, error)
 
+	// GetRelationUnitSettingsArchive retrieves the archived relation settings
+	// for the input relation UUID and unit name.
+	// This is a fallback for accessing relation settings for units that are no
+	// longer in the relation scope, which gauarantee the ability to do.
+	GetRelationUnitSettingsArchive(ctx context.Context, relationUUID, unitName string) (map[string]string, error)
+
 	// InferRelationUUIDByEndpoints infers the relation based on two endpoints.
 	InferRelationUUIDByEndpoints(
 		ctx context.Context,
@@ -555,25 +561,55 @@ func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.U
 	return s.st.GetRelationUnitChanges(ctx, unitUUIDs, appUUIDs)
 }
 
-// GetRelationUnitSettings returns the relation unit settings for the given
-// relation unit.
-//
-// The following error types can be expected to be returned:
-//   - [relationerrors.RelationUnitNotFound] is returned if the
-//     unit is not part of the relation.
+// GetRelationUnitSettings returns the relation settings for the
+// input unit in the input relation.
+// If there is no relation unit entry associated with the input,
+// check for archived settings in case we're dealing with a
+// former relation participant.
 func (s *Service) GetRelationUnitSettings(
 	ctx context.Context,
-	relationUnitUUID corerelation.UnitUUID,
+	relationUUID corerelation.UUID,
+	unitName unit.Name,
 ) (map[string]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := relationUnitUUID.Validate(); err != nil {
+	if err := relationUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+			"%w: %w", relationerrors.RelationUUIDNotValid, err)
 	}
 
-	return s.st.GetRelationUnitSettings(ctx, relationUnitUUID)
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ruUUID, err := s.st.GetRelationUnit(ctx, relationUUID, unitName)
+	if err != nil && !errors.Is(err, relationerrors.RelationUnitNotFound) {
+		return nil, errors.Capture(err)
+	}
+
+	// There is a relation-unit for this combination.
+	// Try to retrieve the settings.
+	// It is possible (however unlikely) that the unit left scope between
+	// getting the relation unit and attempting to access the settings.
+	var settings map[string]string
+	if err == nil {
+		settings, err = s.st.GetRelationUnitSettings(ctx, ruUUID)
+	}
+	if !errors.Is(err, relationerrors.RelationUnitNotFound) {
+		return settings, errors.Capture(err)
+	}
+
+	// If we got here, we got a not-found error either from getting the
+	// relation-unit or the settings. Check the archive.
+	settings, err = s.st.GetRelationUnitSettingsArchive(ctx, relationUUID.String(), unitName.String())
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if len(settings) == 0 {
+		return nil, relationerrors.RelationUnitNotFound
+	}
+	return settings, nil
 }
 
 // GetRelationUUIDByID returns the relation UUID based on the relation ID.
