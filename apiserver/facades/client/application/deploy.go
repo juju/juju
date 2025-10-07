@@ -42,7 +42,7 @@ type DeployApplicationParams struct {
 	// Placement is a list of placement directives which may be used
 	// instead of a machine spec.
 	Placement        []*instance.Placement
-	Storage          map[string]storage.Directive
+	Storage          map[string]storage.Constraints
 	Devices          map[string]devices.Constraints
 	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
@@ -162,7 +162,7 @@ func addUnits(
 	return units, nil
 }
 
-func stateStorageConstraints(cons map[string]storage.Directive) map[string]state.StorageConstraints {
+func stateStorageConstraints(cons map[string]storage.Constraints) map[string]state.StorageConstraints {
 	result := make(map[string]state.StorageConstraints)
 	for name, cons := range cons {
 		result[name] = state.StorageConstraints{

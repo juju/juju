@@ -700,7 +700,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 		charmDir.Meta(),
 		charmDir.Metrics(),
 		false, false, 1, nil, nil,
-		map[string]storage.Directive{
+		map[string]storage.Constraints{
 			"data": {
 				Pool:  "machinescoped",
 				Size:  1024,
@@ -2560,7 +2560,7 @@ func withCharmDeployableWithStorage(
 	numUnits int,
 	attachStorage []string,
 	config map[string]string,
-	storage map[string]storage.Directive,
+	storage map[string]storage.Constraints,
 ) {
 	withCharmDeployableWithDevicesAndStorage(
 		fakeAPI,
@@ -2591,7 +2591,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	numUnits int,
 	attachStorage []string,
 	config map[string]string,
-	storage map[string]storage.Directive,
+	storage map[string]storage.Constraints,
 	devices map[string]devices.Constraints,
 ) {
 	deployURL := *url

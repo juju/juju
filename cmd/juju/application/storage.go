@@ -228,7 +228,7 @@ type StorageDirectivesAPI interface {
 
 // setConfig sets the provided key/value pairs on the application.
 func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs config.Attrs) error {
-	sd := make(map[string]storage.Directive, len(attrs))
+	sd := make(map[string]storage.Constraints, len(attrs))
 	for k, v := range attrs {
 		// This should give us a string of the form "10G,rootfs,1".
 		constraintsStr := fmt.Sprint(v)
@@ -265,7 +265,7 @@ func (c *storageConfigCommand) getConfig(ctx *cmd.Context, client StorageDirecti
 	}
 
 	// Convert it to the desired map format so that the output package can format it.
-	storageConsForKeyMap := map[string]storage.Directive{
+	storageConsForKeyMap := map[string]storage.Constraints{
 		storeKey: storageConsForKey,
 	}
 
@@ -284,9 +284,9 @@ func (c *storageConfigCommand) getAllConfig(ctx *cmd.Context, client StorageDire
 
 // formatConfigTabular writes a tabular summary of config information.
 func formatConfigTabular(writer io.Writer, value interface{}) error {
-	configValues, ok := value.(map[string]storage.Directive)
+	configValues, ok := value.(map[string]storage.Constraints)
 	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", map[string]storage.Directive{}, value)
+		return errors.Errorf("expected value of type %T, got %T", map[string]storage.Constraints{}, value)
 	}
 
 	tw := output.TabWriter(writer)

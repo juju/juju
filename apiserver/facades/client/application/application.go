@@ -470,7 +470,7 @@ type caasDeployParams struct {
 	charm           CharmMeta
 	config          map[string]string
 	placement       []*instance.Placement
-	storage         map[string]storage.Directive
+	storage         map[string]storage.Constraints
 }
 
 // precheck, checks the deploy config based on caas specific

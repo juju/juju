@@ -52,17 +52,17 @@ func (FlagSuite) TestStringMapDupVal(c *gc.C) {
 }
 
 func (FlagSuite) TestStorageFlag(c *gc.C) {
-	var stores map[string]storage.Directive
+	var stores map[string]storage.Constraints
 	flag := storageFlag{&stores, nil}
 	err := flag.Set("foo=bar")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stores, jc.DeepEquals, map[string]storage.Directive{
+	c.Assert(stores, jc.DeepEquals, map[string]storage.Constraints{
 		"foo": {Pool: "bar", Count: 1},
 	})
 }
 
 func (FlagSuite) TestStorageFlagErrors(c *gc.C) {
-	flag := storageFlag{new(map[string]storage.Directive), nil}
+	flag := storageFlag{new(map[string]storage.Constraints), nil}
 	err := flag.Set("foo")
 	c.Assert(err, gc.ErrorMatches, `expected <store>=<constraints>`)
 	err = flag.Set("foo:bar=baz")
@@ -72,17 +72,17 @@ func (FlagSuite) TestStorageFlagErrors(c *gc.C) {
 }
 
 func (FlagSuite) TestStorageFlagBundleStorage(c *gc.C) {
-	var stores map[string]storage.Directive
-	var bundleStores map[string]map[string]storage.Directive
+	var stores map[string]storage.Constraints
+	var bundleStores map[string]map[string]storage.Constraints
 	flag := storageFlag{&stores, &bundleStores}
 	err := flag.Set("foo=bar")
 	c.Assert(err, jc.ErrorIsNil)
 	err = flag.Set("app:baz=qux")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stores, jc.DeepEquals, map[string]storage.Directive{
+	c.Assert(stores, jc.DeepEquals, map[string]storage.Constraints{
 		"foo": {Pool: "bar", Count: 1},
 	})
-	c.Assert(bundleStores, jc.DeepEquals, map[string]map[string]storage.Directive{
+	c.Assert(bundleStores, jc.DeepEquals, map[string]map[string]storage.Constraints{
 		"app": {
 			"baz": {Pool: "qux", Count: 1},
 		},
@@ -90,7 +90,7 @@ func (FlagSuite) TestStorageFlagBundleStorage(c *gc.C) {
 }
 
 func (FlagSuite) TestStorageFlagBundleStorageErrors(c *gc.C) {
-	flag := storageFlag{new(map[string]storage.Directive), new(map[string]map[string]storage.Directive)}
+	flag := storageFlag{new(map[string]storage.Constraints), new(map[string]map[string]storage.Constraints)}
 	err := flag.Set("foo")
 	c.Assert(err, gc.ErrorMatches, `expected \[<application>\:]<store>=<constraints>`)
 }

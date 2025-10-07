@@ -153,7 +153,7 @@ type refreshCommand struct {
 
 	// Storage is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata, to add or update during upgrade.
-	Storage map[string]storage.Directive
+	Storage map[string]storage.Constraints
 
 	// Trust signifies that the charm should have access to trusted credentials.
 	// That is, hooks run by the charm can access cloud credentials and other

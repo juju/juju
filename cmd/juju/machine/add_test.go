@@ -240,7 +240,7 @@ func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
 	param := s.fakeAddMachine.args[0]
-	c.Assert(param.Disks, gc.DeepEquals, []storage.Directive{
+	c.Assert(param.Disks, gc.DeepEquals, []storage.Constraints{
 		{Size: 1024, Count: 2},
 		{Size: 2048, Count: 1},
 	})

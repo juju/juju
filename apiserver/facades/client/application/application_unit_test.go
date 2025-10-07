@@ -1509,7 +1509,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 	s.model.EXPECT().UUID().Return("")
 
-	storageDirectives := map[string]storage.Directive{
+	storageDirectives := map[string]storage.Constraints{
 		"data": {
 			Count: 1,
 			Size:  1024,
@@ -2143,7 +2143,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 			CharmURL:        "local:foo-0",
 			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
-			Storage: map[string]storage.Directive{
+			Storage: map[string]storage.Constraints{
 				"database": {},
 			},
 		}},
@@ -2181,7 +2181,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 			CharmURL:        "local:foo-0",
 			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
-			Storage: map[string]storage.Directive{
+			Storage: map[string]storage.Constraints{
 				"database": {},
 			},
 		}},
