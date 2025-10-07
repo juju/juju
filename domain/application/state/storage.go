@@ -216,29 +216,49 @@ FROM (
 	return rval, nil
 }
 
+// GetUnitOwnedStorageInstances returns the storage instance compositions
+// for all storage instances owned by the unit in the model. If the unit
+// does not currently own any storage instances then an empty result is
+// returned.
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit no longer exists.
 func (st *State) GetUnitOwnedStorageInstances(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
-) (map[domainstorage.Name][]domainstorage.StorageInstanceUUID, error) {
+) ([]internal.StorageInstanceComposition, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
-	unitOwnedQuery, err := st.Prepare(`
-SELECT &unitOwnedStorage.*
-FROM   storage_unit_owner suo
-JOIN   storage_instance si ON suo.storage_instance_uuid = si.uuid
-WHERE  suo.unit_uuid = $entityUUID.uuid
-		`,
-		unitUUIDInput, unitOwnedStorage{},
-	)
+	uuidInput := entityUUID{UUID: unitUUID.String()}
+
+	compositionQ := `
+SELECT &storageInstanceComposition.*
+FROM (
+    SELECT    sf.uuid AS filesystem_uuid,
+              sf.provision_scope_id AS filesystem_provision_scope,
+              si.storage_name AS storage_name,
+              si.uuid AS uuid,
+              sv.uuid AS volume_uuid,
+              sv.provision_scope_id AS volume_provision_scope
+    FROM      storage_unit_owner suo
+    JOIN      storage_instance si ON suo.storage_instance_uuid = si.uuid
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    WHERE     suo.unit_uuid = $entityUUID.uuid
+)
+`
+
+	stmt, err := st.Prepare(compositionQ, uuidInput, storageInstanceComposition{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var dbVals []unitOwnedStorage
+	var dbVals []storageInstanceComposition
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkUnitExists(ctx, tx, unitUUID)
 		if err != nil {
@@ -247,10 +267,12 @@ WHERE  suo.unit_uuid = $entityUUID.uuid
 			)
 		}
 		if !exists {
-			return errors.Errorf("unit %q doest not exist: %w", unitUUID, err)
+			return errors.Errorf("unit %q does not exist", unitUUID).Add(
+				applicationerrors.UnitNotFound,
+			)
 		}
 
-		err = tx.Query(ctx, unitOwnedQuery, unitUUIDInput).GetAll(&dbVals)
+		err = tx.Query(ctx, stmt, uuidInput).GetAll(&dbVals)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
@@ -261,12 +283,30 @@ WHERE  suo.unit_uuid = $entityUUID.uuid
 		return nil, errors.Capture(err)
 	}
 
-	rval := make(map[domainstorage.Name][]domainstorage.StorageInstanceUUID,
-		len(dbVals))
-	for _, v := range dbVals {
-		k := domainstorage.Name(v.StorageName)
-		rval[k] = append(rval[k], domainstorage.StorageInstanceUUID(v.UUID))
-	}
+	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
+	slices.Values(dbVals)(func(s storageInstanceComposition) bool {
+		v := internal.StorageInstanceComposition{
+			StorageName: domainstorage.Name(s.StorageName),
+			UUID:        domainstorage.StorageInstanceUUID(s.UUID),
+		}
+
+		if s.FilesystemUUID.Valid {
+			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
+				ProvisionScope: domainstorageprov.ProvisionScope(s.FilesystemProvisionScope.V),
+				UUID:           domainstorageprov.FilesystemUUID(s.FilesystemUUID.V),
+			}
+		}
+
+		if s.VolumeUUID.Valid {
+			v.Volume = &internal.StorageInstanceCompositionVolume{
+				ProvisionScope: domainstorageprov.ProvisionScope(s.VolumeProvisionScope.V),
+				UUID:           domainstorageprov.VolumeUUID(s.VolumeUUID.V),
+			}
+		}
+
+		rval = append(rval, v)
+		return true
+	})
 	return rval, nil
 }
 
