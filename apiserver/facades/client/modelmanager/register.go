@@ -20,6 +20,10 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// BlockCheckerGetter is a function that returns a BlockCheckerInterface which
+// allows checking blocked commands on a model.
+type BlockCheckerGetter func(ctx context.Context, modelUUID coremodel.UUID) (common.BlockCheckerInterface, error)
+
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegisterForMultiModel("ModelManager", 10, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
@@ -80,6 +84,14 @@ func newFacadeV11(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		return svc.Status(), nil
 	}
 
+	blockCheckerGetter := func(ctx context.Context, modelUUID coremodel.UUID) (common.BlockCheckerInterface, error) {
+		svc, err := domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return common.NewBlockChecker(svc.BlockCommand()), nil
+	}
+
 	domainServices := ctx.DomainServices()
 	modelStatusAPI := commonmodel.NewModelStatusAPI(
 		ctx.ControllerUUID(),
@@ -97,6 +109,7 @@ func newFacadeV11(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		apiUser,
 		modelStatusAPI,
 		controllerUUID,
+		ctx.ModelUUID(),
 		Services{
 			DomainServicesGetter: domainServicesGetter,
 			CredentialService:    domainServices.Credential(),
@@ -110,7 +123,7 @@ func newFacadeV11(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 			ApplicationService:   domainServices.Application(),
 			RemovalService:       domainServices.Removal(),
 		},
-		common.NewBlockChecker(domainServices.BlockCommand()),
+		blockCheckerGetter,
 		auth,
 	), nil
 }

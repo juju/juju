@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -62,7 +61,7 @@ type ModelManagerAPI struct {
 	isAdmin    bool
 	apiUser    names.UserTag
 
-	check common.BlockCheckerInterface
+	getBlockChecker BlockCheckerGetter
 
 	// Services required by the model manager.
 	accessService        AccessService
@@ -76,21 +75,15 @@ type ModelManagerAPI struct {
 
 	store objectstore.ObjectStore
 
-	controllerUUID uuid.UUID
+	controllerUUID      uuid.UUID
+	controllerModelUUID coremodel.UUID
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
-func NewModelManagerAPI(
-	ctx context.Context,
-	isAdmin bool,
-	apiUser names.UserTag,
-	modelStatusAPI ModelStatusAPI,
-	controllerUUID uuid.UUID,
-	services Services,
-	blockChecker common.BlockCheckerInterface,
-	authorizer facade.Authorizer,
-) *ModelManagerAPI {
+func NewModelManagerAPI(ctx context.Context, isAdmin bool, apiUser names.UserTag, modelStatusAPI ModelStatusAPI,
+	controllerUUID uuid.UUID, controllerModelUUID coremodel.UUID, services Services, blockChecker BlockCheckerGetter,
+	authorizer facade.Authorizer) *ModelManagerAPI {
 
 	return &ModelManagerAPI{
 		ModelStatusAPI:       modelStatusAPI,
@@ -98,7 +91,7 @@ func NewModelManagerAPI(
 		credentialService:    services.CredentialService,
 		applicationService:   services.ApplicationService,
 		store:                services.ObjectStore,
-		check:                blockChecker,
+		getBlockChecker:      blockChecker,
 		authorizer:           authorizer,
 		apiUser:              apiUser,
 		isAdmin:              isAdmin,
@@ -108,6 +101,7 @@ func NewModelManagerAPI(
 		secretBackendService: services.SecretBackendService,
 		removalService:       services.RemovalService,
 		controllerUUID:       controllerUUID,
+		controllerModelUUID:  controllerModelUUID,
 	}
 }
 
@@ -754,7 +748,12 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			}
 		}
 
-		if err := m.check.DestroyAllowed(ctx); err != nil {
+		check, err := m.getBlockChecker(ctx, coremodel.UUID(modelUUID))
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := check.DestroyAllowed(ctx); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -1097,7 +1096,12 @@ func (m *ModelManagerAPI) SetModelDefaults(ctx context.Context, args params.SetM
 		return results, apiservererrors.ErrPerm
 	}
 
-	if err := m.check.ChangeAllowed(ctx); err != nil {
+	check, err := m.getBlockChecker(ctx, m.controllerModelUUID)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	if err := check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 
@@ -1139,7 +1143,12 @@ func (m *ModelManagerAPI) UnsetModelDefaults(ctx context.Context, args params.Un
 		return results, apiservererrors.ErrPerm
 	}
 
-	if err := m.check.ChangeAllowed(ctx); err != nil {
+	check, err := m.getBlockChecker(ctx, m.controllerModelUUID)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	if err := check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 
@@ -1177,11 +1186,9 @@ func (m *ModelManagerAPI) unsetModelDefaults(ctx context.Context, arg params.Mod
 // ChangeModelCredential changes cloud credential reference for models.
 // These new cloud credentials must already exist on the controller.
 func (m *ModelManagerAPI) ChangeModelCredential(ctx context.Context, args params.ChangeModelCredentialsParams) (params.ErrorResults, error) {
-	if err := m.check.ChangeAllowed(ctx); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
 
-	err := m.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(m.controllerUUID.String()))
+	err := m.authorizer.HasPermission(ctx, permission.SuperuserAccess,
+		names.NewControllerTag(m.controllerUUID.String()))
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -1197,6 +1204,14 @@ func (m *ModelManagerAPI) ChangeModelCredential(ctx context.Context, args params
 	replaceModelCredential := func(arg params.ChangeModelCredentialParams) error {
 		modelTag, err := names.ParseModelTag(arg.ModelTag)
 		if err != nil {
+			return errors.Trace(err)
+		}
+
+		check, err := m.getBlockChecker(ctx, coremodel.UUID(modelTag.Id()))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := check.ChangeAllowed(ctx); err != nil {
 			return errors.Trace(err)
 		}
 		if err := checkModelAccess(modelTag); err != nil {
