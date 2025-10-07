@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package offererrelations
 
 import (
 	context "context"
@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type remoteRelationsWorkerSuite struct {
+type offererRelationsWorkerSuite struct {
 	client *MockRemoteModelRelationsClient
 
 	consumerRelationUUID   corerelation.UUID
@@ -36,12 +36,12 @@ type remoteRelationsWorkerSuite struct {
 	changes chan RelationChange
 }
 
-func TestRemoteRelationsWorker(t *testing.T) {
+func TestOffererRelationsWorker(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	tc.Run(t, &remoteRelationsWorkerSuite{})
+	tc.Run(t, &offererRelationsWorkerSuite{})
 }
 
-func (s *remoteRelationsWorkerSuite) SetUpTest(c *tc.C) {
+func (s *offererRelationsWorkerSuite) SetUpTest(c *tc.C) {
 	s.consumerRelationUUID = tc.Must(c, corerelation.NewUUID)
 	s.offererApplicationUUID = tc.Must(c, coreapplication.NewID)
 
@@ -50,7 +50,7 @@ func (s *remoteRelationsWorkerSuite) SetUpTest(c *tc.C) {
 	s.changes = make(chan RelationChange, 1)
 }
 
-func (s *remoteRelationsWorkerSuite) TestValidate(c *tc.C) {
+func (s *offererRelationsWorkerSuite) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
@@ -93,7 +93,7 @@ func (s *remoteRelationsWorkerSuite) TestValidate(c *tc.C) {
 	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *remoteRelationsWorkerSuite) TestStart(c *tc.C) {
+func (s *offererRelationsWorkerSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -118,7 +118,7 @@ func (s *remoteRelationsWorkerSuite) TestStart(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *remoteRelationsWorkerSuite) TestChangeEvent(c *tc.C) {
+func (s *offererRelationsWorkerSuite) TestChangeEvent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []watcher.RelationStatusChange)
@@ -171,7 +171,7 @@ func (s *remoteRelationsWorkerSuite) TestChangeEvent(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *remoteRelationsWorkerSuite) TestChangeEvents(c *tc.C) {
+func (s *offererRelationsWorkerSuite) TestChangeEvents(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []watcher.RelationStatusChange)
@@ -234,7 +234,7 @@ func (s *remoteRelationsWorkerSuite) TestChangeEvents(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *remoteRelationsWorkerSuite) TestChangeNoEvents(c *tc.C) {
+func (s *offererRelationsWorkerSuite) TestChangeNoEvents(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []watcher.RelationStatusChange)
@@ -272,7 +272,7 @@ func (s *remoteRelationsWorkerSuite) TestChangeNoEvents(c *tc.C) {
 	}
 }
 
-func (s *remoteRelationsWorkerSuite) TestReport(c *tc.C) {
+func (s *offererRelationsWorkerSuite) TestReport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []watcher.RelationStatusChange)
@@ -332,7 +332,7 @@ func (s *remoteRelationsWorkerSuite) TestReport(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *remoteRelationsWorkerSuite) newConfig(c *tc.C) Config {
+func (s *offererRelationsWorkerSuite) newConfig(c *tc.C) Config {
 	return Config{
 		Client:                 s.client,
 		ConsumerRelationUUID:   s.consumerRelationUUID,
@@ -344,14 +344,14 @@ func (s *remoteRelationsWorkerSuite) newConfig(c *tc.C) Config {
 	}
 }
 
-func (s *remoteRelationsWorkerSuite) newWorker(c *tc.C, cfg Config) *remoteRelationsWorker {
+func (s *offererRelationsWorkerSuite) newWorker(c *tc.C, cfg Config) *offererRelationsWorker {
 	w, err := NewWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return w.(*remoteRelationsWorker)
+	return w.(*offererRelationsWorker)
 }
 
-func (s *remoteRelationsWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
+func (s *offererRelationsWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.client = NewMockRemoteModelRelationsClient(ctrl)

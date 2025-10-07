@@ -47,6 +47,11 @@ func (u UUID) Validate() error {
 	return nil
 }
 
+// IsEmpty returns whether the UUID is empty.
+func (u UUID) IsEmpty() bool {
+	return u == ""
+}
+
 // UnitUUID represents a relation unit unique identifier.
 type UnitUUID string
 

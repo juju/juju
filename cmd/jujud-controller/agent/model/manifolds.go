@@ -49,9 +49,9 @@ import (
 	"github.com/juju/juju/internal/worker/operationpruner"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationofferer"
 	"github.com/juju/juju/internal/worker/removal"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
@@ -311,18 +311,18 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		remoteRelationConsumerName: ifNotMigrating(remoterelationconsumer.Manifold(remoterelationconsumer.ManifoldConfig{
-			ModelUUID:                     modelUUID,
-			APIRemoteRelationCallerName:   apiRemoteRelationCallerName,
-			DomainServicesName:            domainServicesName,
-			GetCrossModelServices:         remoterelationconsumer.GetCrossModelService,
-			NewRemoteRelationClientGetter: remoterelationconsumer.NewRemoteRelationClientGetter,
-			NewWorker:                     remoterelationconsumer.NewWorker,
-			NewRemoteApplicationWorker:    remoterelationconsumer.NewRemoteApplicationWorker,
-			NewLocalUnitRelationsWorker:   localunitrelations.NewWorker,
-			NewRemoteUnitRelationsWorker:  remoteunitrelations.NewWorker,
-			NewRemoteRelationsWorker:      remoterelations.NewWorker,
-			Clock:                         config.Clock,
-			Logger:                        config.LoggingContext.GetLogger("juju.worker.remoterelationconsumer", corelogger.CMR),
+			ModelUUID:                      modelUUID,
+			APIRemoteRelationCallerName:    apiRemoteRelationCallerName,
+			DomainServicesName:             domainServicesName,
+			GetCrossModelServices:          remoterelationconsumer.GetCrossModelService,
+			NewRemoteRelationClientGetter:  remoterelationconsumer.NewRemoteRelationClientGetter,
+			NewWorker:                      remoterelationconsumer.NewWorker,
+			NewLocalConsumerWorker:         remoterelationconsumer.NewLocalConsumerWorker,
+			NewConsumerUnitRelationsWorker: consumerunitrelations.NewWorker,
+			NewOffererUnitRelationsWorker:  offererunitrelations.NewWorker,
+			NewOffererRelationsWorker:      offererrelations.NewWorker,
+			Clock:                          config.Clock,
+			Logger:                         config.LoggingContext.GetLogger("juju.worker.remoterelationconsumer", corelogger.CMR),
 		})),
 
 		remoteRelationOffererName: ifNotMigrating(remoterelationofferer.Manifold(remoterelationofferer.ManifoldConfig{

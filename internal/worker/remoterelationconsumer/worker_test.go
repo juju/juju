@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererunitrelations"
 )
 
 func TestWorkerSuite(t *stdtesting.T) {
@@ -249,7 +249,7 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 		ModelUUID:                  s.modelUUID,
 		CrossModelService:          s.crossModelService,
 		RemoteRelationClientGetter: s.remoteRelationClientGetter,
-		NewRemoteApplicationWorker: func(config RemoteApplicationConfig) (ReportableWorker, error) {
+		NewLocalConsumerWorker: func(config LocalConsumerWorkerConfig) (ReportableWorker, error) {
 			defer func() {
 				started <- config.ApplicationName
 			}()
@@ -261,13 +261,13 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 				applicationName:  config.ApplicationName,
 			}, nil
 		},
-		NewLocalUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+		NewConsumerUnitRelationsWorker: func(c consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+		NewOffererUnitRelationsWorker: func(c offererunitrelations.Config) (offererunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
+		NewOffererRelationsWorker: func(c offererrelations.Config) (offererrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
 		Clock:  clock.WallClock,

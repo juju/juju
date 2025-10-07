@@ -17,9 +17,9 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererunitrelations"
 )
 
 type manifoldSuite struct {
@@ -73,22 +73,22 @@ func (s *manifoldSuite) TestValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	invalid = s.validConfig(c)
-	invalid.NewRemoteApplicationWorker = nil
+	invalid.NewLocalConsumerWorker = nil
 	err = invalid.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	invalid = s.validConfig(c)
-	invalid.NewLocalUnitRelationsWorker = nil
+	invalid.NewConsumerUnitRelationsWorker = nil
 	err = invalid.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	invalid = s.validConfig(c)
-	invalid.NewRemoteUnitRelationsWorker = nil
+	invalid.NewOffererUnitRelationsWorker = nil
 	err = invalid.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	invalid = s.validConfig(c)
-	invalid.NewRemoteRelationsWorker = nil
+	invalid.NewOffererRelationsWorker = nil
 	err = invalid.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
@@ -120,16 +120,16 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		NewWorker: func(c Config) (ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteApplicationWorker: func(rac RemoteApplicationConfig) (ReportableWorker, error) {
+		NewLocalConsumerWorker: func(rac LocalConsumerWorkerConfig) (ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewLocalUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+		NewConsumerUnitRelationsWorker: func(c consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+		NewOffererUnitRelationsWorker: func(c offererunitrelations.Config) (offererunitrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
+		NewOffererRelationsWorker: func(c offererrelations.Config) (offererrelations.ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
 		GetCrossModelServices: func(getter dependency.Getter, domainServicesName string) (CrossModelService, error) {
@@ -159,16 +159,16 @@ func (s *manifoldSuite) validConfig(c *tc.C) ManifoldConfig {
 		NewWorker: func(Config) (ReportableWorker, error) {
 			return nil, nil
 		},
-		NewRemoteApplicationWorker: func(rac RemoteApplicationConfig) (ReportableWorker, error) {
+		NewLocalConsumerWorker: func(rac LocalConsumerWorkerConfig) (ReportableWorker, error) {
 			return nil, nil
 		},
-		NewLocalUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+		NewConsumerUnitRelationsWorker: func(c consumerunitrelations.Config) (consumerunitrelations.ReportableWorker, error) {
 			return nil, nil
 		},
-		NewRemoteUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+		NewOffererUnitRelationsWorker: func(c offererunitrelations.Config) (offererunitrelations.ReportableWorker, error) {
 			return nil, nil
 		},
-		NewRemoteRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
+		NewOffererRelationsWorker: func(c offererrelations.Config) (offererrelations.ReportableWorker, error) {
 			return nil, nil
 		},
 		Clock:  clock.WallClock,
