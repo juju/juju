@@ -12,7 +12,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	domainnetwork "github.com/juju/juju/domain/network"
-	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -22,7 +21,7 @@ import (
 // unitStorageSuite is a test suite for asserting state based storage related to
 // units.
 type unitStorageSuite struct {
-	schematesting.ModelSuite
+	baseSuite
 }
 
 // TestUnitStorageSuite registers and runs all of the tests located in the
