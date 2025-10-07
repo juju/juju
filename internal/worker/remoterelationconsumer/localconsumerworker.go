@@ -32,9 +32,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// RemoteApplicationConfig defines the configuration for a remote application
+// LocalConsumerWorkerConfig defines the configuration for a local consumer
 // worker.
-type RemoteApplicationConfig struct {
+type LocalConsumerWorkerConfig struct {
 	CrossModelService          CrossModelService
 	RemoteRelationClientGetter RemoteRelationClientGetter
 
@@ -55,7 +55,7 @@ type RemoteApplicationConfig struct {
 }
 
 // Validate ensures that the config is valid.
-func (c RemoteApplicationConfig) Validate() error {
+func (c LocalConsumerWorkerConfig) Validate() error {
 	if c.CrossModelService == nil {
 		return errors.NotValidf("nil cross model service")
 	}
@@ -98,11 +98,11 @@ func (c RemoteApplicationConfig) Validate() error {
 	return nil
 }
 
-// remoteApplicationWorker listens for consumer changes to relations involving a
+// localConsumerWorker listens for consumer changes to relations involving a
 // offerer application, and publishes change to consumer relation units to the
 // offerer model. It also watches for changes originating from the offering
 // model and consumes those in the consumer model.
-type remoteApplicationWorker struct {
+type localConsumerWorker struct {
 	catacomb catacomb.Catacomb
 	runner   *worker.Runner
 
@@ -139,8 +139,8 @@ type remoteApplicationWorker struct {
 	logger logger.Logger
 }
 
-// NewRemoteApplicationWorker creates a new remote application worker.
-func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorker, error) {
+// NewLocalConsumerWorker creates a new local consumer worker.
+func NewLocalConsumerWorker(config LocalConsumerWorkerConfig) (ReportableWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -158,7 +158,7 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 		return nil, errors.Trace(err)
 	}
 
-	w := &remoteApplicationWorker{
+	w := &localConsumerWorker{
 		runner:            runner,
 		crossModelService: config.CrossModelService,
 
@@ -195,12 +195,12 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 }
 
 // Kill is defined on worker.Worker
-func (w *remoteApplicationWorker) Kill() {
+func (w *localConsumerWorker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is defined on worker.Worker
-func (w *remoteApplicationWorker) Wait() error {
+func (w *localConsumerWorker) Wait() error {
 	err := w.catacomb.Wait()
 	if err != nil {
 		w.logger.Errorf(context.Background(), "error in remote application worker for %v: %v", w.applicationName, err)
@@ -209,12 +209,12 @@ func (w *remoteApplicationWorker) Wait() error {
 }
 
 // ConsumeVersion returns the consume version for the remote application worker.
-func (w *remoteApplicationWorker) ConsumeVersion() int {
+func (w *localConsumerWorker) ConsumeVersion() int {
 	return w.consumeVersion
 }
 
 // Report provides information for the engine report.
-func (w *remoteApplicationWorker) Report() map[string]interface{} {
+func (w *localConsumerWorker) Report() map[string]interface{} {
 	result := make(map[string]interface{})
 
 	result["remote-model-uuid"] = w.offererModelUUID
@@ -229,7 +229,7 @@ func (w *remoteApplicationWorker) Report() map[string]interface{} {
 	return result
 }
 
-func (w *remoteApplicationWorker) loop() (err error) {
+func (w *localConsumerWorker) loop() (err error) {
 	ctx := w.catacomb.Context(context.Background())
 
 	// Watch for changes to any local relations to the remote application.
@@ -329,7 +329,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	}
 }
 
-func (w *remoteApplicationWorker) setupRemoteModelClient(ctx context.Context) (RemoteModelRelationsClient, error) {
+func (w *localConsumerWorker) setupRemoteModelClient(ctx context.Context) (RemoteModelRelationsClient, error) {
 	remoteModelClient, err := w.remoteRelationClientGetter.GetRemoteRelationClient(ctx, w.offererModelUUID)
 	if err == nil {
 		return remoteModelClient, nil
@@ -348,7 +348,7 @@ func (w *remoteApplicationWorker) setupRemoteModelClient(ctx context.Context) (R
 	return nil, errors.Annotate(err, "cannot connect to external controller")
 }
 
-func (w *remoteApplicationWorker) watchRemoteOfferStatus(ctx context.Context) (watcher.OfferStatusWatcher, error) {
+func (w *localConsumerWorker) watchRemoteOfferStatus(ctx context.Context) (watcher.OfferStatusWatcher, error) {
 	offerStatusWatcher, err := w.remoteModelClient.WatchOfferStatus(ctx, params.OfferArg{
 		OfferUUID:     w.offerUUID,
 		Macaroons:     macaroon.Slice{w.offerMacaroon},
@@ -370,7 +370,7 @@ func (w *remoteApplicationWorker) watchRemoteOfferStatus(ctx context.Context) (w
 	return offerStatusWatcher, nil
 }
 
-func (w *remoteApplicationWorker) setApplicationOffererStatusMacaroonError(ctx context.Context, err error) error {
+func (w *localConsumerWorker) setApplicationOffererStatusMacaroonError(ctx context.Context, err error) error {
 	if params.ErrCode(err) != params.CodeDischargeRequired {
 		return nil
 	}
@@ -384,7 +384,7 @@ func (w *remoteApplicationWorker) setApplicationOffererStatusMacaroonError(ctx c
 	return nil
 }
 
-func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error {
+func (w *localConsumerWorker) remoteOfferRemoved(ctx context.Context) error {
 	w.logger.Debugf(ctx, "remote offer for %s has been removed", w.applicationName)
 
 	// TODO (stickupkid): What's the point of setting the status to terminated,
@@ -400,14 +400,14 @@ func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error 
 	return nil
 }
 
-func (w *remoteApplicationWorker) handleRelationRemoved(ctx context.Context, relationUUID corerelation.UUID) error {
+func (w *localConsumerWorker) handleRelationRemoved(ctx context.Context, relationUUID corerelation.UUID) error {
 	w.logger.Debugf(ctx, "relation %q removed", relationUUID)
 	return errors.NotImplemented
 }
 
 // relationChanged processes changes to the relation as recorded in the
 // local model when a change event arrives from the remote model.
-func (w *remoteApplicationWorker) handleRelationChange(ctx context.Context, details relation.RelationDetails) error {
+func (w *localConsumerWorker) handleRelationChange(ctx context.Context, details relation.RelationDetails) error {
 	w.logger.Debugf(ctx, "relation %q changed in local model: %v", details.UUID, details)
 
 	switch {
@@ -424,7 +424,7 @@ func (w *remoteApplicationWorker) handleRelationChange(ctx context.Context, deta
 	}
 }
 
-func (w *remoteApplicationWorker) handleRelationSuspended(ctx context.Context, details relation.RelationDetails) error {
+func (w *localConsumerWorker) handleRelationSuspended(ctx context.Context, details relation.RelationDetails) error {
 	w.logger.Debugf(ctx, "(%v) relation %v suspended", details.Life, details.UUID)
 	return nil
 }
@@ -432,7 +432,7 @@ func (w *remoteApplicationWorker) handleRelationSuspended(ctx context.Context, d
 // handleRelationConsumption handles the case where a relation is alive and not
 // suspended, meaning that we should ensure that it is registered on the
 // offering side.
-func (w *remoteApplicationWorker) handleRelationConsumption(
+func (w *localConsumerWorker) handleRelationConsumption(
 	ctx context.Context,
 	details relation.RelationDetails,
 ) error {
@@ -495,7 +495,7 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 // information, along with the offering application UUID and macaroon used to
 // access the relation in the offering model. If we have this information, we
 // should be able to pin point the relation in the offering model.
-func (w *remoteApplicationWorker) ensureOffererRelationWorker(
+func (w *localConsumerWorker) ensureOffererRelationWorker(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	offererApplicationUUID application.UUID,
@@ -524,7 +524,7 @@ func (w *remoteApplicationWorker) ensureOffererRelationWorker(
 // of the relation.
 // This is idempotent, if the workers already exist, they will not be created
 // again.
-func (w *remoteApplicationWorker) ensureUnitRelationWorkers(
+func (w *localConsumerWorker) ensureUnitRelationWorkers(
 	ctx context.Context,
 	details relation.RelationDetails,
 	offferApplicationUUID application.UUID,
@@ -565,7 +565,7 @@ func (w *remoteApplicationWorker) ensureUnitRelationWorkers(
 // registerConsumerRelation registers the relation in the offering model,
 // and returns the offering application UUID and macaroon for the relation.
 // The relation has been created in the consumer model.
-func (w *remoteApplicationWorker) registerConsumerRelation(
+func (w *localConsumerWorker) registerConsumerRelation(
 	ctx context.Context,
 	relationUUID corerelation.UUID, offerUUID string, consumeVersion int,
 	applicationEndpointIdent relation.Endpoint, remoteEndpointName string,

@@ -35,9 +35,9 @@ type NewRemoteRelationClientGetterFunc func(apiremoterelationcaller.APIRemoteCal
 // NewWorkerFunc defines the function signature for creating a new Worker.
 type NewWorkerFunc func(Config) (ReportableWorker, error)
 
-// NewRemoteApplicationWorkerFunc defines the function signature for creating
-// a new remote application worker.
-type NewRemoteApplicationWorkerFunc func(RemoteApplicationConfig) (ReportableWorker, error)
+// NewLocalConsumerWorkerFunc defines the function signature for creating
+// a new local consumer worker.
+type NewLocalConsumerWorkerFunc func(LocalConsumerWorkerConfig) (ReportableWorker, error)
 
 // GetCrossModelServicesFunc defines the function signature for getting
 // cross-model services.
@@ -66,8 +66,8 @@ type ManifoldConfig struct {
 
 	GetCrossModelServices GetCrossModelServicesFunc
 
-	NewWorker                  NewWorkerFunc
-	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
+	NewWorker              NewWorkerFunc
+	NewLocalConsumerWorker NewLocalConsumerWorkerFunc
 
 	NewConsumerUnitRelationsWorker NewConsumerUnitRelationsWorkerFunc
 	NewOffererUnitRelationsWorker  NewOffererUnitRelationsWorkerFunc
@@ -97,8 +97,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
-	if config.NewRemoteApplicationWorker == nil {
-		return errors.NotValidf("nil NewRemoteApplicationWorker")
+	if config.NewLocalConsumerWorker == nil {
+		return errors.NotValidf("nil NewLocalConsumerWorker")
 	}
 	if config.NewConsumerUnitRelationsWorker == nil {
 		return errors.NotValidf("nil NewConsumerUnitRelationsWorker")
@@ -146,7 +146,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CrossModelService:          crossModelService,
 				RemoteRelationClientGetter: config.NewRemoteRelationClientGetter(apiRemoteCallerGetter),
 
-				NewRemoteApplicationWorker: config.NewRemoteApplicationWorker,
+				NewLocalConsumerWorker: config.NewLocalConsumerWorker,
 
 				NewConsumerUnitRelationsWorker: config.NewConsumerUnitRelationsWorker,
 				NewOffererUnitRelationsWorker:  config.NewOffererUnitRelationsWorker,

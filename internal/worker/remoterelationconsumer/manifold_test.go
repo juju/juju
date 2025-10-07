@@ -73,7 +73,7 @@ func (s *manifoldSuite) TestValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	invalid = s.validConfig(c)
-	invalid.NewRemoteApplicationWorker = nil
+	invalid.NewLocalConsumerWorker = nil
 	err = invalid.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
@@ -120,7 +120,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		NewWorker: func(c Config) (ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
-		NewRemoteApplicationWorker: func(rac RemoteApplicationConfig) (ReportableWorker, error) {
+		NewLocalConsumerWorker: func(rac LocalConsumerWorkerConfig) (ReportableWorker, error) {
 			return newErrWorker(nil), nil
 		},
 		NewConsumerUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
@@ -159,7 +159,7 @@ func (s *manifoldSuite) validConfig(c *tc.C) ManifoldConfig {
 		NewWorker: func(Config) (ReportableWorker, error) {
 			return nil, nil
 		},
-		NewRemoteApplicationWorker: func(rac RemoteApplicationConfig) (ReportableWorker, error) {
+		NewLocalConsumerWorker: func(rac LocalConsumerWorkerConfig) (ReportableWorker, error) {
 			return nil, nil
 		},
 		NewConsumerUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {

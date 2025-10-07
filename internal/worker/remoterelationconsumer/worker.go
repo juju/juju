@@ -138,7 +138,7 @@ type Config struct {
 	ModelUUID                  model.UUID
 	CrossModelService          CrossModelService
 	RemoteRelationClientGetter RemoteRelationClientGetter
-	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
+	NewLocalConsumerWorker     NewLocalConsumerWorkerFunc
 
 	NewConsumerUnitRelationsWorker NewConsumerUnitRelationsWorkerFunc
 	NewOffererUnitRelationsWorker  NewOffererUnitRelationsWorkerFunc
@@ -159,8 +159,8 @@ func (config Config) Validate() error {
 	if config.RemoteRelationClientGetter == nil {
 		return errors.NotValidf("nil RemoteRelationClientGetter")
 	}
-	if config.NewRemoteApplicationWorker == nil {
-		return errors.NotValidf("nil NewRemoteApplicationWorker")
+	if config.NewLocalConsumerWorker == nil {
+		return errors.NotValidf("nil NewLocalConsumerWorker")
 	}
 	if config.NewConsumerUnitRelationsWorker == nil {
 		return errors.NotValidf("nil NewConsumerUnitRelationsWorker")
@@ -304,7 +304,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 
 		// Start the application worker to watch for things like new relations.
 		if err := w.runner.StartWorker(ctx, appUUID, func(ctx context.Context) (worker.Worker, error) {
-			return w.config.NewRemoteApplicationWorker(RemoteApplicationConfig{
+			return w.config.NewLocalConsumerWorker(LocalConsumerWorkerConfig{
 				OfferUUID:                      remoteApp.OfferUUID,
 				ApplicationName:                remoteApp.ApplicationName,
 				ApplicationUUID:                application.UUID(remoteApp.ApplicationUUID),

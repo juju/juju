@@ -249,7 +249,7 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 		ModelUUID:                  s.modelUUID,
 		CrossModelService:          s.crossModelService,
 		RemoteRelationClientGetter: s.remoteRelationClientGetter,
-		NewRemoteApplicationWorker: func(config RemoteApplicationConfig) (ReportableWorker, error) {
+		NewLocalConsumerWorker: func(config LocalConsumerWorkerConfig) (ReportableWorker, error) {
 			defer func() {
 				started <- config.ApplicationName
 			}()

@@ -317,7 +317,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetCrossModelServices:          remoterelationconsumer.GetCrossModelService,
 			NewRemoteRelationClientGetter:  remoterelationconsumer.NewRemoteRelationClientGetter,
 			NewWorker:                      remoterelationconsumer.NewWorker,
-			NewRemoteApplicationWorker:     remoterelationconsumer.NewRemoteApplicationWorker,
+			NewRemoteApplicationWorker:     remoterelationconsumer.NewLocalConsumerWorker,
 			NewConsumerUnitRelationsWorker: localunitrelations.NewWorker,
 			NewOffererUnitRelationsWorker:  remoteunitrelations.NewWorker,
 			NewOffererRelationsWorker:      remoterelations.NewWorker,

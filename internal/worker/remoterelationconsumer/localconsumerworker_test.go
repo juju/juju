@@ -37,12 +37,12 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestApplicationWorker(t *stdtesting.T) {
+func TestLocalConsumerWorker(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
-	tc.Run(t, &applicationWorkerSuite{})
+	tc.Run(t, &localConsumerWorkerSuite{})
 }
 
-type applicationWorkerSuite struct {
+type localConsumerWorkerSuite struct {
 	baseSuite
 
 	applicationName   string
@@ -57,7 +57,7 @@ type applicationWorkerSuite struct {
 	offererRelationWorkerStarted       chan struct{}
 }
 
-func (s *applicationWorkerSuite) SetUpTest(c *tc.C) {
+func (s *localConsumerWorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.applicationName = "foo"
@@ -69,66 +69,66 @@ func (s *applicationWorkerSuite) SetUpTest(c *tc.C) {
 	s.macaroon = newMacaroon(c, "test")
 }
 
-func (s *applicationWorkerSuite) TestValidateConfig(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.newApplicationConfig(c)
+	cfg := s.newLocalConsumerWorkerConfig(c)
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.CrossModelService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.RemoteRelationClientGetter = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.OfferUUID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.ApplicationName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.ApplicationUUID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.ConsumerModelUUID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.OffererModelUUID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.Macaroon = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.NewConsumerUnitRelationsWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.NewOffererUnitRelationsWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.NewOffererRelationsWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.newApplicationConfig(c)
+	cfg = s.newLocalConsumerWorkerConfig(c)
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-func (s *applicationWorkerSuite) TestStart(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -157,7 +157,7 @@ func (s *applicationWorkerSuite) TestStart(c *tc.C) {
 			return watchertest.NewMockWatcher(ch), nil
 		})
 
-	w, err := NewRemoteApplicationWorker(s.newApplicationConfig(c))
+	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -170,7 +170,7 @@ func (s *applicationWorkerSuite) TestStart(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *applicationWorkerSuite) TestStartFailedWatchApplicationLife(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestStartFailedWatchApplicationLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -182,7 +182,7 @@ func (s *applicationWorkerSuite) TestStartFailedWatchApplicationLife(c *tc.C) {
 			return nil, applicationerrors.ApplicationNotFound
 		})
 
-	w, err := NewRemoteApplicationWorker(s.newApplicationConfig(c))
+	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -196,7 +196,7 @@ func (s *applicationWorkerSuite) TestStartFailedWatchApplicationLife(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationWorkerSuite) TestStartNoRemoteClient(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestStartNoRemoteClient(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -222,7 +222,7 @@ func (s *applicationWorkerSuite) TestStartNoRemoteClient(c *tc.C) {
 			return nil
 		})
 
-	w, err := NewRemoteApplicationWorker(s.newApplicationConfig(c))
+	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -236,7 +236,7 @@ func (s *applicationWorkerSuite) TestStartNoRemoteClient(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `cannot connect to external controller: not found`)
 }
 
-func (s *applicationWorkerSuite) TestStartWatchOfferStatusFailed(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -263,7 +263,7 @@ func (s *applicationWorkerSuite) TestStartWatchOfferStatusFailed(c *tc.C) {
 			return nil, errors.NotValid
 		})
 
-	w, err := NewRemoteApplicationWorker(s.newApplicationConfig(c))
+	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -277,7 +277,7 @@ func (s *applicationWorkerSuite) TestStartWatchOfferStatusFailed(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `watching status for offer: not valid`)
 }
 
-func (s *applicationWorkerSuite) TestWatchApplicationStatusChanged(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChanged(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -318,7 +318,7 @@ func (s *applicationWorkerSuite) TestWatchApplicationStatusChanged(c *tc.C) {
 			}, nil
 		})
 
-	w, err := NewRemoteApplicationWorker(s.newApplicationConfig(c))
+	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -341,7 +341,7 @@ func (s *applicationWorkerSuite) TestWatchApplicationStatusChanged(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *applicationWorkerSuite) TestWatchApplicationStatusChangedNotFound(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChangedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -379,7 +379,7 @@ func (s *applicationWorkerSuite) TestWatchApplicationStatusChangedNotFound(c *tc
 			return domainrelation.RelationDetails{}, relationerrors.RelationNotFound
 		})
 
-	w, err := NewRemoteApplicationWorker(s.newApplicationConfig(c))
+	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -402,7 +402,7 @@ func (s *applicationWorkerSuite) TestWatchApplicationStatusChangedNotFound(c *tc
 	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *applicationWorkerSuite) TestWatchApplicationStatusChangedError(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChangedError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -439,7 +439,7 @@ func (s *applicationWorkerSuite) TestWatchApplicationStatusChangedError(c *tc.C)
 			return domainrelation.RelationDetails{}, internalerrors.Errorf("front fell off")
 		})
 
-	w, err := NewRemoteApplicationWorker(s.newApplicationConfig(c))
+	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -462,7 +462,7 @@ func (s *applicationWorkerSuite) TestWatchApplicationStatusChangedError(c *tc.C)
 	c.Assert(err, tc.ErrorMatches, `.*front fell off.*`)
 }
 
-func (s *applicationWorkerSuite) TestHandleRelationChange(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleRelationChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -499,7 +499,7 @@ func (s *applicationWorkerSuite) TestHandleRelationChange(c *tc.C) {
 		SaveMacaroonForRelation(gomock.Any(), relationUUID, mac).
 		Return(nil)
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -530,14 +530,14 @@ func (s *applicationWorkerSuite) TestHandleRelationChange(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationWorkerSuite) TestHandleRelationChangeOneEndpoint(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleRelationChangeOneEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
 	done := s.expectWorkerStartup(c)
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -561,14 +561,14 @@ func (s *applicationWorkerSuite) TestHandleRelationChangeOneEndpoint(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *applicationWorkerSuite) TestHandleRelationChangeNoMatchingEndpointApplicationName(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleRelationChangeNoMatchingEndpointApplicationName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
 	done := s.expectWorkerStartup(c)
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -599,14 +599,14 @@ func (s *applicationWorkerSuite) TestHandleRelationChangeNoMatchingEndpointAppli
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *applicationWorkerSuite) TestHandleRelationChangePeerRelation(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleRelationChangePeerRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
 	done := s.expectWorkerStartup(c)
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -637,7 +637,7 @@ func (s *applicationWorkerSuite) TestHandleRelationChangePeerRelation(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *applicationWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	token := tc.Must(c, application.NewID)
@@ -675,7 +675,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
 		SaveMacaroonForRelation(gomock.Any(), relationUUID, mac).
 		Return(nil)
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -705,7 +705,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
 	})
 }
 
-func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedRequest(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -732,7 +732,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedRequest(c *tc
 		RegisterRemoteRelations(gomock.Any(), arg).
 		Return(nil, internalerrors.New("front fell off"))
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -758,7 +758,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedRequest(c *tc
 	c.Assert(err, tc.ErrorMatches, `.*front fell off.*`)
 }
 
-func (s *applicationWorkerSuite) TestRegisterConsumerRelationInvalidResultLength(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationInvalidResultLength(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -785,7 +785,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelationInvalidResultLength
 		RegisterRemoteRelations(gomock.Any(), arg).
 		Return([]params.RegisterRemoteRelationResult{}, nil)
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -811,7 +811,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelationInvalidResultLength
 	c.Assert(err, tc.ErrorMatches, `.*no result from registering consumer relation.*`)
 }
 
-func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedRequestError(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequestError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -843,7 +843,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedRequestError(
 			},
 		}}, nil)
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -869,7 +869,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedRequestError(
 	c.Assert(err, tc.ErrorMatches, `.*registering relation.*`)
 }
 
-func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacaroon(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacaroon(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	token := tc.Must(c, application.NewID)
@@ -907,7 +907,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacaroo
 		SaveMacaroonForRelation(gomock.Any(), relationUUID, mac).
 		Return(internalerrors.Errorf("front fell off"))
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -933,7 +933,7 @@ func (s *applicationWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacaroo
 	c.Assert(err, tc.ErrorMatches, `.*front fell off.*`)
 }
 
-func (s *applicationWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	token := tc.Must(c, application.NewID)
@@ -971,7 +971,7 @@ func (s *applicationWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 		SaveMacaroonForRelation(gomock.Any(), relationUUID, mac).
 		Return(nil)
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -1016,7 +1016,7 @@ func (s *applicationWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *applicationWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	token := tc.Must(c, application.NewID)
@@ -1054,7 +1054,7 @@ func (s *applicationWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c *
 		SaveMacaroonForRelation(gomock.Any(), relationUUID, mac).
 		Return(nil).Times(2)
 
-	w := s.newRemoteRelationsWorker(c)
+	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -1138,12 +1138,12 @@ func (s *applicationWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c *
 	workertest.CleanKill(c, w)
 }
 
-func (s *applicationWorkerSuite) newRemoteRelationsWorker(c *tc.C) *remoteApplicationWorker {
-	return tc.Must1(c, NewRemoteApplicationWorker, s.newApplicationConfig(c)).(*remoteApplicationWorker)
+func (s *localConsumerWorkerSuite) newLocalConsumerWorker(c *tc.C) *localConsumerWorker {
+	return tc.Must1(c, NewLocalConsumerWorker, s.newLocalConsumerWorkerConfig(c)).(*localConsumerWorker)
 }
 
-func (s *applicationWorkerSuite) newApplicationConfig(c *tc.C) RemoteApplicationConfig {
-	return RemoteApplicationConfig{
+func (s *localConsumerWorkerSuite) newLocalConsumerWorkerConfig(c *tc.C) LocalConsumerWorkerConfig {
+	return LocalConsumerWorkerConfig{
 		CrossModelService:          s.crossModelService,
 		RemoteRelationClientGetter: s.remoteRelationClientGetter,
 		OfferUUID:                  s.offerUUID,
@@ -1188,7 +1188,7 @@ func (s *applicationWorkerSuite) newApplicationConfig(c *tc.C) RemoteApplication
 	}
 }
 
-func (s *applicationWorkerSuite) expectWorkerStartup(c *tc.C) <-chan struct{} {
+func (s *localConsumerWorkerSuite) expectWorkerStartup(c *tc.C) <-chan struct{} {
 	done := make(chan struct{})
 
 	ch := make(chan []string)
@@ -1216,7 +1216,7 @@ func (s *applicationWorkerSuite) expectWorkerStartup(c *tc.C) <-chan struct{} {
 	return done
 }
 
-func (s *applicationWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
+func (s *localConsumerWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.offererRelationWorkerStarted = make(chan struct{}, 1)
@@ -1226,7 +1226,7 @@ func (s *applicationWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *applicationWorkerSuite) waitForAllWorkersStarted(c *tc.C) {
+func (s *localConsumerWorkerSuite) waitForAllWorkersStarted(c *tc.C) {
 	select {
 	case <-s.consumerUnitRelationsWorkerStarted:
 	case <-c.Context().Done():
