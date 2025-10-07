@@ -69,6 +69,16 @@ func newCinderConfig(attrs map[string]interface{}) (*cinderConfig, error) {
 	return cinderConfig, nil
 }
 
+// RecommendedStoragePoolForKind returns the recommended storage pool to use for
+// the given storage kind. If no pool can be recommended nil is returned.
+//
+// Implements [storage.PoolAdvisor] interface.
+func (*Environ) RecommendedStoragePoolForKind(
+	kind storage.StorageKind,
+) *storage.Config {
+	return common.GetCommonRecommendedIAASPoolForKind(kind)
+}
+
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 	types := common.CommonIAASStorageProviderTypes()

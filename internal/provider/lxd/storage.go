@@ -46,6 +46,16 @@ func (env *environ) storageSupported() bool {
 	return env.server().StorageSupported()
 }
 
+// RecommendedStoragePoolForKind returns the recommended storage pool to use for
+// the given storage kind. If no pool can be recommended nil is returned.
+//
+// Implements [storage.PoolAdvisor] interface.
+func (*environ) RecommendedStoragePoolForKind(
+	kind storage.StorageKind,
+) *storage.Config {
+	return common.GetCommonRecommendedIAASPoolForKind(kind)
+}
+
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 	types := common.CommonIAASStorageProviderTypes()

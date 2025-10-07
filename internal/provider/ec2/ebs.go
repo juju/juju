@@ -160,8 +160,18 @@ const (
 
 var deviceInUseRegexp = regexp.MustCompile(".*Attachment point .* is already in use")
 
+// RecommendedStoragePoolForKind returns the recommended storage pool to use for
+// the given storage kind. If no pool can be recommended nil is returned.
+//
+// Implements [storage.PoolAdvisor] interface.
+func (*environ) RecommendedStoragePoolForKind(
+	kind storage.StorageKind,
+) *storage.Config {
+	return common.GetCommonRecommendedIAASPoolForKind(kind)
+}
+
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (e *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
+func (*environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 	return append(
 		common.CommonIAASStorageProviderTypes(),
 		EBS_ProviderType,

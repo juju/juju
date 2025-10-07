@@ -34,6 +34,16 @@ const (
 	volumeSizeMaxGiB = 1023
 )
 
+// RecommendedStoragePoolForKind returns the recommended storage pool to use for
+// the given storage kind. If no pool can be recommended nil is returned.
+//
+// Implements [storage.PoolAdvisor] interface.
+func (*azureEnviron) RecommendedStoragePoolForKind(
+	kind storage.StorageKind,
+) *storage.Config {
+	return common.GetCommonRecommendedIAASPoolForKind(kind)
+}
+
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (*azureEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
 	return append(
