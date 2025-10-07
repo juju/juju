@@ -153,15 +153,6 @@ func (u *UniterAPI) EnsureDead(ctx context.Context, args params.Entities) (param
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-
-		_, err = u.removalService.RemoveUnit(ctx, unitUUID, false, false, time.Duration(0))
-		if errors.Is(err, applicationerrors.UnitNotFound) {
-			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
-			continue
-		} else if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 	}
 	return result, nil
 }
