@@ -24,16 +24,10 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testhelpers"
 )
 
 type relationServiceSuite struct {
-	testhelpers.IsolationSuite
-
-	state              *MockState
-	subordinateCreator *MockSubordinateCreator
-
-	service *Service
+	baseServiceSuite
 }
 
 func TestRelationServiceSuite(t *testing.T) {
@@ -1023,19 +1017,8 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeerFail(c *tc.C
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.state = NewMockState(ctrl)
-	s.subordinateCreator = NewMockSubordinateCreator(ctrl)
-
-	s.service = NewService(s.state, loggertesting.WrapCheckLog(c))
-
-	return ctrl
-}
-
 type relationLeadershipServiceSuite struct {
-	relationServiceSuite
+	baseServiceSuite
 
 	leadershipService *LeadershipService
 	leaderEnsurer     *MockEnsurer
@@ -1228,7 +1211,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 }
 
 func (s *relationLeadershipServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := s.relationServiceSuite.setupMocks(c)
+	ctrl := s.baseServiceSuite.setupMocks(c)
 
 	s.leaderEnsurer = NewMockEnsurer(ctrl)
 	s.leadershipService = NewLeadershipService(s.state, s.leaderEnsurer, loggertesting.WrapCheckLog(c))
