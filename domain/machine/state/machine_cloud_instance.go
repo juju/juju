@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/domain"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -271,68 +270,6 @@ ON CONFLICT (machine_uuid) DO NOTHING
 	}
 
 	return nil
-}
-
-// DeleteMachineCloudInstance removes an entry in the machine cloud instance
-// table along with the instance tags and the link to a lxd profile if any, as
-// well as any associated status data.
-func (st *State) DeleteMachineCloudInstance(
-	ctx context.Context,
-	mUUID string,
-) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare query for deleting machine cloud instance.
-	deleteInstanceQuery := `
-DELETE FROM machine_cloud_instance
-WHERE machine_uuid=$entityUUID.uuid
-`
-	machineUUIDParam := entityUUID{
-		UUID: mUUID,
-	}
-	deleteInstanceStmt, err := st.Prepare(deleteInstanceQuery, machineUUIDParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare query for deleting instance tags.
-	deleteInstanceTagsQuery := `
-DELETE FROM instance_tag
-WHERE machine_uuid=$entityUUID.uuid
-`
-	deleteInstanceTagStmt, err := st.Prepare(deleteInstanceTagsQuery, machineUUIDParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare query for deleting cloud instance status.
-	deleteInstanceStatusQuery := `DELETE FROM machine_cloud_instance_status WHERE machine_uuid=$entityUUID.uuid`
-	deleteInstanceStatusStmt, err := st.Prepare(deleteInstanceStatusQuery, machineUUIDParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Delete the machine cloud instance status. No need to return error if
-		// no status is set for the instance while deleting.
-		if err := tx.Query(ctx, deleteInstanceStatusStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("deleting machine cloud instance status for machine %q: %w", mUUID, domain.CoerceError(err))
-		}
-
-		// Delete the machine cloud instance.
-		if err := tx.Query(ctx, deleteInstanceStmt, machineUUIDParam).Run(); err != nil {
-			return errors.Errorf("deleting machine cloud instance for machine %q: %w", mUUID, domain.CoerceError(err))
-		}
-
-		// Delete the machine cloud instance tags.
-		if err := tx.Query(ctx, deleteInstanceTagStmt, machineUUIDParam).Run(); err != nil {
-			return errors.Errorf("deleting instance tags for machine %q: %w", mUUID, domain.CoerceError(err))
-		}
-		return nil
-	})
 }
 
 // GetInstanceID returns the cloud specific instance id for this machine.

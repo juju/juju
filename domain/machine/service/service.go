@@ -36,9 +36,6 @@ type State interface {
 	// machine names that were created as part of the placement.
 	AddMachine(ctx context.Context, args domainmachine.AddMachineArgs) (string, []machine.Name, error)
 
-	// DeleteMachine deletes the input machine entity.
-	DeleteMachine(context.Context, machine.Name) error
-
 	// InitialWatchStatement returns the table and the initial watch statement
 	// for the machines.
 	InitialWatchStatement() (string, string)
@@ -81,10 +78,6 @@ type State interface {
 	// machine. A MachineNotFound error will be returned if the machine does not
 	// exist.
 	SetRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
-
-	// DeleteMachineCloudInstance removes an entry in the machine cloud instance
-	// table along with the instance tags and the link to a lxd profile if any.
-	DeleteMachineCloudInstance(context.Context, string) error
 
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
@@ -251,17 +244,6 @@ func NewService(st State, statusHistory StatusHistory, clock clock.Clock, logger
 		clock:         clock,
 		logger:        logger,
 	}
-}
-
-// DeleteMachine deletes the specified machine.
-func (s *Service) DeleteMachine(ctx context.Context, machineName machine.Name) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := s.st.DeleteMachine(ctx, machineName); err != nil {
-		return errors.Errorf("deleting machine %q: %w", machineName, err)
-	}
-	return nil
 }
 
 // GetMachineLife returns the GetMachineLife status of the specified machine.

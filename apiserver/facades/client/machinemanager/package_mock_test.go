@@ -396,44 +396,6 @@ func (c *MockMachineServiceAllMachineNamesCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
-// DeleteMachine mocks base method.
-func (m *MockMachineService) DeleteMachine(arg0 context.Context, arg1 machine.Name) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteMachine", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteMachine indicates an expected call of DeleteMachine.
-func (mr *MockMachineServiceMockRecorder) DeleteMachine(arg0, arg1 any) *MockMachineServiceDeleteMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMachine", reflect.TypeOf((*MockMachineService)(nil).DeleteMachine), arg0, arg1)
-	return &MockMachineServiceDeleteMachineCall{Call: call}
-}
-
-// MockMachineServiceDeleteMachineCall wrap *gomock.Call
-type MockMachineServiceDeleteMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceDeleteMachineCall) Return(arg0 error) *MockMachineServiceDeleteMachineCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceDeleteMachineCall) Do(f func(context.Context, machine.Name) error) *MockMachineServiceDeleteMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceDeleteMachineCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockMachineServiceDeleteMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetHardwareCharacteristics mocks base method.
 func (m *MockMachineService) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()

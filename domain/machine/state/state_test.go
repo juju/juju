@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -44,64 +43,6 @@ type stateSuite struct {
 
 func TestStateSuite(t *stdtesting.T) {
 	tc.Run(t, &stateSuite{})
-}
-
-// TestDeleteMachine asserts the happy path of DeleteMachine at the state layer.
-func (s *stateSuite) TestDeleteMachine(c *tc.C) {
-	_, machineName := s.addMachine(c)
-
-	bd := blockdevice.BlockDevice{
-		DeviceName:      "name-666",
-		FilesystemLabel: "label-666",
-		FilesystemUUID:  "device-666",
-		HardwareId:      "hardware-666",
-		WWN:             "wwn-666",
-		BusAddress:      "bus-666",
-		SizeMiB:         666,
-		FilesystemType:  "btrfs",
-		InUse:           true,
-		MountPoint:      "mount-666",
-		SerialId:        "serial-666",
-	}
-	bdUUID := uuid.MustNewUUID().String()
-	s.insertBlockDevice(c, bd, bdUUID, string(machineName))
-
-	err := s.state.DeleteMachine(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var machineCount int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine WHERE name=?", "666").Scan(&machineCount)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machineCount, tc.Equals, 0)
-}
-
-func (s *stateSuite) insertBlockDevice(c *tc.C, bd blockdevice.BlockDevice, blockDeviceUUID, machineName string) {
-	db := s.DB()
-
-	inUse := 0
-	if bd.InUse {
-		inUse = 1
-	}
-	_, err := db.ExecContext(c.Context(), `
-INSERT INTO block_device (uuid, name, filesystem_label, host_filesystem_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type, size_mib, in_use, machine_uuid)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT uuid FROM machine WHERE name=?))
-`, blockDeviceUUID, bd.DeviceName, bd.FilesystemLabel, bd.FilesystemUUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.FilesystemType, bd.SizeMiB, inUse, machineName)
-	c.Assert(err, tc.ErrorIsNil)
-
-	for _, link := range bd.DeviceLinks {
-		_, err = db.ExecContext(c.Context(), `
-INSERT INTO block_device_link_device (block_device_uuid, name, machine_uuid)
-VALUES (?, ?, (SELECT uuid FROM machine WHERE name=?))
-`, blockDeviceUUID, link, machineName)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestGetMachineLifeSuccess asserts the happy path of GetMachineLife at the
