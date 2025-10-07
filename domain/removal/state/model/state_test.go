@@ -580,6 +580,103 @@ func (s *baseSuite) addMachine(c *tc.C, name string) string {
 	return machineUUID
 }
 
+// addSubnet adds a subnet and its associated space to the database and returns the subnet UUID.
+func (s *baseSuite) addSubnet(c *tc.C, subnet string, spaceName string) string {
+	subnetUUID := uuid.MustNewUUID().String()
+	spaceUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO space (uuid, name)
+VALUES (?, ?)`, spaceUUID, spaceName)
+		if err != nil {
+			return errors.Errorf("failed to insert space: %v", err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO subnet (uuid, cidr, space_uuid) 
+VALUES (?, ?, ?)`, subnetUUID, subnet, spaceUUID)
+		if err != nil {
+			return errors.Errorf("failed to insert subnet: %v", err)
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return subnetUUID
+}
+
+// addLinkLayerDevice adds a link layer device to the given machine and returns its UUID.
+func (s *baseSuite) addLinkLayerDevice(c *tc.C, name, machineUUID string) string {
+	lldUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var netNodeUUID string
+		err := tx.QueryRowContext(ctx, `
+SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`, lldUUID, netNodeUUID, name, 1500, "00:11:22:33:44:55", 0, 0)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO provider_link_layer_device (provider_id, device_uuid)
+VALUES (?, ?)`, "provider-id-"+name, lldUUID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return lldUUID
+}
+
+// addLinkLayerDeviceParent adds a parent-child relationship between two link-layer devices.
+func (s *baseSuite) addLinkLayerDeviceParent(c *tc.C, parentUUID, childUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO link_layer_device_parent (parent_uuid, device_uuid) 
+VALUES (?, ?)`, parentUUID, childUUID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// addIPAddress adds an IP address to the given machine/link-layer device/subnet and returns its UUID.
+func (s *baseSuite) addIPAddress(c *tc.C, machineUUID, lldUUID, subnetUUID string) string {
+	ipAddrUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var netNodeUUID string
+		err := tx.QueryRowContext(ctx, `
+SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) 
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, ipAddrUUID, lldUUID, "10.16.42.9/24", netNodeUUID, 0, 0, 0, 0, subnetUUID)
+		if err != nil {
+			return errors.Errorf("failed to insert ip_address: %v", err)
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return ipAddrUUID
+}
+
 // addUnit inserts a new unit record into the database and returns the generated unit UUID.
 func (s *baseSuite) addUnit(c *tc.C, charmUUID string) string {
 	return s.addUnitWithName(c, charmUUID, "")

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -445,18 +446,6 @@ WHERE uuid = $machine.uuid;
 		return errors.Capture(err)
 	}
 
-	// Prepare query for deleting net node row.
-	// TODO (stickupkid): We need to ensure that no unit is still using this
-	//    net node. If it is, we need to return an error.
-	deleteNode := `
-DELETE FROM net_node 
-WHERE uuid = $node.uuid
-`
-	deleteNodeStmt, err := st.Prepare(deleteNode, node{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		mLife, err := st.getMachineLife(ctx, tx, machineUUIDParam.UUID)
 		if err != nil {
@@ -509,9 +498,9 @@ WHERE uuid = $node.uuid
 			return errors.Errorf("deleting machine: %w", err)
 		}
 
-		// Remove the net node for the machine.
-		if err := tx.Query(ctx, deleteNodeStmt, node).Run(); err != nil {
-			return errors.Errorf("deleting net node: %w", err)
+		// Remove the machine's net node.
+		if err := st.removeNetNode(ctx, tx, node.UUID); err != nil {
+			return errors.Errorf("removing machine network: %w", err)
 		}
 
 		return nil
@@ -598,6 +587,94 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 
 		if err := tx.Query(ctx, stmt, machineUUIDRec).Run(); err != nil {
 			return errors.Errorf("deleting reference to machine in table %q: %w", table, err)
+		}
+	}
+	return nil
+}
+
+func (st *State) removeNetNode(ctx context.Context, tx *sqlair.TX, netNodeUUID string) error {
+	type node entityUUID
+	netNodeUUIDRec := node{UUID: netNodeUUID}
+
+	// Start by deleting any IP addresses associated with the net node.
+	deleteIPAddresses := `
+DELETE FROM ip_address
+WHERE net_node_uuid = $node.uuid;
+ `
+
+	stmt, err := st.Prepare(deleteIPAddresses, node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmt, netNodeUUIDRec).Run(); err != nil {
+		return errors.Errorf("deleting net node ip addresses %q: %w", deleteIPAddresses, err)
+	}
+
+	// Get all link-layer devices associated with the net node.
+	selectDevices := `
+SELECT uuid AS &entityUUID.uuid
+FROM   link_layer_device
+WHERE  net_node_uuid = $node.uuid
+`
+
+	devStmt, err := st.Prepare(selectDevices, entityUUID{}, netNodeUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing devices for deletion statement: %w", err)
+	}
+
+	var devsToDelete []entityUUID
+	if err := tx.Query(ctx, devStmt, netNodeUUIDRec).GetAll(&devsToDelete); err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("running devices for deletion query: %w", err)
+		}
+	}
+
+	llDevicesToDelete := uuids(transform.Slice(devsToDelete, func(d entityUUID) string { return d.UUID }))
+
+	// Delete all relations that reference the link-layer devices and the devices themselves.
+	deleteDevicesRelations := []string{
+		`DELETE FROM link_layer_device_parent WHERE device_uuid IN ($uuids[:]) OR parent_uuid IN ($uuids[:])`,
+		`DELETE FROM provider_link_layer_device WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device_dns_domain WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device_dns_address WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device WHERE uuid IN ($uuids[:])`,
+	}
+	for _, query := range deleteDevicesRelations {
+		stmt, err := st.Prepare(query, llDevicesToDelete)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, stmt, llDevicesToDelete).Run(); err != nil {
+			removeErr := errors.Errorf("deleting reference to machine network in query %q: %w", query, err)
+			if database.IsErrConstraintForeignKey(err) {
+				removeErr = removeErr.Add(removalerrors.RemovalJobIncomplete)
+			}
+			return removeErr
+		}
+	}
+
+	// Delete the net node.
+
+	deleteByNetNode := []string{
+		// TODO (stickupkid): We need to ensure that no unit is still using this
+		// net node. If it is, we need to return an error.
+		"DELETE FROM net_node WHERE uuid = $node.uuid",
+	}
+
+	for _, query := range deleteByNetNode {
+		stmt, err := st.Prepare(query, node{})
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, stmt, netNodeUUIDRec).Run(); err != nil {
+			removeErr := errors.Errorf("deleting net node in query %q: %w", query, err)
+			if database.IsErrConstraintForeignKey(err) {
+				removeErr = removeErr.Add(removalerrors.RemovalJobIncomplete)
+			}
+			return removeErr
 		}
 	}
 	return nil

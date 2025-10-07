@@ -937,3 +937,51 @@ func (s *machineSuite) TestDeleteContainer(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
 }
+
+func (s *machineSuite) TestDeleteMachineWithLinkLayerDevice(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add networking objects associated with the machine.
+	// These should be deleted when the machine is deleted.
+	subnetUUID := s.addSubnet(c, "10.0.0.53/16", "test-space")
+	lldParentUUID := s.addLinkLayerDevice(c, "lld-1", machineUUID.String())
+	lldChildUUID := s.addLinkLayerDevice(c, "lld-2", machineUUID.String())
+	s.addLinkLayerDeviceParent(c, lldChildUUID, lldParentUUID)
+	ipUUID := s.addIPAddress(c, machineUUID.String(), lldParentUUID, subnetUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	err = st.DeleteMachine(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The machine should be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// And the IP and link layer device should also be deleted.
+	var count int
+	err = s.DB().QueryRow("SELECT count(*) FROM ip_address WHERE uuid = ?", ipUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device WHERE uuid = ?", lldParentUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device WHERE uuid = ?", lldChildUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
