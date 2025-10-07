@@ -631,37 +631,13 @@ WHERE  net_node_uuid = $node.uuid
 
 	llDevicesToDelete := uuids(transform.Slice(devsToDelete, func(d entityUUID) string { return d.UUID }))
 
-	// Delete all relations that reference the link-layer devices.
-
-	// Delete any parent-child relations where the device is being deleted.
-	deleteParentLinkLayerDevices := `
-DELETE FROM link_layer_device_parent
-WHERE device_uuid IN ($uuids[:]) OR parent_uuid IN ($uuids[:])
-`
-
-	// Delete any provider relations where the device is being deleted.
-	deleteProviderLinkLayerDevices := `
-DELETE FROM provider_link_layer_device
-WHERE device_uuid IN ($uuids[:])
-`
-
-	// Delete any DNS domains associated with the device.
-	deleteLldDNSDomain := `
-DELETE FROM link_layer_device_dns_domain
-WHERE device_uuid IN ($uuids[:])
-`
-
-	// Delete any DNS addresses associated with the device.
-	deleteLldDNSAddress := `
-DELETE FROM link_layer_device_dns_address
-WHERE device_uuid IN ($uuids[:])
-`
-
+	// Delete all relations that reference the link-layer devices and the devices themselves.
 	deleteDevicesRelations := []string{
-		deleteParentLinkLayerDevices,
-		deleteProviderLinkLayerDevices,
-		deleteLldDNSDomain,
-		deleteLldDNSAddress,
+		`DELETE FROM link_layer_device_parent WHERE device_uuid IN ($uuids[:]) OR parent_uuid IN ($uuids[:])`,
+		`DELETE FROM provider_link_layer_device WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device_dns_domain WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device_dns_address WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device WHERE uuid IN ($uuids[:])`,
 	}
 	for _, query := range deleteDevicesRelations {
 		stmt, err := st.Prepare(query, llDevicesToDelete)
@@ -674,10 +650,9 @@ WHERE device_uuid IN ($uuids[:])
 		}
 	}
 
-	// Delete the link-layer devices and the net node itself.
+	// Delete the net node.
 
 	deleteByNetNode := []string{
-		"DELETE FROM link_layer_device WHERE net_node_uuid = $node.uuid",
 		// TODO (stickupkid): We need to ensure that no unit is still using this
 		// net node. If it is, we need to return an error.
 		"DELETE FROM net_node WHERE uuid = $node.uuid",
