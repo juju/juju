@@ -228,11 +228,11 @@ type StorageDirectivesAPI interface {
 
 // setConfig sets the provided key/value pairs on the application.
 func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs config.Attrs) error {
-	sd := make(map[string]storage.Constraints, len(attrs))
+	sd := make(map[string]storage.Directives, len(attrs))
 	for k, v := range attrs {
 		// This should give us a string of the form "10G,rootfs,1".
 		constraintsStr := fmt.Sprint(v)
-		parsedCons, err := storage.ParseConstraintsWithoutDefaults(constraintsStr)
+		parsedCons, err := storage.ParseDirectives(constraintsStr)
 		if err != nil {
 			return errors.Annotatef(err, "parsing storage constraints for %q", k)
 		}

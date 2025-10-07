@@ -1625,11 +1625,11 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorageDirectives", args, result).SetArg(2, results).Return(nil)
 
 	applicationStorageUpdate := application.ApplicationStorageUpdate{
-		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Constraints{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Directives{
 			"storage-block": {
 				Pool:  "loop",
-				Size:  uint64(5),
-				Count: uint64(1),
+				Size:  toUint64Ptr(5),
+				Count: toUint64Ptr(1),
 			},
 		},
 	}
@@ -1669,11 +1669,11 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorageDirectives", args, result).SetArg(2, results).Return(nil)
 
 	applicationStorageUpdate := application.ApplicationStorageUpdate{
-		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Constraints{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Directives{
 			"storage-block": {
 				Pool:  "loop",
-				Size:  uint64(5),
-				Count: uint64(1),
+				Size:  toUint64Ptr(5),
+				Count: toUint64Ptr(1),
 			},
 		},
 	}
@@ -1683,4 +1683,8 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.DeepEquals, "test error1")
+}
+
+func toUint64Ptr(i uint64) *uint64 {
+	return &i
 }

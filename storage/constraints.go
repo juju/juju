@@ -27,6 +27,20 @@ type Constraints struct {
 	Count uint64
 }
 
+// Directives describes a set of storage directives.
+type Directives struct {
+	// Pool is the name of the storage pool (ebs, ceph, custompool, ...)
+	// that must provide the storage, or "" if the default pool should be
+	// used.
+	Pool string
+
+	// Size is the minimum size of the storage in MiB.
+	Size *uint64
+
+	// Count is the number of instances of the storage to create.
+	Count *uint64
+}
+
 var (
 	poolRE  = regexp.MustCompile("^[a-zA-Z]+[-?a-zA-Z0-9]*$")
 	countRE = regexp.MustCompile("^-?[0-9]+$")
@@ -52,35 +66,6 @@ var (
 //	the set (M, G, T, P, E, Z, Y), which are all treated as
 //	powers of 1024.
 func ParseConstraints(s string) (Constraints, error) {
-	cons, err := ParseConstraintsWithoutDefaults(s)
-	if err != nil {
-		return Constraints{}, err
-	}
-	if cons.Count == 0 {
-		cons.Count = 1
-	}
-	return cons, nil
-}
-
-// ParseConstraintsWithoutDefaults parses the specified string and creates a
-// Constraints structure.
-//
-// The acceptable format for storage constraints is a comma separated
-// sequence of: POOL, COUNT, and SIZE, where
-//
-//	POOL identifies the storage pool. POOL can be a string
-//	starting with a letter, followed by zero or more digits
-//	or letters optionally separated by hyphens.
-//
-//	COUNT is a positive integer indicating how many instances
-//	of the storage to create. If unspecified, and SIZE is
-//	specified, COUNT defaults to 1.
-//
-//	SIZE describes the minimum size of the storage instances to
-//	create. SIZE is a floating point number and multiplier from
-//	the set (M, G, T, P, E, Z, Y), which are all treated as
-//	powers of 1024.
-func ParseConstraintsWithoutDefaults(s string) (Constraints, error) {
 	var cons Constraints
 	fields := strings.Split(s, ",")
 	for _, field := range fields {
@@ -118,6 +103,69 @@ func ParseConstraintsWithoutDefaults(s string) (Constraints, error) {
 	}
 	if cons.Count == 0 && cons.Size == 0 && cons.Pool == "" {
 		return Constraints{}, errors.New("storage constraints require at least one field to be specified")
+	}
+	if cons.Count == 0 {
+		cons.Count = 1
+	}
+	return cons, nil
+}
+
+// ParseDirectives parses the specified string and creates a
+// storage directives structure.
+//
+// The acceptable format for storage constraints is a comma separated
+// sequence of: POOL, COUNT, and SIZE, where
+//
+//	POOL identifies the storage pool. POOL can be a string
+//	starting with a letter, followed by zero or more digits
+//	or letters optionally separated by hyphens.
+//
+//	COUNT is a positive integer indicating how many instances
+//	of the storage to create. If unspecified, and SIZE is
+//	specified, COUNT defaults to 1.
+//
+//	SIZE describes the minimum size of the storage instances to
+//	create. SIZE is a floating point number and multiplier from
+//	the set (M, G, T, P, E, Z, Y), which are all treated as
+//	powers of 1024.
+func ParseDirectives(s string) (Directives, error) {
+	var cons Directives
+	fields := strings.Split(s, ",")
+	for _, field := range fields {
+		if field == "" {
+			continue
+		}
+		if IsValidPoolName(field) {
+			if cons.Pool != "" {
+				return cons, errors.NotValidf("pool name is already set to %q, new value %q", cons.Pool, field)
+			}
+			cons.Pool = field
+			continue
+		}
+		if count, ok, err := parseCount(field); ok {
+			if err != nil {
+				return cons, errors.Annotate(err, "cannot parse count")
+			}
+			if cons.Count != nil {
+				return cons, errors.NotValidf("storage instance count is already set to %d, new value %d", cons.Count, count)
+			}
+			cons.Count = &count
+			continue
+		}
+		if size, ok, err := parseSize(field); ok {
+			if err != nil {
+				return cons, errors.Annotate(err, "cannot parse size")
+			}
+			if cons.Size != nil {
+				return cons, errors.NotValidf("storage size is already set to %d, new value %d", cons.Size, size)
+			}
+			cons.Size = &size
+			continue
+		}
+		return cons, errors.NotValidf("unrecognized storage constraint %q", field)
+	}
+	if cons.Count == nil && cons.Size == nil && cons.Pool == "" {
+		return Directives{}, errors.New("storage constraints require at least one field to be specified")
 	}
 	return cons, nil
 }

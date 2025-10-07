@@ -1273,7 +1273,7 @@ type ApplicationStorageUpdate struct {
 
 	// StorageDirectives is a map of storage names to storage directives to
 	// update. This field is only understood by Application facade version 22 and greater.
-	StorageDirectives map[string]storage.Constraints
+	StorageDirectives map[string]storage.Directives
 }
 
 // UpdateApplicationStorageDirectives updates the storage constraints for multiple existing applications in bulk.
@@ -1282,8 +1282,8 @@ func (c *Client) UpdateApplicationStorageDirectives(applicationStorageUpdate App
 	for k, v := range applicationStorageUpdate.StorageDirectives {
 		sd[k] = params.StorageConstraints{
 			Pool:  v.Pool,
-			Size:  &v.Size,
-			Count: &v.Count,
+			Size:  v.Size,
+			Count: v.Count,
 		}
 	}
 	in := params.ApplicationStorageUpdateRequest{
