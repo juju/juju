@@ -133,6 +133,7 @@ func (s *modelManagerSuite) setUpAPIWithUser(c *tc.C, user names.UserTag) *gomoc
 		user,
 		s.modelStatusAPI,
 		s.controllerUUID,
+		modeltesting.GenModelUUID(c),
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
@@ -142,7 +143,9 @@ func (s *modelManagerSuite) setUpAPIWithUser(c *tc.C, user names.UserTag) *gomoc
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		common.NewBlockChecker(s.blockCommandService),
+		func(ctx context.Context, modelUUID coremodel.UUID) (common.BlockCheckerInterface, error) {
+			return common.NewBlockChecker(s.blockCommandService), nil
+		},
 		s.authoriser,
 	)
 
@@ -945,6 +948,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *tc.C, user names.UserTag) {
 		user,
 		s.modelStatusAPI,
 		s.controllerUUID,
+		coremodel.UUID(s.ControllerModelUUID()),
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CredentialService:    domainServices.Credential(),
@@ -954,7 +958,9 @@ func (s *modelManagerStateSuite) setAPIUser(c *tc.C, user names.UserTag) {
 			ObjectStore:          &mockObjectStore{},
 			ApplicationService:   s.applicationService,
 		},
-		common.NewBlockChecker(s.blockCommandService),
+		func(ctx context.Context, modelUUID coremodel.UUID) (common.BlockCheckerInterface, error) {
+			return common.NewBlockChecker(s.blockCommandService), nil
+		},
 		s.authoriser,
 	)
 }

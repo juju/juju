@@ -38,11 +38,11 @@ func (t BlockType) Validate() error {
 func (t BlockType) String() string {
 	switch t {
 	case DestroyBlock:
-		return "destroy"
+		return "BlockDestroy"
 	case RemoveBlock:
-		return "remove"
+		return "BlockRemove"
 	case ChangeBlock:
-		return "change"
+		return "BlockChange"
 	}
 	return "unknown"
 }
