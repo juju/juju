@@ -50,7 +50,7 @@ func (env *environ) storageSupported() bool {
 // the given storage kind. If no pool can be recommended nil is returned.
 //
 // Implements [storage.PoolAdvisor] interface.
-func (*environ) RecommendedStoragePoolForKind(
+func (*environ) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
 	return common.GetCommonRecommendedIAASPoolForKind(kind)
