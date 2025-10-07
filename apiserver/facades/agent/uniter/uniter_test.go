@@ -108,7 +108,6 @@ func (s *uniterSuite) TestEnsureDead(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.removalService.EXPECT().MarkUnitAsDead(gomock.Any(), unitUUID).Return(nil)
-	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, false, time.Duration(0)).Return("", nil)
 
 	// Act
 	res, err := s.uniter.EnsureDead(c.Context(), params.Entities{
