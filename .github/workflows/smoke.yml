@@ -49,7 +49,7 @@ jobs:
           launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
           cache: true
@@ -113,7 +113,7 @@ jobs:
           done
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
           cache: true

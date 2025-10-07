@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 
 	apilifeflag "github.com/juju/juju/api/agent/lifeflag"
@@ -153,7 +152,7 @@ func (*WorkerSuite) TestResultImmediateRealChange(c *tc.C) {
 	}
 
 	// Now check that the life has actually changed!
-	c.Check(worker.Check(), jc.IsTrue)
+	c.Check(worker.Check(), tc.IsTrue)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.Equals, lifeflag.ErrValueChanged)

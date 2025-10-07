@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.24.6
+go 1.25
 
 require (
 	cloud.google.com/go/compute v1.44.0
@@ -72,7 +72,7 @@ require (
 	github.com/juju/ratelimit v1.0.2
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
-	github.com/juju/tc v0.0.0-20250910005042-c6c39811a0bb
+	github.com/juju/tc v0.0.0-20250930101820-eed268b4086a
 	github.com/juju/testing v1.2.0
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils/v3 v3.2.2
@@ -311,3 +311,5 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
 
 replace gopkg.in/check.v1 => github.com/hpidcock/gc-compat-tc v0.0.0-20250523041742-c3a83c867edf
+
+replace github.com/juju/testing => ./internal/testhelpers/compat

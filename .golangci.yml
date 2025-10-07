@@ -1,0 +1,106 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+linters:
+  default: none
+  enable:
+    - errcheck
+    - gocritic
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - sqlclosecheck
+    - unconvert
+    - unused
+  settings:
+    gocritic:
+      disable-all: true
+      enabled-checks:
+        - badLock
+        - boolExprSimplify
+        - captLocal
+        - caseOrder
+        - deprecatedComment
+        - dupImport
+        - docStub
+        - equalFold
+        - evalOrder
+    govet:
+      enable:
+        - asmdecl
+        - assign
+        - atomic
+        - bools
+        - buildtag
+        - copylocks
+        - httpresponse
+        - loopclosure
+        - lostcancel
+        - nilfunc
+        - shift
+        - stdmethods
+        - structtag
+        - tests
+        - unmarshal
+        - unreachable
+        - unsafeptr
+        - unusedresult
+      disable-all: true
+    revive:
+      rules:
+        - name: unexported-naming
+          severity: error
+          disabled: false
+        - name: exported
+          arguments:
+            - disableStutteringCheck
+            - sayRepetitiveInsteadOfStutters
+          severity: error
+          disabled: false
+        - name: atomic
+          severity: error
+          disabled: false
+        - name: defer
+          arguments:
+            - - return
+              - recover
+              - method-call
+          severity: error
+          disabled: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - _deps
+      - _build
+      - tests/tmp.*
+    rules:
+      - path: (.+)_test\.go
+        linters:
+          - errcheck
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gci
+    - gofmt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - Prefix(github.com/juju/juju)
+    gofmt:
+      simplify: true
+  exclusions:
+    generated: lax
+    paths:
+      - _deps
+      - _build
+      - tests/tmp.*

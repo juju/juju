@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -40,14 +39,14 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 	ctx := c.Context()
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchControllerNodes(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Ensure that we get the controller node created event.
 	harness.AddTest(c, func(c *tc.C) {
 		err := svc.AddDqliteNode(ctx, "0", uint64(1), "10.0.0.1")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -55,7 +54,7 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 	// Ensure that we get the update controller node event.
 	harness.AddTest(c, func(c *tc.C) {
 		err := svc.AddDqliteNode(ctx, "0", uint64(1), "10.0.0.2")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -63,7 +62,7 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 	// Ensure that we get a new controller node.
 	harness.AddTest(c, func(c *tc.C) {
 		err := svc.AddDqliteNode(ctx, "0", uint64(2), "10.0.0.3")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -77,7 +76,7 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 	ctx := c.Context()
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchControllerAPIAddresses(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
@@ -106,7 +105,7 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 	// Ensure that we get the controller api address added event.
 	harness.AddTest(c, func(c *tc.C) {
 		err := svc.AddDqliteNode(ctx, "1", uint64(1), "10.0.0.1")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		args := controllernode.SetAPIAddressArgs{
 			APIAddresses: map[string]network.SpaceHostPorts{
 				"1": addrs,

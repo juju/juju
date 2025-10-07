@@ -21,10 +21,11 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/controllernode"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	applicationService      *MockApplicationService
 	controllerNodeService   *MockControllerNodeService

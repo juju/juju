@@ -7,7 +7,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"go.uber.org/goleak"
@@ -17,10 +16,11 @@ import (
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type manifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config ManifoldConfig
 }
@@ -78,7 +78,7 @@ func validConfig(c *tc.C) ManifoldConfig {
 }
 
 type manifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	domainServices           *MockDomainServices
 	controllerDomainServices *MockControllerDomainServices

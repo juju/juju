@@ -20,10 +20,11 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type certUpdaterSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	controllerNodeService *MockControllerNodeService
 	authority             *MockAuthority
@@ -141,7 +142,7 @@ func (s *certUpdaterSuite) TestAddressChange(c *tc.C) {
 	// Assert: Wait for the worker to process the event.
 	select {
 	case <-sync:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for leaf request commit")
 	}
 
