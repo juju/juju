@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -875,7 +876,7 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 func makeApplicationStorageDirectiveArgs(
 	directiveOverrides map[string]ApplicationStorageDirectiveOverride,
 	charmMetaStorage map[string]internalcharm.Storage,
-	defaultProvisioners application.DefaultStorageProvisioners,
+	modelStoragePools internal.ModelStoragePools,
 ) []application.CreateApplicationStorageDirectiveArg {
 	if len(charmMetaStorage) == 0 {
 		return nil
@@ -893,7 +894,7 @@ func makeApplicationStorageDirectiveArgs(
 			domainstorage.Name(charmStorageName),
 			directiveOverrides[charmStorageName],
 			charmStorageDef,
-			defaultProvisioners,
+			modelStoragePools,
 		)
 		rval = append(rval, arg)
 	}
@@ -912,7 +913,7 @@ func makeApplicationStorageDirectiveArg(
 	name domainstorage.Name,
 	directiveOverride ApplicationStorageDirectiveOverride,
 	charmStorageDef internalcharm.Storage,
-	defaultProvisioners application.DefaultStorageProvisioners,
+	modelStoragePools internal.ModelStoragePools,
 ) application.CreateApplicationStorageDirectiveArg {
 	rval := application.CreateApplicationStorageDirectiveArg{
 		Name: name,
@@ -940,16 +941,16 @@ func makeApplicationStorageDirectiveArg(
 	if directiveOverride.PoolUUID != nil {
 		// Set the pool uuid to the value supplied by the override.
 		rval.PoolUUID = *directiveOverride.PoolUUID
-	} else if defaultProvisioners.BlockdevicePoolUUID != nil &&
+	} else if modelStoragePools.BlockDevicePoolUUID != nil &&
 		charmStorageDef.Type == internalcharm.StorageBlock {
 		// Set the pool uuid if the charm storage is block and a block pool
 		// provisioner exists.
-		rval.PoolUUID = *defaultProvisioners.BlockdevicePoolUUID
-	} else if defaultProvisioners.FilesystemPoolUUID != nil &&
+		rval.PoolUUID = *modelStoragePools.BlockDevicePoolUUID
+	} else if modelStoragePools.FilesystemPoolUUID != nil &&
 		charmStorageDef.Type == internalcharm.StorageFilesystem {
 		// Set the pool uuid if the charm storage is filesystem and a filesystem
 		// pool provisioner exists.
-		rval.PoolUUID = *defaultProvisioners.FilesystemPoolUUID
+		rval.PoolUUID = *modelStoragePools.FilesystemPoolUUID
 	}
 
 	return rval

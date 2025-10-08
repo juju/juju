@@ -1033,7 +1033,7 @@ func makeCreateApplicationArgs(
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 ) (application.BaseAddApplicationArg, error) {
-	defaultStorageProviders, err := storageSt.GetDefaultStorageProvisioners(ctx)
+	modelStoragePools, err := storageSt.GetModelStoragePools(ctx)
 	if err != nil {
 		return application.BaseAddApplicationArg{}, errors.Errorf(
 			"getting default storage provisioners for model: %w", err,
@@ -1044,7 +1044,7 @@ func makeCreateApplicationArgs(
 	storageDirectiveArgs := makeApplicationStorageDirectiveArgs(
 		args.StorageDirectiveOverrides,
 		charmMeta.Storage,
-		defaultStorageProviders,
+		modelStoragePools,
 	)
 
 	err = validateApplicationStorageDirectives(charmMeta.Storage, storageDirectiveArgs)

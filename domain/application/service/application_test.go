@@ -34,6 +34,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -1552,10 +1553,10 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 
 	tests := []struct {
-		Name                string
-		DefaultProvisioners application.DefaultStorageProvisioners
-		CharmMetaStorage    map[string]internalcharm.Storage
-		Overrides           map[string]ApplicationStorageDirectiveOverride
+		Name              string
+		ModelStoragePools internal.ModelStoragePools
+		CharmMetaStorage  map[string]internalcharm.Storage
+		Overrides         map[string]ApplicationStorageDirectiveOverride
 
 		Expected []application.CreateApplicationStorageDirectiveArg
 	}{
@@ -1578,9 +1579,9 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 					MinimumSize: 256,
 				},
 			},
-			DefaultProvisioners: application.DefaultStorageProvisioners{
+			ModelStoragePools: internal.ModelStoragePools{
 				FilesystemPoolUUID:  &fakeFilesytemPoolUUID,
-				BlockdevicePoolUUID: &fakeBlockdevicePoolUUID,
+				BlockDevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
@@ -1605,8 +1606,8 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 					MinimumSize: 256,
 				},
 			},
-			DefaultProvisioners: application.DefaultStorageProvisioners{
-				BlockdevicePoolUUID: &fakeBlockdevicePoolUUID,
+			ModelStoragePools: internal.ModelStoragePools{
+				BlockDevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
@@ -1630,9 +1631,9 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 					MinimumSize: 256,
 				},
 			},
-			DefaultProvisioners: application.DefaultStorageProvisioners{
+			ModelStoragePools: internal.ModelStoragePools{
 				FilesystemPoolUUID:  &fakeFilesytemPoolUUID,
-				BlockdevicePoolUUID: &fakeBlockdevicePoolUUID,
+				BlockDevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
@@ -1657,7 +1658,7 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 					MinimumSize: 256,
 				},
 			},
-			DefaultProvisioners: application.DefaultStorageProvisioners{},
+			ModelStoragePools: internal.ModelStoragePools{},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
 				{
@@ -1672,7 +1673,7 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 	for _, test := range tests {
 		c.Run(test.Name, func(t *testing.T) {
 			args := makeApplicationStorageDirectiveArgs(
-				test.Overrides, test.CharmMetaStorage, test.DefaultProvisioners,
+				test.Overrides, test.CharmMetaStorage, test.ModelStoragePools,
 			)
 			tc.Check(t, args, tc.DeepEquals, test.Expected)
 		})
