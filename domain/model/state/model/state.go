@@ -6,6 +6,7 @@ package model
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -24,6 +25,7 @@ import (
 	modelinternal "github.com/juju/juju/domain/model/internal"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -586,6 +588,126 @@ func (s *ModelState) SetModelConstraints(
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return SetModelConstraints(ctx, s, tx, cons)
 	})
+}
+
+// checkStoragePoolsExist takes a set of storage pool uuids to check exist
+// within the model. If one or more of the storage pool uuids supplied does not
+// exist false is returned.
+func (s *ModelState) checkStoragePoolsExist(
+	ctx context.Context,
+	tx *sqlair.TX,
+	storagePoolUUIDs []string,
+) (bool, error) {
+	if len(storagePoolUUIDs) == 0 {
+		return true, nil
+	}
+
+	type poolUUIDs []string
+	var (
+		dbVal dbAggregateCount
+		input = poolUUIDs(storagePoolUUIDs)
+	)
+
+	query := `
+SELECT (COUNT(*)) AS (&dbAggregateCount.count)
+FROM   storage_pool
+WHERE  uuid IN ($poolUUIDs[:])
+`
+	stmt, err := s.Prepare(query, dbVal, input)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, input).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return len(storagePoolUUIDs) == dbVal.Count, nil
+}
+
+// SetModelStoragePools sets the storage pools to be used in the model when
+// a recommended default is required. This operation WILL remove any
+// previously set storage pools in the model and replace them with the new
+// values supplied.
+//
+// If no set args are supplied then this operation will just remove any
+// previously set storage pools for the model.
+//
+// The following errors can be expected:
+// - [storageerrors.PoolNotFoundError] when one or more of the storage pools
+// does not exist in the model.
+func (s *ModelState) SetModelStoragePools(
+	ctx context.Context,
+	args []modelinternal.SetModelStoragePoolArg,
+) error {
+	if len(args) == 0 {
+		return nil
+	}
+
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteQuery := "DELETE FROM model_storage_pool"
+	deleteStmt, err := s.Prepare(deleteQuery)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertQuery := `
+INSERT INTO model_storage_pool (*) VALUES ($dbModelStoragePool.*)
+`
+	insertStmt, err := s.Prepare(insertQuery, dbModelStoragePool{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertVals := make([]dbModelStoragePool, 0, len(args))
+	poolUUIDs := make([]string, 0, len(args))
+	for _, a := range args {
+		insertVals = append(insertVals, dbModelStoragePool{
+			StoragePoolUUID: a.StoragePoolUUID.String(),
+			StorageKindID:   int(a.StorageKind),
+		})
+		poolUUIDs = append(poolUUIDs, a.StoragePoolUUID.String())
+	}
+
+	err = db.Txn(ctx, func(c context.Context, tx *sqlair.TX) error {
+		poolsExist, err := s.checkStoragePoolsExist(ctx, tx, poolUUIDs)
+		if err != nil {
+			return errors.Errorf(
+				"checking storage pool(s) exist in the model: %w", err,
+			)
+		}
+		if !poolsExist {
+			return errors.New(
+				"one or more storage pools do not exist in the model",
+			).Add(storageerrors.PoolNotFoundError)
+		}
+
+		err = tx.Query(ctx, deleteStmt).Run()
+		if err != nil {
+			return errors.Errorf("deleting existing model storage pools: %w", err)
+		}
+
+		err = tx.Query(ctx, insertStmt, insertVals).Run()
+		if internaldatabase.IsErrConstraintForeignKey(err) {
+			return fmt.Errorf(
+				"invalid storage kind id provider: %w", err,
+			)
+		}
+		return err
+	})
+
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // insertConstraintTags is responsible for setting the specified tags for the
