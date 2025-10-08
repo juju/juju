@@ -287,8 +287,8 @@ func (m *mockApplication) SetStatus(sInfo status.StatusInfo) error {
 	return nil
 }
 
-func (m *mockApplication) StorageUniqueID() string {
-	m.MethodCall(m, "StorageUniqueID")
+func (m *mockApplication) GetStorageUniqueID() string {
+	m.MethodCall(m, "GetStorageUniqueID")
 	return m.storageUniqueID
 }
 
