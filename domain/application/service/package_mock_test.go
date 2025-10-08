@@ -5403,44 +5403,6 @@ func (c *MockStateSetDesiredApplicationScaleCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// SetUnitConstraints mocks base method.
-func (m *MockState) SetUnitConstraints(arg0 context.Context, arg1 unit.UUID, arg2 constraints0.Constraints) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitConstraints", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUnitConstraints indicates an expected call of SetUnitConstraints.
-func (mr *MockStateMockRecorder) SetUnitConstraints(arg0, arg1, arg2 any) *MockStateSetUnitConstraintsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitConstraints", reflect.TypeOf((*MockState)(nil).SetUnitConstraints), arg0, arg1, arg2)
-	return &MockStateSetUnitConstraintsCall{Call: call}
-}
-
-// MockStateSetUnitConstraintsCall wrap *gomock.Call
-type MockStateSetUnitConstraintsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateSetUnitConstraintsCall) Return(arg0 error) *MockStateSetUnitConstraintsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitConstraintsCall) Do(f func(context.Context, unit.UUID, constraints0.Constraints) error) *MockStateSetUnitConstraintsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitConstraintsCall) DoAndReturn(f func(context.Context, unit.UUID, constraints0.Constraints) error) *MockStateSetUnitConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetUnitWorkloadVersion mocks base method.
 func (m *MockState) SetUnitWorkloadVersion(arg0 context.Context, arg1 unit.Name, arg2 string) error {
 	m.ctrl.T.Helper()

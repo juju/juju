@@ -231,9 +231,6 @@ func (s *watcherSuite) TestWatchApplicationUnitLife(c *tc.C) {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_version WHERE unit_uuid=?", unitID1); err != nil {
 				return errors.Capture(err)
 			}
-			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID1); err != nil {
-				return errors.Capture(err)
-			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/0"); err != nil {
 				return errors.Capture(err)
 			}
@@ -279,9 +276,6 @@ func (s *watcherSuite) TestWatchApplicationUnitLife(c *tc.C) {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_version WHERE unit_uuid=?", unitID2); err != nil {
 				return errors.Capture(err)
 			}
-			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID2); err != nil {
-				return errors.Capture(err)
-			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/1"); err != nil {
 				return errors.Capture(err)
 			}
@@ -315,9 +309,6 @@ func (s *watcherSuite) TestWatchApplicationUnitLife(c *tc.C) {
 				return errors.Capture(err)
 			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_version WHERE unit_uuid=?", unitID3); err != nil {
-				return errors.Capture(err)
-			}
-			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID3); err != nil {
 				return errors.Capture(err)
 			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "bar/667"); err != nil {
@@ -420,9 +411,6 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 				return errors.Capture(err)
 			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_version WHERE unit_uuid=?", unitID1); err != nil {
-				return errors.Capture(err)
-			}
-			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID1); err != nil {
 				return errors.Capture(err)
 			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/0"); err != nil {

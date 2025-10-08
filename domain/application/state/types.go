@@ -886,10 +886,6 @@ type applicationUUID struct {
 	ApplicationUUID string `db:"application_uuid"`
 }
 
-type unitConstraintUUID struct {
-	UnitUUID string `db:"unit_uuid"`
-}
-
 type constraintUUID struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 }
@@ -932,11 +928,6 @@ type storageCount struct {
 	StorageName corestorage.Name                  `db:"storage_name"`
 	UnitUUID    coreunit.UUID                     `db:"unit_uuid"`
 	Count       uint64                            `db:"count"`
-}
-
-type setUnitConstraint struct {
-	UnitUUID       string `db:"unit_uuid"`
-	ConstraintUUID string `db:"constraint_uuid"`
 }
 
 // dbConstraint represents a single row within the v_model_constraint view.
