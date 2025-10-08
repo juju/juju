@@ -390,8 +390,8 @@ func (a *mockApplication) GetUnitAttachmentInfos() ([]state.UnitAttachmentInfo, 
 	return a.unitAttachmentInfos, a.NextErr()
 }
 
-func (a *mockApplication) StorageUniqueID() string {
-	a.MethodCall(a, "StorageUniqueID")
+func (a *mockApplication) GetStorageUniqueID() string {
+	a.MethodCall(a, "GetStorageUniqueID")
 	return a.storageUniqueID
 }
 

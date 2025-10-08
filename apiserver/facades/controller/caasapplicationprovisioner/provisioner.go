@@ -435,7 +435,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		CharmURL:             *charmURL,
 		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),
 		Scale:                app.GetScale(),
-		StorageUniqueID:      app.StorageUniqueID(),
+		StorageUniqueID:      app.GetStorageUniqueID(),
 	}, nil
 }
 
@@ -476,7 +476,7 @@ func (a *API) FilesystemProvisioningInfo(args params.Entity) (params.CAASApplica
 	}
 	result.Filesystems = filesystemParams
 	result.FilesystemUnitAttachments = filesystemUnitAttachmentParams
-	result.StorageUniqueID = app.StorageUniqueID()
+	result.StorageUniqueID = app.GetStorageUniqueID()
 	return result, nil
 }
 
