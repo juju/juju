@@ -46,3 +46,7 @@ type setAgentVersionTargetStream struct {
 type setControllerTargetVersion struct {
 	TargetVersion string `db:"target_version"`
 }
+
+type binaryAgentVersion struct {
+	Version string `db:"version"`
+}

@@ -264,3 +264,34 @@ SET    target_version = $setAgentVersionTargetStream.target_version,
 
 	return nil
 }
+
+func (s *ControllerModelState) HasBinaryAgent(ctx context.Context, version semversion.Number) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	in := binaryAgentVersion{Version: version.String()}
+	stmt, err := s.Prepare(`
+SELECT &binaryAgentVersion.*
+FROM agent_binary_store
+WHERE version = $hasBinaryAgent.version
+`, in)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var binaryAgentExists bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, in).Get(&in)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		binaryAgentExists = true
+		return nil
+	})
+
+	return binaryAgentExists, errors.Capture(err)
+}

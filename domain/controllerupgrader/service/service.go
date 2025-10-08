@@ -6,14 +6,18 @@ package service
 import (
 	"context"
 	"fmt"
-
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
 	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 // AgentBinaryFinder defines a helper for asserting if agent binaries are
@@ -58,6 +62,8 @@ type ControllerState interface {
 	// controller version in use by the cluster. Controllers in the cluster will
 	// eventually upgrade to this version once changed.
 	SetControllerTargetVersion(context.Context, semversion.Number) error
+
+	HasBinaryAgent(ctx context.Context, version semversion.Number) (bool, error)
 }
 
 // ControllerModelState defines the interface for interacting with the
@@ -91,6 +97,34 @@ type ControllerModelState interface {
 		toVersion semversion.Number,
 		stream modelagent.AgentStream,
 	) error
+
+	HasBinaryAgent(ctx context.Context, version semversion.Number) (bool, error)
+}
+
+// PreferredSimpleStreamsFunc is a function that returns the preferred streams
+// for the given version and stream.
+type PreferredSimpleStreamsFunc func(
+	vers *semversion.Number,
+	forceDevel bool,
+	stream string,
+) []string
+
+// AgentBinaryFilter is a function that filters agent binaries based on the
+// given parameters. It returns a list of agent binaries that match the filter
+// criteria.
+type AgentBinaryFilter func(
+	ctx context.Context,
+	ss envtools.SimplestreamsFetcher,
+	env environs.BootstrapEnviron,
+	majorVersion,
+	minorVersion int,
+	streams []string,
+	filter coretools.Filter,
+) (coretools.List, error)
+
+// ProviderForAgentBinaryFinder is a subset of cloud provider.
+type ProviderForAgentBinaryFinder interface {
+	environs.BootstrapEnviron
 }
 
 // Service defines a service for interacting with the controller's version and
@@ -99,6 +133,16 @@ type Service struct {
 	agentBinaryFinder AgentBinaryFinder
 	ctrlSt            ControllerState
 	modelSt           ControllerModelState
+}
+
+type AgentBinaryFinderImpl struct {
+	ctrlSt  ControllerState
+	modelSt ControllerModelState
+
+	providerForAgentBinaryFinder providertracker.ProviderGetter[ProviderForAgentBinaryFinder]
+
+	agentBinaryFilter         AgentBinaryFilter
+	getPreferredSimpleStreams PreferredSimpleStreamsFunc
 }
 
 // NewService returns a new Service for interacting and upgrading the
@@ -258,7 +302,7 @@ func (s *Service) UpgradeControllerWithStream(
 // version number.
 // - [controllerupgradererrors.DowngradeNotSupported] if the requested version
 // being upgraded to would result in a downgrade of the controller.
-// - [controllerupgradeerrors.VersionNotSupported] if the requested version
+// - [controllerupgradererrors.VersionNotSupported] if the requested version
 // being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.MissingControllerBinaries] if no controller
 // binaries can be found for the requested version.
@@ -519,4 +563,65 @@ func (s *Service) validateControllerCanBeUpgradedTo(
 	}
 
 	return nil
+}
+
+func (a *AgentBinaryFinderImpl) HasBinariesForVersion(ctx context.Context, number semversion.Number) (bool, error) {
+	// Let's check if the agent binary exists in model state.
+	existsInModel, err := a.modelSt.HasBinaryAgent(ctx, number)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	if existsInModel {
+		return existsInModel, nil
+	}
+
+	// The agent binary doesn't exist in model state so we check if they exist in
+	// controller state.
+	existsInController, err := a.ctrlSt.HasBinaryAgent(ctx, number)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	if existsInController {
+		return existsInController, nil
+	}
+
+	// Woops, now we fallback to finding the agent binary in simplestreams because
+	// they both don't exist in model and controller state.
+	return a.hasBinaryAgentInStreams(ctx, number)
+}
+
+func (a *AgentBinaryFinderImpl) hasBinaryAgentInStreams(ctx context.Context, number semversion.Number) (bool, error) {
+	provider, err := a.providerForAgentBinaryFinder(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return false, errors.Errorf("getting provider for agent binary finder %w", coreerrors.NotSupported)
+	}
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	cfg := provider.Config()
+	streams := a.getPreferredSimpleStreams(&number, cfg.Development(), cfg.AgentStream())
+	ssFetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	filter := coretools.Filter{Number: number}
+	tools, err := a.agentBinaryFilter(ctx, ssFetcher, provider, number.Major, number.Minor, streams, filter)
+	if err != nil {
+		return false, errors.Errorf("getting agent binary from simplestreams: %w", err)
+	}
+
+	return tools.Len() > 0, nil
+}
+
+func (a *AgentBinaryFinderImpl) HasBinariesForVersionAndStream(ctx context.Context, number semversion.Number, stream modelagent.AgentStream) (bool, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailable(ctx context.Context) (semversion.Number, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailableForStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error) {
+	//TODO implement me
+	panic("implement me")
 }
