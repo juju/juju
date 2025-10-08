@@ -4278,6 +4278,6 @@ func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 	})
 }
 
-func (a *Application) StorageUniqueID() string {
+func (a *Application) GetStorageUniqueID() string {
 	return a.doc.StorageUniqueID
 }
