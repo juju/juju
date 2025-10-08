@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainsequence "github.com/juju/juju/domain/sequence"
@@ -1246,14 +1247,14 @@ AND    cs.name = $unitCharmStorage.name
 	return result, nil
 }
 
-// GetDefaultStorageProvisioners returns the default storage provisioners
+// GetModelStoragePools returns the default storage pools
 // that have been set for the model.
-func (st *State) GetDefaultStorageProvisioners(
+func (st *State) GetModelStoragePools(
 	ctx context.Context,
-) (application.DefaultStorageProvisioners, error) {
+) (internal.ModelStoragePools, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return application.DefaultStorageProvisioners{}, errors.Capture(err)
+		return internal.ModelStoragePools{}, errors.Capture(err)
 	}
 
 	storageModelConfigKeys := storageModelConfigKeys{
@@ -1261,59 +1262,74 @@ func (st *State) GetDefaultStorageProvisioners(
 		FilesystemKey:  application.StorageDefaultFilesystemSourceKey,
 	}
 
-	stmt, err := st.Prepare(`
+	modelConfigPools, err := st.Prepare(`
 WITH 	blockdevice_pool_name AS (
-			SELECT "blockdevice" AS type,
-			       value AS name
-			FROM   model_config
-			WHERE  key=$storageModelConfigKeys.blockdevice_key
+            SELECT sk.id AS storage_kind_id,
+                   value AS name
+            FROM   model_config mc,
+                   storage_kind sk
+            WHERE  key=$storageModelConfigKeys.blockdevice_key
+            AND    sk.kind = 'block'
 		),
 		filesystem_pool_name AS (
-			SELECT "filesystem" AS type,
-			       value AS name
-			FROM   model_config
-			WHERE  key=$storageModelConfigKeys.filesystem_key
+            SELECT sk.id AS storage_kind_id,
+                   value AS name
+            FROM   model_config mc,
+                   storage_kind sk
+            WHERE  key=$storageModelConfigKeys.filesystem_key
+            AND    sk.kind = 'filesystem'
 		),
-		pool_names AS (
-			SELECT * FROM blockdevice_pool_name
-			UNION
-			SELECT * FROM filesystem_pool_name
+		mc_pools AS (
+            SELECT bpn.storage_kind_id,
+                   sp.uuid AS storage_pool_uuid
+            FROM   blockdevice_pool_name bpn
+            JOIN   storage_pool sp ON bpn.name=sp.name
+            UNION
+            SELECT fpn.storage_kind_id,
+                   sp.uuid AS storage_pool_uuid
+            FROM   filesystem_pool_name fpn
+            JOIN   storage_pool sp ON fpn.name=sp.name
 		)
-SELECT (pn.type, sp.uuid) AS (&storageProvisioners.*)
-FROM pool_names pn
-LEFT JOIN storage_pool sp ON pn.name=sp.name
-`, storageModelConfigKeys, storageProvisioners{})
+SELECT &modelStoragePools.* FROM (
+    SELECT storage_kind_id,
+           storage_pool_uuid
+    FROM   mc_pools
+    UNION
+    SELECT storage_kind_id,
+           storage_pool_uuid
+    FROM   model_storage_pool
+    WHERE  storage_kind_id NOT IN (SELECT storage_kind_id
+                                   FROM   mc_pools)
+)
+`, storageModelConfigKeys, modelStoragePools{})
 	if err != nil {
-		return application.DefaultStorageProvisioners{}, errors.Capture(err)
+		return internal.ModelStoragePools{}, errors.Capture(err)
 	}
 
-	var dbVals []storageProvisioners
+	var dbVals []modelStoragePools
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, storageModelConfigKeys).GetAll(&dbVals)
+		err := tx.Query(ctx, modelConfigPools, storageModelConfigKeys).GetAll(&dbVals)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 		return nil
 	})
 	if err != nil {
-		return application.DefaultStorageProvisioners{}, errors.Capture(err)
+		return internal.ModelStoragePools{}, errors.Capture(err)
 	}
 
-	res := application.DefaultStorageProvisioners{}
+	rval := internal.ModelStoragePools{}
 	for _, v := range dbVals {
-		if v.StoragePoolUUID == "" {
-			continue
-		}
-		switch v.StorageType {
-		case "blockdevice":
+		switch v.StorageKindID {
+		case int(domainstorage.StorageKindBlock):
 			poolUUID := domainstorage.StoragePoolUUID(v.StoragePoolUUID)
-			res.BlockdevicePoolUUID = &poolUUID
-		case "filesystem":
+			rval.BlockDevicePoolUUID = &poolUUID
+		case int(domainstorage.StorageKindFilesystem):
 			poolUUID := domainstorage.StoragePoolUUID(v.StoragePoolUUID)
-			res.FilesystemPoolUUID = &poolUUID
+			rval.FilesystemPoolUUID = &poolUUID
 		}
 	}
-	return res, nil
+	return rval, nil
 }
 
 // ensureCharmStorageCountChange checks that the charm storage can change by

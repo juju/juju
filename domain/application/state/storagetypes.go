@@ -110,6 +110,13 @@ type insertStorageVolumeStatus struct {
 	UpdateAt   time.Time `db:"updated_at"`
 }
 
+// modelConfigStoragePool represents the storage pools that have been set in
+// model config.
+type modelConfigStoragePool struct {
+	StorageKindID   int    `db:"storage_kind_id"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+}
+
 // storageFilesystemUUIDRef is a database type for selecting a foreign key
 // reference to a storage filesystem uuid.
 type storageFilesystemUUIDRef struct {
@@ -166,6 +173,11 @@ type unitOwnedStorage struct {
 type storageModelConfigKeys struct {
 	BlockDeviceKey string `db:"blockdevice_key"`
 	FilesystemKey  string `db:"filesystem_key"`
+}
+
+type modelStoragePools struct {
+	StorageKindID   int    `db:"storage_kind_id"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
 }
 
 // storageProvisioners is used to get the default storage provisioners, either

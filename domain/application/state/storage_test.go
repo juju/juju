@@ -14,6 +14,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -281,7 +282,9 @@ func (s *storageSuite) TestGetProviderTypeForPool(c *tc.C) {
 	c.Check(pType, tc.Equals, "ptype")
 }
 
-func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
+// TestGetModelStoragePoolsWithModelDefaults tests getting model default storage
+// pools when only the model defaults have been set via model config.
+func (s *storageSuite) TestGetModelStoragePoolsWithModelConfig(c *tc.C) {
 	poolUUID := s.createStoragePool(c, "test-pool", "ptype")
 
 	st := NewState(
@@ -289,32 +292,147 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 	)
 	db := s.DB()
 
-	res, err := st.GetDefaultStorageProvisioners(c.Context())
+	res, err := st.GetModelStoragePools(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{})
+	c.Assert(res, tc.DeepEquals, internal.ModelStoragePools{})
 
-	_, err = db.Exec("INSERT INTO model_config(key, value) VALUES (?, ?)", application.StorageDefaultBlockSourceKey, "test-pool")
+	_, err = db.Exec(
+		"INSERT INTO model_config(key, value) VALUES (?, ?)",
+		application.StorageDefaultBlockSourceKey, "test-pool",
+	)
 	c.Assert(err, tc.ErrorIsNil)
-	res, err = st.GetDefaultStorageProvisioners(c.Context())
+	res, err = st.GetModelStoragePools(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
-		BlockdevicePoolUUID: &poolUUID,
+	c.Assert(res, tc.DeepEquals, internal.ModelStoragePools{
+		BlockDevicePoolUUID: &poolUUID,
 	})
 
-	_, err = db.Exec("INSERT INTO model_config(key, value) VALUES (?, ?)", application.StorageDefaultFilesystemSourceKey, "test-pool")
+	_, err = db.Exec(
+		"INSERT INTO model_config(key, value) VALUES (?, ?)",
+		application.StorageDefaultFilesystemSourceKey,
+		"test-pool",
+	)
 	c.Assert(err, tc.ErrorIsNil)
-	res, err = st.GetDefaultStorageProvisioners(c.Context())
+	res, err = st.GetModelStoragePools(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
-		BlockdevicePoolUUID: &poolUUID,
+	c.Assert(res, tc.DeepEquals, internal.ModelStoragePools{
+		BlockDevicePoolUUID: &poolUUID,
 		FilesystemPoolUUID:  &poolUUID,
 	})
 
-	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "", application.StorageDefaultBlockSourceKey)
+	_, err = db.Exec(
+		"UPDATE model_config SET value = ? WHERE key = ?",
+		"", application.StorageDefaultBlockSourceKey,
+	)
 	c.Assert(err, tc.ErrorIsNil)
-	res, err = st.GetDefaultStorageProvisioners(c.Context())
+	res, err = st.GetModelStoragePools(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
+	c.Assert(res, tc.DeepEquals, internal.ModelStoragePools{
 		FilesystemPoolUUID: &poolUUID,
+	})
+}
+
+// TestGetModelStoragePoolsWithModelDefaults tests getting model default storage
+// pools when only the model defaults have been set on the tables.
+func (s *storageSuite) TestGetModelStoragePoolsWithModelDefaults(c *tc.C) {
+	poolUUID := s.createStoragePool(c, "test-pool", "ptype")
+
+	st := NewState(
+		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+	)
+	db := s.DB()
+
+	res, err := st.GetModelStoragePools(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, internal.ModelStoragePools{})
+
+	_, err = db.Exec(
+		`
+INSERT INTO model_storage_pool(storage_kind_id, storage_pool_uuid)
+VALUES (?, ?)
+`,
+		int(domainstorage.StorageKindBlock),
+		poolUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	res, err = st.GetModelStoragePools(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, internal.ModelStoragePools{
+		BlockDevicePoolUUID: &poolUUID,
+	})
+
+	_, err = db.Exec(
+		`
+INSERT INTO model_storage_pool(storage_kind_id, storage_pool_uuid)
+VALUES (?, ?)
+`,
+		int(domainstorage.StorageKindFilesystem),
+		poolUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	res, err = st.GetModelStoragePools(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, internal.ModelStoragePools{
+		BlockDevicePoolUUID: &poolUUID,
+		FilesystemPoolUUID:  &poolUUID,
+	})
+
+	_, err = db.Exec(
+		"DELETE FROM model_storage_pool WHERE storage_kind_id = ?",
+		int(domainstorage.StorageKindBlock),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	res, err = st.GetModelStoragePools(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, internal.ModelStoragePools{
+		FilesystemPoolUUID: &poolUUID,
+	})
+}
+
+// TestGetModelStoragePoolsMix tests getting model default storage pools from
+// a combination of model defaults and model config.
+func (s *storageSuite) TestGetModelStoragePoolsMix(c *tc.C) {
+	poolUUID1 := s.createStoragePool(c, "test-pool1", "ptype")
+	poolUUID2 := s.createStoragePool(c, "test-pool2", "ptype")
+
+	st := NewState(
+		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+	)
+	db := s.DB()
+	_, err := db.Exec(
+		"INSERT INTO model_config(key, value) VALUES (?, ?)",
+		application.StorageDefaultBlockSourceKey, "test-pool1",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.Exec(
+		`
+INSERT INTO model_storage_pool(storage_kind_id, storage_pool_uuid)
+VALUES (?, ?)
+`,
+		int(domainstorage.StorageKindFilesystem),
+		poolUUID2.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	res, err := st.GetModelStoragePools(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, internal.ModelStoragePools{
+		BlockDevicePoolUUID: &poolUUID1,
+		FilesystemPoolUUID:  &poolUUID2,
+	})
+
+	_, err = db.Exec(
+		"INSERT INTO model_config(key, value) VALUES (?, ?)",
+		application.StorageDefaultFilesystemSourceKey, "test-pool1",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	res, err = st.GetModelStoragePools(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, internal.ModelStoragePools{
+		BlockDevicePoolUUID: &poolUUID1,
+		FilesystemPoolUUID:  &poolUUID1,
 	})
 }
