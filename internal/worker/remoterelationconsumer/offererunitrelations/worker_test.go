@@ -247,15 +247,14 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 	}
 
 	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
-		"application-uuid": s.offererApplicationUUID.String(),
-		"relation-uuid":    s.consumerRelationUUID.String(),
-		"changed-units":    []map[string]any(nil),
-		"settings":         map[string]any(nil),
-		"unit-count":       0,
-		"departed-units":   []int(nil),
-		"life":             life.Value(""),
-		"suspended":        false,
-		"suspended-reason": "",
+		"offerer-application-uuid": s.offererApplicationUUID.String(),
+		"consumer-relation-uuid":   s.consumerRelationUUID.String(),
+		"changed-units":            []map[string]any(nil),
+		"settings":                 map[string]any(nil),
+		"departed-units":           []int(nil),
+		"life":                     life.Value(""),
+		"suspended":                false,
+		"suspended-reason":         "",
 	})
 
 	select {
@@ -283,8 +282,8 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 	}
 
 	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
-		"application-uuid": s.offererApplicationUUID.String(),
-		"relation-uuid":    s.consumerRelationUUID.String(),
+		"offerer-application-uuid": s.offererApplicationUUID.String(),
+		"consumer-relation-uuid":   s.consumerRelationUUID.String(),
 		"changed-units": []map[string]any{{
 			"unit-id": 0,
 			"settings": map[string]any{
@@ -294,7 +293,6 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 		"settings": map[string]any{
 			"foo": "bar",
 		},
-		"unit-count": 3,
 		"departed-units": []int{
 			4,
 		},

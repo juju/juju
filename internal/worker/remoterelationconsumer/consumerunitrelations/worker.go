@@ -87,10 +87,10 @@ type localWorker struct {
 	clock  clock.Clock
 	logger logger.Logger
 
-	// requests is used to request a report of the current state.
+	// reportRequests is used to request a report of the current state.
 	// This is to allow the worker to be reported on by the engine, without
 	// needing to add locking around the state.
-	requests chan chan map[string]any
+	reportRequests chan relation.RelationUnitChange
 }
 
 // NewWorker creates a new worker that watches for local relation unit
@@ -110,7 +110,7 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 		clock:   cfg.Clock,
 		logger:  cfg.Logger,
 
-		requests: make(chan chan map[string]any),
+		reportRequests: make(chan relation.RelationUnitChange),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "local-relation-units",
@@ -182,28 +182,7 @@ func (w *localWorker) loop() error {
 			case w.changes <- event:
 			}
 
-		case resp := <-w.requests:
-			// The requests channel handles the reporting requests from the
-			// engine. This happens in another goroutine so we need to ensure
-			// that we don't create data races, we need to synchronise access to
-			// the state.
-
-			select {
-			case <-w.catacomb.Dying():
-				return w.catacomb.ErrDying()
-
-			case resp <- map[string]any{
-				"application-uuid": w.consumerApplicationUUID.String(),
-				"relation-uuid":    w.consumerRelationUUID.String(),
-				"changed-units":    event.ChangedUnits,
-				"available-units":  event.AvailableUnits,
-				"settings":         event.ApplicationSettings,
-
-				// This only exists for legacy reasons (3.x compatibility).
-				// Although it's a good proxy for if the relation has changed.
-				"departed-units": event.DeprecatedDepartedUnits,
-			}:
-			}
+		case w.reportRequests <- event:
 		}
 	}
 }
@@ -211,27 +190,21 @@ func (w *localWorker) loop() error {
 // Report provides information for the engine report.
 func (w *localWorker) Report() map[string]any {
 	result := make(map[string]any)
-
-	ch := make(chan map[string]any, 1)
-	select {
-	case <-w.catacomb.Dying():
-		return result
-	case <-w.clock.After(time.Second):
-		// Timeout trying to report.
-		result["error"] = "timed out trying to report"
-		return result
-	case w.requests <- ch:
-	}
+	result["consumer-relation-uuid"] = w.consumerRelationUUID.String()
+	result["consumer-application-uuid"] = w.consumerApplicationUUID.String()
 
 	select {
+	case <-time.After(time.Second):
+		result["error"] = "timed out waiting for report"
+
 	case <-w.catacomb.Dying():
-		return result
-	case <-w.clock.After(time.Second):
-		// Timeout trying to report.
-		result["error"] = "timed out waiting for report response"
-		return result
-	case resp := <-ch:
-		result = resp
+		result["error"] = "worker is dying"
+
+	case event := <-w.reportRequests:
+		result["changed-units"] = event.ChangedUnits
+		result["available-units"] = event.AvailableUnits
+		result["settings"] = event.ApplicationSettings
+		result["departed-units"] = event.DeprecatedDepartedUnits
 	}
 
 	return result

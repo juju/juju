@@ -298,12 +298,12 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 	}
 
 	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
-		"application-uuid": s.consumerApplicationUUID.String(),
-		"relation-uuid":    s.consumerRelationUUID.String(),
-		"changed-units":    []relation.UnitChange(nil),
-		"available-units":  []int(nil),
-		"settings":         map[string]any(nil),
-		"departed-units":   []int(nil),
+		"consumer-application-uuid": s.consumerApplicationUUID.String(),
+		"consumer-relation-uuid":    s.consumerRelationUUID.String(),
+		"changed-units":             []relation.UnitChange(nil),
+		"available-units":           []int(nil),
+		"settings":                  map[string]any(nil),
+		"departed-units":            []int(nil),
 	})
 
 	select {
@@ -319,8 +319,8 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 	}
 
 	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
-		"application-uuid": s.consumerApplicationUUID.String(),
-		"relation-uuid":    s.consumerRelationUUID.String(),
+		"consumer-application-uuid": s.consumerApplicationUUID.String(),
+		"consumer-relation-uuid":    s.consumerRelationUUID.String(),
 		"changed-units": []relation.UnitChange{{
 			UnitID: 0,
 			Settings: map[string]any{
