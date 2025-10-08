@@ -24,8 +24,8 @@
 /domain/modelconfig/**                        @tlm
 
 # Macaroons
-/internal/macaroon/**                         @jack-w-shaw
-/domain/macaroon/**                           @jack-w-shaw
+/internal/macaroon/**                         @manadart @jack-w-shaw
+/domain/macaroon/**                           @manadart @jack-w-shaw
 
 # Juju controller
 /cmd/jujud-controller/**                      @manadart @SimonRichardson
@@ -43,10 +43,19 @@
 /domain/externalcontroller/**                 @manadart @nvinuesa
 
 # Resource domain packages
-/core/resource/**                             @hmlanigan @Aflynn50 @gfouillet
-/domain/resource/**                           @hmlanigan @Aflynn50 @gfouillet
-/internal/resource/**                         @hmlanigan @Aflynn50 @gfouillet
+/core/resource/**                             @hmlanigan @gfouillet
+/domain/resource/**                           @hmlanigan @gfouillet
+/internal/resource/**                         @hmlanigan @gfouillet
 
 # Relation domain packages
-/core/relation/**                             @hmlanigan @Aflynn50 @gfouillet
-/domain/relation/**                           @hmlanigan @Aflynn50 @gfouillet
+/core/relation/**                             @hmlanigan @gfouillet
+/domain/relation/**                           @hmlanigan @gfouillet
+
+# Cross model relation domain packages
+/domain/crossmodelrelation/**                 @SimonRichardson
+/internal/worker/remoterelationconsumer/**    @SimonRichardson
+/internal/worker/remoterelationofferer/**     @SimonRichardson
+
+# Removal
+/internal/worker/removal/**                   @manadart
+/domain/removal/**                            @manadart
