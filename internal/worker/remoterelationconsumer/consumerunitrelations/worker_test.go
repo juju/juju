@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
+	"gopkg.in/macaroon.v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/errors"
@@ -29,7 +30,9 @@ type localUnitRelationsWorker struct {
 	consumerRelationUUID    corerelation.UUID
 	consumerApplicationUUID coreapplication.UUID
 
-	changes chan relation.RelationUnitChange
+	macaroon *macaroon.Macaroon
+
+	changes chan RelationUnitChange
 }
 
 func TestLocalUnitRelationsWorker(t *testing.T) {
@@ -41,7 +44,8 @@ func (s *localUnitRelationsWorker) SetUpTest(c *tc.C) {
 	s.consumerRelationUUID = tc.Must(c, corerelation.NewUUID)
 	s.consumerApplicationUUID = tc.Must(c, coreapplication.NewID)
 
-	s.changes = make(chan relation.RelationUnitChange, 1)
+	s.changes = make(chan RelationUnitChange, 1)
+	s.macaroon = newMacaroon(c, "test")
 }
 
 func (s *localUnitRelationsWorker) TestValidate(c *tc.C) {
@@ -63,6 +67,11 @@ func (s *localUnitRelationsWorker) TestValidate(c *tc.C) {
 
 	cfg = s.newConfig(c)
 	cfg.ConsumerRelationUUID = ""
+	err = cfg.Validate()
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+
+	cfg = s.newConfig(c)
+	cfg.Macaroon = nil
 	err = cfg.Validate()
 	c.Check(err, tc.ErrorIs, errors.NotValid)
 
@@ -122,15 +131,14 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 					"foo": "baz",
 				},
 			}},
-			AvailableUnits: []int{
+			AllUnits: []int{
+				0, 1, 2, 4,
+			},
+			InScopeUnits: []int{
 				0, 1, 2,
 			},
 			ApplicationSettings: map[string]any{
 				"foo": "bar",
-			},
-			UnitCount: 3,
-			DeprecatedDepartedUnits: []int{
-				4,
 			},
 		}, nil)
 
@@ -149,28 +157,28 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 		c.Fatalf("timed out waiting to send change event")
 	}
 
-	var change relation.RelationUnitChange
+	var change RelationUnitChange
 	select {
 	case change = <-s.changes:
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for changes to be sent")
 	}
 
-	c.Assert(change, tc.DeepEquals, relation.RelationUnitChange{
-		ChangedUnits: []relation.UnitChange{{
-			UnitID: 0,
-			Settings: map[string]any{
-				"foo": "baz",
+	c.Assert(change, tc.DeepEquals, RelationUnitChange{
+		RelationUnitChange: relation.RelationUnitChange{
+			ChangedUnits: []relation.UnitChange{{
+				UnitID: 0,
+				Settings: map[string]any{
+					"foo": "baz",
+				},
+			}},
+			AllUnits:     []int{0, 1, 2, 4},
+			InScopeUnits: []int{0, 1, 2},
+			ApplicationSettings: map[string]any{
+				"foo": "bar",
 			},
-		}},
-		AvailableUnits: []int{0, 1, 2},
-		ApplicationSettings: map[string]any{
-			"foo": "bar",
 		},
-		UnitCount: 3,
-		DeprecatedDepartedUnits: []int{
-			4,
-		},
+		Macaroon: s.macaroon,
 	})
 
 	workertest.CleanKill(c, w)
@@ -276,15 +284,14 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 					"foo": "baz",
 				},
 			}},
-			AvailableUnits: []int{
+			AllUnits: []int{
+				0, 1, 2, 4,
+			},
+			InScopeUnits: []int{
 				0, 1, 2,
 			},
 			ApplicationSettings: map[string]any{
 				"foo": "bar",
-			},
-			UnitCount: 3,
-			DeprecatedDepartedUnits: []int{
-				4,
 			},
 		}, nil)
 
@@ -301,9 +308,9 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 		"consumer-application-uuid": s.consumerApplicationUUID.String(),
 		"consumer-relation-uuid":    s.consumerRelationUUID.String(),
 		"changed-units":             []relation.UnitChange(nil),
-		"available-units":           []int(nil),
+		"all-units":                 []int(nil),
+		"in-scope-units":            []int(nil),
 		"settings":                  map[string]any(nil),
-		"departed-units":            []int(nil),
 	})
 
 	select {
@@ -327,12 +334,10 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 				"foo": "baz",
 			},
 		}},
-		"available-units": []int{0, 1, 2},
+		"all-units":      []int{0, 1, 2, 4},
+		"in-scope-units": []int{0, 1, 2},
 		"settings": map[string]any{
 			"foo": "bar",
-		},
-		"departed-units": []int{
-			4,
 		},
 	})
 
@@ -344,6 +349,7 @@ func (s *localUnitRelationsWorker) newConfig(c *tc.C) Config {
 		Service:                 s.service,
 		ConsumerApplicationUUID: s.consumerApplicationUUID,
 		ConsumerRelationUUID:    s.consumerRelationUUID,
+		Macaroon:                s.macaroon,
 		Changes:                 s.changes,
 		Clock:                   clock.WallClock,
 		Logger:                  loggertesting.WrapCheckLog(c),

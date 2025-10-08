@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
@@ -38,6 +40,12 @@ const (
 	// whilst the relation is in a dying state. This is a terminal error and
 	// requires the worker to be restarted to recover.
 	ErrPermissionRevokedWhilstDying = internalerrors.ConstError("relation permission revoked whilst dying")
+)
+
+const (
+	// defaultBakeryVersion is the default bakery version to use when
+	// communicating with the offerer model.
+	defaultBakeryVersion = bakery.LatestVersion
 )
 
 // LocalConsumerWorkerConfig defines the configuration for a local consumer
@@ -135,7 +143,7 @@ type localConsumerWorker struct {
 	// consume the remote application to which this worker pertains.
 	offerMacaroon *macaroon.Macaroon
 
-	consumerRelationUnitChanges chan relation.RelationUnitChange
+	consumerRelationUnitChanges chan consumerunitrelations.RelationUnitChange
 	offererRelationUnitChanges  chan offererunitrelations.RelationUnitChange
 	offererRelationChanges      chan offererrelations.RelationChange
 
@@ -180,7 +188,7 @@ func NewLocalConsumerWorker(config LocalConsumerWorkerConfig) (ReportableWorker,
 
 		remoteRelationClientGetter: config.RemoteRelationClientGetter,
 
-		consumerRelationUnitChanges: make(chan relation.RelationUnitChange),
+		consumerRelationUnitChanges: make(chan consumerunitrelations.RelationUnitChange),
 		offererRelationUnitChanges:  make(chan offererunitrelations.RelationUnitChange),
 		offererRelationChanges:      make(chan offererrelations.RelationChange),
 
@@ -314,6 +322,13 @@ func (w *localConsumerWorker) loop() (err error) {
 				}
 			}
 
+		case change := <-w.consumerRelationUnitChanges:
+			w.logger.Debugf(ctx, "consumer relation units changed: %v", change)
+
+			if err := w.handleConsumerUnitChange(ctx, change); err != nil {
+				return errors.Annotatef(err, "handling consumer unit relation change for %q", change.RelationUUID)
+			}
+
 		case changes, ok := <-offerStatusWatcher.Changes():
 			if !ok {
 				select {
@@ -360,7 +375,7 @@ func (w *localConsumerWorker) watchRemoteOfferStatus(ctx context.Context) (watch
 	offerStatusWatcher, err := w.remoteModelClient.WatchOfferStatus(ctx, params.OfferArg{
 		OfferUUID:     w.offerUUID,
 		Macaroons:     macaroon.Slice{w.offerMacaroon},
-		BakeryVersion: bakery.LatestVersion,
+		BakeryVersion: defaultBakeryVersion,
 	})
 	if isNotFound(err) {
 		return nil, w.remoteOfferRemoved(ctx)
@@ -506,7 +521,7 @@ func (w *localConsumerWorker) handleRelationDying(ctx context.Context, relationU
 		Life:                    life.Dying,
 		ApplicationOrOfferToken: w.applicationUUID.String(),
 		Macaroons:               macaroon.Slice{mac},
-		BakeryVersion:           bakery.LatestVersion,
+		BakeryVersion:           defaultBakeryVersion,
 
 		// NOTE (stickupkid): Work out if we need to pass ForceCleanup here.
 		// I suspect that because the relation never transitions to dead, and
@@ -604,6 +619,7 @@ func (w *localConsumerWorker) ensureUnitRelationWorkers(
 			Service:                 w.crossModelService,
 			ConsumerApplicationUUID: w.applicationUUID,
 			ConsumerRelationUUID:    details.UUID,
+			Macaroon:                mac,
 			Changes:                 w.consumerRelationUnitChanges,
 			Clock:                   w.clock,
 			Logger:                  w.logger.Child("consumer-unit"),
@@ -656,7 +672,7 @@ func (w *localConsumerWorker) registerConsumerRelation(
 		LocalEndpointName: remoteEndpointName,
 		ConsumeVersion:    consumeVersion,
 		Macaroons:         macaroon.Slice{w.offerMacaroon},
-		BakeryVersion:     bakery.LatestVersion,
+		BakeryVersion:     defaultBakeryVersion,
 	}
 	offererRelations, err := w.remoteModelClient.RegisterRemoteRelations(ctx, arg)
 	if err != nil {
@@ -697,6 +713,40 @@ func (w *localConsumerWorker) registerConsumerRelation(
 		offererApplicationUUID: offererAppUUID,
 		macaroon:               registerResult.Macaroon,
 	}, nil
+}
+
+func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, change consumerunitrelations.RelationUnitChange) error {
+	// Workout which units are no longer in scope and should be considered
+	// as departed.
+	departedUnits := set.NewInts(change.AllUnits...).Difference(set.NewInts(change.InScopeUnits...)).SortedValues()
+
+	// Create the event to send to the offering model.
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           change.RelationUUID.String(),
+		ApplicationOrOfferToken: w.applicationUUID.String(),
+		ApplicationSettings:     change.ApplicationSettings,
+
+		ChangedUnits: transform.Slice(change.ChangedUnits, func(v relation.UnitChange) params.RemoteRelationUnitChange {
+			return params.RemoteRelationUnitChange{
+				UnitId:   v.UnitID,
+				Settings: v.Settings,
+			}
+		}),
+		InScopeUnits: change.InScopeUnits,
+
+		// The following are for backwards compatibility with 3.x controllers.
+		DepartedUnits: departedUnits,
+		UnitCount:     len(change.InScopeUnits),
+
+		Macaroons:     macaroon.Slice{change.Macaroon},
+		BakeryVersion: defaultBakeryVersion,
+	}
+
+	if err := w.remoteModelClient.PublishRelationChange(ctx, event); err != nil {
+
+	}
+
+	return nil
 }
 
 type consumerRelationResult struct {

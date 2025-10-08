@@ -365,12 +365,10 @@ type RemoteRelationChangeEvent struct {
 	// ensure that all relation units have left scope.
 	ForceCleanup *bool `json:"force-cleanup,omitempty"`
 
-	// UnitCount is the number of units still in relation scope.
-	UnitCount int `json:"unit-count"`
-
 	// Suspended is the current suspended status of the relation.
 	Suspended *bool `json:"suspended,omitempty"`
 
+	// SuspendedReason is an optional message to explain why suspended is true.
 	SuspendedReason string `json:"suspended-reason,omitempty"`
 
 	// ApplicationSettings represent the updated application-level settings in
@@ -380,15 +378,25 @@ type RemoteRelationChangeEvent struct {
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
 
-	// DepartedUnits contains the ids of units that have departed
-	// the relation since the last change.
-	DepartedUnits []int `json:"departed-units,omitempty"`
+	// InScopeUnits contains the ids of all units that are currently
+	// in scope of the relation.
+	InScopeUnits []int `json:"in-scope-units,omitempty"`
 
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
 	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+
+	// DepartedUnits contains the ids of units that have departed
+	// the relation since the last change.
+	// Deprecated: Use InScopeUnits will tell us which units are expected
+	// to be alive and in-scope. Anything else should be treated as departed.
+	DepartedUnits []int `json:"departed-units,omitempty"`
+
+	// UnitCount is the number of units still in relation scope.
+	// Deprecated: Use len(InScopeUnits) instead.
+	UnitCount int `json:"unit-count"`
 }
 
 func (e *RemoteRelationChangeEvent) GoString() string {

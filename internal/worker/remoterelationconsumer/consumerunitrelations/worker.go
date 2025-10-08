@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
+	"gopkg.in/macaroon.v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
@@ -29,6 +30,13 @@ type Service interface {
 	GetRelationUnits(context.Context, coreapplication.UUID) (relation.RelationUnitChange, error)
 }
 
+// RelationUnitChange encapsulates a local relation event, adding the macaroon
+// required to authenticate with the remote model.
+type RelationUnitChange struct {
+	relation.RelationUnitChange
+	Macaroon *macaroon.Macaroon
+}
+
 // ReportableWorker is an interface that allows a worker to be reported
 // on by the engine.
 type ReportableWorker interface {
@@ -43,7 +51,9 @@ type Config struct {
 	ConsumerApplicationUUID coreapplication.UUID
 	ConsumerRelationUUID    corerelation.UUID
 
-	Changes chan<- relation.RelationUnitChange
+	Macaroon *macaroon.Macaroon
+
+	Changes chan<- RelationUnitChange
 
 	Clock  clock.Clock
 	Logger logger.Logger
@@ -59,6 +69,9 @@ func (c Config) Validate() error {
 	}
 	if c.ConsumerRelationUUID.IsEmpty() {
 		return errors.NotValidf("relation UUID cannot be empty")
+	}
+	if c.Macaroon == nil {
+		return errors.NotValidf("macaroon cannot be nil")
 	}
 	if c.Changes == nil {
 		return errors.NotValidf("changes channel cannot be nil")
@@ -82,7 +95,10 @@ type localWorker struct {
 
 	consumerApplicationUUID coreapplication.UUID
 	consumerRelationUUID    corerelation.UUID
-	changes                 chan<- relation.RelationUnitChange
+
+	macaroon *macaroon.Macaroon
+
+	changes chan<- RelationUnitChange
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -105,6 +121,8 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 
 		consumerRelationUUID:    cfg.ConsumerRelationUUID,
 		consumerApplicationUUID: cfg.ConsumerApplicationUUID,
+
+		macaroon: cfg.Macaroon,
 
 		changes: cfg.Changes,
 		clock:   cfg.Clock,
@@ -179,7 +197,10 @@ func (w *localWorker) loop() error {
 			select {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
-			case w.changes <- event:
+			case w.changes <- RelationUnitChange{
+				RelationUnitChange: event,
+				Macaroon:           w.macaroon,
+			}:
 			}
 
 		case w.reportRequests <- event:
@@ -202,14 +223,14 @@ func (w *localWorker) Report() map[string]any {
 
 	case event := <-w.reportRequests:
 		result["changed-units"] = event.ChangedUnits
-		result["available-units"] = event.AvailableUnits
+		result["all-units"] = event.AllUnits
+		result["in-scope-units"] = event.InScopeUnits
 		result["settings"] = event.ApplicationSettings
-		result["departed-units"] = event.DeprecatedDepartedUnits
 	}
 
 	return result
 }
 
 func isEmpty(change relation.RelationUnitChange) bool {
-	return len(change.ChangedUnits)+len(change.DeprecatedDepartedUnits) == 0
+	return len(change.ChangedUnits)+len(change.InScopeUnits) == 0
 }
