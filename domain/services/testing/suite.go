@@ -249,12 +249,12 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 // DomainServicesGetter provides an implementation of the DomainServicesGetter
 // interface to use in tests. This includes the dummy storage registry.
 func (s *DomainServicesSuite) DomainServicesGetter(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.LeaseManager) DomainServicesGetterFunc {
-	return s.DomainServicesGetterWithStorageRegistry(c, objectStore, leaseManager, storage.ChainedProviderRegistry{
-		// Using the dummy storage provider for testing purposes isn't
-		// ideal. We should potentially use a mock storage provider
-		// instead.
-		dummy.StorageProviders(),
-	})
+	// Using the dummy storage provider for testing purposes isn't
+	// ideal. We should potentially use a mock storage provider
+	// instead.
+	return s.DomainServicesGetterWithStorageRegistry(
+		c, objectStore, leaseManager, dummy.StorageProviders(),
+	)
 }
 
 type domainServices struct {
@@ -533,6 +533,11 @@ func (s stubProvider) PrepareForBootstrap(ctx environs.BootstrapContext, control
 
 // SetConfig implements providertracker.Provider.
 func (s stubProvider) SetConfig(ctx context.Context, cfg *config.Config) error {
+	return nil
+}
+
+// RecommendedPoolForKind implements providertracker.Provider
+func (s stubProvider) RecommendedPoolForKind(storage.StorageKind) *storage.Config {
 	return nil
 }
 
