@@ -73,7 +73,7 @@ CREATE TABLE model_storage_pool (
     REFERENCES storage_kind (id),
     CONSTRAINT fk_model_storage_pool_storage_pool_uuid
     FOREIGN KEY (storage_pool_uuid)
-    REFERENCES storage_poold (uuid)
+    REFERENCES storage_pool (uuid)
 );
 
 -- This table stores storage directive values for each named storage item
