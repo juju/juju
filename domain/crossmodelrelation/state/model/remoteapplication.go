@@ -91,7 +91,7 @@ func (st *State) AddRemoteApplicationConsumer(
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		//Get the application UUID for which the offer UUID was created.
-		localApplicationUUID, err := st.getApplicationUUIDByOfferUUID(ctx, tx, args.OfferUUID)
+		_, localApplicationUUID, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, args.OfferUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -191,47 +191,6 @@ WHERE   aro.life_id < 2;`
 	}
 
 	return result, nil
-}
-
-// GetApplicationRemoteRelationByConsumerRelationUUID retrieves the application
-// remote relation (relation_uuid and consumer_relation_uuid) for the supplied
-// consumer relation UUID. Returns
-// [crossmodelrelationerrors.RemoteRelationNotFound] if no such relation exists.
-func (st *State) GetApplicationRemoteRelationByConsumerRelationUUID(
-	ctx context.Context,
-	consumerRelUUID string,
-) (corerelation.UUID, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	ident := consumerRelationUUID{ConsumerRelationUUID: consumerRelUUID}
-
-	stmt, err := st.Prepare(`
-SELECT arr.relation_uuid AS &uuid.uuid
-FROM   application_remote_relation AS arr
-JOIN   relation AS r ON r.uuid = arr.relation_uuid
-WHERE  arr.consumer_relation_uuid = $consumerRelationUUID.consumer_relation_uuid
-`, uuid{}, ident)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var result uuid
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, ident).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
-			return crossmodelrelationerrors.RemoteRelationNotFound
-		} else if err != nil {
-			return errors.Errorf("retrieving application remote relation %q: %w", consumerRelUUID, err)
-		}
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return corerelation.UUID(result.UUID), nil
 }
 
 func (st *State) insertApplication(
@@ -599,36 +558,37 @@ WHERE charm_relation.charm_uuid = $uuid.uuid
 	return relations, nil
 }
 
-// getApplicationUUIDByOfferUUID retrieves the application UUID for the given
-// offer UUID.
-func (st *State) getApplicationUUIDByOfferUUID(
+// getApplicationNameAndUUIDByOfferUUID retrieves the application name and UUID
+// for the given offer UUID.
+func (st *State) getApplicationNameAndUUIDByOfferUUID(
 	ctx context.Context,
 	tx *sqlair.TX,
 	offerUUID string,
-) (string, error) {
+) (string, string, error) {
 	ident := offerConnectionQuery{
 		OfferUUID: offerUUID,
 	}
 
 	existsQueryStmt, err := st.Prepare(`
-SELECT a.uuid AS &uuid.uuid
+SELECT a.uuid AS &nameAndUUID.uuid,
+       a.name AS &nameAndUUID.name
 FROM   application AS a
 JOIN   application_endpoint AS ae ON ae.application_uuid = a.uuid
 JOIN   offer_endpoint AS oe ON oe.endpoint_uuid = ae.uuid
 WHERE  oe.offer_uuid = $offerConnectionQuery.offer_uuid
-`, uuid{}, ident)
+`, nameAndUUID{}, ident)
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
-	var res uuid
+	var res nameAndUUID
 	if err = tx.Query(ctx, existsQueryStmt, ident).Get(&res); errors.Is(err, sqlair.ErrNoRows) {
-		return "", applicationerrors.ApplicationNotFound
+		return "", "", applicationerrors.ApplicationNotFound
 	} else if err != nil {
-		return "", errors.Errorf("retrieving application UUID from offer %q: %w", offerUUID, err)
+		return "", "", errors.Errorf("retrieving application name and UUID from offer %q: %w", offerUUID, err)
 	}
 
-	return res.UUID, nil
+	return res.Name, res.UUID, nil
 }
 
 // checkRemoteApplicationExists checks if a remote application with the given
@@ -741,30 +701,34 @@ WHERE offer_uuid = $uuid.uuid
 	return nil
 }
 
-// GetApplicationUUIDByOfferUUID returns the application UUID for the given
-// offer UUID.
+// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
+// for the given offer UUID.
 // Returns [applicationerrors.ApplicationNotFound] if the offer or associated
 // application is not found.
-func (st *State) GetApplicationUUIDByOfferUUID(ctx context.Context, offerUUID string) (coreapplication.UUID, error) {
+func (st *State) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
-	var applicationUUID string
+	var (
+		applicationName string
+		applicationUUID string
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		id, err := st.getApplicationUUIDByOfferUUID(ctx, tx, offerUUID)
+		name, uuid, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, offerUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		applicationUUID = id
+		applicationName = name
+		applicationUUID = uuid
 		return nil
 	})
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
-	return coreapplication.UUID(applicationUUID), nil
+	return applicationName, coreapplication.UUID(applicationUUID), nil
 }
 
 func (st *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid string, ch charm.Charm) error {

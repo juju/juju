@@ -5,6 +5,7 @@ package crossmodelrelations
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/rpc/params"
@@ -76,8 +78,9 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	ctx context.Context,
 	relation params.RegisterRemoteRelationArg,
 ) (*params.RemoteRelationDetails, error) {
-	// Retrieve the application UUID for the provided offer UUID (also validates offer exists).
-	appUUID, err := api.crossModelRelationService.GetApplicationUUIDByOfferUUID(ctx, relation.OfferUUID)
+	// Retrieve the application UUID for the provided offer UUID (also validates
+	// offer exists).
+	appName, appUUID, err := api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, relation.OfferUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -113,20 +116,19 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 		return nil, errors.Annotate(err, "adding remote application consumer")
 	}
 
-	// Now get the relation UUID of the "synthetic" remote relation.
-	offererRemoteRelationUUID, err := api.crossModelRelationService.GetApplicationRemoteRelationByConsumerRelationUUID(ctx, relation.RelationToken)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting remote relation UUID")
-	}
-
 	// Create the relation tag for the remote relation.
 	// The relation tag is based on the relation key, which is of the form
-	// "app1:relName1 app2:relName2".
-	offererRemoteRelationDetails, err := api.relationService.GetRelationDetails(ctx, offererRemoteRelationUUID)
+	// "app1:epName1 app2:epName2".
+	localEndpoint := appName + ":" + relation.LocalEndpointName
+
+	relationKey, err := corerelation.NewKeyFromString(
+		strings.Join([]string{localEndpoint, relation.RemoteEndpoint.Name}, " "),
+	)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting relation details")
+		return nil, errors.Annotate(err, "parsing relation key")
 	}
-	offererRemoteRelationTag := names.NewRelationTag(offererRemoteRelationDetails.Key.String())
+
+	offererRemoteRelationTag := names.NewRelationTag(relationKey.String())
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.auth.CreateRemoteRelationMacaroon(

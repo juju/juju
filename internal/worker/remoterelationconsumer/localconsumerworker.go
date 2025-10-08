@@ -648,7 +648,7 @@ func (w *localConsumerWorker) registerConsumerRelation(
 		RelationToken:    relationUUID.String(),
 		OfferUUID:        offerUUID,
 		RemoteEndpoint: params.RemoteEndpoint{
-			Name:      applicationEndpointIdent.Name,
+			Name:      applicationEndpointIdent.String(),
 			Role:      applicationEndpointIdent.Role,
 			Interface: applicationEndpointIdent.Interface,
 			Limit:     applicationEndpointIdent.Limit,

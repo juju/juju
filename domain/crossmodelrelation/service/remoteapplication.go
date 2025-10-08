@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -56,16 +57,11 @@ type ModelRemoteApplicationState interface {
 	// remote application.
 	SaveMacaroonForRelation(context.Context, string, []byte) error
 
-	// GetApplicationUUIDByOfferUUID returns the application UUID for the given
-	// offer UUID.
+	// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
+	// for the given offer UUID.
 	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
 	// application is not found.
-	GetApplicationUUIDByOfferUUID(ctx context.Context, offerUUID string) (coreapplication.UUID, error)
-
-	// GetApplicationRemoteRelationByConsumerRelationUUID returns the synthetic relation UUID
-	// for a remote relation given the consumer relation UUID. Returns
-	// crossmodelrelationerrors.RemoteRelationNotFound if the relation does not exist.
-	GetApplicationRemoteRelationByConsumerRelationUUID(context.Context, string) (corerelation.UUID, error)
+	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -186,33 +182,18 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 			OfferUUID:       args.OfferUUID,
 		},
 		RelationUUID: args.RelationUUID,
-	}); err != nil {
+	}); internalerrors.Is(err, crossmodelrelationerrors.RemoteRelationAlreadyRegistered) {
+		// This can happen if the remote relation was already registered.
+		// The method is idempotent, so we just return nil with a debug log.
+		s.logger.Debugf(ctx, "remote relation with consumer relation UUID %q already registered", args.RelationUUID)
+		return nil
+	} else if err != nil {
 		return internalerrors.Errorf("inserting remote application consumer: %w", err)
 	}
 
 	s.recordInitRemoteApplicationStatusHistory(ctx, synthApplicationName)
 
 	return nil
-}
-
-// GetApplicationRemoteRelationByConsumerRelationUUID retrieves the synthetic relation UUID
-// for a remote relation given the consumer relation UUID.
-func (s *Service) GetApplicationRemoteRelationByConsumerRelationUUID(
-	ctx context.Context,
-	consumerRelationUUID string,
-) (corerelation.UUID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if !uuid.IsValidUUIDString(consumerRelationUUID) {
-		return "", internalerrors.Errorf("consumer relation UUID %q is not a valid UUID", consumerRelationUUID).Add(errors.NotValid)
-	}
-
-	relationUUID, err := s.modelState.GetApplicationRemoteRelationByConsumerRelationUUID(ctx, consumerRelationUUID)
-	if err != nil {
-		return "", internalerrors.Capture(err)
-	}
-	return relationUUID, nil
 }
 
 // recordInitRemoteApplicationStatusHistory records the initial status history
@@ -289,21 +270,23 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 	return s.modelState.SaveMacaroonForRelation(ctx, relationUUID.String(), bytes)
 }
 
-// GetApplicationUUIDByOfferUUID returns the application UUID for the given offer UUID.
-// Returns crossmodelrelationerrors.OfferNotFound if the offer or associated application is not found.
-func (s *Service) GetApplicationUUIDByOfferUUID(ctx context.Context, offerUUID string) (coreapplication.UUID, error) {
+// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
+// for the given offer UUID.
+// Returns crossmodelrelationerrors.OfferNotFound if the offer or associated
+// application is not found.
+func (s *Service) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if !uuid.IsValidUUIDString(offerUUID) {
-		return "", internalerrors.Errorf("offer UUID %q is not a valid UUID", offerUUID).Add(errors.NotValid)
+		return "", "", internalerrors.Errorf("offer UUID %q is not a valid UUID", offerUUID).Add(errors.NotValid)
 	}
 
-	appUUID, err := s.modelState.GetApplicationUUIDByOfferUUID(ctx, offerUUID)
+	appName, appUUID, err := s.modelState.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", "", internalerrors.Capture(err)
 	}
-	return appUUID, nil
+	return appName, appUUID, nil
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {
