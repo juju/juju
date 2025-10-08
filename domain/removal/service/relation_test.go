@@ -88,11 +88,27 @@ func (s *relationSuite) TestRemoveRelationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rUUID := relationtesting.GenRelationUUID(c)
-
 	s.modelState.EXPECT().RelationExists(gomock.Any(), rUUID.String()).Return(false, nil)
 
 	_, err := s.newService(c).RemoveRelation(c.Context(), rUUID, false, 0)
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestLeaveScope(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	s.modelState.EXPECT().LeaveScope(gomock.Any(), relationUnitUUID.String()).Return(nil)
+
+	err := s.newService(c).LeaveScope(c.Context(), relationUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestLeaveScopeRelationUnitNameNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.newService(c).LeaveScope(c.Context(), "bad-relation-unit-uuid")
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
 func (s *relationSuite) TestExecuteJobForRelationNotFound(c *tc.C) {

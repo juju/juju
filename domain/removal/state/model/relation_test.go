@@ -179,7 +179,7 @@ func (s *relationSuite) TestUnitNamesInScopeNoRows(c *tc.C) {
 }
 
 func (s *relationSuite) TestUnitNamesInScopeSuccess(c *tc.C) {
-	rel, unit := s.addAppUnitRelationScope(c)
+	rel, unit, _ := s.addAppUnitRelationScope(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -189,7 +189,7 @@ func (s *relationSuite) TestUnitNamesInScopeSuccess(c *tc.C) {
 }
 
 func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *tc.C) {
-	rel, _ := s.addAppUnitRelationScope(c)
+	rel, _, _ := s.addAppUnitRelationScope(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -203,7 +203,7 @@ func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *tc.C) {
 }
 
 func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *tc.C) {
-	rel, _ := s.addAppUnitRelationScope(c)
+	rel, _, _ := s.addAppUnitRelationScope(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -212,7 +212,7 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *tc.C) {
 }
 
 func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
-	rel, _ := s.addAppUnitRelationScope(c)
+	rel, _, _ := s.addAppUnitRelationScope(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -226,10 +226,69 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestLeaveScopeSuccess(c *tc.C) {
+	// Arrange
+	rel, unit, relUnit := s.addAppUnitRelationScope(c)
+
+	ctx := c.Context()
+
+	// Add some archived relation settings to simulate this unit
+	// leaving and re-entering the relation scope.
+	// We expect these to be overwritten.
+	s.DB().ExecContext(ctx, `
+INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", value)
+VALUES (?, ?, 'old-key', 'old-value')`, rel, unit)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Act
+	err := st.LeaveScope(ctx, relUnit)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	inScope, err := st.UnitNamesInScope(c.Context(), rel)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(inScope, tc.HasLen, 0)
+
+	// We should have two records in the archive; one each for different units.
+	rows, err := s.DB().QueryContext(
+		ctx, "SELECT unit_name, key, value FROM relation_unit_setting_archive where relation_uuid = ?", rel)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	var (
+		unitName, key, val string
+		ours, others       int
+	)
+	for rows.Next() {
+		err := rows.Scan(&unitName, &key, &val)
+		c.Assert(err, tc.ErrorIsNil)
+
+		if unitName == unit {
+			ours++
+			c.Check(key, tc.Equals, "key")
+			c.Check(val, tc.Equals, "value")
+			continue
+		}
+		others++
+	}
+
+	c.Check(ours, tc.Equals, 1)
+	c.Check(others, tc.Equals, 1)
+}
+
+func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.LeaveScope(c.Context(), "not-here")
+	c.Check(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
+}
+
 // addAppUnitRelationScope adds charm, application, unit and relation
 // infrastructure such that a single unit is in the scope of a single relation.
-// The relation and unit identifiers are returned.
-func (s *relationSuite) addAppUnitRelationScope(c *tc.C) (string, string) {
+// The relation, unit and relation-unit identifiers are returned.
+func (s *relationSuite) addAppUnitRelationScope(c *tc.C) (string, string, string) {
 	charm := "some-charm-uuid"
 	_, err := s.DB().Exec("INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, ?)", charm, charm, 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -257,7 +316,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	c.Assert(err, tc.ErrorIsNil)
 
 	rel := "some-relation-uuid"
-	_, err = s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)", rel, 0, rel, 0)
+	_, err = s.DB().Exec(
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)", rel, 0, rel, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relEndpoint := "some-relation-endpoint-uuid"
@@ -267,12 +327,14 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.DB().Exec("INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value) VALUES (?, ?, ?)",
+	_, err = s.DB().Exec(
+		"INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value) VALUES (?, ?, ?)",
 		relEndpoint, "key", "value",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.DB().Exec("INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, ?)",
+	_, err = s.DB().Exec(
+		"INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, ?)",
 		relEndpoint, "hash",
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -294,19 +356,20 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec("INSERT INTO relation_unit_setting (relation_unit_uuid, key, value) VALUES (?, ?, ?)",
-		"some-rel-unit-uuid", "key", "value",
+		relUnit, "key", "value",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec("INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, ?)",
-		"some-rel-unit-uuid", "hash",
+		relUnit, "hash",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.DB().Exec("INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, key, value) VALUES (?, ?, ?, ?)",
+	_, err = s.DB().Exec(
+		"INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, key, value) VALUES (?, ?, ?, ?)",
 		rel, "unit-name-does-not-matter-no-fk", "key", "value",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return rel, unit
+	return rel, unit, relUnit
 }

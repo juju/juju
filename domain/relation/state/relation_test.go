@@ -1822,82 +1822,24 @@ func (s *relationSuite) TestEnterScopeUnitNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, relationerrors.UnitNotFound)
 }
 
-func (s *relationSuite) TestLeaveScope(c *tc.C) {
-	// Arrange: Add two endpoints.
-	endpoint1 := domainrelation.Endpoint{
-		ApplicationName: s.fakeApplicationName1,
-		Relation: charm.Relation{
-			Name:      "fake-endpoint-name-1",
-			Role:      charm.RoleProvider,
-			Interface: "database",
-			Scope:     charm.ScopeGlobal,
-		},
-	}
-	endpoint2 := domainrelation.Endpoint{
-		ApplicationName: s.fakeApplicationName2,
-		Relation: charm.Relation{
-			Name:      "fake-endpoint-name-2",
-			Role:      charm.RoleRequirer,
-			Interface: "database",
-			Scope:     charm.ScopeGlobal,
-		},
-	}
-	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
-	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
-	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
-	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
-
-	// Arrange: Add a relation.
+func (s *relationSuite) TestGetRelationUnitSettingsArchiveSuccess(c *tc.C) {
 	relationUUID := s.addRelation(c)
-	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
-	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+	unitName := "some-app/0"
 
-	// Arrange: Add a unit.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
-	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
-
-	// Arrange: Add a relation unit.
-	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
-
-	// Arrange: Add some relation unit settings.
-	s.addRelationUnitSetting(c, relationUnitUUID, "key-1", "value-1")
-	s.addRelationUnitSetting(c, relationUnitUUID, "key-2", "value-2")
-	s.addRelationUnitSettingsHash(c, relationUnitUUID, "hash")
-
-	// Arrange: Add some archived relation settings to simulate this unit
-	// leaving and re-entering the relation scope.
 	s.query(c, `
 INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", value)
-VALUES (?, ?, 'old-key', 'old-value')`, relationUUID.String(), unitUUID.String())
+VALUES (?, ?, 'a-key', 'a-value')`, relationUUID.String(), unitName)
 
-	// Act: Leave scope with the first unit.
-	err := s.state.LeaveScope(c.Context(), relationUnitUUID.String())
-
-	// Assert:
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
-
-	// Assert: check the unit relation has been deleted. This can only be
-	// deleted if the unit settings have also been deleted, so no need to check
-	// them separately.
-	c.Assert(s.doesRelationUnitExist(c, relationUnitUUID.String()), tc.IsFalse)
-
-	// Assert: the unit's latest relation settings were archived.
-	settings, err := s.state.GetRelationUnitSettingsArchive(c.Context(), relationUUID.String(), unitName.String())
+	settings, err := s.state.GetRelationUnitSettingsArchive(c.Context(), relationUUID.String(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
+
 	c.Check(settings, tc.DeepEquals, map[string]string{
-		"key-1": "value-1",
-		"key-2": "value-2",
+		"a-key": "a-value",
 	})
-}
 
-func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-
-	// Act: Leave scope with the first unit.
-	err := s.state.LeaveScope(c.Context(), relationUnitUUID.String())
-
-	// Assert:
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
+	settings, err = s.state.GetRelationUnitSettingsArchive(c.Context(), "nope", "me-neither")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(settings, tc.HasLen, 0)
 }
 
 func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *tc.C) {

@@ -137,9 +137,6 @@ type State interface {
 	// relation UUID is for a peer relation.
 	IsPeerRelation(ctx context.Context, relationUUID string) (bool, error)
 
-	// LeaveScope updates the given relation to indicate it is not in scope.
-	LeaveScope(ctx context.Context, relationUnitUUID string) error
-
 	// SetRelationApplicationAndUnitSettings records settings for a unit and
 	// an application in a relation.
 	SetRelationApplicationAndUnitSettings(
@@ -756,22 +753,6 @@ func (s *Service) GetRelationApplicationSettings(
 	}
 
 	return settings, nil
-}
-
-// LeaveScope updates the given relation to indicate it is not in scope.
-//
-// The following error types can be expected to be returned:
-//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be
-//     found.
-func (s *Service) LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := relationUnitUUID.Validate(); err != nil {
-		return errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
-	}
-	return s.st.LeaveScope(ctx, relationUnitUUID.String())
 }
 
 // RelationUnitInScopeByID returns a boolean to indicate whether the given

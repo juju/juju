@@ -644,30 +644,6 @@ func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
-func (s *relationServiceSuite) TestLeaveScope(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange.
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-
-	s.state.EXPECT().LeaveScope(gomock.Any(), relationUnitUUID.String()).Return(nil)
-
-	// Act.
-	err := s.service.LeaveScope(c.Context(), relationUnitUUID)
-
-	// Assert.
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *relationServiceSuite) TestLeaveScopeRelationUnitNameNotValid(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	// Act.
-	err := s.service.LeaveScope(c.Context(), "bad-relation-unit-uuid")
-
-	// Assert.
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
-}
-
 func (s *relationServiceSuite) TestGetRelationUnitSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

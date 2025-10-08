@@ -1265,6 +1265,44 @@ func (c *MockModelDBStateIsControllerModelCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// LeaveScope mocks base method.
+func (m *MockModelDBState) LeaveScope(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LeaveScope", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LeaveScope indicates an expected call of LeaveScope.
+func (mr *MockModelDBStateMockRecorder) LeaveScope(arg0, arg1 any) *MockModelDBStateLeaveScopeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaveScope", reflect.TypeOf((*MockModelDBState)(nil).LeaveScope), arg0, arg1)
+	return &MockModelDBStateLeaveScopeCall{Call: call}
+}
+
+// MockModelDBStateLeaveScopeCall wrap *gomock.Call
+type MockModelDBStateLeaveScopeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateLeaveScopeCall) Return(arg0 error) *MockModelDBStateLeaveScopeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateLeaveScopeCall) Do(f func(context.Context, string) error) *MockModelDBStateLeaveScopeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateLeaveScopeCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateLeaveScopeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MachineExists mocks base method.
 func (m *MockModelDBState) MachineExists(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
