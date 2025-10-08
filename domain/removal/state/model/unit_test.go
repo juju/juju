@@ -467,7 +467,8 @@ func (s *unitSuite) TestDeleteUnitNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
+func (s *unitSuite) TestDeleteIAASUnitConsumingSecret(c *tc.C) {
+	// Arrange
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
@@ -475,11 +476,30 @@ func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
 
+	ctx := c.Context()
+
+	// Add a secret that the unit is consuming.
+	// The consumer reference should be deleted.
+	// We don't need an assertion, because the
+	// deletion would fail due to FK violation.
+	sID := "some-secret"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO secret VALUES (?)", sID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	q := `
+INSERT INTO secret_unit_consumer(secret_id, source_model_uuid, unit_uuid, current_revision) 
+VALUES (?, 'some-model', ?, 0)`
+	_, err = s.DB().ExecContext(ctx, q, sID, unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
 	s.advanceUnitLife(c, unitUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	// Act
+	err = st.DeleteUnit(ctx, unitUUID.String())
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should be gone.
