@@ -1,0 +1,316 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package service
+
+import (
+	"context"
+	"testing"
+
+	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
+
+	coremodel "github.com/juju/juju/core/model"
+	domainmodelinternal "github.com/juju/juju/domain/model/internal"
+	modelinternal "github.com/juju/juju/domain/model/internal"
+	"github.com/juju/juju/domain/storage"
+	domainstorage "github.com/juju/juju/domain/storage"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
+)
+
+type storagePoolSuite struct {
+	baseSuite
+}
+
+func TestStoragePoolSuite(t *testing.T) {
+	tc.Run(t, &storagePoolSuite{})
+}
+
+func (s *storagePoolSuite) providerService(
+	c *tc.C,
+) *ProviderModelService {
+	uuid := tc.Must(c, coremodel.NewUUID)
+	return NewProviderModelService(
+		uuid,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		func(context.Context) (ModelResourcesProvider, error) { return s.mockModelResourceProvider, nil },
+		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
+		func(context.Context) (RegionProvider, error) { return s.mockRegionProvider, nil },
+		s.storageProviderRegistryGetter(),
+		DefaultAgentBinaryFinder(),
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
+func (s *storagePoolSuite) TestGetRecommendedStoragePoolsEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockProviderRegistry.EXPECT().RecommendedPoolForKind(gomock.Any()).Return(
+		nil,
+	).AnyTimes()
+	poolArgs, setArgs, err := getRecommendedStoragePools(s.mockProviderRegistry)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(poolArgs, tc.HasLen, 0)
+	c.Check(setArgs, tc.HasLen, 0)
+}
+
+func (s *storagePoolSuite) TestGetRecommendedStoragePools(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fsCfg, err := internalstorage.NewConfig(
+		"fsPool",
+		internalstorage.ProviderType("testprovider"),
+		internalstorage.Attrs{
+			"key1": "val1",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	s.mockProviderRegistry.EXPECT().RecommendedPoolForKind(
+		internalstorage.StorageKindFilesystem,
+	).Return(fsCfg)
+
+	bsCfg, err := internalstorage.NewConfig(
+		"bsPool",
+		internalstorage.ProviderType("testprovider"),
+		internalstorage.Attrs{
+			"key1": "val1",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	s.mockProviderRegistry.EXPECT().RecommendedPoolForKind(
+		internalstorage.StorageKindBlock,
+	).Return(bsCfg)
+
+	poolArgs, setArgs, err := getRecommendedStoragePools(s.mockProviderRegistry)
+	c.Check(err, tc.ErrorIsNil)
+
+	expectedPoolArgs := []domainmodelinternal.CreateModelDefaultStoragePoolArg{
+		{
+			Attributes: map[string]string{
+				"key1": "val1",
+			},
+			Name:   "fsPool",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Type:   "testprovider",
+		},
+		{
+			Attributes: map[string]string{
+				"key1": "val1",
+			},
+			Name:   "bsPool",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Type:   "testprovider",
+		},
+	}
+
+	var expectedSetArgs []domainmodelinternal.SetModelStoragePoolArg
+	for _, p := range poolArgs {
+		switch p.Name {
+		case "fsPool":
+			expectedSetArgs = append(
+				expectedSetArgs,
+				domainmodelinternal.SetModelStoragePoolArg{
+					StorageKind:     domainstorage.StorageKindFilesystem,
+					StoragePoolUUID: domainstorage.StoragePoolUUID(p.UUID),
+				},
+			)
+		case "bsPool":
+			expectedSetArgs = append(
+				expectedSetArgs,
+				domainmodelinternal.SetModelStoragePoolArg{
+					StorageKind:     domainstorage.StorageKindBlock,
+					StoragePoolUUID: domainstorage.StoragePoolUUID(p.UUID),
+				},
+			)
+		}
+	}
+
+	pChecker := tc.NewMultiChecker()
+	pChecker.AddExpr("_[_].UUID", tc.IsNonZeroUUID)
+
+	c.Check(poolArgs, pChecker, expectedPoolArgs)
+	c.Check(setArgs, tc.SameContents, expectedSetArgs)
+}
+
+// TestGetRecommendedStoragePoolDedupe is testing that if the registry returns
+// the same storage pool multiple times the results are deduplicated with only
+// one storage pool being returned to the caller.
+func (s *storagePoolSuite) TestGetRecommendedStoragePoolDedupe(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	poolCfg, err := internalstorage.NewConfig(
+		"pool",
+		internalstorage.ProviderType("testprovider"),
+		internalstorage.Attrs{
+			"key1": "val1",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	s.mockProviderRegistry.EXPECT().RecommendedPoolForKind(
+		gomock.Any(),
+	).Return(poolCfg).AnyTimes()
+
+	poolArgs, setArgs, err := getRecommendedStoragePools(s.mockProviderRegistry)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(poolArgs, tc.HasLen, 1)
+
+	expectedPoolArgs := []domainmodelinternal.CreateModelDefaultStoragePoolArg{
+		{
+			Attributes: map[string]string{
+				"key1": "val1",
+			},
+			Name:   "pool",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Type:   "testprovider",
+		},
+	}
+
+	expectedSetArgs := []domainmodelinternal.SetModelStoragePoolArg{
+		{
+			StorageKind:     domainstorage.StorageKindFilesystem,
+			StoragePoolUUID: domainstorage.StoragePoolUUID(poolArgs[0].UUID),
+		},
+		{
+			StorageKind:     domainstorage.StorageKindBlock,
+			StoragePoolUUID: domainstorage.StoragePoolUUID(poolArgs[0].UUID),
+		},
+	}
+
+	pChecker := tc.NewMultiChecker()
+	pChecker.AddExpr("_[_].UUID", tc.IsNonZeroUUID)
+
+	c.Check(poolArgs, pChecker, expectedPoolArgs)
+	c.Check(setArgs, tc.SameContents, expectedSetArgs)
+}
+
+// TestGetRecommendedStoragePoolOnlyOne checks that if the registry only supplys
+// one recommendation then the caller gets back exactly one association.
+func (s *storagePoolSuite) TestGetRecommendedStoragePoolOnlyOne(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	poolCfg, err := internalstorage.NewConfig(
+		"pool",
+		internalstorage.ProviderType("testprovider"),
+		internalstorage.Attrs{
+			"key1": "val1",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	s.mockProviderRegistry.EXPECT().RecommendedPoolForKind(
+		internalstorage.StorageKindFilesystem,
+	).Return(poolCfg)
+	s.mockProviderRegistry.EXPECT().RecommendedPoolForKind(
+		gomock.Any(),
+	).Return(nil).AnyTimes()
+
+	poolArgs, setArgs, err := getRecommendedStoragePools(s.mockProviderRegistry)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(poolArgs, tc.HasLen, 1)
+
+	expectedPoolArgs := []domainmodelinternal.CreateModelDefaultStoragePoolArg{
+		{
+			Attributes: map[string]string{
+				"key1": "val1",
+			},
+			Name:   "pool",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Type:   "testprovider",
+		},
+	}
+
+	expectedSetArgs := []domainmodelinternal.SetModelStoragePoolArg{
+		{
+			StorageKind:     domainstorage.StorageKindFilesystem,
+			StoragePoolUUID: domainstorage.StoragePoolUUID(poolArgs[0].UUID),
+		},
+	}
+
+	pChecker := tc.NewMultiChecker()
+	pChecker.AddExpr("_[_].UUID", tc.IsNonZeroUUID)
+
+	c.Check(poolArgs, pChecker, expectedPoolArgs)
+	c.Check(setArgs, tc.SameContents, expectedSetArgs)
+}
+
+func (s *storagePoolSuite) TestSeedDefaultStoragePools(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	defaultPool1, _ := internalstorage.NewConfig(
+		"tmpfs", "tmpfs", internalstorage.Attrs{
+			"attr1": "val1",
+		},
+	)
+	defaultPool2, _ := internalstorage.NewConfig(
+		"rootfs", "rootfs", internalstorage.Attrs{
+			"attr1": "val1",
+		},
+	)
+	sp1 := NewMockStorageProvider(ctrl)
+	sp2 := NewMockStorageProvider(ctrl)
+	s.mockProviderRegistry.EXPECT().RecommendedPoolForKind(
+		internalstorage.StorageKindFilesystem,
+	).Return(defaultPool1)
+	s.mockProviderRegistry.EXPECT().RecommendedPoolForKind(
+		gomock.Any(),
+	).Return(nil).AnyTimes()
+	s.mockProviderRegistry.EXPECT().StorageProviderTypes().Return(
+		[]internalstorage.ProviderType{
+			"tmpfs",
+			"rootfs",
+		},
+		nil,
+	)
+	s.mockProviderRegistry.EXPECT().StorageProvider(
+		internalstorage.ProviderType("tmpfs"),
+	).Return(sp1, nil)
+	s.mockProviderRegistry.EXPECT().StorageProvider(
+		internalstorage.ProviderType("rootfs"),
+	).Return(sp2, nil)
+
+	sp1.EXPECT().DefaultPools().Return([]*internalstorage.Config{defaultPool1})
+	sp2.EXPECT().DefaultPools().Return([]*internalstorage.Config{defaultPool2})
+
+	s.mockModelState.EXPECT().EnsureDefaultStoragePools(
+		gomock.Any(),
+		gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context, args []modelinternal.CreateModelDefaultStoragePoolArg) error {
+		c.Check(args, tc.SameContents, []modelinternal.CreateModelDefaultStoragePoolArg{
+			{
+				Attributes: map[string]string{
+					"attr1": "val1",
+				},
+				Name:   "tmpfs",
+				Origin: storage.StoragePoolOriginProviderDefault,
+				Type:   "tmpfs",
+				UUID:   "6a16b09c-8ca9-5952-a50a-9082ae7c32c1",
+			},
+			{
+				Attributes: map[string]string{
+					"attr1": "val1",
+				},
+				Name:   "rootfs",
+				Origin: storage.StoragePoolOriginProviderDefault,
+				Type:   "rootfs",
+				UUID:   "4d9a00e0-bf5f-5823-8ffa-db1a2ffb940c",
+			},
+		})
+		return nil
+	})
+	s.mockModelState.EXPECT().SetModelStoragePools(
+		gomock.Any(), []modelinternal.SetModelStoragePoolArg{
+			{
+				StorageKind:     domainstorage.StorageKindFilesystem,
+				StoragePoolUUID: "6a16b09c-8ca9-5952-a50a-9082ae7c32c1",
+			},
+		},
+	)
+
+	svc := s.providerService(c)
+	err := svc.SeedDefaultStoragePools(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+}

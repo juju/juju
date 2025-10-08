@@ -19,3 +19,18 @@ type CreateModelDefaultStoragePoolArg struct {
 	Type       string
 	UUID       domainstorage.StoragePoolUUID
 }
+
+// SetModelStoragePoolArg represents the creation of a relationship between
+// the model and a default storage pool that will be used for a given storage
+// kind.
+//
+// This arg is for setting the desired value overwriting any previously set
+// values.
+type SetModelStoragePoolArg struct {
+	// StorageKind is the kind that this pool will be used as a default for.
+	StorageKind domainstorage.StorageKind
+
+	// StoragePoolUUID is the UUID of the storage pool that will be used as the
+	// default for [CreateModelStoragePool.StorageKind].
+	StoragePoolUUID domainstorage.StoragePoolUUID
+}
