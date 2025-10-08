@@ -13,6 +13,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -366,6 +367,93 @@ func (s *unitSuite) TestUnitRemovalNormalSuccess(c *tc.C) {
 	c.Check(rUUID, tc.Equals, unitUUID.String())
 	c.Check(force, tc.Equals, false)
 	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *unitSuite) TestGetRelationUnitsForUnit(c *tc.C) {
+	// Arrange:
+	// - Add a charm and application with three endpoints.
+	// - Create a relation for each endpoint and put one unit from the
+	//   application in the scope of all three.
+
+	ctx := c.Context()
+
+	charm := "some-charm"
+	_, err := s.DB().ExecContext(
+		ctx, "INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, ?)", charm, charm, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	app := "some-app"
+	_, err = s.DB().ExecContext(
+		ctx, "INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)",
+		app, app, 0, charm, network.AlphaSpaceId,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	crs := []string{"some-charm-rel1", "some-charm-rel2", "some-charm-rel3"}
+	for _, cr := range crs {
+		_, err = s.DB().ExecContext(ctx, `
+INSERT INTO charm_relation (uuid, charm_uuid, name, interface, capacity, role_id,  scope_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			cr, charm, cr, "interface", 0, 0, 0,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	aes := []string{"some-app-ep1", "some-app-ep2", "some-app-ep3"}
+	for i, ae := range aes {
+		_, err = s.DB().ExecContext(ctx, `
+INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) 
+VALUES (?, ?, ?, ?)`,
+			ae, app, network.AlphaSpaceId, crs[i],
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	rs := []string{"some-rel1", "some-rel2", "some-rel3"}
+	for i, r := range rs {
+		_, err = s.DB().ExecContext(
+			ctx, "INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)", r, 0, i, 0)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	res := []string{"some-rel-ep1", "some-rel-ep2", "some-rel-ep3"}
+	for i, re := range res {
+		_, err = s.DB().ExecContext(ctx,
+			"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)", re, rs[i], aes[i],
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	node := "some-net-node"
+	_, err = s.DB().Exec("INSERT INTO net_node (uuid) VALUES (?)", node)
+	c.Assert(err, tc.ErrorIsNil)
+
+	unit := "some-unit"
+	_, err = s.DB().Exec(
+		"INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)",
+		unit, unit, 0, app, charm, node)
+	c.Assert(err, tc.ErrorIsNil)
+
+	rus := []string{"some-rel-unit1", "some-rel-unit2", "some-rel-unit3"}
+	for i, ru := range rus {
+		_, err = s.DB().Exec("INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
+			ru, res[i], unit,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	// Act:
+	// - Check for extant and non-extant scopes.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	relUnits1, err1 := st.GetRelationUnitsForUnit(ctx, unit)
+	relUnits2, err2 := st.GetRelationUnitsForUnit(ctx, "nah")
+
+	// Assert
+	c.Assert(err1, tc.ErrorIsNil)
+	c.Assert(err2, tc.ErrorIsNil)
+
+	c.Check(relUnits1, tc.SameContents, rus)
+	c.Check(relUnits2, tc.HasLen, 0)
 }
 
 func (s *unitSuite) TestUnitRemovalNotExistsSuccess(c *tc.C) {
