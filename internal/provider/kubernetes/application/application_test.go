@@ -407,6 +407,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			}
 			return caas.RunAsDefault
 		}(),
+		StorageUniqueID: "appuuid",
 	}
 
 	c.Assert(app.Ensure(appConfig), jc.ErrorIsNil)
