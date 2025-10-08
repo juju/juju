@@ -140,10 +140,10 @@ type remoteWorker struct {
 	clock  clock.Clock
 	logger logger.Logger
 
-	// requests is used to request a report of the current state.
+	// reportRequests is used to request a report of the current state.
 	// This is to allow the worker to be reported on by the engine, without
 	// needing to add locking around the state.
-	requests chan chan map[string]any
+	reportRequests chan RelationUnitChange
 }
 
 // NewWorker creates a new worker that watches for remote relation unit
@@ -164,7 +164,7 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 		clock:   cfg.Clock,
 		logger:  cfg.Logger,
 
-		requests: make(chan chan map[string]any),
+		reportRequests: make(chan RelationUnitChange),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "relation-units",
@@ -203,7 +203,7 @@ func (w *remoteWorker) loop() error {
 		return errors.Annotatef(err, "adding remote relation units watcher for %v", w.consumerRelationUUID)
 	}
 
-	var event params.RemoteRelationChangeEvent
+	var event RelationUnitChange
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -224,13 +224,7 @@ func (w *remoteWorker) loop() error {
 
 			w.logger.Debugf(ctx, "remote relation units changed for %v: %v", w.consumerRelationUUID, change)
 
-			event = change
-
-			// Send in lockstep so we don't drop events.
-			select {
-			case <-w.catacomb.Dying():
-				return w.catacomb.ErrDying()
-			case w.changes <- RelationUnitChange{
+			event = RelationUnitChange{
 				ConsumerRelationUUID:   w.consumerRelationUUID,
 				OffererApplicationUUID: w.offererApplicationUUID,
 				ChangedUnits: transform.Slice(change.ChangedUnits, func(c params.RemoteRelationUnitChange) UnitChange {
@@ -244,39 +238,16 @@ func (w *remoteWorker) loop() error {
 				Life:                    change.Life,
 				Suspended:               unptr(change.Suspended, false),
 				SuspendedReason:         change.SuspendedReason,
-			}:
 			}
 
-		case resp := <-w.requests:
-			// The requests channel handles the reporting requests from the
-			// engine. This happens in another goroutine so we need to ensure
-			// that we don't create data races, we need to synchronise access to
-			// the state.
-
+			// Send in lockstep so we don't drop events.
 			select {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
-
-			case resp <- map[string]any{
-				"application-uuid": w.offererApplicationUUID.String(),
-				"relation-uuid":    w.consumerRelationUUID.String(),
-				"unit-count":       event.UnitCount,
-				"changed-units": transform.Slice(event.ChangedUnits, func(c params.RemoteRelationUnitChange) map[string]any {
-					return map[string]any{
-						"unit-id":  c.UnitId,
-						"settings": c.Settings,
-					}
-				}),
-				"settings":         event.ApplicationSettings,
-				"life":             event.Life,
-				"suspended":        unptr(event.Suspended, false),
-				"suspended-reason": event.SuspendedReason,
-
-				// This only exists for legacy reasons (3.x compatibility).
-				// Although it's a good proxy for if the relation has changed.
-				"departed-units": event.DepartedUnits,
-			}:
+			case w.changes <- event:
 			}
+
+		case w.reportRequests <- event:
 		}
 	}
 }
@@ -284,27 +255,28 @@ func (w *remoteWorker) loop() error {
 // Report provides information for the engine report.
 func (w *remoteWorker) Report() map[string]any {
 	result := make(map[string]any)
-
-	ch := make(chan map[string]any, 1)
-	select {
-	case <-w.catacomb.Dying():
-		return result
-	case <-w.clock.After(time.Second):
-		// Timeout trying to report.
-		result["error"] = "timed out trying to report"
-		return result
-	case w.requests <- ch:
-	}
+	result["consumer-relation-uuid"] = w.consumerRelationUUID.String()
+	result["offerer-application-uuid"] = w.offererApplicationUUID.String()
 
 	select {
+	case <-time.After(time.Second):
+		result["error"] = "timed out waiting for report"
+
 	case <-w.catacomb.Dying():
-		return result
-	case <-w.clock.After(time.Second):
-		// Timeout trying to report.
-		result["error"] = "timed out waiting for report response"
-		return result
-	case resp := <-ch:
-		result = resp
+		result["error"] = "worker is dying"
+
+	case event := <-w.reportRequests:
+		result["changed-units"] = transform.Slice(event.ChangedUnits, func(c UnitChange) map[string]any {
+			return map[string]any{
+				"unit-id":  c.UnitID,
+				"settings": c.Settings,
+			}
+		})
+		result["settings"] = event.ApplicationSettings
+		result["life"] = event.Life
+		result["suspended"] = event.Suspended
+		result["suspended-reason"] = event.SuspendedReason
+		result["departed-units"] = event.DeprecatedDepartedUnits
 	}
 
 	return result

@@ -98,10 +98,10 @@ type offererRelationsWorker struct {
 	clock  clock.Clock
 	logger logger.Logger
 
-	// requests is used to request a report of the current state.
+	// reportRequests is used to request a report of the current state.
 	// This is to allow the worker to be reported on by the engine, without
 	// needing to add locking around the state.
-	requests chan chan map[string]any
+	reportRequests chan RelationChange
 }
 
 // Worker creates a new worker that watches for changes
@@ -118,7 +118,7 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 		changes:                cfg.Changes,
 		clock:                  cfg.Clock,
 		logger:                 cfg.Logger,
-		requests:               make(chan chan map[string]any),
+		reportRequests:         make(chan RelationChange),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "remote-relations",
@@ -194,24 +194,8 @@ func (w *offererRelationsWorker) loop() error {
 			case w.changes <- event:
 			}
 
-		case resp := <-w.requests:
-			// The requests channel handles the reporting requests from the
-			// engine. This happens in another goroutine so we need to ensure
-			// that we don't create data races, we need to synchronise access to
-			// the state.
+		case w.reportRequests <- event:
 
-			select {
-			case <-w.catacomb.Dying():
-				return w.catacomb.ErrDying()
-
-			case resp <- map[string]any{
-				"consumer-relation-uuid":   w.consumerRelationUUID.String(),
-				"offerer-application-uuid": w.offererApplicationUUID.String(),
-				"life":                     string(event.Life),
-				"suspended":                event.Suspended,
-				"suspended-reason":         event.SuspendedReason,
-			}:
-			}
 		}
 	}
 }
@@ -219,27 +203,20 @@ func (w *offererRelationsWorker) loop() error {
 // Report provides information for the engine report.
 func (w *offererRelationsWorker) Report() map[string]any {
 	result := make(map[string]any)
-
-	ch := make(chan map[string]any, 1)
-	select {
-	case <-w.catacomb.Dying():
-		return result
-	case <-w.clock.After(time.Second):
-		// Timeout trying to report.
-		result["error"] = "timed out trying to report"
-		return result
-	case w.requests <- ch:
-	}
+	result["consumer-relation-uuid"] = w.consumerRelationUUID.String()
+	result["offerer-application-uuid"] = w.offererApplicationUUID.String()
 
 	select {
+	case <-time.After(time.Second):
+		result["error"] = "timed out waiting for report"
+
 	case <-w.catacomb.Dying():
-		return result
-	case <-w.clock.After(time.Second):
-		// Timeout trying to report.
-		result["error"] = "timed out waiting for report response"
-		return result
-	case resp := <-ch:
-		result = resp
+		result["error"] = "worker is dying"
+
+	case event := <-w.reportRequests:
+		result["life"] = string(event.Life)
+		result["suspended"] = event.Suspended
+		result["suspended-reason"] = event.SuspendedReason
 	}
 
 	return result
