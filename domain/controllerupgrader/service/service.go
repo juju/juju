@@ -40,7 +40,7 @@ type AgentBinaryFinder interface {
 	// version available for the current controller version.
 	GetHighestPatchVersionAvailable(context.Context) (semversion.Number, error)
 
-	// GetHighestPatchVersionAvailable will return the highest available patch
+	// GetHighestPatchVersionAvailableForStream will return the highest available patch
 	// version available for the current controller version and stream.
 	GetHighestPatchVersionAvailableForStream(
 		context.Context, modelagent.AgentStream,
@@ -146,6 +146,22 @@ type AgentBinaryFinderImpl struct {
 
 	agentBinaryFilter         AgentBinaryFilter
 	getPreferredSimpleStreams PreferredSimpleStreamsFunc
+}
+
+func NewAgentBinaryFinder(
+	ctrlSt ControllerState,
+	modelSt ControllerModelState,
+	providerForAgentBinaryFinder providertracker.ProviderGetter[ProviderForAgentBinaryFinder],
+	agentBinaryFilter AgentBinaryFilter,
+	getPreferredSimpleStreams PreferredSimpleStreamsFunc,
+) *AgentBinaryFinderImpl {
+	return &AgentBinaryFinderImpl{
+		ctrlSt:                       ctrlSt,
+		modelSt:                      modelSt,
+		providerForAgentBinaryFinder: providerForAgentBinaryFinder,
+		agentBinaryFilter:            agentBinaryFilter,
+		getPreferredSimpleStreams:    getPreferredSimpleStreams,
+	}
 }
 
 // NewService returns a new Service for interacting and upgrading the
@@ -661,12 +677,12 @@ func (a *AgentBinaryFinderImpl) HasBinariesForVersionAndStream(ctx context.Conte
 	return a.hasBinaryAgentInStreams(ctx, number, &stream, filter)
 }
 
-func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailable(ctx context.Context) (semversion.Number, error) {
+func (a *AgentBinaryFinderImpl) getHighestPatchVersionAvailableForStream(ctx context.Context, stream *modelagent.AgentStream) (semversion.Number, error) {
 	ctrlVersion, err := a.ctrlSt.GetControllerTargetVersion(ctx)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
-	binaries, err := a.getBinaryAgentInStreams(ctx, ctrlVersion, nil, coretools.Filter{})
+	binaries, err := a.getBinaryAgentInStreams(ctx, ctrlVersion, stream, coretools.Filter{})
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
@@ -682,7 +698,10 @@ func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailable(ctx context.Cont
 	return highestPatchVersion, nil
 }
 
+func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailable(ctx context.Context) (semversion.Number, error) {
+	return a.getHighestPatchVersionAvailableForStream(ctx, nil)
+}
+
 func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailableForStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error) {
-	//TODO implement me
-	panic("implement me")
+	return a.getHighestPatchVersionAvailableForStream(ctx, &stream)
 }
