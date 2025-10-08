@@ -4,13 +4,10 @@
 package state
 
 import (
-	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/pki/ssh"
 )
 
@@ -254,7 +251,7 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 	return st.runRawTransaction(ops)
 }
 
-func PopulateApplicationStorageUniqueID(pool *StatePool, getBrokerFunc func(model *Model) (caas.Broker, error)) error {
+func PopulateApplicationStorageUniqueID(pool *StatePool, getStorageUniqueID func(appName string, model *Model) (string, error)) error {
 	logger.Infof("[adis] inside PopulateApplicationStorageUniqueID")
 	st, err := pool.SystemState()
 	if err != nil {
@@ -263,6 +260,7 @@ func PopulateApplicationStorageUniqueID(pool *StatePool, getBrokerFunc func(mode
 
 	var ops []txn.Op
 
+	// Run for each model because we want to backfill for every application.
 	err = runForAllModelStates(pool, func(st *State) error {
 		model, err := st.Model()
 		if err != nil {
@@ -280,60 +278,33 @@ func PopulateApplicationStorageUniqueID(pool *StatePool, getBrokerFunc func(mode
 		applications, closer := st.db().GetCollection(applicationsC)
 		defer closer()
 
-		iter := applications.Find(nil).Iter()
+		// Fetch the list of applications with an empty storageUniqueID.
+		// This ensures we don't repeat the upgrade for applications that have
+		// been populated with a storageUniqueID.
+		query := bson.M{"storage-unique-id": bson.M{"$exists": false}}
+		fields := bson.M{"_id": 1, "name": 1}
+		iter := applications.Find(query).Select(fields).Iter()
 		defer iter.Close()
 
-		broker, err := getBrokerFunc(model)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		var app bson.M
+		for iter.Next(&app) {
+			docId := app["_id"].(string)
+			name := app["name"].(string)
 
-		getAnnotation := func(appName string, mode string, includeClusterIP bool) (map[string]interface{}, error) {
-			service, err := broker.GetService(appName, caas.DeploymentMode(mode), includeClusterIP)
+			logger.Infof("[adis] trying to get storage unique id for app %q in model %q", name, model.UUID())
+
+			// Gives us the storageUniqueID for the application which we save to mongo.
+			storageUniqueID, err := getStorageUniqueID(name, model)
 			if err != nil {
-				return map[string]interface{}{}, err
-			}
-			logger.Infof("[adis] getAnnotation data is: %+v", service.Status.Data)
-			return service.Status.Data, nil
-		}
-
-		var appDoc applicationDoc
-		for iter.Next(&appDoc) {
-			app := newApplication(st, &appDoc)
-
-			if app.StorageUniqueID() != "" {
-				logger.Infof("[adis] skipping because storageUniqueId is already populated for app %q", app.Name())
-				continue
-			}
-
-			ch, _, err := app.Charm()
-			if err != nil {
+				logger.Infof("[adis] app %q in model %q has error %s", name, model.UUID(), err)
 				return err
 			}
-			var mode charm.DeploymentMode
-			if d := ch.Meta().Deployment; d != nil {
-				mode = d.DeploymentMode
-			}
-			if mode == "" {
-				mode = charm.ModeWorkload
-			}
 
-			annotation, err := getAnnotation(app.Name(), string(mode), false)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			logger.Infof("[adis] annotation for app %q is %+v", app.Name(), annotation)
-			appIDKey := utils.AnnotationKeyApplicationUUID(broker.LabelVersion())
-			storageUniqueID, ok := annotation[appIDKey]
-			if !ok {
-				logger.Infof("[adis] skipping because appIDKey is missing for app %q", app.Name())
-				continue
-			}
-			logger.Infof("[adis] app %q storageUniqueID is %s", app.Name(), storageUniqueID)
+			logger.Infof("[adis] app %q in model %q has storageuniqueid %q", name, model.UUID(), storageUniqueID)
 
 			ops = append(ops, txn.Op{
 				C:      applicationsC,
-				Id:     app.doc.DocID,
+				Id:     docId,
 				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{{"storage-unique-id", storageUniqueID}}}},
 			})
