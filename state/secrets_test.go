@@ -1379,6 +1379,7 @@ func (s *SecretsSuite) TestChangeSecretBackendExternalToInternal(c *gc.C) {
 
 func (s *SecretsSuite) TestSecretGrants(c *gc.C) {
 	uri := secrets.NewURI()
+	uri2 := secrets.NewURI()
 
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
@@ -1397,6 +1398,11 @@ func (s *SecretsSuite) TestSecretGrants(c *gc.C) {
 	md, err := s.store.CreateSecret(uri, cp)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(md.URI, jc.DeepEquals, uri)
+
+	cp.Label = strPtr("label-2")
+	md2, err := s.store.CreateSecret(uri2, cp)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md2.URI, jc.DeepEquals, uri2)
 
 	subject := names.NewApplicationTag("wordpress")
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
@@ -1697,7 +1703,7 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 	c.Assert(md2.CurrentRevision, gc.Equals, 1)
 	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 1), jc.IsFalse)
 
-	// secret revison ++, but not obsolete.
+	// secret revision ++, but not obsolete.
 	md, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar", "baz": "qux"},
@@ -1708,7 +1714,7 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 1), jc.IsFalse)
 	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 2), jc.IsFalse)
 
-	// consumer latest revison ++, but not obsolete.
+	// consumer latest revision ++, but not obsolete.
 	cmd.LatestRevision = md.LatestRevision
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1720,7 +1726,7 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 1), jc.IsFalse)
 	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 2), jc.IsFalse)
 
-	// consumer current revison ++, then obsolete.
+	// consumer current revision ++, then obsolete.
 	cmd.CurrentRevision = md.LatestRevision
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
 	c.Assert(err, jc.ErrorIsNil)
