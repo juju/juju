@@ -703,6 +703,44 @@ func (c *MockZonedEnvironProviderCall) DoAndReturn(f func() environs.EnvironProv
 	return c
 }
 
+// RecommendedPoolForKind mocks base method.
+func (m *MockZonedEnviron) RecommendedPoolForKind(arg0 storage.StorageKind) *storage.Config {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecommendedPoolForKind", arg0)
+	ret0, _ := ret[0].(*storage.Config)
+	return ret0
+}
+
+// RecommendedPoolForKind indicates an expected call of RecommendedPoolForKind.
+func (mr *MockZonedEnvironMockRecorder) RecommendedPoolForKind(arg0 any) *MockZonedEnvironRecommendedPoolForKindCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecommendedPoolForKind", reflect.TypeOf((*MockZonedEnviron)(nil).RecommendedPoolForKind), arg0)
+	return &MockZonedEnvironRecommendedPoolForKindCall{Call: call}
+}
+
+// MockZonedEnvironRecommendedPoolForKindCall wrap *gomock.Call
+type MockZonedEnvironRecommendedPoolForKindCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockZonedEnvironRecommendedPoolForKindCall) Return(arg0 *storage.Config) *MockZonedEnvironRecommendedPoolForKindCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockZonedEnvironRecommendedPoolForKindCall) Do(f func(storage.StorageKind) *storage.Config) *MockZonedEnvironRecommendedPoolForKindCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockZonedEnvironRecommendedPoolForKindCall) DoAndReturn(f func(storage.StorageKind) *storage.Config) *MockZonedEnvironRecommendedPoolForKindCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetConfig mocks base method.
 func (m *MockZonedEnviron) SetConfig(arg0 context.Context, arg1 *config.Config) error {
 	m.ctrl.T.Helper()

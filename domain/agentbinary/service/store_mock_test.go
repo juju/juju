@@ -476,6 +476,44 @@ func (c *MockProviderForAgentBinaryFinderPrepareForBootstrapCall) DoAndReturn(f 
 	return c
 }
 
+// RecommendedPoolForKind mocks base method.
+func (m *MockProviderForAgentBinaryFinder) RecommendedPoolForKind(arg0 storage.StorageKind) *storage.Config {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecommendedPoolForKind", arg0)
+	ret0, _ := ret[0].(*storage.Config)
+	return ret0
+}
+
+// RecommendedPoolForKind indicates an expected call of RecommendedPoolForKind.
+func (mr *MockProviderForAgentBinaryFinderMockRecorder) RecommendedPoolForKind(arg0 any) *MockProviderForAgentBinaryFinderRecommendedPoolForKindCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecommendedPoolForKind", reflect.TypeOf((*MockProviderForAgentBinaryFinder)(nil).RecommendedPoolForKind), arg0)
+	return &MockProviderForAgentBinaryFinderRecommendedPoolForKindCall{Call: call}
+}
+
+// MockProviderForAgentBinaryFinderRecommendedPoolForKindCall wrap *gomock.Call
+type MockProviderForAgentBinaryFinderRecommendedPoolForKindCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProviderForAgentBinaryFinderRecommendedPoolForKindCall) Return(arg0 *storage.Config) *MockProviderForAgentBinaryFinderRecommendedPoolForKindCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProviderForAgentBinaryFinderRecommendedPoolForKindCall) Do(f func(storage.StorageKind) *storage.Config) *MockProviderForAgentBinaryFinderRecommendedPoolForKindCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProviderForAgentBinaryFinderRecommendedPoolForKindCall) DoAndReturn(f func(storage.StorageKind) *storage.Config) *MockProviderForAgentBinaryFinderRecommendedPoolForKindCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetConfig mocks base method.
 func (m *MockProviderForAgentBinaryFinder) SetConfig(arg0 context.Context, arg1 *config.Config) error {
 	m.ctrl.T.Helper()

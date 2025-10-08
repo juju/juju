@@ -75,6 +75,44 @@ func (c *MockStorageRegistryWorkerKillCall) DoAndReturn(f func()) *MockStorageRe
 	return c
 }
 
+// RecommendedPoolForKind mocks base method.
+func (m *MockStorageRegistryWorker) RecommendedPoolForKind(arg0 storage.StorageKind) *storage.Config {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecommendedPoolForKind", arg0)
+	ret0, _ := ret[0].(*storage.Config)
+	return ret0
+}
+
+// RecommendedPoolForKind indicates an expected call of RecommendedPoolForKind.
+func (mr *MockStorageRegistryWorkerMockRecorder) RecommendedPoolForKind(arg0 any) *MockStorageRegistryWorkerRecommendedPoolForKindCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecommendedPoolForKind", reflect.TypeOf((*MockStorageRegistryWorker)(nil).RecommendedPoolForKind), arg0)
+	return &MockStorageRegistryWorkerRecommendedPoolForKindCall{Call: call}
+}
+
+// MockStorageRegistryWorkerRecommendedPoolForKindCall wrap *gomock.Call
+type MockStorageRegistryWorkerRecommendedPoolForKindCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageRegistryWorkerRecommendedPoolForKindCall) Return(arg0 *storage.Config) *MockStorageRegistryWorkerRecommendedPoolForKindCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageRegistryWorkerRecommendedPoolForKindCall) Do(f func(storage.StorageKind) *storage.Config) *MockStorageRegistryWorkerRecommendedPoolForKindCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageRegistryWorkerRecommendedPoolForKindCall) DoAndReturn(f func(storage.StorageKind) *storage.Config) *MockStorageRegistryWorkerRecommendedPoolForKindCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // StorageProvider mocks base method.
 func (m *MockStorageRegistryWorker) StorageProvider(arg0 storage.ProviderType) (storage.Provider, error) {
 	m.ctrl.T.Helper()
