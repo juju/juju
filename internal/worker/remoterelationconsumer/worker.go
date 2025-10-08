@@ -112,9 +112,9 @@ type CrossModelRelationService interface {
 	// application consumers in the local model.
 	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
 
-	// ConsumeRemoteRelationChange applies a relation change event received
-	// from a remote model to the local model.
-	ConsumeRemoteRelationChange(context.Context) error
+	// SuspendRelation suspends the specified relation in the local model
+	// with the given reason.
+	SuspendRelation(ctx context.Context, appUUID application.UUID, relUUID corerelation.UUID, reason string) error
 
 	// ConsumeRemoteSecretChanges applies secret changes received
 	// from a remote model to the local model.

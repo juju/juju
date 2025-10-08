@@ -225,9 +225,9 @@ func (s *Service) SetRemoteApplicationOffererStatus(context.Context, coreapplica
 	return nil
 }
 
-// ConsumeRemoteRelationChange applies a relation change event received
-// from a remote model to the local model.
-func (s *Service) ConsumeRemoteRelationChange(context.Context) error {
+// SuspendRelation suspends the specified relation in the local model
+// with the given reason.
+func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.UUID, relUUID corerelation.UUID, reason string) error {
 	return nil
 }
 

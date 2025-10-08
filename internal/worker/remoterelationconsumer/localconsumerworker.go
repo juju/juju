@@ -25,11 +25,19 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererunitrelations"
 	"github.com/juju/juju/rpc/params"
+)
+
+const (
+	// ErrPermissionRevokedWhilstDying identifies when permission is revoked
+	// whilst the relation is in a dying state. This is a terminal error and
+	// requires the worker to be restarted to recover.
+	ErrPermissionRevokedWhilstDying = internalerrors.ConstError("relation permission revoked whilst dying")
 )
 
 // LocalConsumerWorkerConfig defines the configuration for a local consumer
@@ -411,12 +419,6 @@ func (w *localConsumerWorker) handleRelationChange(ctx context.Context, details 
 	w.logger.Debugf(ctx, "relation %q changed in local model: %v", details.UUID, details)
 
 	switch {
-	case details.Life != life.Alive:
-		// TODO (stickupkid): Handle the case where the relation is dying,
-		// but there are still units in scope. We need to ensure that we
-		// don't kill the relation until all units have departed.
-		w.logger.Debugf(ctx, "relation %v is not alive (%v)", details.UUID, details.Life)
-		return errors.NotImplementedf("handling non-alive relation changes")
 	case details.Suspended:
 		return w.handleRelationSuspended(ctx, details)
 	default:
@@ -485,10 +487,76 @@ func (w *localConsumerWorker) handleRelationConsumption(
 		}
 	}
 
+	// Handle the case where the relation is dying, and ensure we have no
+	// workers still running for it.
+	if details.Life != life.Alive {
+		return w.handleRelationDying(ctx, details.UUID, result.macaroon)
+	}
+
 	return nil
 }
 
-// Ensure a new worker to watch for changes to the relation in the offering
+// handleRelationDying "notifies the offering model that the relation is dying,
+// so it can clean up any resources associated with it.
+func (w *localConsumerWorker) handleRelationDying(ctx context.Context, relationUUID corerelation.UUID, mac *macaroon.Macaroon) error {
+	w.logger.Debugf(ctx, "relation %q is dying", relationUUID)
+
+	change := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		Life:                    life.Dying,
+		ApplicationOrOfferToken: w.applicationUUID.String(),
+		Macaroons:               macaroon.Slice{mac},
+		BakeryVersion:           bakery.LatestVersion,
+
+		// NOTE (stickupkid): Work out if we need to pass ForceCleanup here.
+		// I suspect that because the relation never transitions to dead, and
+		// if we restart the worker, then we'll get a RelationNotFound error.
+		// Thus ForceCleanup will never be true.
+	}
+
+	if err := w.remoteModelClient.PublishRelationChange(ctx, change); isNotFound(err) {
+		w.logger.Debugf(ctx, "relation %q dying, but offerer side already removed", relationUUID)
+		return nil
+	} else if err != nil {
+		if terminalErr := w.handleDischargeRequiredWhilstDying(ctx, err, relationUUID); terminalErr != nil {
+			return terminalErr
+		}
+		return errors.Annotatef(err, "notifying offerer relation worker that relation %q is dying", relationUUID)
+	}
+
+	return nil
+}
+
+func (w *localConsumerWorker) handleDischargeRequiredWhilstDying(ctx context.Context, err error, relationUUID corerelation.UUID) error {
+	if params.ErrCode(err) != params.CodeDischargeRequired {
+		return nil
+	}
+
+	// If consume permission has been revoked for the offer, set the status of
+	// of the local application entity representing the remote offerer.
+	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
+		Status:  status.Error,
+		Message: fmt.Sprintf("offer permission revoked: %v", err.Error()),
+	}); err != nil {
+		w.logger.Errorf(ctx,
+			"updating remote application %q status from remote model %q: %v",
+			w.applicationName, w.offererModelUUID, err)
+	}
+
+	// Tear down the relation and unit workers, we're in a dying state, and the
+	// offerer macaroon is no longer valid and failed to discharge. Remove all
+	// the workers and start the process again, which will re-establish the
+	// relation if it is still valid.
+	//
+	// We won't ever be able to tell the offerer side that the relation has gone
+	// away, because if we bounce, we won't ever be in this state again. This
+	// won't re-establish itself on the consumer side, because the relation
+	// doesn't exist. The only way to recover this is to remove the synthetic
+	// relation from the offering mode.
+	return internalerrors.Errorf("%w: relation %q", ErrPermissionRevokedWhilstDying, relationUUID)
+}
+
+// Create a new worker to watch for changes to the relation in the offering
 // model.
 //
 // The worker is identified by the relation UUID, so it can track that

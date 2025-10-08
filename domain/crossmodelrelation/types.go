@@ -6,8 +6,10 @@ package crossmodelrelation
 import (
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
@@ -231,4 +233,18 @@ type AddRemoteApplicationArgs struct {
 	// OfferUUID is the UUID of the offer that the remote application is
 	// consuming. The offer is in this model, the offering model.
 	OfferUUID string
+}
+
+// RemoteRelationChangedArgs contains the parameters required to process a
+// remote relation change event.
+type RemoteRelationChangedArgs struct {
+	// RelationUUID is used to identify the relation that has changed.
+	RelationUUID relation.UUID
+	// ApplicationUUID is used to identify the remote application that
+	// is connected to the relation.
+	ApplicationUUID application.UUID
+	// Suspended indicates whether the remote application is suspended.
+	Suspended bool
+	// SuspendedReason provides a reason for the suspension, if applicable.
+	SuspendedReason string
 }
