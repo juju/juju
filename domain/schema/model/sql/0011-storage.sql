@@ -1,4 +1,3 @@
-
 CREATE TABLE storage_pool_origin (
     id INT NOT NULL PRIMARY KEY,
     origin TEXT NOT NULL UNIQUE,
