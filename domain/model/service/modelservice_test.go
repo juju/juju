@@ -28,6 +28,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelinternal "github.com/juju/juju/domain/model/internal"
 	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storage"
@@ -1012,9 +1013,9 @@ type defaultStoragePool struct {
 // Matches implements the [gomock.Matcher] interface. This type can be mateched
 // against a [model.CreateModelDefaultStoragePoolArg] or a slice.
 func (d defaultStoragePool) Matches(x any) bool {
-	arg, isSingular := x.(model.CreateModelDefaultStoragePoolArg)
+	arg, isSingular := x.(modelinternal.CreateModelDefaultStoragePoolArg)
 
-	sliceOf, isSliceType := x.([]model.CreateModelDefaultStoragePoolArg)
+	sliceOf, isSliceType := x.([]modelinternal.CreateModelDefaultStoragePoolArg)
 	if isSliceType {
 		if len(sliceOf) != 1 {
 			return false
@@ -1267,9 +1268,9 @@ func (s *providerModelServiceSuite) TestSeedDefaultStoragePools(c *tc.C) {
 		gomock.Any(),
 		gomock.Any(),
 	).DoAndReturn(func(
-		_ context.Context, args []model.CreateModelDefaultStoragePoolArg) error {
+		_ context.Context, args []modelinternal.CreateModelDefaultStoragePoolArg) error {
 
-		c.Check(args, tc.DeepEquals, []model.CreateModelDefaultStoragePoolArg{
+		c.Check(args, tc.DeepEquals, []modelinternal.CreateModelDefaultStoragePoolArg{
 			{
 				Attributes: map[string]string{
 					"attr1": "val1",

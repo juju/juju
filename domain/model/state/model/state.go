@@ -21,6 +21,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelinternal "github.com/juju/juju/domain/model/internal"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -130,7 +131,7 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 // default storage pools provided exist in the model. If a storage pool already
 // exists in the model no change is performed to the pool.
 func (s *ModelState) EnsureDefaultStoragePools(
-	ctx context.Context, args []model.CreateModelDefaultStoragePoolArg,
+	ctx context.Context, args []modelinternal.CreateModelDefaultStoragePoolArg,
 ) error {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -165,17 +166,17 @@ func (s *ModelState) EnsureDefaultStoragePools(
 	insertAttributeArgs := make(map[string][]dbInsertStoragePoolAttribute, len(args))
 	for _, arg := range args {
 		insertArgs = append(insertArgs, dbInsertStoragePool{
-			UUID:     arg.UUID,
+			UUID:     arg.UUID.String(),
 			Name:     arg.Name,
 			Type:     arg.Type,
 			OriginID: int(arg.Origin),
 		})
 
 		for k, v := range arg.Attributes {
-			insertAttributeArgs[arg.UUID] = append(
-				insertAttributeArgs[arg.UUID],
+			insertAttributeArgs[arg.UUID.String()] = append(
+				insertAttributeArgs[arg.UUID.String()],
 				dbInsertStoragePoolAttribute{
-					StoragePoolUUID: arg.UUID,
+					StoragePoolUUID: arg.UUID.String(),
 					Key:             k,
 					Value:           v,
 				})

@@ -13,7 +13,6 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/modelagent"
-	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -227,17 +226,4 @@ type ModelRedirection struct {
 	CACert          string
 	ControllerUUID  string
 	ControllerAlias string
-}
-
-// CreateModelDefaultStoragePoolArg represents the arguments required for establishing
-// a new model storage pool.
-//
-// This argument is used to see the model with the builtin and default storage
-// pools that exist.
-type CreateModelDefaultStoragePoolArg struct {
-	Attributes map[string]string
-	Name       string
-	Origin     storage.StoragePoolOrigin
-	Type       string
-	UUID       string
 }
