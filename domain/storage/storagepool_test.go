@@ -10,8 +10,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/tc"
+
+	coreerrors "github.com/juju/juju/core/errors"
 )
 
 type storagePoolSuite struct {

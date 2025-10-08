@@ -11,9 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coremodel "github.com/juju/juju/core/model"
-	domainmodelinternal "github.com/juju/juju/domain/model/internal"
-	modelinternal "github.com/juju/juju/domain/model/internal"
-	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/model/internal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
@@ -87,7 +85,7 @@ func (s *storagePoolSuite) TestGetRecommendedStoragePools(c *tc.C) {
 	poolArgs, setArgs, err := getRecommendedStoragePools(s.mockProviderRegistry)
 	c.Check(err, tc.ErrorIsNil)
 
-	expectedPoolArgs := []domainmodelinternal.CreateModelDefaultStoragePoolArg{
+	expectedPoolArgs := []internal.CreateModelDefaultStoragePoolArg{
 		{
 			Attributes: map[string]string{
 				"key1": "val1",
@@ -106,23 +104,23 @@ func (s *storagePoolSuite) TestGetRecommendedStoragePools(c *tc.C) {
 		},
 	}
 
-	var expectedSetArgs []domainmodelinternal.SetModelStoragePoolArg
+	var expectedSetArgs []internal.SetModelStoragePoolArg
 	for _, p := range poolArgs {
 		switch p.Name {
 		case "fsPool":
 			expectedSetArgs = append(
 				expectedSetArgs,
-				domainmodelinternal.SetModelStoragePoolArg{
+				internal.SetModelStoragePoolArg{
 					StorageKind:     domainstorage.StorageKindFilesystem,
-					StoragePoolUUID: domainstorage.StoragePoolUUID(p.UUID),
+					StoragePoolUUID: p.UUID,
 				},
 			)
 		case "bsPool":
 			expectedSetArgs = append(
 				expectedSetArgs,
-				domainmodelinternal.SetModelStoragePoolArg{
+				internal.SetModelStoragePoolArg{
 					StorageKind:     domainstorage.StorageKindBlock,
-					StoragePoolUUID: domainstorage.StoragePoolUUID(p.UUID),
+					StoragePoolUUID: p.UUID,
 				},
 			)
 		}
@@ -157,7 +155,7 @@ func (s *storagePoolSuite) TestGetRecommendedStoragePoolDedupe(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(poolArgs, tc.HasLen, 1)
 
-	expectedPoolArgs := []domainmodelinternal.CreateModelDefaultStoragePoolArg{
+	expectedPoolArgs := []internal.CreateModelDefaultStoragePoolArg{
 		{
 			Attributes: map[string]string{
 				"key1": "val1",
@@ -168,14 +166,14 @@ func (s *storagePoolSuite) TestGetRecommendedStoragePoolDedupe(c *tc.C) {
 		},
 	}
 
-	expectedSetArgs := []domainmodelinternal.SetModelStoragePoolArg{
+	expectedSetArgs := []internal.SetModelStoragePoolArg{
 		{
 			StorageKind:     domainstorage.StorageKindFilesystem,
-			StoragePoolUUID: domainstorage.StoragePoolUUID(poolArgs[0].UUID),
+			StoragePoolUUID: poolArgs[0].UUID,
 		},
 		{
 			StorageKind:     domainstorage.StorageKindBlock,
-			StoragePoolUUID: domainstorage.StoragePoolUUID(poolArgs[0].UUID),
+			StoragePoolUUID: poolArgs[0].UUID,
 		},
 	}
 
@@ -210,7 +208,7 @@ func (s *storagePoolSuite) TestGetRecommendedStoragePoolOnlyOne(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(poolArgs, tc.HasLen, 1)
 
-	expectedPoolArgs := []domainmodelinternal.CreateModelDefaultStoragePoolArg{
+	expectedPoolArgs := []internal.CreateModelDefaultStoragePoolArg{
 		{
 			Attributes: map[string]string{
 				"key1": "val1",
@@ -221,10 +219,10 @@ func (s *storagePoolSuite) TestGetRecommendedStoragePoolOnlyOne(c *tc.C) {
 		},
 	}
 
-	expectedSetArgs := []domainmodelinternal.SetModelStoragePoolArg{
+	expectedSetArgs := []internal.SetModelStoragePoolArg{
 		{
 			StorageKind:     domainstorage.StorageKindFilesystem,
-			StoragePoolUUID: domainstorage.StoragePoolUUID(poolArgs[0].UUID),
+			StoragePoolUUID: poolArgs[0].UUID,
 		},
 	}
 
@@ -278,14 +276,14 @@ func (s *storagePoolSuite) TestSeedDefaultStoragePools(c *tc.C) {
 		gomock.Any(),
 		gomock.Any(),
 	).DoAndReturn(func(
-		_ context.Context, args []modelinternal.CreateModelDefaultStoragePoolArg) error {
-		c.Check(args, tc.SameContents, []modelinternal.CreateModelDefaultStoragePoolArg{
+		_ context.Context, args []internal.CreateModelDefaultStoragePoolArg) error {
+		c.Check(args, tc.SameContents, []internal.CreateModelDefaultStoragePoolArg{
 			{
 				Attributes: map[string]string{
 					"attr1": "val1",
 				},
 				Name:   "tmpfs",
-				Origin: storage.StoragePoolOriginProviderDefault,
+				Origin: domainstorage.StoragePoolOriginProviderDefault,
 				Type:   "tmpfs",
 				UUID:   "6a16b09c-8ca9-5952-a50a-9082ae7c32c1",
 			},
@@ -294,7 +292,7 @@ func (s *storagePoolSuite) TestSeedDefaultStoragePools(c *tc.C) {
 					"attr1": "val1",
 				},
 				Name:   "rootfs",
-				Origin: storage.StoragePoolOriginProviderDefault,
+				Origin: domainstorage.StoragePoolOriginProviderDefault,
 				Type:   "rootfs",
 				UUID:   "4d9a00e0-bf5f-5823-8ffa-db1a2ffb940c",
 			},
@@ -302,7 +300,7 @@ func (s *storagePoolSuite) TestSeedDefaultStoragePools(c *tc.C) {
 		return nil
 	})
 	s.mockModelState.EXPECT().SetModelStoragePools(
-		gomock.Any(), []modelinternal.SetModelStoragePoolArg{
+		gomock.Any(), []internal.SetModelStoragePoolArg{
 			{
 				StorageKind:     domainstorage.StorageKindFilesystem,
 				StoragePoolUUID: "6a16b09c-8ca9-5952-a50a-9082ae7c32c1",

@@ -31,7 +31,7 @@ type ProviderRegistry interface {
 	// providing the specified kind of storage, or nil if no recommendations
 	// exist.
 	//
-	// It is gauranteed that the storage pool returned from this func is for a
+	// It is guaranteed that the storage pool returned from this func is for a
 	// provider type that exists in this registry.
 	RecommendedPoolForKind(StorageKind) *Config
 
