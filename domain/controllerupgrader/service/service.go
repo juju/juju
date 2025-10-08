@@ -18,6 +18,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
+	"slices"
 )
 
 // AgentBinaryFinder defines a helper for asserting if agent binaries are
@@ -589,16 +590,17 @@ func (a *AgentBinaryFinderImpl) HasBinariesForVersion(ctx context.Context, numbe
 
 	// Woops, now we fallback to finding the agent binary in simplestreams because
 	// they both don't exist in model and controller state.
-	return a.hasBinaryAgentInStreams(ctx, number, nil)
+	filter := coretools.Filter{Number: number}
+	return a.hasBinaryAgentInStreams(ctx, number, nil, filter)
 }
 
-func (a *AgentBinaryFinderImpl) hasBinaryAgentInStreams(ctx context.Context, number semversion.Number, stream *modelagent.AgentStream) (bool, error) {
+func (a *AgentBinaryFinderImpl) getBinaryAgentInStreams(ctx context.Context, number semversion.Number, stream *modelagent.AgentStream, filter coretools.Filter) (coretools.List, error) {
 	provider, err := a.providerForAgentBinaryFinder(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
-		return false, errors.Errorf("getting provider for agent binary finder %w", coreerrors.NotSupported)
+		return coretools.List{}, errors.Errorf("getting provider for agent binary finder %w", coreerrors.NotSupported)
 	}
 	if err != nil {
-		return false, errors.Capture(err)
+		return coretools.List{}, errors.Capture(err)
 	}
 
 	var streams []string
@@ -609,18 +611,25 @@ func (a *AgentBinaryFinderImpl) hasBinaryAgentInStreams(ctx context.Context, num
 	} else {
 		streamStr, err := stream.String()
 		if err != nil {
-			return false, errors.Capture(err)
+			return coretools.List{}, errors.Capture(err)
 		}
 		streams = []string{streamStr}
 	}
 
 	ssFetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	filter := coretools.Filter{Number: number}
 	tools, err := a.agentBinaryFilter(ctx, ssFetcher, provider, number.Major, number.Minor, streams, filter)
 	if err != nil {
-		return false, errors.Errorf("getting agent binary from simplestreams: %w", err)
+		return coretools.List{}, errors.Errorf("getting agent binary from simplestreams: %w", err)
 	}
 
+	return tools, nil
+}
+
+func (a *AgentBinaryFinderImpl) hasBinaryAgentInStreams(ctx context.Context, number semversion.Number, stream *modelagent.AgentStream, filter coretools.Filter) (bool, error) {
+	tools, err := a.getBinaryAgentInStreams(ctx, number, stream, filter)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
 	return tools.Len() > 0, nil
 }
 
@@ -648,13 +657,29 @@ func (a *AgentBinaryFinderImpl) HasBinariesForVersionAndStream(ctx context.Conte
 	if binaryExistsInController {
 		return binaryExistsInController, nil
 	}
-
-	return a.hasBinaryAgentInStreams(ctx, number, &stream)
+	filter := coretools.Filter{Number: number}
+	return a.hasBinaryAgentInStreams(ctx, number, &stream, filter)
 }
 
 func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailable(ctx context.Context) (semversion.Number, error) {
-	//TODO implement me
-	panic("implement me")
+	ctrlVersion, err := a.ctrlSt.GetControllerTargetVersion(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+	binaries, err := a.getBinaryAgentInStreams(ctx, ctrlVersion, nil, coretools.Filter{})
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+	// If binaries is empty an error is returned above, but perform this check to be safe.
+	if len(binaries) == 0 {
+		return semversion.Zero, errors.Errorf("no binary agent found for version %s", ctrlVersion.String())
+	}
+
+	slices.SortStableFunc(binaries, func(a, b *coretools.Tools) int {
+		return a.Version.ToPatch().Compare(b.Version.ToPatch())
+	})
+	highestPatchVersion := binaries[len(binaries)-1].Version.Number
+	return highestPatchVersion, nil
 }
 
 func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailableForStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error) {

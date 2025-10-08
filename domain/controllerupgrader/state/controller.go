@@ -80,9 +80,9 @@ FROM   controller_node_agent_version
 	return rval, nil
 }
 
-// GetControllerVersion returns the target controller version in use by the
+// GetControllerTargetVersion returns the target controller version in use by the
 // cluster.
-func (s *ControllerState) GetControllerVersion(ctx context.Context) (semversion.Number, error) {
+func (s *ControllerState) GetControllerTargetVersion(ctx context.Context) (semversion.Number, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return semversion.Number{}, errors.Capture(err)
@@ -175,9 +175,9 @@ func (s *ControllerState) HasBinaryAgent(ctx context.Context, version semversion
 		return false, errors.Capture(err)
 	}
 
-	in := binaryAgentVersion{Version: version.String()}
+	in := hasBinaryAgentVersion{Version: version.String()}
 	stmt, err := s.Prepare(`
-SELECT &binaryAgentVersion.*
+SELECT &hasBinaryAgentVersion.*
 FROM agent_binary_store
 WHERE version = $hasBinaryAgent.version
 `, in)
