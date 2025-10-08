@@ -99,6 +99,8 @@ type ControllerModelState interface {
 	) error
 
 	HasBinaryAgent(ctx context.Context, version semversion.Number) (bool, error)
+
+	HasAgentStream(ctx context.Context, stream modelagent.AgentStream) (bool, error)
 }
 
 // PreferredSimpleStreamsFunc is a function that returns the preferred streams
@@ -587,10 +589,10 @@ func (a *AgentBinaryFinderImpl) HasBinariesForVersion(ctx context.Context, numbe
 
 	// Woops, now we fallback to finding the agent binary in simplestreams because
 	// they both don't exist in model and controller state.
-	return a.hasBinaryAgentInStreams(ctx, number)
+	return a.hasBinaryAgentInStreams(ctx, number, nil)
 }
 
-func (a *AgentBinaryFinderImpl) hasBinaryAgentInStreams(ctx context.Context, number semversion.Number) (bool, error) {
+func (a *AgentBinaryFinderImpl) hasBinaryAgentInStreams(ctx context.Context, number semversion.Number, stream *modelagent.AgentStream) (bool, error) {
 	provider, err := a.providerForAgentBinaryFinder(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return false, errors.Errorf("getting provider for agent binary finder %w", coreerrors.NotSupported)
@@ -599,8 +601,19 @@ func (a *AgentBinaryFinderImpl) hasBinaryAgentInStreams(ctx context.Context, num
 		return false, errors.Capture(err)
 	}
 
-	cfg := provider.Config()
-	streams := a.getPreferredSimpleStreams(&number, cfg.Development(), cfg.AgentStream())
+	var streams []string
+
+	if stream == nil {
+		cfg := provider.Config()
+		streams = a.getPreferredSimpleStreams(&number, cfg.Development(), cfg.AgentStream())
+	} else {
+		streamStr, err := stream.String()
+		if err != nil {
+			return false, errors.Capture(err)
+		}
+		streams = []string{streamStr}
+	}
+
 	ssFetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	filter := coretools.Filter{Number: number}
 	tools, err := a.agentBinaryFilter(ctx, ssFetcher, provider, number.Major, number.Minor, streams, filter)
@@ -612,8 +625,31 @@ func (a *AgentBinaryFinderImpl) hasBinaryAgentInStreams(ctx context.Context, num
 }
 
 func (a *AgentBinaryFinderImpl) HasBinariesForVersionAndStream(ctx context.Context, number semversion.Number, stream modelagent.AgentStream) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	streamExistsInModel, err := a.modelSt.HasAgentStream(ctx, stream)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	if streamExistsInModel {
+		binaryExistsInModel, err := a.modelSt.HasBinaryAgent(ctx, number)
+		if err != nil {
+			return false, errors.Capture(err)
+		}
+
+		if binaryExistsInModel {
+			return binaryExistsInModel, nil
+		}
+	}
+	// TODO (adisazhar123): check the stream in the controller is the same as the supplied stream.
+	// Unfortunately, this isn't modeled yet so we assume the stream matches for this case.
+	binaryExistsInController, err := a.ctrlSt.HasBinaryAgent(ctx, number)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	if binaryExistsInController {
+		return binaryExistsInController, nil
+	}
+
+	return a.hasBinaryAgentInStreams(ctx, number, &stream)
 }
 
 func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailable(ctx context.Context) (semversion.Number, error) {

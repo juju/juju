@@ -271,7 +271,7 @@ func (s *ControllerModelState) HasBinaryAgent(ctx context.Context, version semve
 		return false, errors.Capture(err)
 	}
 
-	in := binaryAgentVersion{Version: version.String()}
+	in := hasBinaryAgentVersion{Version: version.String()}
 	stmt, err := s.Prepare(`
 SELECT &binaryAgentVersion.*
 FROM agent_binary_store
@@ -283,7 +283,7 @@ WHERE version = $hasBinaryAgent.version
 
 	var binaryAgentExists bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, in).Get(&in)
+		err = tx.Query(ctx, stmt, in).Run()
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
@@ -294,4 +294,35 @@ WHERE version = $hasBinaryAgent.version
 	})
 
 	return binaryAgentExists, errors.Capture(err)
+}
+
+func (s *ControllerModelState) HasAgentStream(ctx context.Context, stream modelagent.AgentStream) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	in := hasAgentStream{StreamID: int(stream)}
+	stmt, err := s.Prepare(`
+SELECT &agent_version.*
+FROM agent_version
+WHERE stream_id = $hasAgentStream.stream;
+`, in)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var streamExists bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, in).Run()
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		streamExists = true
+		return nil
+	})
+
+	return streamExists, errors.Capture(err)
 }

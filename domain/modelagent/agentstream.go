@@ -55,3 +55,20 @@ func (s AgentStream) IsValid() bool {
 		return false
 	}
 }
+
+func (s AgentStream) String() (string, error) {
+	switch s {
+	case AgentStreamReleased:
+		return "released", nil
+	case AgentStreamProposed:
+		return "proposed", nil
+	case AgentStreamTesting:
+		return "testing", nil
+	case AgentStreamDevel:
+		return "devel", nil
+	}
+
+	return "", errors.Errorf(
+		"agent stream %q is not recognised as a valid value", s,
+	).Add(coreerrors.NotValid)
+}
