@@ -492,6 +492,45 @@ func (c *MockModelStateGetOfferUUIDCall) DoAndReturn(f func(context.Context, str
 	return c
 }
 
+// GetRemoteApplicationConsumers mocks base method.
+func (m *MockModelState) GetRemoteApplicationConsumers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteApplicationConsumers", arg0)
+	ret0, _ := ret[0].([]crossmodelrelation.RemoteApplicationConsumer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteApplicationConsumers indicates an expected call of GetRemoteApplicationConsumers.
+func (mr *MockModelStateMockRecorder) GetRemoteApplicationConsumers(arg0 any) *MockModelStateGetRemoteApplicationConsumersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteApplicationConsumers", reflect.TypeOf((*MockModelState)(nil).GetRemoteApplicationConsumers), arg0)
+	return &MockModelStateGetRemoteApplicationConsumersCall{Call: call}
+}
+
+// MockModelStateGetRemoteApplicationConsumersCall wrap *gomock.Call
+type MockModelStateGetRemoteApplicationConsumersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetRemoteApplicationConsumersCall) Return(arg0 []crossmodelrelation.RemoteApplicationConsumer, arg1 error) *MockModelStateGetRemoteApplicationConsumersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetRemoteApplicationConsumersCall) Do(f func(context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error)) *MockModelStateGetRemoteApplicationConsumersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetRemoteApplicationConsumersCall) DoAndReturn(f func(context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error)) *MockModelStateGetRemoteApplicationConsumersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRemoteApplicationOfferers mocks base method.
 func (m *MockModelState) GetRemoteApplicationOfferers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
 	m.ctrl.T.Helper()
@@ -527,6 +566,44 @@ func (c *MockModelStateGetRemoteApplicationOfferersCall) Do(f func(context.Conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateGetRemoteApplicationOfferersCall) DoAndReturn(f func(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)) *MockModelStateGetRemoteApplicationOfferersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceRemoteApplicationConsumers mocks base method.
+func (m *MockModelState) NamespaceRemoteApplicationConsumers() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceRemoteApplicationConsumers")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceRemoteApplicationConsumers indicates an expected call of NamespaceRemoteApplicationConsumers.
+func (mr *MockModelStateMockRecorder) NamespaceRemoteApplicationConsumers() *MockModelStateNamespaceRemoteApplicationConsumersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceRemoteApplicationConsumers", reflect.TypeOf((*MockModelState)(nil).NamespaceRemoteApplicationConsumers))
+	return &MockModelStateNamespaceRemoteApplicationConsumersCall{Call: call}
+}
+
+// MockModelStateNamespaceRemoteApplicationConsumersCall wrap *gomock.Call
+type MockModelStateNamespaceRemoteApplicationConsumersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateNamespaceRemoteApplicationConsumersCall) Return(arg0 string) *MockModelStateNamespaceRemoteApplicationConsumersCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateNamespaceRemoteApplicationConsumersCall) Do(f func() string) *MockModelStateNamespaceRemoteApplicationConsumersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateNamespaceRemoteApplicationConsumersCall) DoAndReturn(f func() string) *MockModelStateNamespaceRemoteApplicationConsumersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

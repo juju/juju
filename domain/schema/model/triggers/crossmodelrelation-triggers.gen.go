@@ -9,6 +9,46 @@ import (
 )
 
 
+// ChangeLogTriggersForApplicationRemoteConsumer generates the triggers for the
+// application_remote_consumer table.
+func ChangeLogTriggersForApplicationRemoteConsumer(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApplicationRemoteConsumer
+INSERT INTO change_log_namespace VALUES (%[2]d, 'application_remote_consumer', 'ApplicationRemoteConsumer changes based on %[1]s');
+
+-- insert trigger for ApplicationRemoteConsumer
+CREATE TRIGGER trg_log_application_remote_consumer_insert
+AFTER INSERT ON application_remote_consumer FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for ApplicationRemoteConsumer
+CREATE TRIGGER trg_log_application_remote_consumer_update
+AFTER UPDATE ON application_remote_consumer FOR EACH ROW
+WHEN 
+	NEW.uuid != OLD.uuid OR
+	NEW.offerer_application_uuid != OLD.offerer_application_uuid OR
+	NEW.consumer_application_uuid != OLD.consumer_application_uuid OR
+	NEW.offer_connection_uuid != OLD.offer_connection_uuid OR
+	NEW.version != OLD.version OR
+	NEW.life_id != OLD.life_id 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for ApplicationRemoteConsumer
+CREATE TRIGGER trg_log_application_remote_consumer_delete
+AFTER DELETE ON application_remote_consumer FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForApplicationRemoteOfferer generates the triggers for the
 // application_remote_offerer table.
 func ChangeLogTriggersForApplicationRemoteOfferer(columnName string, namespaceID int) func() schema.Patch {

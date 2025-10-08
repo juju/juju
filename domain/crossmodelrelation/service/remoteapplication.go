@@ -49,9 +49,17 @@ type ModelRemoteApplicationState interface {
 	// application offerers in the local model.
 	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
 
+	// GetRemoteApplicationConsumers returns all the current non-dead remote
+	// application consumers in the local model.
+	GetRemoteApplicationConsumers(context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error)
+
 	// NamespaceRemoteApplicationOfferers returns the database namespace
 	// for remote application offerers.
 	NamespaceRemoteApplicationOfferers() string
+
+	// NamespaceRemoteApplicationConsumers returns the database namespace
+	// for remote application consumers.
+	NamespaceRemoteApplicationConsumers() string
 
 	// SaveMacaroonForRelation saves the given macaroon for the specified
 	// remote application.
@@ -225,10 +233,10 @@ func (s *Service) GetRemoteApplicationOfferers(ctx context.Context) ([]crossmode
 // GetRemoteApplicationConsumers returns the current state of all remote
 // application consumers in the local model.
 func (s *Service) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return nil, errors.NotImplemented
+	return s.modelState.GetRemoteApplicationConsumers(ctx)
 }
 
 // SetRemoteApplicationOffererStatus sets the status of the specified remote

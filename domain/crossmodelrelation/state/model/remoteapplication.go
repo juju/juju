@@ -34,6 +34,11 @@ func (st *State) NamespaceRemoteApplicationOfferers() string {
 	return "application_remote_offerer"
 }
 
+// NamespaceRemoteApplicationConsumers returns the remote application consumers.
+func (st *State) NamespaceRemoteApplicationConsumers() string {
+	return "application_remote_consumer"
+}
+
 // AddRemoteApplicationOfferer adds a new synthetic application representing
 // an offer from an external model, to this, the consuming model.
 func (st *State) AddRemoteApplicationOfferer(
@@ -187,6 +192,58 @@ WHERE   aro.life_id < 2;`
 			ConsumeVersion:   int(offerer.Version),
 			OffererModelUUID: offerer.OffererModelUUID,
 			Macaroon:         macaroon,
+		}
+	}
+
+	return result, nil
+}
+
+// GetRemoteApplicationConsumers returns all the current non-dead remote
+// application consumers in the local model.
+func (st *State) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type remoteApplicationConsumerInfo struct {
+		ApplicationName string    `db:"application_name"`
+		LifeID          life.Life `db:"life_id"`
+		OfferUUID       string    `db:"offer_uuid"`
+		Version         uint64    `db:"version"`
+	}
+
+	query := `
+SELECT  a.name AS &remoteApplicationConsumerInfo.application_name,
+        arc.life_id AS &remoteApplicationConsumerInfo.life_id,
+        oc.offer_uuid AS &remoteApplicationConsumerInfo.offer_uuid,
+        arc.version AS &remoteApplicationConsumerInfo.version
+FROM    application_remote_consumer AS arc
+JOIN    application AS a ON a.uuid = arc.consumer_application_uuid
+JOIN    offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+WHERE   arc.life_id < 2;`
+	queryStmt, err := st.Prepare(query, remoteApplicationConsumerInfo{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var consumers []remoteApplicationConsumerInfo
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, queryStmt).GetAll(&consumers); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("querying remote application consumers: %w", err)
+	}
+
+	result := make([]crossmodelrelation.RemoteApplicationConsumer, len(consumers))
+	for i, consumer := range consumers {
+		result[i] = crossmodelrelation.RemoteApplicationConsumer{
+			ApplicationName: consumer.ApplicationName,
+			Life:            consumer.LifeID,
+			OfferUUID:       consumer.OfferUUID,
+			ConsumeVersion:  int(consumer.Version),
 		}
 	}
 
