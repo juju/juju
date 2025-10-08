@@ -24,6 +24,7 @@ type CrossModelRelationsAPIv3 struct {
 	auth      facade.CrossModelAuthContext
 
 	crossModelRelationService CrossModelRelationService
+	relationService           RelationService
 
 	logger logger.Logger
 }
@@ -33,12 +34,14 @@ func NewCrossModelRelationsAPI(
 	modelUUID model.UUID,
 	auth facade.CrossModelAuthContext,
 	crossModelRelationService CrossModelRelationService,
+	relationService RelationService,
 	logger logger.Logger,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
 		modelUUID:                 modelUUID,
 		auth:                      auth,
 		crossModelRelationService: crossModelRelationService,
+		relationService:           relationService,
 		logger:                    logger,
 	}, nil
 }
@@ -115,7 +118,15 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting remote relation UUID")
 	}
-	offererRemoteRelationTag := names.NewRelationTag(offererRemoteRelationUUID.String())
+
+	// Create the relation tag for the remote relation.
+	// The relation tag is based on the relation key, which is of the form
+	// "app1:relName1 app2:relName2".
+	offererRemoteRelationDetails, err := api.relationService.GetRelationDetails(ctx, offererRemoteRelationUUID)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting relation details")
+	}
+	offererRemoteRelationTag := names.NewRelationTag(offererRemoteRelationDetails.Key.String())
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.auth.CreateRemoteRelationMacaroon(
