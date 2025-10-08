@@ -187,6 +187,10 @@ type ModelState interface {
 	//
 	// If no set args are supplied then this operation will just remove any
 	// previously set storage pools for the model.
+	//
+	// The following errors may be returned:
+	// - [storageerrors.PoolNotFound] if one or more storage pools no longer
+	// exist in the model.
 	SetModelStoragePools(context.Context, []modelinternal.SetModelStoragePoolArg) error
 
 	// IsControllerModel returns true if the model is the controller model.
