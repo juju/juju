@@ -1187,6 +1187,45 @@ func (c *MockModelDBStateGetRelationLifeCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetRelationUnitsForUnit mocks base method.
+func (m *MockModelDBState) GetRelationUnitsForUnit(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationUnitsForUnit", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationUnitsForUnit indicates an expected call of GetRelationUnitsForUnit.
+func (mr *MockModelDBStateMockRecorder) GetRelationUnitsForUnit(arg0, arg1 any) *MockModelDBStateGetRelationUnitsForUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitsForUnit", reflect.TypeOf((*MockModelDBState)(nil).GetRelationUnitsForUnit), arg0, arg1)
+	return &MockModelDBStateGetRelationUnitsForUnitCall{Call: call}
+}
+
+// MockModelDBStateGetRelationUnitsForUnitCall wrap *gomock.Call
+type MockModelDBStateGetRelationUnitsForUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetRelationUnitsForUnitCall) Return(arg0 []string, arg1 error) *MockModelDBStateGetRelationUnitsForUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetRelationUnitsForUnitCall) Do(f func(context.Context, string) ([]string, error)) *MockModelDBStateGetRelationUnitsForUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetRelationUnitsForUnitCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelDBStateGetRelationUnitsForUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitLife mocks base method.
 func (m *MockModelDBState) GetUnitLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()
