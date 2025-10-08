@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
@@ -77,13 +78,18 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 ) (*params.RemoteRelationDetails, error) {
 	// Retrieve the application UUID for the provided offer UUID (also validates
 	// offer exists).
-	appName, appUUID, err := api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, relation.OfferUUID)
+	offerUUID, err := offer.ParseUUID(relation.OfferUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	appName, appUUID, err := api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Check that the supplied macaroon allows access.
-	attr, err := api.auth.Authenticator().CheckOfferMacaroons(ctx, api.modelUUID.String(), relation.OfferUUID, relation.Macaroons, relation.BakeryVersion)
+	attr, err := api.auth.Authenticator().CheckOfferMacaroons(ctx, api.modelUUID.String(), offerUUID.String(), relation.Macaroons, relation.BakeryVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +104,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 		ctx,
 		crossmodelrelationservice.AddRemoteApplicationConsumerArgs{
 			RemoteApplicationUUID: relation.ApplicationToken,
-			OfferUUID:             relation.OfferUUID,
+			OfferUUID:             offerUUID,
 			RelationUUID:          relation.RelationToken,
 			// We only have the actual consumed endpoint.
 			Endpoints: []charm.Relation{
@@ -129,7 +135,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.auth.CreateRemoteRelationMacaroon(
-		ctx, api.modelUUID, relation.OfferUUID, username, offererRemoteRelationTag, relation.BakeryVersion)
+		ctx, api.modelUUID, offerUUID.String(), username, offererRemoteRelationTag, relation.BakeryVersion)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}

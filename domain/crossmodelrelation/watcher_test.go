@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
@@ -58,7 +59,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationOfferers(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		err = svc.AddRemoteApplicationOfferer(c.Context(), "foo", service.AddRemoteApplicationOffererArgs{
-			OfferUUID:        tc.Must(c, uuid.NewUUID).String(),
+			OfferUUID:        tc.Must(c, offer.NewUUID),
 			OffererModelUUID: tc.Must(c, uuid.NewUUID).String(),
 			Endpoints: []charm.Relation{{
 				Name:  "db",
@@ -106,7 +107,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationConsumers(c *tc.C) {
 	db, err := s.GetWatchableDB(c.Context(), s.modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	offerUUID := uuid.MustNewUUID().String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := uuid.MustNewUUID().String()
 	s.createLocalOfferForConsumer(c, db, offerUUID)
 
@@ -184,7 +185,7 @@ func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
 	return mac
 }
 
-func (s *watcherSuite) createLocalOfferForConsumer(c *tc.C, db database.TxnRunner, offerUUID string) {
+func (s *watcherSuite) createLocalOfferForConsumer(c *tc.C, db database.TxnRunner, offerUUID offer.UUID) {
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Create charm.
 		charmUUID := uuid.MustNewUUID().String()

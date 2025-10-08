@@ -7,14 +7,14 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/domain/crossmodelrelation"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // CreateOfferArgs contains parameters used to create an offer.
 type CreateOfferArgs struct {
 	// UUID is the unique identifier of the new offer.
-	UUID uuid.UUID
+	UUID offer.UUID
 
 	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
@@ -28,7 +28,7 @@ type CreateOfferArgs struct {
 
 // MakeCreateOfferArgs returns a CreateOfferArgs from the given
 // ApplicationOfferArgs and uuid.
-func MakeCreateOfferArgs(in crossmodelrelation.ApplicationOfferArgs, offerUUID uuid.UUID) CreateOfferArgs {
+func MakeCreateOfferArgs(in crossmodelrelation.ApplicationOfferArgs, offerUUID offer.UUID) CreateOfferArgs {
 	return CreateOfferArgs{
 		UUID:            offerUUID,
 		ApplicationName: in.ApplicationName,

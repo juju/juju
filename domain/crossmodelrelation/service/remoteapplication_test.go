@@ -10,7 +10,9 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -32,7 +34,7 @@ func TestRemoteApplicationServiceSuite(t *testing.T) {
 func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	offererControllerUUID := ptr(tc.Must(c, uuid.NewUUID).String())
 	offererModelUUID := tc.Must(c, uuid.NewUUID).String()
 	macaroon := newMacaroon(c, "test")
@@ -102,7 +104,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationOffererArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			Charm:     syntheticCharm,
-			OfferUUID: offerUUID,
+			OfferUUID: offerUUID.String(),
 		},
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      offererModelUUID,
@@ -113,7 +115,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererNoEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 
 	service := s.service(c)
 
@@ -146,7 +148,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidOf
 func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidOffererModelUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	offererModelUUID := "!!"
 
 	service := s.service(c)
@@ -161,7 +163,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidOf
 func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidRole(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	offererControllerUUID := ptr(tc.Must(c, uuid.NewUUID).String())
 	offererModelUUID := tc.Must(c, uuid.NewUUID).String()
 	macaroon := newMacaroon(c, "test")
@@ -274,7 +276,7 @@ func (s *remoteApplicationServiceSuite) TestSaveMacaroonForRelationInvalidMacaro
 func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
@@ -332,7 +334,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumer(c *tc.C
 	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			Charm:     syntheticCharm,
-			OfferUUID: offerUUID,
+			OfferUUID: offerUUID.String(),
 		},
 		RelationUUID: relationUUID,
 	})
@@ -362,14 +364,14 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidO
 		OfferUUID:             "!!",
 	})
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
-	c.Assert(err, tc.ErrorMatches, "offer UUID \"!!\" is not a valid UUID")
+	c.Assert(err, tc.ErrorMatches, `.*uuid "!!" not valid`)
 }
 
 func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidRelationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 
 	service := s.service(c)
 
@@ -386,7 +388,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerNoEndpoi
 	defer s.setupMocks(c).Finish()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 
 	service := s.service(c)
@@ -405,7 +407,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidE
 	defer s.setupMocks(c).Finish()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 
 	service := s.service(c)
@@ -430,7 +432,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerStateErr
 	defer s.setupMocks(c).Finish()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 
 	s.modelState.EXPECT().AddRemoteApplicationConsumer(gomock.Any(), "remote-deadbeef1bad500d90004b1d0d06f00d", gomock.Any()).Return(internalerrors.Errorf("boom"))
@@ -455,7 +457,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerStateErr
 func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerMixedEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
 
@@ -524,7 +526,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerMixedEnd
 	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			Charm:     syntheticCharm,
-			OfferUUID: offerUUID,
+			OfferUUID: offerUUID.String(),
 		},
 		RelationUUID: relationUUID,
 	})
@@ -533,25 +535,25 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerMixedEnd
 func (s *remoteApplicationServiceSuite) TestGetApplicationNameAndUUIDByOfferUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
-	appUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
 
-	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID).Return("test-app", coreapplication.UUID(appUUID), nil)
+	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID.String()).Return("test-app", appUUID, nil)
 
 	service := s.service(c)
 
 	gotName, gotUUID, err := service.GetApplicationNameAndUUIDByOfferUUID(c.Context(), offerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotName, tc.Equals, "test-app")
-	c.Check(string(gotUUID), tc.Equals, appUUID)
+	c.Check(gotUUID, tc.Equals, appUUID)
 }
 
 func (s *remoteApplicationServiceSuite) TestGetApplicationNameAndUUIDByOfferUUIDNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 
-	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID).Return("", coreapplication.UUID(""), crossmodelrelationerrors.OfferNotFound)
+	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID.String()).Return("", coreapplication.UUID(""), crossmodelrelationerrors.OfferNotFound)
 
 	service := s.service(c)
 
@@ -566,16 +568,16 @@ func (s *remoteApplicationServiceSuite) TestGetApplicationNameAndUUIDByOfferUUID
 	service := s.service(c)
 
 	_, _, err := service.GetApplicationNameAndUUIDByOfferUUID(c.Context(), "invalid-uuid")
-	c.Assert(err, tc.ErrorMatches, `offer UUID "invalid-uuid" is not a valid UUID`)
+	c.Assert(err, tc.ErrorMatches, `.*uuid "invalid-uuid" not valid`)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *remoteApplicationServiceSuite) TestGetApplicationNameAndUUIDByOfferUUIDStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 
-	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID).Return("", coreapplication.UUID(""), internalerrors.Errorf("boom"))
+	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID.String()).Return("", coreapplication.UUID(""), internalerrors.Errorf("boom"))
 
 	service := s.service(c)
 

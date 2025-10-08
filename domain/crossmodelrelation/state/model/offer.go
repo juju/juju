@@ -11,12 +11,12 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
+	"github.com/juju/juju/core/offer"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/errors"
-	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 // CreateOffer creates an offer and links the endpoints to it.
@@ -67,7 +67,7 @@ INSERT INTO offer (*) VALUES ($nameAndUUID.*)`, nameAndUUID{})
 // is required.
 func (st *State) DeleteFailedOffer(
 	ctx context.Context,
-	offerUUID internaluuid.UUID,
+	offerUUID offer.UUID,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {

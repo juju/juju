@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/application/charm"
@@ -48,14 +49,14 @@ func (s *offerServiceSuite) TestOfferCreate(c *tc.C) {
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       ownerName,
 	}
-	createOfferArgs := internal.MakeCreateOfferArgs(args, uuid.UUID{})
+	createOfferArgs := internal.MakeCreateOfferArgs(args, "")
 	m := createOfferArgsMatcher{c: c, expected: createOfferArgs}
 	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(nil)
 
 	s.controllerState.EXPECT().CreateOfferAccess(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(uuid.UUID{}),
-		gomock.AssignableToTypeOf(uuid.UUID{}),
+		gomock.AssignableToTypeOf(offer.UUID("")),
 		ownerUUID,
 	).Return(nil)
 
@@ -86,7 +87,7 @@ func (s *offerServiceSuite) TestOfferCreateAccessErr(c *tc.C) {
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       ownerName,
 	}
-	createOfferArgs := internal.MakeCreateOfferArgs(args, uuid.UUID{})
+	createOfferArgs := internal.MakeCreateOfferArgs(args, "")
 	m := createOfferArgsMatcher{c: c, expected: createOfferArgs}
 	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(nil)
 
@@ -94,10 +95,10 @@ func (s *offerServiceSuite) TestOfferCreateAccessErr(c *tc.C) {
 	s.controllerState.EXPECT().CreateOfferAccess(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(uuid.UUID{}),
-		gomock.AssignableToTypeOf(uuid.UUID{}),
+		gomock.AssignableToTypeOf(offer.UUID("")),
 		ownerUUID,
 	).Return(errors.Errorf("boom"))
-	s.modelState.EXPECT().DeleteFailedOffer(gomock.Any(), gomock.AssignableToTypeOf(uuid.UUID{})).Return(nil)
+	s.modelState.EXPECT().DeleteFailedOffer(gomock.Any(), gomock.AssignableToTypeOf(offer.UUID(""))).Return(nil)
 
 	// Act
 	err := s.service(c).Offer(c.Context(), args)
@@ -127,7 +128,7 @@ func (s *offerServiceSuite) TestOfferCreateError(c *tc.C) {
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       ownerName,
 	}
-	createOfferArgs := internal.MakeCreateOfferArgs(args, uuid.UUID{})
+	createOfferArgs := internal.MakeCreateOfferArgs(args, "")
 	m := createOfferArgsMatcher{c: c, expected: createOfferArgs}
 	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(errors.Errorf("boom"))
 
@@ -501,7 +502,7 @@ func (s *offerServiceSuite) TestGetOfferUUID(c *tc.C) {
 	// Arrange
 	offerURL, err := crossmodel.ParseOfferURL("postgresql.db-admin")
 	c.Assert(err, tc.IsNil)
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerURL.Name).Return(offerUUID.String(), nil)
 
 	// Act

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/offer"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
@@ -42,7 +43,9 @@ type ControllerState interface {
 	// ReadAccess for the provided offer.
 	CreateOfferAccess(
 		ctx context.Context,
-		permissionUUID, offerUUID, ownerUUID uuid.UUID,
+		permissionUUID uuid.UUID,
+		offerUUID offer.UUID,
+		ownerUUID uuid.UUID,
 	) error
 
 	// GetUsersForOfferUUIDs returns a map of offerUUIDs with a slice of users

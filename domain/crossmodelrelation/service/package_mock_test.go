@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
+	offer "github.com/juju/juju/core/offer"
 	user "github.com/juju/juju/core/user"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
 	internal "github.com/juju/juju/domain/crossmodelrelation/internal"
@@ -45,7 +46,7 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 }
 
 // CreateOfferAccess mocks base method.
-func (m *MockControllerState) CreateOfferAccess(arg0 context.Context, arg1, arg2, arg3 uuid.UUID) error {
+func (m *MockControllerState) CreateOfferAccess(arg0 context.Context, arg1 uuid.UUID, arg2 offer.UUID, arg3 uuid.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateOfferAccess", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -71,13 +72,13 @@ func (c *MockControllerStateCreateOfferAccessCall) Return(arg0 error) *MockContr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerStateCreateOfferAccessCall) Do(f func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error) *MockControllerStateCreateOfferAccessCall {
+func (c *MockControllerStateCreateOfferAccessCall) Do(f func(context.Context, uuid.UUID, offer.UUID, uuid.UUID) error) *MockControllerStateCreateOfferAccessCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateCreateOfferAccessCall) DoAndReturn(f func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error) *MockControllerStateCreateOfferAccessCall {
+func (c *MockControllerStateCreateOfferAccessCall) DoAndReturn(f func(context.Context, uuid.UUID, offer.UUID, uuid.UUID) error) *MockControllerStateCreateOfferAccessCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -337,7 +338,7 @@ func (c *MockModelStateCreateOfferCall) DoAndReturn(f func(context.Context, inte
 }
 
 // DeleteFailedOffer mocks base method.
-func (m *MockModelState) DeleteFailedOffer(arg0 context.Context, arg1 uuid.UUID) error {
+func (m *MockModelState) DeleteFailedOffer(arg0 context.Context, arg1 offer.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteFailedOffer", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -363,13 +364,13 @@ func (c *MockModelStateDeleteFailedOfferCall) Return(arg0 error) *MockModelState
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateDeleteFailedOfferCall) Do(f func(context.Context, uuid.UUID) error) *MockModelStateDeleteFailedOfferCall {
+func (c *MockModelStateDeleteFailedOfferCall) Do(f func(context.Context, offer.UUID) error) *MockModelStateDeleteFailedOfferCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateDeleteFailedOfferCall) DoAndReturn(f func(context.Context, uuid.UUID) error) *MockModelStateDeleteFailedOfferCall {
+func (c *MockModelStateDeleteFailedOfferCall) DoAndReturn(f func(context.Context, offer.UUID) error) *MockModelStateDeleteFailedOfferCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

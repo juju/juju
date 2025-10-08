@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/charm"
-	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 type modelOfferSuite struct {
@@ -50,7 +50,7 @@ func (s *modelOfferSuite) TestCreateOffer(c *tc.C) {
 	endpointUUID2 := s.addApplicationEndpoint(c, appUUID, relationUUID2)
 
 	args := internal.CreateOfferArgs{
-		UUID:            internaluuid.MustNewUUID(),
+		UUID:            tc.Must(c, offer.NewUUID),
 		ApplicationName: appName,
 		Endpoints:       []string{relation.Name, relation2.Name},
 		OfferName:       "test-offer",
@@ -98,7 +98,7 @@ func (s *modelOfferSuite) TestCreateOfferEndpointFail(c *tc.C) {
 	s.addApplicationEndpoint(c, appUUID, relationUUID)
 
 	args := internal.CreateOfferArgs{
-		UUID:            internaluuid.MustNewUUID(),
+		UUID:            tc.Must(c, offer.NewUUID),
 		ApplicationName: appName,
 		Endpoints:       []string{"fail-me"},
 		OfferName:       "test-offer",
@@ -131,10 +131,9 @@ func (s *modelOfferSuite) TestDeleteFailedOffer(c *tc.C) {
 
 	offerName := "test-offer"
 	offerUUID := s.addOffer(c, offerName, []string{appEndpointUUD})
-	formattedUUID, _ := internaluuid.UUIDFromString(offerUUID)
 
 	// Act
-	err := s.state.DeleteFailedOffer(c.Context(), formattedUUID)
+	err := s.state.DeleteFailedOffer(c.Context(), offer.UUID(offerUUID))
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

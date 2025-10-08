@@ -7,6 +7,7 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/offer"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 )
 
@@ -16,7 +17,7 @@ type CrossModelRelationService interface {
 	// for the given offer UUID.
 	// Returns crossmodelrelationerrors.OfferNotFound if the offer or associated
 	// application is not found.
-	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error)
+	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, coreapplication.UUID, error)
 
 	// AddRemoteApplicationConsumer adds a new synthetic application representing
 	// a remote relation on the consuming model, to this, the offering model.

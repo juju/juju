@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
+	offer "github.com/juju/juju/core/offer"
 	service "github.com/juju/juju/domain/crossmodelrelation/service"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -80,7 +81,7 @@ func (c *MockCrossModelRelationServiceAddRemoteApplicationConsumerCall) DoAndRet
 }
 
 // GetApplicationNameAndUUIDByOfferUUID mocks base method.
-func (m *MockCrossModelRelationService) GetApplicationNameAndUUIDByOfferUUID(arg0 context.Context, arg1 string) (string, application.UUID, error) {
+func (m *MockCrossModelRelationService) GetApplicationNameAndUUIDByOfferUUID(arg0 context.Context, arg1 offer.UUID) (string, application.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationNameAndUUIDByOfferUUID", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -108,13 +109,13 @@ func (c *MockCrossModelRelationServiceGetApplicationNameAndUUIDByOfferUUIDCall) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceGetApplicationNameAndUUIDByOfferUUIDCall) Do(f func(context.Context, string) (string, application.UUID, error)) *MockCrossModelRelationServiceGetApplicationNameAndUUIDByOfferUUIDCall {
+func (c *MockCrossModelRelationServiceGetApplicationNameAndUUIDByOfferUUIDCall) Do(f func(context.Context, offer.UUID) (string, application.UUID, error)) *MockCrossModelRelationServiceGetApplicationNameAndUUIDByOfferUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceGetApplicationNameAndUUIDByOfferUUIDCall) DoAndReturn(f func(context.Context, string) (string, application.UUID, error)) *MockCrossModelRelationServiceGetApplicationNameAndUUIDByOfferUUIDCall {
+func (c *MockCrossModelRelationServiceGetApplicationNameAndUUIDByOfferUUIDCall) DoAndReturn(f func(context.Context, offer.UUID) (string, application.UUID, error)) *MockCrossModelRelationServiceGetApplicationNameAndUUIDByOfferUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

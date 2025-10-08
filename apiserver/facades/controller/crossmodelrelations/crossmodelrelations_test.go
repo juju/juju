@@ -17,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
@@ -48,7 +49,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 
 	appName := "offerapp"
 	appUUIDStr := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	remoteAppToken := tc.Must(c, uuid.NewUUID).String()
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
@@ -67,14 +68,14 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 		})
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID, gomock.Any(), bakery.LatestVersion).
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
 		Return(map[string]string{"username": "bob"}, nil)
 
 	relKey, err := corerelation.NewKeyFromString("offerapp:db remoteapp:db")
 	c.Assert(err, tc.ErrorIsNil)
 	offererRemoteRelationTag := names.NewRelationTag(relKey.String())
 
-	s.crossModelAuthContext.EXPECT().CreateRemoteRelationMacaroon(gomock.Any(), s.modelUUID, offerUUID, "bob", offererRemoteRelationTag, bakery.LatestVersion).
+	s.crossModelAuthContext.EXPECT().CreateRemoteRelationMacaroon(gomock.Any(), s.modelUUID, offerUUID.String(), "bob", offererRemoteRelationTag, bakery.LatestVersion).
 		Return(&bakery.Macaroon{}, nil)
 
 	api := s.api(c)
@@ -98,7 +99,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 func (s *facadeSuite) TestRegisterRemoteRelationsGetApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	remoteAppToken := tc.Must(c, uuid.NewUUID).String()
 
@@ -118,7 +119,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsAuthError(c *tc.C) {
 
 	appName := "offerapp"
 	appUUIDStr := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	remoteAppToken := tc.Must(c, uuid.NewUUID).String()
 
@@ -127,7 +128,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsAuthError(c *tc.C) {
 		Return(appName, application.UUID(appUUIDStr), nil)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID, gomock.Any(), bakery.LatestVersion).
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
 		Return(nil, errors.New("boom"))
 
 	api := s.api(c)
@@ -142,7 +143,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsMissingUsername(c *tc.C) {
 
 	appName := "offerapp"
 	appUUIDStr := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	remoteAppToken := tc.Must(c, uuid.NewUUID).String()
 
@@ -151,7 +152,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsMissingUsername(c *tc.C) {
 		Return(appName, application.UUID(appUUIDStr), nil)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID, gomock.Any(), bakery.LatestVersion).
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
 		Return(map[string]string{}, nil)
 
 	api := s.api(c)
@@ -166,7 +167,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsAddConsumerError(c *tc.C) {
 
 	appName := "offerapp"
 	appUUIDStr := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	remoteAppToken := tc.Must(c, uuid.NewUUID).String()
 
@@ -178,7 +179,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsAddConsumerError(c *tc.C) {
 		Return(errors.New("insert failed"))
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID, gomock.Any(), bakery.LatestVersion).
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
 		Return(map[string]string{"username": "bob"}, nil)
 
 	api := s.api(c)
@@ -193,7 +194,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsRelationKeyParseError(c *tc.C) 
 
 	appName := "offerapp"
 	appUUIDStr := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	remoteAppToken := tc.Must(c, uuid.NewUUID).String()
 
@@ -206,7 +207,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsRelationKeyParseError(c *tc.C) 
 		Return(nil)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID, gomock.Any(), bakery.LatestVersion).
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
 		Return(map[string]string{"username": "bob"}, nil)
 
 	api := s.api(c)
@@ -222,7 +223,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsCreateMacaroonError(c *tc.C) {
 
 	appName := "offerapp"
 	appUUIDStr := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	remoteAppToken := tc.Must(c, uuid.NewUUID).String()
 
@@ -235,7 +236,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsCreateMacaroonError(c *tc.C) {
 		Return(nil)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID, gomock.Any(), bakery.LatestVersion).
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
 		Return(map[string]string{"username": "bob"}, nil)
 
 	s.crossModelAuthContext.EXPECT().CreateRemoteRelationMacaroon(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -272,10 +273,10 @@ func (s *facadeSuite) api(c *tc.C) *CrossModelRelationsAPIv3 {
 	return api
 }
 
-func (s *facadeSuite) relationArg(appToken, offerUUID, relationUUID, remoteEndpoint, localEndpoint string, macs macaroon.Slice) params.RegisterRemoteRelationArg {
+func (s *facadeSuite) relationArg(appToken string, offerUUID offer.UUID, relationUUID, remoteEndpoint, localEndpoint string, macs macaroon.Slice) params.RegisterRemoteRelationArg {
 	return params.RegisterRemoteRelationArg{
 		ApplicationToken:  appToken,
-		OfferUUID:         offerUUID,
+		OfferUUID:         offerUUID.String(),
 		RelationToken:     relationUUID,
 		RemoteEndpoint:    params.RemoteEndpoint{Name: remoteEndpoint, Role: internalcharm.RoleProvider, Interface: "database"},
 		LocalEndpointName: localEndpoint,

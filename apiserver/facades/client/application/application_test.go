@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/os/ostype"
 	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
@@ -1301,7 +1302,7 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 
 	controllerUUID := tc.Must(c, uuid.NewUUID).String()
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	macaroon := newMacaroon(c, "test")
 
 	controllerInfo := crossmodel.ControllerInfo{
@@ -1330,7 +1331,7 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
 		Args: []params.ConsumeApplicationArgV5{{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				OfferUUID:      offerUUID,
+				OfferUUID:      offerUUID.String(),
 				OfferName:      "my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
 				Endpoints: []params.RemoteEndpoint{{
@@ -1359,7 +1360,7 @@ func (s *applicationSuite) TestConsumeNoExternalController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	macaroon := newMacaroon(c, "test")
 
 	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
@@ -1379,7 +1380,7 @@ func (s *applicationSuite) TestConsumeNoExternalController(c *tc.C) {
 	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
 		Args: []params.ConsumeApplicationArgV5{{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				OfferUUID:      offerUUID,
+				OfferUUID:      offerUUID.String(),
 				OfferName:      "my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
 				Endpoints: []params.RemoteEndpoint{{
@@ -1405,7 +1406,7 @@ func (s *applicationSuite) TestConsumeSameController(c *tc.C) {
 	// controller record. The data could be old, so leave it alone.
 
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	macaroon := newMacaroon(c, "test")
 
 	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
@@ -1425,7 +1426,7 @@ func (s *applicationSuite) TestConsumeSameController(c *tc.C) {
 	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
 		Args: []params.ConsumeApplicationArgV5{{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				OfferUUID:      offerUUID,
+				OfferUUID:      offerUUID.String(),
 				OfferName:      "my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
 				Endpoints: []params.RemoteEndpoint{{
@@ -1448,7 +1449,7 @@ func (s *applicationSuite) TestConsumeSameControllerSameOfferUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	macaroon := newMacaroon(c, "test")
 
 	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
@@ -1468,7 +1469,7 @@ func (s *applicationSuite) TestConsumeSameControllerSameOfferUUID(c *tc.C) {
 	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
 		Args: []params.ConsumeApplicationArgV5{{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				OfferUUID:      offerUUID,
+				OfferUUID:      offerUUID.String(),
 				OfferName:      "my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
 				Endpoints: []params.RemoteEndpoint{{
@@ -1516,14 +1517,14 @@ func (s *applicationSuite) TestConsumeInvalidEndpointRole(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 
 	s.setupAPI(c)
 
 	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
 		Args: []params.ConsumeApplicationArgV5{{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				OfferUUID:      offerUUID,
+				OfferUUID:      offerUUID.String(),
 				OfferName:      "my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
 				Endpoints: []params.RemoteEndpoint{{
