@@ -259,10 +259,10 @@ func (w *localConsumerWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	// offerStatusWatcher, err := w.watchRemoteOfferStatus(ctx)
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
+	offerStatusWatcher, err := w.watchRemoteOfferStatus(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	for {
 		select {
@@ -314,25 +314,25 @@ func (w *localConsumerWorker) loop() (err error) {
 				}
 			}
 
-			// case changes, ok := <-offerStatusWatcher.Changes():
-			// 	if !ok {
-			// 		select {
-			// 		case <-w.catacomb.Dying():
-			// 			return w.catacomb.ErrDying()
-			// 		default:
-			// 			return errors.New("offer status watcher closed unexpectedly")
-			// 		}
-			// 	}
+		case changes, ok := <-offerStatusWatcher.Changes():
+			if !ok {
+				select {
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				default:
+					return errors.New("offer status watcher closed unexpectedly")
+				}
+			}
 
-			// 	w.logger.Debugf(ctx, "offer status changed: %v", changes)
+			w.logger.Debugf(ctx, "offer status changed: %v", changes)
 
-			// 	for _, change := range changes {
-			// 		if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, change.Status); err != nil {
-			// 			return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
-			// 		}
+			for _, change := range changes {
+				if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, change.Status); err != nil {
+					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
+				}
 
-			// 		// TODO (stickupkid): Handle terminated status.
-			// 	}
+				// TODO (stickupkid): Handle terminated status.
+			}
 		}
 	}
 }

@@ -26,7 +26,6 @@ type CrossModelRelationsAPIv3 struct {
 	auth      facade.CrossModelAuthContext
 
 	crossModelRelationService CrossModelRelationService
-	relationService           RelationService
 
 	logger logger.Logger
 }
@@ -36,14 +35,12 @@ func NewCrossModelRelationsAPI(
 	modelUUID model.UUID,
 	auth facade.CrossModelAuthContext,
 	crossModelRelationService CrossModelRelationService,
-	relationService RelationService,
 	logger logger.Logger,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
 		modelUUID:                 modelUUID,
 		auth:                      auth,
 		crossModelRelationService: crossModelRelationService,
-		relationService:           relationService,
 		logger:                    logger,
 	}, nil
 }
