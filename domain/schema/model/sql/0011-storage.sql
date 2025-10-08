@@ -62,6 +62,13 @@ CREATE TABLE storage_kind (
     kind TEXT NOT NULL
 );
 
+CREATE UNIQUE INDEX idx_storage_kind_kind
+ON storage_kind (kind);
+
+INSERT INTO storage_kind VALUES
+(0, 'block'),
+(1, 'filesystem');
+
 -- model_storage_pool instructs the model what is considered the default
 -- storage pool to use for a given storage kind.
 CREATE TABLE model_storage_pool (
@@ -134,12 +141,6 @@ CREATE INDEX idx_unit_storage_directive
 ON unit_storage_directive (unit_uuid);
 
 
-CREATE UNIQUE INDEX idx_storage_kind_kind
-ON storage_kind (kind);
-
-INSERT INTO storage_kind VALUES
-(0, 'block'),
-(1, 'filesystem');
 
 CREATE TABLE storage_instance (
     uuid TEXT NOT NULL PRIMARY KEY,
