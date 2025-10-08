@@ -1406,7 +1406,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDis
 	c.Assert(err, tc.ErrorIs, ErrPermissionRevokedWhilstDying)
 }
 
-func (s *localConsumerWorkerSuite) TestHandleDischargeRequiredWhilstDyingNonDischargeError(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleDischargeRequiredErrorWhilstDyingNonDischargeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := s.expectWorkerStartup(c)
@@ -1422,7 +1422,7 @@ func (s *localConsumerWorkerSuite) TestHandleDischargeRequiredWhilstDyingNonDisc
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	err := w.handleDischargeRequiredWhilstDying(c.Context(), internalerrors.Errorf("front fell off"), relationUUID)
+	err := w.handleDischargeRequiredErrorWhilstDying(c.Context(), internalerrors.Errorf("front fell off"), relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1449,7 +1449,7 @@ func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedDischargeError
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	err := w.handleDischargeRequiredWhilstDying(c.Context(), params.Error{
+	err := w.handleDischargeRequiredErrorWhilstDying(c.Context(), params.Error{
 		Code:    params.CodeDischargeRequired,
 		Message: "discharge required",
 	}, relationUUID)

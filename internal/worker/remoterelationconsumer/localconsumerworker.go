@@ -533,42 +533,13 @@ func (w *localConsumerWorker) handleRelationDying(ctx context.Context, relationU
 		w.logger.Debugf(ctx, "relation %q dying, but offerer side already removed", relationUUID)
 		return nil
 	} else if err != nil {
-		if terminalErr := w.handleDischargeRequiredWhilstDying(ctx, err, relationUUID); terminalErr != nil {
+		if terminalErr := w.handleDischargeRequiredErrorWhilstDying(ctx, err, relationUUID); terminalErr != nil {
 			return terminalErr
 		}
 		return errors.Annotatef(err, "notifying offerer relation worker that relation %q is dying", relationUUID)
 	}
 
 	return nil
-}
-
-func (w *localConsumerWorker) handleDischargeRequiredWhilstDying(ctx context.Context, err error, relationUUID corerelation.UUID) error {
-	if params.ErrCode(err) != params.CodeDischargeRequired {
-		return nil
-	}
-
-	// If consume permission has been revoked for the offer, set the status of
-	// of the local application entity representing the remote offerer.
-	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
-		Status:  status.Error,
-		Message: fmt.Sprintf("offer permission revoked: %v", err.Error()),
-	}); err != nil {
-		w.logger.Errorf(ctx,
-			"updating remote application %q status from remote model %q: %v",
-			w.applicationName, w.offererModelUUID, err)
-	}
-
-	// Tear down the relation and unit workers, we're in a dying state, and the
-	// offerer macaroon is no longer valid and failed to discharge. Remove all
-	// the workers and start the process again, which will re-establish the
-	// relation if it is still valid.
-	//
-	// We won't ever be able to tell the offerer side that the relation has gone
-	// away, because if we bounce, we won't ever be in this state again. This
-	// won't re-establish itself on the consumer side, because the relation
-	// doesn't exist. The only way to recover this is to remove the synthetic
-	// relation from the offering mode.
-	return internalerrors.Errorf("%w: relation %q", ErrPermissionRevokedWhilstDying, relationUUID)
 }
 
 // Create a new worker to watch for changes to the relation in the offering
@@ -584,8 +555,7 @@ func (w *localConsumerWorker) ensureOffererRelationWorker(
 	offererApplicationUUID application.UUID,
 	mac *macaroon.Macaroon,
 ) error {
-	name := fmt.Sprintf("offerer-relation:%s", relationUUID)
-	if err := w.runner.StartWorker(ctx, name, func(ctx context.Context) (worker.Worker, error) {
+	if err := w.runner.StartWorker(ctx, offererRelationWorkerName(relationUUID), func(ctx context.Context) (worker.Worker, error) {
 		return w.newOffererRelationsWorker(offererrelations.Config{
 			Client:                 w.remoteModelClient,
 			ConsumerRelationUUID:   relationUUID,
@@ -613,8 +583,7 @@ func (w *localConsumerWorker) ensureUnitRelationWorkers(
 	offferApplicationUUID application.UUID,
 	mac *macaroon.Macaroon,
 ) error {
-	consumerName := fmt.Sprintf("consumer-unit-relation:%s", details.UUID)
-	if err := w.runner.StartWorker(ctx, consumerName, func(ctx context.Context) (worker.Worker, error) {
+	if err := w.runner.StartWorker(ctx, consumerUnitRelationWorkerName(details.UUID), func(ctx context.Context) (worker.Worker, error) {
 		return w.newConsumerUnitRelationsWorker(consumerunitrelations.Config{
 			Service:                 w.crossModelService,
 			ConsumerApplicationUUID: w.applicationUUID,
@@ -628,8 +597,7 @@ func (w *localConsumerWorker) ensureUnitRelationWorkers(
 		return errors.Annotatef(err, "starting consumer unit relation worker for %q", details.UUID)
 	}
 
-	offererName := fmt.Sprintf("offerer-unit-relation:%s", details.UUID)
-	if err := w.runner.StartWorker(ctx, offererName, func(ctx context.Context) (worker.Worker, error) {
+	if err := w.runner.StartWorker(ctx, offererUnitRelationWorkerName(details.UUID), func(ctx context.Context) (worker.Worker, error) {
 		return w.newOffererUnitRelationsWorker(offererunitrelations.Config{
 			Client:                 w.remoteModelClient,
 			ConsumerRelationUUID:   details.UUID,
@@ -742,11 +710,117 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 		BakeryVersion: defaultBakeryVersion,
 	}
 
+	// Dispatch the change to the offering model. This will ensure that any
+	// changes to the units in the consumer model are reflected in the offering
+	// model.
 	if err := w.remoteModelClient.PublishRelationChange(ctx, event); err != nil {
+		if dischargeErr := w.handleDischargeRequiredError(ctx, err, change.RelationUUID); dischargeErr != nil {
+			w.logger.Errorf(ctx, "discharge error handling for consumer unit change for relation %q: %v", change.RelationUUID, dischargeErr)
+		}
 
+		// If the relation no longer exists in the offering model, we should
+		// expect to see a new event from the offerer relation worker, which will
+		// clean up the local relation.
+		if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
+			w.logger.Debugf(ctx, "relation %q no longer exists in offerer model", change.RelationUUID)
+			return nil
+		}
+		return errors.Annotatef(err, "publishing consumer relation %q change to offerer", change.RelationUUID)
+	}
+
+	// Remove the unit workers tracking the relation. The relation is now
+	// transitioning, and we don't want the workers to be triggering changes.
+	if dead, err := w.relationWorkerDead(ctx, change.RelationUUID); err != nil {
+		return errors.Annotatef(err, "querying offerer relation worker for %q", change.RelationUUID)
+	} else if !dead {
+		w.logger.Debugf(ctx, "consumer relation %q is not dead", change.RelationUUID)
+		return nil
+	}
+
+	// If we have in-scope units, then the relation is still active, and we
+	// don't need to do anything else.
+	if len(change.InScopeUnits) > 0 {
+		w.logger.Debugf(ctx, "consumer relation %q is dead, but has in-scope units: %v", change.RelationUUID, change.InScopeUnits)
+		return nil
+	}
+
+	// The relation is dead, and has no in-scope units. We can remove the
+	// unit relation workers.
+	if err := w.removeConsumerUnitRelationWorkers(ctx, change.RelationUUID); err != nil {
+		w.logger.Warningf(ctx, "removing consumer unit relation workers for %q: %v", change.RelationUUID, err)
 	}
 
 	return nil
+}
+
+func (w *localConsumerWorker) removeConsumerUnitRelationWorkers(ctx context.Context, relationUUID corerelation.UUID) error {
+	w.logger.Debugf(ctx, "consumer relation %q is dead and has no in-scope units, removing consumer unit workers", relationUUID)
+
+	if err := w.runner.StopAndRemoveWorker(consumerUnitRelationWorkerName(relationUUID), ctx.Done()); err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Annotatef(err, "stopping consumer unit relation worker for %q", relationUUID)
+	}
+	if err := w.runner.StopAndRemoveWorker(offererUnitRelationWorkerName(relationUUID), ctx.Done()); err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Annotatef(err, "stopping offerer unit relation worker for %q", relationUUID)
+	}
+
+	w.logger.Debugf(ctx, "removed consumer unit relation workers for %q", relationUUID)
+
+	return nil
+}
+
+func (w *localConsumerWorker) handleDischargeRequiredErrorWhilstDying(ctx context.Context, err error, relationUUID corerelation.UUID) error {
+	if params.ErrCode(err) != params.CodeDischargeRequired {
+		return nil
+	}
+
+	// If consume permission has been revoked for the offer, set the status of
+	// of the local application entity representing the remote offerer.
+	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
+		Status:  status.Error,
+		Message: fmt.Sprintf("offer permission revoked: %v", err.Error()),
+	}); err != nil {
+		w.logger.Errorf(ctx,
+			"updating remote application %q status from remote model %q: %v",
+			w.applicationName, w.offererModelUUID, err)
+	}
+
+	// Tear down the relation and unit workers, we're in a dying state, and the
+	// offerer macaroon is no longer valid and failed to discharge. Remove all
+	// the workers and start the process again, which will re-establish the
+	// relation if it is still valid.
+	//
+	// We won't ever be able to tell the offerer side that the relation has gone
+	// away, because if we bounce, we won't ever be in this state again. This
+	// won't re-establish itself on the consumer side, because the relation
+	// doesn't exist. The only way to recover this is to remove the synthetic
+	// relation from the offering mode.
+	return internalerrors.Errorf("%w: relation %q", ErrPermissionRevokedWhilstDying, relationUUID)
+}
+
+func (w *localConsumerWorker) handleDischargeRequiredError(ctx context.Context, err error, relationUUID corerelation.UUID) error {
+	if params.ErrCode(err) != params.CodeDischargeRequired {
+		return nil
+	}
+
+	// Failed to discharge the macaroon, which means that the offerer side isn't
+	// aware of the relation changes anymore. In that case, we need to put the
+	// relation into a suspended state. This will hopefully prevent any further
+	// changes to the relation without mirroring them to the offerer side.
+	if err := w.crossModelService.SuspendRelation(ctx, w.applicationUUID, relationUUID, "Offer permission revoked"); err != nil {
+		return errors.Annotatef(err, "suspending relation %q after discharge error", relationUUID)
+	}
+
+	return nil
+}
+
+func (w *localConsumerWorker) relationWorkerDead(ctx context.Context, relationUUID corerelation.UUID) (bool, error) {
+	_, err := w.runner.Worker(offererRelationWorkerName(relationUUID), ctx.Done())
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return false, errors.Annotatef(err, "querying offerer relation worker for %q", relationUUID)
+	} else if errors.Is(err, errors.NotFound) {
+		return true, nil
+	}
+	return false, nil
 }
 
 type consumerRelationResult struct {
@@ -762,4 +836,16 @@ func isNotFound(err error) bool {
 		return false
 	}
 	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
+}
+
+func consumerUnitRelationWorkerName(relationUUID corerelation.UUID) string {
+	return fmt.Sprintf("consumer-unit-relation:%s", relationUUID)
+}
+
+func offererUnitRelationWorkerName(relationUUID corerelation.UUID) string {
+	return fmt.Sprintf("offerer-unit-relation:%s", relationUUID)
+}
+
+func offererRelationWorkerName(relationUUID corerelation.UUID) string {
+	return fmt.Sprintf("offerer-relation:%s", relationUUID)
 }
