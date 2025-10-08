@@ -117,11 +117,11 @@ func (s *storageProvider) ValidateConfig(cfg *storage.Config) error {
 	return nil
 }
 
-// RecommendedStoragePoolForKind returns the recommended storage pool to use for
+// RecommendedPoolForKind returns the recommended storage pool to use for
 // the given storage kind. If no pool can be recommended nil is returned.
 //
 // Implements [storage.PoolAdvisor] interface.
-func (*Environ) RecommendedStoragePoolForKind(
+func (*Environ) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
 	return common.GetCommonRecommendedIAASPoolForKind(kind)

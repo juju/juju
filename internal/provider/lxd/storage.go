@@ -46,7 +46,7 @@ func (env *environ) storageSupported() bool {
 	return env.server().StorageSupported()
 }
 
-// RecommendedStoragePoolForKind returns the recommended storage pool to use for
+// RecommendedPoolForKind returns the recommended storage pool to use for
 // the given storage kind. If no pool can be recommended nil is returned.
 //
 // Implements [storage.PoolAdvisor] interface.

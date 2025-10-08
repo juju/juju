@@ -34,11 +34,11 @@ const (
 	volumeSizeMaxGiB = 1023
 )
 
-// RecommendedStoragePoolForKind returns the recommended storage pool to use for
+// RecommendedPoolForKind returns the recommended storage pool to use for
 // the given storage kind. If no pool can be recommended nil is returned.
 //
 // Implements [storage.PoolAdvisor] interface.
-func (*azureEnviron) RecommendedStoragePoolForKind(
+func (*azureEnviron) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
 	return common.GetCommonRecommendedIAASPoolForKind(kind)

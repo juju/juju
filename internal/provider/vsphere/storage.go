@@ -8,11 +8,11 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-// RecommendedStoragePoolForKind returns the recommended storage pool to use for
+// RecommendedPoolForKind returns the recommended storage pool to use for
 // the given storage kind. If no pool can be recommended nil is returned.
 //
 // Implements [storage.PoolAdvisor] interface.
-func (*environ) RecommendedStoragePoolForKind(
+func (*environ) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
 	return common.GetCommonRecommendedIAASPoolForKind(kind)

@@ -34,11 +34,11 @@ const (
 	tagsAttribute = "tags"
 )
 
-// RecommendedStoragePoolForKind returns the recommended storage pool to use for
+// RecommendedPoolForKind returns the recommended storage pool to use for
 // the given storage kind. If no pool can be recommended nil is returned.
 //
 // Implements [storage.PoolAdvisor] interface.
-func (*maasEnviron) RecommendedStoragePoolForKind(
+func (*maasEnviron) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
 	return common.GetCommonRecommendedIAASPoolForKind(kind)
