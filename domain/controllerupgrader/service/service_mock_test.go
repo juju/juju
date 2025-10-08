@@ -298,6 +298,45 @@ func (c *MockControllerStateGetControllerTargetVersionCall) DoAndReturn(f func(c
 	return c
 }
 
+// HasBinaryAgent mocks base method.
+func (m *MockControllerState) HasBinaryAgent(arg0 context.Context, arg1 semversion.Number) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasBinaryAgent", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasBinaryAgent indicates an expected call of HasBinaryAgent.
+func (mr *MockControllerStateMockRecorder) HasBinaryAgent(arg0, arg1 any) *MockControllerStateHasBinaryAgentCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasBinaryAgent", reflect.TypeOf((*MockControllerState)(nil).HasBinaryAgent), arg0, arg1)
+	return &MockControllerStateHasBinaryAgentCall{Call: call}
+}
+
+// MockControllerStateHasBinaryAgentCall wrap *gomock.Call
+type MockControllerStateHasBinaryAgentCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateHasBinaryAgentCall) Return(arg0 bool, arg1 error) *MockControllerStateHasBinaryAgentCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateHasBinaryAgentCall) Do(f func(context.Context, semversion.Number) (bool, error)) *MockControllerStateHasBinaryAgentCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateHasBinaryAgentCall) DoAndReturn(f func(context.Context, semversion.Number) (bool, error)) *MockControllerStateHasBinaryAgentCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetControllerTargetVersion mocks base method.
 func (m *MockControllerState) SetControllerTargetVersion(arg0 context.Context, arg1 semversion.Number) error {
 	m.ctrl.T.Helper()
@@ -394,6 +433,84 @@ func (c *MockControllerModelStateGetModelTargetAgentVersionCall) Do(f func(conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockControllerModelStateGetModelTargetAgentVersionCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockControllerModelStateGetModelTargetAgentVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// HasAgentStream mocks base method.
+func (m *MockControllerModelState) HasAgentStream(arg0 context.Context, arg1 modelagent.AgentStream) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasAgentStream", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasAgentStream indicates an expected call of HasAgentStream.
+func (mr *MockControllerModelStateMockRecorder) HasAgentStream(arg0, arg1 any) *MockControllerModelStateHasAgentStreamCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasAgentStream", reflect.TypeOf((*MockControllerModelState)(nil).HasAgentStream), arg0, arg1)
+	return &MockControllerModelStateHasAgentStreamCall{Call: call}
+}
+
+// MockControllerModelStateHasAgentStreamCall wrap *gomock.Call
+type MockControllerModelStateHasAgentStreamCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerModelStateHasAgentStreamCall) Return(arg0 bool, arg1 error) *MockControllerModelStateHasAgentStreamCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerModelStateHasAgentStreamCall) Do(f func(context.Context, modelagent.AgentStream) (bool, error)) *MockControllerModelStateHasAgentStreamCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerModelStateHasAgentStreamCall) DoAndReturn(f func(context.Context, modelagent.AgentStream) (bool, error)) *MockControllerModelStateHasAgentStreamCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// HasBinaryAgent mocks base method.
+func (m *MockControllerModelState) HasBinaryAgent(arg0 context.Context, arg1 semversion.Number) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasBinaryAgent", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasBinaryAgent indicates an expected call of HasBinaryAgent.
+func (mr *MockControllerModelStateMockRecorder) HasBinaryAgent(arg0, arg1 any) *MockControllerModelStateHasBinaryAgentCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasBinaryAgent", reflect.TypeOf((*MockControllerModelState)(nil).HasBinaryAgent), arg0, arg1)
+	return &MockControllerModelStateHasBinaryAgentCall{Call: call}
+}
+
+// MockControllerModelStateHasBinaryAgentCall wrap *gomock.Call
+type MockControllerModelStateHasBinaryAgentCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerModelStateHasBinaryAgentCall) Return(arg0 bool, arg1 error) *MockControllerModelStateHasBinaryAgentCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerModelStateHasBinaryAgentCall) Do(f func(context.Context, semversion.Number) (bool, error)) *MockControllerModelStateHasBinaryAgentCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerModelStateHasBinaryAgentCall) DoAndReturn(f func(context.Context, semversion.Number) (bool, error)) *MockControllerModelStateHasBinaryAgentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

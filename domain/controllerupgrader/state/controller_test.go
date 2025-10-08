@@ -108,7 +108,7 @@ func (s *controllerStateSuite) TestSetAndGetControllerVersion(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
 	// Check initial version is reported correctly.
-	ver, err := st.GetControllerVersion(c.Context())
+	ver, err := st.GetControllerTargetVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.Equals, initialVersion)
 
@@ -117,7 +117,7 @@ func (s *controllerStateSuite) TestSetAndGetControllerVersion(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 
 	// Check upgraded version is reported correctly.
-	ver, err = st.GetControllerVersion(c.Context())
+	ver, err = st.GetControllerTargetVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.Equals, upgradeVersion)
 }
@@ -150,7 +150,7 @@ func (s *controllerStateSuite) TestSetControllerVersionMultipleSetSafe(c *tc.C) 
 	c.Check(err, tc.ErrorIsNil)
 
 	// Check upgraded version is reported correctly.
-	ver, err := st.GetControllerVersion(c.Context())
+	ver, err := st.GetControllerTargetVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.Equals, upgradeVersion)
 }
