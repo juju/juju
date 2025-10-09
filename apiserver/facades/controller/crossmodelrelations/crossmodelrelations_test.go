@@ -262,13 +262,21 @@ func (s *facadeSuite) TestWatchOfferStatusNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := coreoffertesting.GenOfferUUID(c)
+
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
+		Return(nil, nil)
 
 	s.statusService.EXPECT().WatchOfferStatus(gomock.Any(), offerUUID).Return(nil, crossmodelrelationerrors.OfferNotFound)
 
 	results, err := s.api(c).WatchOfferStatus(c.Context(), params.OfferArgs{
 		Args: []params.OfferArg{{
-			OfferUUID: offerUUID.String(),
+			OfferUUID:     offerUUID.String(),
+			BakeryVersion: bakery.LatestVersion,
+			Macaroons:     macaroon.Slice{testMac},
 		}},
 	})
 
@@ -281,7 +289,14 @@ func (s *facadeSuite) TestWatchOfferStatus(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := coreoffertesting.GenOfferUUID(c)
+
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
+		Return(nil, nil)
+
 	changes := s.expectWatchOfferStatus(ctrl, offerUUID)
 	changes <- struct{}{}
 	s.statusService.EXPECT().GetOfferStatus(gomock.Any(), offerUUID).Return(corestatus.StatusInfo{
@@ -299,7 +314,9 @@ func (s *facadeSuite) TestWatchOfferStatus(c *tc.C) {
 
 	results, err := s.api(c).WatchOfferStatus(c.Context(), params.OfferArgs{
 		Args: []params.OfferArg{{
-			OfferUUID: offerUUID.String(),
+			OfferUUID:     offerUUID.String(),
+			BakeryVersion: bakery.LatestVersion,
+			Macaroons:     macaroon.Slice{testMac},
 		}},
 	})
 
@@ -310,6 +327,27 @@ func (s *facadeSuite) TestWatchOfferStatus(c *tc.C) {
 	c.Assert(results.Results[0].Changes, tc.HasLen, 1)
 	c.Check(results.Results[0].Changes[0].Status.Status, tc.Equals, corestatus.Active)
 	c.Check(results.Results[0].Changes[0].Status.Info, tc.Equals, "message")
+}
+
+func (s *facadeSuite) TestWatchOfferStatusAuthError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	offerUUID := coreoffertesting.GenOfferUUID(c)
+
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
+		Return(nil, errors.New("boom"))
+
+	results, err := s.api(c).WatchOfferStatus(c.Context(), params.OfferArgs{
+		Args: []params.OfferArg{{
+			OfferUUID:     offerUUID.String(),
+			BakeryVersion: bakery.LatestVersion,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, "boom")
 }
 
 func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {

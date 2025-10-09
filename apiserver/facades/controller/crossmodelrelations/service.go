@@ -26,12 +26,7 @@ type CrossModelRelationService interface {
 	AddRemoteApplicationConsumer(ctx context.Context, args crossmodelrelationservice.AddRemoteApplicationConsumerArgs) error
 }
 
-type CrossModelRelationsService interface {
-	// GetApplicationUUIDForOffer returns the UUID of the application that the
-	// specified offer belongs to.
-	GetApplicationUUIDForOffer(context.Context, offer.UUID) (application.UUID, error)
-}
-
+// StatusService provides access to the status service.
 type StatusService interface {
 	// GetOfferStatus returns the status of the specified offer. This status shadows
 	// the status of the application that the offer belongs to, except in the case

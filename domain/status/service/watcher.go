@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
 	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
 	// input base watcher's db/queue. A single filter option is required, though
@@ -35,11 +36,13 @@ type WatcherFactory interface {
 	) (watcher.NotifyWatcher, error)
 }
 
+// WatchableService is a status service that can be used to watch status changes.
 type WatchableService struct {
 	*Service
 	watcherFactory WatcherFactory
 }
 
+// NewWatchableService creates a new WatchableService.
 func NewWatchableService(
 	modelState ModelState,
 	controllerState ControllerState,

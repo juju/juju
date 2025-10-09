@@ -76,6 +76,7 @@ type AccessService interface {
 	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error)
 }
 
+// StatusService provides access to the status service.
 type StatusService interface {
 	// GetOfferStatus returns the status of the specified offer. This status shadows
 	// the status of the application that the offer belongs to, except in the case

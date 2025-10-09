@@ -2341,8 +2341,8 @@ VALUES ($setMachineStatus.*)
 	})
 }
 
-// IsUnitForApplication returns true if the specified unit is a unit of the
-// specified application.
+// IsUnitForApplication returns true if the specified unit belongs to the
+// application.
 func (st *ModelState) IsUnitForApplication(ctx context.Context, uUUID, appUUID string) (bool, error) {
 	unitIdent := unitUUID{UnitUUID: uUUID}
 	applicationIdent := applicationUUID{UUID: appUUID}

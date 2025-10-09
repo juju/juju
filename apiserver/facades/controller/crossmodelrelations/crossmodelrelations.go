@@ -199,12 +199,18 @@ func (api *CrossModelRelationsAPIv3) WatchOfferStatus(
 	}
 
 	for i, offerArg := range offerArgs.Args {
-		// TODO: Auth for macaroons.
 		offerUUID, err := offer.ParseUUID(offerArg.OfferUUID)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		// Ensure the supplied macaroon allows access
+		_, err = api.auth.Authenticator().CheckOfferMacaroons(ctx, api.modelUUID.String(), offerUUID.String(), offerArg.Macaroons, offerArg.BakeryVersion)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		w, err := api.statusService.WatchOfferStatus(ctx, offerUUID)
 		if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
 			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "offer %q not found", offerArg.OfferUUID)

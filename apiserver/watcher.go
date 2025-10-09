@@ -240,7 +240,7 @@ func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWat
 		return params.OfferStatusWatchResult{}, ctx.Err()
 	case _, ok := <-w.watcher.Changes():
 		if !ok {
-			return params.OfferStatusWatchResult{}, errors.Errorf("offer watcher closed")
+			return params.OfferStatusWatchResult{}, apiservererrors.ErrStoppedWatcher
 		}
 		offerUUID := w.watcher.OfferUUID()
 		status, err := w.statusService.GetOfferStatus(ctx, offerUUID)
