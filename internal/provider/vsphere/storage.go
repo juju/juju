@@ -11,7 +11,7 @@ import (
 // RecommendedPoolForKind returns the recommended storage pool to use for
 // the given storage kind. If no pool can be recommended nil is returned.
 //
-// Implements [storage.PoolAdvisor] interface.
+// Implements [storage.ProviderRegistry] interface.
 func (*environ) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {

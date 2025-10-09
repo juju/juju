@@ -120,7 +120,7 @@ func (s *storageProvider) ValidateConfig(cfg *storage.Config) error {
 // RecommendedPoolForKind returns the recommended storage pool to use for
 // the given storage kind. If no pool can be recommended nil is returned.
 //
-// Implements [storage.PoolAdvisor] interface.
+// Implements [storage.ProviderRegistry] interface.
 func (*Environ) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
