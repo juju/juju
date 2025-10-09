@@ -252,7 +252,7 @@ func listFKs(ctx context.Context, runner *txnRunner, tableName string) ([]fk, er
 func renderTemplates(fks []fk, destPackage string) (string, error) {
 	slices.SortFunc(fks, func(a fk, b fk) int {
 		return strings.Compare(
-			a.FromTable+b.ID,
+			a.FromTable+a.ID,
 			b.FromTable+b.ID,
 		)
 	})

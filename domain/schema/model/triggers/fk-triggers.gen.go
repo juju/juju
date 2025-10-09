@@ -81,6 +81,20 @@ BEGIN
         WHERE uuid=OLD.uuid;
 END;
 
+-- fk debug delete trigger for space for fk ref from application
+CREATE TRIGGER trg_fk_debug_application_0
+BEFORE DELETE ON 'space' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM space due to referencing rows in application ON space_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'application'
+        WHERE space_uuid=OLD.uuid;
+END;
+
 -- fk debug delete trigger for charm for fk ref from application
 CREATE TRIGGER trg_fk_debug_application_1
 BEFORE DELETE ON 'charm' FOR EACH ROW
@@ -109,18 +123,18 @@ BEGIN
         WHERE life_id=OLD.id;
 END;
 
--- fk debug delete trigger for space for fk ref from application
-CREATE TRIGGER trg_fk_debug_application_0
-BEFORE DELETE ON 'space' FOR EACH ROW
+-- fk debug delete trigger for password_hash_algorithm for fk ref from application_agent
+CREATE TRIGGER trg_fk_debug_application_agent_0
+BEFORE DELETE ON 'password_hash_algorithm' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM space due to referencing rows in application ON space_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM password_hash_algorithm due to referencing rows in application_agent ON password_hash_algorithm_id')
                     ELSE
                         NULL
                     END panic
-        FROM 'application'
-        WHERE space_uuid=OLD.uuid;
+        FROM 'application_agent'
+        WHERE password_hash_algorithm_id=OLD.id;
 END;
 
 -- fk debug delete trigger for application for fk ref from application_agent
@@ -137,20 +151,6 @@ BEGIN
         WHERE application_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for password_hash_algorithm for fk ref from application_agent
-CREATE TRIGGER trg_fk_debug_application_agent_0
-BEFORE DELETE ON 'password_hash_algorithm' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM password_hash_algorithm due to referencing rows in application_agent ON password_hash_algorithm_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'application_agent'
-        WHERE password_hash_algorithm_id=OLD.id;
-END;
-
 -- fk debug delete trigger for application for fk ref from application_channel
 CREATE TRIGGER trg_fk_debug_application_channel_0
 BEFORE DELETE ON 'application' FOR EACH ROW
@@ -162,20 +162,6 @@ BEGIN
                         NULL
                     END panic
         FROM 'application_channel'
-        WHERE application_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for application for fk ref from application_config
-CREATE TRIGGER trg_fk_debug_application_config_1
-BEFORE DELETE ON 'application' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application due to referencing rows in application_config ON application_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'application_config'
         WHERE application_uuid=OLD.uuid;
 END;
 
@@ -191,6 +177,20 @@ BEGIN
                     END panic
         FROM 'application_config'
         WHERE type_id=OLD.id;
+END;
+
+-- fk debug delete trigger for application for fk ref from application_config
+CREATE TRIGGER trg_fk_debug_application_config_1
+BEFORE DELETE ON 'application' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application due to referencing rows in application_config ON application_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'application_config'
+        WHERE application_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for application for fk ref from application_config_hash
@@ -249,6 +249,20 @@ BEGIN
         WHERE application_uuid=OLD.uuid;
 END;
 
+-- fk debug delete trigger for charm_relation for fk ref from application_endpoint
+CREATE TRIGGER trg_fk_debug_application_endpoint_0
+BEFORE DELETE ON 'charm_relation' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_relation due to referencing rows in application_endpoint ON charm_relation_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'application_endpoint'
+        WHERE charm_relation_uuid=OLD.uuid;
+END;
+
 -- fk debug delete trigger for space for fk ref from application_endpoint
 CREATE TRIGGER trg_fk_debug_application_endpoint_1
 BEFORE DELETE ON 'space' FOR EACH ROW
@@ -275,20 +289,6 @@ BEGIN
                     END panic
         FROM 'application_endpoint'
         WHERE application_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for charm_relation for fk ref from application_endpoint
-CREATE TRIGGER trg_fk_debug_application_endpoint_0
-BEFORE DELETE ON 'charm_relation' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_relation due to referencing rows in application_endpoint ON charm_relation_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'application_endpoint'
-        WHERE charm_relation_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for application_endpoint for fk ref from application_exposed_endpoint_cidr
@@ -361,20 +361,6 @@ BEGIN
         WHERE application_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for application for fk ref from application_extra_endpoint
-CREATE TRIGGER trg_fk_debug_application_extra_endpoint_2
-BEFORE DELETE ON 'application' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application due to referencing rows in application_extra_endpoint ON application_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'application_extra_endpoint'
-        WHERE application_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for charm_extra_binding for fk ref from application_extra_endpoint
 CREATE TRIGGER trg_fk_debug_application_extra_endpoint_0
 BEFORE DELETE ON 'charm_extra_binding' FOR EACH ROW
@@ -401,6 +387,34 @@ BEGIN
                     END panic
         FROM 'application_extra_endpoint'
         WHERE space_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for application for fk ref from application_extra_endpoint
+CREATE TRIGGER trg_fk_debug_application_extra_endpoint_2
+BEFORE DELETE ON 'application' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application due to referencing rows in application_extra_endpoint ON application_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'application_extra_endpoint'
+        WHERE application_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for architecture for fk ref from application_platform
+CREATE TRIGGER trg_fk_debug_application_platform_0
+BEFORE DELETE ON 'architecture' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM architecture due to referencing rows in application_platform ON architecture_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'application_platform'
+        WHERE architecture_id=OLD.id;
 END;
 
 -- fk debug delete trigger for os for fk ref from application_platform
@@ -431,48 +445,6 @@ BEGIN
         WHERE application_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for architecture for fk ref from application_platform
-CREATE TRIGGER trg_fk_debug_application_platform_0
-BEFORE DELETE ON 'architecture' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM architecture due to referencing rows in application_platform ON architecture_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'application_platform'
-        WHERE architecture_id=OLD.id;
-END;
-
--- fk debug delete trigger for life for fk ref from application_remote_consumer
-CREATE TRIGGER trg_fk_debug_application_remote_consumer_3
-BEFORE DELETE ON 'life' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM life due to referencing rows in application_remote_consumer ON life_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'application_remote_consumer'
-        WHERE life_id=OLD.id;
-END;
-
--- fk debug delete trigger for application for fk ref from application_remote_consumer
-CREATE TRIGGER trg_fk_debug_application_remote_consumer_2
-BEFORE DELETE ON 'application' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application due to referencing rows in application_remote_consumer ON offerer_application_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'application_remote_consumer'
-        WHERE offerer_application_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for offer_connection for fk ref from application_remote_consumer
 CREATE TRIGGER trg_fk_debug_application_remote_consumer_0
 BEFORE DELETE ON 'offer_connection' FOR EACH ROW
@@ -501,18 +473,32 @@ BEGIN
         WHERE consumer_application_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for application for fk ref from application_remote_offerer
-CREATE TRIGGER trg_fk_debug_application_remote_offerer_1
+-- fk debug delete trigger for application for fk ref from application_remote_consumer
+CREATE TRIGGER trg_fk_debug_application_remote_consumer_2
 BEFORE DELETE ON 'application' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application due to referencing rows in application_remote_offerer ON application_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application due to referencing rows in application_remote_consumer ON offerer_application_uuid')
                     ELSE
                         NULL
                     END panic
-        FROM 'application_remote_offerer'
-        WHERE application_uuid=OLD.uuid;
+        FROM 'application_remote_consumer'
+        WHERE offerer_application_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for life for fk ref from application_remote_consumer
+CREATE TRIGGER trg_fk_debug_application_remote_consumer_3
+BEFORE DELETE ON 'life' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM life due to referencing rows in application_remote_consumer ON life_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'application_remote_consumer'
+        WHERE life_id=OLD.id;
 END;
 
 -- fk debug delete trigger for life for fk ref from application_remote_offerer
@@ -529,6 +515,20 @@ BEGIN
         WHERE life_id=OLD.id;
 END;
 
+-- fk debug delete trigger for application for fk ref from application_remote_offerer
+CREATE TRIGGER trg_fk_debug_application_remote_offerer_1
+BEFORE DELETE ON 'application' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application due to referencing rows in application_remote_offerer ON application_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'application_remote_offerer'
+        WHERE application_uuid=OLD.uuid;
+END;
+
 -- fk debug delete trigger for relation for fk ref from application_remote_offerer_relation_macaroon
 CREATE TRIGGER trg_fk_debug_application_remote_offerer_relation_macaroon_0
 BEFORE DELETE ON 'relation' FOR EACH ROW
@@ -543,20 +543,6 @@ BEGIN
         WHERE relation_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for application_remote_offerer for fk ref from application_remote_offerer_status
-CREATE TRIGGER trg_fk_debug_application_remote_offerer_status_1
-BEFORE DELETE ON 'application_remote_offerer' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application_remote_offerer due to referencing rows in application_remote_offerer_status ON application_remote_offerer_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'application_remote_offerer_status'
-        WHERE application_remote_offerer_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for workload_status_value for fk ref from application_remote_offerer_status
 CREATE TRIGGER trg_fk_debug_application_remote_offerer_status_0
 BEFORE DELETE ON 'workload_status_value' FOR EACH ROW
@@ -569,6 +555,20 @@ BEGIN
                     END panic
         FROM 'application_remote_offerer_status'
         WHERE status_id=OLD.id;
+END;
+
+-- fk debug delete trigger for application_remote_offerer for fk ref from application_remote_offerer_status
+CREATE TRIGGER trg_fk_debug_application_remote_offerer_status_1
+BEFORE DELETE ON 'application_remote_offerer' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application_remote_offerer due to referencing rows in application_remote_offerer_status ON application_remote_offerer_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'application_remote_offerer_status'
+        WHERE application_remote_offerer_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for relation for fk ref from application_remote_relation
@@ -641,6 +641,20 @@ BEGIN
         WHERE application_uuid=OLD.uuid;
 END;
 
+-- fk debug delete trigger for workload_status_value for fk ref from application_status
+CREATE TRIGGER trg_fk_debug_application_status_0
+BEFORE DELETE ON 'workload_status_value' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM workload_status_value due to referencing rows in application_status ON status_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'application_status'
+        WHERE status_id=OLD.id;
+END;
+
 -- fk debug delete trigger for application for fk ref from application_status
 CREATE TRIGGER trg_fk_debug_application_status_1
 BEFORE DELETE ON 'application' FOR EACH ROW
@@ -655,18 +669,18 @@ BEGIN
         WHERE application_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for workload_status_value for fk ref from application_status
-CREATE TRIGGER trg_fk_debug_application_status_0
-BEFORE DELETE ON 'workload_status_value' FOR EACH ROW
+-- fk debug delete trigger for charm_storage for fk ref from application_storage_directive
+CREATE TRIGGER trg_fk_debug_application_storage_directive_0
+BEFORE DELETE ON 'charm_storage' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM workload_status_value due to referencing rows in application_status ON status_id')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_storage due to referencing rows in application_storage_directive ON charm_uuid storage_name')
                     ELSE
                         NULL
                     END panic
-        FROM 'application_status'
-        WHERE status_id=OLD.id;
+        FROM 'application_storage_directive'
+        WHERE charm_uuid=OLD.charm_uuid AND storage_name=OLD.name;
 END;
 
 -- fk debug delete trigger for storage_pool for fk ref from application_storage_directive
@@ -697,20 +711,6 @@ BEGIN
         WHERE application_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for charm_storage for fk ref from application_storage_directive
-CREATE TRIGGER trg_fk_debug_application_storage_directive_0
-BEFORE DELETE ON 'charm_storage' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_storage due to referencing rows in application_storage_directive ON charm_uuid storage_name')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'application_storage_directive'
-        WHERE charm_uuid=OLD.charm_uuid AND storage_name=OLD.name;
-END;
-
 -- fk debug delete trigger for application for fk ref from application_workload_version
 CREATE TRIGGER trg_fk_debug_application_workload_version_0
 BEFORE DELETE ON 'application' FOR EACH ROW
@@ -725,20 +725,6 @@ BEGIN
         WHERE application_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for availability_zone for fk ref from availability_zone_subnet
-CREATE TRIGGER trg_fk_debug_availability_zone_subnet_1
-BEFORE DELETE ON 'availability_zone' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM availability_zone due to referencing rows in availability_zone_subnet ON availability_zone_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'availability_zone_subnet'
-        WHERE availability_zone_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for subnet for fk ref from availability_zone_subnet
 CREATE TRIGGER trg_fk_debug_availability_zone_subnet_0
 BEFORE DELETE ON 'subnet' FOR EACH ROW
@@ -751,6 +737,20 @@ BEGIN
                     END panic
         FROM 'availability_zone_subnet'
         WHERE subnet_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for availability_zone for fk ref from availability_zone_subnet
+CREATE TRIGGER trg_fk_debug_availability_zone_subnet_1
+BEFORE DELETE ON 'availability_zone' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM availability_zone due to referencing rows in availability_zone_subnet ON availability_zone_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'availability_zone_subnet'
+        WHERE availability_zone_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for block_command_type for fk ref from block_command
@@ -837,20 +837,6 @@ BEGIN
         WHERE edit_type_id=OLD.id;
 END;
 
--- fk debug delete trigger for charm_source for fk ref from charm
-CREATE TRIGGER trg_fk_debug_charm_2
-BEFORE DELETE ON 'charm_source' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_source due to referencing rows in charm ON source_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'charm'
-        WHERE source_id=OLD.id;
-END;
-
 -- fk debug delete trigger for object_store_metadata for fk ref from charm
 CREATE TRIGGER trg_fk_debug_charm_0
 BEFORE DELETE ON 'object_store_metadata' FOR EACH ROW
@@ -877,6 +863,20 @@ BEGIN
                     END panic
         FROM 'charm'
         WHERE architecture_id=OLD.id;
+END;
+
+-- fk debug delete trigger for charm_source for fk ref from charm
+CREATE TRIGGER trg_fk_debug_charm_2
+BEFORE DELETE ON 'charm_source' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_source due to referencing rows in charm ON source_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'charm'
+        WHERE source_id=OLD.id;
 END;
 
 -- fk debug delete trigger for charm for fk ref from charm_action
@@ -907,20 +907,6 @@ BEGIN
         WHERE charm_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for charm for fk ref from charm_config
-CREATE TRIGGER trg_fk_debug_charm_config_1
-BEFORE DELETE ON 'charm' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm due to referencing rows in charm_config ON charm_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'charm_config'
-        WHERE charm_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for charm_config_type for fk ref from charm_config
 CREATE TRIGGER trg_fk_debug_charm_config_0
 BEFORE DELETE ON 'charm_config_type' FOR EACH ROW
@@ -933,6 +919,20 @@ BEGIN
                     END panic
         FROM 'charm_config'
         WHERE type_id=OLD.id;
+END;
+
+-- fk debug delete trigger for charm for fk ref from charm_config
+CREATE TRIGGER trg_fk_debug_charm_config_1
+BEFORE DELETE ON 'charm' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm due to referencing rows in charm_config ON charm_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'charm_config'
+        WHERE charm_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for charm for fk ref from charm_container
@@ -949,20 +949,6 @@ BEGIN
         WHERE charm_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for charm for fk ref from charm_container_mount
-CREATE TRIGGER trg_fk_debug_charm_container_mount_1
-BEFORE DELETE ON 'charm' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm due to referencing rows in charm_container_mount ON charm_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'charm_container_mount'
-        WHERE charm_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for charm_container for fk ref from charm_container_mount
 CREATE TRIGGER trg_fk_debug_charm_container_mount_0
 BEFORE DELETE ON 'charm_container' FOR EACH ROW
@@ -975,6 +961,20 @@ BEGIN
                     END panic
         FROM 'charm_container_mount'
         WHERE charm_uuid=OLD.charm_uuid AND charm_container_key=OLD.key;
+END;
+
+-- fk debug delete trigger for charm for fk ref from charm_container_mount
+CREATE TRIGGER trg_fk_debug_charm_container_mount_1
+BEFORE DELETE ON 'charm' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm due to referencing rows in charm_container_mount ON charm_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'charm_container_mount'
+        WHERE charm_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for charm for fk ref from charm_device
@@ -1019,20 +1019,6 @@ BEGIN
         WHERE charm_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for charm for fk ref from charm_hash
-CREATE TRIGGER trg_fk_debug_charm_hash_1
-BEFORE DELETE ON 'charm' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm due to referencing rows in charm_hash ON charm_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'charm_hash'
-        WHERE charm_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for hash_kind for fk ref from charm_hash
 CREATE TRIGGER trg_fk_debug_charm_hash_0
 BEFORE DELETE ON 'hash_kind' FOR EACH ROW
@@ -1047,17 +1033,17 @@ BEGIN
         WHERE hash_kind_id=OLD.id;
 END;
 
--- fk debug delete trigger for charm for fk ref from charm_manifest_base
-CREATE TRIGGER trg_fk_debug_charm_manifest_base_2
+-- fk debug delete trigger for charm for fk ref from charm_hash
+CREATE TRIGGER trg_fk_debug_charm_hash_1
 BEFORE DELETE ON 'charm' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm due to referencing rows in charm_manifest_base ON charm_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm due to referencing rows in charm_hash ON charm_uuid')
                     ELSE
                         NULL
                     END panic
-        FROM 'charm_manifest_base'
+        FROM 'charm_hash'
         WHERE charm_uuid=OLD.uuid;
 END;
 
@@ -1089,18 +1075,18 @@ BEGIN
         WHERE os_id=OLD.id;
 END;
 
--- fk debug delete trigger for charm_run_as_kind for fk ref from charm_metadata
-CREATE TRIGGER trg_fk_debug_charm_metadata_1
-BEFORE DELETE ON 'charm_run_as_kind' FOR EACH ROW
+-- fk debug delete trigger for charm for fk ref from charm_manifest_base
+CREATE TRIGGER trg_fk_debug_charm_manifest_base_2
+BEFORE DELETE ON 'charm' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_run_as_kind due to referencing rows in charm_metadata ON run_as_id')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm due to referencing rows in charm_manifest_base ON charm_uuid')
                     ELSE
                         NULL
                     END panic
-        FROM 'charm_metadata'
-        WHERE run_as_id=OLD.id;
+        FROM 'charm_manifest_base'
+        WHERE charm_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for charm for fk ref from charm_metadata
@@ -1115,6 +1101,20 @@ BEGIN
                     END panic
         FROM 'charm_metadata'
         WHERE charm_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for charm_run_as_kind for fk ref from charm_metadata
+CREATE TRIGGER trg_fk_debug_charm_metadata_1
+BEFORE DELETE ON 'charm_run_as_kind' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_run_as_kind due to referencing rows in charm_metadata ON run_as_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'charm_metadata'
+        WHERE run_as_id=OLD.id;
 END;
 
 -- fk debug delete trigger for charm_relation_scope for fk ref from charm_relation
@@ -1159,20 +1159,6 @@ BEGIN
         WHERE charm_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for charm for fk ref from charm_resource
-CREATE TRIGGER trg_fk_debug_charm_resource_1
-BEFORE DELETE ON 'charm' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm due to referencing rows in charm_resource ON charm_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'charm_resource'
-        WHERE charm_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for charm_resource_kind for fk ref from charm_resource
 CREATE TRIGGER trg_fk_debug_charm_resource_0
 BEFORE DELETE ON 'charm_resource_kind' FOR EACH ROW
@@ -1185,6 +1171,20 @@ BEGIN
                     END panic
         FROM 'charm_resource'
         WHERE kind_id=OLD.id;
+END;
+
+-- fk debug delete trigger for charm for fk ref from charm_resource
+CREATE TRIGGER trg_fk_debug_charm_resource_1
+BEFORE DELETE ON 'charm' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm due to referencing rows in charm_resource ON charm_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'charm_resource'
+        WHERE charm_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for charm for fk ref from charm_storage
@@ -1285,20 +1285,6 @@ BEGIN
         WHERE container_type_id=OLD.id;
 END;
 
--- fk debug delete trigger for constraint for fk ref from constraint_space
-CREATE TRIGGER trg_fk_debug_constraint_space_1
-BEFORE DELETE ON 'constraint' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM constraint due to referencing rows in constraint_space ON constraint_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'constraint_space'
-        WHERE constraint_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for space for fk ref from constraint_space
 CREATE TRIGGER trg_fk_debug_constraint_space_0
 BEFORE DELETE ON 'space' FOR EACH ROW
@@ -1311,6 +1297,20 @@ BEGIN
                     END panic
         FROM 'constraint_space'
         WHERE space=OLD.name;
+END;
+
+-- fk debug delete trigger for constraint for fk ref from constraint_space
+CREATE TRIGGER trg_fk_debug_constraint_space_1
+BEFORE DELETE ON 'constraint' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM constraint due to referencing rows in constraint_space ON constraint_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'constraint_space'
+        WHERE constraint_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for constraint for fk ref from constraint_tag
@@ -1411,60 +1411,18 @@ BEGIN
         WHERE machine_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for ip_address_type for fk ref from ip_address
-CREATE TRIGGER trg_fk_debug_ip_address_2
-BEFORE DELETE ON 'ip_address_type' FOR EACH ROW
+-- fk debug delete trigger for ip_address_scope for fk ref from ip_address
+CREATE TRIGGER trg_fk_debug_ip_address_0
+BEFORE DELETE ON 'ip_address_scope' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM ip_address_type due to referencing rows in ip_address ON type_id')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM ip_address_scope due to referencing rows in ip_address ON scope_id')
                     ELSE
                         NULL
                     END panic
         FROM 'ip_address'
-        WHERE type_id=OLD.id;
-END;
-
--- fk debug delete trigger for net_node for fk ref from ip_address
-CREATE TRIGGER trg_fk_debug_ip_address_5
-BEFORE DELETE ON 'net_node' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM net_node due to referencing rows in ip_address ON net_node_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'ip_address'
-        WHERE net_node_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for subnet for fk ref from ip_address
-CREATE TRIGGER trg_fk_debug_ip_address_4
-BEFORE DELETE ON 'subnet' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM subnet due to referencing rows in ip_address ON subnet_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'ip_address'
-        WHERE subnet_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for ip_address_origin for fk ref from ip_address
-CREATE TRIGGER trg_fk_debug_ip_address_3
-BEFORE DELETE ON 'ip_address_origin' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM ip_address_origin due to referencing rows in ip_address ON origin_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'ip_address'
-        WHERE origin_id=OLD.id;
+        WHERE scope_id=OLD.id;
 END;
 
 -- fk debug delete trigger for ip_address_config_type for fk ref from ip_address
@@ -1481,18 +1439,60 @@ BEGIN
         WHERE config_type_id=OLD.id;
 END;
 
--- fk debug delete trigger for ip_address_scope for fk ref from ip_address
-CREATE TRIGGER trg_fk_debug_ip_address_0
-BEFORE DELETE ON 'ip_address_scope' FOR EACH ROW
+-- fk debug delete trigger for ip_address_type for fk ref from ip_address
+CREATE TRIGGER trg_fk_debug_ip_address_2
+BEFORE DELETE ON 'ip_address_type' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM ip_address_scope due to referencing rows in ip_address ON scope_id')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM ip_address_type due to referencing rows in ip_address ON type_id')
                     ELSE
                         NULL
                     END panic
         FROM 'ip_address'
-        WHERE scope_id=OLD.id;
+        WHERE type_id=OLD.id;
+END;
+
+-- fk debug delete trigger for ip_address_origin for fk ref from ip_address
+CREATE TRIGGER trg_fk_debug_ip_address_3
+BEFORE DELETE ON 'ip_address_origin' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM ip_address_origin due to referencing rows in ip_address ON origin_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'ip_address'
+        WHERE origin_id=OLD.id;
+END;
+
+-- fk debug delete trigger for subnet for fk ref from ip_address
+CREATE TRIGGER trg_fk_debug_ip_address_4
+BEFORE DELETE ON 'subnet' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM subnet due to referencing rows in ip_address ON subnet_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'ip_address'
+        WHERE subnet_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for net_node for fk ref from ip_address
+CREATE TRIGGER trg_fk_debug_ip_address_5
+BEFORE DELETE ON 'net_node' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM net_node due to referencing rows in ip_address ON net_node_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'ip_address'
+        WHERE net_node_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for link_layer_device for fk ref from ip_address
@@ -1537,20 +1537,6 @@ BEGIN
         WHERE unit_uuid=OLD.unit_uuid;
 END;
 
--- fk debug delete trigger for unit for fk ref from k8s_pod_status
-CREATE TRIGGER trg_fk_debug_k8s_pod_status_1
-BEFORE DELETE ON 'unit' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM unit due to referencing rows in k8s_pod_status ON unit_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'k8s_pod_status'
-        WHERE unit_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for k8s_pod_status_value for fk ref from k8s_pod_status
 CREATE TRIGGER trg_fk_debug_k8s_pod_status_0
 BEFORE DELETE ON 'k8s_pod_status_value' FOR EACH ROW
@@ -1565,18 +1551,18 @@ BEGIN
         WHERE status_id=OLD.id;
 END;
 
--- fk debug delete trigger for application for fk ref from k8s_service
-CREATE TRIGGER trg_fk_debug_k8s_service_1
-BEFORE DELETE ON 'application' FOR EACH ROW
+-- fk debug delete trigger for unit for fk ref from k8s_pod_status
+CREATE TRIGGER trg_fk_debug_k8s_pod_status_1
+BEFORE DELETE ON 'unit' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application due to referencing rows in k8s_service ON application_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM unit due to referencing rows in k8s_pod_status ON unit_uuid')
                     ELSE
                         NULL
                     END panic
-        FROM 'k8s_service'
-        WHERE application_uuid=OLD.uuid;
+        FROM 'k8s_pod_status'
+        WHERE unit_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for net_node for fk ref from k8s_service
@@ -1593,18 +1579,18 @@ BEGIN
         WHERE net_node_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for link_layer_device_type for fk ref from link_layer_device
-CREATE TRIGGER trg_fk_debug_link_layer_device_1
-BEFORE DELETE ON 'link_layer_device_type' FOR EACH ROW
+-- fk debug delete trigger for application for fk ref from k8s_service
+CREATE TRIGGER trg_fk_debug_k8s_service_1
+BEFORE DELETE ON 'application' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM link_layer_device_type due to referencing rows in link_layer_device ON device_type_id')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM application due to referencing rows in k8s_service ON application_uuid')
                     ELSE
                         NULL
                     END panic
-        FROM 'link_layer_device'
-        WHERE device_type_id=OLD.id;
+        FROM 'k8s_service'
+        WHERE application_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for virtual_port_type for fk ref from link_layer_device
@@ -1619,6 +1605,20 @@ BEGIN
                     END panic
         FROM 'link_layer_device'
         WHERE virtual_port_type_id=OLD.id;
+END;
+
+-- fk debug delete trigger for link_layer_device_type for fk ref from link_layer_device
+CREATE TRIGGER trg_fk_debug_link_layer_device_1
+BEFORE DELETE ON 'link_layer_device_type' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM link_layer_device_type due to referencing rows in link_layer_device ON device_type_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'link_layer_device'
+        WHERE device_type_id=OLD.id;
 END;
 
 -- fk debug delete trigger for net_node for fk ref from link_layer_device
@@ -1664,20 +1664,6 @@ BEGIN
 END;
 
 -- fk debug delete trigger for link_layer_device for fk ref from link_layer_device_parent
-CREATE TRIGGER trg_fk_debug_link_layer_device_parent_1
-BEFORE DELETE ON 'link_layer_device' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM link_layer_device due to referencing rows in link_layer_device_parent ON device_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'link_layer_device_parent'
-        WHERE device_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for link_layer_device for fk ref from link_layer_device_parent
 CREATE TRIGGER trg_fk_debug_link_layer_device_parent_0
 BEFORE DELETE ON 'link_layer_device' FOR EACH ROW
 BEGIN
@@ -1689,6 +1675,20 @@ BEGIN
                     END panic
         FROM 'link_layer_device_parent'
         WHERE parent_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for link_layer_device for fk ref from link_layer_device_parent
+CREATE TRIGGER trg_fk_debug_link_layer_device_parent_1
+BEFORE DELETE ON 'link_layer_device' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM link_layer_device due to referencing rows in link_layer_device_parent ON device_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'link_layer_device_parent'
+        WHERE device_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for link_layer_device for fk ref from link_layer_device_route
@@ -1703,6 +1703,20 @@ BEGIN
                     END panic
         FROM 'link_layer_device_route'
         WHERE device_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for password_hash_algorithm for fk ref from machine
+CREATE TRIGGER trg_fk_debug_machine_0
+BEFORE DELETE ON 'password_hash_algorithm' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM password_hash_algorithm due to referencing rows in machine ON password_hash_algorithm_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'machine'
+        WHERE password_hash_algorithm_id=OLD.id;
 END;
 
 -- fk debug delete trigger for life for fk ref from machine
@@ -1733,20 +1747,6 @@ BEGIN
         WHERE net_node_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for password_hash_algorithm for fk ref from machine
-CREATE TRIGGER trg_fk_debug_machine_0
-BEFORE DELETE ON 'password_hash_algorithm' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM password_hash_algorithm due to referencing rows in machine ON password_hash_algorithm_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'machine'
-        WHERE password_hash_algorithm_id=OLD.id;
-END;
-
 -- fk debug delete trigger for machine for fk ref from machine_agent_presence
 CREATE TRIGGER trg_fk_debug_machine_agent_presence_0
 BEFORE DELETE ON 'machine' FOR EACH ROW
@@ -1758,20 +1758,6 @@ BEGIN
                         NULL
                     END panic
         FROM 'machine_agent_presence'
-        WHERE machine_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for machine for fk ref from machine_agent_version
-CREATE TRIGGER trg_fk_debug_machine_agent_version_1
-BEFORE DELETE ON 'machine' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM machine due to referencing rows in machine_agent_version ON machine_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'machine_agent_version'
         WHERE machine_uuid=OLD.uuid;
 END;
 
@@ -1789,32 +1775,18 @@ BEGIN
         WHERE architecture_id=OLD.id;
 END;
 
--- fk debug delete trigger for machine for fk ref from machine_cloud_instance
-CREATE TRIGGER trg_fk_debug_machine_cloud_instance_2
+-- fk debug delete trigger for machine for fk ref from machine_agent_version
+CREATE TRIGGER trg_fk_debug_machine_agent_version_1
 BEFORE DELETE ON 'machine' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM machine due to referencing rows in machine_cloud_instance ON machine_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM machine due to referencing rows in machine_agent_version ON machine_uuid')
                     ELSE
                         NULL
                     END panic
-        FROM 'machine_cloud_instance'
+        FROM 'machine_agent_version'
         WHERE machine_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for life for fk ref from machine_cloud_instance
-CREATE TRIGGER trg_fk_debug_machine_cloud_instance_1
-BEFORE DELETE ON 'life' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM life due to referencing rows in machine_cloud_instance ON life_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'machine_cloud_instance'
-        WHERE life_id=OLD.id;
 END;
 
 -- fk debug delete trigger for availability_zone for fk ref from machine_cloud_instance
@@ -1831,18 +1803,32 @@ BEGIN
         WHERE availability_zone_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for machine_cloud_instance for fk ref from machine_cloud_instance_status
-CREATE TRIGGER trg_fk_debug_machine_cloud_instance_status_1
-BEFORE DELETE ON 'machine_cloud_instance' FOR EACH ROW
+-- fk debug delete trigger for life for fk ref from machine_cloud_instance
+CREATE TRIGGER trg_fk_debug_machine_cloud_instance_1
+BEFORE DELETE ON 'life' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM machine_cloud_instance due to referencing rows in machine_cloud_instance_status ON machine_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM life due to referencing rows in machine_cloud_instance ON life_id')
                     ELSE
                         NULL
                     END panic
-        FROM 'machine_cloud_instance_status'
-        WHERE machine_uuid=OLD.machine_uuid;
+        FROM 'machine_cloud_instance'
+        WHERE life_id=OLD.id;
+END;
+
+-- fk debug delete trigger for machine for fk ref from machine_cloud_instance
+CREATE TRIGGER trg_fk_debug_machine_cloud_instance_2
+BEFORE DELETE ON 'machine' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM machine due to referencing rows in machine_cloud_instance ON machine_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'machine_cloud_instance'
+        WHERE machine_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for machine_cloud_instance_status_value for fk ref from machine_cloud_instance_status
@@ -1857,6 +1843,20 @@ BEGIN
                     END panic
         FROM 'machine_cloud_instance_status'
         WHERE status_id=OLD.id;
+END;
+
+-- fk debug delete trigger for machine_cloud_instance for fk ref from machine_cloud_instance_status
+CREATE TRIGGER trg_fk_debug_machine_cloud_instance_status_1
+BEFORE DELETE ON 'machine_cloud_instance' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM machine_cloud_instance due to referencing rows in machine_cloud_instance_status ON machine_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'machine_cloud_instance_status'
+        WHERE machine_uuid=OLD.machine_uuid;
 END;
 
 -- fk debug delete trigger for constraint for fk ref from machine_constraint
@@ -1972,6 +1972,20 @@ BEGIN
 END;
 
 -- fk debug delete trigger for machine for fk ref from machine_parent
+CREATE TRIGGER trg_fk_debug_machine_parent_0
+BEFORE DELETE ON 'machine' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM machine due to referencing rows in machine_parent ON parent_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'machine_parent'
+        WHERE parent_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for machine for fk ref from machine_parent
 CREATE TRIGGER trg_fk_debug_machine_parent_1
 BEFORE DELETE ON 'machine' FOR EACH ROW
 BEGIN
@@ -1985,18 +1999,18 @@ BEGIN
         WHERE machine_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for machine for fk ref from machine_parent
-CREATE TRIGGER trg_fk_debug_machine_parent_0
-BEFORE DELETE ON 'machine' FOR EACH ROW
+-- fk debug delete trigger for machine_placement_scope for fk ref from machine_placement
+CREATE TRIGGER trg_fk_debug_machine_placement_0
+BEFORE DELETE ON 'machine_placement_scope' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM machine due to referencing rows in machine_parent ON parent_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM machine_placement_scope due to referencing rows in machine_placement ON scope_id')
                     ELSE
                         NULL
                     END panic
-        FROM 'machine_parent'
-        WHERE parent_uuid=OLD.uuid;
+        FROM 'machine_placement'
+        WHERE scope_id=OLD.id;
 END;
 
 -- fk debug delete trigger for machine for fk ref from machine_placement
@@ -2013,18 +2027,18 @@ BEGIN
         WHERE machine_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for machine_placement_scope for fk ref from machine_placement
-CREATE TRIGGER trg_fk_debug_machine_placement_0
-BEFORE DELETE ON 'machine_placement_scope' FOR EACH ROW
+-- fk debug delete trigger for architecture for fk ref from machine_platform
+CREATE TRIGGER trg_fk_debug_machine_platform_0
+BEFORE DELETE ON 'architecture' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM machine_placement_scope due to referencing rows in machine_placement ON scope_id')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM architecture due to referencing rows in machine_platform ON architecture_id')
                     ELSE
                         NULL
                     END panic
-        FROM 'machine_placement'
-        WHERE scope_id=OLD.id;
+        FROM 'machine_platform'
+        WHERE architecture_id=OLD.id;
 END;
 
 -- fk debug delete trigger for os for fk ref from machine_platform
@@ -2053,20 +2067,6 @@ BEGIN
                     END panic
         FROM 'machine_platform'
         WHERE machine_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for architecture for fk ref from machine_platform
-CREATE TRIGGER trg_fk_debug_machine_platform_0
-BEFORE DELETE ON 'architecture' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM architecture due to referencing rows in machine_platform ON architecture_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'machine_platform'
-        WHERE architecture_id=OLD.id;
 END;
 
 -- fk debug delete trigger for machine for fk ref from machine_requires_reboot
@@ -2153,20 +2153,6 @@ BEGIN
         WHERE machine_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for model for fk ref from model_agent
-CREATE TRIGGER trg_fk_debug_model_agent_1
-BEFORE DELETE ON 'model' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM model due to referencing rows in model_agent ON model_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'model_agent'
-        WHERE model_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for password_hash_algorithm for fk ref from model_agent
 CREATE TRIGGER trg_fk_debug_model_agent_0
 BEFORE DELETE ON 'password_hash_algorithm' FOR EACH ROW
@@ -2179,6 +2165,20 @@ BEGIN
                     END panic
         FROM 'model_agent'
         WHERE password_hash_algorithm_id=OLD.id;
+END;
+
+-- fk debug delete trigger for model for fk ref from model_agent
+CREATE TRIGGER trg_fk_debug_model_agent_1
+BEFORE DELETE ON 'model' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM model due to referencing rows in model_agent ON model_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'model_agent'
+        WHERE model_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for constraint for fk ref from model_constraint
@@ -2363,20 +2363,6 @@ BEGIN
         WHERE endpoint_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for operation for fk ref from operation_action
-CREATE TRIGGER trg_fk_debug_operation_action_1
-BEFORE DELETE ON 'operation' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM operation due to referencing rows in operation_action ON operation_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'operation_action'
-        WHERE operation_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for charm_action for fk ref from operation_action
 CREATE TRIGGER trg_fk_debug_operation_action_0
 BEFORE DELETE ON 'charm_action' FOR EACH ROW
@@ -2389,6 +2375,20 @@ BEGIN
                     END panic
         FROM 'operation_action'
         WHERE charm_uuid=OLD.charm_uuid AND charm_action_key=OLD.key;
+END;
+
+-- fk debug delete trigger for operation for fk ref from operation_action
+CREATE TRIGGER trg_fk_debug_operation_action_1
+BEFORE DELETE ON 'operation' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM operation due to referencing rows in operation_action ON operation_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'operation_action'
+        WHERE operation_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for machine for fk ref from operation_machine_task
@@ -2461,20 +2461,6 @@ BEGIN
         WHERE task_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for operation_task for fk ref from operation_task_output
-CREATE TRIGGER trg_fk_debug_operation_task_output_1
-BEFORE DELETE ON 'operation_task' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM operation_task due to referencing rows in operation_task_output ON task_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'operation_task_output'
-        WHERE task_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for object_store_metadata_path for fk ref from operation_task_output
 CREATE TRIGGER trg_fk_debug_operation_task_output_0
 BEFORE DELETE ON 'object_store_metadata_path' FOR EACH ROW
@@ -2487,6 +2473,20 @@ BEGIN
                     END panic
         FROM 'operation_task_output'
         WHERE store_path=OLD.path;
+END;
+
+-- fk debug delete trigger for operation_task for fk ref from operation_task_output
+CREATE TRIGGER trg_fk_debug_operation_task_output_1
+BEFORE DELETE ON 'operation_task' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM operation_task due to referencing rows in operation_task_output ON task_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'operation_task_output'
+        WHERE task_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for operation_task_status_value for fk ref from operation_task_status
@@ -2517,20 +2517,6 @@ BEGIN
         WHERE task_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for operation_task for fk ref from operation_unit_task
-CREATE TRIGGER trg_fk_debug_operation_unit_task_1
-BEFORE DELETE ON 'operation_task' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM operation_task due to referencing rows in operation_unit_task ON task_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'operation_unit_task'
-        WHERE task_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for unit for fk ref from operation_unit_task
 CREATE TRIGGER trg_fk_debug_operation_unit_task_0
 BEFORE DELETE ON 'unit' FOR EACH ROW
@@ -2545,6 +2531,20 @@ BEGIN
         WHERE unit_uuid=OLD.uuid;
 END;
 
+-- fk debug delete trigger for operation_task for fk ref from operation_unit_task
+CREATE TRIGGER trg_fk_debug_operation_unit_task_1
+BEFORE DELETE ON 'operation_task' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM operation_task due to referencing rows in operation_unit_task ON task_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'operation_unit_task'
+        WHERE task_uuid=OLD.uuid;
+END;
+
 -- fk debug delete trigger for resource for fk ref from pending_application_resource
 CREATE TRIGGER trg_fk_debug_pending_application_resource_0
 BEFORE DELETE ON 'resource' FOR EACH ROW
@@ -2557,20 +2557,6 @@ BEGIN
                     END panic
         FROM 'pending_application_resource'
         WHERE resource_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for protocol for fk ref from port_range
-CREATE TRIGGER trg_fk_debug_port_range_2
-BEFORE DELETE ON 'protocol' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM protocol due to referencing rows in port_range ON protocol_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'port_range'
-        WHERE protocol_id=OLD.id;
 END;
 
 -- fk debug delete trigger for unit for fk ref from port_range
@@ -2599,6 +2585,20 @@ BEGIN
                     END panic
         FROM 'port_range'
         WHERE relation_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for protocol for fk ref from port_range
+CREATE TRIGGER trg_fk_debug_port_range_2
+BEFORE DELETE ON 'protocol' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM protocol due to referencing rows in port_range ON protocol_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'port_range'
+        WHERE protocol_id=OLD.id;
 END;
 
 -- fk debug delete trigger for ip_address for fk ref from provider_ip_address
@@ -2797,20 +2797,6 @@ BEGIN
         WHERE relation_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for unit for fk ref from relation_unit
-CREATE TRIGGER trg_fk_debug_relation_unit_1
-BEFORE DELETE ON 'unit' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM unit due to referencing rows in relation_unit ON unit_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'relation_unit'
-        WHERE unit_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for relation_endpoint for fk ref from relation_unit
 CREATE TRIGGER trg_fk_debug_relation_unit_0
 BEFORE DELETE ON 'relation_endpoint' FOR EACH ROW
@@ -2823,6 +2809,20 @@ BEGIN
                     END panic
         FROM 'relation_unit'
         WHERE relation_endpoint_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for unit for fk ref from relation_unit
+CREATE TRIGGER trg_fk_debug_relation_unit_1
+BEFORE DELETE ON 'unit' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM unit due to referencing rows in relation_unit ON unit_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'relation_unit'
+        WHERE unit_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for relation_unit for fk ref from relation_unit_setting
@@ -2881,18 +2881,18 @@ BEGIN
         WHERE removal_type_id=OLD.id;
 END;
 
--- fk debug delete trigger for charm_resource for fk ref from resource
-CREATE TRIGGER trg_fk_debug_resource_2
-BEFORE DELETE ON 'charm_resource' FOR EACH ROW
+-- fk debug delete trigger for resource_state for fk ref from resource
+CREATE TRIGGER trg_fk_debug_resource_0
+BEFORE DELETE ON 'resource_state' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_resource due to referencing rows in resource ON charm_uuid charm_resource_name')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM resource_state due to referencing rows in resource ON state_id')
                     ELSE
                         NULL
                     END panic
         FROM 'resource'
-        WHERE charm_uuid=OLD.charm_uuid AND charm_resource_name=OLD.name;
+        WHERE state_id=OLD.id;
 END;
 
 -- fk debug delete trigger for resource_origin_type for fk ref from resource
@@ -2909,32 +2909,18 @@ BEGIN
         WHERE origin_type_id=OLD.id;
 END;
 
--- fk debug delete trigger for resource_state for fk ref from resource
-CREATE TRIGGER trg_fk_debug_resource_0
-BEFORE DELETE ON 'resource_state' FOR EACH ROW
+-- fk debug delete trigger for charm_resource for fk ref from resource
+CREATE TRIGGER trg_fk_debug_resource_2
+BEFORE DELETE ON 'charm_resource' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM resource_state due to referencing rows in resource ON state_id')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_resource due to referencing rows in resource ON charm_uuid charm_resource_name')
                     ELSE
                         NULL
                     END panic
         FROM 'resource'
-        WHERE state_id=OLD.id;
-END;
-
--- fk debug delete trigger for resource for fk ref from resource_file_store
-CREATE TRIGGER trg_fk_debug_resource_file_store_1
-BEFORE DELETE ON 'resource' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM resource due to referencing rows in resource_file_store ON resource_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'resource_file_store'
-        WHERE resource_uuid=OLD.uuid;
+        WHERE charm_uuid=OLD.charm_uuid AND charm_resource_name=OLD.name;
 END;
 
 -- fk debug delete trigger for object_store_metadata for fk ref from resource_file_store
@@ -2949,6 +2935,20 @@ BEGIN
                     END panic
         FROM 'resource_file_store'
         WHERE store_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for resource for fk ref from resource_file_store
+CREATE TRIGGER trg_fk_debug_resource_file_store_1
+BEFORE DELETE ON 'resource' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM resource due to referencing rows in resource_file_store ON resource_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'resource_file_store'
+        WHERE resource_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for resource_container_image_metadata_store for fk ref from resource_image_store
@@ -3007,20 +3007,6 @@ BEGIN
         WHERE resource_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for secret_metadata for fk ref from secret_application_owner
-CREATE TRIGGER trg_fk_debug_secret_application_owner_1
-BEFORE DELETE ON 'secret_metadata' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM secret_metadata due to referencing rows in secret_application_owner ON secret_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'secret_application_owner'
-        WHERE secret_id=OLD.secret_id;
-END;
-
 -- fk debug delete trigger for application for fk ref from secret_application_owner
 CREATE TRIGGER trg_fk_debug_secret_application_owner_0
 BEFORE DELETE ON 'application' FOR EACH ROW
@@ -3033,6 +3019,20 @@ BEGIN
                     END panic
         FROM 'secret_application_owner'
         WHERE application_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for secret_metadata for fk ref from secret_application_owner
+CREATE TRIGGER trg_fk_debug_secret_application_owner_1
+BEFORE DELETE ON 'secret_metadata' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM secret_metadata due to referencing rows in secret_application_owner ON secret_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'secret_application_owner'
+        WHERE secret_id=OLD.secret_id;
 END;
 
 -- fk debug delete trigger for secret_revision for fk ref from secret_content
@@ -3091,20 +3091,6 @@ BEGIN
         WHERE secret_id=OLD.secret_id;
 END;
 
--- fk debug delete trigger for secret_grant_subject_type for fk ref from secret_permission
-CREATE TRIGGER trg_fk_debug_secret_permission_1
-BEFORE DELETE ON 'secret_grant_subject_type' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM secret_grant_subject_type due to referencing rows in secret_permission ON subject_type_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'secret_permission'
-        WHERE subject_type_id=OLD.id;
-END;
-
 -- fk debug delete trigger for secret_grant_scope_type for fk ref from secret_permission
 CREATE TRIGGER trg_fk_debug_secret_permission_0
 BEFORE DELETE ON 'secret_grant_scope_type' FOR EACH ROW
@@ -3117,6 +3103,20 @@ BEGIN
                     END panic
         FROM 'secret_permission'
         WHERE scope_type_id=OLD.id;
+END;
+
+-- fk debug delete trigger for secret_grant_subject_type for fk ref from secret_permission
+CREATE TRIGGER trg_fk_debug_secret_permission_1
+BEFORE DELETE ON 'secret_grant_subject_type' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM secret_grant_subject_type due to referencing rows in secret_permission ON subject_type_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'secret_permission'
+        WHERE subject_type_id=OLD.id;
 END;
 
 -- fk debug delete trigger for secret_role for fk ref from secret_permission
@@ -3231,20 +3231,6 @@ BEGIN
         WHERE secret_id=OLD.secret_id;
 END;
 
--- fk debug delete trigger for unit for fk ref from secret_unit_consumer
-CREATE TRIGGER trg_fk_debug_secret_unit_consumer_1
-BEFORE DELETE ON 'unit' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM unit due to referencing rows in secret_unit_consumer ON unit_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'secret_unit_consumer'
-        WHERE unit_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for secret for fk ref from secret_unit_consumer
 CREATE TRIGGER trg_fk_debug_secret_unit_consumer_0
 BEFORE DELETE ON 'secret' FOR EACH ROW
@@ -3257,6 +3243,20 @@ BEGIN
                     END panic
         FROM 'secret_unit_consumer'
         WHERE secret_id=OLD.id;
+END;
+
+-- fk debug delete trigger for unit for fk ref from secret_unit_consumer
+CREATE TRIGGER trg_fk_debug_secret_unit_consumer_1
+BEFORE DELETE ON 'unit' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM unit due to referencing rows in secret_unit_consumer ON unit_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'secret_unit_consumer'
+        WHERE unit_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for unit for fk ref from secret_unit_owner
@@ -3385,18 +3385,18 @@ BEGIN
         WHERE provision_scope_id=OLD.id;
 END;
 
--- fk debug delete trigger for storage_filesystem for fk ref from storage_filesystem_attachment
-CREATE TRIGGER trg_fk_debug_storage_filesystem_attachment_3
-BEFORE DELETE ON 'storage_filesystem' FOR EACH ROW
+-- fk debug delete trigger for life for fk ref from storage_filesystem_attachment
+CREATE TRIGGER trg_fk_debug_storage_filesystem_attachment_1
+BEFORE DELETE ON 'life' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_filesystem due to referencing rows in storage_filesystem_attachment ON storage_filesystem_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM life due to referencing rows in storage_filesystem_attachment ON life_id')
                     ELSE
                         NULL
                     END panic
         FROM 'storage_filesystem_attachment'
-        WHERE storage_filesystem_uuid=OLD.uuid;
+        WHERE life_id=OLD.id;
 END;
 
 -- fk debug delete trigger for net_node for fk ref from storage_filesystem_attachment
@@ -3413,32 +3413,18 @@ BEGIN
         WHERE net_node_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for life for fk ref from storage_filesystem_attachment
-CREATE TRIGGER trg_fk_debug_storage_filesystem_attachment_1
-BEFORE DELETE ON 'life' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM life due to referencing rows in storage_filesystem_attachment ON life_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'storage_filesystem_attachment'
-        WHERE life_id=OLD.id;
-END;
-
--- fk debug delete trigger for storage_filesystem for fk ref from storage_filesystem_status
-CREATE TRIGGER trg_fk_debug_storage_filesystem_status_1
+-- fk debug delete trigger for storage_filesystem for fk ref from storage_filesystem_attachment
+CREATE TRIGGER trg_fk_debug_storage_filesystem_attachment_3
 BEFORE DELETE ON 'storage_filesystem' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_filesystem due to referencing rows in storage_filesystem_status ON filesystem_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_filesystem due to referencing rows in storage_filesystem_attachment ON storage_filesystem_uuid')
                     ELSE
                         NULL
                     END panic
-        FROM 'storage_filesystem_status'
-        WHERE filesystem_uuid=OLD.uuid;
+        FROM 'storage_filesystem_attachment'
+        WHERE storage_filesystem_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for storage_filesystem_status_value for fk ref from storage_filesystem_status
@@ -3455,18 +3441,32 @@ BEGIN
         WHERE status_id=OLD.id;
 END;
 
--- fk debug delete trigger for storage_kind for fk ref from storage_instance
-CREATE TRIGGER trg_fk_debug_storage_instance_2
-BEFORE DELETE ON 'storage_kind' FOR EACH ROW
+-- fk debug delete trigger for storage_filesystem for fk ref from storage_filesystem_status
+CREATE TRIGGER trg_fk_debug_storage_filesystem_status_1
+BEFORE DELETE ON 'storage_filesystem' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_kind due to referencing rows in storage_instance ON storage_kind_id')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_filesystem due to referencing rows in storage_filesystem_status ON filesystem_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'storage_filesystem_status'
+        WHERE filesystem_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for storage_pool for fk ref from storage_instance
+CREATE TRIGGER trg_fk_debug_storage_instance_0
+BEFORE DELETE ON 'storage_pool' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_pool due to referencing rows in storage_instance ON storage_pool_uuid')
                     ELSE
                         NULL
                     END panic
         FROM 'storage_instance'
-        WHERE storage_kind_id=OLD.id;
+        WHERE storage_pool_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for life for fk ref from storage_instance
@@ -3483,18 +3483,18 @@ BEGIN
         WHERE life_id=OLD.id;
 END;
 
--- fk debug delete trigger for storage_pool for fk ref from storage_instance
-CREATE TRIGGER trg_fk_debug_storage_instance_0
-BEFORE DELETE ON 'storage_pool' FOR EACH ROW
+-- fk debug delete trigger for storage_kind for fk ref from storage_instance
+CREATE TRIGGER trg_fk_debug_storage_instance_2
+BEFORE DELETE ON 'storage_kind' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_pool due to referencing rows in storage_instance ON storage_pool_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_kind due to referencing rows in storage_instance ON storage_kind_id')
                     ELSE
                         NULL
                     END panic
         FROM 'storage_instance'
-        WHERE storage_pool_uuid=OLD.uuid;
+        WHERE storage_kind_id=OLD.id;
 END;
 
 -- fk debug delete trigger for storage_filesystem for fk ref from storage_instance_filesystem
@@ -3609,20 +3609,6 @@ BEGIN
         WHERE storage_instance_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for life for fk ref from storage_volume
-CREATE TRIGGER trg_fk_debug_storage_volume_1
-BEFORE DELETE ON 'life' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM life due to referencing rows in storage_volume ON life_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'storage_volume'
-        WHERE life_id=OLD.id;
-END;
-
 -- fk debug delete trigger for storage_provision_scope for fk ref from storage_volume
 CREATE TRIGGER trg_fk_debug_storage_volume_0
 BEFORE DELETE ON 'storage_provision_scope' FOR EACH ROW
@@ -3637,18 +3623,18 @@ BEGIN
         WHERE provision_scope_id=OLD.id;
 END;
 
--- fk debug delete trigger for net_node for fk ref from storage_volume_attachment
-CREATE TRIGGER trg_fk_debug_storage_volume_attachment_3
-BEFORE DELETE ON 'net_node' FOR EACH ROW
+-- fk debug delete trigger for life for fk ref from storage_volume
+CREATE TRIGGER trg_fk_debug_storage_volume_1
+BEFORE DELETE ON 'life' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM net_node due to referencing rows in storage_volume_attachment ON net_node_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM life due to referencing rows in storage_volume ON life_id')
                     ELSE
                         NULL
                     END panic
-        FROM 'storage_volume_attachment'
-        WHERE net_node_uuid=OLD.uuid;
+        FROM 'storage_volume'
+        WHERE life_id=OLD.id;
 END;
 
 -- fk debug delete trigger for storage_provision_scope for fk ref from storage_volume_attachment
@@ -3693,6 +3679,20 @@ BEGIN
         WHERE life_id=OLD.id;
 END;
 
+-- fk debug delete trigger for net_node for fk ref from storage_volume_attachment
+CREATE TRIGGER trg_fk_debug_storage_volume_attachment_3
+BEFORE DELETE ON 'net_node' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM net_node due to referencing rows in storage_volume_attachment ON net_node_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'storage_volume_attachment'
+        WHERE net_node_uuid=OLD.uuid;
+END;
+
 -- fk debug delete trigger for storage_volume for fk ref from storage_volume_attachment
 CREATE TRIGGER trg_fk_debug_storage_volume_attachment_4
 BEFORE DELETE ON 'storage_volume' FOR EACH ROW
@@ -3721,32 +3721,18 @@ BEGIN
         WHERE provision_scope_id=OLD.id;
 END;
 
--- fk debug delete trigger for storage_volume for fk ref from storage_volume_attachment_plan
-CREATE TRIGGER trg_fk_debug_storage_volume_attachment_plan_4
-BEFORE DELETE ON 'storage_volume' FOR EACH ROW
+-- fk debug delete trigger for storage_volume_device_type for fk ref from storage_volume_attachment_plan
+CREATE TRIGGER trg_fk_debug_storage_volume_attachment_plan_1
+BEFORE DELETE ON 'storage_volume_device_type' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_volume due to referencing rows in storage_volume_attachment_plan ON storage_volume_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_volume_device_type due to referencing rows in storage_volume_attachment_plan ON device_type_id')
                     ELSE
                         NULL
                     END panic
         FROM 'storage_volume_attachment_plan'
-        WHERE storage_volume_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for net_node for fk ref from storage_volume_attachment_plan
-CREATE TRIGGER trg_fk_debug_storage_volume_attachment_plan_3
-BEFORE DELETE ON 'net_node' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM net_node due to referencing rows in storage_volume_attachment_plan ON net_node_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'storage_volume_attachment_plan'
-        WHERE net_node_uuid=OLD.uuid;
+        WHERE device_type_id=OLD.id;
 END;
 
 -- fk debug delete trigger for life for fk ref from storage_volume_attachment_plan
@@ -3763,18 +3749,32 @@ BEGIN
         WHERE life_id=OLD.id;
 END;
 
--- fk debug delete trigger for storage_volume_device_type for fk ref from storage_volume_attachment_plan
-CREATE TRIGGER trg_fk_debug_storage_volume_attachment_plan_1
-BEFORE DELETE ON 'storage_volume_device_type' FOR EACH ROW
+-- fk debug delete trigger for net_node for fk ref from storage_volume_attachment_plan
+CREATE TRIGGER trg_fk_debug_storage_volume_attachment_plan_3
+BEFORE DELETE ON 'net_node' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_volume_device_type due to referencing rows in storage_volume_attachment_plan ON device_type_id')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM net_node due to referencing rows in storage_volume_attachment_plan ON net_node_uuid')
                     ELSE
                         NULL
                     END panic
         FROM 'storage_volume_attachment_plan'
-        WHERE device_type_id=OLD.id;
+        WHERE net_node_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for storage_volume for fk ref from storage_volume_attachment_plan
+CREATE TRIGGER trg_fk_debug_storage_volume_attachment_plan_4
+BEFORE DELETE ON 'storage_volume' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_volume due to referencing rows in storage_volume_attachment_plan ON storage_volume_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'storage_volume_attachment_plan'
+        WHERE storage_volume_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for storage_volume_attachment_plan for fk ref from storage_volume_attachment_plan_attr
@@ -3791,20 +3791,6 @@ BEGIN
         WHERE attachment_plan_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for storage_volume for fk ref from storage_volume_status
-CREATE TRIGGER trg_fk_debug_storage_volume_status_1
-BEFORE DELETE ON 'storage_volume' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_volume due to referencing rows in storage_volume_status ON volume_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'storage_volume_status'
-        WHERE volume_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for storage_volume_status_value for fk ref from storage_volume_status
 CREATE TRIGGER trg_fk_debug_storage_volume_status_0
 BEFORE DELETE ON 'storage_volume_status_value' FOR EACH ROW
@@ -3817,6 +3803,20 @@ BEGIN
                     END panic
         FROM 'storage_volume_status'
         WHERE status_id=OLD.id;
+END;
+
+-- fk debug delete trigger for storage_volume for fk ref from storage_volume_status
+CREATE TRIGGER trg_fk_debug_storage_volume_status_1
+BEFORE DELETE ON 'storage_volume' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM storage_volume due to referencing rows in storage_volume_status ON volume_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'storage_volume_status'
+        WHERE volume_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for space for fk ref from subnet
@@ -3833,18 +3833,18 @@ BEGIN
         WHERE space_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for net_node for fk ref from unit
-CREATE TRIGGER trg_fk_debug_unit_2
-BEFORE DELETE ON 'net_node' FOR EACH ROW
+-- fk debug delete trigger for password_hash_algorithm for fk ref from unit
+CREATE TRIGGER trg_fk_debug_unit_0
+BEFORE DELETE ON 'password_hash_algorithm' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM net_node due to referencing rows in unit ON net_node_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM password_hash_algorithm due to referencing rows in unit ON password_hash_algorithm_id')
                     ELSE
                         NULL
                     END panic
         FROM 'unit'
-        WHERE net_node_uuid=OLD.uuid;
+        WHERE password_hash_algorithm_id=OLD.id;
 END;
 
 -- fk debug delete trigger for charm for fk ref from unit
@@ -3859,6 +3859,20 @@ BEGIN
                     END panic
         FROM 'unit'
         WHERE charm_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for net_node for fk ref from unit
+CREATE TRIGGER trg_fk_debug_unit_2
+BEFORE DELETE ON 'net_node' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM net_node due to referencing rows in unit ON net_node_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'unit'
+        WHERE net_node_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for application for fk ref from unit
@@ -3889,20 +3903,6 @@ BEGIN
         WHERE life_id=OLD.id;
 END;
 
--- fk debug delete trigger for password_hash_algorithm for fk ref from unit
-CREATE TRIGGER trg_fk_debug_unit_0
-BEFORE DELETE ON 'password_hash_algorithm' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM password_hash_algorithm due to referencing rows in unit ON password_hash_algorithm_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'unit'
-        WHERE password_hash_algorithm_id=OLD.id;
-END;
-
 -- fk debug delete trigger for unit for fk ref from unit_agent_presence
 CREATE TRIGGER trg_fk_debug_unit_agent_presence_0
 BEFORE DELETE ON 'unit' FOR EACH ROW
@@ -3914,20 +3914,6 @@ BEGIN
                         NULL
                     END panic
         FROM 'unit_agent_presence'
-        WHERE unit_uuid=OLD.uuid;
-END;
-
--- fk debug delete trigger for unit for fk ref from unit_agent_status
-CREATE TRIGGER trg_fk_debug_unit_agent_status_1
-BEFORE DELETE ON 'unit' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM unit due to referencing rows in unit_agent_status ON unit_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'unit_agent_status'
         WHERE unit_uuid=OLD.uuid;
 END;
 
@@ -3943,6 +3929,20 @@ BEGIN
                     END panic
         FROM 'unit_agent_status'
         WHERE status_id=OLD.id;
+END;
+
+-- fk debug delete trigger for unit for fk ref from unit_agent_status
+CREATE TRIGGER trg_fk_debug_unit_agent_status_1
+BEFORE DELETE ON 'unit' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM unit due to referencing rows in unit_agent_status ON unit_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'unit_agent_status'
+        WHERE unit_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for architecture for fk ref from unit_agent_version
@@ -4029,20 +4029,6 @@ BEGIN
         WHERE unit_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for resource for fk ref from unit_resource
-CREATE TRIGGER trg_fk_debug_unit_resource_1
-BEFORE DELETE ON 'resource' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM resource due to referencing rows in unit_resource ON resource_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'unit_resource'
-        WHERE resource_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for unit for fk ref from unit_resource
 CREATE TRIGGER trg_fk_debug_unit_resource_0
 BEFORE DELETE ON 'unit' FOR EACH ROW
@@ -4055,6 +4041,20 @@ BEGIN
                     END panic
         FROM 'unit_resource'
         WHERE unit_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for resource for fk ref from unit_resource
+CREATE TRIGGER trg_fk_debug_unit_resource_1
+BEFORE DELETE ON 'resource' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM resource due to referencing rows in unit_resource ON resource_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'unit_resource'
+        WHERE resource_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for unit for fk ref from unit_state
@@ -4099,18 +4099,18 @@ BEGIN
         WHERE unit_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for unit for fk ref from unit_storage_directive
-CREATE TRIGGER trg_fk_debug_unit_storage_directive_2
-BEFORE DELETE ON 'unit' FOR EACH ROW
+-- fk debug delete trigger for charm_storage for fk ref from unit_storage_directive
+CREATE TRIGGER trg_fk_debug_unit_storage_directive_0
+BEFORE DELETE ON 'charm_storage' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM unit due to referencing rows in unit_storage_directive ON unit_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_storage due to referencing rows in unit_storage_directive ON charm_uuid storage_name')
                     ELSE
                         NULL
                     END panic
         FROM 'unit_storage_directive'
-        WHERE unit_uuid=OLD.uuid;
+        WHERE charm_uuid=OLD.charm_uuid AND storage_name=OLD.name;
 END;
 
 -- fk debug delete trigger for storage_pool for fk ref from unit_storage_directive
@@ -4127,18 +4127,18 @@ BEGIN
         WHERE storage_pool_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for charm_storage for fk ref from unit_storage_directive
-CREATE TRIGGER trg_fk_debug_unit_storage_directive_0
-BEFORE DELETE ON 'charm_storage' FOR EACH ROW
+-- fk debug delete trigger for unit for fk ref from unit_storage_directive
+CREATE TRIGGER trg_fk_debug_unit_storage_directive_2
+BEFORE DELETE ON 'unit' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM charm_storage due to referencing rows in unit_storage_directive ON charm_uuid storage_name')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM unit due to referencing rows in unit_storage_directive ON unit_uuid')
                     ELSE
                         NULL
                     END panic
         FROM 'unit_storage_directive'
-        WHERE charm_uuid=OLD.charm_uuid AND storage_name=OLD.name;
+        WHERE unit_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for workload_status_value for fk ref from unit_workload_status

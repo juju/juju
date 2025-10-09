@@ -11,20 +11,6 @@ func FKDebugTriggers() func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(`
 
--- fk debug delete trigger for object_store_metadata for fk ref from agent_binary_store
-CREATE TRIGGER trg_fk_debug_agent_binary_store_1
-BEFORE DELETE ON 'object_store_metadata' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM object_store_metadata due to referencing rows in agent_binary_store ON object_store_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'agent_binary_store'
-        WHERE object_store_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for architecture for fk ref from agent_binary_store
 CREATE TRIGGER trg_fk_debug_agent_binary_store_0
 BEFORE DELETE ON 'architecture' FOR EACH ROW
@@ -37,6 +23,20 @@ BEGIN
                     END panic
         FROM 'agent_binary_store'
         WHERE architecture_id=OLD.id;
+END;
+
+-- fk debug delete trigger for object_store_metadata for fk ref from agent_binary_store
+CREATE TRIGGER trg_fk_debug_agent_binary_store_1
+BEFORE DELETE ON 'object_store_metadata' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM object_store_metadata due to referencing rows in agent_binary_store ON object_store_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'agent_binary_store'
+        WHERE object_store_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for autocert_cache_encoding for fk ref from autocert_cache
@@ -53,20 +53,6 @@ BEGIN
         WHERE encoding=OLD.id;
 END;
 
--- fk debug delete trigger for change_log_edit_type for fk ref from change_log
-CREATE TRIGGER trg_fk_debug_change_log_1
-BEFORE DELETE ON 'change_log_edit_type' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM change_log_edit_type due to referencing rows in change_log ON edit_type_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'change_log'
-        WHERE edit_type_id=OLD.id;
-END;
-
 -- fk debug delete trigger for change_log_namespace for fk ref from change_log
 CREATE TRIGGER trg_fk_debug_change_log_0
 BEFORE DELETE ON 'change_log_namespace' FOR EACH ROW
@@ -79,6 +65,20 @@ BEGIN
                     END panic
         FROM 'change_log'
         WHERE namespace_id=OLD.id;
+END;
+
+-- fk debug delete trigger for change_log_edit_type for fk ref from change_log
+CREATE TRIGGER trg_fk_debug_change_log_1
+BEFORE DELETE ON 'change_log_edit_type' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM change_log_edit_type due to referencing rows in change_log ON edit_type_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'change_log'
+        WHERE edit_type_id=OLD.id;
 END;
 
 -- fk debug delete trigger for cloud_type for fk ref from cloud
@@ -95,20 +95,6 @@ BEGIN
         WHERE cloud_type_id=OLD.id;
 END;
 
--- fk debug delete trigger for cloud for fk ref from cloud_auth_type
-CREATE TRIGGER trg_fk_debug_cloud_auth_type_1
-BEFORE DELETE ON 'cloud' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM cloud due to referencing rows in cloud_auth_type ON cloud_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'cloud_auth_type'
-        WHERE cloud_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for auth_type for fk ref from cloud_auth_type
 CREATE TRIGGER trg_fk_debug_cloud_auth_type_0
 BEFORE DELETE ON 'auth_type' FOR EACH ROW
@@ -121,6 +107,20 @@ BEGIN
                     END panic
         FROM 'cloud_auth_type'
         WHERE auth_type_id=OLD.id;
+END;
+
+-- fk debug delete trigger for cloud for fk ref from cloud_auth_type
+CREATE TRIGGER trg_fk_debug_cloud_auth_type_1
+BEFORE DELETE ON 'cloud' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM cloud due to referencing rows in cloud_auth_type ON cloud_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'cloud_auth_type'
+        WHERE cloud_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for cloud for fk ref from cloud_ca_cert
@@ -137,20 +137,6 @@ BEGIN
         WHERE cloud_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for auth_type for fk ref from cloud_credential
-CREATE TRIGGER trg_fk_debug_cloud_credential_1
-BEFORE DELETE ON 'auth_type' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM auth_type due to referencing rows in cloud_credential ON auth_type_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'cloud_credential'
-        WHERE auth_type_id=OLD.id;
-END;
-
 -- fk debug delete trigger for user for fk ref from cloud_credential
 CREATE TRIGGER trg_fk_debug_cloud_credential_0
 BEFORE DELETE ON 'user' FOR EACH ROW
@@ -163,6 +149,20 @@ BEGIN
                     END panic
         FROM 'cloud_credential'
         WHERE owner_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for auth_type for fk ref from cloud_credential
+CREATE TRIGGER trg_fk_debug_cloud_credential_1
+BEFORE DELETE ON 'auth_type' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM auth_type due to referencing rows in cloud_credential ON auth_type_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'cloud_credential'
+        WHERE auth_type_id=OLD.id;
 END;
 
 -- fk debug delete trigger for cloud for fk ref from cloud_credential
@@ -375,18 +375,18 @@ BEGIN
         WHERE lease_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for cloud_credential for fk ref from model
-CREATE TRIGGER trg_fk_debug_model_2
-BEFORE DELETE ON 'cloud_credential' FOR EACH ROW
+-- fk debug delete trigger for life for fk ref from model
+CREATE TRIGGER trg_fk_debug_model_0
+BEFORE DELETE ON 'life' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM cloud_credential due to referencing rows in model ON cloud_credential_uuid')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM life due to referencing rows in model ON life_id')
                     ELSE
                         NULL
                     END panic
         FROM 'model'
-        WHERE cloud_credential_uuid=OLD.uuid;
+        WHERE life_id=OLD.id;
 END;
 
 -- fk debug delete trigger for model_type for fk ref from model
@@ -401,6 +401,20 @@ BEGIN
                     END panic
         FROM 'model'
         WHERE model_type_id=OLD.id;
+END;
+
+-- fk debug delete trigger for cloud_credential for fk ref from model
+CREATE TRIGGER trg_fk_debug_model_2
+BEFORE DELETE ON 'cloud_credential' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM cloud_credential due to referencing rows in model ON cloud_credential_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'model'
+        WHERE cloud_credential_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for cloud_region for fk ref from model
@@ -431,18 +445,18 @@ BEGIN
         WHERE cloud_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for life for fk ref from model
-CREATE TRIGGER trg_fk_debug_model_0
-BEFORE DELETE ON 'life' FOR EACH ROW
+-- fk debug delete trigger for model for fk ref from model_authorized_keys
+CREATE TRIGGER trg_fk_debug_model_authorized_keys_0
+BEFORE DELETE ON 'model' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM life due to referencing rows in model ON life_id')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM model due to referencing rows in model_authorized_keys ON model_uuid')
                     ELSE
                         NULL
                     END panic
-        FROM 'model'
-        WHERE life_id=OLD.id;
+        FROM 'model_authorized_keys'
+        WHERE model_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for user_public_ssh_key for fk ref from model_authorized_keys
@@ -457,20 +471,6 @@ BEGIN
                     END panic
         FROM 'model_authorized_keys'
         WHERE user_public_ssh_key_id=OLD.id;
-END;
-
--- fk debug delete trigger for model for fk ref from model_authorized_keys
-CREATE TRIGGER trg_fk_debug_model_authorized_keys_0
-BEFORE DELETE ON 'model' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM model due to referencing rows in model_authorized_keys ON model_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'model_authorized_keys'
-        WHERE model_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for user for fk ref from model_last_login
@@ -641,20 +641,6 @@ BEGIN
         WHERE grant_to=OLD.uuid;
 END;
 
--- fk debug delete trigger for permission_access_type for fk ref from permission_object_access
-CREATE TRIGGER trg_fk_debug_permission_object_access_1
-BEFORE DELETE ON 'permission_access_type' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM permission_access_type due to referencing rows in permission_object_access ON access_type_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'permission_object_access'
-        WHERE access_type_id=OLD.id;
-END;
-
 -- fk debug delete trigger for permission_object_type for fk ref from permission_object_access
 CREATE TRIGGER trg_fk_debug_permission_object_access_0
 BEFORE DELETE ON 'permission_object_type' FOR EACH ROW
@@ -667,6 +653,20 @@ BEGIN
                     END panic
         FROM 'permission_object_access'
         WHERE object_type_id=OLD.id;
+END;
+
+-- fk debug delete trigger for permission_access_type for fk ref from permission_object_access
+CREATE TRIGGER trg_fk_debug_permission_object_access_1
+BEFORE DELETE ON 'permission_access_type' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM permission_access_type due to referencing rows in permission_object_access ON access_type_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'permission_object_access'
+        WHERE access_type_id=OLD.id;
 END;
 
 -- fk debug delete trigger for secret_backend_type for fk ref from secret_backend
@@ -697,20 +697,6 @@ BEGIN
         WHERE backend_uuid=OLD.uuid;
 END;
 
--- fk debug delete trigger for model for fk ref from secret_backend_reference
-CREATE TRIGGER trg_fk_debug_secret_backend_reference_1
-BEFORE DELETE ON 'model' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM model due to referencing rows in secret_backend_reference ON model_uuid')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'secret_backend_reference'
-        WHERE model_uuid=OLD.uuid;
-END;
-
 -- fk debug delete trigger for secret_backend for fk ref from secret_backend_reference
 CREATE TRIGGER trg_fk_debug_secret_backend_reference_0
 BEFORE DELETE ON 'secret_backend' FOR EACH ROW
@@ -723,6 +709,20 @@ BEGIN
                     END panic
         FROM 'secret_backend_reference'
         WHERE secret_backend_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for model for fk ref from secret_backend_reference
+CREATE TRIGGER trg_fk_debug_secret_backend_reference_1
+BEFORE DELETE ON 'model' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM model due to referencing rows in secret_backend_reference ON model_uuid')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'secret_backend_reference'
+        WHERE model_uuid=OLD.uuid;
 END;
 
 -- fk debug delete trigger for secret_backend for fk ref from secret_backend_rotation
@@ -753,20 +753,6 @@ BEGIN
         WHERE state_type_id=OLD.id;
 END;
 
--- fk debug delete trigger for controller_node for fk ref from upgrade_info_controller_node
-CREATE TRIGGER trg_fk_debug_upgrade_info_controller_node_1
-BEFORE DELETE ON 'controller_node' FOR EACH ROW
-BEGIN
-        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
-                    THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM controller_node due to referencing rows in upgrade_info_controller_node ON controller_node_id')
-                    ELSE
-                        NULL
-                    END panic
-        FROM 'upgrade_info_controller_node'
-        WHERE controller_node_id=OLD.controller_id;
-END;
-
 -- fk debug delete trigger for upgrade_info for fk ref from upgrade_info_controller_node
 CREATE TRIGGER trg_fk_debug_upgrade_info_controller_node_0
 BEFORE DELETE ON 'upgrade_info' FOR EACH ROW
@@ -779,6 +765,20 @@ BEGIN
                     END panic
         FROM 'upgrade_info_controller_node'
         WHERE upgrade_info_uuid=OLD.uuid;
+END;
+
+-- fk debug delete trigger for controller_node for fk ref from upgrade_info_controller_node
+CREATE TRIGGER trg_fk_debug_upgrade_info_controller_node_1
+BEFORE DELETE ON 'controller_node' FOR EACH ROW
+BEGIN
+        SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
+                    THEN
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM controller_node due to referencing rows in upgrade_info_controller_node ON controller_node_id')
+                    ELSE
+                        NULL
+                    END panic
+        FROM 'upgrade_info_controller_node'
+        WHERE controller_node_id=OLD.controller_id;
 END;
 
 -- fk debug delete trigger for user for fk ref from user
