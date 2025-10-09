@@ -38,9 +38,8 @@ func NewClientCredentialsLoginProviderFromEnvironment(f func()) *clientCredentia
 	clientSecret := os.Getenv(clientSecretEnvVar)
 
 	return &clientCredentialsLoginProvider{
-		populatedFromEnvironment: true,
-		clientID:                 clientID,
-		clientSecret:             clientSecret,
+		clientID:     clientID,
+		clientSecret: clientSecret,
 
 		afterLoginCallback: f,
 	}
@@ -57,10 +56,6 @@ func NewClientCredentialsLoginProvider(clientID, clientSecret string) *clientCre
 }
 
 type clientCredentialsLoginProvider struct {
-	// populatedFromEnvironment is true if the client ID and secret were
-	// populated from the environment.
-	populatedFromEnvironment bool
-
 	clientID     string
 	clientSecret string
 
