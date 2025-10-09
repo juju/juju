@@ -79,27 +79,29 @@ func ControllerDDL() *schema.Schema {
 	}
 
 	// Changestream triggers.
-	patches = append(patches,
-		triggers.ChangeLogTriggersForCloud("uuid", tableCloud),
-		triggers.ChangeLogTriggersForCloudCaCert("cloud_uuid", tableCloudCACert),
-		triggers.ChangeLogTriggersForCloudCredential("uuid", tableCloudCredential),
-		triggers.ChangeLogTriggersForCloudCredentialAttribute("cloud_credential_uuid", tableCloudCredentialAttribute),
-		triggers.ChangeLogTriggersForExternalController("uuid", tableExternalController),
-		triggers.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
-		triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
-		triggers.ChangeLogTriggersForControllerApiAddress("controller_id", tableControllerAPIAddress),
-		triggers.ChangeLogTriggersForModelMigrationStatus("uuid", tableModelMigrationStatus),
-		triggers.ChangeLogTriggersForModelMigrationMinionSync("uuid", tableModelMigrationMinionSync),
-		triggers.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),
-		triggers.ChangeLogTriggersForUpgradeInfoControllerNode("upgrade_info_uuid", tableUpgradeInfoControllerNode),
-		triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableObjectStoreMetadata),
-		triggers.ChangeLogTriggersForObjectStoreDrainInfo("uuid", tableObjectStoreDrainInfo),
-		triggers.ChangeLogTriggersForSecretBackendRotation("backend_uuid", tableSecretBackendRotation),
-		triggers.ChangeLogTriggersForModelSecretBackend("model_uuid", tableModelSecretBackend),
-		triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
-		triggers.ChangeLogTriggersForModelAuthorizedKeys("model_uuid", tableModelAuthorizedKeys),
-		triggers.ChangeLogTriggersForUserAuthentication("user_uuid", tableUserAuthentication),
-	)
+	if EnableGenerated {
+		patches = append(patches,
+			triggers.ChangeLogTriggersForCloud("uuid", tableCloud),
+			triggers.ChangeLogTriggersForCloudCaCert("cloud_uuid", tableCloudCACert),
+			triggers.ChangeLogTriggersForCloudCredential("uuid", tableCloudCredential),
+			triggers.ChangeLogTriggersForCloudCredentialAttribute("cloud_credential_uuid", tableCloudCredentialAttribute),
+			triggers.ChangeLogTriggersForExternalController("uuid", tableExternalController),
+			triggers.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
+			triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
+			triggers.ChangeLogTriggersForControllerApiAddress("controller_id", tableControllerAPIAddress),
+			triggers.ChangeLogTriggersForModelMigrationStatus("uuid", tableModelMigrationStatus),
+			triggers.ChangeLogTriggersForModelMigrationMinionSync("uuid", tableModelMigrationMinionSync),
+			triggers.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),
+			triggers.ChangeLogTriggersForUpgradeInfoControllerNode("upgrade_info_uuid", tableUpgradeInfoControllerNode),
+			triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableObjectStoreMetadata),
+			triggers.ChangeLogTriggersForObjectStoreDrainInfo("uuid", tableObjectStoreDrainInfo),
+			triggers.ChangeLogTriggersForSecretBackendRotation("backend_uuid", tableSecretBackendRotation),
+			triggers.ChangeLogTriggersForModelSecretBackend("model_uuid", tableModelSecretBackend),
+			triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
+			triggers.ChangeLogTriggersForModelAuthorizedKeys("model_uuid", tableModelAuthorizedKeys),
+			triggers.ChangeLogTriggersForUserAuthentication("user_uuid", tableUserAuthentication),
+		)
+	}
 
 	// Generic triggers.
 	patches = append(patches,
