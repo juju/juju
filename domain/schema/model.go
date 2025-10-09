@@ -25,7 +25,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/operation-triggers.gen.go -package=triggers -tables=operation_task_log
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer,application_remote_consumer
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -93,6 +93,7 @@ const (
 	tableApplicationEndpoint
 	tableOperationTaskLog
 	tableCrossModelRelationApplicationRemoteOfferers
+	tableCrossModelRelationApplicationRemoteConsumers
 )
 
 // ModelDDL is used to create model databases.
@@ -173,6 +174,8 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForOperationTaskLog("task_uuid", tableOperationTaskLog),
 		triggers.ChangeLogTriggersForApplicationRemoteOfferer("uuid",
 			tableCrossModelRelationApplicationRemoteOfferers),
+		triggers.ChangeLogTriggersForApplicationRemoteConsumer("uuid",
+			tableCrossModelRelationApplicationRemoteConsumers),
 	)
 
 	// Generic triggers.

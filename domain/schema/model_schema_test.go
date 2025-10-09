@@ -649,6 +649,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_application_remote_offerer_delete",
 		"trg_log_application_remote_offerer_insert",
 		"trg_log_application_remote_offerer_update",
+
+		"trg_log_application_remote_consumer_delete",
+		"trg_log_application_remote_consumer_insert",
+		"trg_log_application_remote_consumer_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but

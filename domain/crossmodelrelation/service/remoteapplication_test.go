@@ -582,3 +582,52 @@ func (s *remoteApplicationServiceSuite) TestGetApplicationNameAndUUIDByOfferUUID
 	_, _, err := service.GetApplicationNameAndUUIDByOfferUUID(c.Context(), offerUUID)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
+
+func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationConsumers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := []crossmodelrelation.RemoteApplicationConsumer{{
+		ApplicationName: "remote-app-1",
+		Life:            life.Alive,
+		OfferUUID:       "offer-uuid-1",
+		ConsumeVersion:  0,
+	}, {
+		ApplicationName: "remote-app-2",
+		Life:            life.Dying,
+		OfferUUID:       "offer-uuid-2",
+		ConsumeVersion:  3,
+	}}
+
+	s.modelState.EXPECT().GetRemoteApplicationConsumers(gomock.Any()).Return(expected, nil)
+
+	service := s.service(c)
+
+	actual, err := service.GetRemoteApplicationConsumers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(actual, tc.DeepEquals, expected)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationConsumersEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := []crossmodelrelation.RemoteApplicationConsumer{}
+
+	s.modelState.EXPECT().GetRemoteApplicationConsumers(gomock.Any()).Return(expected, nil)
+
+	service := s.service(c)
+
+	actual, err := service.GetRemoteApplicationConsumers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(actual, tc.DeepEquals, expected)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationConsumersError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetRemoteApplicationConsumers(gomock.Any()).Return(nil, internalerrors.Errorf("front fell off"))
+
+	service := s.service(c)
+
+	_, err := service.GetRemoteApplicationConsumers(c.Context())
+	c.Assert(err, tc.ErrorMatches, "front fell off")
+}

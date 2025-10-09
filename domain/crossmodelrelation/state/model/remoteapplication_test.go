@@ -786,6 +786,193 @@ func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUIDNotExists
 	c.Assert(err, tc.ErrorMatches, "application not found")
 }
 
+func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersSingle(c *tc.C) {
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Local (offerer-side) application setup.
+	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, localCharmUUID)
+	s.createApplication(c, localAppUUID, localCharmUUID, offerUUID)
+
+	ch := charm.Charm{
+		ReferenceName: "rem-1",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {Name: "db", Role: charm.RoleProvider, Interface: "db", Limit: 1, Scope: charm.ScopeGlobal},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 ch,
+		},
+		RelationUUID: relationUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	results, err := s.state.GetRemoteApplicationConsumers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0].ApplicationName, tc.Equals, "foo")
+	c.Check(results[0].OfferUUID, tc.Equals, offerUUID)
+	c.Check(results[0].ConsumeVersion, tc.Equals, 0)
+	c.Check(results[0].Life, tc.Equals, life.Alive)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersMultiple(c *tc.C) {
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+
+	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, localCharmUUID)
+	s.createApplication(c, localAppUUID, localCharmUUID, offerUUID)
+
+	makeCharm := func(name string) charm.Charm {
+		return charm.Charm{
+			ReferenceName: name,
+			Source:        charm.CMRSource,
+			Metadata: charm.Metadata{
+				Name:        name,
+				Description: "remote consumer app",
+				Provides: map[string]charm.Relation{
+					"db": {Name: "db", Role: charm.RoleProvider, Interface: "db", Limit: 1, Scope: charm.ScopeGlobal},
+				},
+				Requires: map[string]charm.Relation{},
+				Peers:    map[string]charm.Relation{},
+			},
+		}
+	}
+
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID1,
+			CharmUUID:             charmUUID1,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 makeCharm("foo"),
+		},
+		RelationUUID: relationUUID1,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddRemoteApplicationConsumer(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID2,
+			CharmUUID:             charmUUID2,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 makeCharm("bar"),
+		},
+		RelationUUID: relationUUID2,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	results, err := s.state.GetRemoteApplicationConsumers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 2)
+
+	// Order not strictly guaranteed; map by name.
+	found := map[string]crossmodelrelation.RemoteApplicationConsumer{}
+	for _, r := range results {
+		found[r.ApplicationName] = r
+	}
+
+	foo := found["foo"]
+	bar := found["bar"]
+
+	// Versions should increment per offer (shared offerUUID).
+	if foo.ConsumeVersion == 0 {
+		c.Check(bar.ConsumeVersion, tc.Equals, 1)
+	} else {
+		c.Check(foo.ConsumeVersion, tc.Equals, 1)
+		c.Check(bar.ConsumeVersion, tc.Equals, 0)
+	}
+
+	c.Check(foo.OfferUUID, tc.Equals, offerUUID)
+	c.Check(bar.OfferUUID, tc.Equals, offerUUID)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersEmpty(c *tc.C) {
+	results, err := s.state.GetRemoteApplicationConsumers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 0)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersFiltersDead(c *tc.C) {
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, localCharmUUID)
+	s.createApplication(c, localAppUUID, localCharmUUID, offerUUID)
+
+	ch := charm.Charm{
+		ReferenceName: "dead-one",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "dead-one",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {Name: "db", Role: charm.RoleProvider, Interface: "db", Limit: 1, Scope: charm.ScopeGlobal},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "dead-one", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 ch,
+		},
+		RelationUUID: relationUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Mark consumer record as Dead (life_id = 2) so it should be filtered out.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, e := tx.ExecContext(ctx, `
+UPDATE application_remote_consumer
+SET life_id = 2
+WHERE consumer_application_uuid = ?`, appUUID)
+		return e
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	results, err := s.state.GetRemoteApplicationConsumers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 0)
+}
+
 func (s *modelRemoteApplicationSuite) assertApplicationRemoteConsumer(c *tc.C, applicationUUID string) {
 	var count int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

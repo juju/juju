@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
@@ -132,7 +131,16 @@ func NewWatchableService(
 // WatchRemoteApplicationConsumers watches the changes to remote
 // application consumers and notifies the worker of any changes.
 func (w *WatchableService) WatchRemoteApplicationConsumers(ctx context.Context) (watcher.NotifyWatcher, error) {
-	return nil, errors.NotImplemented
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	table := w.modelState.NamespaceRemoteApplicationConsumers()
+
+	return w.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"watch remote application consumer",
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
 }
 
 // WatchRemoteApplicationOfferers watches the changes to remote application
