@@ -22,6 +22,8 @@ import (
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-authorized-keys-triggers.gen.go -package=triggers -tables=model_authorized_keys
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/user-authentication-triggers.gen.go -package=triggers -tables=user_authentication
 
+//go:generate go run ./../../generate/fktriggergen -db=controller -destination=./controller/triggers/fk-triggers.gen.go -package=triggers
+
 //go:embed controller/sql/*.sql
 var controllerSchemaDir embed.FS
 

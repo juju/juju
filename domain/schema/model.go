@@ -27,6 +27,8 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/operation-triggers.gen.go -package=triggers -tables=operation_task_log
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer
 
+//go:generate go run ./../../generate/fktriggergen -db=model -destination=./model/triggers/fk-triggers.gen.go -package=triggers
+
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
 
