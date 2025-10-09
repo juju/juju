@@ -35,6 +35,11 @@ type UnitState interface {
 		ctx context.Context, unitUUID string, destroyStorage bool,
 	) (internal.CascadedUnitLives, error)
 
+	// GetRelationUnitsForUnit returns all relation-unit UUIDs for the input
+	// unit UUID, thereby indicating what relations have this unit in their
+	// scopes.
+	GetRelationUnitsForUnit(ctx context.Context, unitUUID string) ([]string, error)
+
 	// UnitScheduleRemoval schedules a removal job for the unit with the
 	// input unit UUID, qualified with the input force boolean.
 	UnitScheduleRemoval(ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time) error
@@ -146,6 +151,29 @@ func (s *Service) MarkUnitAsDead(ctx context.Context, unitUUID unit.UUID) error 
 	return s.modelState.MarkUnitAsDead(ctx, unitUUID.String())
 }
 
+// leaveAllRelationScopes departs this unit from any relations that it is
+// in-scope for. This must be called after the unit is dying, so we know it will
+// not join any new relations from now on.
+func (s *Service) leaveAllRelationScopes(ctx context.Context, unitUUID unit.UUID) error {
+	relUnits, err := s.modelState.GetRelationUnitsForUnit(ctx, unitUUID.String())
+	if err != nil {
+		return errors.Errorf("getting relation scopes for unit %q: %w", unitUUID, err)
+	}
+
+	if len(relUnits) == 0 {
+		return nil
+	}
+	s.logger.Infof(ctx, "unit %q departing relation scopes: %v", unitUUID, relUnits)
+
+	for _, ru := range relUnits {
+		if err := s.modelState.LeaveScope(ctx, ru); err != nil {
+			return errors.Errorf("removing relation unit %q: %w", ru, err)
+		}
+	}
+
+	return nil
+}
+
 func (s *Service) unitScheduleRemoval(
 	ctx context.Context, unitUUID unit.UUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {
@@ -195,6 +223,16 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 
 	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
 		return errors.Errorf("revoking leadership: %w", err)
+	}
+
+	// If we are forcing this removal because the uniter is not running though
+	// its usual workflow, we need to ensure that it is not participating in
+	// any relations. Otherwise the deletion below will fail due to violated
+	// referential integrity constraints.
+	if job.Force {
+		if err := s.leaveAllRelationScopes(ctx, unit.UUID(job.EntityUUID)); err != nil {
+			return errors.Capture(err)
+		}
 	}
 
 	// Once we've removed leadership, we can delete the unit.

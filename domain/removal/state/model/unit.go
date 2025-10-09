@@ -281,6 +281,35 @@ AND    life_id = 0`, entityUUID{})
 	return result.UUID, nil
 }
 
+// GetRelationUnitsForUnit returns all relation-unit UUIDs for the input unit
+// UUID, thereby indicating what relations have this unit in their scopes.
+func (st *State) GetRelationUnitsForUnit(ctx context.Context, unitUUID string) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	uUUID := entityUUID{UUID: unitUUID}
+
+	stmt, err := st.Prepare("SELECT &entityUUID.uuid FROM relation_unit WHERE unit_uuid = $entityUUID.uuid", uUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing relation units query: %w", err)
+	}
+
+	var rUnits []entityUUID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, uUUID).GetAll(&rUnits)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("running relation units query: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(rUnits, func(e entityUUID) string { return e.UUID }), nil
+}
+
 // UnitScheduleRemoval schedules a removal job for the unit with the
 // input UUID, qualified with the input force boolean.
 // We don't care if the unit does not exist at this point because:

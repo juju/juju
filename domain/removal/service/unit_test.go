@@ -172,6 +172,28 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *unitSuite) TestExecuteJobWithForceForUnitDyingDeleteUnit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ruUUID := "some-relation-unit"
+
+	j := newUnitJob(c)
+	j.Force = true
+
+	exp := s.modelState.EXPECT()
+	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
+	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return([]string{ruUUID}, nil)
+	exp.LeaveScope(gomock.Any(), ruUUID).Return(nil)
+	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
