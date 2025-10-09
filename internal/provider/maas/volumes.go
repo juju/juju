@@ -35,13 +35,23 @@ const (
 )
 
 // RecommendedPoolForKind returns the recommended storage pool to use for
-// the given storage kind. If no pool can be recommended nil is returned.
+// the given storage kind. If no pool can be recommended nil is returned. For
+// the MAAS provider the "maas" pool is returned for both filesystems and block
+// devices.
 //
-// Implements [storage.PoolAdvisor] interface.
+// Implements [storage.ProviderRegistry] interface.
 func (*maasEnviron) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
-	return common.GetCommonRecommendedIAASPoolForKind(kind)
+	switch kind {
+	case storage.StorageKindBlock, storage.StorageKindFilesystem:
+		defaultPool, _ := storage.NewConfig(
+			maasStorageProviderType.String(), maasStorageProviderType, storage.Attrs{},
+		)
+		return defaultPool
+	default:
+		return common.GetCommonRecommendedIAASPoolForKind(kind)
+	}
 }
 
 // StorageProviderTypes implements storage.ProviderRegistry.
