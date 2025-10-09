@@ -606,7 +606,7 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 
 		var savedRevisionDocs []secretRevisionDoc
 		err := secretRevisionsCollection.Find(bson.D{{"_id",
-			bson.D{{"$regex", st.secretURIRegex(uri, "/")}}}}).Select(
+			bson.D{{"$regex", st.localSecretURIRegex(uri, "/")}}}}).Select(
 			bson.D{{"revision", 1}, {"value-reference", 1}}).All(&savedRevisionDocs)
 		if err != nil {
 			return nil, errors.Annotatef(err, "counting revisions for %s", uri.String())
@@ -628,14 +628,10 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 			}
 		}
 		if savedRevisions.Difference(toDelete).Size() > 0 {
-			revs := make([]string, len(revisions))
-			for i, r := range revisions {
-				revs[i] = strconv.Itoa(r)
-			}
-			revisionRegexp := fmt.Sprintf("(%s)", strings.Join(revs, "|"))
-			_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
-				"_id", bson.D{{"$regex", st.secretURIRegex(uri, fmt.Sprintf("/%s$", revisionRegexp))}},
-			}})
+			_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{
+				{"_id", bson.D{{"$regex", st.localSecretURIRegex(uri, "/")}}},
+				{"revision", bson.D{{"$in", revisions}}},
+			})
 			if err != nil {
 				return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
 			}
@@ -707,7 +703,7 @@ func (st *State) deleteOne(db Database, uri *secrets.URI) (external []secrets.Va
 	var savedRevisionDocs []secretRevisionDoc
 	externalRevisionCounts := make(map[string]int)
 	err = secretRevisionsCollection.Find(bson.D{{"_id",
-		bson.D{{"$regex", st.secretURIRegex(uri, "/")}}}}).Select(
+		bson.D{{"$regex", st.localSecretURIRegex(uri, "/")}}}}).Select(
 		bson.D{{"revision", 1}, {"value-reference", 1}}).All(&savedRevisionDocs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "reading revisions for %s", uri.String())
@@ -722,7 +718,7 @@ func (st *State) deleteOne(db Database, uri *secrets.URI) (external []secrets.Va
 		}
 	}
 	_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
-		"_id", bson.D{{"$regex", st.secretURIRegex(uri, "/")}},
+		"_id", bson.D{{"$regex", st.localSecretURIRegex(uri, "/")}},
 	}})
 	if err != nil {
 		return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
@@ -731,7 +727,7 @@ func (st *State) deleteOne(db Database, uri *secrets.URI) (external []secrets.Va
 	secretPermissionsCollection, closer := db.GetCollection(secretPermissionsC)
 	defer closer()
 	_, err = secretPermissionsCollection.Writeable().RemoveAll(bson.D{{
-		"_id", bson.D{{"$regex", st.secretURIRegex(uri, "#")}},
+		"_id", bson.D{{"$regex", st.localSecretURIRegex(uri, "#")}},
 	}})
 	if err != nil {
 		return nil, errors.Annotatef(err, "deleting permissions for %s", uri.String())
@@ -888,7 +884,7 @@ func (s *secretsStore) SecretGrants(uri *secrets.URI, role secrets.SecretRole) (
 	err := secretPermissionsCollection.Find(
 		bson.M{
 			"_id": bson.M{
-				"$regex": s.st.secretURIRegex(uri, "#"),
+				"$regex": s.st.localSecretURIRegex(uri, "#"),
 			},
 			"role": role,
 		},
@@ -1126,7 +1122,7 @@ func (s *secretsStore) ListUnusedSecretRevisions(uri *secrets.URI) ([]int, error
 	return revisions, nil
 }
 
-func (st *State) secretURIRegex(uri *secrets.URI, terminator string) string {
+func (st *State) localSecretURIRegex(uri *secrets.URI, terminator string) string {
 	return "^" + st.ModelUUID() + ":" + uri.ID + terminator
 }
 
@@ -1152,7 +1148,7 @@ func (s *secretsStore) listSecretRevisionDocs(uri *secrets.URI, revision *int) (
 	)
 
 	if revision == nil {
-		q = bson.D{{"_id", bson.D{{"$regex", s.st.secretURIRegex(uri, "/")}}}}
+		q = bson.D{{"_id", bson.D{{"$regex", s.st.localSecretURIRegex(uri, "/")}}}}
 	} else {
 		q = bson.D{{"_id", secretRevisionKey(uri, *revision)}}
 	}
@@ -1568,7 +1564,7 @@ func (st *State) removeSecretConsumerInfo(uri *secrets.URI) error {
 		bson.D{
 			{
 				Name: "$and", Value: []bson.D{
-					{{"_id", bson.D{{"$regex", st.secretURIRegex(uri, "#")}}}},
+					{{"_id", bson.D{{"$regex", st.localSecretURIRegex(uri, "#")}}}},
 					{{"label", bson.D{{"$exists", true}, {"$ne", ""}}}},
 				},
 			},
@@ -1591,7 +1587,7 @@ func (st *State) removeSecretConsumerInfo(uri *secrets.URI) error {
 	}
 
 	_, err = secretConsumersCollection.Writeable().RemoveAll(bson.D{{
-		"_id", bson.D{{"$regex", st.secretURIRegex(uri, "#")}},
+		"_id", bson.D{{"$regex", st.localSecretURIRegex(uri, "#")}},
 	}})
 	if err != nil {
 		return errors.Annotatef(err, "cannot delete consumer info for %s", uri.String())
@@ -1604,7 +1600,7 @@ func (st *State) removeSecretRemoteConsumerInfo(uri *secrets.URI) error {
 	defer closer()
 
 	_, err := secretConsumersCollection.Writeable().RemoveAll(bson.D{{
-		"_id", bson.D{{"$regex", st.secretURIRegex(uri, "#")}},
+		"_id", bson.D{{"$regex", st.localSecretURIRegex(uri, "#")}},
 	}})
 	if err != nil {
 		return errors.Annotatef(err, "cannot delete remote consumer info for %s", uri.String())
