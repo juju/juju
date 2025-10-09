@@ -122,6 +122,7 @@ func (s *taskSuite) TestGetTaskWithTypedParameters(c *tc.C) {
 	// Values that should remain as strings
 	s.addOperationParameter(c, operationUUID, "str", "hello")
 	s.addOperationParameter(c, operationUUID, "quoted-num", `"42"`)
+	s.addOperationParameter(c, operationUUID, "string-with-quote", "state-get | grep \"{}\"")
 
 	// Act
 	task, _, err := s.state.GetTask(c.Context(), taskID)
@@ -154,6 +155,9 @@ func (s *taskSuite) TestGetTaskWithTypedParameters(c *tc.C) {
 	vQte, ok := task.Parameters["quoted-num"].(string)
 	c.Assert(ok, tc.Equals, true)
 	c.Check(vQte, tc.Equals, "42")
+	vStrWithQuote, ok := task.Parameters["string-with-quote"].(string)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vStrWithQuote, tc.Equals, "state-get | grep \"{}\"")
 }
 
 func (s *taskSuite) TestGetTaskWithLogs(c *tc.C) {
