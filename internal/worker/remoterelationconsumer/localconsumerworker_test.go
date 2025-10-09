@@ -1595,7 +1595,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 		OfferUUID:        s.offerUUID,
 		Macaroons:        macaroon.Slice{s.macaroon},
 		RemoteEndpoint: params.RemoteEndpoint{
-			Name:      "db",
+			Name:      s.applicationName + ":db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
