@@ -339,10 +339,12 @@ END;` + "`" + `, columnName, namespaceID))
 {{end}}`
 
 func controllerSchema() *databaseschema.Schema {
+	schema.EnableGenerated = false
 	return schema.ControllerDDL()
 }
 
 func modelSchema() *databaseschema.Schema {
+	schema.EnableGenerated = false
 	return schema.ModelDDL()
 }
 

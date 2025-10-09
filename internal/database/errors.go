@@ -5,6 +5,7 @@ package database
 
 import (
 	"database/sql"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/mattn/go-sqlite3"
@@ -31,6 +32,10 @@ func IsErrConstraintCheck(err error) bool {
 func IsErrConstraintForeignKey(err error) bool {
 	if err == nil || drivererrors.IsErrLocked(err) {
 		return false
+	}
+	if drivererrors.IsExtendedErrorCode(err, sqlite3.ErrConstraintTrigger) {
+		// This is emitted by the FK debug triggers.
+		return strings.HasPrefix(err.Error(), "Foreign Key violation")
 	}
 	return drivererrors.IsExtendedErrorCode(err, sqlite3.ErrConstraintForeignKey)
 }

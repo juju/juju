@@ -22,6 +22,8 @@ import (
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-authorized-keys-triggers.gen.go -package=triggers -tables=model_authorized_keys
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/user-authentication-triggers.gen.go -package=triggers -tables=user_authentication
 
+//go:generate go run ./../../generate/fktriggergen -db=controller -destination=./controller/triggers/fk-triggers.gen.go -package=triggers
+
 //go:embed controller/sql/*.sql
 var controllerSchemaDir embed.FS
 
@@ -79,27 +81,29 @@ func ControllerDDL() *schema.Schema {
 	}
 
 	// Changestream triggers.
-	patches = append(patches,
-		triggers.ChangeLogTriggersForCloud("uuid", tableCloud),
-		triggers.ChangeLogTriggersForCloudCaCert("cloud_uuid", tableCloudCACert),
-		triggers.ChangeLogTriggersForCloudCredential("uuid", tableCloudCredential),
-		triggers.ChangeLogTriggersForCloudCredentialAttribute("cloud_credential_uuid", tableCloudCredentialAttribute),
-		triggers.ChangeLogTriggersForExternalController("uuid", tableExternalController),
-		triggers.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
-		triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
-		triggers.ChangeLogTriggersForControllerApiAddress("controller_id", tableControllerAPIAddress),
-		triggers.ChangeLogTriggersForModelMigrationStatus("uuid", tableModelMigrationStatus),
-		triggers.ChangeLogTriggersForModelMigrationMinionSync("uuid", tableModelMigrationMinionSync),
-		triggers.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),
-		triggers.ChangeLogTriggersForUpgradeInfoControllerNode("upgrade_info_uuid", tableUpgradeInfoControllerNode),
-		triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableObjectStoreMetadata),
-		triggers.ChangeLogTriggersForObjectStoreDrainInfo("uuid", tableObjectStoreDrainInfo),
-		triggers.ChangeLogTriggersForSecretBackendRotation("backend_uuid", tableSecretBackendRotation),
-		triggers.ChangeLogTriggersForModelSecretBackend("model_uuid", tableModelSecretBackend),
-		triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
-		triggers.ChangeLogTriggersForModelAuthorizedKeys("model_uuid", tableModelAuthorizedKeys),
-		triggers.ChangeLogTriggersForUserAuthentication("user_uuid", tableUserAuthentication),
-	)
+	if EnableGenerated {
+		patches = append(patches,
+			triggers.ChangeLogTriggersForCloud("uuid", tableCloud),
+			triggers.ChangeLogTriggersForCloudCaCert("cloud_uuid", tableCloudCACert),
+			triggers.ChangeLogTriggersForCloudCredential("uuid", tableCloudCredential),
+			triggers.ChangeLogTriggersForCloudCredentialAttribute("cloud_credential_uuid", tableCloudCredentialAttribute),
+			triggers.ChangeLogTriggersForExternalController("uuid", tableExternalController),
+			triggers.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
+			triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
+			triggers.ChangeLogTriggersForControllerApiAddress("controller_id", tableControllerAPIAddress),
+			triggers.ChangeLogTriggersForModelMigrationStatus("uuid", tableModelMigrationStatus),
+			triggers.ChangeLogTriggersForModelMigrationMinionSync("uuid", tableModelMigrationMinionSync),
+			triggers.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),
+			triggers.ChangeLogTriggersForUpgradeInfoControllerNode("upgrade_info_uuid", tableUpgradeInfoControllerNode),
+			triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableObjectStoreMetadata),
+			triggers.ChangeLogTriggersForObjectStoreDrainInfo("uuid", tableObjectStoreDrainInfo),
+			triggers.ChangeLogTriggersForSecretBackendRotation("backend_uuid", tableSecretBackendRotation),
+			triggers.ChangeLogTriggersForModelSecretBackend("model_uuid", tableModelSecretBackend),
+			triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
+			triggers.ChangeLogTriggersForModelAuthorizedKeys("model_uuid", tableModelAuthorizedKeys),
+			triggers.ChangeLogTriggersForUserAuthentication("user_uuid", tableUserAuthentication),
+		)
+	}
 
 	// Generic triggers.
 	patches = append(patches,
@@ -110,6 +114,15 @@ func ControllerDDL() *schema.Schema {
 			"OLD.backend_type_id IN (0, 1)",
 			"secret backends with type controller or kubernetes are immutable"),
 	)
+
+	// Debug triggers.
+	if EnableDebug {
+		if EnableGenerated {
+			patches = append(patches,
+				triggers.FKDebugTriggers(),
+			)
+		}
+	}
 
 	ctrlSchema := schema.New()
 	for _, fn := range patches {
