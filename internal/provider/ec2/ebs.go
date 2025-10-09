@@ -161,13 +161,23 @@ const (
 var deviceInUseRegexp = regexp.MustCompile(".*Attachment point .* is already in use")
 
 // RecommendedPoolForKind returns the recommended storage pool to use for
-// the given storage kind. If no pool can be recommended nil is returned.
+// the given storage kind. If no pool can be recommended nil is returned. The
+// EC2 provider recommends that for block and filesystem storage the "ebs" pool
+// is used.
 //
-// Implements [storage.PoolAdvisor] interface.
+// Implements [storage.ProviderRegistry] interface.
 func (*environ) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
-	return common.GetCommonRecommendedIAASPoolForKind(kind)
+	switch kind {
+	case storage.StorageKindBlock, storage.StorageKindFilesystem:
+		defaultPool, _ := storage.NewConfig(
+			EBS_ProviderType.String(), EBS_ProviderType, storage.Attrs{},
+		)
+		return defaultPool
+	default:
+		return common.GetCommonRecommendedIAASPoolForKind(kind)
+	}
 }
 
 // StorageProviderTypes implements storage.ProviderRegistry.
