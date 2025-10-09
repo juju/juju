@@ -23,19 +23,19 @@ var (
 )
 
 const (
-	// ClientIDEnvVar is the environment variable used to specify the client ID
+	// clientIDEnvVar is the environment variable used to specify the client ID
 	// for client credentials authentication.
-	ClientIDEnvVar = "JUJU_CLIENT_ID"
-	// ClientSecretEnvVar is the environment variable used to specify the client
+	clientIDEnvVar = "JUJU_CLIENT_ID"
+	// clientSecretEnvVar is the environment variable used to specify the client
 	// secret for client credentials authentication.
-	ClientSecretEnvVar = "JUJU_CLIENT_SECRET"
+	clientSecretEnvVar = "JUJU_CLIENT_SECRET"
 )
 
 // NewClientCredentialsLoginProvider returns a LoginProvider implementation that
 // authenticates the entity with the client credentials retrieved from the environment.
 func NewClientCredentialsLoginProviderFromEnvironment(f func()) *clientCredentialsLoginProvider {
-	clientID := os.Getenv(ClientIDEnvVar)
-	clientSecret := os.Getenv(ClientSecretEnvVar)
+	clientID := os.Getenv(clientIDEnvVar)
+	clientSecret := os.Getenv(clientSecretEnvVar)
 
 	return &clientCredentialsLoginProvider{
 		populatedFromEnvironment: true,
@@ -79,7 +79,7 @@ func (p *clientCredentialsLoginProvider) AuthHeader() (http.Header, error) {
 // Subsequent requests on the state will act as that entity.
 func (p *clientCredentialsLoginProvider) Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
 	if !p.clientIdAndSecretSet() {
-		return nil, errors.New(fmt.Sprintf("both %s and %s environment variables must be set", ClientIDEnvVar, ClientSecretEnvVar))
+		return nil, errors.New(fmt.Sprintf("both %s and %s environment variables must be set", clientIDEnvVar, clientSecretEnvVar))
 	}
 
 	var result params.LoginResult
