@@ -309,13 +309,17 @@ func (w *localConsumerWorker) loop() (err error) {
 				if errors.Is(err, relationerrors.RelationNotFound) {
 					// Relation has been removed, ensure that we don't have
 					// any workers still running for it.
-					if err := w.handleRelationRemoved(ctx, relationUUID, details.InScopeUnits); err != nil {
+					if err := w.handleRelationRemoved(ctx, relationUUID, 0); err != nil {
 						// If we fail to remove the relation, we must kill the
 						// worker, as nothing will come around and try again.
 						// Thus, kill it and force the application worker to
 						// restart and start afresh.
 						return errors.Annotatef(err, "cleaning up removed relation %q", relationUUID)
 					}
+
+					// Nothing to see here, wait for the next change.
+					continue
+
 				} else if err != nil {
 					return errors.Annotate(err, "querying relations")
 				}
@@ -499,7 +503,7 @@ func (w *localConsumerWorker) handleRelationChange(ctx context.Context, details 
 }
 
 func (w *localConsumerWorker) handleRelationSuspended(ctx context.Context, details relation.RelationDetails) error {
-	w.logger.Debugf(ctx, "(%v) relation %v suspended", details.Life, details.UUID)
+	w.logger.Debugf(ctx, "relation %q is suspended, there are %d units in-scope", details.UUID, details.InScopeUnits)
 
 	// If the relation is dying
 	if dead, err := w.isRelationWorkerDead(ctx, details.UUID); err != nil {
