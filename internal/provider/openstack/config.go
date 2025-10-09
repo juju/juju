@@ -118,9 +118,7 @@ func (p EnvironProvider) ConfigDefaults() schema.Defaults {
 // ModelConfigDefaults provides a set of default model config attributes that
 // should be set on a models config if they have not been specified by the user.
 func (p EnvironProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
-	return map[string]any{
-		config.StorageDefaultBlockSourceKey: CinderProviderType,
-	}, nil
+	return map[string]any{}, nil
 }
 
 func (p EnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
