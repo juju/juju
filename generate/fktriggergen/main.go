@@ -186,6 +186,7 @@ func listTables(ctx context.Context, runner *txnRunner) ([]string, error) {
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 		for rows.Next() {
 			t := tableListInfo{}
 			err := rows.Scan(
@@ -202,7 +203,7 @@ func listTables(ctx context.Context, runner *txnRunner) ([]string, error) {
 			}
 			names = append(names, t.name)
 		}
-		return rows.Close()
+		return rows.Err()
 	})
 	return names, err
 }
@@ -227,6 +228,7 @@ func listFKs(ctx context.Context, runner *txnRunner, tableName string) ([]fk, er
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 		for rows.Next() {
 			t := fk{
 				FromTable: tableName,
@@ -244,7 +246,7 @@ func listFKs(ctx context.Context, runner *txnRunner, tableName string) ([]fk, er
 			t.To = []string{to}
 			fks = append(fks, t)
 		}
-		return rows.Close()
+		return rows.Err()
 	})
 	return fks, err
 }
@@ -357,18 +359,4 @@ func Txn(ctx context.Context, db *sqlair.DB, fn func(context.Context, *sqlair.TX
 // handle transactions.
 func StdTxn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
 	return defaultTransactionRunner.StdTxn(ctx, db, fn)
-}
-
-type stringslice []string
-
-func (ss *stringslice) Set(s string) error {
-	(*ss) = append(*ss, strings.Split(s, ",")...)
-	return nil
-}
-
-func (ss *stringslice) String() string {
-	if len(*ss) <= 0 {
-		return "..."
-	}
-	return strings.Join(*ss, ", ")
 }
