@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/internal"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -205,17 +206,64 @@ func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLif
 // srvOfferStatusWatcher defines the API wrapping a
 // crossmodelrelations.OfferStatusWatcher.
 type srvOfferStatusWatcher struct {
+	watcher       crossmodelrelations.OfferWatcher
+	statusService StatusService
 }
 
 func newOfferStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	return &srvOfferStatusWatcher{}, nil
+	id := context.ID()
+	watcherRegistry := context.WatcherRegistry()
+
+	w, err := watcherRegistry.Get(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(crossmodelrelations.OfferWatcher)
+	if !ok {
+		return nil, errors.Errorf("watcher id: %q is not a OfferWatcher", id)
+	}
+
+	domainServices := context.DomainServices()
+
+	return &srvOfferStatusWatcher{
+		watcher:       watcher,
+		statusService: domainServices.Status(),
+	}, nil
 }
 
 // Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvOfferStatusWatcher.
 func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWatchResult, error) {
-	return params.OfferStatusWatchResult{}, nil
+	select {
+	case <-ctx.Done():
+		return params.OfferStatusWatchResult{}, ctx.Err()
+	case _, ok := <-w.watcher.Changes():
+		if !ok {
+			return params.OfferStatusWatchResult{}, errors.Errorf("offer watcher closed")
+		}
+		offerUUID := w.watcher.OfferUUID()
+		status, err := w.statusService.GetOfferStatus(ctx, offerUUID)
+		if err != nil {
+			return params.OfferStatusWatchResult{
+				Error: apiservererrors.ServerError(err),
+			}, nil
+		}
+
+		return params.OfferStatusWatchResult{
+			Changes: []params.OfferStatusChange{
+				{
+					OfferUUID: offerUUID.String(),
+					Status: params.EntityStatus{
+						Status: status.Status,
+						Info:   status.Message,
+						Data:   status.Data,
+						Since:  status.Since,
+					},
+				},
+			},
+		}, nil
+	}
 }
 
 // EntitiesWatcher defines an interface based on the StringsWatcher

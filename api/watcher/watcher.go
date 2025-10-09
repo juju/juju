@@ -704,10 +704,10 @@ func NewOfferStatusWatcher(
 func (w *offerStatusWatcher) mergeChanges(current, new []watcher.OfferStatusChange) []watcher.OfferStatusChange {
 	chMap := make(map[string]watcher.OfferStatusChange)
 	for _, c := range current {
-		chMap[c.Name] = c
+		chMap[c.UUID] = c
 	}
 	for _, c := range new {
-		chMap[c.Name] = c
+		chMap[c.UUID] = c
 	}
 	var result []watcher.OfferStatusChange
 	for _, c := range chMap {
@@ -726,7 +726,7 @@ func (w *offerStatusWatcher) loop(initialChanges []params.OfferStatusChange) err
 		result := make([]watcher.OfferStatusChange, len(changes))
 		for i, ch := range changes {
 			result[i] = watcher.OfferStatusChange{
-				Name: ch.OfferName,
+				UUID: ch.OfferUUID,
 				Status: status.StatusInfo{
 					Status:  ch.Status.Status,
 					Message: ch.Status.Info,

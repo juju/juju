@@ -1,4 +1,4 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package crossmodelrelations
@@ -12,21 +12,26 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/rpc/params"
 )
 
 // CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPIv3 struct {
-	modelUUID model.UUID
-	auth      facade.CrossModelAuthContext
+	modelUUID       model.UUID
+	auth            facade.CrossModelAuthContext
+	watcherRegistry facade.WatcherRegistry
 
 	crossModelRelationService CrossModelRelationService
+	statusService             StatusService
 
 	logger logger.Logger
 }
@@ -35,13 +40,17 @@ type CrossModelRelationsAPIv3 struct {
 func NewCrossModelRelationsAPI(
 	modelUUID model.UUID,
 	auth facade.CrossModelAuthContext,
+	watcherRegistry facade.WatcherRegistry,
 	crossModelRelationService CrossModelRelationService,
+	statusService StatusService,
 	logger logger.Logger,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
 		modelUUID:                 modelUUID,
 		auth:                      auth,
+		watcherRegistry:           watcherRegistry,
 		crossModelRelationService: crossModelRelationService,
+		statusService:             statusService,
 		logger:                    logger,
 	}, nil
 }
@@ -165,13 +174,75 @@ func (api *CrossModelRelationsAPIv3) WatchRelationsSuspendedStatus(
 	return params.RelationStatusWatchResults{}, nil
 }
 
+type OfferWatcher interface {
+	watcher.NotifyWatcher
+	OfferUUID() offer.UUID
+}
+
+type offerWatcherShim struct {
+	watcher.NotifyWatcher
+	offerUUID offer.UUID
+}
+
+func (w *offerWatcherShim) OfferUUID() offer.UUID {
+	return w.offerUUID
+}
+
 // WatchOfferStatus starts an OfferStatusWatcher for
 // watching the status of an offer.
 func (api *CrossModelRelationsAPIv3) WatchOfferStatus(
 	ctx context.Context,
 	offerArgs params.OfferArgs,
 ) (params.OfferStatusWatchResults, error) {
-	return params.OfferStatusWatchResults{}, nil
+	results := params.OfferStatusWatchResults{
+		Results: make([]params.OfferStatusWatchResult, len(offerArgs.Args)),
+	}
+
+	for i, offerArg := range offerArgs.Args {
+		// TODO: Auth for macaroons.
+		offerUUID, err := offer.ParseUUID(offerArg.OfferUUID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		w, err := api.statusService.WatchOfferStatus(ctx, offerUUID)
+		if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "offer %q not found", offerArg.OfferUUID)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		watcherID, _, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, &offerWatcherShim{
+			NotifyWatcher: w,
+			offerUUID:     offerUUID,
+		})
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		offerStatus, err := api.statusService.GetOfferStatus(ctx, offerUUID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i] = params.OfferStatusWatchResult{
+			OfferStatusWatcherId: watcherID,
+			Changes: []params.OfferStatusChange{
+				{
+					OfferUUID: offerUUID.String(),
+					Status: params.EntityStatus{
+						Status: offerStatus.Status,
+						Info:   offerStatus.Message,
+						Data:   offerStatus.Data,
+						Since:  offerStatus.Since,
+					},
+				},
+			},
+		}
+	}
+
+	return results, nil
 }
 
 // WatchConsumedSecretsChanges returns a watcher which notifies of changes to any secrets

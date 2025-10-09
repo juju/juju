@@ -11,23 +11,32 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"github.com/juju/worker/v4"
 	gomock "go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
+	corestatus "github.com/juju/juju/core/status"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
 type facadeSuite struct {
+	testhelpers.IsolationSuite
+
+	watcherRegistry           *facademocks.MockWatcherRegistry
+	statusService             *MockStatusService
 	crossModelRelationService *MockCrossModelRelationService
 	crossModelAuthContext     *MockCrossModelAuthContext
 	authenticator             *MockMacaroonAuthenticator
@@ -249,13 +258,73 @@ func (s *facadeSuite) TestRegisterRemoteRelationsCreateMacaroonError(c *tc.C) {
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "creating relation macaroon: mint failed")
 }
 
+func (s *facadeSuite) TestWatchOfferStatusNotFound(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	offerUUID := coreoffertesting.GenOfferUUID(c)
+
+	s.statusService.EXPECT().WatchOfferStatus(gomock.Any(), offerUUID).Return(nil, crossmodelrelationerrors.OfferNotFound)
+
+	results, err := s.api(c).WatchOfferStatus(c.Context(), params.OfferArgs{
+		Args: []params.OfferArg{{
+			OfferUUID: offerUUID.String(),
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *facadeSuite) TestWatchOfferStatus(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	offerUUID := coreoffertesting.GenOfferUUID(c)
+	changes := s.expectWatchOfferStatus(ctrl, offerUUID)
+	changes <- struct{}{}
+	s.statusService.EXPECT().GetOfferStatus(gomock.Any(), offerUUID).Return(corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "message",
+	}, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, w worker.Worker) (string, error) {
+			offerWatcher, ok := w.(OfferWatcher)
+			if c.Check(ok, tc.IsTrue) {
+				c.Check(offerWatcher.OfferUUID(), tc.Equals, offerUUID)
+			}
+			return "1", nil
+		})
+
+	results, err := s.api(c).WatchOfferStatus(c.Context(), params.OfferArgs{
+		Args: []params.OfferArg{{
+			OfferUUID: offerUUID.String(),
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[0].OfferStatusWatcherId, tc.Equals, "1")
+	c.Assert(results.Results[0].Changes, tc.HasLen, 1)
+	c.Check(results.Results[0].Changes[0].Status.Status, tc.Equals, corestatus.Active)
+	c.Check(results.Results[0].Changes[0].Status.Info, tc.Equals, "message")
+}
+
 func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
 	s.crossModelAuthContext = NewMockCrossModelAuthContext(ctrl)
 	s.authenticator = NewMockMacaroonAuthenticator(ctrl)
+
 	c.Cleanup(func() {
+		s.watcherRegistry = nil
 		s.crossModelRelationService = nil
+		s.statusService = nil
 		s.crossModelAuthContext = nil
 		s.authenticator = nil
 	})
@@ -266,7 +335,9 @@ func (s *facadeSuite) api(c *tc.C) *CrossModelRelationsAPIv3 {
 	api, err := NewCrossModelRelationsAPI(
 		s.modelUUID,
 		s.crossModelAuthContext,
+		s.watcherRegistry,
 		s.crossModelRelationService,
+		s.statusService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -285,4 +356,12 @@ func (s *facadeSuite) relationArg(appToken string, offerUUID offer.UUID, relatio
 		ConsumeVersion:    1,
 		SourceModelTag:    "",
 	}
+}
+
+func (s *facadeSuite) expectWatchOfferStatus(ctrl *gomock.Controller, offerUUID offer.UUID) chan struct{} {
+	mockWatcher := NewMockNotifyWatcher(ctrl)
+	changes := make(chan struct{}, 1)
+	mockWatcher.EXPECT().Changes().Return(changes)
+	s.statusService.EXPECT().WatchOfferStatus(gomock.Any(), gomock.Any()).Return(mockWatcher, nil)
+	return changes
 }

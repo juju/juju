@@ -446,8 +446,9 @@ type RelationStatusWatchResults struct {
 
 // OfferStatusChange describes the status of an offer.
 type OfferStatusChange struct {
-	// OfferName is the name of the offer.
-	OfferName string `json:"offer-name"`
+	// OfferUUID is the name of the offer.
+	// NOTE: We use the tag "offer-name" here for compatibility
+	OfferUUID string `json:"offer-name"`
 
 	// Status is the status of the offer.
 	Status EntityStatus `json:"status"`

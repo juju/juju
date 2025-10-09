@@ -11,7 +11,9 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	userservice "github.com/juju/juju/domain/access/service"
@@ -72,4 +74,12 @@ type AccessService interface {
 	// If the access level of a user cannot be found then
 	// accesserrors.AccessNotFound is returned.
 	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error)
+}
+
+type StatusService interface {
+	// GetOfferStatus returns the status of the specified offer. This status shadows
+	// the status of the application that the offer belongs to, except in the case
+	// where the application or offer has been removed. Then a Terminated status is
+	// returned.
+	GetOfferStatus(context.Context, offer.UUID) (status.StatusInfo, error)
 }

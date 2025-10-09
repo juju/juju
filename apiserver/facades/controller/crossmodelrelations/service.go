@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/offer"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 )
@@ -32,7 +33,13 @@ type CrossModelRelationsService interface {
 }
 
 type StatusService interface {
-	// WatchApplicationStatus watches the changes to the derived display status of
+	// GetOfferStatus returns the status of the specified offer. This status shadows
+	// the status of the application that the offer belongs to, except in the case
+	// where the application or offer has been removed. Then a Terminated status is
+	// returned.
+	GetOfferStatus(context.Context, offer.UUID) (status.StatusInfo, error)
+
+	// WatchOfferStatus watches the changes to the derived display status of
 	// the specified application.
-	WatchApplicationStatus(context.Context, application.UUID) (watcher.NotifyWatcher, error)
+	WatchOfferStatus(context.Context, offer.UUID) (watcher.NotifyWatcher, error)
 }

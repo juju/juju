@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -35,6 +35,7 @@ import (
 )
 
 type serviceSuite struct {
+	clock           *testclock.Clock
 	controllerState *MockControllerState
 	modelState      *MockModelState
 	statusHistory   *statusHistoryRecorder
@@ -2227,6 +2228,8 @@ func (s *serviceSuite) TestGetStatusNotFound(c *tc.C) {
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.clock = testclock.NewClock(time.Now())
+
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
@@ -2238,7 +2241,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		func() (StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
 		},
-		clock.WallClock,
+		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
 
