@@ -660,6 +660,7 @@ func (s *applicationSuite) TestDeleteApplicationNotWipingDeviceConstraints(c *tc
 	c.Assert(devices, tc.HasLen, 1)
 	c.Assert(devices["bitcoinminer"].Count, tc.Equals, 20)
 }
+
 func (s *applicationSuite) TestDeleteApplicationWithObjectstoreResource(c *tc.C) {
 	// Arrange: Two apps that share a resource object
 	appSvc := s.setupApplicationService(c)

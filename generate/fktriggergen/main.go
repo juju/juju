@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"os"
 	"os/signal"
 	"slices"
@@ -89,8 +90,37 @@ func main() {
 		if err != nil {
 			log.Fatalf("cannot read FKs for %s: %v", tableName, err)
 		}
-		allFKs = append(allFKs, fks...)
+		// Flatten composite FK constraints
+		grouped := map[string]fk{}
+		for _, fkc := range fks {
+			existing, ok := grouped[fkc.ID]
+			if !ok {
+				grouped[fkc.ID] = fkc
+				continue
+			}
+			if fkc.ToTable != existing.ToTable ||
+				fkc.Match != existing.Match ||
+				fkc.OnDelete != existing.OnDelete ||
+				fkc.OnUpdate != existing.OnUpdate {
+				log.Fatal("invalid fk value - mismatch")
+			}
+			if fkc.Seq <= existing.Seq {
+				log.Fatal("fk out of sequence")
+			}
+			merged := fkc
+			merged.From = append(existing.From, fkc.From...)
+			merged.To = append(existing.To, fkc.To...)
+			grouped[fkc.ID] = merged
+		}
+		allFKs = slices.AppendSeq(allFKs, maps.Values(grouped))
 	}
+
+	// Remove complex FK constraints
+	allFKs = slices.DeleteFunc(allFKs, func(fkc fk) bool {
+		return fkc.OnUpdate != "NO ACTION" ||
+			fkc.OnDelete != "NO ACTION" ||
+			fkc.Match != "NONE"
+	})
 
 	result, err := renderTemplates(allFKs, *destinationPackage)
 	if err != nil {
@@ -183,8 +213,8 @@ type fk struct {
 	ID       string
 	Seq      string
 	ToTable  string
-	From     string
-	To       string
+	From     []string
+	To       []string
 	OnUpdate string
 	OnDelete string
 	Match    string
@@ -201,13 +231,17 @@ func listFKs(ctx context.Context, runner *txnRunner, tableName string) ([]fk, er
 			t := fk{
 				FromTable: tableName,
 			}
+			from := ""
+			to := ""
 			err := rows.Scan(
-				&t.ID, &t.Seq, &t.ToTable, &t.From, &t.To,
+				&t.ID, &t.Seq, &t.ToTable, &from, &to,
 				&t.OnUpdate, &t.OnDelete, &t.Match,
 			)
 			if err != nil {
 				return err
 			}
+			t.From = []string{from}
+			t.To = []string{to}
 			fks = append(fks, t)
 		}
 		return rows.Close()
@@ -218,8 +252,8 @@ func listFKs(ctx context.Context, runner *txnRunner, tableName string) ([]fk, er
 func renderTemplates(fks []fk, destPackage string) (string, error) {
 	slices.SortFunc(fks, func(a fk, b fk) int {
 		return strings.Compare(
-			a.ToTable+a.To+a.FromTable+a.ID,
-			b.ToTable+b.To+b.FromTable+b.ID,
+			a.FromTable+b.ID,
+			b.FromTable+b.ID,
 		)
 	})
 
@@ -251,19 +285,19 @@ import (
 func FKDebugTriggers() func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(` + "`" + `
-{{range .FKs}}
+{{range $fk := .FKs}}
 -- fk debug delete trigger for {{.ToTable}} for fk ref from {{.FromTable}}
-CREATE TRIGGER trg_fk_debug_{{.ToTable}}_{{.To}}_{{.FromTable}}_{{.From}}
+CREATE TRIGGER trg_fk_debug_{{.FromTable}}_{{.ID}}
 BEFORE DELETE ON '{{.ToTable}}' FOR EACH ROW
 BEGIN
         SELECT CASE WHEN COUNT(*) > 0 AND (SELECT * FROM pragma_foreign_keys)
                     THEN
-                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM {{.ToTable}} due to referencing rows in {{.FromTable}} ON {{.From}}')
+                        RAISE(FAIL, 'Foreign Key violation during DELETE FROM {{.ToTable}} due to referencing rows in {{.FromTable}} ON{{range .From}} {{.}}{{end}}')
                     ELSE
                         NULL
                     END panic
         FROM '{{.FromTable}}'
-        WHERE {{.From}}=OLD.{{.To}};
+        WHERE {{range $i := len $fk.From}}{{if gt $i 0}} AND {{end}}{{index $fk.From $i}}=OLD.{{index $fk.To $i}}{{end}};
 END;
 {{end}}
 ` + "`" + `)

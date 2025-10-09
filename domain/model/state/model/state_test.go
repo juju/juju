@@ -284,7 +284,7 @@ func (s *modelSuite) TestCreateModelAndDelete(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	db := s.DB()
-	_, err = db.ExecContext(c.Context(), "DELETE FROM model WHERE uuid = $1", id)
+	_, err = db.ExecContext(c.Context(), "PRAGMA foreign_keys = OFF; DELETE FROM model WHERE uuid = $1", id)
 	c.Assert(err, tc.ErrorMatches, `model table is immutable, only insertions are allowed`)
 }
 
