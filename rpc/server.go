@@ -11,6 +11,7 @@ import (
 	"runtime/pprof"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -351,7 +352,19 @@ func (conn *Conn) Close() error {
 	// block will be notified that the server is shutting
 	// down.
 	conn.cancelContext()
-	conn.srvPending.Wait()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		conn.srvPending.Wait()
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Minute):
+		// A request is refusing to close, so we're blocked. We can't wait
+		// indefinitely, and a minute is a lifetime for any request. Close it,
+		// but warn in the logs that the connection is refusing to go away.
+		logger.Warningf(conn.context, "timed out waiting for outstanding requests, closing anyway")
+	}
 
 	conn.mutex.Lock()
 	if conn.root != nil {
@@ -364,7 +377,7 @@ func (conn *Conn) Close() error {
 
 	// Closing the codec should cause the input loop to terminate.
 	if err := conn.codec.Close(); err != nil {
-		logger.Debugf(context.TODO(), "error closing codec: %v", err)
+		logger.Debugf(conn.context, "error closing codec: %v", err)
 	}
 	<-conn.dead
 
@@ -513,17 +526,20 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		logger.Errorf(context.TODO(), "error recording request %+v with arg %+v: %T %+v", req, arg, err, err)
 		return conn.writeErrorResponse(hdr, req.transformErrors(err), recorder)
 	}
+
+	// Hold the lock whilst checking the closing flag.
 	conn.mutex.Lock()
 	closing := conn.closing
-	if !closing {
-		conn.srvPending.Add(1)
-		go conn.runRequest(req, arg, hdr.Version, recorder)
-	}
 	conn.mutex.Unlock()
+
 	if closing {
 		// We're closing down - no new requests may be initiated.
 		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), recorder)
 	}
+
+	conn.srvPending.Add(1)
+	go conn.runRequest(req, arg, hdr.Version, recorder)
+
 	return nil
 }
 
@@ -599,7 +615,13 @@ func (conn *Conn) runRequest(
 	version int,
 	recorder Recorder,
 ) {
-	// If the request causes a panic, ensure we log that before closing the connection.
+	// Close the service pending last, so that if there is a panic in the
+	// request handling, we don't mark the request as done before writing the
+	// error response.
+	defer conn.srvPending.Done()
+
+	// If the request causes a panic, ensure we log that before closing the
+	// connection.
 	defer func() {
 		if panicResult := recover(); panicResult != nil {
 			logger.Criticalf(conn.context,
@@ -607,7 +629,6 @@ func (conn *Conn) runRequest(
 			_ = conn.writeErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), recorder)
 		}
 	}()
-	defer conn.srvPending.Done()
 
 	// Create a request-specific context, cancelled when the
 	// request returns.
@@ -670,9 +691,13 @@ func (conn *Conn) callRequest(
 		if err := recorder.HandleReply(req.hdr.Request, hdr, rvi); err != nil {
 			logger.Errorf(context.TODO(), "error recording reply %+v: %T %+v", hdr, err, err)
 		}
+
+		// Guard against concurrent writes to the codec, but ensure that
+		// if there is a panic during WriteMessage we don't hold the lock.
 		conn.sending.Lock()
+		defer conn.sending.Unlock()
+
 		err = conn.codec.WriteMessage(hdr, rvi)
-		conn.sending.Unlock()
 	}
 	if err != nil {
 		// If the message failed due to the other end closing the socket, that
