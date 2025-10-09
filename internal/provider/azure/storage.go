@@ -35,13 +35,25 @@ const (
 )
 
 // RecommendedPoolForKind returns the recommended storage pool to use for
-// the given storage kind. If no pool can be recommended nil is returned.
+// the given storage kind. If no pool can be recommended nil is returned. The
+// azure provider recommends that for block and filesystem storage the "azure"
+// pool is used.
 //
-// Implements [storage.PoolAdvisor] interface.
+// Implements [storage.ProviderRegistry] interface.
 func (*azureEnviron) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
-	return common.GetCommonRecommendedIAASPoolForKind(kind)
+	switch kind {
+	case storage.StorageKindBlock, storage.StorageKindFilesystem:
+		defaultPool, _ := storage.NewConfig(
+			azureStorageProviderType,
+			azureStorageProviderType,
+			storage.Attrs{},
+		)
+		return defaultPool
+	default:
+		return common.GetCommonRecommendedIAASPoolForKind(kind)
+	}
 }
 
 // StorageProviderTypes implements storage.ProviderRegistry.
