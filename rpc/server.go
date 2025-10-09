@@ -363,7 +363,7 @@ func (conn *Conn) Close() error {
 		// A request is refusing to close, so we're blocked. We can't wait
 		// indefinitely, and a minute is a lifetime for any request. Close it,
 		// but warn in the logs that the connection is refusing to go away.
-		logger.Warningf("timed out waiting for outstanding requests, closing anyway")
+		logger.Warningf(conn.context, "timed out waiting for outstanding requests, closing anyway")
 	}
 
 	conn.mutex.Lock()
@@ -377,7 +377,7 @@ func (conn *Conn) Close() error {
 
 	// Closing the codec should cause the input loop to terminate.
 	if err := conn.codec.Close(); err != nil {
-		logger.Debugf(context.TODO(), "error closing codec: %v", err)
+		logger.Debugf(conn.context, "error closing codec: %v", err)
 	}
 	<-conn.dead
 
