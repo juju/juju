@@ -38,6 +38,15 @@ func (w *trackedWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
+// RecommendedPoolForKind returns the recommended storage pool for the supplied
+// storage kind. If no recommended pool can be provided nil is returned.
+//
+// This call is proxied through to the underlying provider of this worker. The
+// returned results are untouched.
+func (w *trackedWorker) RecommendedPoolForKind(k storage.StorageKind) *storage.Config {
+	return w.provider.RecommendedPoolForKind(k)
+}
+
 // StorageProviderTypes returns the storage provider types contained within this
 // registry.
 //
