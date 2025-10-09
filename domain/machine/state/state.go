@@ -936,24 +936,37 @@ func (st *State) GetMachineContainers(ctx context.Context, mUUID string) ([]stri
 	}
 
 	ident := entityUUID{UUID: mUUID}
-	query := `
+
+	existsQry := `
+SELECT &entityUUID.uuid
+FROM   machine
+WHERE  uuid = $entityUUID.uuid`
+	existsStmt, err := st.Prepare(existsQry, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	containerQry := `
 SELECT &machineName.*
 FROM machine
 JOIN machine_parent ON machine.uuid = machine_parent.machine_uuid
 WHERE parent_uuid = $entityUUID.uuid`
-	queryStmt, err := st.Prepare(query, machineName{}, ident)
+	containerStmt, err := st.Prepare(containerQry, machineName{}, ident)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var results []machineName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkMachineNotDead(ctx, tx, mUUID)
+		err = tx.Query(ctx, existsStmt, ident).Get(&ident)
 		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("machine %q does not exist", mUUID).Add(machineerrors.MachineNotFound)
+			}
 			return errors.Capture(err)
 		}
 
-		err = tx.Query(ctx, queryStmt, ident).GetAll(&results)
+		err = tx.Query(ctx, containerStmt, ident).GetAll(&results)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
