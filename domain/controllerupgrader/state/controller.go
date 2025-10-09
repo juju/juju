@@ -180,7 +180,7 @@ func (s *ControllerState) HasBinaryAgent(ctx context.Context, version semversion
 	stmt, err := s.Prepare(`
 SELECT &hasBinaryAgentVersion.*
 FROM agent_binary_store
-WHERE version = $hasBinaryAgent.version
+WHERE version = $hasBinaryAgentVersion.version
 `, in)
 	if err != nil {
 		return false, errors.Capture(err)

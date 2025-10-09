@@ -274,9 +274,9 @@ func (s *ControllerModelState) HasBinaryAgent(ctx context.Context, version semve
 
 	in := hasBinaryAgentVersion{Version: version.String()}
 	stmt, err := s.Prepare(`
-SELECT &binaryAgentVersion.*
+SELECT &hasBinaryAgentVersion.*
 FROM agent_binary_store
-WHERE version = $hasBinaryAgent.version
+WHERE version = $hasBinaryAgentVersion.version
 `, in)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -306,7 +306,7 @@ func (s *ControllerModelState) HasAgentStream(ctx context.Context, stream modela
 
 	in := hasAgentStream{StreamID: int(stream)}
 	stmt, err := s.Prepare(`
-SELECT &agent_version.*
+SELECT &hasAgentStream.*
 FROM agent_version
 WHERE stream_id = $hasAgentStream.stream;
 `, in)
