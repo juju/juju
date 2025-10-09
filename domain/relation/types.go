@@ -337,25 +337,25 @@ func (d GetRelationUUIDForRemovalArgs) Validate() error {
 // RelationUnitChange encapsulates a remote relation event,
 // adding the tag of the relation which changed.
 type RelationUnitChange struct {
+	// RelationUUID is the UUID of the relation being changed.
+	RelationUUID corerelation.UUID
+
+	// Life is the current life value of the relation.
+	Life life.Value
+
 	// ChangedUnits represents the changed units in this relation.
 	ChangedUnits []UnitChange
 
-	// AvailableUnits represents all the units that are available in the
+	// AllUnits represents all the units that are part of this relation.
+	AllUnits []int
+
+	// InScopeUnits represents all the units that are in-scope in the
 	// relation.
-	AvailableUnits []int
+	InScopeUnits []int
 
 	// ApplicationSettings represent the updated application-level settings in
 	// this relation.
 	ApplicationSettings map[string]any
-
-	// UnitCount is the total number of units in this relation.
-	UnitCount int
-
-	// DeprecatedDepartedUnits is the list of units that have departed in this
-	// change.
-	// Deprecated: This field is deprecated and will be removed in future,
-	// instead use AvailableUnits.
-	DeprecatedDepartedUnits []int
 }
 
 // UnitChange represents a change to a single unit in a relation.

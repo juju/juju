@@ -242,12 +242,17 @@ func (s *Service) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmod
 // SetRemoteApplicationOffererStatus sets the status of the specified remote
 // application in the local model.
 func (s *Service) SetRemoteApplicationOffererStatus(context.Context, coreapplication.UUID, corestatus.StatusInfo) error {
+
 	return nil
 }
 
 // SuspendRelation suspends the specified relation in the local model
-// with the given reason.
+// with the given reason. This will also update the status of the associated
+// synthetic application to Error with the given reason.
 func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.UUID, relUUID corerelation.UUID, reason string) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return nil
 }
 

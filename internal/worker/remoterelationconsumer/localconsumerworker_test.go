@@ -5,6 +5,7 @@ package remoterelationconsumer
 
 import (
 	"context"
+	"slices"
 	stdtesting "testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
@@ -1406,7 +1408,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDis
 	c.Assert(err, tc.ErrorIs, ErrPermissionRevokedWhilstDying)
 }
 
-func (s *localConsumerWorkerSuite) TestHandleDischargeRequiredWhilstDyingNonDischargeError(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleDischargeRequiredErrorWhilstDyingNonDischargeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := s.expectWorkerStartup(c)
@@ -1422,7 +1424,7 @@ func (s *localConsumerWorkerSuite) TestHandleDischargeRequiredWhilstDyingNonDisc
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	err := w.handleDischargeRequiredWhilstDying(c.Context(), internalerrors.Errorf("front fell off"), relationUUID)
+	err := w.handleDischargeRequiredErrorWhilstDying(c.Context(), internalerrors.Errorf("front fell off"), relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1449,11 +1451,431 @@ func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedDischargeError
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	err := w.handleDischargeRequiredWhilstDying(c.Context(), params.Error{
+	err := w.handleDischargeRequiredErrorWhilstDying(c.Context(), params.Error{
 		Code:    params.CodeDischargeRequired,
 		Message: "discharge required",
 	}, relationUUID)
 	c.Assert(err, tc.ErrorIs, ErrPermissionRevokedWhilstDying)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup(c)
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"foo": "bar",
+			},
+		}},
+		InScopeUnits:  []int{0, 1, 2},
+		DepartedUnits: []int{3},
+		UnitCount:     3, // This is the length of InScopeUnits.
+		Macaroons:     macaroon.Slice{s.macaroon},
+		BakeryVersion: bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), event).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	// Force the offerer relation worker to be created, so that we can
+	// test the relation dead logic.
+	err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.offererRelationWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for offerer relation worker to be started")
+	}
+
+	err = w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			Life:         life.Alive,
+			ChangedUnits: []domainrelation.UnitChange{{
+				UnitID: 0,
+				Settings: map[string]any{
+					"foo": "bar",
+				},
+			}},
+			AllUnits:     []int{0, 1, 2, 3},
+			InScopeUnits: []int{0, 1, 2},
+		},
+		Macaroon: s.macaroon,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithInScopeUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup(c)
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"foo": "bar",
+			},
+		}},
+		InScopeUnits:  []int{0, 1, 2},
+		DepartedUnits: []int{3},
+		UnitCount:     3, // This is the length of InScopeUnits.
+		Macaroons:     macaroon.Slice{s.macaroon},
+		BakeryVersion: bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), event).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	err := w.runner.StopAndRemoveWorker(offererRelationWorkerName(relationUUID), c.Context().Done())
+	c.Assert(internalerrors.Is(err, errors.NotFound), tc.IsTrue)
+
+	err = w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			Life:         life.Alive,
+			ChangedUnits: []domainrelation.UnitChange{{
+				UnitID: 0,
+				Settings: map[string]any{
+					"foo": "bar",
+				},
+			}},
+			AllUnits:     []int{0, 1, 2, 3},
+			InScopeUnits: []int{0, 1, 2},
+		},
+		Macaroon: s.macaroon,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNoInScopeUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup(c)
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+	token := tc.Must(c, application.NewID)
+
+	arg := params.RegisterRemoteRelationArg{
+		ApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:    relationUUID.String(),
+		OfferUUID:        s.offerUUID,
+		Macaroons:        macaroon.Slice{s.macaroon},
+		RemoteEndpoint: params.RemoteEndpoint{
+			Name:      s.applicationName + ":db",
+			Role:      charm.RoleProvider,
+			Interface: "db",
+		},
+		LocalEndpointName: "blog",
+		ConsumeVersion:    1,
+		BakeryVersion:     bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		RegisterRemoteRelations(gomock.Any(), arg).
+		Return([]params.RegisterRemoteRelationResult{{
+			Result: &params.RemoteRelationDetails{
+				Token:         token.String(),
+				Macaroon:      s.macaroon,
+				BakeryVersion: bakery.LatestVersion,
+			},
+		}}, nil)
+	s.crossModelService.EXPECT().
+		SaveMacaroonForRelation(gomock.Any(), relationUUID, s.macaroon).
+		Return(nil)
+
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"foo": "bar",
+			},
+		}},
+		DepartedUnits: []int{3},
+		UnitCount:     0, // This is the length of InScopeUnits.
+		Macaroons:     macaroon.Slice{s.macaroon},
+		BakeryVersion: bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), event).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	// Force the creation of the workers.
+	err := w.handleRelationConsumption(c.Context(), domainrelation.RelationDetails{
+		UUID: relationUUID,
+		Life: life.Alive,
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: false,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.waitForAllWorkersStarted(c)
+
+	// Ensure that we create remote relation worker.
+	names := w.runner.WorkerNames()
+	c.Assert(names, tc.HasLen, 3)
+	c.Check(names, tc.SameContents, []string{
+		"offerer-relation:" + relationUUID.String(),
+		"offerer-unit-relation:" + relationUUID.String(),
+		"consumer-unit-relation:" + relationUUID.String(),
+	})
+
+	// Rip out the offerer relation worker to simulate it being dead.
+	err = w.runner.StopAndRemoveWorker(offererRelationWorkerName(relationUUID), c.Context().Done())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure that it is gone, otherwise we don't know if the next step
+	// is valid.
+	s.waitUntilWorkerIsGone(c, w.runner, offererRelationWorkerName(relationUUID))
+
+	err = w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			ChangedUnits: []domainrelation.UnitChange{{
+				UnitID: 0,
+				Settings: map[string]any{
+					"foo": "bar",
+				},
+			}},
+			AllUnits: []int{3},
+		},
+		Macaroon: s.macaroon,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure that we create remote relation worker.
+	names = w.runner.WorkerNames()
+	c.Assert(names, tc.HasLen, 0)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationChangeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup(c)
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"foo": "bar",
+			},
+		}},
+		InScopeUnits:  []int{0, 1, 2},
+		DepartedUnits: []int{3},
+		UnitCount:     3, // This is the length of InScopeUnits.
+		Macaroons:     macaroon.Slice{s.macaroon},
+		BakeryVersion: bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), event).
+		Return(internalerrors.Errorf("front fell off"))
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	err := w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			Life:         life.Alive,
+			ChangedUnits: []domainrelation.UnitChange{{
+				UnitID: 0,
+				Settings: map[string]any{
+					"foo": "bar",
+				},
+			}},
+			AllUnits:     []int{0, 1, 2, 3},
+			InScopeUnits: []int{0, 1, 2},
+		},
+		Macaroon: s.macaroon,
+	})
+	c.Assert(err, tc.ErrorMatches, `.*front fell off.*`)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationChangeNotFoundError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup(c)
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"foo": "bar",
+			},
+		}},
+		InScopeUnits:  []int{0, 1, 2},
+		DepartedUnits: []int{3},
+		UnitCount:     3, // This is the length of InScopeUnits.
+		Macaroons:     macaroon.Slice{s.macaroon},
+		BakeryVersion: bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), event).
+		Return(errors.NotFound)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	err := w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			Life:         life.Alive,
+			ChangedUnits: []domainrelation.UnitChange{{
+				UnitID: 0,
+				Settings: map[string]any{
+					"foo": "bar",
+				},
+			}},
+			AllUnits:     []int{0, 1, 2, 3},
+			InScopeUnits: []int{0, 1, 2},
+		},
+		Macaroon: s.macaroon,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationChangeDispatchError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup(c)
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"foo": "bar",
+			},
+		}},
+		InScopeUnits:  []int{0, 1, 2},
+		DepartedUnits: []int{3},
+		UnitCount:     3, // This is the length of InScopeUnits.
+		Macaroons:     macaroon.Slice{s.macaroon},
+		BakeryVersion: bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), event).
+		Return(params.Error{
+			Code:    params.CodeDischargeRequired,
+			Message: "discharge required",
+		})
+
+	s.crossModelService.EXPECT().
+		SuspendRelation(gomock.Any(), s.applicationUUID, relationUUID, "Offer permission revoked").
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	err := w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			Life:         life.Alive,
+			ChangedUnits: []domainrelation.UnitChange{{
+				UnitID: 0,
+				Settings: map[string]any{
+					"foo": "bar",
+				},
+			}},
+			AllUnits:     []int{0, 1, 2, 3},
+			InScopeUnits: []int{0, 1, 2},
+		},
+		Macaroon: s.macaroon,
+	})
+	c.Assert(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsTrue)
 }
 
 func (s *localConsumerWorkerSuite) newLocalConsumerWorker(c *tc.C) *localConsumerWorker {
@@ -1476,7 +1898,7 @@ func (s *localConsumerWorkerSuite) newLocalConsumerWorkerConfig(c *tc.C) LocalCo
 				select {
 				case s.consumerUnitRelationsWorkerStarted <- struct{}{}:
 				case <-c.Context().Done():
-					c.Fatalf("timed out trying to send on offererRelationWorkerStarted channel")
+					c.Fatalf("timed out trying to send on consumerUnitRelationsWorkerStarted channel")
 				}
 			}()
 			return newErrWorker(nil), nil
@@ -1561,5 +1983,22 @@ func (s *localConsumerWorkerSuite) waitForAllWorkersStarted(c *tc.C) {
 	case <-s.offererRelationWorkerStarted:
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for remote relation worker to be started")
+	}
+}
+
+func (s *localConsumerWorkerSuite) waitUntilWorkerIsGone(c *tc.C, runner *worker.Runner, name string) {
+	timer := time.NewTicker(10 * time.Millisecond)
+	for {
+		select {
+		case <-timer.C:
+			names := runner.WorkerNames()
+			if !slices.Contains(names, name) {
+				timer.Stop()
+				return
+			}
+
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for worker %q to be gone", name)
+		}
 	}
 }
