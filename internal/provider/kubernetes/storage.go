@@ -74,7 +74,7 @@ var (
 // supplied storage kind. At the moment the only supported recommended kind is
 // filesystem.
 //
-// This func implements the [jujustorage.PoolAdvisor] interface.
+// This func implements the [jujustorage.ProviderRegistry] interface.
 func (k *kubernetesClient) RecommendedPoolForKind(
 	kind jujustorage.StorageKind,
 ) *jujustorage.Config {

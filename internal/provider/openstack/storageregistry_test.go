@@ -11,7 +11,6 @@ import (
 	"github.com/juju/tc"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/storage"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -96,7 +95,7 @@ func (s *storageRegistrySuite) TestStorageProviderTypes(c *tc.C) {
 		}}
 	types, err := env.StorageProviderTypes()
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(types, tc.SameContents, []storage.ProviderType{
+	c.Check(types, tc.SameContents, []internalstorage.ProviderType{
 		"cinder",
 		"loop",
 		"tmpfs",
@@ -111,7 +110,7 @@ func (s *storageRegistrySuite) TestStorageProviderTypesNotSupported(c *tc.C) {
 	env := &Environ{clientUnlocked: &testAuthClient{}}
 	types, err := env.StorageProviderTypes()
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(types, tc.SameContents, []storage.ProviderType{
+	c.Check(types, tc.SameContents, []internalstorage.ProviderType{
 		"loop",
 		"tmpfs",
 		"rootfs",

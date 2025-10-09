@@ -28,6 +28,7 @@ func TestStorageRegistrySuite(t *testing.T) {
 // for block and filesystem.
 func (storageRegistrySuite) TestRecommendedPoolForKind(c *tc.C) {
 	provider, err := environs.Provider("ec2")
+	c.Assert(err, tc.ErrorIsNil)
 	credential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
