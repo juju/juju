@@ -29,26 +29,25 @@ func TestUnitSuite(t *testing.T) {
 	tc.Run(t, &unitSuite{})
 }
 
-func (s *unitSuite) TestRemoveUnitNoForceSuccess(c *tc.C) {
+func (s *unitSuite) TestRemoveUnitNoForceMachineAndStorageSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uUUID := unittesting.GenUnitUUID(c)
 	mUUID := "some-machine-uuid"
+	saUUID := "some-storage-attachment-uuid"
 
 	when := time.Now()
-	s.clock.EXPECT().Now().Return(when)
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
 
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(internal.CascadedUnitLives{
-		MachineUUID: &mUUID,
+		MachineUUID:            &mUUID,
+		StorageAttachmentUUIDs: []string{saUUID},
 	}, nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)
-
-	// We don't want to create all the machine expectations here, so we'll
-	// assume that the machine no longer exists, to prevent this test from
-	// depending on the machine removal logic.
-	exp.MachineExists(gomock.Any(), mUUID).Return(false, nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID, false, when.UTC()).Return(nil)
+	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), saUUID, false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, false, 0)
 	c.Assert(err, tc.ErrorIsNil)

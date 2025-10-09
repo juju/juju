@@ -16,6 +16,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removal "github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -33,18 +34,19 @@ func (s *machineSuite) TestRemoveMachineNoForceSuccess(c *tc.C) {
 	mUUID := machinetesting.GenUUID(c)
 
 	when := time.Now()
-	s.clock.EXPECT().Now().Return(when)
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), false).Return([]string{"some-unit-id"}, []string{"some-machine-id"}, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(internal.CascadedMachineLives{
+		MachineUUIDs:           []string{"some-container-id"},
+		UnitUUIDs:              []string{"some-unit-id"},
+		StorageAttachmentUUIDs: []string{"some-attachment-id"},
+	}, nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
-
-	// We don't want to create all the machine or unit expectations here, so
-	// we'll assume that the machine/unit no longer exists, to prevent this test
-	// from depending on the machine/unit removal logic.
-	exp.MachineExists(gomock.Any(), "some-machine-id").Return(false, nil)
-	exp.UnitExists(gomock.Any(), "some-unit-id").Return(false, nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-container-id", false, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil)
+	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "some-attachment-id", false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveMachine(c.Context(), mUUID, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -61,7 +63,7 @@ func (s *machineSuite) TestRemoveMachineForceNoWaitSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil, nil, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(internal.CascadedMachineLives{}, nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveMachine(c.Context(), mUUID, true, 0)
@@ -79,7 +81,7 @@ func (s *machineSuite) TestRemoveMachineForceWaitSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil, nil, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(internal.CascadedMachineLives{}, nil)
 
 	// The first normal removal scheduled immediately.
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)

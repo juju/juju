@@ -8,11 +8,16 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -31,7 +36,7 @@ type ApplicationState interface {
 	// also set to dying. The affected machine UUIDs are returned.
 	EnsureApplicationNotAliveCascade(
 		ctx context.Context, appUUID string, destroyStorage bool,
-	) (removal.ApplicationArtifacts, error)
+	) (internal.CascadedApplicationLives, error)
 
 	// ApplicationScheduleRemoval schedules a removal job for the application
 	// with the input application UUID, qualified with the input force boolean.
@@ -74,8 +79,7 @@ func (s *Service) RemoveApplication(
 		return "", errors.Errorf("application %q does not exist", appUUID).Add(applicationerrors.ApplicationNotFound)
 	}
 
-	// Ensure the application is not alive.
-	artifacts, err := s.modelState.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), destroyStorage)
+	cascaded, err := s.modelState.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), destroyStorage)
 	if err != nil {
 		return "", errors.Errorf("application %q: %w", appUUID, err)
 	}
@@ -102,30 +106,34 @@ func (s *Service) RemoveApplication(
 		return "", errors.Capture(err)
 	}
 
-	// Ensure that other entities associated with the application are removed
-	// as well.
-	if len(artifacts.RelationUUIDs) > 0 {
-		// If there are any relations that transitioned from alive to dying or
-		// dead, we need to schedule their removal as well.
-		s.logger.Infof(ctx, "application has relations %v, scheduling removal", artifacts.RelationUUIDs)
-
-		s.removeRelations(ctx, artifacts.RelationUUIDs, force, wait)
+	if cascaded.IsEmpty() {
+		return appJobUUID, nil
 	}
 
-	if len(artifacts.UnitUUIDs) > 0 {
-		// If there are any units that transitioned from alive to dying or dead,
-		// we need to schedule their removal as well.
-		s.logger.Infof(ctx, "application has units %v, scheduling removal", artifacts.UnitUUIDs)
-
-		s.removeUnits(ctx, artifacts.UnitUUIDs, destroyStorage, force, wait)
+	for _, r := range cascaded.RelationUUIDs {
+		if _, err := s.relationScheduleRemoval(ctx, relation.UUID(r), force, wait); err != nil {
+			return "", errors.Capture(err)
+		}
 	}
 
-	if len(artifacts.MachineUUIDs) > 0 {
-		// If there are any machines that transitioned from alive to dying or
-		// dead, we need to schedule their removal as well.
-		s.logger.Infof(ctx, "application has machines %v, scheduling removal", artifacts.MachineUUIDs)
+	for _, u := range cascaded.UnitUUIDs {
+		if _, err := s.unitScheduleRemoval(ctx, unit.UUID(u), force, wait); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
 
-		s.removeMachines(ctx, artifacts.MachineUUIDs, force, wait)
+	for _, a := range cascaded.StorageAttachmentUUIDs {
+		if _, err := s.storageAttachmentScheduleRemoval(
+			ctx, storageprovisioning.StorageAttachmentUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	for _, m := range cascaded.MachineUUIDs {
+		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(m), force, wait); err != nil {
+			return "", errors.Capture(err)
+		}
 	}
 
 	return appJobUUID, nil

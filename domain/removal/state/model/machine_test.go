@@ -241,16 +241,57 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
+	// Create a storage pool and a storage instance attached to the app's unit.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE application_uuid = ?", appUUID.String())
+		if row.Err() != nil {
+			return row.Err()
+		}
+
+		var unitUUID string
+		if err := row.Scan(&unitUUID); err != nil {
+			return err
+		}
+
+		if _, err := tx.ExecContext(
+			ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES ('pool-uuid', 'pool', 'whatever')",
+		); err != nil {
+			return err
+		}
+
+		inst := `
+INSERT INTO storage_instance (
+    uuid, storage_id, storage_pool_uuid, storage_kind_id, requested_size_mib,
+    charm_name, storage_name, life_id
+)
+VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 1, 100, 'charm-name', 'storage-name', 0)`
+		if _, err := tx.ExecContext(ctx, inst); err != nil {
+			return err
+		}
+
+		attach := `
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
+		if _, err := tx.ExecContext(ctx, attach, unitUUID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
+	cascaded, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(units), tc.Equals, 1)
-	c.Check(len(childMachines), tc.Equals, 0)
+	c.Assert(len(cascaded.UnitUUIDs), tc.Equals, 1)
+	c.Check(len(cascaded.MachineUUIDs), tc.Equals, 0)
 
-	s.checkUnitLife(c, units[0], life.Dying)
+	s.checkUnitLife(c, cascaded.UnitUUIDs[0], life.Dying)
 	s.checkMachineLife(c, machineUUID.String(), life.Dying)
 	s.checkInstanceLife(c, machineUUID.String(), life.Dying)
+
+	c.Check(cascaded.StorageAttachmentUUIDs, tc.DeepEquals, []string{"storage-attachment-uuid"})
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
@@ -276,14 +317,14 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), parentMachineUUID.String(), true)
+	cascaded, err := st.EnsureMachineNotAliveCascade(c.Context(), parentMachineUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(units), tc.Equals, 2)
-	c.Check(len(childMachines), tc.Equals, 0)
+	c.Check(len(cascaded.UnitUUIDs), tc.Equals, 2)
+	c.Check(len(cascaded.MachineUUIDs), tc.Equals, 0)
 
 	// The unit should now be "dying".
-	s.checkUnitLife(c, units[0], life.Dying)
-	s.checkUnitLife(c, units[1], life.Dying)
+	s.checkUnitLife(c, cascaded.UnitUUIDs[0], life.Dying)
+	s.checkUnitLife(c, cascaded.UnitUUIDs[1], life.Dying)
 
 	// The last machine had life "alive" and should now be "dying".
 	s.checkMachineLife(c, parentMachineUUID.String(), life.Dying)
@@ -306,20 +347,20 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), parentMachineUUID.String(), true)
+	cascaded, err := st.EnsureMachineNotAliveCascade(c.Context(), parentMachineUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(units), tc.Equals, 2, tc.Commentf("this should return 2 units, one on the parent machine and one on the child machine"))
-	c.Check(len(childMachines), tc.Equals, 1, tc.Commentf("this should return 1 child machine, the one that was created for the second unit"))
+	c.Check(len(cascaded.UnitUUIDs), tc.Equals, 2, tc.Commentf("this should return 2 units, one on the parent machine and one on the child machine"))
+	c.Check(len(cascaded.MachineUUIDs), tc.Equals, 1, tc.Commentf("this should return 1 child machine, the one that was created for the second unit"))
 
-	s.checkUnitLife(c, units[0], life.Dying)
-	s.checkUnitLife(c, units[1], life.Dying)
+	s.checkUnitLife(c, cascaded.UnitUUIDs[0], life.Dying)
+	s.checkUnitLife(c, cascaded.UnitUUIDs[1], life.Dying)
 
 	// The last machine had life "alive" and should now be "dying".
 	s.checkMachineLife(c, parentMachineUUID.String(), life.Dying)
-	s.checkMachineLife(c, childMachines[0], life.Dying)
+	s.checkMachineLife(c, cascaded.MachineUUIDs[0], life.Dying)
 
 	s.checkInstanceLife(c, parentMachineUUID.String(), life.Dying)
-	s.checkInstanceLife(c, childMachines[0], life.Dying)
+	s.checkInstanceLife(c, cascaded.MachineUUIDs[0], life.Dying)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDying(c *tc.C) {
@@ -332,10 +373,10 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDyi
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID0.String(), true)
+	cascaded, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID0.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(units), tc.Equals, 1)
-	c.Check(len(childMachines), tc.Equals, 0)
+	c.Check(len(cascaded.UnitUUIDs), tc.Equals, 1)
+	c.Check(len(cascaded.MachineUUIDs), tc.Equals, 0)
 
 	s.checkMachineLife(c, machineUUID0.String(), life.Dying)
 	s.checkInstanceLife(c, machineUUID0.String(), life.Dying)
@@ -359,10 +400,10 @@ func (s *machineSuite) TestEnsureMachineNotAliveCasscadeWithoutForceSucceedsForE
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), uuid.String(), false)
+	cascaded, err := st.EnsureMachineNotAliveCascade(c.Context(), uuid.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(units, tc.HasLen, 0)
-	c.Assert(childMachines, tc.HasLen, 0)
+	c.Assert(cascaded.UnitUUIDs, tc.HasLen, 0)
+	c.Assert(cascaded.MachineUUIDs, tc.HasLen, 0)
 
 	s.checkMachineLife(c, uuid.String(), life.Dying)
 	s.checkInstanceLife(c, uuid.String(), life.Dying)
@@ -397,7 +438,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachi
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, _, err = st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), false)
+	_, err = st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), false)
 	c.Assert(err, tc.ErrorIs, removalerrors.MachineHasContainers)
 
 	s.checkMachineLife(c, machineUUID.String(), life.Alive)
@@ -413,7 +454,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachi
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, _, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), false)
+	_, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), false)
 	c.Assert(err, tc.ErrorIs, removalerrors.MachineHasUnits)
 
 	s.checkMachineLife(c, machineUUID.String(), life.Alive)

@@ -583,7 +583,7 @@ func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *
 		s.TxnRunnerFactory(),
 		loggertesting.WrapCheckLog(c),
 	)
-	_, _, err := removalSt.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
+	_, err := removalSt.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 	err = removalSt.MarkMachineAsDead(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)

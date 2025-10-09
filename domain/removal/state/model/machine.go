@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
@@ -57,10 +58,12 @@ WHERE  uuid = $entityUUID.uuid`, machineUUID)
 // cascaded to the dying state.
 func (st *State) EnsureMachineNotAliveCascade(
 	ctx context.Context, mUUID string, force bool,
-) (units, childMachines []string, err error) {
+) (internal.CascadedMachineLives, error) {
+	var cascaded internal.CascadedMachineLives
+
 	db, err := st.DB(ctx)
 	if err != nil {
-		return nil, nil, errors.Capture(err)
+		return cascaded, errors.Capture(err)
 	}
 
 	machineUUID := entityUUID{UUID: mUUID}
@@ -70,7 +73,7 @@ SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
 AND    life_id = 0`, machineUUID)
 	if err != nil {
-		return nil, nil, errors.Errorf("preparing machine life update: %w", err)
+		return cascaded, errors.Errorf("preparing machine life update: %w", err)
 	}
 
 	updateInstanceStmt, err := st.Prepare(`
@@ -79,7 +82,7 @@ SET    life_id = 1
 WHERE  machine_uuid = $entityUUID.uuid
 AND    life_id = 0;`, machineUUID)
 	if err != nil {
-		return nil, nil, errors.Errorf("preparing machine cloud instance life update: %w", err)
+		return cascaded, errors.Errorf("preparing machine cloud instance life update: %w", err)
 	}
 
 	// Mark any container machines (0/lxd/0) that are also on the same machine
@@ -93,7 +96,7 @@ JOIN      machine AS m ON mp.parent_uuid = m.uuid
 WHERE     mp.parent_uuid = $entityUUID.uuid
 AND       m.life_id = 0;`, machineUUID)
 	if err != nil {
-		return nil, nil, errors.Errorf("preparing container machine selection query: %w", err)
+		return cascaded, errors.Errorf("preparing container machine selection query: %w", err)
 	}
 
 	updateContainerStmt, err := st.Prepare(`
@@ -102,7 +105,7 @@ SET    life_id = 1
 WHERE  uuid IN ($uuids[:])
 AND    life_id = 0;`, uuids{})
 	if err != nil {
-		return nil, nil, errors.Errorf("preparing container machine life update: %w", err)
+		return cascaded, errors.Errorf("preparing container machine life update: %w", err)
 	}
 
 	updateContainerInstanceStmt, err := st.Prepare(`
@@ -111,7 +114,7 @@ SET    life_id = 1
 WHERE  machine_uuid IN ($uuids[:])
 AND    life_id = 0;`, uuids{})
 	if err != nil {
-		return nil, nil, errors.Errorf("preparing container machine instance life update: %w", err)
+		return cascaded, errors.Errorf("preparing container machine instance life update: %w", err)
 	}
 
 	// Select any units that are directly on the parent machine.
@@ -122,31 +125,32 @@ JOIN   machine  AS m ON m.net_node_uuid = u.net_node_uuid
 WHERE  m.uuid IN ($uuids[:])
 AND    u.life_id = 0;`, machineUUID, uuids{})
 	if err != nil {
-		return nil, nil, errors.Errorf("preparing unit selection query: %w", err)
+		return cascaded, errors.Errorf("preparing unit selection query: %w", err)
 	}
 
-	var (
-		unitUUIDs    []string
-		machineUUIDs []entityUUID
-	)
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Remove any container machines that are on the same parent machine
 		// as the input machine.
-		if err := tx.Query(ctx, selectContainerMachines, machineUUID).GetAll(&machineUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var machineUUIDs []entityUUID
+		err := tx.Query(ctx, selectContainerMachines, machineUUID).GetAll(&machineUUIDs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("selecting container machines: %w", err)
 		}
 
 		if !force && len(machineUUIDs) > 0 {
-			return errors.Errorf("cannot set machine %q to dying without force: %w", mUUID, removalerrors.MachineHasContainers)
+			return errors.Errorf(
+				"cannot set machine %q to dying without force: %w", mUUID, removalerrors.MachineHasContainers)
 		}
 
 		var parentUnitUUIDs []entityUUID
-		if err := tx.Query(ctx, selectUnitStmt, uuids{machineUUID.UUID}).GetAll(&parentUnitUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		err = tx.Query(ctx, selectUnitStmt, uuids{machineUUID.UUID}).GetAll(&parentUnitUUIDs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("selecting parent units: %w", err)
 		}
 
 		if !force && len(parentUnitUUIDs) > 0 {
-			return errors.Errorf("cannot set machine %q to dying without force: %w", mUUID, removalerrors.MachineHasUnits)
+			return errors.Errorf(
+				"cannot set machine %q to dying without force: %w", mUUID, removalerrors.MachineHasUnits)
 		}
 
 		if err := tx.Query(ctx, updateMachineStmt, machineUUID).Run(); err != nil {
@@ -159,13 +163,14 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 
 		var childUnitUUIDs []entityUUID
 		if len(machineUUIDs) > 0 {
-			s := transform.Slice(machineUUIDs, func(u entityUUID) string {
+			cascaded.MachineUUIDs = transform.Slice(machineUUIDs, func(u entityUUID) string {
 				return u.UUID
 			})
-			if err := tx.Query(ctx, updateContainerStmt, uuids(s)).Run(); err != nil {
+
+			if err := tx.Query(ctx, updateContainerStmt, uuids(cascaded.MachineUUIDs)).Run(); err != nil {
 				return errors.Errorf("advancing container machine life: %w", err)
 			}
-			if err := tx.Query(ctx, updateContainerInstanceStmt, uuids(s)).Run(); err != nil {
+			if err := tx.Query(ctx, updateContainerInstanceStmt, uuids(cascaded.MachineUUIDs)).Run(); err != nil {
 				return errors.Errorf("advancing container machine instance life: %w", err)
 			}
 
@@ -174,7 +179,8 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 			//
 			// NOTE(jack-w-shaw): we know implicitly here that force must be
 			// true, so no need to perform a force check.
-			if err := tx.Query(ctx, selectUnitStmt, uuids(s)).GetAll(&childUnitUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			err := tx.Query(ctx, selectUnitStmt, uuids(cascaded.MachineUUIDs)).GetAll(&childUnitUUIDs)
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("selecting container units: %w", err)
 			}
 		}
@@ -188,14 +194,17 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 			checkEmptyMachine = false
 			destroyStorage    = false
 		)
-		unitUUIDs = transform.Slice(append(parentUnitUUIDs, childUnitUUIDs...), func(u entityUUID) string {
+		cascaded.UnitUUIDs = transform.Slice(append(parentUnitUUIDs, childUnitUUIDs...), func(u entityUUID) string {
 			return u.UUID
 		})
-		for _, u := range unitUUIDs {
-			_, err := st.ensureUnitNotAliveCascade(ctx, tx, u, checkEmptyMachine, destroyStorage)
+		for _, u := range cascaded.UnitUUIDs {
+			uc, err := st.ensureUnitNotAliveCascade(ctx, tx, u, checkEmptyMachine, destroyStorage)
 			if err != nil {
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}
+			// We don't expect storage instances to advance because we pass
+			// destroyStorage as false, but we can have dying attachments.
+			cascaded.StorageAttachmentUUIDs = append(cascaded.StorageAttachmentUUIDs, uc.StorageAttachmentUUIDs...)
 		}
 
 		// TODO (manadart 2025-09-18): Kill machine-scoped storage instances
@@ -203,15 +212,10 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 
 		return nil
 	})); err != nil {
-		return nil, nil, errors.Capture(err)
+		return cascaded, errors.Capture(err)
 	}
 
-	childMachines = make([]string, len(machineUUIDs))
-	for i, m := range machineUUIDs {
-		childMachines[i] = m.UUID
-	}
-
-	return unitUUIDs, childMachines, nil
+	return cascaded, nil
 }
 
 // MachineScheduleRemoval schedules a removal job for the machine with the

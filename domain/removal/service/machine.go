@@ -10,10 +10,13 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -26,7 +29,9 @@ type MachineState interface {
 
 	// EnsureMachineNotAliveCascade ensures that there is no machine identified
 	// by the input machine UUID, that is still alive.
-	EnsureMachineNotAliveCascade(ctx context.Context, unitUUID string, force bool) (units, machines []string, err error)
+	EnsureMachineNotAliveCascade(
+		ctx context.Context, unitUUID string, force bool,
+	) (internal.CascadedMachineLives, error)
 
 	// MachineScheduleRemoval schedules a removal job for the machine with the
 	// input UUID, qualified with the input force boolean.
@@ -84,8 +89,7 @@ func (s *Service) RemoveMachine(
 		return "", errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
 	}
 
-	// Ensure the machine is not alive.
-	unitUUIDs, machineUUIDs, err := s.modelState.EnsureMachineNotAliveCascade(ctx, machineUUID.String(), force)
+	cascaded, err := s.modelState.EnsureMachineNotAliveCascade(ctx, machineUUID.String(), force)
 	if err != nil {
 		return "", errors.Errorf("machine %q: %w", machineUUID, err)
 	}
@@ -110,29 +114,31 @@ func (s *Service) RemoveMachine(
 	machineJobUUID, err := s.machineScheduleRemoval(ctx, machineUUID, force, wait)
 	if err != nil {
 		return "", errors.Capture(err)
-	} else if len(unitUUIDs) == 0 && len(machineUUIDs) == 0 {
-		// If there are no units or machines to update, we can return early.
+	}
+
+	// If no other entities had their lives advanced to dying, we're done.
+	if cascaded.IsEmpty() {
 		return machineJobUUID, nil
 	}
 
-	// Ensure that the machines has units and child machines, which are removed
-	// as well.
-	if len(unitUUIDs) > 0 {
-		// If there are any units that transitioned from alive to dying or dead,
-		// we need to schedule their removal as well.
-		s.logger.Infof(ctx, "machine has units %v, scheduling removal", unitUUIDs)
-
-		// TODO (manadart 2025-09-05): Review what we should do here.
-		// Don't destroy storage instances for the machine's units by default?
-		s.removeUnits(ctx, unitUUIDs, false, force, wait)
+	for _, u := range cascaded.UnitUUIDs {
+		if _, err := s.unitScheduleRemoval(ctx, unit.UUID(u), force, wait); err != nil {
+			return "", errors.Capture(err)
+		}
 	}
 
-	if len(machineUUIDs) > 0 {
-		// If there are any child machines that transitioned from alive to dying
-		// or dead, we need to schedule their removal as well.
-		s.logger.Infof(ctx, "machine has child machines %v, scheduling removal", machineUUIDs)
+	for _, a := range cascaded.StorageAttachmentUUIDs {
+		if _, err := s.storageAttachmentScheduleRemoval(
+			ctx, storageprovisioning.StorageAttachmentUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
 
-		s.removeMachines(ctx, machineUUIDs, force, wait)
+	for _, m := range cascaded.MachineUUIDs {
+		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(m), force, wait); err != nil {
+			return "", errors.Capture(err)
+		}
 	}
 
 	return machineJobUUID, nil
@@ -212,7 +218,7 @@ func (s *Service) machineScheduleRemoval(
 		return "", errors.Errorf("machine: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q", jobUUID)
+	s.logger.Infof(ctx, "scheduled removal job %q for machine %q", jobUUID, machineUUID)
 	return jobUUID, nil
 }
 
