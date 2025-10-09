@@ -237,15 +237,6 @@ WHERE  u.uuid = $entityUUID.uuid;
 		return "", errors.Errorf("preparing unit count query: %w", err)
 	}
 
-	updateMachineStmt, err := st.Prepare(`
-UPDATE machine
-SET    life_id = 1
-WHERE  uuid = $entityUUID.uuid
-AND    life_id = 0`, entityUUID{})
-	if err != nil {
-		return "", errors.Errorf("preparing machine life update: %w", err)
-	}
-
 	var result unitMachineLifeSummary
 	if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
 		return "", nil
@@ -264,6 +255,15 @@ AND    life_id = 0`, entityUUID{})
 		return "", nil
 	}
 
+	updateMachineStmt, err := st.Prepare(`
+UPDATE machine
+SET    life_id = 1
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 0`, entityUUID{})
+	if err != nil {
+		return "", errors.Errorf("preparing machine life update: %w", err)
+	}
+
 	// We can use the outcome of the update to determine if the machine
 	// was already dying or dead, or if it was successfully advanced to dying.
 	var outcome sqlair.Outcome
@@ -276,6 +276,19 @@ AND    life_id = 0`, entityUUID{})
 	} else if affected == 0 {
 		// The machine was already dying or dead.
 		return "", nil
+	}
+
+	updateInstanceStmt, err := st.Prepare(`
+UPDATE machine_cloud_instance
+SET    life_id = 1
+WHERE  machine_uuid = $entityUUID.uuid
+AND    life_id = 0`, entityUUID{})
+	if err != nil {
+		return "", errors.Errorf("preparing machine cloud instance life update: %w", err)
+	}
+
+	if err := tx.Query(ctx, updateInstanceStmt, entityUUID{UUID: result.UUID}).Run(); err != nil {
+		return "", errors.Errorf("advancing machine cloud instance life: %w", err)
 	}
 
 	return result.UUID, nil
