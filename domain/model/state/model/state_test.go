@@ -28,6 +28,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
+	"github.com/juju/juju/internal/database/pragma"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -284,7 +285,9 @@ func (s *modelSuite) TestCreateModelAndDelete(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	db := s.DB()
-	_, err = db.ExecContext(c.Context(), "PRAGMA foreign_keys = OFF; DELETE FROM model WHERE uuid = $1", id)
+	err = pragma.SetPragma(c.Context(), db, pragma.ForeignKeysPragma, false)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(), "DELETE FROM model WHERE uuid = $1", id)
 	c.Assert(err, tc.ErrorMatches, `model table is immutable, only insertions are allowed`)
 }
 
