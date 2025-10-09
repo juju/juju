@@ -108,7 +108,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithUnitsAndStorag
 	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(internal.CascadedApplicationLives{
-		UnitUUIDs: []string{"unit-1", "unit-2"},
+		UnitUUIDs:              []string{"unit-1", "unit-2"},
 		StorageAttachmentUUIDs: []string{"st-att-unit-1", "st-att-unit-2"},
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)

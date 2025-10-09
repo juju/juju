@@ -122,7 +122,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		mUUID, err := s.svc.GetMachineUUID(c.Context(), res1.MachineName)
 		c.Assert(err, tc.ErrorIsNil)
-		_, _, err = removalSt.EnsureMachineNotAliveCascade(c.Context(), mUUID.String(), true)
+		_, err = removalSt.EnsureMachineNotAliveCascade(c.Context(), mUUID.String(), true)
 		c.Assert(err, tc.IsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{res1.MachineName.String()}))
@@ -246,7 +246,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		mUUID, err := s.svc.GetMachineUUID(c.Context(), res.MachineName)
 		c.Assert(err, tc.ErrorIsNil)
-		_, _, err = removalSt.EnsureMachineNotAliveCascade(c.Context(), mUUID.String(), true)
+		_, err = removalSt.EnsureMachineNotAliveCascade(c.Context(), mUUID.String(), true)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{res.MachineName.String()}))
