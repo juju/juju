@@ -28,6 +28,14 @@ func TestStorageSuite(t *testing.T) {
 	tc.Run(t, &storageSuite{})
 }
 
+// TestRecommendedFilesystemStoragePool tests that the correct recommended
+// filesystem pool is returned.
+func (s *storageSuite) TestRecommendedFilesystemStoragePool(c *tc.C) {
+	poolCfg := s.Env.RecommendedPoolForKind(storage.StorageKindFilesystem)
+	c.Check(poolCfg.Name(), tc.Equals, "lxd")
+	c.Check(poolCfg.Provider(), tc.Equals, storage.ProviderType("lxd"))
+}
+
 func (s *storageSuite) TestStorageProviderTypes(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
