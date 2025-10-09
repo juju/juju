@@ -169,6 +169,7 @@ SET    target_version = $setControllerTargetVersion.target_version
 	return nil
 }
 
+// HasBinaryAgent returns true if there exists a binary agent given a version and false otherwise.
 func (s *ControllerState) HasBinaryAgent(ctx context.Context, version semversion.Number) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {

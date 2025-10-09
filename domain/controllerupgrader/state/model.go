@@ -265,6 +265,7 @@ SET    target_version = $setAgentVersionTargetStream.target_version,
 	return nil
 }
 
+// HasBinaryAgent returns true if there exists a binary agent given a version and false otherwise.
 func (s *ControllerModelState) HasBinaryAgent(ctx context.Context, version semversion.Number) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -296,6 +297,7 @@ WHERE version = $hasBinaryAgent.version
 	return binaryAgentExists, errors.Capture(err)
 }
 
+// HasAgentStream returns true if the existing agent's stream matches the given stream.
 func (s *ControllerModelState) HasAgentStream(ctx context.Context, stream modelagent.AgentStream) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
