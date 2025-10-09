@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -77,10 +78,8 @@ func (p *clientCredentialsLoginProvider) AuthHeader() (http.Header, error) {
 // It authenticates as the entity using client credentials.
 // Subsequent requests on the state will act as that entity.
 func (p *clientCredentialsLoginProvider) Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
-	if p.populatedFromEnvironment {
-		if !p.clientIdAndSecretSet() {
-			return nil, errors.NotValidf("both %s and %s environment variables must be set", ClientIDEnvVar, ClientSecretEnvVar)
-		}
+	if !p.clientIdAndSecretSet() {
+		return nil, errors.New(fmt.Sprintf("both %s and %s environment variables must be set", ClientIDEnvVar, ClientSecretEnvVar))
 	}
 
 	var result params.LoginResult
@@ -97,7 +96,9 @@ func (p *clientCredentialsLoginProvider) Login(ctx context.Context, caller base.
 		return nil, errors.Trace(err)
 	}
 
-	p.afterLoginCallback()
+	if p.afterLoginCallback != nil {
+		p.afterLoginCallback()
+	}
 
 	return NewLoginResultParams(result)
 }
