@@ -448,12 +448,13 @@ func (s *Service) GetRelationDetails(
 	}
 
 	return relation.RelationDetails{
-		Life:      relationDetails.Life,
-		UUID:      relationDetails.UUID,
-		ID:        relationDetails.ID,
-		Key:       key,
-		Endpoints: relationDetails.Endpoints,
-		Suspended: relationDetails.Suspended,
+		Life:         relationDetails.Life,
+		UUID:         relationDetails.UUID,
+		ID:           relationDetails.ID,
+		Key:          key,
+		Endpoints:    relationDetails.Endpoints,
+		Suspended:    relationDetails.Suspended,
+		InScopeUnits: relationDetails.InScopeUnits,
 	}, nil
 }
 

@@ -272,6 +272,10 @@ func (w *localConsumerWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
+	// Store a reference to the channel here as it might become nil if the offer
+	// is terminated.
+	offerStatusWatcherChanges := offerStatusWatcher.Changes()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -305,7 +309,7 @@ func (w *localConsumerWorker) loop() (err error) {
 				if errors.Is(err, relationerrors.RelationNotFound) {
 					// Relation has been removed, ensure that we don't have
 					// any workers still running for it.
-					if err := w.handleRelationRemoved(ctx, relationUUID); err != nil {
+					if err := w.handleRelationRemoved(ctx, relationUUID, details.InScopeUnits); err != nil {
 						// If we fail to remove the relation, we must kill the
 						// worker, as nothing will come around and try again.
 						// Thus, kill it and force the application worker to
@@ -329,7 +333,21 @@ func (w *localConsumerWorker) loop() (err error) {
 				return errors.Annotatef(err, "handling consumer unit relation change for %q", change.RelationUUID)
 			}
 
-		case changes, ok := <-offerStatusWatcher.Changes():
+		case change := <-w.offererRelationUnitChanges:
+			w.logger.Debugf(ctx, "offerer relation units changed: %v", change)
+
+			if err := w.handleOffererRelationUnitChange(ctx, change); err != nil {
+				return errors.Annotatef(err, "handling offerer unit relation change for %q", change.ConsumerRelationUUID)
+			}
+
+		case change := <-w.offererRelationChanges:
+			w.logger.Debugf(ctx, "offerer relation changed: %v", change)
+
+			if err := w.handleOffererRelationChange(ctx, change); err != nil {
+				return errors.Annotatef(err, "handling offerer relation change for %q", change.ConsumerRelationUUID)
+			}
+
+		case changes, ok := <-offerStatusWatcherChanges:
 			if !ok {
 				select {
 				case <-w.catacomb.Dying():
@@ -346,7 +364,23 @@ func (w *localConsumerWorker) loop() (err error) {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
 				}
 
-				// TODO (stickupkid): Handle terminated status.
+				// If the offer has been terminated, stop the watcher as we
+				// don't want to keep getting terminated events. We should get
+				// more information about the termination from the offerer
+				// watchers and getting more terminated events is not useful.
+				// If we don't get more information from the offerer, then
+				// this will be orphaned and only the removal of the consumer
+				// relation will clean it up.
+				if change.Status.Status == status.Terminated {
+					if err := worker.Stop(offerStatusWatcher); err != nil {
+						w.logger.Warningf(ctx, "failed stopping offer status watcher for remote application %q: %v", w.applicationName, err)
+					}
+
+					// Forcing to nil will prevent us trying to read from it
+					// again.
+					offerStatusWatcher = nil
+					break
+				}
 			}
 		}
 	}
@@ -423,9 +457,32 @@ func (w *localConsumerWorker) remoteOfferRemoved(ctx context.Context) error {
 	return nil
 }
 
-func (w *localConsumerWorker) handleRelationRemoved(ctx context.Context, relationUUID corerelation.UUID) error {
+func (w *localConsumerWorker) handleRelationRemoved(ctx context.Context, relationUUID corerelation.UUID, inScopeUnits int) error {
 	w.logger.Debugf(ctx, "relation %q removed", relationUUID)
-	return errors.NotImplemented
+
+	// Remove the unit workers tracking the relation. The relation is now
+	// transitioning, and we don't want the workers to be triggering changes.
+	if dead, err := w.isRelationWorkerDead(ctx, relationUUID); err != nil {
+		return errors.Annotatef(err, "querying offerer relation worker for %q", relationUUID)
+	} else if !dead {
+		w.logger.Debugf(ctx, "consumer relation %q is not dead", relationUUID)
+		return nil
+	}
+
+	// If we have in-scope units, then the relation is still active, and we
+	// don't need to do anything else.
+	if inScopeUnits > 0 {
+		w.logger.Debugf(ctx, "consumer relation %q is dead, but has in-scope units: %v", relationUUID, inScopeUnits)
+		return nil
+	}
+
+	// The relation is dead, and has no in-scope units. We can remove the
+	// unit relation workers.
+	if err := w.removeConsumerUnitRelationWorkers(ctx, relationUUID); err != nil {
+		w.logger.Warningf(ctx, "removing consumer unit relation workers for %q: %v", relationUUID, err)
+	}
+
+	return nil
 }
 
 // relationChanged processes changes to the relation as recorded in the
@@ -443,6 +500,26 @@ func (w *localConsumerWorker) handleRelationChange(ctx context.Context, details 
 
 func (w *localConsumerWorker) handleRelationSuspended(ctx context.Context, details relation.RelationDetails) error {
 	w.logger.Debugf(ctx, "(%v) relation %v suspended", details.Life, details.UUID)
+
+	// If the relation is dying
+	if dead, err := w.isRelationWorkerDead(ctx, details.UUID); err != nil {
+		return errors.Annotatef(err, "querying offerer relation worker for %q", details.UUID)
+	} else if dead {
+		return nil
+	}
+
+	// Only stop the watchers for relation unit changes if relation is alive, as
+	// we need to always deal with units leaving scope etc if the relation is
+	// dying.
+	if details.Life != life.Alive {
+		return nil
+	}
+
+	// Remove the unit watchers for both sides of the relation.
+	if err := w.removeConsumerUnitRelationWorkers(ctx, details.UUID); err != nil {
+		w.logger.Warningf(ctx, "removing consumer unit relation workers for %q: %v", details.UUID, err)
+	}
+
 	return nil
 }
 
@@ -496,10 +573,8 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	// Create the unit watchers for both the consumer and offerer sides if the
 	// relation is not suspended. It is expected that the unit watchers will
 	// clean themselves up if the relation is suspended or removed.
-	if !details.Suspended {
-		if err := w.ensureUnitRelationWorkers(ctx, details, result.offererApplicationUUID, result.macaroon); err != nil {
-			return errors.Annotatef(err, "creating unit relation workers for %q", details.UUID)
-		}
+	if err := w.ensureUnitRelationWorkers(ctx, details, result.offererApplicationUUID, result.macaroon); err != nil {
+		return errors.Annotatef(err, "creating unit relation workers for %q", details.UUID)
 	}
 
 	// Handle the case where the relation is dying, and ensure we have no
@@ -728,26 +803,8 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 		return errors.Annotatef(err, "publishing consumer relation %q change to offerer", change.RelationUUID)
 	}
 
-	// Remove the unit workers tracking the relation. The relation is now
-	// transitioning, and we don't want the workers to be triggering changes.
-	if dead, err := w.relationWorkerDead(ctx, change.RelationUUID); err != nil {
-		return errors.Annotatef(err, "querying offerer relation worker for %q", change.RelationUUID)
-	} else if !dead {
-		w.logger.Debugf(ctx, "consumer relation %q is not dead", change.RelationUUID)
-		return nil
-	}
-
-	// If we have in-scope units, then the relation is still active, and we
-	// don't need to do anything else.
-	if len(change.InScopeUnits) > 0 {
-		w.logger.Debugf(ctx, "consumer relation %q is dead, but has in-scope units: %v", change.RelationUUID, change.InScopeUnits)
-		return nil
-	}
-
-	// The relation is dead, and has no in-scope units. We can remove the
-	// unit relation workers.
-	if err := w.removeConsumerUnitRelationWorkers(ctx, change.RelationUUID); err != nil {
-		w.logger.Warningf(ctx, "removing consumer unit relation workers for %q: %v", change.RelationUUID, err)
+	if err := w.handleRelationRemoved(ctx, change.RelationUUID, len(change.InScopeUnits)); err != nil {
+		return errors.Annotatef(err, "handling potential removal of relation %q after consumer unit change", change.RelationUUID)
 	}
 
 	return nil
@@ -813,7 +870,7 @@ func (w *localConsumerWorker) handleDischargeRequiredError(ctx context.Context, 
 	return nil
 }
 
-func (w *localConsumerWorker) relationWorkerDead(ctx context.Context, relationUUID corerelation.UUID) (bool, error) {
+func (w *localConsumerWorker) isRelationWorkerDead(ctx context.Context, relationUUID corerelation.UUID) (bool, error) {
 	_, err := w.runner.Worker(offererRelationWorkerName(relationUUID), ctx.Done())
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return false, errors.Annotatef(err, "querying offerer relation worker for %q", relationUUID)
@@ -821,6 +878,14 @@ func (w *localConsumerWorker) relationWorkerDead(ctx context.Context, relationUU
 		return true, nil
 	}
 	return false, nil
+}
+
+func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Context, change offererunitrelations.RelationUnitChange) error {
+	return w.crossModelService.ProcessRelationChange(ctx)
+}
+
+func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, change offererrelations.RelationChange) error {
+	return w.crossModelService.ProcessRelationChange(ctx)
 }
 
 type consumerRelationResult struct {
