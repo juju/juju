@@ -14,6 +14,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type modelSchemaSuite struct {
@@ -801,4 +802,32 @@ VALUES ("app-1", "app-1", "0", ?, "space1");
 INSERT INTO unit (uuid, net_node_uuid, application_uuid, name, life_id, charm_uuid)
 VALUES ("unit-1", "node2", "app-1", "foo", "0", ?);
 `, "Adding a unit to a CMR application is not allowed", id.String())
+}
+
+func (s *modelSchemaSuite) TestFKDebugTrigger(c *tc.C) {
+	oldEnableDebug := EnableDebug
+	c.Cleanup(func() {
+		EnableDebug = oldEnableDebug
+	})
+	EnableDebug = true
+
+	s.applyDDL(c, ModelDDL())
+
+	volumeUUID := tc.Must(c, uuid.NewUUID)
+	netNodeUUID := tc.Must(c, uuid.NewUUID)
+	attachmentUUID := tc.Must(c, uuid.NewUUID)
+
+	s.assertExecSQL(c, `
+INSERT INTO storage_volume (uuid, volume_id, life_id) VALUES (?, "x", 0);
+`, volumeUUID.String())
+	s.assertExecSQL(c, `
+INSERT INTO net_node (uuid) VALUES (?);
+`, netNodeUUID.String())
+	s.assertExecSQL(c, `
+INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id) VALUES (?, ?, ?, 0);
+`, attachmentUUID.String(), volumeUUID.String(), netNodeUUID.String())
+
+	s.assertExecSQLError(c, `
+DELETE FROM net_node
+`, "Foreign Key violation during DELETE FROM net_node due to referencing rows in storage_volume_attachment ON net_node_uuid")
 }
