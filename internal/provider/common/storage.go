@@ -28,11 +28,11 @@ func GetCommonRecommendedIAASPoolForKind(
 ) *internalstorage.Config {
 	var defaultPools []*internalstorage.Config
 
-	if kind == internalstorage.StorageKindBlock {
+	if kind == internalstorage.StorageKindFilesystem {
 		defaultPools = internalprovider.NewRootfsProvider(
 			internalprovider.LogAndExec,
 		).DefaultPools()
-	} else if kind == internalstorage.StorageKindFilesystem {
+	} else if kind == internalstorage.StorageKindBlock {
 		defaultPools = internalprovider.NewLoopProvider(
 			internalprovider.LogAndExec,
 		).DefaultPools()

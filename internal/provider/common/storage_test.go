@@ -41,3 +41,13 @@ func (storageSuite) TestGetCommonIAASStorageProviderNotFound(c *tc.C) {
 	_, err := GetCommonIAASStorageProvider(notFonndPT)
 	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 }
+
+func (storageSuite) TestGetCommonRecommendedIAASPoolForKind(c *tc.C) {
+	fsPool := GetCommonRecommendedIAASPoolForKind(internalstorage.StorageKindFilesystem)
+	c.Check(fsPool.Name(), tc.Equals, "rootfs")
+	c.Check(fsPool.Provider(), tc.Equals, internalstorage.ProviderType("rootfs"))
+
+	bPool := GetCommonRecommendedIAASPoolForKind(internalstorage.StorageKindBlock)
+	c.Check(bPool.Name(), tc.Equals, "loop")
+	c.Check(bPool.Provider(), tc.Equals, internalstorage.ProviderType("loop"))
+}
