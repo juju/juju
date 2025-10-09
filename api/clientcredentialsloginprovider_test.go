@@ -4,6 +4,7 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/juju/errors"
@@ -96,4 +97,11 @@ func (s *clientCredentialsLoginProviderBasicSuite) TestClientCredentialsAuthHead
 	got, err := lp.AuthHeader()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, jc.DeepEquals, expectedHeader)
+}
+
+func (s *clientCredentialsLoginProviderBasicSuite) TestNewClientCredentialsLoginProviderFromEnvironment(c *gc.C) {
+	ctx := context.Background()
+
+	_, err := api.NewClientCredentialsLoginProviderFromEnvironment(func() {}).Login(ctx, nil)
+	c.Assert(err, gc.ErrorMatches, "both client id and client secret must be set")
 }
