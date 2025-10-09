@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -55,6 +56,12 @@ type ModelRemoteApplicationState interface {
 	// SaveMacaroonForRelation saves the given macaroon for the specified
 	// remote application.
 	SaveMacaroonForRelation(context.Context, string, []byte) error
+
+	// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
+	// for the given offer UUID.
+	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
+	// application is not found.
+	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -175,7 +182,12 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 			OfferUUID:       args.OfferUUID,
 		},
 		RelationUUID: args.RelationUUID,
-	}); err != nil {
+	}); internalerrors.Is(err, crossmodelrelationerrors.RemoteRelationAlreadyRegistered) {
+		// This can happen if the remote relation was already registered.
+		// The method is idempotent, so we just return nil with a debug log.
+		s.logger.Debugf(ctx, "remote relation with consumer relation UUID %q already registered", args.RelationUUID)
+		return nil
+	} else if err != nil {
 		return internalerrors.Errorf("inserting remote application consumer: %w", err)
 	}
 
@@ -256,6 +268,25 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 	}
 
 	return s.modelState.SaveMacaroonForRelation(ctx, relationUUID.String(), bytes)
+}
+
+// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
+// for the given offer UUID.
+// Returns crossmodelrelationerrors.OfferNotFound if the offer or associated
+// application is not found.
+func (s *Service) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !uuid.IsValidUUIDString(offerUUID) {
+		return "", "", internalerrors.Errorf("offer UUID %q is not a valid UUID", offerUUID).Add(errors.NotValid)
+	}
+
+	appName, appUUID, err := s.modelState.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
+	if err != nil {
+		return "", "", internalerrors.Capture(err)
+	}
+	return appName, appUUID, nil
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {

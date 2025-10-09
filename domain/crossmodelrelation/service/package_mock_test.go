@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	application "github.com/juju/juju/core/application"
 	user "github.com/juju/juju/core/user"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
 	internal "github.com/juju/juju/domain/crossmodelrelation/internal"
@@ -369,6 +370,46 @@ func (c *MockModelStateDeleteFailedOfferCall) Do(f func(context.Context, uuid.UU
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateDeleteFailedOfferCall) DoAndReturn(f func(context.Context, uuid.UUID) error) *MockModelStateDeleteFailedOfferCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationNameAndUUIDByOfferUUID mocks base method.
+func (m *MockModelState) GetApplicationNameAndUUIDByOfferUUID(arg0 context.Context, arg1 string) (string, application.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationNameAndUUIDByOfferUUID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(application.UUID)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetApplicationNameAndUUIDByOfferUUID indicates an expected call of GetApplicationNameAndUUIDByOfferUUID.
+func (mr *MockModelStateMockRecorder) GetApplicationNameAndUUIDByOfferUUID(arg0, arg1 any) *MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationNameAndUUIDByOfferUUID", reflect.TypeOf((*MockModelState)(nil).GetApplicationNameAndUUIDByOfferUUID), arg0, arg1)
+	return &MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall{Call: call}
+}
+
+// MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall wrap *gomock.Call
+type MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall) Return(arg0 string, arg1 application.UUID, arg2 error) *MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall) Do(f func(context.Context, string) (string, application.UUID, error)) *MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall) DoAndReturn(f func(context.Context, string) (string, application.UUID, error)) *MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

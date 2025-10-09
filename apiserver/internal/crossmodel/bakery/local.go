@@ -46,6 +46,7 @@ func NewLocalOfferBakery(
 		Bakery: bakery.New(bakery.BakeryParams{
 			Location:      location,
 			Locator:       locator,
+			Key:           keyPair,
 			RootKeyStore:  store,
 			Checker:       checker,
 			OpsAuthorizer: authorizer,

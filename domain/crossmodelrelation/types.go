@@ -248,3 +248,19 @@ type RemoteRelationChangedArgs struct {
 	// SuspendedReason provides a reason for the suspension, if applicable.
 	SuspendedReason string
 }
+
+// ApplicationRemoteRelation represents a remote relation mapping between the
+// synthetic relation (relation_uuid) created in the offering model and the
+// original consumer relation UUID (consumer_relation_uuid) provided by the
+// consuming model. This is returned by service/state queries that look up
+// remote relations via the consumer relation UUID.
+type ApplicationRemoteRelation struct {
+	// RelationUUID is the UUID of the synthetic relation created in the
+	// offering model that mirrors the consumer model's relation.
+	RelationUUID string
+
+	// ConsumerRelationUUID is the UUID of the relation as it exists in the
+	// consuming model (the original relation UUID provided to the offering
+	// model when registering the remote relation).
+	ConsumerRelationUUID string
+}
