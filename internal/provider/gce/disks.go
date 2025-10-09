@@ -27,13 +27,22 @@ const (
 )
 
 // RecommendedPoolForKind returns the recommended storage pool to use for
-// the given storage kind. If no pool can be recommended nil is returned.
+// the given storage kind. If no pool can be recommended nil is returned. The
+// GCE environ returns a gce pool for both block and filesystem storage kinds.
 //
-// Implements [storage.PoolAdvisor] interface.
+// Implements [storage.ProviderRegistry] interface.
 func (*environ) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
-	return common.GetCommonRecommendedIAASPoolForKind(kind)
+	switch kind {
+	case storage.StorageKindBlock, storage.StorageKindFilesystem:
+		defaultPool, _ := storage.NewConfig(
+			gceStorageProviderType.String(), gceStorageProviderType, storage.Attrs{},
+		)
+		return defaultPool
+	default:
+		return common.GetCommonRecommendedIAASPoolForKind(kind)
+	}
 }
 
 // StorageProviderTypes implements storage.ProviderRegistry.
