@@ -5,6 +5,7 @@ package remoterelationconsumer
 
 import (
 	"context"
+	"slices"
 	stdtesting "testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
@@ -1681,6 +1683,10 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 	err = w.runner.StopAndRemoveWorker(offererRelationWorkerName(relationUUID), c.Context().Done())
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Ensure that it is gone, otherwise we don't know if the next step
+	// is valid.
+	s.waitUntilWorkerIsGone(c, w.runner, offererRelationWorkerName(relationUUID))
+
 	err = w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
 		RelationUnitChange: domainrelation.RelationUnitChange{
 			RelationUUID: relationUUID,
@@ -1977,5 +1983,22 @@ func (s *localConsumerWorkerSuite) waitForAllWorkersStarted(c *tc.C) {
 	case <-s.offererRelationWorkerStarted:
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for remote relation worker to be started")
+	}
+}
+
+func (s *localConsumerWorkerSuite) waitUntilWorkerIsGone(c *tc.C, runner *worker.Runner, name string) {
+	timer := time.NewTicker(10 * time.Millisecond)
+	for {
+		select {
+		case <-timer.C:
+			names := runner.WorkerNames()
+			if !slices.Contains(names, name) {
+				timer.Stop()
+				return
+			}
+
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for worker %q to be gone", name)
+		}
 	}
 }
