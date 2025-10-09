@@ -4,6 +4,8 @@
 package schema
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/juju/collections/set"
@@ -288,6 +290,9 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_secret_backend_immutable_delete",
 	)
 	got := readEntityNames(c, s.DB(), "trigger")
+	got = slices.DeleteFunc(got, func(name string) bool {
+		return strings.HasPrefix(name, "trg_fk_debug")
+	})
 	wanted := expected.Union(additional)
 	c.Assert(got, tc.SameContents, wanted.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",

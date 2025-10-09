@@ -115,6 +115,15 @@ func ControllerDDL() *schema.Schema {
 			"secret backends with type controller or kubernetes are immutable"),
 	)
 
+	// Debug triggers.
+	if EnableDebug {
+		if EnableGenerated {
+			patches = append(patches,
+				triggers.FKDebugTriggers(),
+			)
+		}
+	}
+
 	ctrlSchema := schema.New()
 	for _, fn := range patches {
 		ctrlSchema.Add(fn())

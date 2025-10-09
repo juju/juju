@@ -371,6 +371,15 @@ END;
 
 	patches = append(patches, customModelTriggers()...)
 
+	// Debug triggers.
+	if EnableGenerated {
+		if EnableDebug {
+			patches = append(patches,
+				triggers.FKDebugTriggers(),
+			)
+		}
+	}
+
 	modelSchema := schema.New()
 	for _, fn := range patches {
 		modelSchema.Add(fn())
