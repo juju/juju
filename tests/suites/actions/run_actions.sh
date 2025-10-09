@@ -15,32 +15,32 @@ run_actions_params() {
 	# Run a valid action.
 	juju run juju-qa-action/0 fortune length="long"
 	# Check the the task succeeded.
-	juju show-operation 1 --format=json | jq '.status' | check 'completed'
+	juju show-operation 0 --format=json | jq '.status' | check 'completed'
 	# Check the action succeeded.
-	juju show-task 2 --format=json | jq '.status' | check 'completed'
+	juju show-task 1 --format=json | jq '.status' | check 'completed'
 
 	# Run an action that will return failed status.
 	juju run juju-qa-action/0 fortune length="long" fail="fail with this string"
 	# Check the the task failed as expected.
-	juju show-operation 3 --format=json | jq '.status' | check 'failed'
+	juju show-operation 2 --format=json | jq '.status' | check 'failed'
 	# Check the action failed as expected.
-	juju show-task 4 --format=json | jq '.status' | check 'failed'
+	juju show-task 3 --format=json | jq '.status' | check 'failed'
 
 	# Run an action with misspelled parameters.
 	juju run juju-qa-action/0 fortune length="long" misspelledparam="ok"
 	# Check the action was rejected.
-	juju show-operation 5 --format=json | jq '.status' | check 'error'
+	juju show-operation 4 --format=json | jq '.status' | check 'error'
 	# Check the task did not run and has status error.
-	juju show-task 6 --format=json | jq '.status' | check 'error'
+	juju show-task 5 --format=json | jq '.status' | check 'error'
 
 	# Run an action that returns all the parameters passed to it.
 	juju run juju-qa-action/0 list-my-params string="my string" array="[1,2]" bool=true
 	# Check the the task succeeded.
-	juju show-operation 7 --format=json | jq '.status' | check 'completed'
+	juju show-operation 6 --format=json | jq '.status' | check 'completed'
 	# Check the params were returned in the results.
-	juju show-task 8 --format=json | jq '.results | .["string"]' | check 'my string'
-	juju show-task 8 --format=json | jq '.results | .["array"]' | check '[1, 2]'
-	juju show-task 8 --format=json | jq '.results | .["bool"]' | check 'True'
+	juju show-task 7 --format=json | jq '.results | .["string"]' | check 'my string'
+	juju show-task 7 --format=json | jq '.results | .["array"]' | check '[1, 2]'
+	juju show-task 7 --format=json | jq '.results | .["bool"]' | check 'True'
 
 	destroy_model "actions_test"
 }
