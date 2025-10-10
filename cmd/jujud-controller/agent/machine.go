@@ -538,7 +538,8 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
-		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(), "", internallogger.GetLogger("juju.flightrecorder"))
+		clock := clock.WallClock
+		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(clock), "", internallogger.GetLogger("juju.flightrecorder"))
 
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
@@ -555,7 +556,7 @@ func (a *MachineAgent) makeEngineCreator(
 			UpgradeSteps:                      a.upgradeSteps,
 			LogSink:                           logSink,
 			NewDeployContext:                  deployer.NewNestedContext,
-			Clock:                             clock.WallClock,
+			Clock:                             clock,
 			FlightRecorder:                    flightRecorder,
 			ValidateMigration:                 a.validateMigration,
 			PrometheusRegisterer:              a.prometheusRegistry,
@@ -602,7 +603,7 @@ func (a *MachineAgent) makeEngineCreator(
 			PrometheusGatherer: a.prometheusRegistry,
 			FlightRecorder:     flightRecorder,
 			WorkerFunc:         introspection.NewWorker,
-			Clock:              clock.WallClock,
+			Clock:              clock,
 			Logger:             logger.Child("introspection"),
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error

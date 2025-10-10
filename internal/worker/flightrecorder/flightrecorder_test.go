@@ -5,6 +5,7 @@ package flightrecorder
 
 import (
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -38,13 +39,13 @@ func (s *flightRecorderSuite) TestWorkerStart(c *tc.C) {
 func (s *flightRecorderSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.recorder.EXPECT().Start().Return(nil)
+	s.recorder.EXPECT().Start(time.Millisecond).Return(nil)
 	s.recorder.EXPECT().Stop().Return(nil)
 
 	recorder := New(s.recorder, "/tmp", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start(flightrecorder.KindAny)
+	err := recorder.Start(flightrecorder.KindAny, time.Millisecond)
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, recorder)
@@ -53,13 +54,13 @@ func (s *flightRecorderSuite) TestStart(c *tc.C) {
 func (s *flightRecorderSuite) TestStartStop(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.recorder.EXPECT().Start().Return(nil)
+	s.recorder.EXPECT().Start(time.Millisecond).Return(nil)
 	s.recorder.EXPECT().Stop().Return(nil).Times(2)
 
 	recorder := New(s.recorder, "/tmp", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start(flightrecorder.KindAny)
+	err := recorder.Start(flightrecorder.KindAny, time.Millisecond)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = recorder.Stop()
@@ -71,14 +72,14 @@ func (s *flightRecorderSuite) TestStartStop(c *tc.C) {
 func (s *flightRecorderSuite) TestStartCapture(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.recorder.EXPECT().Start().Return(nil)
+	s.recorder.EXPECT().Start(time.Millisecond).Return(nil)
 	s.recorder.EXPECT().Capture("/mytmp").Return("path/to/recording", nil)
 	s.recorder.EXPECT().Stop().Return(nil)
 
 	recorder := New(s.recorder, "/mytmp", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start(flightrecorder.KindAny)
+	err := recorder.Start(flightrecorder.KindAny, time.Millisecond)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = recorder.Capture(flightrecorder.KindAny)
@@ -90,14 +91,14 @@ func (s *flightRecorderSuite) TestStartCapture(c *tc.C) {
 func (s *flightRecorderSuite) TestStartCaptureDefaultPath(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.recorder.EXPECT().Start().Return(nil)
+	s.recorder.EXPECT().Start(time.Millisecond).Return(nil)
 	s.recorder.EXPECT().Capture("/tmp").Return("path/to/recording", nil)
 	s.recorder.EXPECT().Stop().Return(nil)
 
 	recorder := New(s.recorder, "", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start(flightrecorder.KindAny)
+	err := recorder.Start(flightrecorder.KindAny, time.Millisecond)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = recorder.Capture(flightrecorder.KindAny)
