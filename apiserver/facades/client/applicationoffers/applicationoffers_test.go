@@ -18,6 +18,7 @@ import (
 	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	offer "github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
@@ -286,7 +287,7 @@ func (s *offerSuite) TestModifyOfferAccess(c *tc.C) {
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "model", qualifier).Return(modelInfo, nil)
 
 	offerURL, _ := corecrossmodel.ParseOfferURL("admin/model.application:db")
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 	userTag := names.NewUserTag("simon")
 	updateArgs := access.UpdatePermissionArgs{
@@ -334,7 +335,7 @@ func (s *offerSuite) TestModifyOfferAccessOfferOwner(c *tc.C) {
 
 	// Get the offer UUID.
 	offerURL, _ := corecrossmodel.ParseOfferURL("simon/model.application:db")
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 
 	// authUser does not have model admin permissions.
@@ -395,7 +396,7 @@ func (s *offerSuite) TestModifyOfferAccessModelAdmin(c *tc.C) {
 
 	// Get the offer UUID.
 	offerURL, _ := corecrossmodel.ParseOfferURL("simon/model.application:db")
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 
 	// authUser has model admin permissions.
@@ -448,7 +449,7 @@ func (s *offerSuite) TestModifyOfferAccessPermissionDenied(c *tc.C) {
 
 	// Get the offer UUID.
 	offerURL, _ := corecrossmodel.ParseOfferURL("simon/model.application:db")
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 
 	// authUser does not have model admin permissions.
@@ -517,7 +518,7 @@ func (s *offerSuite) testDestroyOffers(c *tc.C, force bool) {
 	modelUUID := s.expectGetModelByNameAndQualifier(c, names.NewUserTag("fred@external"), offerURL.ModelName)
 	s.setupAuthUser("simon")
 	s.setupCheckAPIUserAdmin(offerAPI.controllerUUID, names.NewModelTag(modelUUID))
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 	s.removalService.EXPECT().RemoveOffer(gomock.Any(), offerUUID, force).Return(nil)
 
@@ -1437,7 +1438,7 @@ func (s *offerSuite) TestGetConsumeDetailsUserIsModelAdmin(c *tc.C) {
 }
 
 func (s *offerSuite) testGetConsumeDetails(c *tc.C, userID string) {
-	offerUUID := uuid.MustNewUUID().String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 
 	modelName := "test-model"
 	modelOwnerTag := names.NewUserTag("fred@external")
@@ -1467,7 +1468,7 @@ func (s *offerSuite) testGetConsumeDetails(c *tc.C, userID string) {
 
 	offerDetails := []*crossmodelrelation.OfferDetail{
 		{
-			OfferUUID:              offerUUID,
+			OfferUUID:              offerUUID.String(),
 			OfferName:              domainFilters[0].OfferName,
 			ApplicationName:        "test-app",
 			ApplicationDescription: "testing application",
@@ -1482,7 +1483,7 @@ func (s *offerSuite) testGetConsumeDetails(c *tc.C, userID string) {
 
 	bakeryMacaroon := newBakeryMacaroon(c, "test")
 	macaroon := bakeryMacaroon.M()
-	s.crossModelAuthContext.EXPECT().CreateConsumeOfferMacaroon(gomock.Any(), modelUUID, offerUUID, userID, bakery.Version(0)).Return(bakeryMacaroon, nil)
+	s.crossModelAuthContext.EXPECT().CreateConsumeOfferMacaroon(gomock.Any(), modelUUID, offerUUID.String(), userID, bakery.Version(0)).Return(bakeryMacaroon, nil)
 
 	offerAPI := s.offerAPI(c)
 	details, err := offerAPI.GetConsumeDetails(c.Context(), params.ConsumeOfferDetailsArg{
@@ -1504,7 +1505,7 @@ func (s *offerSuite) testGetConsumeDetails(c *tc.C, userID string) {
 					SourceModelTag:         names.NewModelTag(modelUUID.String()).String(),
 					OfferURL:               "fred-external/test-model.hosted-mysql",
 					OfferName:              "hosted-mysql",
-					OfferUUID:              offerUUID,
+					OfferUUID:              offerUUID.String(),
 					ApplicationDescription: "testing application",
 					Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
 					Users: []params.OfferUserDetails{
@@ -1534,7 +1535,7 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(authentication.ErrorEntityMissingPermission)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, gomock.AssignableToTypeOf(names.ModelTag{})).Return(nil)
 
-	offerUUID := uuid.MustNewUUID().String()
+	offerUUID := tc.Must(c, offer.NewUUID)
 
 	modelName := "test-model"
 	modelOwnerTag := names.NewUserTag("fred@external")
@@ -1564,7 +1565,7 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 
 	offerDetails := []*crossmodelrelation.OfferDetail{
 		{
-			OfferUUID:              offerUUID,
+			OfferUUID:              offerUUID.String(),
 			OfferName:              domainFilters[0].OfferName,
 			ApplicationName:        "test-app",
 			ApplicationDescription: "testing application",
@@ -1579,7 +1580,7 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 
 	bakeryMacaroon := newBakeryMacaroon(c, "test")
 	macaroon := bakeryMacaroon.M()
-	s.crossModelAuthContext.EXPECT().CreateConsumeOfferMacaroon(gomock.Any(), modelUUID, offerUUID, userTag.Id(), bakery.Version(0)).Return(bakeryMacaroon, nil)
+	s.crossModelAuthContext.EXPECT().CreateConsumeOfferMacaroon(gomock.Any(), modelUUID, offerUUID.String(), userTag.Id(), bakery.Version(0)).Return(bakeryMacaroon, nil)
 
 	offerAPI := s.offerAPI(c)
 	details, err := offerAPI.GetConsumeDetails(c.Context(), params.ConsumeOfferDetailsArg{
@@ -1602,7 +1603,7 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 					SourceModelTag:         names.NewModelTag(modelUUID.String()).String(),
 					OfferURL:               "fred-external/test-model.hosted-mysql",
 					OfferName:              "hosted-mysql",
-					OfferUUID:              offerUUID,
+					OfferUUID:              offerUUID.String(),
 					ApplicationDescription: "testing application",
 					Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
 					Users: []params.OfferUserDetails{

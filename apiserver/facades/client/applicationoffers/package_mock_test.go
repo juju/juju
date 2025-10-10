@@ -16,12 +16,12 @@ import (
 	bakery "github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	model "github.com/juju/juju/core/model"
+	offer "github.com/juju/juju/core/offer"
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
 	controller "github.com/juju/juju/domain/controller"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
-	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -250,10 +250,10 @@ func (m *MockCrossModelRelationService) EXPECT() *MockCrossModelRelationServiceM
 }
 
 // GetOfferUUID mocks base method.
-func (m *MockCrossModelRelationService) GetOfferUUID(arg0 context.Context, arg1 *crossmodel.OfferURL) (uuid.UUID, error) {
+func (m *MockCrossModelRelationService) GetOfferUUID(arg0 context.Context, arg1 *crossmodel.OfferURL) (offer.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOfferUUID", arg0, arg1)
-	ret0, _ := ret[0].(uuid.UUID)
+	ret0, _ := ret[0].(offer.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -271,19 +271,19 @@ type MockCrossModelRelationServiceGetOfferUUIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceGetOfferUUIDCall) Return(arg0 uuid.UUID, arg1 error) *MockCrossModelRelationServiceGetOfferUUIDCall {
+func (c *MockCrossModelRelationServiceGetOfferUUIDCall) Return(arg0 offer.UUID, arg1 error) *MockCrossModelRelationServiceGetOfferUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceGetOfferUUIDCall) Do(f func(context.Context, *crossmodel.OfferURL) (uuid.UUID, error)) *MockCrossModelRelationServiceGetOfferUUIDCall {
+func (c *MockCrossModelRelationServiceGetOfferUUIDCall) Do(f func(context.Context, *crossmodel.OfferURL) (offer.UUID, error)) *MockCrossModelRelationServiceGetOfferUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceGetOfferUUIDCall) DoAndReturn(f func(context.Context, *crossmodel.OfferURL) (uuid.UUID, error)) *MockCrossModelRelationServiceGetOfferUUIDCall {
+func (c *MockCrossModelRelationServiceGetOfferUUIDCall) DoAndReturn(f func(context.Context, *crossmodel.OfferURL) (offer.UUID, error)) *MockCrossModelRelationServiceGetOfferUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -389,7 +389,7 @@ func (m *MockRemovalService) EXPECT() *MockRemovalServiceMockRecorder {
 }
 
 // RemoveOffer mocks base method.
-func (m *MockRemovalService) RemoveOffer(arg0 context.Context, arg1 uuid.UUID, arg2 bool) error {
+func (m *MockRemovalService) RemoveOffer(arg0 context.Context, arg1 offer.UUID, arg2 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveOffer", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -415,13 +415,13 @@ func (c *MockRemovalServiceRemoveOfferCall) Return(arg0 error) *MockRemovalServi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemovalServiceRemoveOfferCall) Do(f func(context.Context, uuid.UUID, bool) error) *MockRemovalServiceRemoveOfferCall {
+func (c *MockRemovalServiceRemoveOfferCall) Do(f func(context.Context, offer.UUID, bool) error) *MockRemovalServiceRemoveOfferCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemovalServiceRemoveOfferCall) DoAndReturn(f func(context.Context, uuid.UUID, bool) error) *MockRemovalServiceRemoveOfferCall {
+func (c *MockRemovalServiceRemoveOfferCall) DoAndReturn(f func(context.Context, offer.UUID, bool) error) *MockRemovalServiceRemoveOfferCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

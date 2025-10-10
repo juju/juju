@@ -44,7 +44,7 @@ func (s *Service) GetOfferStatus(ctx context.Context, offerUUID offer.UUID) (cor
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
 
-	now := s.clock.Now()
+	now := s.clock.Now().UTC()
 
 	uuid, err := s.modelState.GetApplicationUUIDForOffer(ctx, offerUUID.String())
 	if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {

@@ -264,7 +264,7 @@ func (s *facadeSuite) TestWatchOfferStatusNotFound(c *tc.C) {
 
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
-	offerUUID := coreoffertesting.GenOfferUUID(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
@@ -291,7 +291,7 @@ func (s *facadeSuite) TestWatchOfferStatus(c *tc.C) {
 
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
-	offerUUID := coreoffertesting.GenOfferUUID(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
@@ -333,7 +333,7 @@ func (s *facadeSuite) TestWatchOfferStatusAuthError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	offerUUID := coreoffertesting.GenOfferUUID(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).

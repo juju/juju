@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/database"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/offer"
-	coreoffertesting "github.com/juju/juju/core/offer/testing"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -220,7 +219,7 @@ func (s *watcherSuite) TestWatchOfferNotFound(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "status")
 	svc := s.setupService(c, factory)
 
-	offerUUID := coreoffertesting.GenOfferUUID(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
 	_, err := svc.WatchOfferStatus(c.Context(), offerUUID)
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }
@@ -352,7 +351,7 @@ func (s *watcherSuite) minimalManifest() charm.Manifest {
 }
 
 func (s *watcherSuite) createOffer(c *tc.C, appUUID coreapplication.UUID, endpointName string) offer.UUID {
-	offerUUID := coreoffertesting.GenOfferUUID(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var endpointUUID string
 		err := tx.QueryRowContext(ctx, `

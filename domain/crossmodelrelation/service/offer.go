@@ -61,7 +61,11 @@ func (s *Service) GetOfferUUID(ctx context.Context, offerURL *crossmodel.OfferUR
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return offer.ParseUUID(offerUUID)
+	res, err := offer.ParseUUID(offerUUID)
+	if err != nil {
+		return "", errors.Errorf("parsing offer UUID: %w", err)
+	}
+	return res, nil
 }
 
 // Offer updates an existing offer, or creates a new offer if it does not exist.

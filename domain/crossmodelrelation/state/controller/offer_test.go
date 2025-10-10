@@ -160,7 +160,7 @@ func (s *controllerOfferSuite) TestGetOfferUUIDsForUsersWithConsume(c *tc.C) {
 
 	// Create second offer permission with the same owner
 	ownerPermissionUUIDTwo := uuid.MustNewUUID()
-	offerUUID := tc.Must(c, offer.NewUUID)
+	offerUUIDTwo := tc.Must(c, offer.NewUUID)
 	err = st.CreateOfferAccess(c.Context(), ownerPermissionUUIDTwo, offerUUIDTwo, ownerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -193,7 +193,7 @@ func (s *controllerOfferSuite) TestGetOfferUUIDsForUsersWithConsumeNoOffers(c *t
 
 	// Create second offer permission with the same owner
 	ownerPermissionUUIDTwo := uuid.MustNewUUID()
-	offerUUID := tc.Must(c, offer.NewUUID)
+	offerUUIDTwo := tc.Must(c, offer.NewUUID)
 	err = st.CreateOfferAccess(c.Context(), ownerPermissionUUIDTwo, offerUUIDTwo, ownerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 

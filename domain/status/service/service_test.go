@@ -2228,7 +2228,7 @@ func (s *serviceSuite) TestGetStatusNotFound(c *tc.C) {
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.clock = testclock.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now().UTC())
 
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)

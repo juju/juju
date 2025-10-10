@@ -18,7 +18,6 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/status"
@@ -1044,7 +1043,7 @@ func (s *Service) decodeApplicationStatusDetails(app status.Application) (Applic
 			return Application{}, errors.Errorf("decoding application status: %w", err)
 		}
 	} else {
-		unitStatuses := transform.Map(app.Units, func(k coreunit.Name, u status.Unit) (unit.Name, status.FullUnitStatus) {
+		unitStatuses := transform.Map(app.Units, func(k coreunit.Name, u status.Unit) (coreunit.Name, status.FullUnitStatus) {
 			return k, status.FullUnitStatus{
 				WorkloadStatus: u.WorkloadStatus,
 				AgentStatus:    u.AgentStatus,

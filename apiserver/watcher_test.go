@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
-	coreoffertesting "github.com/juju/juju/core/offer/testing"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -45,7 +45,7 @@ func (s *offerStatusWatcherSuite) TestNext(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	offerUUID := coreoffertesting.GenOfferUUID(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
 
 	changes := make(chan struct{}, 1)
 	changes <- struct{}{}

@@ -14,7 +14,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/offer"
-	coreoffertesting "github.com/juju/juju/core/offer/testing"
 	remoteapplicationtesting "github.com/juju/juju/core/remoteapplication/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
@@ -173,7 +172,7 @@ func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatusNotSet(c 
 }
 
 func (s *crossModelRelationSuite) insertOffer(c *tc.C, name string, appUUID coreapplication.UUID, endpointName string) offer.UUID {
-	offerUUID := coreoffertesting.GenOfferUUID(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var endpointUUID string
 		err := tx.QueryRowContext(ctx, `
