@@ -162,7 +162,7 @@ func NewLocalConsumerWorker(config LocalConsumerWorkerConfig) (ReportableWorker,
 	}
 
 	runner, err := worker.NewRunner(worker.RunnerParams{
-		Name: "remote-application",
+		Name: "local-consumer",
 		IsFatal: func(err error) bool {
 			return false
 		},
@@ -200,7 +200,7 @@ func NewLocalConsumerWorker(config LocalConsumerWorkerConfig) (ReportableWorker,
 		logger: config.Logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
-		Name: "remote-application",
+		Name: "local-consumer",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{runner},

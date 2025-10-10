@@ -52,7 +52,6 @@ import (
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererunitrelations"
-	"github.com/juju/juju/internal/worker/remoterelationofferer"
 	"github.com/juju/juju/internal/worker/removal"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/secretspruner"
@@ -323,16 +322,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewOffererRelationsWorker:      offererrelations.NewWorker,
 			Clock:                          config.Clock,
 			Logger:                         config.LoggingContext.GetLogger("juju.worker.remoterelationconsumer", corelogger.CMR),
-		})),
-
-		remoteRelationOffererName: ifNotMigrating(remoterelationofferer.Manifold(remoterelationofferer.ManifoldConfig{
-			ModelUUID:                  modelUUID,
-			DomainServicesName:         domainServicesName,
-			GetCrossModelServices:      remoterelationofferer.GetCrossModelServices,
-			NewWorker:                  remoterelationofferer.NewWorker,
-			NewRemoteApplicationWorker: remoterelationofferer.NewRemoteApplicationWorker,
-			Clock:                      config.Clock,
-			Logger:                     config.LoggingContext.GetLogger("juju.worker.remoterelationofferer", corelogger.CMR),
 		})),
 
 		removalName: ifNotMigrating(removal.Manifold(removal.ManifoldConfig{

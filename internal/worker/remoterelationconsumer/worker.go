@@ -33,9 +33,9 @@ type ReportableWorker interface {
 	worker.Reporter
 }
 
-// RemoteApplicationWorker is an interface that defines the methods that a
+// OffererApplicationWorker is an interface that defines the methods that a
 // remote application worker must implement to be managed by the Worker.
-type RemoteApplicationWorker interface {
+type OffererApplicationWorker interface {
 	// ConsumeVersion returns the consume version for the remote application
 	// worker.
 	ConsumeVersion() int
@@ -278,13 +278,13 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) handleApplicationChanges(ctx context.Context) error {
-	w.logger.Debugf(ctx, "processing remote application changes")
+	w.logger.Debugf(ctx, "processing offerer application worker changes")
 
-	// Fetch the current state of each of the remote applications that have
-	// changed.
+	// Fetch the current state of each of the offerer application workers that
+	// have changed.
 	results, err := w.crossModelService.GetRemoteApplicationOfferers(ctx)
 	if err != nil {
-		return errors.Annotate(err, "querying remote applications")
+		return errors.Annotate(err, "querying offerer application workers")
 	}
 
 	witnessed := make(map[string]struct{})
@@ -296,16 +296,17 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 		// worker or recreate it depending on if the offer has changed.
 		witnessed[appUUID] = struct{}{}
 
-		// Now check to see if the offer has changed for the remote application.
+		// Now check to see if the offer has changed for the offerer application
+		// worker.
 		if offerChanged, err := w.hasRemoteAppChanged(remoteApp); err != nil {
-			return errors.Annotatef(err, "checking offer UUID for remote application %q", appName)
+			return errors.Annotatef(err, "checking offer UUID for offerer application worker %q", appName)
 		} else if offerChanged {
 			if err := w.runner.StopAndRemoveWorker(appUUID, w.catacomb.Dying()); err != nil && !errors.Is(err, errors.NotFound) {
-				w.logger.Warningf(ctx, "error stopping remote application worker for %q: %v", appName, err)
+				w.logger.Warningf(ctx, "error stopping offerer application worker worker for %q: %v", appName, err)
 			}
 		}
 
-		w.logger.Debugf(ctx, "starting watcher for remote application %q", appName)
+		w.logger.Debugf(ctx, "starting watcher for offerer application worker %q", appName)
 
 		// Start the application worker to watch for things like new relations.
 		if err := w.runner.StartWorker(ctx, appUUID, func(ctx context.Context) (worker.Worker, error) {
@@ -326,7 +327,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 				Logger:                         w.logger,
 			})
 		}); err != nil && !errors.Is(err, errors.AlreadyExists) {
-			return errors.Annotate(err, "error starting remote application worker")
+			return errors.Annotate(err, "error starting offerer application worker worker")
 		}
 	}
 
@@ -336,9 +337,9 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 			continue
 		}
 
-		w.logger.Debugf(ctx, "stopping remote application worker")
+		w.logger.Debugf(ctx, "stopping offerer application worker worker")
 		if err := w.runner.StopAndRemoveWorker(appUUID, w.catacomb.Dying()); err != nil && !errors.Is(err, errors.NotFound) {
-			w.logger.Warningf(ctx, "error stopping remote application worker %v", err)
+			w.logger.Warningf(ctx, "error stopping offerer application worker worker %v", err)
 		}
 	}
 
@@ -357,12 +358,12 @@ func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicat
 	}
 
 	// Now check if the remote application offerer worker implements the
-	// RemoteApplicationWorker interface, consume version is different to the
+	// OffererApplicationWorker interface, consume version is different to the
 	// one we have, then we need to stop the worker and start a new one.
 
-	appWorker, ok := worker.(RemoteApplicationWorker)
+	appWorker, ok := worker.(OffererApplicationWorker)
 	if !ok {
-		return false, errors.Errorf("worker %q is not a RemoteApplicationWorker", remoteApp.ApplicationName)
+		return false, errors.Errorf("worker %q is not a OffererApplicationWorker", remoteApp.ApplicationName)
 	}
 
 	return appWorker.ConsumeVersion() != remoteApp.ConsumeVersion, nil

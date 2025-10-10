@@ -160,31 +160,31 @@ func (c *MockReportableWorkerWaitCall) DoAndReturn(f func() error) *MockReportab
 	return c
 }
 
-// MockRemoteApplicationWorker is a mock of RemoteApplicationWorker interface.
-type MockRemoteApplicationWorker struct {
+// MockOffererApplicationWorker is a mock of OffererApplicationWorker interface.
+type MockOffererApplicationWorker struct {
 	ctrl     *gomock.Controller
-	recorder *MockRemoteApplicationWorkerMockRecorder
+	recorder *MockOffererApplicationWorkerMockRecorder
 }
 
-// MockRemoteApplicationWorkerMockRecorder is the mock recorder for MockRemoteApplicationWorker.
-type MockRemoteApplicationWorkerMockRecorder struct {
-	mock *MockRemoteApplicationWorker
+// MockOffererApplicationWorkerMockRecorder is the mock recorder for MockOffererApplicationWorker.
+type MockOffererApplicationWorkerMockRecorder struct {
+	mock *MockOffererApplicationWorker
 }
 
-// NewMockRemoteApplicationWorker creates a new mock instance.
-func NewMockRemoteApplicationWorker(ctrl *gomock.Controller) *MockRemoteApplicationWorker {
-	mock := &MockRemoteApplicationWorker{ctrl: ctrl}
-	mock.recorder = &MockRemoteApplicationWorkerMockRecorder{mock}
+// NewMockOffererApplicationWorker creates a new mock instance.
+func NewMockOffererApplicationWorker(ctrl *gomock.Controller) *MockOffererApplicationWorker {
+	mock := &MockOffererApplicationWorker{ctrl: ctrl}
+	mock.recorder = &MockOffererApplicationWorkerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockRemoteApplicationWorker) EXPECT() *MockRemoteApplicationWorkerMockRecorder {
+func (m *MockOffererApplicationWorker) EXPECT() *MockOffererApplicationWorkerMockRecorder {
 	return m.recorder
 }
 
 // ConsumeVersion mocks base method.
-func (m *MockRemoteApplicationWorker) ConsumeVersion() int {
+func (m *MockOffererApplicationWorker) ConsumeVersion() int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConsumeVersion")
 	ret0, _ := ret[0].(int)
@@ -192,31 +192,31 @@ func (m *MockRemoteApplicationWorker) ConsumeVersion() int {
 }
 
 // ConsumeVersion indicates an expected call of ConsumeVersion.
-func (mr *MockRemoteApplicationWorkerMockRecorder) ConsumeVersion() *MockRemoteApplicationWorkerConsumeVersionCall {
+func (mr *MockOffererApplicationWorkerMockRecorder) ConsumeVersion() *MockOffererApplicationWorkerConsumeVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeVersion", reflect.TypeOf((*MockRemoteApplicationWorker)(nil).ConsumeVersion))
-	return &MockRemoteApplicationWorkerConsumeVersionCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeVersion", reflect.TypeOf((*MockOffererApplicationWorker)(nil).ConsumeVersion))
+	return &MockOffererApplicationWorkerConsumeVersionCall{Call: call}
 }
 
-// MockRemoteApplicationWorkerConsumeVersionCall wrap *gomock.Call
-type MockRemoteApplicationWorkerConsumeVersionCall struct {
+// MockOffererApplicationWorkerConsumeVersionCall wrap *gomock.Call
+type MockOffererApplicationWorkerConsumeVersionCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRemoteApplicationWorkerConsumeVersionCall) Return(arg0 int) *MockRemoteApplicationWorkerConsumeVersionCall {
+func (c *MockOffererApplicationWorkerConsumeVersionCall) Return(arg0 int) *MockOffererApplicationWorkerConsumeVersionCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoteApplicationWorkerConsumeVersionCall) Do(f func() int) *MockRemoteApplicationWorkerConsumeVersionCall {
+func (c *MockOffererApplicationWorkerConsumeVersionCall) Do(f func() int) *MockOffererApplicationWorkerConsumeVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteApplicationWorkerConsumeVersionCall) DoAndReturn(f func() int) *MockRemoteApplicationWorkerConsumeVersionCall {
+func (c *MockOffererApplicationWorkerConsumeVersionCall) DoAndReturn(f func() int) *MockOffererApplicationWorkerConsumeVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
