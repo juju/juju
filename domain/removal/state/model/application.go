@@ -337,6 +337,10 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			return errors.Errorf("deleting application: %w", err)
 		}
 
+		if err := st.deleteDanglingResources(ctx, tx, charmUUID); err != nil {
+			return errors.Errorf("deleting dangling resource ids: %w", err)
+		}
+
 		// See if it's possible to delete the charm any more.
 		if err := st.deleteCharmIfUnusedByUUID(ctx, tx, charmUUID); err != nil {
 			return errors.Errorf("deleting charm if unused: %w", err)
@@ -463,6 +467,44 @@ WHERE application_uuid = $entityUUID.uuid
 	if err := st.deleteResources(ctx, tx, resourceUUIDs); err != nil {
 		return errors.Errorf("deleting charm resources: %w", err)
 	}
+	return nil
+}
+
+// deleteDanglingResources deletes resources that are associated to a charm_uuid,
+// and are not associated with any application_resource.
+// This is safe to do because each application has its own charm_uuid, so during
+// application deletion, we can delete any resources associated to the application's
+// charm_uuid.
+// This is needed because when a resource is attached to an application, it replaces the
+// entry in application_resource, but the resource itself is not deleted.
+func (st *State) deleteDanglingResources(ctx context.Context, tx *sqlair.TX, charmUUID string) error {
+	// If the charm UUID is empty, we can skip the deletion.
+	if charmUUID == "" {
+		return nil
+	}
+	uuid := entityUUID{UUID: charmUUID}
+
+	stmt, err := st.Prepare(`
+WITH dangling_resources AS (
+	SELECT uuid
+	FROM resource
+	WHERE charm_uuid = $entityUUID.uuid
+		AND uuid NOT IN (
+			SELECT resource_uuid
+			FROM application_resource
+		)
+)
+DELETE FROM resource
+WHERE uuid IN dangling_resources
+`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmt, uuid).Run(); err != nil {
+		return errors.Errorf("deleting dangling resource IDs: %w", err)
+	}
+
 	return nil
 }
 
