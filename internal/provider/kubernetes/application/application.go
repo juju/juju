@@ -1033,9 +1033,8 @@ func (a *app) Delete() error {
 	resourcesToDelete := []resources.Resource(nil)
 
 	// Create selector labels.
-	appLabel := utils.SelectorLabelsForApp(a.name, a.labelVersion)
-	modelLabel := utils.LabelsForModel(a.modelName, a.modelUUID, a.controllerUUID, a.labelVersion)
-	resourceLabels := utils.LabelsMerge(appLabel, modelLabel)
+	resourceLabels := utils.LabelsForAppCreated(
+		a.name, a.modelName, a.modelUUID, a.controllerUUID, a.labelVersion)
 
 	// List statefulsets to be deleted.
 	statefulsets, err := resources.ListStatefulSets(ctx, a.client.AppsV1().StatefulSets(a.namespace), a.namespace, metav1.ListOptions{
@@ -1070,7 +1069,7 @@ func (a *app) Delete() error {
 		resourcesToDelete = append(resourcesToDelete, &svc)
 	}
 
-	// List secrets to be deleted.
+	// List any image pull secrets to be deleted.
 	secrets, err := resources.ListSecrets(ctx, a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
 		LabelSelector: a.labelSelector(),
 	})
@@ -1082,6 +1081,18 @@ func (a *app) Delete() error {
 		if a.matchImagePullSecret(secret.Name) {
 			resourcesToDelete = append(resourcesToDelete, &secret)
 		}
+	}
+
+	// List any other app created secrets to be deleted.
+	secrets, err = resources.ListSecrets(ctx, a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list secrets for deletion")
+	}
+	for _, s := range secrets {
+		secret := s
+		resourcesToDelete = append(resourcesToDelete, &secret)
 	}
 
 	// List configmaps to be deleted.
