@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/rpc/params"
-	testing "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing"
 )
 
 type WatcherSuite struct {
@@ -529,7 +529,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	})
 	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:999e2mr0ui3e8a215n4g"})
 
-	s.secretsClient.secretsRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668", "secret:666e2mr0ui3e8a215n4g"}
+	s.secretsClient.secretsRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668", "secret:666e2mr0ui3e8a215n4g/777", "secret:666e2mr0ui3e8a215n4g"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ObsoleteSecretRevisions, jc.DeepEquals, map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},

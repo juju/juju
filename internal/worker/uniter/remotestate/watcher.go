@@ -999,18 +999,23 @@ func (w *RemoteStateWatcher) secretsChanged(secretURIs []string) error {
 		return errors.Trace(err)
 	}
 	w.logger.Debugf("got latest secret info: %#v", info)
+	toDelete := set.NewStrings()
 	for _, uri := range secretURIs {
 		if latest, ok := info[uri]; ok {
 			w.current.ConsumedSecretInfo[uri] = latest
 		} else {
-			delete(w.current.ConsumedSecretInfo, uri)
-			deleted := set.NewStrings(w.current.DeletedSecrets...)
-			deleted.Add(uri)
-			w.current.DeletedSecrets = deleted.SortedValues()
+			toDelete.Add(uri)
 		}
 	}
+	deleted := set.NewStrings(w.current.DeletedSecrets...)
+	w.current.DeletedSecrets = deleted.Union(toDelete).SortedValues()
+
+	// For any deleted secrets, ensure we don't carry forward consumed revisions.
+	for _, uri := range w.current.DeletedSecrets {
+		delete(w.current.ConsumedSecretInfo, uri)
+	}
 	w.logger.Debugf("deleted secrets: %v", w.current.DeletedSecrets)
-	w.logger.Debugf("obsolete secrets: %v", w.current.ObsoleteSecretRevisions)
+	w.logger.Debugf("consumed secrets: %v", w.current.ConsumedSecretInfo)
 	return nil
 }
 
@@ -1034,8 +1039,12 @@ func (w *RemoteStateWatcher) secretObsoleteRevisionsChanged(secretRevisions []st
 		obsolete.Add(rev)
 		w.current.ObsoleteSecretRevisions[uri] = obsolete.SortedValues()
 	}
-	w.logger.Debugf("obsolete secret revisions: %v", w.current.ObsoleteSecretRevisions)
+	// For any deleted secrets, ensure we don't carry forward obsolete revisions.
+	for _, uri := range w.current.DeletedSecrets {
+		delete(w.current.ObsoleteSecretRevisions, uri)
+	}
 	w.logger.Debugf("deleted secrets: %v", w.current.DeletedSecrets)
+	w.logger.Debugf("obsolete secret revisions: %v", w.current.ObsoleteSecretRevisions)
 	return nil
 }
 

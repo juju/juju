@@ -4682,6 +4682,8 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 		Role:        secrets.RoleManage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	// This secret will be not found.
+	uri4 := secrets.NewURI()
 
 	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
 	uri := secrets.NewURI()
@@ -4707,7 +4709,11 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 		Checksum: "checksum3",
 	}})
 	b.AddTrackLatest([]string{uri3.ID})
-	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{URI: uri3, Revisions: []int{1}}})
+	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{
+		URI: uri3, Revisions: []int{1},
+	}, {
+		URI: uri4,
+	}})
 	b.AddSecretGrants([]apiuniter.SecretGrantRevokeArgs{{
 		URI:             uri,
 		ApplicationName: ptr(s.mysql.Name()),

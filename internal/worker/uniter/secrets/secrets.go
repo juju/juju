@@ -157,6 +157,7 @@ func (s *Secrets) SecretsRemoved(uris []string) error {
 		delete(s.secretsState.ConsumedSecretInfo, uri)
 		delete(s.secretsState.SecretObsoleteRevisions, uri)
 	}
+	s.logger.Debugf("secrets removed from %q unit state: %v", s.unitTag.Id(), uris)
 	if err := s.stateOps.Write(s.secretsState); err != nil {
 		return err
 	}
