@@ -82,7 +82,7 @@ func (storagePoolSuite) TestGetProviderDefaultStoragePoolUUIDNotFound(c *tc.C) {
 func (storagePoolSuite) TestGetProviderDefaultStoragePoolUUIDOrMakeExisting(
 	c *tc.C,
 ) {
-	uuid, err := GetProviderDefaultStoragePoolUUIDOrMake("loop", "loop")
+	uuid, err := GenerateProviderDefaultStoragePoolUUIDWithDefaults("loop", "loop")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(uuid.String(), tc.Equals, "baa26e04-b1f0-50d9-9bf8-4d5a78ffe6ad")
 }
@@ -90,7 +90,7 @@ func (storagePoolSuite) TestGetProviderDefaultStoragePoolUUIDOrMakeExisting(
 func (storagePoolSuite) TestGetProviderDefaultStoragePoolUUIDOrMakeNew(
 	c *tc.C,
 ) {
-	uuid, err := GetProviderDefaultStoragePoolUUIDOrMake("foo", "bar")
+	uuid, err := GenerateProviderDefaultStoragePoolUUIDWithDefaults("foo", "bar")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(uuid.String(), tc.IsNonZeroUUID)
 

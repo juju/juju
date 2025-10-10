@@ -47,7 +47,7 @@ func getDefaultStoragePoolUUIDs() map[defaultStoragePoolLookup]StoragePoolUUID {
 // GetProviderDefaultStoragePoolUUID returns the fixed storage pool uuid to use
 // for a default storage pool.
 //
-// Use [GetProviderDefaultStoragePoolUUIDOrMake] if instead of a
+// Use [GenerateProviderDefaultStoragePoolUUIDWithDefaults] if instead of a
 // [coreerrors.NotFound] error a new storage pool uuid should be constructed.
 //
 // The following errors may be expected:
@@ -72,13 +72,14 @@ func GetProviderDefaultStoragePoolUUID(
 	return uuid, nil
 }
 
-// GetProviderDefaultStoragePoolUUIDOrMake returns the fixed storage pool uuid
-// to use for a default storage pool. If no fixed storage pool uuid exists for
-// the provided information then a new uuid is generated and returned.
+// GenerateProviderDefaultStoragePoolUUIDWithDefaults returns the fixed storage
+// pool uuid to use for a default storage pool. If no fixed storage pool uuid
+// exists for the provided information then a new uuid is generated and
+// returned.
 //
 // Use [GetProviderDefaultStoragePoolUUID] if you don't want a new uuid to be
 // generated from this call.
-func GetProviderDefaultStoragePoolUUIDOrMake(
+func GenerateProviderDefaultStoragePoolUUIDWithDefaults(
 	poolName, providerType string,
 ) (StoragePoolUUID, error) {
 	lookup := defaultStoragePoolLookup{

@@ -526,7 +526,7 @@ func getRecommendedStoragePools(
 	appendPool := func(cfg *internalstorage.Config) (storage.StoragePoolUUID, error) {
 		// We need to infer what the uuid is going to be first before we can
 		// check duplication.
-		uuid, err := storage.GetProviderDefaultStoragePoolUUIDOrMake(
+		uuid, err := storage.GenerateProviderDefaultStoragePoolUUIDWithDefaults(
 			cfg.Name(),
 			cfg.Provider().String(),
 		)
