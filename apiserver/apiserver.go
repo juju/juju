@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -217,6 +218,9 @@ type ServerConfig struct {
 	// and checkers for use in API facades.
 	LeaseManager lease.Manager
 
+	// FlightRecorder is used to capture flight recordings of the API server.
+	FlightRecorder flightrecorder.FlightRecorder
+
 	// MetricsCollector defines all the metrics to be collected for the
 	// apiserver
 	MetricsCollector *Collector
@@ -377,6 +381,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 
 	shared, err := newSharedServerContext(sharedServerConfig{
 		crossModelAuthContext:   crossModelAuthContext,
+		flightRecorder:          cfg.FlightRecorder,
 		leaseManager:            cfg.LeaseManager,
 		controllerUUID:          cfg.ControllerUUID,
 		controllerModelUUID:     cfg.ControllerModelUUID,

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/trace"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/rpcreflect"
@@ -137,6 +138,10 @@ type noopTracingRoot struct {
 
 func (noopTracingRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
 	return ctx, trace.NoopSpan{}
+}
+
+func (noopTracingRoot) FlightRecorder() flightrecorder.FlightRecorder {
+	return flightrecorder.NoopRecorder{}
 }
 
 // Note that we use "client request" and "server request" to name
@@ -405,6 +410,8 @@ type Root interface {
 	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
 	// StartTrace starts a trace for a given request.
 	StartTrace(context.Context) (context.Context, trace.Span)
+	// FlightRecorder returns a flight recorder associated with the root.
+	FlightRecorder() flightrecorder.FlightRecorder
 }
 
 // Killer represents a type that can be asked to abort any outstanding
