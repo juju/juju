@@ -2,6 +2,7 @@ package flightrecorder
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/worker/v4"
 )
@@ -39,7 +40,7 @@ func (k Kind) IsAllowed(other Kind) bool {
 // FlightRecorder is the interface for controlling the flight recorder.
 type FlightRecorder interface {
 	// Start starts the flight recorder.
-	Start(kind Kind) error
+	Start(kind Kind, duration time.Duration) error
 
 	// Stop stops the flight recorder.
 	Stop() error
@@ -58,7 +59,7 @@ type FlightRecorderWorker interface {
 type NoopRecorder struct{}
 
 // Start is a no-op.
-func (n NoopRecorder) Start(kind Kind) error {
+func (n NoopRecorder) Start(kind Kind, duration time.Duration) error {
 	return nil
 }
 

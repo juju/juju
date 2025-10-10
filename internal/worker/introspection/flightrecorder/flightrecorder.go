@@ -6,6 +6,7 @@ package flightrecorder
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/juju/juju/core/flightrecorder"
 )
@@ -18,7 +19,16 @@ func StartHandler(w flightrecorder.FlightRecorder) http.HandlerFunc {
 			http.Error(wr, fmt.Sprintf("invalid kind: %v", err), http.StatusBadRequest)
 			return
 		}
-		if err := w.Start(kind); err != nil {
+		durationStr := req.URL.Query().Get("duration")
+		var duration time.Duration
+		if durationStr != "" {
+			duration, err = time.ParseDuration(durationStr)
+			if err != nil {
+				http.Error(wr, fmt.Sprintf("invalid duration: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+		if err := w.Start(kind, duration); err != nil {
 			http.Error(wr, err.Error(), http.StatusInternalServerError)
 			return
 		}

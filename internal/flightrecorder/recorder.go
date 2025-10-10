@@ -7,25 +7,35 @@ import (
 	"os"
 	"runtime/trace"
 	"time"
+
+	"github.com/juju/clock"
 )
 
 // Recorder is a simple wrapper around trace.Recorder.
 type Recorder struct {
 	recorder *trace.FlightRecorder
+	clock    clock.Clock
+	endTime  time.Time
 }
 
 // NewRecorder creates a new Recorder.
-func NewRecorder() *Recorder {
+func NewRecorder(clock clock.Clock) *Recorder {
 	return &Recorder{
 		recorder: trace.NewFlightRecorder(trace.FlightRecorderConfig{
 			MinAge:   time.Second,
 			MaxBytes: 1 << 20, // 1 MiB
 		}),
+		clock: clock,
 	}
 }
 
 // Start starts the flight recorder.
-func (w *Recorder) Start() error {
+func (w *Recorder) Start(duration time.Duration) error {
+	if duration <= 0 {
+		w.endTime = w.clock.Now()
+	} else {
+		w.endTime = w.clock.Now().Add(duration)
+	}
 	return w.recorder.Start()
 }
 
@@ -41,7 +51,11 @@ func (w *Recorder) Capture(path string) (string, error) {
 		return "", nil
 	}
 
-	defer w.recorder.Stop()
+	defer func() {
+		if w.clock.Now().After(w.endTime) {
+			w.recorder.Stop()
+		}
+	}()
 
 	f, err := os.CreateTemp(path, "flightrecording-")
 	if err != nil {
