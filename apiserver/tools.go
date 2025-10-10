@@ -15,7 +15,6 @@ import (
 
 	"github.com/im7mortal/kmutex"
 	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
@@ -23,7 +22,11 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
+	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
+	coretools "github.com/juju/juju/internal/tools"
+
 	internalerrors "github.com/juju/juju/internal/errors"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -277,98 +280,105 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request) (_ io.ReadClo
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}
-	binaries, err := ds.AgentBinary().ListAgentBinaries(r.Context())
+
+	binariesMetadata, err := ds.AgentBinary().ListAgentBinaries(r.Context())
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}
-	sha256 := ""
-	for _, v := range binaries {
+	sha256Sum := ""
+	for _, metadata := range binariesMetadata {
 		// TODO(agentbinary): perform this search without listing all cached
 		// agent binaries.
-		if v.Version == vers.Number.String() && v.Arch == vers.Arch {
-			sha256 = v.SHA256
+		if metadata.Version == vers.Number.String() && metadata.Arch == vers.Arch {
+			sha256Sum = metadata.SHA256
 			break
 		}
 	}
-	if sha256 == "" {
-		// TODO(agentbinary): if the binary is not found, ask simplestreams for
-		// it, then cache it in the model agent binary store. It is possible to
-		// cache in the controller agent binary store if the source stream is
-		// the default.
-		return nil, 0, errors.NotFound
+
+	var f io.ReadCloser
+	var size int64
+
+	if sha256Sum == "" {
+		sha256Sum, f, size, err = fetchBinaryFromSimpleStream(r.Context(), vers, ds.AgentBinary())
+	} else {
+		// Check the current model's agent binary store first.
+		f, size, err = ds.AgentBinaryStore().GetAgentBinaryForSHA256(r.Context(), sha256Sum)
+		if errors.Is(err, agentbinaryerrors.NotFound) {
+			// Fallback to the controller agent binary store.
+			f, size, err = ds.ControllerAgentBinaryStore().GetAgentBinaryForSHA256(r.Context(), sha256Sum)
+			if errors.Is(err, agentbinaryerrors.NotFound) {
+				// Fallback to simple stream.
+				_, f, size, err = fetchBinaryFromSimpleStream(r.Context(), vers, ds.AgentBinary())
+			}
+
+		} else if err != nil {
+			return nil, 0, errors.Trace(err)
+		}
 	}
 
-	// Check the current model's agent binary store first.
-	f, size, err := ds.AgentBinaryStore().GetAgentBinaryForSHA256(r.Context(), sha256)
-	if errors.Is(err, agentbinaryerrors.NotFound) {
-		// Fallback to the controller agent binary store.
-		f, size, err = ds.ControllerAgentBinaryStore().GetAgentBinaryForSHA256(r.Context(), sha256)
+	// Add agent binary to object store and register agent binary metadata in state.
+	ver := coreagentbinary.Version{
+		Arch:   vers.Arch,
+		Number: vers.Number,
 	}
-	if err != nil {
+	if err := ds.AgentBinaryStore().AddAgentBinary(r.Context(), f, ver, size, sha256Sum); err != nil {
 		return nil, 0, errors.Trace(err)
 	}
 
 	return f, size, nil
 }
 
-// fetchAndCacheTools fetches tools with the specified version by searching for a URL
-// in simplestreams and GETting it, caching the result in tools storage before returning
-// to the caller.
-//func (h *toolsDownloadHandler) fetchAndCacheTools(
-//	ctx context.Context,
-//	v semversion.Binary,
-//) error {
-//
-//	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-//	domainServices, err := h.ctxt.domainServicesForRequest(ctx)
-//	if err != nil {
-//		return err
-//	}
-//	env, err := newEnviron(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
-//	if err != nil {
-//		return err
-//	}
-//
-//	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-//	exactTools, err := envtools.FindExactTools(ctx, ss, env, v.Number, v.Release, v.Arch)
-//	if err != nil {
-//		return err
-//	}
-//
-//	// No need to verify the server's identity because we verify the SHA-256 hash.
-//	logger.Infof(ctx, "fetching %v agent binaries from %v", v, exactTools.URL)
-//	client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
-//	resp, err := client.Get(ctx, exactTools.URL)
-//	if err != nil {
-//		return err
-//	}
-//	defer func() { _ = resp.Body.Close() }()
-//	if resp.StatusCode != http.StatusOK {
-//		msg := fmt.Sprintf("bad HTTP response: %v", resp.Status)
-//		if body, err := io.ReadAll(resp.Body); err == nil {
-//			msg += fmt.Sprintf(" (%s)", bytes.TrimSpace(body))
-//		}
-//		return errors.New(msg)
-//	}
-//
-//	data, respSha256, size, err := tmpCacheAndHash(resp.Body)
-//	if err != nil {
-//		return err
-//	}
-//	defer data.Close()
-//	if size != exactTools.Size {
-//		return errors.Errorf("size mismatch for %s", exactTools.URL)
-//	}
-//	if respSha256 != exactTools.SHA256 {
-//		return errors.Errorf("hash mismatch for %s", exactTools.URL)
-//	}
-//
-//	dataCache := bytes.NewBuffer(nil)
-//	reader := io.TeeReader(data, dataCache)
-//
-//
-//	return nil
-//}
+func fetchBinaryFromSimpleStream(ctx context.Context, v semversion.Binary,
+	agentBinaryService *agentbinaryservice.AgentBinaryService) (string, io.ReadCloser, int64, error) {
+
+	finder := agentBinaryService.GetEnvironAgentBinariesFinder()
+	toolList, err := finder(ctx, v.Major, v.Minor, v.Number, "", coretools.Filter{
+		Number: v.Number,
+		Arch:   v.Arch,
+	})
+	if err != nil {
+		return "", nil, 0, errors.Annotatef(err, "finding tool list for version %q", v.String())
+	}
+
+	if len(toolList) == 0 {
+		return "", nil, 0, errors.NotFoundf("tool for version: %+v", v)
+	} else if len(toolList) != 1 {
+		return "", nil, 0, errors.Errorf("multiple tools found for version: %q", v.String())
+	}
+
+	tool := toolList[0]
+	toolURL := tool.URL
+
+	logger.Infof(ctx, "fetching %s agent metadata from %q", v.String(), toolURL)
+	client := jujuhttp.NewClient()
+	resp, err := client.Get(ctx, toolURL)
+	if err != nil || resp == nil {
+		return "", nil, 0, errors.Errorf("error fetching tool metadata for version %q", v.String())
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Errorf(ctx, "error closing resp body while fetching agent binary tools: %v", err)
+		}
+	}()
+	if resp.StatusCode != http.StatusOK {
+		return "", nil, 0, errors.Errorf("bad HTTP response with status: %v", resp.Status)
+	}
+
+	// data read offset is 0.
+	data, respSha256, size, err := tmpCacheAndHashWithKnownSize(resp.Body, resp.ContentLength)
+	if err != nil {
+		return "", nil, 0, err
+	}
+
+	if size != tool.Size {
+		return "", nil, 0, errors.Errorf("size mismatch for %s", tool.URL)
+	}
+	if respSha256 != tool.SHA256 {
+		return "", nil, 0, errors.Errorf("hash mismatch for %s", tool.URL)
+	}
+
+	return respSha256, data, size, nil
+}
 
 // sendTools streams the tools tarball to the client.
 func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, reader io.ReadCloser, size int64) error {
@@ -548,12 +558,17 @@ func tmpCacheAndHash(r io.Reader) (data io.ReadCloser, sha256hex string, size in
 			cleanup()
 		}
 	}()
+	// Returns a reader that reads from r and write bytes to tmpFile.
 	tr := io.TeeReader(r, tmpFile)
 	hasher := sha256.New()
+
+	// Reads from tr reader and writes to both hasher and tmpFile.
 	_, err = io.Copy(hasher, tr)
 	if err != nil {
 		return nil, "", 0, errors.Annotatef(err, "failed to hash agent tools and write to file %q", tmpFilename)
 	}
+
+	// Moves the file pointer back to the start for tmpFile.
 	_, err = tmpFile.Seek(0, 0)
 	if err != nil {
 		return nil, "", 0, errors.Trace(err)
@@ -563,4 +578,37 @@ func tmpCacheAndHash(r io.Reader) (data io.ReadCloser, sha256hex string, size in
 		return nil, "", 0, errors.Trace(err)
 	}
 	return &cleanupCloser{tmpFile, cleanup}, fmt.Sprintf("%x", hasher.Sum(nil)), stat.Size(), nil
+}
+
+func tmpCacheAndHashWithKnownSize(r io.Reader, size int64) (io.ReadCloser, string, int64, error) {
+	tmpFile, err := os.CreateTemp("", "jujutools*")
+	if err != nil {
+		return nil, "", 0, err
+	}
+	tmpFilename := tmpFile.Name()
+	cleanup := func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFilename)
+	}
+	defer func() {
+		if err != nil {
+			cleanup()
+		}
+	}()
+
+	lr := &io.LimitedReader{R: r, N: size}
+	hasher := sha256.New()
+	n, err := io.Copy(io.MultiWriter(tmpFile, hasher), lr)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	if n != size {
+		return nil, "", 0, errors.Errorf("expected %d bytes but got %d bytes", size, n)
+	}
+
+	if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {
+		return nil, "", 0, err
+	}
+
+	return &cleanupCloser{tmpFile, cleanup}, fmt.Sprintf("%x", hasher.Sum(nil)), n, nil
 }
