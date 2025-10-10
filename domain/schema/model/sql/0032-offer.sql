@@ -21,6 +21,16 @@ CREATE TABLE offer_endpoint (
 );
 
 CREATE VIEW v_offer_detail AS
+WITH conn AS (
+    SELECT offer_uuid FROM offer_connection
+),
+
+active_conn AS (
+    SELECT oc.offer_uuid FROM offer_connection AS oc
+    JOIN relation_status AS rs ON oc.application_remote_relation_uuid = rs.relation_uuid
+    WHERE rs.relation_status_type_id = 1
+)
+
 SELECT
     o.uuid AS offer_uuid,
     o.name AS offer_name,
@@ -32,7 +42,9 @@ SELECT
     c.architecture_id AS charm_architecture,
     cr.name AS endpoint_name,
     crr.name AS endpoint_role,
-    cr.interface AS endpoint_interface
+    cr.interface AS endpoint_interface,
+    (SELECT COUNT(*) FROM conn AS c WHERE o.uuid = c.offer_uuid) AS total_connections,
+    (SELECT COUNT(*) FROM active_conn AS ac WHERE o.uuid = ac.offer_uuid) AS total_active_connections
 FROM offer AS o
 JOIN offer_endpoint AS oe ON o.uuid = oe.offer_uuid
 JOIN application_endpoint AS ae ON oe.endpoint_uuid = ae.uuid
