@@ -1069,6 +1069,63 @@ func (s *modelSuite) TestSetModelStoragePools(c *tc.C) {
 	})
 }
 
+// TestSetModelStoragePoolsSamePool is a regression test for
+// [ModelState.SetModelStoragePools] to check that using the same pool for
+// multiple types of storage kinds works with no errors.
+func (s *modelSuite) TestSetModelStoragePoolsSamePool(c *tc.C) {
+	poolUUID1 := tc.Must(c, storage.NewStoragePoolUUID)
+	createArgs := []modelinternal.CreateModelDefaultStoragePoolArg{
+		{
+			Attributes: nil,
+			Name:       "test-default-pool-1",
+			Origin:     storage.StoragePoolOriginProviderDefault,
+			Type:       "my-provider",
+			UUID:       poolUUID1,
+		},
+	}
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.EnsureDefaultStoragePools(c.Context(), createArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	setArgs := []modelinternal.SetModelStoragePoolArg{
+		{
+			StoragePoolUUID: poolUUID1,
+			StorageKind:     storage.StorageKindFilesystem,
+		},
+		{
+			StoragePoolUUID: poolUUID1,
+			StorageKind:     storage.StorageKindBlock,
+		},
+	}
+
+	err = st.SetModelStoragePools(c.Context(), setArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	rows, err := s.DB().QueryContext(
+		c.Context(),
+		"SELECT storage_pool_uuid, storage_kind_id FROM model_storage_pool",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	setVals := map[string]int{}
+	for rows.Next() {
+		var (
+			kindID int
+			pUUID  string
+		)
+		err = rows.Scan(&pUUID, &kindID)
+		c.Assert(err, tc.ErrorIsNil)
+		setVals[pUUID] = kindID
+	}
+
+	c.Check(setVals, tc.DeepEquals, map[string]int{
+		poolUUID1.String(): int(storage.StorageKindFilesystem),
+		poolUUID1.String(): int(storage.StorageKindBlock),
+	})
+}
+
 func (s *modelSuite) TestSetModelStoragePoolsOverwrite(c *tc.C) {
 	// Initial set of model storage pools
 	poolUUID1 := tc.Must(c, storage.NewStoragePoolUUID)

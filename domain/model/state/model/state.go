@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 
 	"github.com/canonical/sqlair"
 
@@ -190,7 +191,7 @@ func (s *ModelState) EnsureDefaultStoragePools(
 		for _, insertArg := range insertArgs {
 			entityUUID.UUID = insertArg.UUID
 
-			err = tx.Query(ctx, checkPoolExistsStmt, entityUUID).Get(&entityUUID)
+			err := tx.Query(ctx, checkPoolExistsStmt, entityUUID).Get(&entityUUID)
 			if err == nil {
 				// The default storage pool already exists. We can safely move
 				// along.
@@ -593,6 +594,9 @@ func (s *ModelState) SetModelConstraints(
 // checkStoragePoolsExist takes a set of storage pool uuids to check exist
 // within the model. If one or more of the storage pool uuids supplied does not
 // exist false is returned.
+//
+// It is the callers responsibility to ensure the set of pool uuids supplied is
+// unique with no duplicates.
 func (s *ModelState) checkStoragePoolsExist(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -609,7 +613,7 @@ func (s *ModelState) checkStoragePoolsExist(
 	)
 
 	query := `
-SELECT (COUNT(*)) AS (&dbAggregateCount.count)
+SELECT COUNT(*) AS &dbAggregateCount.count
 FROM   storage_pool
 WHERE  uuid IN ($poolUUIDs[:])
 `
@@ -675,6 +679,9 @@ INSERT INTO model_storage_pool (*) VALUES ($dbModelStoragePool.*)
 		})
 		poolUUIDs = append(poolUUIDs, a.StoragePoolUUID.String())
 	}
+	// We must deduplicate poolUUIDs
+	slices.Sort(poolUUIDs)
+	poolUUIDs = slices.Compact(poolUUIDs)
 
 	err = db.Txn(ctx, func(c context.Context, tx *sqlair.TX) error {
 		poolsExist, err := s.checkStoragePoolsExist(ctx, tx, poolUUIDs)
