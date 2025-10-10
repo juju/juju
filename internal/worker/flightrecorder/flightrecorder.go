@@ -6,6 +6,7 @@ package flightrecorder
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/logger"
@@ -16,7 +17,7 @@ import (
 // start, stop and capture recordings to a file.
 type FileRecorder interface {
 	// Start starts the flight recorder.
-	Start() error
+	Start(time.Duration) error
 
 	// Stop stops the flight recorder.
 	Stop() error
@@ -70,11 +71,12 @@ func (w *FlightRecorder) Wait() error {
 }
 
 // Start starts the flight recorder.
-func (w *FlightRecorder) Start(kind flightrecorder.Kind) error {
+func (w *FlightRecorder) Start(kind flightrecorder.Kind, duration time.Duration) error {
 	request := request{
-		Type:   requestTypeStart,
-		Kind:   kind,
-		Result: make(chan error, 1),
+		Type:     requestTypeStart,
+		Kind:     kind,
+		Duration: duration,
+		Result:   make(chan error, 1),
 	}
 
 	select {
@@ -150,7 +152,7 @@ func (w *FlightRecorder) loop() error {
 			var err error
 			switch req.Type {
 			case requestTypeStart:
-				err = w.startRecording(ctx, req.Kind)
+				err = w.startRecording(ctx, req.Kind, req.Duration)
 			case requestTypeStop:
 				err = w.stopRecording(ctx)
 			case requestTypeCapture:
@@ -168,12 +170,16 @@ func (w *FlightRecorder) loop() error {
 	}
 }
 
-func (w *FlightRecorder) startRecording(ctx context.Context, kind flightrecorder.Kind) error {
+func (w *FlightRecorder) startRecording(ctx context.Context, kind flightrecorder.Kind, duration time.Duration) error {
 	w.logger.Debugf(ctx, "starting flight recording for kind %q", kind)
 
 	w.currentKind = kind
 
-	return w.recorder.Start()
+	if duration < 0 {
+		duration = 0
+	}
+
+	return w.recorder.Start(duration)
 }
 
 func (w *FlightRecorder) stopRecording(ctx context.Context) error {
@@ -214,7 +220,8 @@ const (
 )
 
 type request struct {
-	Type   requestType
-	Kind   flightrecorder.Kind
-	Result chan error
+	Type     requestType
+	Kind     flightrecorder.Kind
+	Duration time.Duration
+	Result   chan error
 }
