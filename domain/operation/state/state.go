@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -571,5 +570,10 @@ func decodeParameterValue(storedStr string) any {
 		return value
 	}
 	// If the value is not a number, then it's a string.
-	return strings.Trim(storedStr, "\"")
+	// Remove the quotes from the string, if any
+	if unquoted, err := strconv.Unquote(storedStr); err == nil {
+		return unquoted
+	}
+	// If no quotes were found, then return the string value as is.
+	return storedStr
 }
