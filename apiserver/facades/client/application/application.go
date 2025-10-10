@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	coreoffer "github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
 	coreresource "github.com/juju/juju/core/resource"
@@ -1499,8 +1500,13 @@ func (api *APIBase) saveRemoteApplicationOfferer(
 		}
 	}
 
+	offerUUID, err := coreoffer.ParseUUID(offer.OfferUUID)
+	if err != nil {
+		return internalerrors.Errorf("parsing offer UUID: %w", err)
+	}
+
 	if err := api.crossModelRelationService.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelationservice.AddRemoteApplicationOffererArgs{
-		OfferUUID:             offer.OfferUUID,
+		OfferUUID:             offerUUID,
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      offererModelUUID,
 		Endpoints:             remoteEps,

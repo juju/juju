@@ -198,13 +198,13 @@ WHERE u.name = $unitName.name;
 // GetApplicationStatus looks up the status of the specified application,
 // returning an error satisfying [applicationerrors.ApplicationNotFound] if the
 // application is not found.
-func (st *ModelState) GetApplicationStatus(ctx context.Context, appID coreapplication.UUID) (status.StatusInfo[status.WorkloadStatusType], error) {
+func (st *ModelState) GetApplicationStatus(ctx context.Context, appUUID coreapplication.UUID) (status.StatusInfo[status.WorkloadStatusType], error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return status.StatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
 
-	identID := applicationUUID{ID: appID}
+	identID := applicationUUID{UUID: appUUID.String()}
 	query, err := st.Prepare(`
 SELECT &statusInfo.*
 FROM application_status
@@ -510,7 +510,7 @@ WHERE name = $unitName.name
 		return "", errors.Errorf("querying unit name: %w", err)
 	}
 
-	return unitUUID.UnitUUID, nil
+	return coreunit.UUID(unitUUID.UnitUUID), nil
 }
 
 // GetUnitAgentStatus returns the agent status of the specified unit, returning:
@@ -523,7 +523,7 @@ func (st *ModelState) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID
 		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Capture(err)
 	}
 
-	unitUUID := unitUUID{UnitUUID: uuid}
+	unitUUID := unitUUID{UnitUUID: uuid.String()}
 	getUnitStatusStmt, err := st.Prepare(`
 SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unitUUID.uuid
 `, unitPresentStatusInfo{}, unitUUID)
@@ -540,17 +540,17 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unit
 
 		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&unitStatusInfo)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("agent status for unit %q not found", unitUUID).Add(statuserrors.UnitStatusNotFound)
+			return errors.Errorf("agent status for unit %q not found", uuid).Add(statuserrors.UnitStatusNotFound)
 		}
 		return err
 	})
 	if err != nil {
-		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("getting agent status for unit %q: %w", unitUUID, err)
+		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("getting agent status for unit %q: %w", uuid, err)
 	}
 
 	statusID, err := status.DecodeAgentStatus(unitStatusInfo.StatusID)
 	if err != nil {
-		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("decoding agent status ID for unit %q: %w", unitUUID, err)
+		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("decoding agent status ID for unit %q: %w", uuid, err)
 	}
 
 	return status.UnitStatusInfo[status.UnitAgentStatusType]{
@@ -592,7 +592,7 @@ func (st *ModelState) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.U
 		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
 
-	unitUUID := unitUUID{UnitUUID: uuid}
+	unitUUID := unitUUID{UnitUUID: uuid.String()}
 	getUnitStatusStmt, err := st.Prepare(`
 SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $unitUUID.uuid
 `, unitPresentStatusInfo{}, unitUUID)
@@ -614,12 +614,12 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $u
 		return err
 	})
 	if err != nil {
-		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("getting workload status for unit %q: %w", unitUUID, err)
+		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("getting workload status for unit %q: %w", uuid, err)
 	}
 
 	statusID, err := status.DecodeWorkloadStatus(unitStatusInfo.StatusID)
 	if err != nil {
-		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("decoding workload status ID for unit %q: %w", unitUUID, err)
+		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("decoding workload status ID for unit %q: %w", uuid, err)
 	}
 
 	return status.UnitStatusInfo[status.WorkloadStatusType]{
@@ -661,7 +661,7 @@ func (st *ModelState) GetUnitK8sPodStatus(ctx context.Context, uuid coreunit.UUI
 		return status.StatusInfo[status.K8sPodStatusType]{}, errors.Capture(err)
 	}
 
-	unitUUID := unitUUID{UnitUUID: uuid}
+	unitUUID := unitUUID{UnitUUID: uuid.String()}
 	getUnitStatusStmt, err := st.Prepare(`
 SELECT &statusInfo.*
 FROM   k8s_pod_status
@@ -689,7 +689,7 @@ WHERE  unit_uuid = $unitUUID.uuid
 		return nil
 	})
 	if err != nil {
-		return status.StatusInfo[status.K8sPodStatusType]{}, errors.Errorf("getting cloud container status for unit %q: %w", unitUUID, err)
+		return status.StatusInfo[status.K8sPodStatusType]{}, errors.Errorf("getting cloud container status for unit %q: %w", uuid, err)
 	}
 
 	statusID, err := status.DecodeK8sPodStatus(containerStatusInfo.StatusID)
@@ -711,13 +711,13 @@ WHERE  unit_uuid = $unitUUID.uuid
 //   - error satisfying [applicationerrors.ApplicationIsDead] if the application
 //     is dead.
 func (st *ModelState) GetUnitWorkloadStatusesForApplication(
-	ctx context.Context, appID coreapplication.UUID,
+	ctx context.Context, appUUID coreapplication.UUID,
 ) (status.UnitWorkloadStatuses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	ident := applicationUUID{ID: appID}
+	ident := applicationUUID{UUID: appUUID.String()}
 
 	var unitStatuses status.UnitWorkloadStatuses
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -726,7 +726,7 @@ func (st *ModelState) GetUnitWorkloadStatusesForApplication(
 		return err
 	})
 	if err != nil {
-		return nil, errors.Errorf("getting workload statuses for application %q: %w", appID, err)
+		return nil, errors.Errorf("getting workload statuses for application %q: %w", appUUID, err)
 	}
 	return unitStatuses, nil
 }
@@ -738,13 +738,13 @@ func (st *ModelState) GetUnitWorkloadStatusesForApplication(
 //   - error satisfying [applicationerrors.ApplicationIsDead] if the application
 //     is dead.
 func (st *ModelState) GetUnitAgentStatusesForApplication(
-	ctx context.Context, appID coreapplication.UUID,
+	ctx context.Context, appUUID coreapplication.UUID,
 ) (status.UnitAgentStatuses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	ident := applicationUUID{ID: appID}
+	ident := applicationUUID{UUID: appUUID.String()}
 
 	var unitAgentStatuses status.UnitAgentStatuses
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -753,7 +753,7 @@ func (st *ModelState) GetUnitAgentStatusesForApplication(
 		return err
 	})
 	if err != nil {
-		return nil, errors.Errorf("getting workload statuses for application %q: %w", appID, err)
+		return nil, errors.Errorf("getting workload statuses for application %q: %w", appUUID, err)
 	}
 	return unitAgentStatuses, nil
 }
@@ -765,7 +765,7 @@ func (st *ModelState) GetUnitAgentStatusesForApplication(
 //   - an error satisfying [applicationerrors.ApplicationIsDead] if the application
 //     is dead.
 func (st *ModelState) GetAllFullUnitStatusesForApplication(
-	ctx context.Context, appID coreapplication.UUID,
+	ctx context.Context, appUUID coreapplication.UUID,
 ) (
 	status.FullUnitStatuses, error,
 ) {
@@ -773,7 +773,7 @@ func (st *ModelState) GetAllFullUnitStatusesForApplication(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	ident := applicationUUID{ID: appID}
+	ident := applicationUUID{UUID: appUUID.String()}
 
 	stmt, err := st.Prepare(`
 SELECT &fullUnitStatus.*
@@ -797,7 +797,7 @@ WHERE application_uuid = $applicationUUID.uuid
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Errorf("getting unit statuses for application %q: %w", appID, err)
+		return nil, errors.Errorf("getting unit statuses for application %q: %w", appUUID, err)
 	}
 	ret := make(status.FullUnitStatuses, len(fullUnitStatuses))
 	for _, s := range fullUnitStatuses {
@@ -1084,7 +1084,7 @@ WHERE uuid = $applicationUUID.uuid;
 `
 	stmt, err := st.Prepare(query, ident, life{})
 	if err != nil {
-		return errors.Errorf("preparing query for application %q: %w", ident.ID, err)
+		return errors.Errorf("preparing query for application %q: %w", ident.UUID, err)
 	}
 
 	var result life
@@ -1092,7 +1092,7 @@ WHERE uuid = $applicationUUID.uuid;
 	if errors.Is(err, sql.ErrNoRows) {
 		return applicationerrors.ApplicationNotFound
 	} else if err != nil {
-		return errors.Errorf("checking application %q exists: %w", ident.ID, err)
+		return errors.Errorf("checking application %q exists: %w", ident.UUID, err)
 	}
 
 	switch result.LifeID {
@@ -2339,6 +2339,46 @@ VALUES ($setMachineStatus.*)
 		}
 		return nil
 	})
+}
+
+// IsUnitForApplication returns true if the specified unit belongs to the
+// application.
+func (st *ModelState) IsUnitForApplication(ctx context.Context, uUUID, appUUID string) (bool, error) {
+	unitIdent := unitUUID{UnitUUID: uUUID}
+	applicationIdent := applicationUUID{UUID: appUUID}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count FROM unit
+WHERE uuid = $unitUUID.uuid
+AND application_uuid = $applicationUUID.uuid;
+`, count{}, unitIdent, applicationIdent)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var count count
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, unitIdent, applicationIdent).Get(&count); err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return count.Count == 1, nil
+}
+
+// NamespacesForWatchOfferStatus returns the namespace string identifiers
+// for application status changes.
+func (s *ModelState) NamespacesForWatchOfferStatus() (offer, application, unitAgent, unitWorkload, unitPod string) {
+	return "offer", "application_status", "unit_agent_status", "unit_workload_status", "k8s_pod_status"
 }
 
 func encodeIPAddress(address machineSpaceAddress) (corenetwork.SpaceAddress, error) {

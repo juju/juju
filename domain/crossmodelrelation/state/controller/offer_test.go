@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/offer"
 	corepermission "github.com/juju/juju/core/permission"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -40,7 +41,7 @@ func (s *controllerOfferSuite) TestCreateOfferAccess(c *tc.C) {
 
 	// Arrange
 	ownerPermissionUUID := uuid.MustNewUUID()
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	ownerUUID := uuid.MustNewUUID()
 	everyoneUUID := "567"
 	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
@@ -76,7 +77,7 @@ func (s *controllerOfferSuite) TestCreateOfferAccessEveryoneMissing(c *tc.C) {
 
 	// Arrange
 	ownerPermissionUUID := uuid.MustNewUUID()
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	ownerUUID := uuid.MustNewUUID()
 	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
 
@@ -92,7 +93,7 @@ func (s *controllerOfferSuite) TestCreateOfferAccessOwnerMissing(c *tc.C) {
 
 	// Arrange
 	ownerPermissionUUID := uuid.MustNewUUID()
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	ownerUUID := uuid.MustNewUUID()
 
 	// Act
@@ -153,13 +154,13 @@ func (s *controllerOfferSuite) TestGetOfferUUIDsForUsersWithConsume(c *tc.C) {
 	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
 	s.ensureUser(c, everyoneUUID, corepermission.EveryoneUserName.String(), ownerUUID.String(), true, false, false)
 	ownerPermissionUUID := uuid.MustNewUUID()
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	err := st.CreateOfferAccess(c.Context(), ownerPermissionUUID, offerUUID, ownerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create second offer permission with the same owner
 	ownerPermissionUUIDTwo := uuid.MustNewUUID()
-	offerUUIDTwo := uuid.MustNewUUID()
+	offerUUIDTwo := tc.Must(c, offer.NewUUID)
 	err = st.CreateOfferAccess(c.Context(), ownerPermissionUUIDTwo, offerUUIDTwo, ownerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -186,13 +187,13 @@ func (s *controllerOfferSuite) TestGetOfferUUIDsForUsersWithConsumeNoOffers(c *t
 	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
 	s.ensureUser(c, everyoneUUID, corepermission.EveryoneUserName.String(), ownerUUID.String(), true, false, false)
 	ownerPermissionUUID := uuid.MustNewUUID()
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	err := st.CreateOfferAccess(c.Context(), ownerPermissionUUID, offerUUID, ownerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create second offer permission with the same owner
 	ownerPermissionUUIDTwo := uuid.MustNewUUID()
-	offerUUIDTwo := uuid.MustNewUUID()
+	offerUUIDTwo := tc.Must(c, offer.NewUUID)
 	err = st.CreateOfferAccess(c.Context(), ownerPermissionUUIDTwo, offerUUIDTwo, ownerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -214,7 +215,7 @@ func (s *controllerOfferSuite) TestGetUsersForOfferUUIDs(c *tc.C) {
 	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
 	s.ensureUser(c, everyoneUUID, corepermission.EveryoneUserName.String(), ownerUUID.String(), true, false, false)
 	ownerPermissionUUID := uuid.MustNewUUID()
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	err := st.CreateOfferAccess(c.Context(), ownerPermissionUUID, offerUUID, ownerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -253,7 +254,7 @@ func (s *controllerOfferSuite) TestGetUsersForOfferUUIDsNoUsers(c *tc.C) {
 	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
 	s.ensureUser(c, everyoneUUID, corepermission.EveryoneUserName.String(), ownerUUID.String(), true, false, false)
 	ownerPermissionUUID := uuid.MustNewUUID()
-	offerUUID := uuid.MustNewUUID()
+	offerUUID := tc.Must(c, offer.NewUUID)
 	err := st.CreateOfferAccess(c.Context(), ownerPermissionUUID, offerUUID, ownerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 

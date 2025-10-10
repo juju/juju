@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -35,6 +35,7 @@ import (
 )
 
 type serviceSuite struct {
+	clock           *testclock.Clock
 	controllerState *MockControllerState
 	modelState      *MockModelState
 	statusHistory   *statusHistoryRecorder
@@ -1485,6 +1486,159 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 	})
 }
 
+func (s *serviceSuite) TestGetApplicationAndUnitModelStatusesDeriveApplicationStatus(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	s.modelState.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
+		map[string]status.Application{
+			"foo": {
+				ID:   "deadbeef",
+				Life: life.Alive,
+				Status: status.StatusInfo[status.WorkloadStatusType]{
+					Status: status.WorkloadStatusUnset,
+				},
+				Relations: []corerelation.UUID{
+					relationUUID,
+				},
+				Subordinate: true,
+				CharmLocator: charm.CharmLocator{
+					Name:         "foo",
+					Revision:     32,
+					Source:       "local",
+					Architecture: architecture.ARM64,
+				},
+				CharmVersion: "1.0.0",
+				Platform: deployment.Platform{
+					Channel:      "stable",
+					OSType:       0,
+					Architecture: architecture.ARM64,
+				},
+				Channel: &deployment.Channel{
+					Track:  "4.0",
+					Risk:   deployment.RiskCandidate,
+					Branch: "test",
+				},
+				LXDProfile:    []byte(`{}`),
+				Exposed:       true,
+				Scale:         ptr(2),
+				K8sProviderID: ptr("k8s-provider-id"),
+				Units: map[coreunit.Name]status.Unit{
+					"foo/666": {
+						Life: life.Alive,
+						WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+							Status:  status.WorkloadStatusActive,
+							Message: "it's active",
+							Data:    []byte(`{"foo": "bar"}`),
+						},
+						AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+							Status:  status.UnitAgentStatusIdle,
+							Message: "it's idle",
+							Data:    []byte(`{"foo": "bar"}`),
+						},
+						K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+							Status:  status.K8sPodStatusUnset,
+							Message: "it's unset",
+						},
+						Present: true,
+						CharmLocator: charm.CharmLocator{
+							Name:         "foo",
+							Revision:     42,
+							Source:       "local",
+							Architecture: architecture.ARM64,
+						},
+						Subordinate: false,
+						MachineName: ptr(machine.Name("0")),
+						SubordinateNames: map[coreunit.Name]struct{}{
+							coreunit.Name("foo/667"): {},
+						},
+						ApplicationName: "foo",
+						PrincipalName:   ptr(coreunit.Name("foo/666")),
+						AgentVersion:    "1.0.0",
+						WorkloadVersion: ptr("v1.0.0"),
+						K8sProviderID:   ptr("k8s-provider-id"),
+					},
+				},
+			},
+		}, nil,
+	)
+
+	statuses, err := s.modelService.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.DeepEquals, map[string]Application{
+		"foo": {
+			Life: corelife.Alive,
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Active,
+				Message: "it's active",
+				Data:    map[string]any{"foo": "bar"},
+			},
+			Relations: []corerelation.UUID{
+				relationUUID,
+			},
+			Subordinate: true,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     32,
+				Source:       "local",
+				Architecture: architecture.ARM64,
+			},
+			CharmVersion: "1.0.0",
+			Platform: deployment.Platform{
+				Channel:      "stable",
+				OSType:       0,
+				Architecture: architecture.ARM64,
+			},
+			Channel: &deployment.Channel{
+				Track:  "4.0",
+				Risk:   deployment.RiskCandidate,
+				Branch: "test",
+			},
+			LXDProfile:    &internalcharm.LXDProfile{},
+			Exposed:       true,
+			Scale:         ptr(2),
+			K8sProviderID: ptr("k8s-provider-id"),
+			Units: map[coreunit.Name]Unit{
+				"foo/666": {
+					Life: corelife.Alive,
+					WorkloadStatus: corestatus.StatusInfo{
+						Status:  corestatus.Active,
+						Message: "it's active",
+						Data:    map[string]any{"foo": "bar"},
+					},
+					AgentStatus: corestatus.StatusInfo{
+						Status:  corestatus.Idle,
+						Message: "it's idle",
+						Data:    map[string]any{"foo": "bar"},
+					},
+					K8sPodStatus: corestatus.StatusInfo{
+						Status:  corestatus.Unset,
+						Message: "it's unset",
+					},
+					Present: true,
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "local",
+						Architecture: architecture.ARM64,
+					},
+					Subordinate: false,
+					MachineName: ptr(machine.Name("0")),
+					SubordinateNames: []coreunit.Name{
+						coreunit.Name("foo/667"),
+					},
+					ApplicationName: "foo",
+					PrincipalName:   ptr(coreunit.Name("foo/666")),
+					AgentVersion:    "1.0.0",
+					WorkloadVersion: ptr("v1.0.0"),
+					K8sProviderID:   ptr("k8s-provider-id"),
+				},
+			},
+		},
+	})
+}
+
 func (s *serviceSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -2074,6 +2228,8 @@ func (s *serviceSuite) TestGetStatusNotFound(c *tc.C) {
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.clock = testclock.NewClock(time.Now().UTC())
+
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
@@ -2085,7 +2241,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		func() (StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
 		},
-		clock.WallClock,
+		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
 

@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/offer"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // AccessService defines the interface for interacting with the access domain.
@@ -49,7 +49,7 @@ type ModelService interface {
 // CrossModelRelationService defines the interface for interacting with the crossmodelrelation domain.
 type CrossModelRelationService interface {
 	// GetOfferUUID returns the uuid for the provided offer URL.
-	GetOfferUUID(ctx context.Context, offerURL *crossmodel.OfferURL) (uuid.UUID, error)
+	GetOfferUUID(ctx context.Context, offerURL *crossmodel.OfferURL) (offer.UUID, error)
 
 	// GetOffers returns offer details for all offers satisfying any of the
 	// provided filters.
@@ -70,7 +70,7 @@ type CrossModelRelationService interface {
 // such as offers.
 type RemovalService interface {
 	// RemoveOffer removes the offer from the model.
-	RemoveOffer(ctx context.Context, offerUUID uuid.UUID, force bool) error
+	RemoveOffer(ctx context.Context, offerUUID offer.UUID, force bool) error
 }
 
 // ControllerService defines the interface for interacting with the controller

@@ -7,7 +7,9 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/relation"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/constraints"
@@ -141,4 +143,9 @@ type VolumeAttachment struct {
 type VolumeAttachmentPlan struct {
 	DeviceType       storageprovisioning.PlanDeviceType
 	DeviceAttributes map[string]string
+}
+
+type Offer struct {
+	UUID   offer.UUID
+	Status corestatus.StatusInfo
 }

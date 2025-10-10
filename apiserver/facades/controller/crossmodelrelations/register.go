@@ -25,10 +25,13 @@ func Register(registry facade.FacadeRegistry) {
 // newCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
 func newCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelationsAPIv3, error) {
+	domainServices := ctx.DomainServices()
 	return NewCrossModelRelationsAPI(
 		ctx.ModelUUID(),
 		ctx.CrossModelAuthContext(),
-		ctx.DomainServices().CrossModelRelation(),
+		ctx.WatcherRegistry(),
+		domainServices.CrossModelRelation(),
+		domainServices.Status(),
 		ctx.Logger().Child("caasapplication"),
 	)
 }

@@ -6,6 +6,7 @@ package service
 import (
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/domain/application/charm"
 )
 
@@ -14,7 +15,7 @@ import (
 type AddRemoteApplicationOffererArgs struct {
 	// OfferUUID is the UUID of the offer that the remote application is
 	// consuming.
-	OfferUUID string
+	OfferUUID offer.UUID
 
 	// OffererControllerUUID is the UUID of the controller that the remote
 	// application is in.
@@ -42,7 +43,7 @@ type AddRemoteApplicationConsumerArgs struct {
 
 	// OfferUUID is the UUID of the offer that the remote application is
 	// consuming.
-	OfferUUID string
+	OfferUUID offer.UUID
 
 	// RelationUUID is the UUID of the relation created to connect the remote
 	// application to a local application, on the consuming model.

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
+	"github.com/juju/juju/core/offer"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -21,7 +22,12 @@ import (
 
 // CreateOfferAccess give the offer owner AdminAccess and EveryoneUserName
 // ReadAccess for the provided offer.
-func (st *State) CreateOfferAccess(ctx context.Context, permissionUUID, offerUUID, ownerUUID internaluuid.UUID) error {
+func (st *State) CreateOfferAccess(
+	ctx context.Context,
+	permissionUUID internaluuid.UUID,
+	offerUUID offer.UUID,
+	ownerUUID internaluuid.UUID,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)

@@ -1,4 +1,4 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package crossmodelrelations
@@ -12,20 +12,26 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/rpc/params"
 )
 
 // CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPIv3 struct {
-	modelUUID model.UUID
-	auth      facade.CrossModelAuthContext
+	modelUUID       model.UUID
+	auth            facade.CrossModelAuthContext
+	watcherRegistry facade.WatcherRegistry
 
 	crossModelRelationService CrossModelRelationService
+	statusService             StatusService
 
 	logger logger.Logger
 }
@@ -34,13 +40,17 @@ type CrossModelRelationsAPIv3 struct {
 func NewCrossModelRelationsAPI(
 	modelUUID model.UUID,
 	auth facade.CrossModelAuthContext,
+	watcherRegistry facade.WatcherRegistry,
 	crossModelRelationService CrossModelRelationService,
+	statusService StatusService,
 	logger logger.Logger,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
 		modelUUID:                 modelUUID,
 		auth:                      auth,
+		watcherRegistry:           watcherRegistry,
 		crossModelRelationService: crossModelRelationService,
+		statusService:             statusService,
 		logger:                    logger,
 	}, nil
 }
@@ -77,13 +87,18 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 ) (*params.RemoteRelationDetails, error) {
 	// Retrieve the application UUID for the provided offer UUID (also validates
 	// offer exists).
-	appName, appUUID, err := api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, relation.OfferUUID)
+	offerUUID, err := offer.ParseUUID(relation.OfferUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	appName, appUUID, err := api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Check that the supplied macaroon allows access.
-	attr, err := api.auth.Authenticator().CheckOfferMacaroons(ctx, api.modelUUID.String(), relation.OfferUUID, relation.Macaroons, relation.BakeryVersion)
+	attr, err := api.auth.Authenticator().CheckOfferMacaroons(ctx, api.modelUUID.String(), offerUUID.String(), relation.Macaroons, relation.BakeryVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +113,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 		ctx,
 		crossmodelrelationservice.AddRemoteApplicationConsumerArgs{
 			RemoteApplicationUUID: relation.ApplicationToken,
-			OfferUUID:             relation.OfferUUID,
+			OfferUUID:             offerUUID,
 			RelationUUID:          relation.RelationToken,
 			// We only have the actual consumed endpoint.
 			Endpoints: []charm.Relation{
@@ -129,7 +144,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.auth.CreateRemoteRelationMacaroon(
-		ctx, api.modelUUID, relation.OfferUUID, username, offererRemoteRelationTag, relation.BakeryVersion)
+		ctx, api.modelUUID, offerUUID.String(), username, offererRemoteRelationTag, relation.BakeryVersion)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}
@@ -159,13 +174,81 @@ func (api *CrossModelRelationsAPIv3) WatchRelationsSuspendedStatus(
 	return params.RelationStatusWatchResults{}, nil
 }
 
+type OfferWatcher interface {
+	watcher.NotifyWatcher
+	OfferUUID() offer.UUID
+}
+
+type offerWatcherShim struct {
+	watcher.NotifyWatcher
+	offerUUID offer.UUID
+}
+
+func (w *offerWatcherShim) OfferUUID() offer.UUID {
+	return w.offerUUID
+}
+
 // WatchOfferStatus starts an OfferStatusWatcher for
 // watching the status of an offer.
 func (api *CrossModelRelationsAPIv3) WatchOfferStatus(
 	ctx context.Context,
 	offerArgs params.OfferArgs,
 ) (params.OfferStatusWatchResults, error) {
-	return params.OfferStatusWatchResults{}, nil
+	results := params.OfferStatusWatchResults{
+		Results: make([]params.OfferStatusWatchResult, len(offerArgs.Args)),
+	}
+
+	for i, offerArg := range offerArgs.Args {
+		offerUUID, err := offer.ParseUUID(offerArg.OfferUUID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		// Ensure the supplied macaroon allows access
+		_, err = api.auth.Authenticator().CheckOfferMacaroons(ctx, api.modelUUID.String(), offerUUID.String(), offerArg.Macaroons, offerArg.BakeryVersion)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		w, err := api.statusService.WatchOfferStatus(ctx, offerUUID)
+		if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "offer %q not found", offerArg.OfferUUID)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		watcherID, _, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, &offerWatcherShim{
+			NotifyWatcher: w,
+			offerUUID:     offerUUID,
+		})
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		offerStatus, err := api.statusService.GetOfferStatus(ctx, offerUUID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i] = params.OfferStatusWatchResult{
+			OfferStatusWatcherId: watcherID,
+			Changes: []params.OfferStatusChange{
+				{
+					OfferUUID: offerUUID.String(),
+					Status: params.EntityStatus{
+						Status: offerStatus.Status,
+						Info:   offerStatus.Message,
+						Data:   offerStatus.Data,
+						Since:  offerStatus.Since,
+					},
+				},
+			},
+		}
+	}
+
+	return results, nil
 }
 
 // WatchConsumedSecretsChanges returns a watcher which notifies of changes to any secrets

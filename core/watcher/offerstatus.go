@@ -9,8 +9,8 @@ import (
 
 // OfferStatusChange describes changes to some offer.
 type OfferStatusChange struct {
-	// Name is the name of the offer.
-	Name string
+	// UUID is the uuid of the offer.
+	UUID string
 
 	// Status is the status of the offer.
 	Status status.StatusInfo

@@ -19,6 +19,48 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// GetApplicationUUIDForOffer returns the UUID of the application that the
+// specified offer belongs to.
+func (st *ModelState) GetApplicationUUIDForOffer(ctx context.Context, oUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	ident := offerUUID{OfferUUID: oUUID}
+
+	// NOTE: In theory, this could return multiple results. However, we have
+	// a trigger in place that ensures offer_endpoints for an offer are always
+	// bound to the same application. So we can just return the first result.
+	stmt, err := st.Prepare(`
+SELECT ae.application_uuid AS &applicationUUID.uuid
+FROM   offer AS o
+JOIN   offer_endpoint AS oe ON o.uuid = oe.offer_uuid
+JOIN   application_endpoint AS ae ON oe.endpoint_uuid = ae.uuid
+WHERE  o.uuid = $offerUUID.uuid
+	`, applicationUUID{}, ident)
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result applicationUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("offer %q not found", oUUID).Add(crossmodelrelationerrors.OfferNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return result.UUID, nil
+}
+
 // GetRemoteApplicationOffererUUIDByName returns the UUID for the named for the remote
 // application wrapping the named application
 func (st *ModelState) GetRemoteApplicationOffererUUIDByName(

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
@@ -220,6 +221,18 @@ type ModelState interface {
 	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model
 	// does not exist.
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
+
+	// GetApplicationUUIDForOffer returns the UUID of the application that the
+	// specified offer belongs to.
+	GetApplicationUUIDForOffer(context.Context, string) (string, error)
+
+	// IsUnitForApplication returns true if the specified unit is a unit of the
+	// specified application.
+	IsUnitForApplication(ctx context.Context, unitUUID, applicationUUID string) (bool, error)
+
+	// NamespacesForWatchOfferStatus returns the namespace string identifiers
+	// for application status changes.
+	NamespacesForWatchOfferStatus() (offer, application, unitAgent, unitWorkload, unitPod string)
 }
 
 // ControllerState is the controller state required by the service.
@@ -329,11 +342,29 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
+	return s.getApplicationDisplayStatus(ctx, appID)
+}
+
+func (s *Service) getApplicationDisplayStatus(ctx context.Context, appID coreapplication.UUID) (corestatus.StatusInfo, error) {
 	applicationStatus, err := s.modelState.GetApplicationStatus(ctx, appID)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
-	return s.decodeApplicationDisplayStatus(ctx, appID, applicationStatus)
+
+	if applicationStatus.Status != status.WorkloadStatusUnset {
+		return decodeApplicationStatus(applicationStatus)
+	}
+
+	fullUnitStatuses, err := s.modelState.GetAllFullUnitStatusesForApplication(ctx, appID)
+	if err != nil {
+		return corestatus.StatusInfo{}, errors.Capture(err)
+	}
+
+	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(fullUnitStatuses)
+	if err != nil {
+		return corestatus.StatusInfo{}, errors.Capture(err)
+	}
+	return derivedApplicationStatus, nil
 }
 
 // SetUnitWorkloadStatus sets the workload status of the specified unit,
@@ -591,7 +622,7 @@ func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string
 
 	results := make(map[string]Application, len(statuses))
 	for appName, app := range statuses {
-		decoded, err := s.decodeApplicationStatusDetails(ctx, app)
+		decoded, err := s.decodeApplicationStatusDetails(app)
 		if err != nil {
 			return nil, errors.Errorf("decoding application status for %q: %w", appName, err)
 		}
@@ -999,15 +1030,33 @@ func (s *Service) ExportRelationStatuses(ctx context.Context) (map[int]corestatu
 	return result, nil
 }
 
-func (s *Service) decodeApplicationStatusDetails(ctx context.Context, app status.Application) (Application, error) {
+func (s *Service) decodeApplicationStatusDetails(app status.Application) (Application, error) {
 	life, err := app.Life.Value()
 	if err != nil {
 		return Application{}, errors.Errorf("decoding application life: %w", err)
 	}
-	decodedStatus, err := s.decodeApplicationDisplayStatus(ctx, app.ID, app.Status)
-	if err != nil {
-		return Application{}, errors.Errorf("decoding application status: %w", err)
+
+	var decodedStatus corestatus.StatusInfo
+	if app.Status.Status != status.WorkloadStatusUnset {
+		decodedStatus, err = decodeApplicationStatus(app.Status)
+		if err != nil {
+			return Application{}, errors.Errorf("decoding application status: %w", err)
+		}
+	} else {
+		unitStatuses := transform.Map(app.Units, func(k coreunit.Name, u status.Unit) (coreunit.Name, status.FullUnitStatus) {
+			return k, status.FullUnitStatus{
+				WorkloadStatus: u.WorkloadStatus,
+				AgentStatus:    u.AgentStatus,
+				K8sPodStatus:   u.K8sPodStatus,
+				Present:        u.Present,
+			}
+		})
+		decodedStatus, err = applicationDisplayStatusFromUnits(unitStatuses)
+		if err != nil {
+			return Application{}, errors.Errorf("decoding application status from units: %w", err)
+		}
 	}
+
 	lxdProfile, err := s.decodeLXDProfile(app.LXDProfile)
 	if err != nil {
 		return Application{}, errors.Errorf("decoding LXD profile: %w", err)
@@ -1034,27 +1083,6 @@ func (s *Service) decodeApplicationStatusDetails(ctx context.Context, app status
 		K8sProviderID:   app.K8sProviderID,
 		Units:           units,
 	}, nil
-}
-
-func (s *Service) decodeApplicationDisplayStatus(
-	ctx context.Context,
-	appID coreapplication.UUID,
-	statusInfo status.StatusInfo[status.WorkloadStatusType],
-) (corestatus.StatusInfo, error) {
-	if statusInfo.Status != status.WorkloadStatusUnset {
-		return decodeApplicationStatus(statusInfo)
-	}
-
-	fullUnitStatuses, err := s.modelState.GetAllFullUnitStatusesForApplication(ctx, appID)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-
-	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(fullUnitStatuses)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	return derivedApplicationStatus, nil
 }
 
 func (s *Service) decodeLXDProfile(lxdProfile []byte) (*internalcharm.LXDProfile, error) {

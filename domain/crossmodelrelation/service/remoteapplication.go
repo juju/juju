@@ -12,6 +12,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	corestatus "github.com/juju/juju/core/status"
@@ -81,8 +82,8 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	if !application.IsValidApplicationName(applicationName) {
 		return applicationerrors.ApplicationNameNotValid
 	}
-	if !uuid.IsValidUUIDString(args.OfferUUID) {
-		return internalerrors.Errorf("offer UUID %q is not a valid UUID", args.OfferUUID).Add(errors.NotValid)
+	if err := args.OfferUUID.Validate(); err != nil {
+		return internalerrors.Errorf("validating offer UUID: %w", err)
 	}
 	if !uuid.IsValidUUIDString(args.OffererModelUUID) {
 		return internalerrors.Errorf("offerer model UUID %q is not a valid UUID", args.OffererModelUUID).Add(errors.NotValid)
@@ -124,7 +125,7 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 			ApplicationUUID:       applicationUUID.String(),
 			CharmUUID:             charmUUID.String(),
 			Charm:                 syntheticCharm,
-			OfferUUID:             args.OfferUUID,
+			OfferUUID:             args.OfferUUID.String(),
 		},
 		OffererControllerUUID: args.OffererControllerUUID,
 		OffererModelUUID:      args.OffererModelUUID,
@@ -154,8 +155,8 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 	if !application.IsValidApplicationName(synthApplicationName) {
 		return applicationerrors.ApplicationNameNotValid
 	}
-	if !uuid.IsValidUUIDString(args.OfferUUID) {
-		return internalerrors.Errorf("offer UUID %q is not a valid UUID", args.OfferUUID).Add(errors.NotValid)
+	if err := args.OfferUUID.Validate(); err != nil {
+		return internalerrors.Errorf("validating offer UUID: %w", err)
 	}
 	if !uuid.IsValidUUIDString(args.RelationUUID) {
 		return internalerrors.Errorf("relation UUID %q is not a valid UUID", args.RelationUUID).Add(errors.NotValid)
@@ -187,7 +188,7 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 			ApplicationUUID: remoteApplicationUUID.String(),
 			CharmUUID:       charmUUID.String(),
 			Charm:           syntheticCharm,
-			OfferUUID:       args.OfferUUID,
+			OfferUUID:       args.OfferUUID.String(),
 		},
 		RelationUUID: args.RelationUUID,
 	}); internalerrors.Is(err, crossmodelrelationerrors.RemoteRelationAlreadyRegistered) {
@@ -294,15 +295,15 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 // for the given offer UUID.
 // Returns crossmodelrelationerrors.OfferNotFound if the offer or associated
 // application is not found.
-func (s *Service) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error) {
+func (s *Service) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !uuid.IsValidUUIDString(offerUUID) {
-		return "", "", internalerrors.Errorf("offer UUID %q is not a valid UUID", offerUUID).Add(errors.NotValid)
+	if err := offerUUID.Validate(); err != nil {
+		return "", "", internalerrors.Errorf("validating offer UUID: %w", err)
 	}
 
-	appName, appUUID, err := s.modelState.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
+	appName, appUUID, err := s.modelState.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID.String())
 	if err != nil {
 		return "", "", internalerrors.Capture(err)
 	}

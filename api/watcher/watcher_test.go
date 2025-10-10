@@ -441,7 +441,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *tc.C) {
 		Results: []params.OfferStatusWatchResult{{
 			OfferStatusWatcherId: watcherID,
 			Changes: []params.OfferStatusChange{{
-				OfferName: "my offer",
+				OfferUUID: "offer-uuid",
 				Status: params.EntityStatus{
 					Status: "maintenance",
 					Info:   "working",
@@ -471,7 +471,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *tc.C) {
 		case changes, ok := <-w.Changes():
 			c.Check(ok, tc.IsTrue)
 			c.Check(changes, tc.HasLen, 1)
-			c.Check(changes[0].Name, tc.Equals, "my offer")
+			c.Check(changes[0].UUID, tc.Equals, "offer-uuid")
 			c.Check(changes[0].Status, tc.DeepEquals, status.StatusInfo{
 				Status:  s,
 				Message: info,
@@ -491,7 +491,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *tc.C) {
 		eventCh <- &params.OfferStatusWatchResult{
 			OfferStatusWatcherId: watcherID,
 			Changes: []params.OfferStatusChange{{
-				OfferName: "my offer",
+				OfferUUID: "offer-uuid",
 				Status: params.EntityStatus{
 					Status: "active",
 					Info:   "finished",
