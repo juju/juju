@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/trace"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/rpcreflect"
@@ -368,6 +369,10 @@ func (cc *CustomRoot) Kill() {}
 
 func (cc *CustomRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
 	return ctx, trace.NoopSpan{}
+}
+
+func (cc *CustomRoot) FlightRecorder() flightrecorder.FlightRecorder {
+	return flightrecorder.NoopRecorder{}
 }
 
 func (cc *CustomRoot) FindMethod(

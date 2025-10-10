@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/container/broker"
 	internaldependency "github.com/juju/juju/internal/dependency"
+	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -66,6 +67,7 @@ import (
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
+	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/migrationmaster"
@@ -536,6 +538,8 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
+		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(), "", internallogger.GetLogger("juju.flightrecorder"))
+
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
 			AgentName:                         agentName,
@@ -552,6 +556,7 @@ func (a *MachineAgent) makeEngineCreator(
 			LogSink:                           logSink,
 			NewDeployContext:                  deployer.NewNestedContext,
 			Clock:                             clock.WallClock,
+			FlightRecorder:                    flightRecorder,
 			ValidateMigration:                 a.validateMigration,
 			PrometheusRegisterer:              a.prometheusRegistry,
 			UpdateLoggerConfig:                updateAgentConfLogging,
@@ -584,13 +589,18 @@ func (a *MachineAgent) makeEngineCreator(
 			if err := worker.Stop(eng); err != nil {
 				logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
 			}
+			if err := worker.Stop(flightRecorder); err != nil {
+				logger.Errorf(context.TODO(), "while stopping flight recorder with bad manifolds: %v", err)
+			}
 			return nil, err
 		}
+
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
 			AgentDir:           agentConfig.Dir(),
 			Engine:             eng,
 			MachineLock:        a.machineLock,
 			PrometheusGatherer: a.prometheusRegistry,
+			FlightRecorder:     flightRecorder,
 			WorkerFunc:         introspection.NewWorker,
 			Clock:              clock.WallClock,
 			Logger:             logger.Child("introspection"),

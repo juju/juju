@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
@@ -36,6 +37,7 @@ type Config struct {
 	LocalMacaroonAuthenticator        macaroon.LocalMacaroonAuthenticator
 	JWTParser                         *jwtparser.Parser
 	LeaseManager                      lease.Manager
+	FlightRecorder                    flightrecorder.FlightRecorder
 	LogSink                           corelogger.ModelLogger
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	UpgradeComplete                   func() bool
@@ -81,6 +83,9 @@ func (config Config) Validate() error {
 	}
 	if config.LeaseManager == nil {
 		return errors.NotValidf("nil LeaseManager")
+	}
+	if config.FlightRecorder == nil {
+		return errors.NotValidf("nil FlightRecorder")
 	}
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
@@ -182,6 +187,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		MetricsCollector:              config.MetricsCollector,
 		LogSinkConfig:                 &logSinkConfig,
 		GetAuditConfig:                config.GetAuditConfig,
+		FlightRecorder:                config.FlightRecorder,
 		LeaseManager:                  config.LeaseManager,
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		LogSink:                       config.LogSink,
