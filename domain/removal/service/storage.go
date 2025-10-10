@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
@@ -28,6 +30,15 @@ type StorageState interface {
 	// StorageAttachmentScheduleRemoval schedules a removal job for the storage
 	// attachment with the input UUID, qualified with the input force boolean.
 	StorageAttachmentScheduleRemoval(ctx context.Context, removalUUID, saUUID string, force bool, when time.Time) error
+
+	// GetStorageAttachmentLife returns the life of the unit storage attachment
+	// with the input UUID.
+	GetStorageAttachmentLife(ctx context.Context, rUUID string) (life.Life, error)
+
+	// DeleteStorageAttachment removes a unit storage attachment from the
+	// database completely. If the unit attached to the storage was its owner,
+	// then that record is deleted too.
+	DeleteStorageAttachment(ctx context.Context, rUUID string) error
 }
 
 // RemoveStorageAttachment checks if a storage attachment with the input UUID
@@ -103,4 +114,37 @@ func (s *Service) storageAttachmentScheduleRemoval(
 
 	s.logger.Infof(ctx, "scheduled removal job %q for storage attachment %q", jobUUID, saUUID)
 	return jobUUID, nil
+}
+
+// processStorageAttachmentRemovalJob handles the fact that storage
+// attachment sare endowed with the "life" characteristic.
+// This endowment is historical, but perhaps needless - no action is
+// really needed here except to delete the attachment.
+// Associated removal workflows should have been triggered when
+// we transitioned to "dying".
+func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job removal.Job) error {
+	if job.RemovalType != removal.StorageAttachmentJob {
+		return errors.Errorf("job type: %q not valid for storage attachment removal", job.RemovalType).Add(
+			removalerrors.RemovalJobTypeNotValid)
+	}
+
+	l, err := s.modelState.GetStorageAttachmentLife(ctx, job.EntityUUID)
+	if errors.Is(err, storageprovisioningerrors.StorageAttachmentNotFound) {
+		// The storage attachment has already been removed.
+		// Indicate success so that this job will be deleted.
+		return nil
+	}
+	if err != nil {
+		return errors.Errorf("getting storage attachment %q life: %w", job.EntityUUID, err)
+	}
+
+	if l == life.Alive {
+		return errors.Errorf("storage attachment %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
+	}
+
+	if err := s.modelState.DeleteStorageAttachment(ctx, job.EntityUUID); err != nil {
+		return errors.Errorf("deleting storage attachment %q: %w", job.EntityUUID, err)
+	}
+
+	return nil
 }

@@ -140,6 +140,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.ModelJob:
 		err = s.processModelJob(ctx, job)
 
+	case removal.StorageAttachmentJob:
+		err = s.processStorageAttachmentRemovalJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)
