@@ -8,14 +8,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"reflect"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	cookiejar "github.com/juju/persistent-cookiejar"
 	"github.com/juju/testing"
@@ -29,7 +28,6 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/modelcmd/mocks"
 	"github.com/juju/juju/core/model"
@@ -316,43 +314,76 @@ func (s *BaseCommandSuite) TestNewAPIConnectionParams(c *gc.C) {
 	c.Assert(params.DialOpts.LoginProvider, gc.IsNil)
 }
 
-// TestNewAPIConnectionParamsWithOIDCController is similar
-// to TestNewAPIConnectionParams but verifies that when
-// connecting to a controller supporting OIDC, we default
-// to TryInOrder login provider should have two registered
-// providers:
-// 1. Client credentials
-// 2. Session token
-func (s *BaseCommandSuite) TestNewAPIConnectionParamsWithOIDCController(c *gc.C) {
-	newController, err := s.store.ControllerByName(s.store.CurrentControllerName)
-	c.Assert(err, jc.ErrorIsNil)
-	newController.OIDCLogin = true
-	s.store.Controllers["oauth-controller"] = *newController
+func (s *BaseCommandSuite) TestNewAPIRoot_OIDCLogin_TriesInOrder(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+
+	conn := mocks.NewMockConnection(ctrl)
+
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"testing.invalid:1234"},
+		OIDCLogin:    true,
+	}
 
 	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.SetClientStore(s.store)
+	baseCmd.SetAPIOpen(func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		// We don't care about the result, just the APICalls made to the login facades.
+		opts.LoginProvider.Login(ctx, conn)
+		return conn, nil
+	})
 	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
-	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar", Password: "hunter2",
+
+	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
+
+	request := struct {
+		ClientID     string `json:"client-id"`
+		ClientSecret string `json:"client-secret"`
+	}{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
 	}
-	account := s.store.Accounts["foo"]
-	params, err := baseCmd.NewAPIConnectionParams(s.store, "oauth-controller", "", &account)
+	os.Setenv("JUJU_CLIENT_ID", request.ClientID)
+	os.Setenv("JUJU_CLIENT_SECRET", request.ClientSecret)
+	defer func() {
+		os.Unsetenv("JUJU_CLIENT_ID")
+		os.Unsetenv("JUJU_CLIENT_SECRET")
+	}()
+
+	// Expect env login first.
+	conn.EXPECT().APICall(
+		"Admin",
+		gomock.Any(),
+		gomock.Any(),
+		"LoginWithClientCredentials",
+		request,
+		gomock.Any(),
+	)
+
+	//Expect session token login second.
+	conn.EXPECT().APICall(
+		"Admin",
+		gomock.Any(),
+		gomock.Any(),
+		"LoginWithSessionToken",
+		gomock.Any(),
+		gomock.Any(),
+	)
+
+	conn.EXPECT().AuthTag()
+	conn.EXPECT().APIHostPorts()
+	conn.EXPECT().ServerVersion()
+	conn.EXPECT().Addr()
+	conn.EXPECT().IPAddr()
+	conn.EXPECT().PublicDNSName()
+	conn.EXPECT().IsProxied()
+	conn.EXPECT().ControllerAccess()
+
+	_, err := baseCmd.NewAPIRoot()
 	c.Assert(err, jc.ErrorIsNil)
-
-	provider := params.DialOpts.LoginProvider
-	c.Assert(provider, gc.FitsTypeOf, loginprovider.NewTryInOrderLoginProvider(loggo.GetLogger("juju.cmd.loginprovider")))
-
-	// Our try in order is NOT exported, and we don't want to be adding extra methods
-	// to the login provider interface just for testing to retrieve the login provider
-	// and then cast it to the right type, so we use reflection here.
-	//
-	// We know there should be a slice of 2 elements (providers) in our try
-	// in order and the field is called providers. This is a little bit brittle
-	// but it gives us a certainty that it is registered correctly when it is
-	// an oidc controller.
-	providers := reflect.ValueOf(provider).Elem().FieldByName("providers")
-	c.Assert(providers.CanConvert(reflect.TypeOf([]api.LoginProvider{})), gc.Equals, true)
-	c.Assert(providers.Len(), gc.Equals, 2)
 }
 
 type NewGetBootstrapConfigParamsFuncSuite struct {
