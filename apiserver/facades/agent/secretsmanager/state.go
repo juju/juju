@@ -41,6 +41,7 @@ type SecretsState interface {
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	WatchObsolete(owners []names.Tag) (state.StringsWatcher, error)
+	WatchDeleted(owners []names.Tag) (state.StringsWatcher, error)
 	ChangeSecretBackend(state.ChangeSecretBackendParams) error
 	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
 }

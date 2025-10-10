@@ -86,6 +86,25 @@ func (mr *MockSecretsClientMockRecorder) WatchConsumedSecretsChanges(arg0 any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchConsumedSecretsChanges", reflect.TypeOf((*MockSecretsClient)(nil).WatchConsumedSecretsChanges), arg0)
 }
 
+// WatchDeleted mocks base method.
+func (m *MockSecretsClient) WatchDeleted(arg0 ...names.Tag) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WatchDeleted", varargs...)
+	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchDeleted indicates an expected call of WatchDeleted.
+func (mr *MockSecretsClientMockRecorder) WatchDeleted(arg0 ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchDeleted", reflect.TypeOf((*MockSecretsClient)(nil).WatchDeleted), arg0...)
+}
+
 // WatchObsolete mocks base method.
 func (m *MockSecretsClient) WatchObsolete(arg0 ...names.Tag) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()

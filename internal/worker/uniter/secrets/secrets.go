@@ -87,14 +87,21 @@ func (s *Secrets) init() error {
 	if err != nil {
 		return errors.Annotate(err, "reading secret metadata")
 	}
-	owned := set.NewStrings()
+	owned := make(map[string][]int)
 	for _, md := range metadata {
-		owned.Add(md.Metadata.URI.String())
+		owned[md.Metadata.URI.String()] = md.Revisions
 	}
-	for uri := range s.secretsState.SecretObsoleteRevisions {
-		if !owned.Contains(uri) {
+	for uri, currentObsoleteRevs := range s.secretsState.SecretObsoleteRevisions {
+		ownedRevs, ok := owned[uri]
+		if !ok {
 			changed = true
 			delete(s.secretsState.SecretObsoleteRevisions, uri)
+			continue
+		}
+		newObsoleteRevs := set.NewInts(ownedRevs...).Intersection(set.NewInts(currentObsoleteRevs...))
+		if len(currentObsoleteRevs) != newObsoleteRevs.Size() {
+			changed = true
+			s.secretsState.SecretObsoleteRevisions[uri] = newObsoleteRevs.SortedValues()
 		}
 	}
 	if !changed {
@@ -149,15 +156,25 @@ func (s *Secrets) CommitHook(hi hook.Info) error {
 }
 
 // SecretsRemoved implements SecretStateTracker.
-func (s *Secrets) SecretsRemoved(uris []string) error {
+func (s *Secrets) SecretsRemoved(deletedRevisions map[string][]int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, uri := range uris {
-		delete(s.secretsState.ConsumedSecretInfo, uri)
-		delete(s.secretsState.SecretObsoleteRevisions, uri)
+	for uri, revs := range deletedRevisions {
+		if len(revs) == 0 {
+			delete(s.secretsState.ConsumedSecretInfo, uri)
+			delete(s.secretsState.SecretObsoleteRevisions, uri)
+			continue
+		}
+		obsoleteRevs := set.NewInts(s.secretsState.SecretObsoleteRevisions[uri]...)
+		newObsoleteRevs := obsoleteRevs.Difference(set.NewInts(revs...)).SortedValues()
+		if len(newObsoleteRevs) == 0 {
+			delete(s.secretsState.SecretObsoleteRevisions, uri)
+		} else {
+			s.secretsState.SecretObsoleteRevisions[uri] = newObsoleteRevs
+		}
 	}
-	s.logger.Debugf("secrets removed from %q unit state: %v", s.unitTag.Id(), uris)
+	s.logger.Debugf("secret revisions removed from %q unit state: %v", s.unitTag.Id(), deletedRevisions)
 	if err := s.stateOps.Write(s.secretsState); err != nil {
 		return err
 	}

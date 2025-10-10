@@ -32,6 +32,9 @@ func Register(registry facade.FacadeRegistry) {
 		return NewSecretManagerAPIV2(ctx)
 	}, reflect.TypeOf((*SecretsManagerAPIV2)(nil)))
 	registry.MustRegister("SecretsManager", 3, func(ctx facade.Context) (facade.Facade, error) {
+		return NewSecretManagerAPIV3(ctx)
+	}, reflect.TypeOf((*SecretsManagerAPIV3)(nil)))
+	registry.MustRegister("SecretsManager", 4, func(ctx facade.Context) (facade.Facade, error) {
 		return NewSecretManagerAPI(ctx)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
 }
@@ -48,11 +51,20 @@ func NewSecretManagerAPIV1(context facade.Context) (*SecretsManagerAPIV1, error)
 
 // NewSecretManagerAPIV2 creates a SecretsManagerAPIV2.
 func NewSecretManagerAPIV2(context facade.Context) (*SecretsManagerAPIV2, error) {
+	api, err := NewSecretManagerAPIV3(context)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &SecretsManagerAPIV2{SecretsManagerAPIV3: api}, nil
+}
+
+// NewSecretManagerAPIV3 creates a SecretsManagerAPIV3.
+func NewSecretManagerAPIV3(context facade.Context) (*SecretsManagerAPIV3, error) {
 	api, err := NewSecretManagerAPI(context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &SecretsManagerAPIV2{SecretsManagerAPI: api}, nil
+	return &SecretsManagerAPIV3{SecretsManagerAPI: api}, nil
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.

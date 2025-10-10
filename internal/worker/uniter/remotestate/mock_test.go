@@ -418,10 +418,11 @@ func (*mockSecretTriggerWatcher) Wait() error {
 }
 
 type mockSecretsClient struct {
-	secretsWatcher          *mockStringsWatcher
-	secretsRevisionsWatcher *mockStringsWatcher
-	unitName                string
-	owners                  []names.Tag
+	secretsWatcher           *mockStringsWatcher
+	obsoleteRevisionsWatcher *mockStringsWatcher
+	deletedRevisionsWatcher  *mockStringsWatcher
+	unitName                 string
+	owners                   []names.Tag
 }
 
 func (m *mockSecretsClient) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
@@ -448,5 +449,10 @@ func (m *mockSecretsClient) GetConsumerSecretsRevisionInfo(unitName string, uris
 
 func (m *mockSecretsClient) WatchObsolete(owners ...names.Tag) (watcher.StringsWatcher, error) {
 	m.owners = owners
-	return m.secretsRevisionsWatcher, nil
+	return m.obsoleteRevisionsWatcher, nil
+}
+
+func (m *mockSecretsClient) WatchDeleted(owners ...names.Tag) (watcher.StringsWatcher, error) {
+	m.owners = owners
+	return m.deletedRevisionsWatcher, nil
 }

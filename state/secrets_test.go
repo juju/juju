@@ -3369,7 +3369,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
 
 	_, err = s.store.DeleteSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(uri.String())
+	//wc.AssertChange(uri.String())
 	wc.AssertNoChange()
 
 	_, err = s.store.DeleteSecret(uri2)
@@ -3378,7 +3378,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
 
 	_, err = s.store.DeleteSecret(uri3)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(uri3.String())
+	//wc.AssertChange(uri3.String())
 	wc.AssertNoChange()
 }
 
@@ -3412,6 +3412,178 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchDeletedSupercedesObsolete(c *gc.C
 	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 2,
 	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Deleting the secret removes any pending orphaned changes.
+	_, err = s.store.DeleteSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	//wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+}
+
+type SecretsDeletedWatcherSuite struct {
+	testing.StateSuite
+	store state.SecretsStore
+
+	ownerApp  *state.Application
+	ownerUnit *state.Unit
+}
+
+var _ = gc.Suite(&SecretsDeletedWatcherSuite{})
+
+func (s *SecretsDeletedWatcherSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.store = state.NewSecrets(s.State)
+	s.ownerApp = s.Factory.MakeApplication(c, nil)
+	s.ownerUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.ownerApp})
+}
+
+func (s *SecretsDeletedWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secrets.URI) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerApp.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	var w state.StringsWatcher
+	w, err = s.store.WatchDeleted(
+		[]names.Tag{s.ownerApp.Tag(), s.ownerUnit.Tag()},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+	return w, uri
+}
+
+func (s *SecretsDeletedWatcherSuite) TestWatcherStartStop(c *gc.C) {
+	w, _ := s.setupWatcher(c)
+	testing.AssertStop(c, w)
+}
+
+func (s *SecretsDeletedWatcherSuite) TestWatchDeletedRevisions(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	p := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+		Checksum:    "deadbeef",
+	}
+	_, err := s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String() + "/1")
+	wc.AssertNoChange()
+
+	p = state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar3"},
+		Checksum:    "deadbeef2",
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	p = state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar4"},
+		Checksum:    "deadbeef3",
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.DeleteSecret(uri, 2, 3)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String()+"/2", uri.String()+"/3")
+	wc.AssertNoChange()
+}
+
+func (s *SecretsDeletedWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	owner2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	uri2 := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner2.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err := s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri3 := secrets.NewURI()
+	cp = state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err = s.store.CreateSecret(uri3, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.DeleteSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+
+	// No changes for secret with different owner.
+	_, err = s.store.DeleteSecret(uri2)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Leader unit gets change for app owned secret.
+	_, err = s.store.DeleteSecret(uri3)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri3.String())
+	wc.AssertNoChange()
+}
+
+func (s *SecretsDeletedWatcherSuite) TestWatchDeletedSupercedesDeleted(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	err := s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	p := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+		Checksum:    "deadbeef2",
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Deleting the secret removes any pending orphaned changes.
