@@ -204,7 +204,7 @@ func (p EnvironProvider) Open(ctx context.Context, args environs.OpenParams, inv
 		return nil, internalerrors.Errorf(
 			"getting volume endpoint url for region: %w", err,
 		)
-	} else if err != nil {
+	} else if err == nil {
 		logger.Debugf(ctx, "volume URL: %q", e.volumeURL.String())
 	}
 
