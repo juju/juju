@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -133,7 +134,7 @@ func (s *modelOfferSuite) TestDeleteFailedOffer(c *tc.C) {
 	offerUUID := s.addOffer(c, offerName, []string{appEndpointUUD})
 
 	// Act
-	err := s.state.DeleteFailedOffer(c.Context(), offer.UUID(offerUUID))
+	err := s.state.DeleteFailedOffer(c.Context(), offerUUID)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -179,17 +180,17 @@ func (s *modelOfferSuite) TestUpdateOffer(c *tc.C) {
 	obtainedOffers := s.readOffers(c)
 	c.Check(obtainedOffers, tc.DeepEquals, []nameAndUUID{
 		{
-			UUID: offerUUID,
+			UUID: offerUUID.String(),
 			Name: offerName,
 		},
 	})
 	obtainedEndpoints := s.readOfferEndpoints(c)
 	c.Check(obtainedEndpoints, tc.SameContents, []offerEndpoint{
 		{
-			OfferUUID:    offerUUID,
+			OfferUUID:    offerUUID.String(),
 			EndpointUUID: appEndpointUUD,
 		}, {
-			OfferUUID:    offerUUID,
+			OfferUUID:    offerUUID.String(),
 			EndpointUUID: appEndpointUUD2,
 		},
 	})
@@ -447,7 +448,7 @@ func (s *modelOfferSuite) TestGetOfferUUID(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedOfferUUID, tc.Equals, offerUUID)
+	c.Assert(obtainedOfferUUID, tc.Equals, offerUUID.String())
 }
 
 func (s *modelOfferSuite) TestGetOfferUUIDNotFound(c *tc.C) {
@@ -490,9 +491,12 @@ func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation
 	offerName := "test-offer"
 	offerUUID := s.addOffer(c, offerName, []string{appEndpointUUD1})
 
+	s.addOfferConnection(c, offerUUID, domainstatus.RelationStatusTypeJoined)
+	s.addOfferConnection(c, offerUUID, domainstatus.RelationStatusTypeJoining)
+
 	return []*crossmodelrelation.OfferDetail{
 		{
-			OfferUUID:              offerUUID,
+			OfferUUID:              offerUUID.String(),
 			OfferName:              offerName,
 			ApplicationName:        appName,
 			ApplicationDescription: description,
@@ -509,6 +513,8 @@ func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation
 					Interface: relation.Interface,
 				},
 			},
+			TotalConnections:       2,
+			TotalActiveConnections: 1,
 		},
 	}
 }
@@ -535,7 +541,7 @@ func (s *modelOfferSuite) setupOfferWithInterface(c *tc.C, interfaceName string)
 
 	return []*crossmodelrelation.OfferDetail{
 		{
-			OfferUUID:              offerUUID,
+			OfferUUID:              offerUUID.String(),
 			OfferName:              appName,
 			ApplicationName:        appName,
 			ApplicationDescription: description,

@@ -16,8 +16,10 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -140,7 +142,7 @@ VALUES (?, ?, ?)
 // addCharmRelation inserts a new charm relation into the database with the
 // given UUID and attributes. Returns the relation UUID.
 func (s *baseSuite) addCharmRelation(c *tc.C, charmUUID corecharm.ID, r charm.Relation) string {
-	charmRelationUUID := internaluuid.MustNewUUID().String()
+	charmRelationUUID := tc.Must(c, internaluuid.NewUUID).String()
 	s.query(c, `
 INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -162,8 +164,8 @@ VALUES (?, 0, ?, 0)
 
 // addOffer inserts a new offer with offer_endpoints into the database. Returns
 // the offer uuid.
-func (s *baseSuite) addOffer(c *tc.C, offerName string, endpointUUIDs []string) string {
-	offerUUID := internaluuid.MustNewUUID().String()
+func (s *baseSuite) addOffer(c *tc.C, offerName string, endpointUUIDs []string) offer.UUID {
+	offerUUID := tc.Must(c, offer.NewUUID)
 
 	s.query(c, `
 INSERT INTO offer (uuid, name) VALUES (?, ?)`, offerUUID, offerName)
@@ -173,6 +175,23 @@ INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`, offerUUID
 	}
 
 	return offerUUID
+}
+
+func (s *baseSuite) addOfferConnection(c *tc.C, offerUUID offer.UUID, statusID status.RelationStatusType) {
+	relUUID := s.addRelation(c)
+	consumerRelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.query(c, `
+INSERT INTO application_remote_relation (relation_uuid, consumer_relation_uuid)
+VALUES (?, ?)`, relUUID, consumerRelUUID)
+
+	connUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, application_remote_relation_uuid, username)
+VALUES (?, ?, ?, "bob")`, connUUID, offerUUID, relUUID)
+
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
+VALUES (?, ?, 0)`, relUUID, statusID)
 }
 
 // encodeRoleID returns the ID used in the database for the given charm role. This

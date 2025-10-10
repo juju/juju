@@ -108,8 +108,13 @@ type OfferDetail struct {
 	// to the offer.
 	OfferUsers []OfferUser
 
-	// TODO (cmr)
-	// Add []OfferConnections.
+	// TotalConnections is the total number of remote connections connected to
+	// the offer.
+	TotalConnections int
+
+	// TotalActiveConnections is the total number of remote connections
+	// connected to the offer that are currently active.
+	TotalActiveConnections int
 }
 
 // OfferEndpoint contains details of charm endpoints as needed for offer

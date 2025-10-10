@@ -276,12 +276,10 @@ func fetchOffers(ctx context.Context, service CrossModelRelationService) (map[st
 				ApplicationDescription: in.ApplicationDescription,
 				Endpoints:              endpoints,
 			},
-			err:      err,
-			charmURL: charmURL,
-			// TODO: cmr
-			// Fill in data during the cmr epic.
-			activeConnectedCount: 0,
-			totalConnectedCount:  0,
+			err:                  err,
+			charmURL:             charmURL,
+			activeConnectedCount: in.TotalActiveConnections,
+			totalConnectedCount:  in.TotalConnections,
 		}
 		return in.OfferName, out
 	}), nil

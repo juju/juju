@@ -201,6 +201,8 @@ func (s *fullStatusSuite) TestFullStatusOffersIncluded(c *tc.C) {
 		Endpoints: []crossmodelrelation.OfferEndpoint{
 			{Name: "db"},
 		},
+		TotalActiveConnections: 1,
+		TotalConnections:       2,
 	}
 
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), gomock.Any()).Return(
@@ -220,7 +222,9 @@ func (s *fullStatusSuite) TestFullStatusOffersIncluded(c *tc.C) {
 						Name: "db",
 					},
 				},
-				CharmURL: "ch:amd64/app-42",
+				CharmURL:             "ch:amd64/app-42",
+				ActiveConnectedCount: 1,
+				TotalConnectedCount:  2,
 			},
 		})
 }

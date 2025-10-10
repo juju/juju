@@ -183,6 +183,8 @@ func (s *offerServiceSuite) TestGetOffersEmptyFilters(c *tc.C) {
 					Role:      charm.RoleProvider,
 				},
 			},
+			TotalConnections:       2,
+			TotalActiveConnections: 1,
 		},
 	}
 	s.modelState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
@@ -223,6 +225,8 @@ func (s *offerServiceSuite) TestGetOffersEmptyFilters(c *tc.C) {
 					Access: permission.ConsumeAccess,
 				},
 			},
+			TotalConnections:       2,
+			TotalActiveConnections: 1,
 		},
 	})
 }
@@ -247,6 +251,8 @@ func (s *offerServiceSuite) TestGetOffers(c *tc.C) {
 					Role:      charm.RoleProvider,
 				},
 			},
+			TotalConnections:       2,
+			TotalActiveConnections: 1,
 		},
 	}
 	s.modelState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
@@ -289,6 +295,8 @@ func (s *offerServiceSuite) TestGetOffers(c *tc.C) {
 					Access: permission.ConsumeAccess,
 				},
 			},
+			TotalConnections:       2,
+			TotalActiveConnections: 1,
 		},
 	})
 }
