@@ -4,6 +4,8 @@
 package model
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"testing"
@@ -699,6 +701,44 @@ func (s *applicationSuite) TestDeleteApplicationWithObjectstoreResource(c *tc.C)
 	err = row.Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+// TestDeleteApplicationWithADanglingResource ensures that application removal
+// does not fail if there is a resource that is not linked to an application_resource,
+// but references a charm_uuid.
+func (s *applicationSuite) TestDeleteApplicationWithADanglingResource(c *tc.C) {
+	// Arrange: One application with a dangling resource.
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
+	var charmUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT charm_uuid
+FROM application
+WHERE uuid=?`, appUUID).Scan(&charmUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision,
+       origin_type_id, state_id, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)`, "1", charmUUID, "buzz", 1, 0, 0, time.Now())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Delete the application
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteApplication(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The application is deleted
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
 }
 
 func (s *applicationSuite) TestDeleteApplicationWithSharedObjectstoreResource(c *tc.C) {
