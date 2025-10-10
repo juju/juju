@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
@@ -592,6 +593,11 @@ func (r *errRoot) FindMethod(rootName string, version int, methodName string) (r
 // TODO(stickupkid): Revisit this when we understand this path better.
 func (r *errRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
 	return ctx, trace.NoopSpan{}
+}
+
+// FlightRecorder returns a noop flight recorder.
+func (r *errRoot) FlightRecorder() flightrecorder.FlightRecorder {
+	return flightrecorder.NoopRecorder{}
 }
 
 func (r *errRoot) Kill() {}

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/jwtparser"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -125,6 +126,7 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 		AllowModelAccess:           false,
 		LogSinkConfig:              &logSinkConfig,
 		LeaseManager:               s.leaseManager,
+		FlightRecorder:             flightrecorder.NoopRecorder{},
 		MetricsCollector:           s.metricsCollector,
 		LogSink:                    s.logSink,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,

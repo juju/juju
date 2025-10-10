@@ -78,6 +78,7 @@ import (
 	workerdomainservices "github.com/juju/juju/internal/worker/domainservices"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
 	"github.com/juju/juju/internal/worker/filenotifywatcher"
+	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
@@ -192,7 +193,7 @@ type ManifoldsConfig struct {
 	Clock clock.Clock
 
 	// FlightRecorder is used to record significant events.
-	FlightRecorder flightrecorder.FlightRecorder
+	FlightRecorder flightrecorder.FlightRecorderWorker
 
 	// ValidateMigration is called by the migrationminion during the
 	// migration process to check that the agent will be ok when
@@ -333,12 +334,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		clockName: clockManifold(config.Clock),
 
-		flightRecorderName: dependency.Manifold{
-			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewOwnedWorker(config.FlightRecorder)
-			},
-			Output: engine.OwnedWorkerOutput,
-		},
+		flightRecorderName: workerflightrecorder.Manifold(config.FlightRecorder),
 
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
@@ -561,6 +557,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
 			WatcherRegistryName:    watcherRegistryName,
+			FlightRecorderName:     flightRecorderName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability

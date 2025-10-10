@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	coredependency "github.com/juju/juju/core/dependency"
+	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
@@ -74,6 +75,7 @@ type ManifoldConfig struct {
 	LogSinkName            string
 	HTTPClientName         string
 	WatcherRegistryName    string
+	FlightRecorderName     string
 
 	DBAccessorName     string
 	ChangeStreamName   string
@@ -144,6 +146,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.ObjectStoreName == "" {
 		return errors.NotValidf("empty ObjectStoreName")
 	}
+	if config.FlightRecorderName == "" {
+		return errors.NotValidf("empty FlightRecorderName")
+	}
 	if config.JWTParserName == "" {
 		return errors.NotValidf("empty JWTParserName")
 	}
@@ -180,6 +185,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ChangeStreamName,
 			config.DomainServicesName,
 			config.TraceName,
+			config.FlightRecorderName,
 			config.ObjectStoreName,
 			config.LogSinkName,
 			config.JWTParserName,
@@ -237,6 +243,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	var httpClientGetter corehttp.HTTPClientGetter
 	if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var flightRecorder flightrecorder.FlightRecorder
+	if err := getter.Get(config.FlightRecorderName, &flightRecorder); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -326,6 +337,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		DomainServicesGetter:              domainServicesGetter,
 		ControllerConfigService:           controllerConfigService,
 		TracerGetter:                      tracerGetter,
+		FlightRecorder:                    flightRecorder,
 		ObjectStoreGetter:                 objectStoreGetter,
 		ModelService:                      modelService,
 		WatcherRegistryGetter:             watcherRegistryGetter,

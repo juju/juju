@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/flightrecorder"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -527,6 +528,7 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 		LogDir:                     c.MkDir(),
 		DataDir:                    c.MkDir(),
 		LeaseManager:               apitesting.StubLeaseManager{},
+		FlightRecorder:             flightrecorder.NoopRecorder{},
 		NewObserver:                func() observer.Observer { return &fakeobserver.Instance{} },
 		MetricsCollector:           apiserver.NewMetricsCollector(),
 		UpgradeComplete:            func() bool { return true },

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -70,6 +71,7 @@ type ManifoldSuite struct {
 	objectStoreGetter       stubObjectStoreGetter
 	watcherRegistryGetter   *stubWatcherRegistryGetter
 	jwtParser               *jwtparser.Parser
+	flightRecorder          flightrecorder.FlightRecorder
 
 	stub testhelpers.Stub
 }
@@ -100,6 +102,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.domainServicesGetter = &stubDomainServicesGetter{}
 	s.dbDeleter = stubDBDeleter{}
 	s.watcherRegistryGetter = &stubWatcherRegistryGetter{}
+	s.flightRecorder = flightrecorder.NoopRecorder{}
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
@@ -119,6 +122,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 		DBAccessorName:                    "db-accessor",
 		JWTParserName:                     "jwt-parser",
 		WatcherRegistryName:               "watcher-registry",
+		FlightRecorderName:                "flight-recorder",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (apiserver.ControllerConfigService, error) {
@@ -150,6 +154,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"object-store":        s.objectStoreGetter,
 		"jwt-parser":          s.jwtParser,
 		"watcher-registry":    s.watcherRegistryGetter,
+		"flight-recorder":     s.flightRecorder,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -185,6 +190,7 @@ var expectedInputs = []string{
 	"http-client", "change-stream",
 	"domain-services", "trace", "object-store", "log-sink", "db-accessor",
 	"jwt-parser", "watcher-registry",
+	"flight-recorder",
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
@@ -239,6 +245,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		ModelService:               s.modelService,
 		JWTParser:                  s.jwtParser,
 		WatcherRegistryGetter:      s.watcherRegistryGetter,
+		FlightRecorder:             s.flightRecorder,
 	})
 }
 
