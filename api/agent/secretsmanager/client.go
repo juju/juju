@@ -83,12 +83,10 @@ func (c *Client) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWa
 }
 
 // WatchObsolete returns a watcher for notifying when:
-//   - a secret owned by the entity is deleted
 //   - a secret revision owed by the entity no longer
 //     has any consumers
 //
-// Obsolete revisions results are "uri/revno" and deleted
-// secret results are "uri".
+// Obsolete revisions results are "uri/revno".
 func (c *Client) WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
 	args := params.Entities{Entities: make([]params.Entity, len(ownerTags))}
@@ -96,6 +94,29 @@ func (c *Client) WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, 
 		args.Entities[i] = params.Entity{Tag: tag.String()}
 	}
 	err := c.facade.FacadeCall("WatchObsolete", args, &result)
+	if err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, apiservererrors.RestoreError(result.Error)
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchDeleted returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity is deleted
+//
+// Deleted revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (c *Client) WatchDeleted(ownerTags ...names.Tag) (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	args := params.Entities{Entities: make([]params.Entity, len(ownerTags))}
+	for i, tag := range ownerTags {
+		args.Entities[i] = params.Entity{Tag: tag.String()}
+	}
+	err := c.facade.FacadeCall("WatchDeleted", args, &result)
 	if err != nil {
 		return nil, err
 	}

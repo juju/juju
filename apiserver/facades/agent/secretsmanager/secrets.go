@@ -64,6 +64,11 @@ type SecretsManagerAPIV1 struct {
 
 // SecretsManagerAPIV2 the secrets manager facade v2.
 type SecretsManagerAPIV2 struct {
+	*SecretsManagerAPIV3
+}
+
+// SecretsManagerAPIV3 the secrets manager facade v3.
+type SecretsManagerAPIV3 struct {
 	*SecretsManagerAPI
 }
 
@@ -908,12 +913,10 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 }
 
 // WatchObsolete returns a watcher for notifying when:
-//   - a secret owned by the entity is deleted
 //   - a secret revision owed by the entity no longer
 //     has any consumers
 //
-// Obsolete revisions results are "uri/revno" and deleted
-// secret results are "uri".
+// Obsolete revisions results are "uri/revno".
 func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	owners := make([]names.Tag, len(args.Entities))
@@ -936,6 +939,50 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 		owners[i] = ownerTag
 	}
 	w, err := s.secretsState.WatchObsolete(owners)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if changes, ok := <-w.Changes(); ok {
+		result.StringsWatcherId = s.resources.Register(w)
+		result.Changes = changes
+	} else {
+		err = watcher.EnsureErr(w)
+		result.Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+// WatchDeleted is not implemented on version 3.
+func (s *SecretsManagerAPIV3) WatchDeleted(_ struct{}) {}
+
+// WatchDeleted returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity is deleted
+//
+// Deleted revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (s *SecretsManagerAPI) WatchDeleted(args params.Entities) (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	owners := make([]names.Tag, len(args.Entities))
+	for i, arg := range args.Entities {
+		ownerTag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
+			return result, apiservererrors.ErrPerm
+		}
+		// Only unit leaders can watch application secrets.
+		// TODO(wallyworld) - temp fix for old podspec charms
+		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
+			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+		}
+		owners[i] = ownerTag
+	}
+	w, err := s.secretsState.WatchDeleted(owners)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

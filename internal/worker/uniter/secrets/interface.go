@@ -29,8 +29,8 @@ type SecretStateTracker interface {
 	SecretObsoleteRevisions(uri string) []int
 
 	// SecretsRemoved updates the unit secrets state
-	// when secrets are removed.
-	SecretsRemoved(uris []string) error
+	// when secret revisions are removed.
+	SecretsRemoved(deletedRevisions map[string][]int) error
 
 	// Report provides information for the engine report.
 	Report() map[string]interface{}

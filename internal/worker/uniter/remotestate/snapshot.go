@@ -105,9 +105,10 @@ type Snapshot struct {
 	// revisions for secrets owned by this unit.
 	ObsoleteSecretRevisions map[string][]int
 
-	// DeletedSecrets is a list of deleted secret
-	// URIs owned by this unit.
-	DeletedSecrets []string
+	// DeletedSecretRevisions is a list of the deleted
+	// revisions for secrets owned by this unit.
+	// If empty, the entire secret has been deleted.
+	DeletedSecretRevisions map[string][]int
 
 	// UpgradeMachineStatus is the preparation status of
 	// any currently running machine upgrade.

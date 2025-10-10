@@ -257,7 +257,7 @@ func (mr *MockFactoryMockRecorder) NewNoOpFinishUpgradeSeries() *gomock.Call {
 }
 
 // NewNoOpSecretsRemoved mocks base method.
-func (m *MockFactory) NewNoOpSecretsRemoved(arg0 []string) (operation.Operation, error) {
+func (m *MockFactory) NewNoOpSecretsRemoved(arg0 map[string][]int) (operation.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewNoOpSecretsRemoved", arg0)
 	ret0, _ := ret[0].(operation.Operation)
@@ -526,7 +526,7 @@ func (mr *MockCallbacksMockRecorder) RemoteInit(arg0, arg1 any) *gomock.Call {
 }
 
 // SecretsRemoved mocks base method.
-func (m *MockCallbacks) SecretsRemoved(arg0 []string) error {
+func (m *MockCallbacks) SecretsRemoved(arg0 map[string][]int) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SecretsRemoved", arg0)
 	ret0, _ := ret[0].(error)

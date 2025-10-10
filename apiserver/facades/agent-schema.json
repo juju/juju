@@ -9567,7 +9567,7 @@
     {
         "Name": "SecretsManager",
         "Description": "",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -9714,6 +9714,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    }
+                },
+                "WatchDeleted": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
                         }
                     }
                 },
@@ -13325,6 +13336,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    }
+                },
+                "WatchDeleted": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
                         }
                     }
                 },
