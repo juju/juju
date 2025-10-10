@@ -76,6 +76,11 @@ func (v *ownedWorker) Wait() error {
 	return v.catacomb.Wait()
 }
 
+// Value returns the contained value.
+func (v *ownedWorker) Value() interface{} {
+	return v.value
+}
+
 // Report implements the worker.Reporter interface.
 func (v *ownedWorker) Report() map[string]interface{} {
 	if reporter, ok := v.value.(worker.Reporter); ok {
