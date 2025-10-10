@@ -27,6 +27,14 @@ const (
 
 // ProviderRegistry is an interface for obtaining storage providers.
 type ProviderRegistry interface {
+	// RecommendedPoolForKind returns a recommended storage pool to use for
+	// providing the specified kind of storage, or nil if no recommendations
+	// exist.
+	//
+	// It is guaranteed that the storage pool returned from this func is for a
+	// provider type that exists in this registry.
+	RecommendedPoolForKind(StorageKind) *Config
+
 	// StorageProviderTypes returns the storage provider types
 	// contained within this registry.
 	//

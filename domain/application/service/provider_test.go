@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -143,8 +144,8 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
-	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{}, nil,
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
+		internal.ModelStoragePools{}, nil,
 	)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Constraints: coreconstraints.MustParse("arch=arm64"),
@@ -240,8 +241,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
-	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{}, nil,
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
+		internal.ModelStoragePools{}, nil,
 	)
 
 	var receivedArgs application.AddIAASApplicationArg
@@ -334,8 +335,8 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{}, nil,
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
+		internal.ModelStoragePools{}, nil,
 	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
@@ -441,8 +442,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	s.state.EXPECT().GetMachineUUIDAndNetNodeForName(gomock.Any(), "0").Return(
 		machineUUID, machineNetNodeUUID, nil,
 	)
-	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{}, nil,
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
+		internal.ModelStoragePools{}, nil,
 	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
@@ -832,8 +833,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 	s.state.EXPECT().GetMachineUUIDAndNetNodeForName(gomock.Any(), "0").Return(
 		machinetesting.GenUUID(c), tc.Must(c, domainnetwork.NewNetNodeUUID), nil,
 	)
-	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{}, nil,
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
+		internal.ModelStoragePools{}, nil,
 	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
@@ -936,8 +937,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 		},
 	}
 
-	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{}, nil,
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
+		internal.ModelStoragePools{}, nil,
 	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
@@ -1330,8 +1331,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{}, nil,
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
+		internal.ModelStoragePools{}, nil,
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), []application.AddIAASUnitArg{}).Return(id, nil, rErr)
 

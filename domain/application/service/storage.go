@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
@@ -155,11 +156,11 @@ type StorageState interface {
 		context.Context, coreapplication.UUID,
 	) ([]application.StorageDirective, error)
 
-	// GetDefaultStorageProvisioners returns the default storage provisioners
+	// GetModelStoragePools returns the default storage pools
 	// that have been set for the model.
-	GetDefaultStorageProvisioners(
+	GetModelStoragePools(
 		ctx context.Context,
-	) (application.DefaultStorageProvisioners, error)
+	) (internal.ModelStoragePools, error)
 
 	// GetStorageInstancesForProviderIDs returns the storage instance uuid
 	// associated with a provider id. Only storage instances belonging to an

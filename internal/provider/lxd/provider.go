@@ -197,9 +197,7 @@ func (p *environProvider) Ping(_ context.Context, endpoint string) error {
 // ModelConfigDefaults provides a set of default model config attributes that
 // should be set on a models config if they have not been specified by the user.
 func (p *environProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
-	return map[string]any{
-		config.StorageDefaultFilesystemSourceKey: lxdStorageProviderType,
-	}, nil
+	return map[string]any{}, nil
 }
 
 // ValidateCloud is specified in the EnvironProvider interface.

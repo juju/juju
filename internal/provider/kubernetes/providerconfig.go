@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/configschema"
-	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 var configSchema = configschema.Fields{}
@@ -71,9 +70,7 @@ func (p kubernetesEnvironProvider) ConfigDefaults() schema.Defaults {
 // ModelConfigDefaults provides a set of default model config attributes that
 // should be set on a models config if they have not been specified by the user.
 func (p kubernetesEnvironProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
-	return map[string]any{
-		config.StorageDefaultFilesystemSourceKey: constants.StorageProviderType,
-	}, nil
+	return map[string]any{}, nil
 }
 
 func validateConfig(ctx context.Context, cfg, old *config.Config) (*brokerConfig, error) {

@@ -23,11 +23,12 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelinternal "github.com/juju/juju/domain/model/internal"
 	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/storage"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -867,7 +868,7 @@ func (s *modelSuite) TestGetModelInfoSummary(c *tc.C) {
 // TestEnsureDefaultStoragePools is testing the happy path of ensuring
 // default storage pool for the model.
 func (s *modelSuite) TestEnsureDefaultStoragePools(c *tc.C) {
-	createArgs := []model.CreateModelDefaultStoragePoolArg{
+	createArgs := []modelinternal.CreateModelDefaultStoragePoolArg{
 		{
 			Attributes: map[string]string{
 				"foo": "bar",
@@ -875,7 +876,7 @@ func (s *modelSuite) TestEnsureDefaultStoragePools(c *tc.C) {
 			Name:   "test-default-pool-1",
 			Origin: storage.StoragePoolOriginProviderDefault,
 			Type:   "my-provider",
-			UUID:   storagetesting.GenStoragePoolUUID(c).String(),
+			UUID:   tc.Must(c, storage.NewStoragePoolUUID),
 		},
 	}
 
@@ -918,13 +919,13 @@ func (s *modelSuite) TestEnsureDefaultStoragePools(c *tc.C) {
 }
 
 func (s *modelSuite) TestEnsureDefaultStoragePoolsWithNoAttributes(c *tc.C) {
-	createArgs := []model.CreateModelDefaultStoragePoolArg{
+	createArgs := []modelinternal.CreateModelDefaultStoragePoolArg{
 		{
 			Attributes: nil,
 			Name:       "test-default-pool-1",
 			Origin:     storage.StoragePoolOriginProviderDefault,
 			Type:       "my-provider",
-			UUID:       storagetesting.GenStoragePoolUUID(c).String(),
+			UUID:       tc.Must(c, storage.NewStoragePoolUUID),
 		},
 	}
 
@@ -961,13 +962,13 @@ func (s *modelSuite) TestEnsureDefaultStoragePoolsWithNoAttributes(c *tc.C) {
 // already exists no error is produced and the other storage pools are
 // persisted.
 func (s *modelSuite) TestEnsureDefaultStoragePoolsWithExisting(c *tc.C) {
-	createArgs := []model.CreateModelDefaultStoragePoolArg{
+	createArgs := []modelinternal.CreateModelDefaultStoragePoolArg{
 		{
 			Attributes: nil,
 			Name:       "test-default-pool-1",
 			Origin:     storage.StoragePoolOriginProviderDefault,
 			Type:       "my-provider",
-			UUID:       storagetesting.GenStoragePoolUUID(c).String(),
+			UUID:       tc.Must(c, storage.NewStoragePoolUUID),
 		},
 	}
 
@@ -975,12 +976,12 @@ func (s *modelSuite) TestEnsureDefaultStoragePoolsWithExisting(c *tc.C) {
 	err := st.EnsureDefaultStoragePools(c.Context(), createArgs)
 	c.Check(err, tc.ErrorIsNil)
 
-	createArgs = append(createArgs, model.CreateModelDefaultStoragePoolArg{
+	createArgs = append(createArgs, modelinternal.CreateModelDefaultStoragePoolArg{
 		Attributes: nil,
 		Name:       "test-default-pool-2",
 		Origin:     storage.StoragePoolOriginProviderDefault,
 		Type:       "my-provider",
-		UUID:       storagetesting.GenStoragePoolUUID(c).String(),
+		UUID:       tc.Must(c, storage.NewStoragePoolUUID),
 	})
 	err = st.EnsureDefaultStoragePools(c.Context(), createArgs)
 	c.Check(err, tc.ErrorIsNil)
@@ -1000,5 +1001,232 @@ func (s *modelSuite) TestEnsureDefaultStoragePoolsWithExisting(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	c.Check(uuids, tc.SameContents, []string{createArgs[0].UUID, createArgs[1].UUID})
+	c.Check(uuids, tc.SameContents, []string{
+		createArgs[0].UUID.String(),
+		createArgs[1].UUID.String(),
+	})
+}
+
+func (s *modelSuite) TestSetModelStoragePools(c *tc.C) {
+	poolUUID1 := tc.Must(c, storage.NewStoragePoolUUID)
+	poolUUID2 := tc.Must(c, storage.NewStoragePoolUUID)
+	createArgs := []modelinternal.CreateModelDefaultStoragePoolArg{
+		{
+			Attributes: nil,
+			Name:       "test-default-pool-1",
+			Origin:     storage.StoragePoolOriginProviderDefault,
+			Type:       "my-provider",
+			UUID:       poolUUID1,
+		},
+		{
+			Attributes: nil,
+			Name:       "test-default-pool-2",
+			Origin:     storage.StoragePoolOriginProviderDefault,
+			Type:       "my-provider",
+			UUID:       poolUUID2,
+		},
+	}
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.EnsureDefaultStoragePools(c.Context(), createArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	setArgs := []modelinternal.SetModelStoragePoolArg{
+		{
+			StoragePoolUUID: poolUUID1,
+			StorageKind:     storage.StorageKindFilesystem,
+		},
+		{
+			StoragePoolUUID: poolUUID2,
+			StorageKind:     storage.StorageKindBlock,
+		},
+	}
+
+	err = st.SetModelStoragePools(c.Context(), setArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	rows, err := s.DB().QueryContext(
+		c.Context(),
+		"SELECT storage_pool_uuid, storage_kind_id FROM model_storage_pool",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	setVals := map[string]int{}
+	for rows.Next() {
+		var (
+			kindID int
+			pUUID  string
+		)
+		err = rows.Scan(&pUUID, &kindID)
+		c.Assert(err, tc.ErrorIsNil)
+		setVals[pUUID] = kindID
+	}
+
+	c.Check(setVals, tc.DeepEquals, map[string]int{
+		poolUUID1.String(): int(storage.StorageKindFilesystem),
+		poolUUID2.String(): int(storage.StorageKindBlock),
+	})
+}
+
+// TestSetModelStoragePoolsSamePool is a regression test for
+// [ModelState.SetModelStoragePools] to check that using the same pool for
+// multiple types of storage kinds works with no errors.
+func (s *modelSuite) TestSetModelStoragePoolsSamePool(c *tc.C) {
+	poolUUID1 := tc.Must(c, storage.NewStoragePoolUUID)
+	createArgs := []modelinternal.CreateModelDefaultStoragePoolArg{
+		{
+			Attributes: nil,
+			Name:       "test-default-pool-1",
+			Origin:     storage.StoragePoolOriginProviderDefault,
+			Type:       "my-provider",
+			UUID:       poolUUID1,
+		},
+	}
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.EnsureDefaultStoragePools(c.Context(), createArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	setArgs := []modelinternal.SetModelStoragePoolArg{
+		{
+			StoragePoolUUID: poolUUID1,
+			StorageKind:     storage.StorageKindFilesystem,
+		},
+		{
+			StoragePoolUUID: poolUUID1,
+			StorageKind:     storage.StorageKindBlock,
+		},
+	}
+
+	err = st.SetModelStoragePools(c.Context(), setArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	rows, err := s.DB().QueryContext(
+		c.Context(),
+		"SELECT storage_pool_uuid, storage_kind_id FROM model_storage_pool",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	setVals := map[string]int{}
+	for rows.Next() {
+		var (
+			kindID int
+			pUUID  string
+		)
+		err = rows.Scan(&pUUID, &kindID)
+		c.Assert(err, tc.ErrorIsNil)
+		setVals[pUUID] = kindID
+	}
+
+	c.Check(setVals, tc.DeepEquals, map[string]int{
+		poolUUID1.String(): int(storage.StorageKindFilesystem),
+		poolUUID1.String(): int(storage.StorageKindBlock),
+	})
+}
+
+func (s *modelSuite) TestSetModelStoragePoolsOverwrite(c *tc.C) {
+	// Initial set of model storage pools
+	poolUUID1 := tc.Must(c, storage.NewStoragePoolUUID)
+	createArgs := []modelinternal.CreateModelDefaultStoragePoolArg{
+		{
+			Attributes: nil,
+			Name:       "test-default-pool-1",
+			Origin:     storage.StoragePoolOriginProviderDefault,
+			Type:       "my-provider",
+			UUID:       poolUUID1,
+		},
+	}
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.EnsureDefaultStoragePools(c.Context(), createArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	setArgs := []modelinternal.SetModelStoragePoolArg{
+		{
+			StoragePoolUUID: poolUUID1,
+			StorageKind:     storage.StorageKindFilesystem,
+		},
+	}
+
+	err = st.SetModelStoragePools(c.Context(), setArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	// Overwrite model storage pools
+	poolUUID2 := tc.Must(c, storage.NewStoragePoolUUID)
+	poolUUID3 := tc.Must(c, storage.NewStoragePoolUUID)
+	createArgs = []modelinternal.CreateModelDefaultStoragePoolArg{
+		{
+			Attributes: nil,
+			Name:       "test-default-pool-2",
+			Origin:     storage.StoragePoolOriginProviderDefault,
+			Type:       "my-provider",
+			UUID:       poolUUID2,
+		},
+		{
+			Attributes: nil,
+			Name:       "test-default-pool-3",
+			Origin:     storage.StoragePoolOriginProviderDefault,
+			Type:       "my-provider",
+			UUID:       poolUUID3,
+		},
+	}
+	err = st.EnsureDefaultStoragePools(c.Context(), createArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	setArgs = []modelinternal.SetModelStoragePoolArg{
+		{
+			StoragePoolUUID: poolUUID2,
+			StorageKind:     storage.StorageKindFilesystem,
+		},
+		{
+			StoragePoolUUID: poolUUID3,
+			StorageKind:     storage.StorageKindBlock,
+		},
+	}
+
+	err = st.SetModelStoragePools(c.Context(), setArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	rows, err := s.DB().QueryContext(
+		c.Context(),
+		"SELECT storage_pool_uuid, storage_kind_id FROM model_storage_pool",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	setVals := map[string]int{}
+	for rows.Next() {
+		var (
+			kindID int
+			pUUID  string
+		)
+		err = rows.Scan(&pUUID, &kindID)
+		c.Assert(err, tc.ErrorIsNil)
+		setVals[pUUID] = kindID
+	}
+
+	c.Check(setVals, tc.DeepEquals, map[string]int{
+		poolUUID2.String(): int(storage.StorageKindFilesystem),
+		poolUUID3.String(): int(storage.StorageKindBlock),
+	})
+}
+
+// TestSetModelStoragePoolsPoolNotFound test that when setting a model storage
+// pool and the pool does not exist the caller gets back an error satisfying
+// [storageerrors.PoolNotFoundError].
+func (s *modelSuite) TestSetModelStoragePoolsPoolNotFound(c *tc.C) {
+	poolUUID := tc.Must(c, storage.NewStoragePoolUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	setArgs := []modelinternal.SetModelStoragePoolArg{
+		{
+			StoragePoolUUID: poolUUID,
+			StorageKind:     storage.StorageKindFilesystem,
+		},
+	}
+
+	err := st.SetModelStoragePools(c.Context(), setArgs)
+	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
 }

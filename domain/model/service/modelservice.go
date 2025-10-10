@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/juju/clock"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelinternal "github.com/juju/juju/domain/model/internal"
 	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
@@ -165,7 +167,7 @@ type ModelState interface {
 	// default storage pools provided exist in the model. If a pool already
 	// exists in the model for the same uuid then no operation is performed.
 	EnsureDefaultStoragePools(
-		context.Context, []model.CreateModelDefaultStoragePoolArg,
+		context.Context, []modelinternal.CreateModelDefaultStoragePoolArg,
 	) error
 
 	// SetModelConstraints sets the model constraints to the new values removing
@@ -177,6 +179,19 @@ type ModelState interface {
 	// the constraints is invalid.
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
 	SetModelConstraints(context.Context, constraints.Constraints) error
+
+	// SetModelStoragePools sets the model storage pools which are used when
+	// a recommended default is required. This operation WILL remove any
+	// previously set model storage pools and replace them with the new
+	// values supplied.
+	//
+	// If no set args are supplied then this operation will just remove any
+	// previously set model storage pools.
+	//
+	// The following errors may be returned:
+	// - [storageerrors.PoolNotFound] if one or more storage pools no longer
+	// exist in the model.
+	SetModelStoragePools(context.Context, []modelinternal.SetModelStoragePoolArg) error
 
 	// IsControllerModel returns true if the model is the controller model.
 	// The following errors may be returned:
@@ -490,6 +505,88 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 	return s.modelSt.Create(ctx, args)
 }
 
+// getRecommendedStoragePools returns the recommended storage pools to use for
+// the model as suggested by the registry. Returned is a slice of storage pools
+// that are to be created in the model, the second slice returns is a mapping
+// for what types storage the recommended pool(s) should be used for.
+//
+// There is no implied correlation
+func getRecommendedStoragePools(
+	reg internalstorage.ProviderRegistry,
+) (
+	[]modelinternal.CreateModelDefaultStoragePoolArg,
+	[]modelinternal.SetModelStoragePoolArg,
+	error,
+) {
+	rvalPools := []modelinternal.CreateModelDefaultStoragePoolArg{}
+	rvalRecs := []modelinternal.SetModelStoragePoolArg{}
+
+	// appendPool is used to append the supplied storage pool to [rvalPools]
+	// making sure that no duplicates occur.
+	appendPool := func(cfg *internalstorage.Config) (storage.StoragePoolUUID, error) {
+		// We need to infer what the uuid is going to be first before we can
+		// check duplication.
+		uuid, err := storage.GenerateProviderDefaultStoragePoolUUIDWithDefaults(
+			cfg.Name(),
+			cfg.Provider().String(),
+		)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+
+		// duplication checking is performed on uuid and then name and provider
+		// type.
+		index := slices.IndexFunc(
+			rvalPools,
+			func(e modelinternal.CreateModelDefaultStoragePoolArg) bool {
+				if e.UUID == uuid {
+					return true
+				}
+				return e.Name == cfg.Name() && e.Type == cfg.Provider().String()
+			},
+		)
+		if index != -1 {
+			return rvalPools[index].UUID, nil
+		}
+		rvalPools = append(rvalPools, modelinternal.CreateModelDefaultStoragePoolArg{
+			Attributes: transformStoragePoolAttributes(cfg.Attrs()),
+			Name:       cfg.Name(),
+			Origin:     storage.StoragePoolOriginProviderDefault,
+			Type:       cfg.Provider().String(),
+			UUID:       uuid,
+		})
+		return uuid, nil
+	}
+
+	// Get filesystem recommendation
+	poolCfg := reg.RecommendedPoolForKind(internalstorage.StorageKindFilesystem)
+	if poolCfg != nil {
+		uuid, err := appendPool(poolCfg)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
+		}
+		rvalRecs = append(rvalRecs, modelinternal.SetModelStoragePoolArg{
+			StorageKind:     storage.StorageKindFilesystem,
+			StoragePoolUUID: uuid,
+		})
+	}
+
+	// Get block device recommendation
+	poolCfg = reg.RecommendedPoolForKind(internalstorage.StorageKindBlock)
+	if poolCfg != nil {
+		uuid, err := appendPool(poolCfg)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
+		}
+		rvalRecs = append(rvalRecs, modelinternal.SetModelStoragePoolArg{
+			StorageKind:     storage.StorageKindBlock,
+			StoragePoolUUID: uuid,
+		})
+	}
+
+	return rvalPools, rvalRecs, nil
+}
+
 // SeedDefaultStoragePools ensures that all of the default storage pools
 // available to the model have been seeded for use. If the default storage pools
 // already exist the function will return an error to the caller.
@@ -503,6 +600,16 @@ func (s *ProviderModelService) SeedDefaultStoragePools(
 		)
 	}
 
+	recommendedPoolArgs, recommendedSetArgs, err := getRecommendedStoragePools(
+		modelStorageRegistry,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"getting recommended storage pools from the model's storage registry: %w",
+			err,
+		)
+	}
+
 	providerTypes, err := modelStorageRegistry.StorageProviderTypes()
 	if err != nil {
 		return errors.Errorf(
@@ -510,7 +617,60 @@ func (s *ProviderModelService) SeedDefaultStoragePools(
 		)
 	}
 
-	poolArgs := []model.CreateModelDefaultStoragePoolArg{}
+	poolArgs := []modelinternal.CreateModelDefaultStoragePoolArg{}
+	appendPoolArg := func(cfg *internalstorage.Config) error {
+		uuid, err := storage.GetProviderDefaultStoragePoolUUID(
+			cfg.Name(),
+			cfg.Provider().String(),
+		)
+		if errors.Is(err, coreerrors.NotFound) {
+			// This happens when the default pool is not supported yet by the
+			// storage domain. This shouldn't stop the model from being created.
+			// Instead we log the problem.
+			s.logger.Warningf(
+				ctx,
+				"storage provider %q default pool %q is not recognised, adding to model with generated uuid.",
+				cfg.Provider().String(),
+				cfg.Name(),
+			)
+			return nil
+		} else if err != nil {
+			return fmt.Errorf(
+				"getting storage pool uuid for default provider %q pool %q",
+				cfg.Provider().String(),
+				cfg.Name(),
+			)
+		}
+
+		// If this default pool is already in the set of recommended pools we
+		// don't have to do anything.
+		inRecommendedSlice := slices.ContainsFunc(
+			recommendedPoolArgs,
+			func(e modelinternal.CreateModelDefaultStoragePoolArg) bool {
+				if e.UUID == uuid {
+					return true
+				}
+				// We have to consider name and provider type. If we don't have
+				// this check and introduce a new default storage pool from a
+				// provider that also gets recommended we could end up trying to
+				// store both in the model which would be a conflict.
+				return e.Name == cfg.Name() && e.Type == cfg.Provider().String()
+			},
+		)
+		if inRecommendedSlice {
+			return nil
+		}
+
+		poolArgs = append(poolArgs, modelinternal.CreateModelDefaultStoragePoolArg{
+			Attributes: transformStoragePoolAttributes(cfg.Attrs()),
+			Name:       cfg.Name(),
+			Origin:     storage.StoragePoolOriginProviderDefault,
+			Type:       cfg.Provider().String(),
+			UUID:       uuid,
+		})
+		return nil
+	}
+
 	for _, providerType := range providerTypes {
 		registry, err := modelStorageRegistry.StorageProvider(providerType)
 		if err != nil {
@@ -522,40 +682,20 @@ func (s *ProviderModelService) SeedDefaultStoragePools(
 
 		providerDefaultPools := registry.DefaultPools()
 		for _, providerDefaultPool := range providerDefaultPools {
-			uuid, err := storage.GetProviderDefaultStoragePoolUUID(
-				providerDefaultPool.Name(),
-				providerDefaultPool.Provider().String(),
-			)
-
-			// This happens when the default pool is not supported yet by the
-			// storage domain. This shouldn't stop the model from being created.
-			// Instead we log the problem.
-			if errors.Is(err, coreerrors.NotFound) {
-				s.logger.Warningf(
-					ctx,
-					"storage provider %q default pool %q is not recognised, skipped adding to model.",
-					providerDefaultPool.Provider().String(),
-					providerDefaultPool.Name(),
-				)
-			} else if err != nil {
-				return fmt.Errorf(
-					"getting storage pool uuid for default provider %q pool %q",
-					providerDefaultPool.Provider().String(),
-					providerDefaultPool.Name(),
-				)
+			if err := appendPoolArg(providerDefaultPool); err != nil {
+				return err
 			}
-
-			poolArgs = append(poolArgs, model.CreateModelDefaultStoragePoolArg{
-				Attributes: transformStoragePoolAttributes(providerDefaultPool.Attrs()),
-				Name:       providerDefaultPool.Name(),
-				Origin:     storage.StoragePoolOriginProviderDefault,
-				Type:       providerDefaultPool.Provider().String(),
-				UUID:       uuid.String(),
-			})
 		}
 	}
 
-	return s.modelSt.EnsureDefaultStoragePools(ctx, poolArgs)
+	err = s.modelSt.EnsureDefaultStoragePools(
+		ctx, append(poolArgs, recommendedPoolArgs...),
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return s.modelSt.SetModelStoragePools(ctx, recommendedSetArgs)
 }
 
 // transformStoragePoolAttributes exists to transform internal storage pool

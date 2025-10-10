@@ -5,10 +5,14 @@ package storage
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/juju/tc"
+
+	coreerrors "github.com/juju/juju/core/errors"
 )
 
 type storagePoolSuite struct {
@@ -66,4 +70,31 @@ func (storagePoolSuite) TestDefaultProviderPoolUUIDs(c *tc.C) {
 			tc.Check(t, defUUID.String(), tc.Equals, expectedUUID.String())
 		})
 	}
+}
+
+func (storagePoolSuite) TestGetProviderDefaultStoragePoolUUIDNotFound(c *tc.C) {
+	_, err := GetProviderDefaultStoragePoolUUID("noexistpool", "phonyprovider")
+	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+}
+
+// TestGetProviderDefaultStoragePoolUUIDOrMakeExisting tests that for a pool and
+// provider that is considered a default no new uuid is created.
+func (storagePoolSuite) TestGetProviderDefaultStoragePoolUUIDOrMakeExisting(
+	c *tc.C,
+) {
+	uuid, err := GenerateProviderDefaultStoragePoolUUIDWithDefaults("loop", "loop")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(uuid.String(), tc.Equals, "baa26e04-b1f0-50d9-9bf8-4d5a78ffe6ad")
+}
+
+func (storagePoolSuite) TestGetProviderDefaultStoragePoolUUIDOrMakeNew(
+	c *tc.C,
+) {
+	uuid, err := GenerateProviderDefaultStoragePoolUUIDWithDefaults("foo", "bar")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(uuid.String(), tc.IsNonZeroUUID)
+
+	defaultUUIDs := maps.Values(getDefaultStoragePoolUUIDs())
+	exists := slices.Contains(slices.Collect(defaultUUIDs), uuid)
+	c.Check(exists, tc.IsFalse)
 }

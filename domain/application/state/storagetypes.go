@@ -168,9 +168,7 @@ type storageModelConfigKeys struct {
 	FilesystemKey  string `db:"filesystem_key"`
 }
 
-// storageProvisioners is used to get the default storage provisioners, either
-// a pool or a provider.
-type storageProvisioners struct {
-	StorageType     string `db:"type"`
-	StoragePoolUUID string `db:"uuid"`
+type modelStoragePools struct {
+	StorageKindID   int    `db:"storage_kind_id"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
 }

@@ -21,31 +21,7 @@ import (
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/storage"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
-	jujustorage "github.com/juju/juju/internal/storage"
 )
-
-// StorageProviderTypes is defined on the jujustorage.ProviderRegistry interface.
-func (k *kubernetesClient) StorageProviderTypes() ([]jujustorage.ProviderType, error) {
-	return []jujustorage.ProviderType{
-		constants.StorageProviderType,
-		constants.StorageProviderTypeRootfs,
-		constants.StorageProviderTypeTmpfs,
-	}, nil
-}
-
-// StorageProvider is defined on the jujustorage.ProviderRegistry interface.
-func (k *kubernetesClient) StorageProvider(t jujustorage.ProviderType) (jujustorage.Provider, error) {
-	switch t {
-	case constants.StorageProviderType:
-		return &storageProvider{k}, nil
-	case constants.StorageProviderTypeRootfs:
-		return &rootfsStorageProvider{}, nil
-	case constants.StorageProviderTypeTmpfs:
-		return &tmpfsStorageProvider{}, nil
-	default:
-		return nil, errors.NotFoundf("storage provider %q", t)
-	}
-}
 
 func (k *kubernetesClient) deleteStorageClasses(ctx context.Context, selector k8slabels.Selector) error {
 	err := k.client().StorageV1().StorageClasses().DeleteCollection(ctx, v1.DeleteOptions{

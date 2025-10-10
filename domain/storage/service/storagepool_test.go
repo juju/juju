@@ -37,7 +37,7 @@ func (s *storagePoolServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.state = NewMockState(ctrl)
 
-	s.registry = storage.ChainedProviderRegistry{storage.StaticProviderRegistry{
+	s.registry = storage.StaticProviderRegistry{
 		Providers: map[storage.ProviderType]storage.Provider{
 			"ebs": &dummystorage.StorageProvider{
 				ValidateConfigFunc: func(sp *storage.Config) error {
@@ -48,7 +48,6 @@ func (s *storagePoolServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 				},
 			},
 		},
-	},
 	}
 
 	return ctrl

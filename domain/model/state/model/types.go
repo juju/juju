@@ -61,6 +61,12 @@ type dbModelCountSummary struct {
 	UnitCount    int64 `db:"unit_count"`
 }
 
+// dbModelStoragePool represents a single row from the model_storage_pool table.
+type dbModelStoragePool struct {
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+	StorageKindID   int    `db:"storage_kind_id"`
+}
+
 type dbReadOnlyModel struct {
 	UUID              string `db:"uuid"`
 	ControllerUUID    string `db:"controller_uuid"`

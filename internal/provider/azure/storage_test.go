@@ -74,6 +74,27 @@ func (s *storageSuite) volumeSource(c *tc.C, attrs ...testing.Attrs) storage.Vol
 	return volumeSource
 }
 
+// TestRecommendedPoolForKind verifies that for block and filesystem storage the
+// azure provider recommends the azure storage pool to use.
+func (s *storageSuite) TestRecommendedPoolForKind(c *tc.C) {
+	envProvider := newProvider(c, azure.ProviderConfig{
+		Sender:           &s.sender,
+		RequestInspector: &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
+		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
+			return &azuretesting.FakeCredential{}, nil
+		},
+	})
+	env := openEnviron(c, envProvider, s.credentialInvalidator, &s.sender)
+
+	pool := env.RecommendedPoolForKind(storage.StorageKindBlock)
+	c.Check(pool.Name(), tc.Equals, "azure")
+	c.Check(pool.Provider().String(), tc.Equals, "azure")
+
+	pool = env.RecommendedPoolForKind(storage.StorageKindFilesystem)
+	c.Check(pool.Name(), tc.Equals, "azure")
+	c.Check(pool.Provider().String(), tc.Equals, "azure")
+}
+
 func (s *storageSuite) TestVolumeSource(c *tc.C) {
 	vs := s.volumeSource(c)
 	c.Assert(vs, tc.NotNil)

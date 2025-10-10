@@ -24,6 +24,7 @@ import (
 	constraints0 "github.com/juju/juju/domain/constraints"
 	life "github.com/juju/juju/domain/life"
 	model0 "github.com/juju/juju/domain/model"
+	internal "github.com/juju/juju/domain/model/internal"
 	environs "github.com/juju/juju/environs"
 	simplestreams "github.com/juju/juju/environs/simplestreams"
 	storage "github.com/juju/juju/internal/storage"
@@ -533,7 +534,7 @@ func (c *MockModelStateDeleteCall) DoAndReturn(f func(context.Context, model.UUI
 }
 
 // EnsureDefaultStoragePools mocks base method.
-func (m *MockModelState) EnsureDefaultStoragePools(arg0 context.Context, arg1 []model0.CreateModelDefaultStoragePoolArg) error {
+func (m *MockModelState) EnsureDefaultStoragePools(arg0 context.Context, arg1 []internal.CreateModelDefaultStoragePoolArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureDefaultStoragePools", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -559,13 +560,13 @@ func (c *MockModelStateEnsureDefaultStoragePoolsCall) Return(arg0 error) *MockMo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateEnsureDefaultStoragePoolsCall) Do(f func(context.Context, []model0.CreateModelDefaultStoragePoolArg) error) *MockModelStateEnsureDefaultStoragePoolsCall {
+func (c *MockModelStateEnsureDefaultStoragePoolsCall) Do(f func(context.Context, []internal.CreateModelDefaultStoragePoolArg) error) *MockModelStateEnsureDefaultStoragePoolsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateEnsureDefaultStoragePoolsCall) DoAndReturn(f func(context.Context, []model0.CreateModelDefaultStoragePoolArg) error) *MockModelStateEnsureDefaultStoragePoolsCall {
+func (c *MockModelStateEnsureDefaultStoragePoolsCall) DoAndReturn(f func(context.Context, []internal.CreateModelDefaultStoragePoolArg) error) *MockModelStateEnsureDefaultStoragePoolsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -916,6 +917,44 @@ func (c *MockModelStateSetModelConstraintsCall) Do(f func(context.Context, const
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateSetModelConstraintsCall) DoAndReturn(f func(context.Context, constraints0.Constraints) error) *MockModelStateSetModelConstraintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetModelStoragePools mocks base method.
+func (m *MockModelState) SetModelStoragePools(arg0 context.Context, arg1 []internal.SetModelStoragePoolArg) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetModelStoragePools", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModelStoragePools indicates an expected call of SetModelStoragePools.
+func (mr *MockModelStateMockRecorder) SetModelStoragePools(arg0, arg1 any) *MockModelStateSetModelStoragePoolsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelStoragePools", reflect.TypeOf((*MockModelState)(nil).SetModelStoragePools), arg0, arg1)
+	return &MockModelStateSetModelStoragePoolsCall{Call: call}
+}
+
+// MockModelStateSetModelStoragePoolsCall wrap *gomock.Call
+type MockModelStateSetModelStoragePoolsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateSetModelStoragePoolsCall) Return(arg0 error) *MockModelStateSetModelStoragePoolsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateSetModelStoragePoolsCall) Do(f func(context.Context, []internal.SetModelStoragePoolArg) error) *MockModelStateSetModelStoragePoolsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateSetModelStoragePoolsCall) DoAndReturn(f func(context.Context, []internal.SetModelStoragePoolArg) error) *MockModelStateSetModelStoragePoolsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

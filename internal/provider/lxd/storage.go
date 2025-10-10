@@ -46,6 +46,24 @@ func (env *environ) storageSupported() bool {
 	return env.server().StorageSupported()
 }
 
+// RecommendedPoolForKind returns the recommended storage pool to use for
+// the given storage kind. If no pool can be recommended nil is returned. The
+// LXD provider recommends that for filesystem storage it's default storage pool
+// is used. For all other types of storage it defers to the common IAAS pool.
+//
+// Implements [storage.PoolAdvisor] interface.
+func (env *environ) RecommendedPoolForKind(
+	kind storage.StorageKind,
+) *storage.Config {
+	if kind == storage.StorageKindFilesystem {
+		defaultPool, _ := storage.NewConfig(
+			lxdStorageProviderType.String(), lxdStorageProviderType, storage.Attrs{},
+		)
+		return defaultPool
+	}
+	return common.GetCommonRecommendedIAASPoolForKind(kind)
+}
+
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 	types := common.CommonIAASStorageProviderTypes()

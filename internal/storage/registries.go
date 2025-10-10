@@ -10,44 +10,16 @@ import (
 	"github.com/juju/errors"
 )
 
-// ChainedProviderRegistry is storage provider registry that combines
-// multiple storage provider registries, chaining their results. Registries
-// earlier in the chain take precedence.
-type ChainedProviderRegistry []ProviderRegistry
-
-// StorageProviderTypes implements ProviderRegistry.
-func (r ChainedProviderRegistry) StorageProviderTypes() ([]ProviderType, error) {
-	var result []ProviderType
-	for _, r := range r {
-		types, err := r.StorageProviderTypes()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result = append(result, types...)
-	}
-	return result, nil
-}
-
-// StorageProvider implements ProviderRegistry.
-func (r ChainedProviderRegistry) StorageProvider(t ProviderType) (Provider, error) {
-	for _, r := range r {
-		p, err := r.StorageProvider(t)
-		if err == nil {
-			return p, nil
-		}
-		if errors.Is(err, errors.NotFound) {
-			continue
-		}
-		return nil, errors.Annotatef(err, "getting storage provider %q", t)
-	}
-	return nil, errors.NotFoundf("storage provider %q", t)
-}
-
 // StaticProviderRegistry is a storage provider registry with a statically
 // defined set of providers.
 type StaticProviderRegistry struct {
 	// Providers contains the storage providers for this registry.
 	Providers map[ProviderType]Provider
+}
+
+// RecommendedPoolForKind currently returns a nil pool. This is not implemented.
+func (r StaticProviderRegistry) RecommendedPoolForKind(_ StorageKind) *Config {
+	return nil
 }
 
 // StorageProviderTypes returns all the provider types located within this
@@ -70,6 +42,12 @@ func (r StaticProviderRegistry) StorageProvider(t ProviderType) (Provider, error
 // NotImplementedProviderRegistry is a storage provider registry that
 // returns an error satisfying [errors.NotImplemented] for any method call.
 type NotImplementedProviderRegistry struct{}
+
+// RecommendedPoolForKind current returns a nill storage pool and is not
+// implemented.
+func (NotImplementedProviderRegistry) RecommendedPoolForKind(_ StorageKind) *Config {
+	return nil
+}
 
 // StorageProviderTypes implements ProviderRegistry.
 func (r NotImplementedProviderRegistry) StorageProviderTypes() ([]ProviderType, error) {

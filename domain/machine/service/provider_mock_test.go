@@ -352,6 +352,44 @@ func (c *MockProviderPrepareForBootstrapCall) DoAndReturn(f func(environs.Bootst
 	return c
 }
 
+// RecommendedPoolForKind mocks base method.
+func (m *MockProvider) RecommendedPoolForKind(arg0 storage.StorageKind) *storage.Config {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecommendedPoolForKind", arg0)
+	ret0, _ := ret[0].(*storage.Config)
+	return ret0
+}
+
+// RecommendedPoolForKind indicates an expected call of RecommendedPoolForKind.
+func (mr *MockProviderMockRecorder) RecommendedPoolForKind(arg0 any) *MockProviderRecommendedPoolForKindCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecommendedPoolForKind", reflect.TypeOf((*MockProvider)(nil).RecommendedPoolForKind), arg0)
+	return &MockProviderRecommendedPoolForKindCall{Call: call}
+}
+
+// MockProviderRecommendedPoolForKindCall wrap *gomock.Call
+type MockProviderRecommendedPoolForKindCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProviderRecommendedPoolForKindCall) Return(arg0 *storage.Config) *MockProviderRecommendedPoolForKindCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProviderRecommendedPoolForKindCall) Do(f func(storage.StorageKind) *storage.Config) *MockProviderRecommendedPoolForKindCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProviderRecommendedPoolForKindCall) DoAndReturn(f func(storage.StorageKind) *storage.Config) *MockProviderRecommendedPoolForKindCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetConfig mocks base method.
 func (m *MockProvider) SetConfig(ctx context.Context, cfg *config.Config) error {
 	m.ctrl.T.Helper()

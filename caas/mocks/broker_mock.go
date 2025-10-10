@@ -974,6 +974,44 @@ func (c *MockBrokerProxyToApplicationCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// RecommendedPoolForKind mocks base method.
+func (m *MockBroker) RecommendedPoolForKind(arg0 storage.StorageKind) *storage.Config {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecommendedPoolForKind", arg0)
+	ret0, _ := ret[0].(*storage.Config)
+	return ret0
+}
+
+// RecommendedPoolForKind indicates an expected call of RecommendedPoolForKind.
+func (mr *MockBrokerMockRecorder) RecommendedPoolForKind(arg0 any) *MockBrokerRecommendedPoolForKindCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecommendedPoolForKind", reflect.TypeOf((*MockBroker)(nil).RecommendedPoolForKind), arg0)
+	return &MockBrokerRecommendedPoolForKindCall{Call: call}
+}
+
+// MockBrokerRecommendedPoolForKindCall wrap *gomock.Call
+type MockBrokerRecommendedPoolForKindCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockBrokerRecommendedPoolForKindCall) Return(arg0 *storage.Config) *MockBrokerRecommendedPoolForKindCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockBrokerRecommendedPoolForKindCall) Do(f func(storage.StorageKind) *storage.Config) *MockBrokerRecommendedPoolForKindCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockBrokerRecommendedPoolForKindCall) DoAndReturn(f func(storage.StorageKind) *storage.Config) *MockBrokerRecommendedPoolForKindCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ReleaseContainerAddresses mocks base method.
 func (m *MockBroker) ReleaseContainerAddresses(arg0 context.Context, arg1 []string) error {
 	m.ctrl.T.Helper()

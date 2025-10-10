@@ -228,6 +228,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 
 		// Storage
 		"application_storage_directive",
+		"model_storage_pool",
 		"storage_attachment",
 		"storage_filesystem_attachment",
 		"storage_filesystem",

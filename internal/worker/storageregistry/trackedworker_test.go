@@ -27,6 +27,15 @@ func TestTrackedWorkerSuite(t *testing.T) {
 	tc.Run(t, &trackedWorkerSuite{})
 }
 
+// TestTrackedWorkerImplementsProviderRegistry is a regression test to make sure
+// that [trackedWorker] implements the [storage.ProviderRegistry] interface.
+//
+// This interface had been updated and we were able to get all the way to a
+// bootstrap which resulted in a panic because of no checks.
+func (s *trackedWorkerSuite) TestTrackedWorkerImplementsProviderRegistry(c *tc.C) {
+	var _ storage.ProviderRegistry = &trackedWorker{}
+}
+
 func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
@@ -50,6 +51,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
@@ -193,6 +195,17 @@ func (p EnvironProvider) Open(ctx context.Context, args environs.OpenParams, inv
 	e.networking, e.firewaller, err = p.getEnvironNetworkingFirewaller(ctx, e)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	e.volumeURL, err = getVolumeEndpointURL(
+		ctx, e.clientUnlocked, e.cloudUnlocked.Region,
+	)
+	if err != nil && !internalerrors.Is(err, coreerrors.NotFound) {
+		return nil, internalerrors.Errorf(
+			"getting volume endpoint url for region: %w", err,
+		)
+	} else if err == nil {
+		logger.Debugf(ctx, "volume URL: %q", e.volumeURL.String())
 	}
 
 	return e, nil

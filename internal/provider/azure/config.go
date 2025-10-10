@@ -85,9 +85,7 @@ func (p azureEnvironProvider) ConfigDefaults() schema.Defaults {
 // ModelConfigDefaults provides a set of default model config attributes that
 // should be set on a models config if they have not been specified by the user.
 func (prov *azureEnvironProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
-	return map[string]any{
-		config.StorageDefaultBlockSourceKey: azureStorageProviderType,
-	}, nil
+	return map[string]any{}, nil
 }
 
 var configFields = func() schema.Fields {

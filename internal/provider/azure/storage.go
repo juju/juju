@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -33,17 +34,44 @@ const (
 	volumeSizeMaxGiB = 1023
 )
 
+// RecommendedPoolForKind returns the recommended storage pool to use for
+// the given storage kind. If no pool can be recommended nil is returned. The
+// azure provider recommends that for block and filesystem storage the "azure"
+// pool is used.
+//
+// Implements [storage.ProviderRegistry] interface.
+func (*azureEnviron) RecommendedPoolForKind(
+	kind storage.StorageKind,
+) *storage.Config {
+	switch kind {
+	case storage.StorageKindBlock, storage.StorageKindFilesystem:
+		defaultPool, _ := storage.NewConfig(
+			azureStorageProviderType,
+			azureStorageProviderType,
+			storage.Attrs{},
+		)
+		return defaultPool
+	default:
+		return common.GetCommonRecommendedIAASPoolForKind(kind)
+	}
+}
+
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (env *azureEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{azureStorageProviderType}, nil
+func (*azureEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return append(
+		common.CommonIAASStorageProviderTypes(),
+		azureStorageProviderType,
+	), nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
 func (env *azureEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t == azureStorageProviderType {
+	switch t {
+	case azureStorageProviderType:
 		return &azureStorageProvider{env}, nil
+	default:
+		return common.GetCommonIAASStorageProvider(t)
 	}
-	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 // azureStorageProvider is a storage provider for Azure disks.

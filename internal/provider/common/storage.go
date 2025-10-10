@@ -20,6 +20,32 @@ func CommonIAASStorageProviderTypes() []internalstorage.ProviderType {
 	}
 }
 
+// GetCommonRecommendedIAASPoolForKind returns the recommended storage pool to use for
+// the supplied storage kind. The recommended pool comes from one of the default
+// pools provided by the provider types of [CommonIAASStorageProviderTypes].
+func GetCommonRecommendedIAASPoolForKind(
+	kind internalstorage.StorageKind,
+) *internalstorage.Config {
+	var defaultPools []*internalstorage.Config
+
+	if kind == internalstorage.StorageKindFilesystem {
+		defaultPools = internalprovider.NewRootfsProvider(
+			internalprovider.LogAndExec,
+		).DefaultPools()
+	} else if kind == internalstorage.StorageKindBlock {
+		defaultPools = internalprovider.NewLoopProvider(
+			internalprovider.LogAndExec,
+		).DefaultPools()
+	}
+
+	if len(defaultPools) > 0 {
+		// Return the first default pool as the recommended pool.
+		return defaultPools[0]
+	}
+	// No default pool exists.
+	return nil
+}
+
 // GetCommonIAASStorageProvider returns a storage provider for the supplied
 // provider type.
 //

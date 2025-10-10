@@ -28,43 +28,22 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelinternal "github.com/juju/juju/domain/model/internal"
 	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type modelServiceSuite struct {
-	testhelpers.IsolationSuite
-
-	mockControllerState        *MockControllerState
-	mockModelState             *MockModelState
-	mockEnvironVersionProvider *MockEnvironVersionProvider
+	baseSuite
 }
 
-func (s *modelServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.mockControllerState = NewMockControllerState(ctrl)
-	s.mockModelState = NewMockModelState(ctrl)
-	s.mockEnvironVersionProvider = NewMockEnvironVersionProvider(ctrl)
-	return ctrl
-}
 func TestModelServiceSuite(t *testing.T) {
 	tc.Run(t, &modelServiceSuite{})
-}
-
-// environVersionProviderGetter provides a test implementation of
-// [EnvironVersionProviderFunc] that uses the mocked [EnvironVersionProvider] on
-// this suite.
-func (s *modelServiceSuite) environVersionProviderGetter() EnvironVersionProviderFunc {
-	return func(string) (EnvironVersionProvider, error) {
-		return s.mockEnvironVersionProvider, nil
-	}
 }
 
 // TestGetModelConstraints is asserting the happy path of retrieving the set
@@ -1009,12 +988,23 @@ type defaultStoragePool struct {
 	Attributes map[string]string
 }
 
+func (d defaultStoragePool) AsConfig() *internalstorage.Config {
+	storageAttributes := internalstorage.Attrs{}
+	for k, v := range d.Attributes {
+		storageAttributes[k] = v
+	}
+	cfg, _ := internalstorage.NewConfig(
+		d.Name, internalstorage.ProviderType(d.Type), storageAttributes,
+	)
+	return cfg
+}
+
 // Matches implements the [gomock.Matcher] interface. This type can be mateched
 // against a [model.CreateModelDefaultStoragePoolArg] or a slice.
 func (d defaultStoragePool) Matches(x any) bool {
-	arg, isSingular := x.(model.CreateModelDefaultStoragePoolArg)
+	arg, isSingular := x.(modelinternal.CreateModelDefaultStoragePoolArg)
 
-	sliceOf, isSliceType := x.([]model.CreateModelDefaultStoragePoolArg)
+	sliceOf, isSliceType := x.([]modelinternal.CreateModelDefaultStoragePoolArg)
 	if isSliceType {
 		if len(sliceOf) != 1 {
 			return false
@@ -1087,6 +1077,12 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 	controllerUUID := uuid.MustNewUUID()
 	modelUUID := modeltesting.GenModelUUID(c)
 	defaultPool := s.newDefaultStoragePool(c, ctrl)
+	s.mockStorageProviderRegistry.EXPECT().RecommendedPoolForKind(
+		internalstorage.StorageKindFilesystem,
+	).Return(defaultPool.AsConfig())
+	s.mockStorageProviderRegistry.EXPECT().RecommendedPoolForKind(
+		internalstorage.StorageKindBlock,
+	).Return(nil).AnyTimes()
 	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
 		UUID:           modelUUID,
 		ControllerUUID: controllerUUID,
@@ -1111,6 +1107,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 		LatestAgentVersion: jujuversion.Current,
 	}).Return(nil)
 	s.mockModelState.EXPECT().EnsureDefaultStoragePools(gomock.Any(), defaultPool).Return(nil)
+	s.mockModelState.EXPECT().SetModelStoragePools(gomock.Any(), gomock.Any()).Return(nil)
 	s.mockModelState.EXPECT().GetControllerUUID(gomock.Any()).Return(controllerUUID, nil)
 	s.mockProvider.EXPECT().ValidateProviderForNewModel(gomock.Any()).Return(nil)
 	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
@@ -1228,71 +1225,4 @@ func (s *providerModelServiceSuite) TestGetModelRegionNotSupported(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(spec, tc.DeepEquals, simplestreams.CloudSpec{})
-}
-
-func (s *providerModelServiceSuite) TestSeedDefaultStoragePools(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	defaultPool1, _ := internalstorage.NewConfig(
-		"tmpfs", "tmpfs", internalstorage.Attrs{
-			"attr1": "val1",
-		},
-	)
-	defaultPool2, _ := internalstorage.NewConfig(
-		"rootfs", "rootfs", internalstorage.Attrs{
-			"attr1": "val1",
-		},
-	)
-	sp1 := NewMockStorageProvider(ctrl)
-	sp2 := NewMockStorageProvider(ctrl)
-	s.mockStorageProviderRegistry.EXPECT().StorageProviderTypes().Return(
-		[]internalstorage.ProviderType{
-			"tmpfs",
-			"rootfs",
-		},
-		nil,
-	)
-	s.mockStorageProviderRegistry.EXPECT().StorageProvider(
-		internalstorage.ProviderType("tmpfs"),
-	).Return(sp1, nil)
-	s.mockStorageProviderRegistry.EXPECT().StorageProvider(
-		internalstorage.ProviderType("rootfs"),
-	).Return(sp2, nil)
-
-	sp1.EXPECT().DefaultPools().Return([]*internalstorage.Config{defaultPool1})
-	sp2.EXPECT().DefaultPools().Return([]*internalstorage.Config{defaultPool2})
-
-	s.mockModelState.EXPECT().EnsureDefaultStoragePools(
-		gomock.Any(),
-		gomock.Any(),
-	).DoAndReturn(func(
-		_ context.Context, args []model.CreateModelDefaultStoragePoolArg) error {
-
-		c.Check(args, tc.DeepEquals, []model.CreateModelDefaultStoragePoolArg{
-			{
-				Attributes: map[string]string{
-					"attr1": "val1",
-				},
-				Name:   "tmpfs",
-				Origin: storage.StoragePoolOriginProviderDefault,
-				Type:   "tmpfs",
-				UUID:   "6a16b09c-8ca9-5952-a50a-9082ae7c32c1",
-			},
-			{
-				Attributes: map[string]string{
-					"attr1": "val1",
-				},
-				Name:   "rootfs",
-				Origin: storage.StoragePoolOriginProviderDefault,
-				Type:   "rootfs",
-				UUID:   "4d9a00e0-bf5f-5823-8ffa-db1a2ffb940c",
-			},
-		})
-		return nil
-	})
-
-	svc := s.providerService(c, modeltesting.GenModelUUID(c))
-	err := svc.SeedDefaultStoragePools(c.Context())
-	c.Check(err, tc.ErrorIsNil)
 }
