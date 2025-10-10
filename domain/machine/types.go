@@ -40,6 +40,9 @@ type AddMachineArgs struct {
 	Directive   deployment.Placement
 	Platform    deployment.Platform
 	Nonce       *string
+
+	// HardwareCharacteristics contains the hardware characteristics for a manually provisioned machine.
+	HardwareCharacteristics instance.HardwareCharacteristics
 }
 
 type PlaceMachineArgs struct {
@@ -59,6 +62,9 @@ type PlaceMachineArgs struct {
 	NetNodeUUID network.NetNodeUUID
 
 	Nonce *string
+
+	// HardwareCharacteristics contains the hardware characteristics for a manually provisioned machine.
+	HardwareCharacteristics instance.HardwareCharacteristics
 }
 
 // PollingInfo contains information about a machine that is being polled.
