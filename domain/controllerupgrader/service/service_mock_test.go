@@ -440,7 +440,7 @@ func (c *MockControllerModelStateGetModelTargetAgentVersionCall) DoAndReturn(f f
 // HasAgentStream mocks base method.
 func (m *MockControllerModelState) HasAgentStream(arg0 context.Context, arg1 modelagent.AgentStream) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasAgentStream", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetModelAgentStream", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -449,7 +449,7 @@ func (m *MockControllerModelState) HasAgentStream(arg0 context.Context, arg1 mod
 // HasAgentStream indicates an expected call of HasAgentStream.
 func (mr *MockControllerModelStateMockRecorder) HasAgentStream(arg0, arg1 any) *MockControllerModelStateHasAgentStreamCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasAgentStream", reflect.TypeOf((*MockControllerModelState)(nil).HasAgentStream), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelAgentStream", reflect.TypeOf((*MockControllerModelState)(nil).HasAgentStream), arg0, arg1)
 	return &MockControllerModelStateHasAgentStreamCall{Call: call}
 }
 

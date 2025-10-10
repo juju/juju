@@ -56,19 +56,20 @@ func (s AgentStream) IsValid() bool {
 	}
 }
 
-func (s AgentStream) String() (string, error) {
+// String returns the primitive string values of [AgentStream].
+// It is the client's responsibility to validate that [AgentStream]
+// is indeed valid before calling [AgentStream.String].
+func (s AgentStream) String() string {
 	switch s {
 	case AgentStreamReleased:
-		return "released", nil
+		return "released"
 	case AgentStreamProposed:
-		return "proposed", nil
+		return "proposed"
 	case AgentStreamTesting:
-		return "testing", nil
+		return "testing"
 	case AgentStreamDevel:
-		return "devel", nil
+		return "devel"
 	}
 
-	return "", errors.Errorf(
-		"agent stream %q is not recognised as a valid value", s,
-	).Add(coreerrors.NotValid)
+	return ""
 }

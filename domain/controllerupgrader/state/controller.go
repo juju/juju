@@ -5,6 +5,8 @@ package state
 
 import (
 	"context"
+	"github.com/juju/juju/domain/agentbinary"
+	"github.com/juju/juju/domain/modelagent"
 
 	"github.com/canonical/sqlair"
 
@@ -169,34 +171,53 @@ SET    target_version = $setControllerTargetVersion.target_version
 	return nil
 }
 
-// HasBinaryAgent returns true if there exists a binary agent given a version and false otherwise.
-func (s *ControllerState) HasBinaryAgent(ctx context.Context, version semversion.Number) (bool, error) {
+// HasAgentBinaryForVersionArchitecturesAndStream is responsible for determining whether there exists agents
+// for a given version and slice of architectures.
+// There may be some architectures that doesn't exist in which the caller has to consult other source of truths
+// to grab the agent.
+// TODO(adisazhar123): at the moment, `stream` isn't modeled in the controller DB so it's a noop. This is for a
+// future effort to match the given `stream` when grabbing the agents.
+func (s *ControllerState) HasAgentBinaryForVersionArchitecturesAndStream(ctx context.Context, version semversion.Number, architectures []agentbinary.Architecture, stream modelagent.AgentStream) (map[agentbinary.Architecture]bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	in := hasBinaryAgentVersion{Version: version.String()}
+	architectureIds := make(ids, len(architectures))
+	for i, arch := range architectures {
+		architectureIds[i] = int(arch)
+	}
+
 	stmt, err := s.Prepare(`
-SELECT &hasBinaryAgentVersion.*
+SELECT &binaryForVersionAndArchitectures.*
 FROM agent_binary_store
-WHERE version = $hasBinaryAgentVersion.version
-`, in)
+WHERE version = $binaryVersion.version AND architecture_id IN ($ids[:])
+`, binaryForVersionAndArchitectures{}, binaryVersion{}, ids{})
 	if err != nil {
-		return false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	var binaryAgentExists bool
+	var binaries []binaryForVersionAndArchitectures
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, in).Get(&in)
+		err = tx.Query(ctx, stmt, binaryVersion{Version: version.String()}, architectureIds).GetAll(&binaries)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return errors.Capture(err)
 		}
-		binaryAgentExists = true
 		return nil
 	})
 
-	return binaryAgentExists, errors.Capture(err)
+	// Initialize each architecture to false.
+	result := make(map[agentbinary.Architecture]bool)
+	for _, architecture := range architectures {
+		result[architecture] = false
+	}
+	// Set the map entry for an architecture to true if they exist
+	// in DB.
+	for _, binary := range binaries {
+		result[agentbinary.Architecture(binary.ArchitectureID)] = true
+	}
+
+	return result, errors.Capture(err)
 }
