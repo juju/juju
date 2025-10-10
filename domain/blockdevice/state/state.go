@@ -34,6 +34,107 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
+type blockDeviceUUIDs []string
+
+// GetBlockDevices returns the BlockDevices for the specified UUIDs.
+//
+// The following errors may be returned:
+// - [blockdeviceerrors.BlockDeviceNotFound] when one or more block devices are not found.
+func (st *State) GetBlockDevices(ctx context.Context, uuids ...string) ([]blockdevice.BlockDeviceData, error) {
+	if len(uuids) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	input := blockDeviceUUIDs(uuids)
+
+	blockDeviceStmt, err := st.Prepare(`
+SELECT &blockDevice.*
+FROM   block_device
+WHERE  uuid IN ($blockDeviceUUIDs[:])`, input, blockDevice{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	blockDeviceLinkStmt, err := st.Prepare(`
+SELECT &deviceLink.*
+FROM   block_device_link_device
+WHERE  block_device_uuid IN ($blockDeviceUUIDs[:])`, input, deviceLink{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var blockDevices []blockDevice
+	var devLinks []deviceLink
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, blockDeviceStmt, input).GetAll(&blockDevices)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("listing block devices: %w", err)
+		}
+		err = tx.Query(ctx, blockDeviceLinkStmt, input).GetAll(&devLinks)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("listing block device links: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	m := make(map[string]blockdevice.BlockDeviceData)
+	for _, blockDevice := range blockDevices {
+		m[blockDevice.UUID] = blockdevice.BlockDeviceData{
+			UUID: blockDevice.UUID,
+			BlockDevice: coreblockdevice.BlockDevice{
+				DeviceName:      blockDevice.Name.V,
+				FilesystemLabel: blockDevice.FilesystemLabel,
+				FilesystemUUID:  blockDevice.HostFilesystemUUID,
+				HardwareId:      blockDevice.HardwareId,
+				WWN:             blockDevice.WWN,
+				BusAddress:      blockDevice.BusAddress,
+				SizeMiB:         blockDevice.SizeMiB,
+				FilesystemType:  blockDevice.FilesystemType,
+				InUse:           blockDevice.InUse,
+				MountPoint:      blockDevice.MountPoint,
+				SerialId:        blockDevice.SerialId,
+			},
+		}
+	}
+	var bdMissing []string
+	for _, uuid := range uuids {
+		if _, ok := m[uuid]; !ok {
+			bdMissing = append(bdMissing, uuid)
+		}
+	}
+	if len(bdMissing) > 0 {
+		return nil, errors.Errorf(
+			"block devices not found: %v", bdMissing,
+		).Add(blockdeviceerrors.BlockDeviceNotFound)
+	}
+	for _, dl := range devLinks {
+		r, ok := m[dl.BlockDeviceUUID]
+		if !ok {
+			// This shouldn't happen, but just in case.
+			continue
+		}
+		r.DeviceLinks = append(r.DeviceLinks, dl.Name)
+		m[dl.BlockDeviceUUID] = r
+	}
+	var result []blockdevice.BlockDeviceData
+	for _, bd := range m {
+		result = append(result, bd)
+	}
+	return result, nil
+}
+
 // GetBlockDevice retrieves the info for the specified block device.
 //
 // The following errors may be returned:

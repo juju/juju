@@ -10,10 +10,17 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	internal "github.com/juju/juju/domain/storage/internal"
+	storagetesting "github.com/juju/juju/domain/storage/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
@@ -305,4 +312,224 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {
 		StorageName: "pgdata",
 	})
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+}
+
+func (s *storageSuite) TestGetAllStorageInstances(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	u0n := unit.Name("mysql/0")
+	u1n := unit.Name("mysql/1")
+	sInstanceUUID0 := storagetesting.GenStorageInstanceUUID(c)
+	sInstanceUUID1 := storagetesting.GenStorageInstanceUUID(c)
+	s.state.EXPECT().GetAllStorageInstances(gomock.Any()).Return([]internal.StorageInstanceDetails{
+		{
+			UUID:       sInstanceUUID0.String(),
+			ID:         "pgdata-0",
+			Owner:      &u0n,
+			Kind:       domainstorage.StorageKindBlock,
+			Life:       life.Alive,
+			Persistent: true,
+		},
+		{
+			UUID:       sInstanceUUID1.String(),
+			ID:         "data-1",
+			Owner:      &u1n,
+			Kind:       domainstorage.StorageKindFilesystem,
+			Life:       life.Alive,
+			Persistent: false,
+		},
+	}, nil)
+
+	result, err := s.service(c).GetAllStorageInstances(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []domainstorage.StorageInstanceDetails{
+		{
+			UUID:       sInstanceUUID0,
+			ID:         "pgdata-0",
+			Owner:      &u0n,
+			Kind:       domainstorage.StorageKindBlock,
+			Life:       life.Alive,
+			Persistent: true,
+		},
+		{
+			UUID:       sInstanceUUID1,
+			ID:         "data-1",
+			Owner:      &u1n,
+			Kind:       domainstorage.StorageKindFilesystem,
+			Life:       life.Alive,
+			Persistent: false,
+		},
+	})
+}
+
+func (s *storageSuite) TestGetVolumeWithAttachments(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	u0n := unit.Name("mysql/0")
+	m0 := machine.Name("0")
+	u1n := unit.Name("mysql/1")
+	sInstanceUUID0 := storagetesting.GenStorageInstanceUUID(c)
+	sInstanceUUID1 := storagetesting.GenStorageInstanceUUID(c)
+	s.state.EXPECT().GetVolumeWithAttachments(gomock.Any(), sInstanceUUID0.String(), sInstanceUUID1.String()).
+		Return(map[string]internal.VolumeDetails{
+			"pgdata-0": {
+				StorageID: "pgdata-0",
+				Status: status.StatusInfo[status.StorageVolumeStatusType]{
+					Status:  status.StorageVolumeStatusTypeAttaching,
+					Message: "attaching the volumez",
+				},
+				Attachments: []domainstorage.VolumeAttachmentDetails{
+					{
+						AttachmentDetails: domainstorage.AttachmentDetails{
+							Life:    life.Alive,
+							Unit:    u0n,
+							Machine: &m0,
+						},
+						BlockDeviceUUID: "bk-uuid-1",
+					},
+				},
+			},
+			"data-1": {
+				StorageID: "data-1",
+				Status: status.StatusInfo[status.StorageVolumeStatusType]{
+					Status:  status.StorageVolumeStatusTypeAttached,
+					Message: "all good",
+				},
+				Attachments: []domainstorage.VolumeAttachmentDetails{
+					{
+						AttachmentDetails: domainstorage.AttachmentDetails{
+							Life: life.Alive,
+							Unit: u1n,
+						},
+						BlockDeviceUUID: "bk-uuid-2",
+					},
+				},
+			},
+		}, nil)
+
+	result, err := s.service(c).GetVolumeWithAttachments(c.Context(),
+		sInstanceUUID0, sInstanceUUID1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, map[string]domainstorage.VolumeDetails{
+		"pgdata-0": {
+			StorageID: "pgdata-0",
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attaching,
+				Message: "attaching the volumez",
+			},
+			Attachments: []domainstorage.VolumeAttachmentDetails{
+				{
+					AttachmentDetails: domainstorage.AttachmentDetails{
+						Life:    life.Alive,
+						Unit:    u0n,
+						Machine: &m0,
+					},
+					BlockDeviceUUID: "bk-uuid-1",
+				},
+			},
+		},
+		"data-1": {
+			StorageID: "data-1",
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attached,
+				Message: "all good",
+			},
+			Attachments: []domainstorage.VolumeAttachmentDetails{
+				{
+					AttachmentDetails: domainstorage.AttachmentDetails{
+						Life: life.Alive,
+						Unit: u1n,
+					},
+					BlockDeviceUUID: "bk-uuid-2",
+				},
+			},
+		},
+	})
+}
+
+func (s *storageSuite) TestGetFilesystemWithAttachments(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	u0n := unit.Name("mysql/0")
+	m0 := machine.Name("0")
+	u1n := unit.Name("mysql/1")
+	sInstanceUUID0 := storagetesting.GenStorageInstanceUUID(c)
+	sInstanceUUID1 := storagetesting.GenStorageInstanceUUID(c)
+	s.state.EXPECT().GetFilesystemWithAttachments(gomock.Any(), sInstanceUUID0.String(), sInstanceUUID1.String()).
+		Return(map[string]internal.FilesystemDetails{
+			"pgdata-0": {
+				StorageID: "pgdata-0",
+				Status: status.StatusInfo[status.StorageFilesystemStatusType]{
+					Status:  status.StorageFilesystemStatusTypeAttaching,
+					Message: "attaching the volumez",
+				},
+				Attachments: []domainstorage.FilesystemAttachmentDetails{
+					{
+						AttachmentDetails: domainstorage.AttachmentDetails{
+							Life:    life.Alive,
+							Unit:    u0n,
+							Machine: &m0,
+						},
+						MountPoint: "/mnt/foo",
+					},
+				},
+			},
+			"data-1": {
+				StorageID: "data-1",
+				Status: status.StatusInfo[status.StorageFilesystemStatusType]{
+					Status:  status.StorageFilesystemStatusTypeAttached,
+					Message: "all good",
+				},
+				Attachments: []domainstorage.FilesystemAttachmentDetails{
+					{
+						AttachmentDetails: domainstorage.AttachmentDetails{
+							Life: life.Alive,
+							Unit: u1n,
+						},
+						MountPoint: "/mnt/bar",
+					},
+				},
+			},
+		}, nil)
+
+	result, err := s.service(c).GetFilesystemWithAttachments(c.Context(),
+		sInstanceUUID0, sInstanceUUID1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, map[string]domainstorage.FilesystemDetails{
+		"pgdata-0": {
+			StorageID: "pgdata-0",
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attaching,
+				Message: "attaching the volumez",
+			},
+			Attachments: []domainstorage.FilesystemAttachmentDetails{
+				{
+					AttachmentDetails: domainstorage.AttachmentDetails{
+						Life:    life.Alive,
+						Unit:    u0n,
+						Machine: &m0,
+					},
+					MountPoint: "/mnt/foo",
+				},
+			},
+		},
+		"data-1": {
+			StorageID: "data-1",
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attached,
+				Message: "all good",
+			},
+			Attachments: []domainstorage.FilesystemAttachmentDetails{
+				{
+					AttachmentDetails: domainstorage.AttachmentDetails{
+						Life: life.Alive,
+						Unit: u1n,
+					},
+					MountPoint: "/mnt/bar",
+				},
+			},
+		},
+	})
 }

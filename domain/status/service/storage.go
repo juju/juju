@@ -83,7 +83,7 @@ func (s *Service) SetFilesystemStatus(
 	}
 
 	// This will also verify that the status is valid.
-	encodedStatus, err := encodeFilesystemStatus(statusInfo)
+	encodedStatus, err := status.EncodeFilesystemStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding filesystem status: %w", err)
 	}
@@ -120,7 +120,7 @@ func (s *Service) SetVolumeStatus(
 	}
 
 	// This will also verify that the status is valid.
-	encodedStatus, err := encodeVolumeStatus(statusInfo)
+	encodedStatus, err := status.EncodeVolumeStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding volume status: %w", err)
 	}
@@ -225,7 +225,7 @@ func (s *Service) GetFilesystemStatuses(ctx context.Context) ([]Filesystem, erro
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		fs.Status, err = decodeFilesystemStatus(dfs.Status)
+		fs.Status, err = status.DecodeFilesystemStatus(dfs.Status)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -294,7 +294,7 @@ func (s *Service) GetVolumeStatuses(ctx context.Context) ([]Volume, error) {
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		v.Status, err = decodeVolumeStatus(dv.Status)
+		v.Status, err = status.DecodeVolumeStatus(dv.Status)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}

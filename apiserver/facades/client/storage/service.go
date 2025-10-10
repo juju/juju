@@ -1,0 +1,118 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package storage
+
+import (
+	"context"
+
+	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storageservice "github.com/juju/juju/domain/storage/service"
+	"github.com/juju/juju/internal/storage"
+)
+
+// BlockDeviceService defines apis on the block device service.
+type BlockDeviceService interface {
+	// GetBlockDevicesForMachine returns the BlockDevices for the specified machine.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the machine uuid is not valid.
+	// - [machineerrors.MachineNotFound] when the machine is not found.
+	// - [machineerrors.MachineIsDead] when the machine is dead.
+	GetBlockDevicesForMachine(
+		ctx context.Context, machineUUID machine.UUID,
+	) ([]blockdevice.BlockDevice, error)
+
+	// GetBlockDevices returns the BlockDevices for the specified UUIDs.
+	//
+	// The following errors may be returned:
+	// - [blockdeviceerrors.BlockDeviceNotFound] when one or more block devices are not found.
+	GetBlockDevices(
+		ctx context.Context, uuids ...domainblockdevice.BlockDeviceUUID,
+	) ([]domainblockdevice.BlockDeviceDetails, error)
+}
+
+// StorageService defines apis on the storage service.
+type StorageService interface {
+	// CreateStoragePool creates a storage pool with the specified configuration.
+	// The following errors can be expected:
+	// - [storageerrors.PoolAlreadyExists] if a pool with the same name already exists.
+	CreateStoragePool(
+		ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs,
+	) error
+
+	// DeleteStoragePool deletes a storage pool with the specified name.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	DeleteStoragePool(ctx context.Context, name string) error
+
+	// ReplaceStoragePool replaces an existing storage pool with the specified configuration.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	ReplaceStoragePool(
+		ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs,
+	) error
+
+	// ListStoragePools returns all the storage pools.
+	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
+
+	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
+	// names and providers, including the default storage pools.
+	// If no names and providers are specified, an empty slice is returned without an error.
+	// If no storage pools match the criteria, an empty slice is returned without an error.
+	ListStoragePoolsByNamesAndProviders(
+		ctx context.Context, names domainstorage.Names, providers domainstorage.Providers,
+	) ([]domainstorage.StoragePool, error)
+
+	// ListStoragePoolsByNames returns the storage pools matching the specified names, including
+	// the default storage pools.
+	// If no names are specified, an empty slice is returned without an error.
+	// If no storage pools match the criteria, an empty slice is returned without an error.
+	ListStoragePoolsByNames(
+		ctx context.Context, names domainstorage.Names,
+	) ([]domainstorage.StoragePool, error)
+
+	// ListStoragePoolsByProviders returns the storage pools matching the specified
+	// providers, including the default storage pools.
+	// If no providers are specified, an empty slice is returned without an error.
+	// If no storage pools match the criteria, an empty slice is returned without an error.
+	ListStoragePoolsByProviders(
+		ctx context.Context, providers domainstorage.Providers,
+	) ([]domainstorage.StoragePool, error)
+
+	// GetStoragePoolByName returns the storage pool with the specified name.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
+
+	// GetAllStorageInstances returns a list of storage instances in the model.
+	GetAllStorageInstances(ctx context.Context) ([]domainstorage.StorageInstanceDetails, error)
+
+	// GetVolumeWithAttachments returns a map of volume storage IDs to their
+	// information including attachments.
+	GetVolumeWithAttachments(
+		ctx context.Context, uuids ...domainstorage.StorageInstanceUUID,
+	) (map[string]domainstorage.VolumeDetails, error)
+
+	// GetFilesystemWithAttachments returns a map of filesystem storage IDs to their
+	// information including attachments.
+	GetFilesystemWithAttachments(
+		ctx context.Context, uuids ...domainstorage.StorageInstanceUUID,
+	) (map[string]domainstorage.FilesystemDetails, error)
+}
+
+// ApplicationService defines apis on the application service.
+type ApplicationService interface {
+	// GetUnitMachineName gets the name of the unit's machine.
+	//
+	// The following errors may be returned:
+	//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
+	//     machine assigned.
+	//   - [applicationerrors.UnitNotFound] if the unit cannot be found.
+	//   - [applicationerrors.UnitIsDead] if the unit is dead.
+	GetUnitMachineName(ctx context.Context, unitName unit.Name) (machine.Name, error)
+}
