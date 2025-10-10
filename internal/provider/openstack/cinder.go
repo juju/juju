@@ -20,8 +20,10 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils/v4"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/tags"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 )
@@ -78,9 +80,9 @@ func newCinderConfig(attrs map[string]interface{}) (*cinderConfig, error) {
 func (e *Environ) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
-	// If cinder is not available we default to using the IAAS recommended
-	// storage pools.
-	if _, err := e.cinderProvider(); err != nil {
+	// If the volume url is nil it means that cinder is not supported in this
+	// enviorn region.
+	if e.volumeURL == nil {
 		return common.GetCommonRecommendedIAASPoolForKind(kind)
 	}
 
@@ -99,12 +101,13 @@ func (e *Environ) RecommendedPoolForKind(
 func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 	types := common.CommonIAASStorageProviderTypes()
 
-	if _, err := e.cinderProvider(); err == nil {
-		types = append(types, CinderProviderType)
-	} else if !errors.Is(err, errors.NotSupported) {
-		return nil, errors.Trace(err)
+	// If the volume url is nil it means that cinder is not supported in this
+	// enviorn region.
+	if e.volumeURL == nil {
+		return types, nil
 	}
-	return types, nil
+
+	return append(types, CinderProviderType), nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
@@ -133,21 +136,15 @@ func (e *Environ) cinderProvider() (*cinderProvider, error) {
 }
 
 var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
+	if env.volumeURL == nil {
+		return nil, internalerrors.New(
+			"cinder storage is not supported in this region",
+		).Add(coreerrors.NotSupported)
+	}
+
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
-
 	client := env.clientUnlocked
-	if env.volumeURL == nil {
-		url, err := getVolumeEndpointURL(context.TODO(), client, env.cloudUnlocked.Region)
-		if isNotFoundError(err) {
-			// No volume endpoint found; Cinder is not supported.
-			return nil, errors.NotSupportedf("volumes")
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		env.volumeURL = url
-		logger.Debugf(context.TODO(), "volume URL: %v", url)
-	}
 
 	// TODO (stickupkid): Move this to the ClientFactory.
 	// We shouldn't have another wrapper around an existing client.
@@ -741,7 +738,15 @@ type endpointResolver interface {
 	EndpointsForRegion(region string) identity.ServiceURLs
 }
 
-func getVolumeEndpointURL(ctx context.Context, client endpointResolver, region string) (*url.URL, error) {
+// getVolumeEndpointURL interrogates the endpoints catalogue for the region to
+// find the highest version of cinder storage supported. If the region does not
+// have a supported cinder version a nil url is returned with an error
+// satsifying [github.com/juju/juju/core/errors.NotFound].
+func getVolumeEndpointURL(
+	ctx context.Context,
+	client endpointResolver,
+	region string,
+) (*url.URL, error) {
 	if !client.IsAuthenticated() {
 		if err := authenticateClient(ctx, client); err != nil {
 			return nil, errors.Trace(err)

@@ -4,13 +4,14 @@
 package openstack
 
 import (
+	"net/url"
 	"testing"
 
 	"github.com/go-goose/goose/v5/client"
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/juju/tc"
 
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	coreerrors "github.com/juju/juju/core/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -44,15 +45,10 @@ func TestStorageRegistrySuite(t *testing.T) {
 // the environ that the cinder pool is the recommended storage for filesystem
 // and block storage.
 func (s *storageRegistrySuite) TestRecommendedPoolForKindWithCinder(c *tc.C) {
+	volumeURL, err := url.Parse("https://cinder.example.com")
+	c.Assert(err, tc.IsNil)
 	env := &Environ{
-		cloudUnlocked: environscloudspec.CloudSpec{
-			Region: "foo",
-		},
-		clientUnlocked: &testAuthClient{
-			regionEndpoints: map[string]identity.ServiceURLs{
-				"foo": {"volumev2": "https://bar.invalid"},
-			},
-		},
+		volumeURL: volumeURL,
 	}
 
 	bPool := env.RecommendedPoolForKind(internalstorage.StorageKindBlock)
@@ -68,7 +64,7 @@ func (s *storageRegistrySuite) TestRecommendedPoolForKindWithCinder(c *tc.C) {
 // available to the environ that it is not one of the returned pools for either
 // filesystem or block storage.
 func (s *storageRegistrySuite) TestRecommendedPoolForKindWithoutCinder(c *tc.C) {
-	env := &Environ{clientUnlocked: &testAuthClient{}}
+	env := &Environ{}
 
 	bPool := env.RecommendedPoolForKind(internalstorage.StorageKindBlock)
 	if bPool != nil {
@@ -83,16 +79,16 @@ func (s *storageRegistrySuite) TestRecommendedPoolForKindWithoutCinder(c *tc.C) 
 	}
 }
 
-func (s *storageRegistrySuite) TestStorageProviderTypes(c *tc.C) {
+// TestStorageProviderTypesHasCinder tests that when the environ has a volume
+// URL cinder is returned as one of the storage provider types from the
+// registry.
+func (s *storageRegistrySuite) TestStorageProviderTypesHasCinder(c *tc.C) {
+	volumeURL, err := url.Parse("https://cinder.example.com")
+	c.Assert(err, tc.IsNil)
+
 	env := &Environ{
-		cloudUnlocked: environscloudspec.CloudSpec{
-			Region: "foo",
-		},
-		clientUnlocked: &testAuthClient{
-			regionEndpoints: map[string]identity.ServiceURLs{
-				"foo": {"volumev2": "https://bar.invalid"},
-			},
-		}}
+		volumeURL: volumeURL,
+	}
 	types, err := env.StorageProviderTypes()
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(types, tc.SameContents, []internalstorage.ProviderType{
@@ -103,11 +99,11 @@ func (s *storageRegistrySuite) TestStorageProviderTypes(c *tc.C) {
 	})
 }
 
-// TestStorageProviderTypesNotSupported tests that when the environ does not
-// support Cinder storage it does not come out as one of the storage provider
-// types available.
-func (s *storageRegistrySuite) TestStorageProviderTypesNotSupported(c *tc.C) {
-	env := &Environ{clientUnlocked: &testAuthClient{}}
+// TestStorageProviderTypesCinderNotSupported tests that when the environ does
+// not support Cinder storage it does not come out as one of the storage
+// provider types available.
+func (s *storageRegistrySuite) TestStorageProviderTypesCinderNotSupported(c *tc.C) {
+	env := &Environ{}
 	types, err := env.StorageProviderTypes()
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(types, tc.SameContents, []internalstorage.ProviderType{
@@ -115,4 +111,13 @@ func (s *storageRegistrySuite) TestStorageProviderTypesNotSupported(c *tc.C) {
 		"tmpfs",
 		"rootfs",
 	})
+}
+
+// TestCinderStorageProviderNotSupported ensures that if we ask of the environ
+// for the cinder storage provider but it isn't supported by the environ we
+// get back an error satisfying [coreerrors.NotSupported].
+func (s *storageRegistrySuite) TestCinderStorageProviderNotSupported(c *tc.C) {
+	env := &Environ{}
+	_, err := env.StorageProvider(internalstorage.ProviderType("cinder"))
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }
