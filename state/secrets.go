@@ -1123,7 +1123,7 @@ func (s *secretsStore) ListUnusedSecretRevisions(uri *secrets.URI) ([]int, error
 }
 
 func (st *State) localSecretURIRegex(uri *secrets.URI, terminator string) string {
-	return "^" + st.ModelUUID() + ":" + uri.ID + terminator
+	return fmt.Sprintf("^%s%s", st.docID(uri.ID), terminator)
 }
 
 // GetSecretRevision returns the specified revision metadata for the given secret.
@@ -2379,7 +2379,7 @@ func (st *State) getInUseSecretRevisions(collName string, uri *secrets.URI, exce
 	pipe := secretConsumersCollection.Pipe([]bson.M{
 		{
 			"$match": bson.M{
-				"_id":          bson.M{"$regex": st.docID(uri.ID + "#.*")},
+				"_id":          bson.M{"$regex": st.localSecretURIRegex(uri, "#")},
 				"consumer-tag": bson.M{"$ne": exceptForConsumer},
 			},
 		},
