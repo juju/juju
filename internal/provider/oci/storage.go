@@ -83,13 +83,13 @@ func (s *storageProvider) Releasable() bool {
 //
 // Implements [storage.Provider] interface.
 func (s *storageProvider) DefaultPools() []*storage.Config {
-	defaultPool, _ := storage.NewConfig(
+	ociPool, _ := storage.NewConfig(
 		ociStorageProviderType.String(), ociStorageProviderType, storage.Attrs{},
 	)
 	iscsiPool, _ := storage.NewConfig("iscsi", ociStorageProviderType, storage.Attrs{
 		ociVolumeType: iscsiPool,
 	})
-	return []*storage.Config{defaultPool, iscsiPool}
+	return []*storage.Config{ociPool, iscsiPool}
 }
 
 func (s *storageProvider) ValidateForK8s(map[string]any) error {
@@ -118,13 +118,23 @@ func (s *storageProvider) ValidateConfig(cfg *storage.Config) error {
 }
 
 // RecommendedPoolForKind returns the recommended storage pool to use for
-// the given storage kind. If no pool can be recommended nil is returned.
+// the given storage kind. If no pool can be recommended nil is returned. The
+// OCI provider currently recommends the iscsi pool be used for both block and
+// filesystem storage.
 //
 // Implements [storage.ProviderRegistry] interface.
 func (*Environ) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
-	return common.GetCommonRecommendedIAASPoolForKind(kind)
+	switch kind {
+	case storage.StorageKindBlock, storage.StorageKindFilesystem:
+		iscsiPool, _ := storage.NewConfig("iscsi", ociStorageProviderType, storage.Attrs{
+			ociVolumeType: iscsiPool,
+		})
+		return iscsiPool
+	default:
+		return common.GetCommonRecommendedIAASPoolForKind(kind)
+	}
 }
 
 // StorageProviderTypes implements storage.ProviderRegistry.
