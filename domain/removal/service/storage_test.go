@@ -10,6 +10,9 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	storageprovtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
@@ -90,4 +93,54 @@ func (s *storageSuite) TestRemoveStorageAttachmentNotFound(c *tc.C) {
 
 	_, err := s.newService(c).RemoveStorageAttachment(c.Context(), saUUID, false, 0)
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageAttachmentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageAttachmentLife(
+		gomock.Any(), j.EntityUUID).Return(-1, storageprovisioningerrors.StorageAttachmentNotFound)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageAttachmentStillAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageAttachmentJob(c)
+
+	s.modelState.EXPECT().GetStorageAttachmentLife(gomock.Any(), j.EntityUUID).Return(life.Alive, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageAttachmentSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageAttachmentLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.DeleteStorageAttachment(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String())
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func newStorageAttachmentJob(c *tc.C) removal.Job {
+	jUUID, err := removal.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	return removal.Job{
+		UUID:        jUUID,
+		RemovalType: removal.StorageAttachmentJob,
+		EntityUUID:  storageprovtesting.GenStorageAttachmentUUID(c).String(),
+	}
 }
