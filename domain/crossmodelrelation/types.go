@@ -139,6 +139,10 @@ type OfferImport struct {
 // RemoteApplicationConsumer represents a remote application
 // that is consuming an offer from this model.
 type RemoteApplicationConsumer struct {
+	// ApplicationUUID is the UUID of the synthetic application
+	// representing the remote application.
+	ApplicationUUID string
+
 	// ApplicationName is the name of the remote application.
 	ApplicationName string
 
