@@ -229,7 +229,8 @@ juju_api_connection_sources () {
 }
 
 juju_flightrecorder_start () {
-  juju_agent flightrecorder/start
+  kind=${1:-}
+  juju_agent flightrecorder/start?kind=$kind
 }
 
 juju_flightrecorder_stop () {
@@ -237,7 +238,8 @@ juju_flightrecorder_stop () {
 }
 
 juju_flightrecorder_capture () {
-  juju_agent flightrecorder/capture
+  kind=${1:-}
+  juju_agent flightrecorder/capture?kind=$kind
 }
 
 # This asks for the command of the current pid.
