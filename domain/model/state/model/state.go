@@ -628,17 +628,17 @@ WHERE  uuid IN ($poolUUIDs[:])
 	return len(storagePoolUUIDs) == dbVal.Count, nil
 }
 
-// SetModelStoragePools sets the storage pools to be used in the model when
+// SetModelStoragePools sets the model storage pools which are used when
 // a recommended default is required. This operation WILL remove any
-// previously set storage pools in the model and replace them with the new
+// previously set model storage pools and replace them with the new
 // values supplied.
 //
 // If no set args are supplied then this operation will just remove any
-// previously set storage pools for the model.
+// previously set model storage pools.
 //
-// The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] when one or more of the storage pools
-// does not exist in the model.
+// The following errors may be returned:
+// - [storageerrors.PoolNotFound] if one or more storage pools no longer
+// exist in the model.
 func (s *ModelState) SetModelStoragePools(
 	ctx context.Context,
 	args []modelinternal.SetModelStoragePoolArg,
