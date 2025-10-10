@@ -537,7 +537,7 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
-		flightRecorder := flightrecorder.New("", internallogger.GetLogger("juju.flightrecorder"))
+		flightRecorder := flightrecorder.New(flightrecorder.NewRecorder(), "", internallogger.GetLogger("juju.flightrecorder"))
 
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
