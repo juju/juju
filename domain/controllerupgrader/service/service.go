@@ -6,17 +6,15 @@ package service
 import (
 	"context"
 	"fmt"
-	"slices"
-
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/agentbinary"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
+	"github.com/juju/juju/domain/controllerupgrader/state"
 	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
@@ -25,10 +23,14 @@ import (
 // AgentBinaryFinder defines a helper for asserting if agent binaries are
 // available and identifying upgrade versions.
 type AgentBinaryFinder interface {
-	// HasBinariesForVersion will interrogate agent binaries available in the
+	// HasBinariesForVersionAndArchitectures will interrogate agent binaries available in the
 	// system and return true or false if agent binaries exist for the provided
-	// version.
-	HasBinariesForVersion(context.Context, semversion.Number) (bool, error)
+	// version and architectures.
+	HasBinariesForVersionAndArchitectures(
+		context.Context,
+		semversion.Number,
+		[]agentbinary.Architecture,
+	) (bool, error)
 
 	// HasBinariesForVersionAndStream will interrogate agent binaries available
 	// in the system and return true or false if agent binaries exist for the
@@ -65,9 +67,13 @@ type ControllerState interface {
 	// eventually upgrade to this version once changed.
 	SetControllerTargetVersion(context.Context, semversion.Number) error
 
-	// HasBinaryAgent returns true if there exists a binary agent with the given version
-	// in the controller store and false otherwise.
-	HasBinaryAgent(ctx context.Context, version semversion.Number) (bool, error)
+	// TODO: doc this
+	HasAgentBinaryForVersionArchitecturesAndStream(
+		context context.Context,
+		version semversion.Number,
+		architectures []agentbinary.Architecture,
+		stream modelagent.AgentStream,
+	) (map[agentbinary.Architecture]bool, error)
 }
 
 // ControllerModelState defines the interface for interacting with the
@@ -102,13 +108,15 @@ type ControllerModelState interface {
 		stream modelagent.AgentStream,
 	) error
 
-	// HasBinaryAgent returns true if there exists a binary agent with the given version
-	// in the model store and false otherwise.
-	HasBinaryAgent(ctx context.Context, version semversion.Number) (bool, error)
+	// TODO: doc this
+	HasAgentBinaryForVersionAndArchitectures(
+		context context.Context,
+		version semversion.Number,
+		architectures []agentbinary.Architecture,
+	) (map[agentbinary.Architecture]bool, error)
 
-	// HasAgentStream returns true if the agent comes from the given stream
-	// and false otherwise.
-	HasAgentStream(ctx context.Context, stream modelagent.AgentStream) (bool, error)
+	// TODO: doc this
+	GetModelAgentStream(ctx context.Context) (state.AgentStream, error)
 }
 
 // PreferredSimpleStreamsFunc is a function that returns the preferred streams
@@ -143,34 +151,6 @@ type Service struct {
 	agentBinaryFinder AgentBinaryFinder
 	ctrlSt            ControllerState
 	modelSt           ControllerModelState
-}
-
-type AgentBinaryFinderImpl struct {
-	ctrlSt  ControllerState
-	modelSt ControllerModelState
-
-	providerForAgentBinaryFinder providertracker.ProviderGetter[ProviderForAgentBinaryFinder]
-
-	agentBinaryFilter         AgentBinaryFilter
-	getPreferredSimpleStreams PreferredSimpleStreamsFunc
-}
-
-// NewAgentBinaryFinder returns a new AgentBinaryFinderImpl to assist
-// with looking up agent binaries.
-func NewAgentBinaryFinder(
-	ctrlSt ControllerState,
-	modelSt ControllerModelState,
-	providerForAgentBinaryFinder providertracker.ProviderGetter[ProviderForAgentBinaryFinder],
-	agentBinaryFilter AgentBinaryFilter,
-	getPreferredSimpleStreams PreferredSimpleStreamsFunc,
-) *AgentBinaryFinderImpl {
-	return &AgentBinaryFinderImpl{
-		ctrlSt:                       ctrlSt,
-		modelSt:                      modelSt,
-		providerForAgentBinaryFinder: providerForAgentBinaryFinder,
-		agentBinaryFilter:            agentBinaryFilter,
-		getPreferredSimpleStreams:    getPreferredSimpleStreams,
-	}
 }
 
 // NewService returns a new Service for interacting and upgrading the
@@ -591,143 +571,4 @@ func (s *Service) validateControllerCanBeUpgradedTo(
 	}
 
 	return nil
-}
-
-// HasBinariesForVersion checks if the binary for a given version exists.
-// It does so by following this order: model store, controller store, and finally simple streams.
-func (a *AgentBinaryFinderImpl) HasBinariesForVersion(ctx context.Context, number semversion.Number) (bool, error) {
-	// Let's check if the agent binary exists in model state.
-	existsInModel, err := a.modelSt.HasBinaryAgent(ctx, number)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	if existsInModel {
-		return existsInModel, nil
-	}
-
-	// The agent binary doesn't exist in model state so we check if they exist in
-	// controller state.
-	existsInController, err := a.ctrlSt.HasBinaryAgent(ctx, number)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	if existsInController {
-		return existsInController, nil
-	}
-
-	// Woops, now we fallback to finding the agent binary in simplestreams because
-	// they both don't exist in model and controller state.
-	filter := coretools.Filter{Number: number}
-	return a.hasBinaryAgentInStreams(ctx, number, nil, filter)
-}
-
-// getBinaryAgentInStreams returns a slice of tools that matches the given version, stream, and filter.
-// If a stream is passed as nil, it will fallback to use default streams.
-func (a *AgentBinaryFinderImpl) getBinaryAgentInStreams(ctx context.Context, number semversion.Number, stream *modelagent.AgentStream, filter coretools.Filter) (coretools.List, error) {
-	provider, err := a.providerForAgentBinaryFinder(ctx)
-	if errors.Is(err, coreerrors.NotSupported) {
-		return coretools.List{}, errors.Errorf("getting provider for agent binary finder %w", coreerrors.NotSupported)
-	}
-	if err != nil {
-		return coretools.List{}, errors.Capture(err)
-	}
-
-	var streams []string
-
-	if stream == nil {
-		cfg := provider.Config()
-		streams = a.getPreferredSimpleStreams(&number, cfg.Development(), cfg.AgentStream())
-	} else {
-		streamStr, err := stream.String()
-		if err != nil {
-			return coretools.List{}, errors.Capture(err)
-		}
-		streams = []string{streamStr}
-	}
-
-	ssFetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	tools, err := a.agentBinaryFilter(ctx, ssFetcher, provider, number.Major, number.Minor, streams, filter)
-	if err != nil {
-		return coretools.List{}, errors.Errorf("getting agent binary from simplestreams: %w", err)
-	}
-
-	return tools, nil
-}
-
-// hasBinaryAgentInStreams returns true if there exists a binary agent with the given version, stream, and filter.
-// Otherwise it returns false.
-func (a *AgentBinaryFinderImpl) hasBinaryAgentInStreams(ctx context.Context, number semversion.Number, stream *modelagent.AgentStream, filter coretools.Filter) (bool, error) {
-	tools, err := a.getBinaryAgentInStreams(ctx, number, stream, filter)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	return tools.Len() > 0, nil
-}
-
-// HasBinariesForVersionAndStream returns true if there exist binaries for a given version and stream.
-// If the stream matches with the one in the model store, it attempts to find the binary in the model.
-// Otherwise, it checks the controller store if the binary exists there, and fallback to simplestreams
-// as a last resort.
-func (a *AgentBinaryFinderImpl) HasBinariesForVersionAndStream(ctx context.Context, number semversion.Number, stream modelagent.AgentStream) (bool, error) {
-	streamExistsInModel, err := a.modelSt.HasAgentStream(ctx, stream)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	if streamExistsInModel {
-		binaryExistsInModel, err := a.modelSt.HasBinaryAgent(ctx, number)
-		if err != nil {
-			return false, errors.Capture(err)
-		}
-
-		if binaryExistsInModel {
-			return binaryExistsInModel, nil
-		}
-	}
-	// TODO (adisazhar123): check the stream in the controller is the same as the supplied stream.
-	// Unfortunately, this isn't modeled yet so we assume the stream matches for this case.
-	binaryExistsInController, err := a.ctrlSt.HasBinaryAgent(ctx, number)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	if binaryExistsInController {
-		return binaryExistsInController, nil
-	}
-	filter := coretools.Filter{Number: number}
-	return a.hasBinaryAgentInStreams(ctx, number, &stream, filter)
-}
-
-// getHighestPatchVersionAvailableForStream returns a version with the highest patch given a stream.
-// It grabs the current version from the controller store in which it is used to get the binaries
-// matching the major and minor number of that version. The returned binaries are then sorted based
-// on the patch version.
-func (a *AgentBinaryFinderImpl) getHighestPatchVersionAvailableForStream(ctx context.Context, stream *modelagent.AgentStream) (semversion.Number, error) {
-	ctrlVersion, err := a.ctrlSt.GetControllerTargetVersion(ctx)
-	if err != nil {
-		return semversion.Zero, errors.Capture(err)
-	}
-	binaries, err := a.getBinaryAgentInStreams(ctx, ctrlVersion, stream, coretools.Filter{})
-	if err != nil {
-		return semversion.Zero, errors.Capture(err)
-	}
-	// If binaries is empty an error is returned above, but perform this check to be safe.
-	if len(binaries) == 0 {
-		return semversion.Zero, errors.Errorf("no binary agent found for version %s", ctrlVersion.String())
-	}
-
-	slices.SortStableFunc(binaries, func(a, b *coretools.Tools) int {
-		return a.Version.ToPatch().Compare(b.Version.ToPatch())
-	})
-	highestPatchVersion := binaries[len(binaries)-1].Version.Number
-	return highestPatchVersion, nil
-}
-
-// GetHighestPatchVersionAvailable returns the highest patch version of the current controller.
-func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailable(ctx context.Context) (semversion.Number, error) {
-	return a.getHighestPatchVersionAvailableForStream(ctx, nil)
-}
-
-// GetHighestPatchVersionAvailableForStream returns the highest patch version of the current
-// controller given a stream.
-func (a *AgentBinaryFinderImpl) GetHighestPatchVersionAvailableForStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error) {
-	return a.getHighestPatchVersionAvailableForStream(ctx, &stream)
 }

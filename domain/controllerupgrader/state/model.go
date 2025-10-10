@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"github.com/juju/juju/domain/agentbinary"
 
 	"github.com/canonical/sqlair"
 
@@ -265,66 +266,81 @@ SET    target_version = $setAgentVersionTargetStream.target_version,
 	return nil
 }
 
-// HasBinaryAgent returns true if there exists a binary agent given a version and false otherwise.
-func (s *ControllerModelState) HasBinaryAgent(ctx context.Context, version semversion.Number) (bool, error) {
+// TODO: doc this
+func (s *ControllerModelState) HasAgentBinaryForVersionAndArchitectures(
+	ctx context.Context,
+	version semversion.Number,
+	architectures []agentbinary.Architecture,
+) (map[agentbinary.Architecture]bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	in := hasBinaryAgentVersion{Version: version.String()}
+	architectureIds := make(ids, len(architectures))
+	for i, arch := range architectures {
+		architectureIds[i] = int(arch)
+	}
+
 	stmt, err := s.Prepare(`
-SELECT &hasBinaryAgentVersion.*
-FROM agent_binary_store
-WHERE version = $hasBinaryAgentVersion.version
-`, in)
+SELECT &binaryForVersionAndArchitectures.*
+FROM v_agent_binary_store
+WHERE version = $binaryVersion AND architecture_id IN ($ids[:])
+`, binaryForVersionAndArchitectures{}, binaryVersion{}, ids{})
 	if err != nil {
-		return false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	var binaryAgentExists bool
+	var binaries []binaryForVersionAndArchitectures
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, in).Run()
+		err = tx.Query(ctx, stmt, binaryVersion{Version: version.String()}, architectures).GetAll(&binaries)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return errors.Capture(err)
 		}
-		binaryAgentExists = true
 		return nil
 	})
 
-	return binaryAgentExists, errors.Capture(err)
+	// Initialize each architecture to false.
+	result := make(map[agentbinary.Architecture]bool)
+	for _, architecture := range architectures {
+		result[architecture] = false
+	}
+	// Set the map entry for an architecture to true if they exist
+	// in DB.
+	for _, binary := range binaries {
+		result[agentbinary.Architecture(binary.ArchitectureID)] = true
+	}
+
+	return result, errors.Capture(err)
 }
 
-// HasAgentStream returns true if the existing agent's stream matches the given stream.
-func (s *ControllerModelState) HasAgentStream(ctx context.Context, stream modelagent.AgentStream) (bool, error) {
+// GetModelAgentStream returns the existing stream in use for the agent.
+func (s *ControllerModelState) GetModelAgentStream(ctx context.Context) (AgentStream, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return false, errors.Capture(err)
+		return AgentStream{}, errors.Capture(err)
 	}
 
-	in := hasAgentStream{StreamID: int(stream)}
 	stmt, err := s.Prepare(`
-SELECT &hasAgentStream.*
+SELECT &AgentStream.*
 FROM agent_version
-WHERE stream_id = $hasAgentStream.stream;
-`, in)
+`, AgentStream{})
 	if err != nil {
-		return false, errors.Capture(err)
+		return AgentStream{}, errors.Capture(err)
 	}
 
-	var streamExists bool
+	stream := AgentStream{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, in).Run()
+		err = tx.Query(ctx, stmt).Get(&stream)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return errors.Capture(err)
 		}
-		streamExists = true
 		return nil
 	})
 
-	return streamExists, errors.Capture(err)
+	return stream, errors.Capture(err)
 }

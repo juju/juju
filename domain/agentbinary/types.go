@@ -33,3 +33,32 @@ type Metadata struct {
 	// TODO: do we want to switch to the SHA384 hash?
 	SHA256 string
 }
+
+type Architecture int
+
+const (
+	Unknown Architecture = iota - 1
+
+	AMD64
+	ARM64
+	PPC64EL
+	S390X
+	RISCV64
+)
+
+func (a Architecture) String() string {
+	switch a {
+	case AMD64:
+		return "amd64"
+	case ARM64:
+		return "arm64"
+	case PPC64EL:
+		return "ppc64el"
+	case S390X:
+		return "s390x"
+	case RISCV64:
+		return "riscv64"
+	default:
+		return ""
+	}
+}
