@@ -41,7 +41,7 @@ func (s *ManifoldConfigSuite) validConfig(c *tc.C) ManifoldConfig {
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewRemoteApplicationWorker: func(rac RemoteApplicationConfig) (ReportableWorker, error) {
+		NewRemoteOffererApplicationWorker: func(rac RemoteOffererWorkerConfig) (ReportableWorker, error) {
 			return nil, nil
 		},
 		Clock:  clock.WallClock,

@@ -19,9 +19,9 @@ import (
 // NewWorkerFunc defines the function signature for creating a new Worker.
 type NewWorkerFunc func(Config) (worker.Worker, error)
 
-// NewRemoteApplicationWorkerFunc defines the function signature for creating
+// NewRemoteOffererApplicationWorkerFunc defines the function signature for creating
 // a new remote application worker.
-type NewRemoteApplicationWorkerFunc func(RemoteApplicationConfig) (ReportableWorker, error)
+type NewRemoteOffererApplicationWorkerFunc func(RemoteOffererWorkerConfig) (ReportableWorker, error)
 
 // GetCrossModelServicesFunc defines the function signature for getting
 // cross-model services.
@@ -35,8 +35,8 @@ type ManifoldConfig struct {
 
 	GetCrossModelServices GetCrossModelServicesFunc
 
-	NewWorker                  NewWorkerFunc
-	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
+	NewWorker                         NewWorkerFunc
+	NewRemoteOffererApplicationWorker NewRemoteOffererApplicationWorkerFunc
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -62,8 +62,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
-	if config.NewRemoteApplicationWorker == nil {
-		return errors.NotValidf("nil NewRemoteApplicationWorker")
+	if config.NewRemoteOffererApplicationWorker == nil {
+		return errors.NotValidf("nil NewRemoteOffererApplicationWorker")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -97,8 +97,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := config.NewWorker(Config{
 				ModelUUID: config.ModelUUID,
 
-				CrossModelRelationService:  crossModelRelationService,
-				NewRemoteApplicationWorker: config.NewRemoteApplicationWorker,
+				CrossModelRelationService:         crossModelRelationService,
+				NewRemoteOffererApplicationWorker: config.NewRemoteOffererApplicationWorker,
 
 				Clock:  config.Clock,
 				Logger: config.Logger,

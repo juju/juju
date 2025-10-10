@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/core/model"
 )
 
-// RemoteApplicationConfig defines the configuration for a remote application
+// RemoteOffererWorkerConfig defines the configuration for a remote offering
 // worker.
-type RemoteApplicationConfig struct {
+type RemoteOffererWorkerConfig struct {
 	OfferUUID       string
 	ApplicationName string
 	LocalModelUUID  model.UUID
@@ -24,12 +24,12 @@ type RemoteApplicationConfig struct {
 	Logger          logger.Logger
 }
 
-// remoteApplicationWorker listens for localChanges to relations
+// remoteOffererWorker listens for localChanges to relations
 // involving a remote application, and publishes change to
 // local relation units to the remote model. It also watches for
 // changes originating from the offering model and consumes those
 // in the local model.
-type remoteApplicationWorker struct {
+type remoteOffererWorker struct {
 	catacomb catacomb.Catacomb
 
 	offerUUID      string
@@ -37,10 +37,10 @@ type remoteApplicationWorker struct {
 }
 
 // NewRemoteApplicationWorker creates a new remote application worker.
-func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorker, error) {
-	w := &remoteApplicationWorker{}
+func NewRemoteApplicationWorker(config RemoteOffererWorkerConfig) (ReportableWorker, error) {
+	w := &remoteOffererWorker{}
 	if err := catacomb.Invoke(catacomb.Plan{
-		Name: "remote-application",
+		Name: "remote-offerer",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
@@ -50,32 +50,32 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 }
 
 // Kill is defined on worker.Worker
-func (w *remoteApplicationWorker) Kill() {
+func (w *remoteOffererWorker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is defined on worker.Worker
-func (w *remoteApplicationWorker) Wait() error {
+func (w *remoteOffererWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
 // OfferUUID returns the offer UUID for the remote application worker.
-func (w *remoteApplicationWorker) OfferUUID() string {
+func (w *remoteOffererWorker) OfferUUID() string {
 	return w.offerUUID
 }
 
 // ConsumeVersion returns the consume version for the remote application worker.
-func (w *remoteApplicationWorker) ConsumeVersion() int {
+func (w *remoteOffererWorker) ConsumeVersion() int {
 	return w.consumeVersion
 }
 
 // Report provides information for the engine report.
-func (w *remoteApplicationWorker) Report() map[string]interface{} {
+func (w *remoteOffererWorker) Report() map[string]interface{} {
 	result := make(map[string]interface{})
 	return result
 }
 
-func (w *remoteApplicationWorker) loop() (err error) {
+func (w *remoteOffererWorker) loop() (err error) {
 	<-w.catacomb.Dying()
 	return w.catacomb.ErrDying()
 }
