@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
@@ -49,6 +50,10 @@ func (testingAPIRootHandler) DomainServicesGetter() services.DomainServicesGette
 
 func (testingAPIRootHandler) Tracer() coretrace.Tracer {
 	return nil
+}
+
+func (testingAPIRootHandler) FlightRecorder() flightrecorder.FlightRecorder {
+	return flightrecorder.NoopRecorder{}
 }
 
 func (testingAPIRootHandler) ObjectStore() objectstore.ObjectStore {

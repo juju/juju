@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	apiwebsocket "github.com/juju/juju/apiserver/websocket"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/trace"
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/rpcreflect"
@@ -133,4 +134,8 @@ func (av allVersions) FindMethod(rootMethodName string, version int, objMethodNa
 
 func (av allVersions) StartTrace(ctx context.Context) (context.Context, trace.Span) {
 	return ctx, trace.NoopSpan{}
+}
+
+func (av allVersions) FlightRecorder() flightrecorder.FlightRecorder {
+	return flightrecorder.NoopRecorder{}
 }

@@ -67,6 +67,7 @@ import (
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
+	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/migrationmaster"
@@ -537,7 +538,7 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
-		flightRecorder := flightrecorder.New(flightrecorder.NewRecorder(), "", internallogger.GetLogger("juju.flightrecorder"))
+		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(), "", internallogger.GetLogger("juju.flightrecorder"))
 
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
