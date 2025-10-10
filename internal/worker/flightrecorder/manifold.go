@@ -10,7 +10,6 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/flightrecorder"
 )
 
@@ -18,7 +17,7 @@ import (
 func Manifold(flightRecorder flightrecorder.FlightRecorderWorker) dependency.Manifold {
 	return dependency.Manifold{
 		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-			return engine.NewOwnedWorker(flightRecorder)
+			return flightRecorder, nil
 		},
 		Output: func(in worker.Worker, out interface{}) error {
 			recorder, ok := in.(flightrecorder.FlightRecorderWorker)
