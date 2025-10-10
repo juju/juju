@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/logger"
 	"gopkg.in/tomb.v2"
 )
@@ -38,15 +39,17 @@ type FlightRecorder struct {
 	recorder FileRecorder
 	logger   logger.Logger
 
-	ch chan request
+	currentKind flightrecorder.Kind
+	ch          chan request
 }
 
 // New creates a new flight recorder worker.
 func New(recorder FileRecorder, path string, logger logger.Logger) *FlightRecorder {
 	w := &FlightRecorder{
-		recorder: recorder,
-		path:     path,
-		logger:   logger,
+		recorder:    recorder,
+		path:        path,
+		logger:      logger,
+		currentKind: flightrecorder.KindAny,
 
 		ch: make(chan request),
 	}
@@ -67,9 +70,10 @@ func (w *FlightRecorder) Wait() error {
 }
 
 // Start starts the flight recorder.
-func (w *FlightRecorder) Start() error {
+func (w *FlightRecorder) Start(kind flightrecorder.Kind) error {
 	request := request{
 		Type:   requestTypeStart,
+		Kind:   kind,
 		Result: make(chan error, 1),
 	}
 
@@ -110,10 +114,11 @@ func (w *FlightRecorder) Stop() error {
 }
 
 // Capture captures a flight recording.
-func (w *FlightRecorder) Capture() error {
+func (w *FlightRecorder) Capture(kind flightrecorder.Kind) error {
 	result := make(chan error, 1)
 	req := request{
 		Type:   requestTypeCapture,
+		Kind:   kind,
 		Result: result,
 	}
 
@@ -145,11 +150,11 @@ func (w *FlightRecorder) loop() error {
 			var err error
 			switch req.Type {
 			case requestTypeStart:
-				err = w.startRecording(ctx)
+				err = w.startRecording(ctx, req.Kind)
 			case requestTypeStop:
 				err = w.stopRecording(ctx)
 			case requestTypeCapture:
-				err = w.captureRecording(ctx)
+				err = w.captureRecording(ctx, req.Kind)
 			default:
 				err = errors.New("unknown request type")
 			}
@@ -163,8 +168,10 @@ func (w *FlightRecorder) loop() error {
 	}
 }
 
-func (w *FlightRecorder) startRecording(ctx context.Context) error {
-	w.logger.Debugf(ctx, "starting flight recording")
+func (w *FlightRecorder) startRecording(ctx context.Context, kind flightrecorder.Kind) error {
+	w.logger.Debugf(ctx, "starting flight recording for kind %q", kind)
+
+	w.currentKind = kind
 
 	return w.recorder.Start()
 }
@@ -176,7 +183,12 @@ func (w *FlightRecorder) stopRecording(ctx context.Context) error {
 	return nil
 }
 
-func (w *FlightRecorder) captureRecording(ctx context.Context) error {
+func (w *FlightRecorder) captureRecording(ctx context.Context, kind flightrecorder.Kind) error {
+	if !w.currentKind.IsAllowed(kind) {
+		w.logger.Debugf(ctx, "skipping capture of kind %q as current kind is %q", kind, w.currentKind)
+		return nil
+	}
+
 	path := w.path
 	if path == "" {
 		path = "/tmp"
@@ -203,5 +215,6 @@ const (
 
 type request struct {
 	Type   requestType
+	Kind   flightrecorder.Kind
 	Result chan error
 }

@@ -407,7 +407,6 @@ type apiRoot struct {
 	domainServices        services.DomainServices
 	domainServicesGetter  services.DomainServicesGetter
 	tracer                trace.Tracer
-	flightRecorder        flightrecorder.FlightRecorder
 	objectStore           objectstore.ObjectStore
 	objectStoreGetter     objectstore.ObjectStoreGetter
 	controllerObjectStore objectstore.ObjectStore
@@ -536,7 +535,7 @@ func (r *apiRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) 
 }
 
 func (r *apiRoot) FlightRecorder() flightrecorder.FlightRecorder {
-	return r.flightRecorder
+	return r.shared.flightRecorder
 }
 
 // FindMethod looks up the given rootName and version in our facade registry
