@@ -4,6 +4,7 @@
 package model
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
@@ -115,6 +116,25 @@ func (s *storageSuite) TestGetStorageAttachmentLifeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
 }
 
+func (s *storageSuite) TestDeleteStorageAttachmentSuccess(c *tc.C) {
+	siUUID, saUUID := s.addAppUnitStorage(c)
+
+	ctx := c.Context()
+
+	err := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).DeleteStorageAttachment(ctx, saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Attachment is gone.
+	var dummy string
+	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_attachment WHERE uuid = ?", saUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+
+	// The attached unit was the owner, so the owner record is gone.
+	row = s.DB().QueryRowContext(
+		ctx, "SELECT unit_uuid FROM storage_unit_owner WHERE storage_instance_uuid = ?", siUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
 // addAppUnitStorage sets up a unit with a storage attachment.
 // The storage instance and attachment UUIDs are returned.
 func (s *storageSuite) addAppUnitStorage(c *tc.C) (string, string) {
@@ -162,6 +182,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 	_, err = s.DB().ExecContext(ctx,
 		"INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id) VALUES (?, ?, ?, ?)",
 		storageAttachment, storageInstance, unit, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid) VALUES (?, ?)", storageInstance, unit)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return storageInstance, storageAttachment

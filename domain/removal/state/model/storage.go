@@ -10,8 +10,8 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/internal/errors"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // StorageAttachmentExists returns true if a storage attachment with the input
@@ -143,4 +143,68 @@ WHERE  uuid = $entityUUID.uuid`, saLife, saUUID)
 	}
 
 	return life.Life(saLife.Life), nil
+}
+
+// DeleteStorageAttachment removes a unit storage attachment from the database
+// completely. If the unit attached to the storage was its owner, then that
+// record is deleted too.
+func (st *State) DeleteStorageAttachment(ctx context.Context, rUUID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	saUUID := entityUUID{UUID: rUUID}
+
+	q := `
+SELECT suo.storage_instance_uuid AS &entityUUID.uuid 
+FROM   storage_unit_owner suo
+JOIN   storage_attachment sa
+       ON  suo.storage_instance_uuid = sa.storage_instance_uuid
+	   AND suo.unit_uuid = sa.unit_uuid
+WHERE  sa.uuid = $entityUUID.uuid`
+	suoStmt, err := st.Prepare(q, saUUID)
+	if err != nil {
+		return errors.Errorf("preparing unit storage owner query: %w", err)
+	}
+
+	dsaStmt, err := st.Prepare("DELETE FROM storage_attachment WHERE uuid = $entityUUID.uuid ", saUUID)
+	if err != nil {
+		return errors.Errorf("preparing unit storage attachment deletion: %w", err)
+	}
+
+	var siUUID entityUUID
+	dsoStmt, err := st.Prepare("DELETE FROM storage_unit_owner WHERE storage_instance_uuid = $entityUUID.uuid ", siUUID)
+	if err != nil {
+		return errors.Errorf("preparing unit storage attachment deletion: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		unitIsOwner := true
+		err = tx.Query(ctx, suoStmt, saUUID).Get(&siUUID)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				// At the time of writing, this actually never happens.
+				// There is only one unit attachment to a storage instance,
+				// and that unit is the owner.
+				unitIsOwner = false
+			} else {
+				return errors.Errorf("running unit storage owner query: %w", err)
+			}
+		}
+
+		err = tx.Query(ctx, dsaStmt, saUUID).Run()
+		if err != nil {
+			return errors.Errorf("running unit storage attachment deletion: %w", err)
+		}
+
+		if unitIsOwner {
+			err = tx.Query(ctx, dsoStmt, siUUID).Run()
+			if err != nil {
+				return errors.Errorf("running unit storage owner deletion: %w", err)
+			}
+		}
+
+		return nil
+	}))
 }
