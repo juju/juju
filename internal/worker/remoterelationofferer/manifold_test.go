@@ -35,7 +35,7 @@ func (s *ManifoldConfigSuite) validConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		ModelUUID:          modeltesting.GenModelUUID(c),
 		DomainServicesName: "domain-services",
-		GetCrossModelServices: func(getter dependency.Getter, domainServicesName string) (CrossModelRelationService, error) {
+		GetCrossModelServices: func(getter dependency.Getter, domainServicesName string) (CrossModelService, error) {
 			return nil, nil
 		},
 		NewWorker: func(Config) (worker.Worker, error) {

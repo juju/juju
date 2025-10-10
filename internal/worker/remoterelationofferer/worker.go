@@ -42,9 +42,9 @@ type ConsumerApplicationWorker interface {
 	ConsumeVersion() int
 }
 
-// CrossModelRelationService is an interface that defines the methods for
+// CrossModelService is an interface that defines the methods for
 // managing cross-model relations directly on the local model database.
-type CrossModelRelationService interface {
+type CrossModelService interface {
 	// WatchRemoteApplicationConsumers watches the changes to remote
 	// application consumers and notifies the worker of any changes.
 	WatchRemoteApplicationConsumers(ctx context.Context) (watcher.NotifyWatcher, error)
@@ -57,7 +57,7 @@ type CrossModelRelationService interface {
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID                         model.UUID
-	CrossModelRelationService         CrossModelRelationService
+	CrossModelService                 CrossModelService
 	NewRemoteOffererApplicationWorker NewRemoteOffererApplicationWorkerFunc
 	Clock                             clock.Clock
 	Logger                            logger.Logger
@@ -68,8 +68,8 @@ func (config Config) Validate() error {
 	if config.ModelUUID == "" {
 		return errors.NotValidf("empty ModelUUID")
 	}
-	if config.CrossModelRelationService == nil {
-		return errors.NotValidf("nil CrossModelRelationService")
+	if config.CrossModelService == nil {
+		return errors.NotValidf("nil CrossModelService")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -88,7 +88,7 @@ type Worker struct {
 
 	config Config
 
-	crossModelRelationService CrossModelRelationService
+	crossModelService CrossModelService
 
 	logger logger.Logger
 }
@@ -119,8 +119,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		runner: runner,
 		config: config,
 
-		crossModelRelationService: config.CrossModelRelationService,
-		logger:                    config.Logger,
+		crossModelService: config.CrossModelService,
+		logger:            config.Logger,
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -154,7 +154,7 @@ func (w *Worker) loop() (err error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	watcher, err := w.crossModelRelationService.WatchRemoteApplicationConsumers(ctx)
+	watcher, err := w.crossModelService.WatchRemoteApplicationConsumers(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -183,7 +183,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 
 	// Fetch the current state of each of the offerer applications that have
 	// changed.
-	results, err := w.crossModelRelationService.GetRemoteApplicationConsumers(ctx)
+	results, err := w.crossModelService.GetRemoteApplicationConsumers(ctx)
 	if err != nil {
 		return errors.Annotate(err, "querying offerer applications")
 	}

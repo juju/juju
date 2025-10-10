@@ -20,7 +20,7 @@ import (
 type baseSuite struct {
 	testhelpers.IsolationSuite
 
-	crossModelRelationService *MockCrossModelRelationService
+	crossModelService *MockCrossModelService
 
 	logger logger.Logger
 }
@@ -28,7 +28,7 @@ type baseSuite struct {
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
+	s.crossModelService = NewMockCrossModelService(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)
 

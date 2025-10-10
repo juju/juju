@@ -34,7 +34,7 @@ func (s *workerSuite) TestWorkerKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.crossModelRelationService.EXPECT().WatchRemoteApplicationConsumers(gomock.Any()).
+	s.crossModelService.EXPECT().WatchRemoteApplicationConsumers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			defer close(done)
 			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
@@ -57,7 +57,7 @@ func (s *workerSuite) TestRemoteApplications(c *tc.C) {
 
 	ch := make(chan struct{})
 
-	exp := s.crossModelRelationService.EXPECT()
+	exp := s.crossModelService.EXPECT()
 	exp.WatchRemoteApplicationConsumers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
@@ -101,7 +101,7 @@ func (s *workerSuite) TestRemoteApplicationsDead(c *tc.C) {
 
 	ch := make(chan struct{})
 
-	exp := s.crossModelRelationService.EXPECT()
+	exp := s.crossModelService.EXPECT()
 	exp.WatchRemoteApplicationConsumers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
@@ -161,7 +161,7 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 
 	ch := make(chan struct{})
 
-	exp := s.crossModelRelationService.EXPECT()
+	exp := s.crossModelService.EXPECT()
 	exp.WatchRemoteApplicationConsumers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
@@ -216,7 +216,7 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 
 	ch := make(chan struct{})
 
-	exp := s.crossModelRelationService.EXPECT()
+	exp := s.crossModelService.EXPECT()
 	exp.WatchRemoteApplicationConsumers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
@@ -290,8 +290,8 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 	w, err := NewWorker(Config{
-		ModelUUID:                 s.modelUUID,
-		CrossModelRelationService: s.crossModelRelationService,
+		ModelUUID:         s.modelUUID,
+		CrossModelService: s.crossModelService,
 		NewRemoteOffererApplicationWorker: func(config RemoteOffererWorkerConfig) (ReportableWorker, error) {
 			defer func() {
 				started <- config.ApplicationName

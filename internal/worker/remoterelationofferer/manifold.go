@@ -25,7 +25,7 @@ type NewRemoteOffererApplicationWorkerFunc func(RemoteOffererWorkerConfig) (Repo
 
 // GetCrossModelServicesFunc defines the function signature for getting
 // cross-model services.
-type GetCrossModelServicesFunc func(getter dependency.Getter, domainServicesName string) (CrossModelRelationService, error)
+type GetCrossModelServicesFunc func(getter dependency.Getter, domainServicesName string) (CrossModelService, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
@@ -89,7 +89,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
-			crossModelRelationService, err := config.GetCrossModelServices(getter, config.DomainServicesName)
+			crossModelService, err := config.GetCrossModelServices(getter, config.DomainServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -97,7 +97,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := config.NewWorker(Config{
 				ModelUUID: config.ModelUUID,
 
-				CrossModelRelationService:         crossModelRelationService,
+				CrossModelService:                 crossModelService,
 				NewRemoteOffererApplicationWorker: config.NewRemoteOffererApplicationWorker,
 
 				Clock:  config.Clock,
@@ -113,7 +113,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // GetCrossModelServices returns the cross-model relation services
 // from the dependency engine.
-func GetCrossModelServices(getter dependency.Getter, domainServicesName string) (CrossModelRelationService, error) {
+func GetCrossModelServices(getter dependency.Getter, domainServicesName string) (CrossModelService, error) {
 	var services services.DomainServices
 	if err := getter.Get(domainServicesName, &services); err != nil {
 		return nil, errors.Trace(err)
