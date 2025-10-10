@@ -597,6 +597,7 @@ func allCollections() CollectionSchema {
 				{Key: []string{"model-uuid", "_id", "revision"}},
 				{Key: []string{"model-uuid", "_id", "owner-tag"}},
 				{Key: []string{"model-uuid", "owner-tag"}},
+				{Key: []string{"model-uuid", "obsolete"}},
 			},
 		},
 
