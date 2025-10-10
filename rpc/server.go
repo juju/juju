@@ -677,6 +677,10 @@ func (conn *Conn) callRequest(
 ) {
 	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)
 	if err != nil {
+		if err := conn.root.FlightRecorder().Capture(flightrecorder.KindError); err != nil {
+			logger.Tracef(ctx, "error capturing flight recorder: %v", err)
+		}
+
 		// Record the first error, this is the one that will be returned to
 		// the client.
 		trace.SpanFromContext(ctx).RecordError(err)
@@ -696,7 +700,11 @@ func (conn *Conn) callRequest(
 			rvi = struct{}{}
 		}
 		if err := recorder.HandleReply(req.hdr.Request, hdr, rvi); err != nil {
-			logger.Errorf(context.TODO(), "error recording reply %+v: %T %+v", hdr, err, err)
+			logger.Errorf(ctx, "error recording reply %+v: %T %+v", hdr, err, err)
+		}
+
+		if err := conn.root.FlightRecorder().Capture(flightrecorder.KindRequest); err != nil {
+			logger.Tracef(ctx, "error capturing flight recorder: %v", err)
 		}
 
 		// Guard against concurrent writes to the codec, but ensure that
@@ -718,7 +726,7 @@ func (conn *Conn) callRequest(
 			// Record the second error, this is the one that will be recorded if
 			// we can't write the response to the client.
 			trace.SpanFromContext(ctx).RecordError(err)
-			logger.Errorf(context.TODO(), "error writing response: %T %+v", err, err)
+			logger.Errorf(ctx, "error writing response: %T %+v", err, err)
 		}
 	}
 }

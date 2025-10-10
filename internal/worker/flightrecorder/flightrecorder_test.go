@@ -11,6 +11,7 @@ import (
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/flightrecorder"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -43,7 +44,7 @@ func (s *flightRecorderSuite) TestStart(c *tc.C) {
 	recorder := New(s.recorder, "/tmp", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start()
+	err := recorder.Start(flightrecorder.KindAny)
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, recorder)
@@ -58,7 +59,7 @@ func (s *flightRecorderSuite) TestStartStop(c *tc.C) {
 	recorder := New(s.recorder, "/tmp", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start()
+	err := recorder.Start(flightrecorder.KindAny)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = recorder.Stop()
@@ -77,10 +78,10 @@ func (s *flightRecorderSuite) TestStartCapture(c *tc.C) {
 	recorder := New(s.recorder, "/mytmp", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start()
+	err := recorder.Start(flightrecorder.KindAny)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = recorder.Capture()
+	err = recorder.Capture(flightrecorder.KindAny)
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, recorder)
@@ -96,10 +97,10 @@ func (s *flightRecorderSuite) TestStartCaptureDefaultPath(c *tc.C) {
 	recorder := New(s.recorder, "", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start()
+	err := recorder.Start(flightrecorder.KindAny)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = recorder.Capture()
+	err = recorder.Capture(flightrecorder.KindAny)
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, recorder)
