@@ -117,7 +117,7 @@ func (s *Service) storageAttachmentScheduleRemoval(
 }
 
 // processStorageAttachmentRemovalJob handles the fact that storage
-// attachment sare endowed with the "life" characteristic.
+// attachments are endowed with the "life" characteristic.
 // This endowment is historical, but perhaps needless - no action is
 // really needed here except to delete the attachment.
 // Associated removal workflows should have been triggered when

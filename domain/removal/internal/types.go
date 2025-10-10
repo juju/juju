@@ -103,3 +103,31 @@ type CascadedRemoteApplicationOffererLives struct {
 func (c CascadedRemoteApplicationOffererLives) IsEmpty() bool {
 	return len(c.RelationUUIDs) == 0
 }
+
+// CascadedStorageInstanceLives contains identifiers for entities that were
+// ensured to be "dying" along with a storage instance. It is intended to
+// inform the service layer which entities should have removal jobs scheduled
+// for them.
+// Note that there is no IsEmpty method for this struct; an instance always
+// has an attachment to something.
+type CascadedStorageInstanceLives struct {
+	// FileSystemUUID identifes a file-system that the storage instance was
+	// attached to. They are removed if provisioned with "machine" scope
+	// and have no other storage instance attachments.
+	FileSystemUUID *string
+
+	// FileSystemAttachmentUUID identifies the actual attachment of the storage
+	// instance to a file-system. It can be removed even when the attached
+	// file-system is not.
+	FileSystemAttachmentUUID *string
+
+	// VolumeUUID identifes a volume that the storage instance was attached to.
+	// They are removed if provisioned with "machine" scope and have no
+	// other storage instance attachments.
+	VolumeUUID *string
+
+	// VolumeAttachmentUUID identifies the actual attachment of the storage
+	// instance to a volume. It can be removed even when the attached
+	// volume is not.
+	VolumeAttachmentUUID *string
+}
