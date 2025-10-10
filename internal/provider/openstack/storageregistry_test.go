@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/go-goose/goose/v5/client"
-	"github.com/go-goose/goose/v5/identity"
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -18,23 +16,6 @@ import (
 // storageRegistrySuite is a testing suite for asserting the behaviour of the
 // storage.ProviderRegistry implementation on the maas environ.
 type storageRegistrySuite struct {
-}
-
-type testAuthClient struct {
-	client.AuthenticatingClient
-	regionEndpoints map[string]identity.ServiceURLs
-}
-
-func (r *testAuthClient) IsAuthenticated() bool {
-	return true
-}
-
-func (r *testAuthClient) TenantId() string {
-	return "tenant-id"
-}
-
-func (r *testAuthClient) EndpointsForRegion(region string) identity.ServiceURLs {
-	return r.regionEndpoints[region]
 }
 
 func TestStorageRegistrySuite(t *testing.T) {

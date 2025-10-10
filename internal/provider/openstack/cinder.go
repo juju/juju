@@ -741,7 +741,7 @@ type endpointResolver interface {
 // getVolumeEndpointURL interrogates the endpoints catalogue for the region to
 // find the highest version of cinder storage supported. If the region does not
 // have a supported cinder version a nil url is returned with an error
-// satsifying [github.com/juju/juju/core/errors.NotFound].
+// satisfying [github.com/juju/juju/core/errors.NotFound].
 func getVolumeEndpointURL(
 	ctx context.Context,
 	client endpointResolver,
