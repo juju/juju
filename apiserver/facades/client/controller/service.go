@@ -119,7 +119,7 @@ type RelationService interface {
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
 
 	// RelationUnitInScopeByID returns a boolean to indicate whether the given
-	// unit is in scopen of a given relation
+	// unit is in scope of a given relation
 	RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool,
 		error)
 }

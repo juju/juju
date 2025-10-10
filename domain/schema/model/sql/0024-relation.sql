@@ -77,9 +77,9 @@ CREATE TABLE relation (
     life_id INT NOT NULL,
     relation_id INT NOT NULL,
     -- NOTE: the scope of a relation is not just the same as the scope of either
-    -- of it's endpoints. It's a property we need to consider as intrinsic to the
-    -- relation itself. This is because a relation is considered container-scoped
-    -- if either of it's endpoints are container-scoped.
+    -- of it's endpoints. It's a property we need to consider as intrinsic to
+    -- the relation itself. This is because a relation is considered
+    -- container-scoped if either of it's endpoints are container-scoped.
     scope_id INT NOT NULL,
     CONSTRAINT fk_relation_life
     FOREIGN KEY (life_id)

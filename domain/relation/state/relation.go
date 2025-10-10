@@ -2961,13 +2961,47 @@ WHERE  r.uuid = $getRelation.uuid
 		return domainrelation.RelationDetailsResult{}, errors.Errorf("getting relation endpoints: %w", err)
 	}
 
+	inScopeCount, err := st.countInScopeRelations(ctx, tx, rel.UUID)
+	if err != nil {
+		return domainrelation.RelationDetailsResult{}, errors.Errorf("counting in-scope relations: %w", err)
+	}
+
 	return domainrelation.RelationDetailsResult{
-		Life:      rel.Life,
-		UUID:      rel.UUID,
-		ID:        rel.ID,
-		Suspended: rel.Suspended,
-		Endpoints: endpoints,
+		Life:         rel.Life,
+		UUID:         rel.UUID,
+		ID:           rel.ID,
+		Suspended:    rel.Suspended,
+		Endpoints:    endpoints,
+		InScopeUnits: inScopeCount,
 	}, nil
+}
+
+// countInScopeRelations counts the number of units in the relation that are in
+// scope (i.e. the number of relation_unit documents associated with a
+// relation).
+func (st *State) countInScopeRelations(ctx context.Context, tx *sqlair.TX, relationUUID corerelation.UUID) (int, error) {
+	type getCount struct {
+		UUID  string `db:"uuid"`
+		Count int    `db:"count"`
+	}
+
+	count := getCount{UUID: relationUUID.String()}
+	stmt, err := st.Prepare(`
+SELECT count(*) AS &getCount.count
+FROM   relation_unit ru
+JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
+WHERE  re.relation_uuid = $getCount.uuid
+`, count)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, count).Get(&count)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return 0, errors.Capture(err)
+	}
+
+	return count.Count, nil
 }
 
 // inferEndpoints determines and validates the endpoints of a given relation

@@ -49,6 +49,9 @@ type RelationDetails struct {
 	Endpoints []Endpoint
 	// Suspended indicates if the status of this relation is "suspended".
 	Suspended bool
+	// InScopeUnits is a count of the number of units that have entered
+	// the scope of this relation.
+	InScopeUnits int
 }
 
 // RelationDetailsResult represents the current application's view of a
@@ -64,6 +67,9 @@ type RelationDetailsResult struct {
 	Endpoints []Endpoint
 	// Suspended indicates if the status of this relation is "suspended".
 	Suspended bool
+	// InScopeUnits is a count of the number of units that have entered
+	// the scope of this relation.
+	InScopeUnits int
 }
 
 // RelationData holds information about a unit's relation.

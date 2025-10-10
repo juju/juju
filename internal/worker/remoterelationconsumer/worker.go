@@ -123,6 +123,11 @@ type CrossModelRelationService interface {
 	// SaveMacaroonForRelation saves the given macaroon for the specified remote
 	// application.
 	SaveMacaroonForRelation(context.Context, corerelation.UUID, *macaroon.Macaroon) error
+
+	// ProcessRelationChange processes any pending relation changes from the
+	// offerer side of the relation. This ensures that we have a mirror image
+	// of the relation data in the consumer model.
+	ProcessRelationChange(context.Context) error
 }
 
 // StatusService is an interface that defines the methods for
