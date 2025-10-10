@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -313,27 +314,76 @@ func (s *BaseCommandSuite) TestNewAPIConnectionParams(c *gc.C) {
 	c.Assert(params.DialOpts.LoginProvider, gc.IsNil)
 }
 
-// TestNewAPIConnectionParamsWithOAuthController is similar
-// to TestNewAPIConnectionParams but verifies that when
-// connecting to a controller supporting OIDC, we default
-// to a specific kind of login provider.
-func (s *BaseCommandSuite) TestNewAPIConnectionParamsWithOAuthController(c *gc.C) {
-	newController, err := s.store.ControllerByName(s.store.CurrentControllerName)
-	c.Assert(err, jc.ErrorIsNil)
-	newController.OIDCLogin = true
-	s.store.Controllers["oauth-controller"] = *newController
+func (s *BaseCommandSuite) TestNewAPIRoot_OIDCLogin_TriesInOrder(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+
+	conn := mocks.NewMockConnection(ctrl)
+
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"testing.invalid:1234"},
+		OIDCLogin:    true,
+	}
 
 	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.SetClientStore(s.store)
+	baseCmd.SetAPIOpen(func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		// We don't care about the result, just the APICalls made to the login facades.
+		opts.LoginProvider.Login(ctx, conn)
+		return conn, nil
+	})
 	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
-	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar", Password: "hunter2",
+
+	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
+
+	request := struct {
+		ClientID     string `json:"client-id"`
+		ClientSecret string `json:"client-secret"`
+	}{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
 	}
-	account := s.store.Accounts["foo"]
-	params, err := baseCmd.NewAPIConnectionParams(s.store, "oauth-controller", "", &account)
+	os.Setenv("JUJU_CLIENT_ID", request.ClientID)
+	os.Setenv("JUJU_CLIENT_SECRET", request.ClientSecret)
+	defer func() {
+		os.Unsetenv("JUJU_CLIENT_ID")
+		os.Unsetenv("JUJU_CLIENT_SECRET")
+	}()
+
+	// Expect env login first.
+	conn.EXPECT().APICall(
+		"Admin",
+		gomock.Any(),
+		gomock.Any(),
+		"LoginWithClientCredentials",
+		request,
+		gomock.Any(),
+	)
+
+	//Expect session token login second.
+	conn.EXPECT().APICall(
+		"Admin",
+		gomock.Any(),
+		gomock.Any(),
+		"LoginWithSessionToken",
+		gomock.Any(),
+		gomock.Any(),
+	)
+
+	conn.EXPECT().AuthTag()
+	conn.EXPECT().APIHostPorts()
+	conn.EXPECT().ServerVersion()
+	conn.EXPECT().Addr()
+	conn.EXPECT().IPAddr()
+	conn.EXPECT().PublicDNSName()
+	conn.EXPECT().IsProxied()
+	conn.EXPECT().ControllerAccess()
+
+	_, err := baseCmd.NewAPIRoot()
 	c.Assert(err, jc.ErrorIsNil)
-	sessionTokenLogin := api.NewSessionTokenLoginProvider("", nil, nil)
-	c.Assert(params.DialOpts.LoginProvider, gc.FitsTypeOf, sessionTokenLogin)
 }
 
 type NewGetBootstrapConfigParamsFuncSuite struct {
