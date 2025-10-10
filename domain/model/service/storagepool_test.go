@@ -312,3 +312,45 @@ func (s *storagePoolSuite) TestSeedDefaultStoragePools(c *tc.C) {
 	err := svc.SeedDefaultStoragePools(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
+
+// TestSeedDefaultStoragePoolsNotKnown is a regression test. When a provider
+// returns a default storage pool that the storage domain has not yet been made
+// aware of we currently log that no fixed uuid exists. We should however not
+// try to include this default pool in the model as it will be made with a uuid
+// that we cannot predict and so model migration will be hampered in the future.
+//
+// The regression this is testing was still trying to add the pool with an empty
+// uuid when the default pool was not known.
+func (s *storagePoolSuite) TestSeedDefaultStoragePoolsNotKnown(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	defaultPool1, _ := internalstorage.NewConfig(
+		"unknown", "unknown", internalstorage.Attrs{},
+	)
+	sp1 := NewMockStorageProvider(ctrl)
+	sp1.EXPECT().DefaultPools().Return([]*internalstorage.Config{defaultPool1})
+	s.mockProviderRegistry.EXPECT().RecommendedPoolForKind(
+
+		gomock.Any(),
+	).Return(nil).AnyTimes()
+	s.mockProviderRegistry.EXPECT().StorageProviderTypes().Return(
+		[]internalstorage.ProviderType{"unknown"}, nil,
+	)
+	s.mockProviderRegistry.EXPECT().StorageProvider(
+		internalstorage.ProviderType("unknown"),
+	).Return(sp1, nil)
+
+	s.mockModelState.EXPECT().EnsureDefaultStoragePools(
+		gomock.Any(),
+		// We don't want to see any pools being created.
+		[]internal.CreateModelDefaultStoragePoolArg{},
+	).Return(nil).Return(nil)
+	s.mockModelState.EXPECT().SetModelStoragePools(
+		gomock.Any(), []internal.SetModelStoragePoolArg{},
+	).Return(nil).AnyTimes()
+
+	svc := s.providerService(c)
+	err := svc.SeedDefaultStoragePools(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+}

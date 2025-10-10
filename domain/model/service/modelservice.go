@@ -623,17 +623,17 @@ func (s *ProviderModelService) SeedDefaultStoragePools(
 			cfg.Name(),
 			cfg.Provider().String(),
 		)
-
-		// This happens when the default pool is not supported yet by the
-		// storage domain. This shouldn't stop the model from being created.
-		// Instead we log the problem.
 		if errors.Is(err, coreerrors.NotFound) {
+			// This happens when the default pool is not supported yet by the
+			// storage domain. This shouldn't stop the model from being created.
+			// Instead we log the problem.
 			s.logger.Warningf(
 				ctx,
 				"storage provider %q default pool %q is not recognised, adding to model with generated uuid.",
 				cfg.Provider().String(),
 				cfg.Name(),
 			)
+			return nil
 		} else if err != nil {
 			return fmt.Errorf(
 				"getting storage pool uuid for default provider %q pool %q",
