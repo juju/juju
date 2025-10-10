@@ -254,7 +254,7 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 				started <- config.ApplicationName
 			}()
 
-			return &testRemoteApplicationWorker{
+			return &testOffererApplicationWorker{
 				reportableWorker: reportableWorker{Worker: workertest.NewErrorWorker(nil)},
 				offerUUID:        config.OfferUUID,
 				consumeVersion:   config.ConsumeVersion,
@@ -277,7 +277,7 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 	return w.(*Worker)
 }
 
-type testRemoteApplicationWorker struct {
+type testOffererApplicationWorker struct {
 	reportableWorker
 
 	offerUUID       string
@@ -285,16 +285,8 @@ type testRemoteApplicationWorker struct {
 	applicationName string
 }
 
-var _ RemoteApplicationWorker = (*testRemoteApplicationWorker)(nil)
+var _ OffererApplicationWorker = (*testOffererApplicationWorker)(nil)
 
-func (w *testRemoteApplicationWorker) OfferUUID() string {
-	return w.offerUUID
-}
-
-func (w *testRemoteApplicationWorker) ConsumeVersion() int {
+func (w *testOffererApplicationWorker) ConsumeVersion() int {
 	return w.consumeVersion
-}
-
-func (w *testRemoteApplicationWorker) ApplicationName() string {
-	return w.applicationName
 }
