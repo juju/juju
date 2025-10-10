@@ -79,10 +79,10 @@ func (k *kubernetesClient) RecommendedPoolForKind(
 	kind jujustorage.StorageKind,
 ) *jujustorage.Config {
 	// NOTE (tlm): The Juju logic around if a storage provider through either
-	// it's filesystem or volume source is capable of supporting a given storage
+	// its filesystem or volume source are capable of supporting a given storage
 	// kind is not owned by a provider today. This determinantion is made by
 	// storage provisoning where the assumption is that a volume source can be a
-	// volume or filesystem source. This divorses the provider from being
+	// volume or filesystem source. This divorces the provider from being
 	// involved in the decision making even though it provides the storage.
 	//
 	// For now we assume that the Kubernetes provider is always capable of

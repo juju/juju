@@ -49,7 +49,7 @@ func (env *environ) storageSupported() bool {
 // RecommendedPoolForKind returns the recommended storage pool to use for
 // the given storage kind. If no pool can be recommended nil is returned. The
 // LXD provider recommends that for filesystem storage it's default storage pool
-// is used. For all other types of storage it deferes to the common IAAS pool.
+// is used. For all other types of storage it defers to the common IAAS pool.
 //
 // Implements [storage.PoolAdvisor] interface.
 func (env *environ) RecommendedPoolForKind(
