@@ -22,10 +22,11 @@ run_state_delete_get_set() {
 	destroy_model "${model_name}"
 }
 
-# The unit's state set via the charm, is sharing a doc with the uniter's state.
-# They use the same method in state to update the db doc.  For the uniter's
-# state, SetState in the uniter api is used.  For the unit's state, Commit is
-# used.  Ensure that data set via Commit, is not overwritten by SetState.
+# This is probably a relic of old 3.6 where unit state and uniter state where sharing a doc in mongo.
+# In 4.0, both use the same state method to be updated but they update different table (eg unit_state and
+# unit_state_charm in SetUnitState from unitstate domain.
+# https://github.com/juju/juju/blob/e75583673ecbe401c5261b83e1b09d44b285464b/domain/unitstate/state/state.go#L109
+# This test ensure that SetState and CommitHookChanges doesn't overwrite each other
 run_state_set_clash_uniter_state() {
 	echo
 
@@ -34,18 +35,18 @@ run_state_set_clash_uniter_state() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu-lite
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	juju deploy tiny-bash app --revision=3 --channel=latest/stable
+	wait_for "app" "$(idle_condition "app")"
 
-	juju exec --unit ubuntu-lite/0 'state-get | grep -q "{}"'
-	juju exec --unit ubuntu-lite/0 'state-set one=two'
-	juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
+	juju exec --unit app/0 'state-get | grep -q "{}"'
+	juju exec --unit app/0 'state-set one=two'
+	juju exec --unit app/0 'state-get | grep -q "one: two"'
 
 	# force a hook
-	juju exec --unit ubuntu-lite/0 hooks/update-status
+	juju exec --unit app/0 hooks/update-status
 
 	# verify charm set values
-	juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
+	juju exec --unit app/0 'state-get | grep -q "one: two"'
 
 	destroy_model "${model_name}"
 }
