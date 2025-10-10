@@ -11,21 +11,41 @@ import (
 	"gopkg.in/tomb.v2"
 )
 
+// FileRecorder defines the interface for a flight recorder that can
+// start, stop and capture recordings to a file.
+type FileRecorder interface {
+	// Start starts the flight recorder.
+	Start() error
+
+	// Stop stops the flight recorder.
+	Stop() error
+
+	// Capture captures a flight recording to the given path.
+	Capture(path string) (string, error)
+}
+
 // FlightRecorder is the flight recorder worker.
+//
+// There can be only one flight recorder, and we need to put it inside of the
+// engine, so it also needs to be a worker.
+//
+// The worker is also sequenced into a serialized request loop, so that
+// it delivers predictable results when faced with concurrent requests.
 type FlightRecorder struct {
 	tomb tomb.Tomb
 
 	path     string
-	recorder *Recorder
+	recorder FileRecorder
 	logger   logger.Logger
 
 	ch chan request
 }
 
 // New creates a new flight recorder worker.
-func New(path string, logger logger.Logger) *FlightRecorder {
+func New(recorder FileRecorder, path string, logger logger.Logger) *FlightRecorder {
 	w := &FlightRecorder{
-		recorder: NewRecorder(),
+		recorder: recorder,
+		path:     path,
 		logger:   logger,
 
 		ch: make(chan request),
@@ -161,9 +181,9 @@ func (w *FlightRecorder) captureRecording(ctx context.Context) error {
 	if path == "" {
 		path = "/tmp"
 	}
-	w.logger.Debugf(ctx, "start capturing flight recording into %q", w.path)
+	w.logger.Debugf(ctx, "start capturing flight recording into %q", path)
 
-	path, err := w.recorder.Capture(w.path)
+	path, err := w.recorder.Capture(path)
 	if err != nil {
 		return err
 	}
