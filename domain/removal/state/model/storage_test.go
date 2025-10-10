@@ -10,7 +10,9 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -94,6 +96,23 @@ func (s *storageSuite) TestScheduleStorageAttachmentRemovalSuccess(c *tc.C) {
 	c.Check(rUUID, tc.Equals, attachment)
 	c.Check(force, tc.Equals, false)
 	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *storageSuite) TestGetStorageAttachentLifeSuccess(c *tc.C) {
+	_, saUUID := s.addAppUnitStorage(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetStorageAttachmentLife(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+}
+
+func (s *storageSuite) TestGetStorageAttachmentLifeNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetStorageAttachmentLife(c.Context(), "some-sa-uuid")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
 }
 
 // addAppUnitStorage sets up a unit with a storage attachment.

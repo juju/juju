@@ -9,7 +9,9 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 )
 
 // StorageAttachmentExists returns true if a storage attachment with the input
@@ -105,4 +107,40 @@ func (st *State) StorageAttachmentScheduleRemoval(
 		}
 		return nil
 	}))
+}
+
+// GetStorageAttachmentLife returns the life of the unit storage attachment with
+// the input UUID.
+func (st *State) GetStorageAttachmentLife(ctx context.Context, rUUID string) (life.Life, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var saLife entityLife
+	saUUID := entityUUID{UUID: rUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   storage_attachment
+WHERE  uuid = $entityUUID.uuid`, saLife, saUUID)
+	if err != nil {
+		return -1, errors.Errorf("preparing storage attachment life query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, saUUID).Get(&saLife)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.StorageAttachmentNotFound
+		} else if err != nil {
+			return errors.Errorf("running storage attachment life query: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	return life.Life(saLife.Life), nil
 }
