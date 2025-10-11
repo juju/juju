@@ -5,6 +5,8 @@ package state
 
 import (
 	"context"
+	"github.com/juju/juju/domain/agentbinary"
+	"github.com/juju/juju/domain/modelagent"
 
 	"github.com/canonical/sqlair"
 
@@ -80,9 +82,9 @@ FROM   controller_node_agent_version
 	return rval, nil
 }
 
-// GetControllerVersion returns the target controller version in use by the
+// GetControllerTargetVersion returns the target controller version in use by the
 // cluster.
-func (s *ControllerState) GetControllerVersion(ctx context.Context) (semversion.Number, error) {
+func (s *ControllerState) GetControllerTargetVersion(ctx context.Context) (semversion.Number, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return semversion.Number{}, errors.Capture(err)
@@ -167,4 +169,50 @@ SET    target_version = $setControllerTargetVersion.target_version
 	}
 
 	return nil
+}
+
+// TODO: doc this
+func (s *ControllerState) HasAgentBinaryForVersionArchitecturesAndStream(ctx context.Context, version semversion.Number, architectures []agentbinary.Architecture, stream modelagent.AgentStream) (map[agentbinary.Architecture]bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	architectureIds := make(ids, len(architectures))
+	for i, arch := range architectures {
+		architectureIds[i] = int(arch)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT &binaryForVersionAndArchitectures.*
+FROM v_agent_binary_store
+WHERE version = $binaryVersion AND architecture_id IN ($ids[:])
+`, binaryForVersionAndArchitectures{}, binaryVersion{}, ids{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var binaries []binaryForVersionAndArchitectures
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, binaryVersion{Version: version.String()}, architectures).GetAll(&binaries)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+
+	// Initialize each architecture to false.
+	result := make(map[agentbinary.Architecture]bool)
+	for _, architecture := range architectures {
+		result[architecture] = false
+	}
+	// Set the map entry for an architecture to true if they exist
+	// in DB.
+	for _, binary := range binaries {
+		result[agentbinary.Architecture(binary.ArchitectureID)] = true
+	}
+
+	return result, errors.Capture(err)
 }

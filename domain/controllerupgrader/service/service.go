@@ -6,23 +6,31 @@ package service
 import (
 	"context"
 	"fmt"
-
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/agentbinary"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
+	"github.com/juju/juju/domain/controllerupgrader/state"
 	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
+	"github.com/juju/juju/environs"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 // AgentBinaryFinder defines a helper for asserting if agent binaries are
 // available and identifying upgrade versions.
 type AgentBinaryFinder interface {
-	// HasBinariesForVersion will interrogate agent binaries available in the
+	// HasBinariesForVersionAndArchitectures will interrogate agent binaries available in the
 	// system and return true or false if agent binaries exist for the provided
-	// version.
-	HasBinariesForVersion(context.Context, semversion.Number) (bool, error)
+	// version and architectures.
+	HasBinariesForVersionAndArchitectures(
+		context.Context,
+		semversion.Number,
+		[]agentbinary.Architecture,
+	) (bool, error)
 
 	// HasBinariesForVersionAndStream will interrogate agent binaries available
 	// in the system and return true or false if agent binaries exist for the
@@ -35,7 +43,7 @@ type AgentBinaryFinder interface {
 	// version available for the current controller version.
 	GetHighestPatchVersionAvailable(context.Context) (semversion.Number, error)
 
-	// GetHighestPatchVersionAvailable will return the highest available patch
+	// GetHighestPatchVersionAvailableForStream will return the highest available patch
 	// version available for the current controller version and stream.
 	GetHighestPatchVersionAvailableForStream(
 		context.Context, modelagent.AgentStream,
@@ -58,6 +66,14 @@ type ControllerState interface {
 	// controller version in use by the cluster. Controllers in the cluster will
 	// eventually upgrade to this version once changed.
 	SetControllerTargetVersion(context.Context, semversion.Number) error
+
+	// TODO: doc this
+	HasAgentBinaryForVersionArchitecturesAndStream(
+		context context.Context,
+		version semversion.Number,
+		architectures []agentbinary.Architecture,
+		stream modelagent.AgentStream,
+	) (map[agentbinary.Architecture]bool, error)
 }
 
 // ControllerModelState defines the interface for interacting with the
@@ -91,6 +107,42 @@ type ControllerModelState interface {
 		toVersion semversion.Number,
 		stream modelagent.AgentStream,
 	) error
+
+	// TODO: doc this
+	HasAgentBinaryForVersionAndArchitectures(
+		context context.Context,
+		version semversion.Number,
+		architectures []agentbinary.Architecture,
+	) (map[agentbinary.Architecture]bool, error)
+
+	// TODO: doc this
+	GetModelAgentStream(ctx context.Context) (state.AgentStream, error)
+}
+
+// PreferredSimpleStreamsFunc is a function that returns the preferred streams
+// for the given version and stream.
+type PreferredSimpleStreamsFunc func(
+	vers *semversion.Number,
+	forceDevel bool,
+	stream string,
+) []string
+
+// AgentBinaryFilter is a function that filters agent binaries based on the
+// given parameters. It returns a list of agent binaries that match the filter
+// criteria.
+type AgentBinaryFilter func(
+	ctx context.Context,
+	ss envtools.SimplestreamsFetcher,
+	env environs.BootstrapEnviron,
+	majorVersion,
+	minorVersion int,
+	streams []string,
+	filter coretools.Filter,
+) (coretools.List, error)
+
+// ProviderForAgentBinaryFinder is a subset of cloud provider.
+type ProviderForAgentBinaryFinder interface {
+	environs.BootstrapEnviron
 }
 
 // Service defines a service for interacting with the controller's version and
@@ -258,7 +310,7 @@ func (s *Service) UpgradeControllerWithStream(
 // version number.
 // - [controllerupgradererrors.DowngradeNotSupported] if the requested version
 // being upgraded to would result in a downgrade of the controller.
-// - [controllerupgradeerrors.VersionNotSupported] if the requested version
+// - [controllerupgradererrors.VersionNotSupported] if the requested version
 // being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.MissingControllerBinaries] if no controller
 // binaries can be found for the requested version.

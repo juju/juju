@@ -55,3 +55,18 @@ func (s AgentStream) IsValid() bool {
 		return false
 	}
 }
+
+func (s AgentStream) String() string {
+	switch s {
+	case AgentStreamReleased:
+		return "released"
+	case AgentStreamProposed:
+		return "proposed"
+	case AgentStreamTesting:
+		return "testing"
+	case AgentStreamDevel:
+		return "devel"
+	}
+
+	return ""
+}
