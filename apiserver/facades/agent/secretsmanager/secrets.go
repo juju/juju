@@ -689,32 +689,50 @@ func (s *SecretsManagerAPI) updateAppOwnedOrUnitOwnedSecretLabel(uri *coresecret
 	return errors.Trace(err)
 }
 
-func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecrets.URI, label string) (*coresecrets.SecretMetadata, error) {
+func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(
+	uri *coresecrets.URI, label string,
+) (*coresecrets.SecretMetadataOwnerIdent, error) {
 	notFoundErr := errors.NotFoundf("secret %q", uri)
 	if label != "" {
 		notFoundErr = errors.NotFoundf("secret with label %q", label)
 	}
 
-	filter := state.SecretsFilter{
-		OwnerTags: []names.Tag{s.authTag},
-	}
-	if s.authTag.Kind() == names.UnitTagKind {
-		// Units can access application owned secrets.
-		appOwner := names.NewApplicationTag(commonsecrets.AuthTagApp(s.authTag))
-		filter.OwnerTags = append(filter.OwnerTags, appOwner)
-	}
-	mds, err := s.secretsState.ListSecrets(filter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, md := range mds {
-		if uri != nil && md.URI.ID == uri.ID {
-			return md, nil
-		}
-		if label != "" && md.Label == label {
-			return md, nil
+	if uri != nil {
+		switch tag := s.authTag.(type) {
+		case names.UnitTag:
+			md, err := s.secretsState.GetOwnedSecretMetadataAsUnit(tag, uri)
+			if errors.Is(err, errors.NotFound) {
+				err = notFoundErr
+			}
+			return md, errors.Trace(err)
+		case names.ApplicationTag:
+			md, err := s.secretsState.GetOwnedSecretMetadataAsApp(tag, uri)
+			if errors.Is(err, errors.NotFound) {
+				err = notFoundErr
+			}
+			return md, errors.Trace(err)
 		}
 	}
+
+	if label != "" {
+		switch tag := s.authTag.(type) {
+		case names.UnitTag:
+			md, err := s.secretsState.GetOwnedSecretMetadataByLabelAsUnit(
+				tag, label)
+			if errors.Is(err, errors.NotFound) {
+				err = notFoundErr
+			}
+			return md, errors.Trace(err)
+		case names.ApplicationTag:
+			md, err := s.secretsState.GetOwnedSecretMetadataByLabelAsApp(
+				tag, label)
+			if errors.Is(err, errors.NotFound) {
+				err = notFoundErr
+			}
+			return md, errors.Trace(err)
+		}
+	}
+
 	return nil, notFoundErr
 }
 

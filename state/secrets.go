@@ -1004,6 +1004,147 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	return result, nil
 }
 
+func (s *secretsStore) GetOwnedSecretMetadataByLabelAsUnit(
+	unit names.UnitTag, label string,
+) (*secrets.SecretMetadataOwnerIdent, error) {
+	c, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	appName, _ := names.UnitApplication(unit.Id())
+	owners := []string{
+		unit.String(),
+		names.NewApplicationTag(appName).String(),
+	}
+	q := bson.D{
+		secretOwnerTerm(owners),
+		{"label", label},
+	}
+
+	var doc secretMetadataDoc
+	err := c.Find(q).Select(bson.D{
+		{"owner-tag", 1},
+	}).One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return nil, errors.NotFoundf(
+			"secret owned by %v by label %q",
+			unit, label,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	uri, err := secrets.ParseURI(s.st.localID(doc.DocID))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &secrets.SecretMetadataOwnerIdent{
+		URI:      uri,
+		OwnerTag: doc.OwnerTag,
+		Label:    label,
+	}, nil
+}
+
+func (s *secretsStore) GetOwnedSecretMetadataByLabelAsApp(
+	app names.ApplicationTag, label string,
+) (*secrets.SecretMetadataOwnerIdent, error) {
+	c, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	q := bson.D{
+		{"owner-tag", app.String()},
+		{"label", label},
+	}
+
+	var doc secretMetadataDoc
+	err := c.Find(q).Select(bson.D{}).One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return nil, errors.NotFoundf(
+			"secret owned by %v by label %q",
+			app, label,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	uri, err := secrets.ParseURI(s.st.localID(doc.DocID))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &secrets.SecretMetadataOwnerIdent{
+		URI:      uri,
+		OwnerTag: app.String(),
+		Label:    label,
+	}, nil
+}
+
+func (s *secretsStore) GetOwnedSecretMetadataAsUnit(
+	unit names.UnitTag, uri *secrets.URI,
+) (*secrets.SecretMetadataOwnerIdent, error) {
+	c, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	appName, _ := names.UnitApplication(unit.Id())
+	owners := []string{
+		unit.String(),
+		names.NewApplicationTag(appName).String(),
+	}
+	q := bson.D{
+		{"_id", uri.ID},
+		secretOwnerTerm(owners),
+	}
+
+	var doc secretMetadataDoc
+	err := c.Find(q).Select(bson.D{
+		{"owner-tag", 1},
+		{"label", 1},
+	}).One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return nil, errors.NotFoundf(
+			"secret owned by %v by id %q",
+			unit, uri,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &secrets.SecretMetadataOwnerIdent{
+		URI:      uri,
+		OwnerTag: doc.OwnerTag,
+		Label:    doc.Label,
+	}, nil
+}
+
+func (s *secretsStore) GetOwnedSecretMetadataAsApp(
+	app names.ApplicationTag, uri *secrets.URI,
+) (*secrets.SecretMetadataOwnerIdent, error) {
+	c, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	q := bson.D{
+		{"_id", uri.ID},
+		{"owner-tag", app.String()},
+	}
+
+	var doc secretMetadataDoc
+	err := c.Find(q).Select(bson.D{
+		{"label", 1},
+	}).One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return nil, errors.NotFoundf(
+			"secret owned by %v by id %q",
+			app, uri,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &secrets.SecretMetadataOwnerIdent{
+		URI:      uri,
+		OwnerTag: app.String(),
+		Label:    doc.Label,
+	}, nil
+}
+
 // allModelRevisions uses a raw collection to load secret revisions for all models.
 func (s *secretsStore) allModelRevisions() ([]secretRevisionDoc, error) {
 	var docs []secretRevisionDoc
