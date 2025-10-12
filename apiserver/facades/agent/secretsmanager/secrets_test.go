@@ -1662,7 +1662,8 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 	s.secretsState.EXPECT().WatchObsolete(
-		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
+		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
+		false).Return(
 		s.secretsWatcher, nil,
 	)
 	s.resources.EXPECT().Register(s.secretsWatcher).Return("1")

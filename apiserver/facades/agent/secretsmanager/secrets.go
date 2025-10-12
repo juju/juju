@@ -913,11 +913,26 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 }
 
 // WatchObsolete returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity no longer
+//     has any consumers
+//
+// Obsolete revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (s *SecretsManagerAPIV3) WatchObsolete(args params.Entities) (params.StringsWatchResult, error) {
+	return s.watchObsolete(args, true)
+}
+
+// WatchObsolete returns a watcher for notifying when:
 //   - a secret revision owed by the entity no longer
 //     has any consumers
 //
 // Obsolete revisions results are "uri/revno".
 func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsWatchResult, error) {
+	return s.watchObsolete(args, false)
+}
+
+func (s *SecretsManagerAPI) watchObsolete(args params.Entities, legacy bool) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	owners := make([]names.Tag, len(args.Entities))
 	for i, arg := range args.Entities {
@@ -938,7 +953,7 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 		}
 		owners[i] = ownerTag
 	}
-	w, err := s.secretsState.WatchObsolete(owners)
+	w, err := s.secretsState.WatchObsolete(owners, legacy)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

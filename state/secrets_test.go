@@ -3198,6 +3198,7 @@ func (s *SecretsObsoleteWatcherSuite) setupWatcher(c *gc.C, forAutoPrune bool) (
 	} else {
 		w, err = s.store.WatchObsolete(
 			[]names.Tag{s.ownerApp.Tag(), s.ownerUnit.Tag()},
+			false,
 		)
 	}
 	c.Assert(err, jc.ErrorIsNil)

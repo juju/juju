@@ -40,7 +40,7 @@ type SecretsState interface {
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
-	WatchObsolete(owners []names.Tag) (state.StringsWatcher, error)
+	WatchObsolete(owners []names.Tag, legacy bool) (state.StringsWatcher, error)
 	WatchDeleted(owners []names.Tag) (state.StringsWatcher, error)
 	ChangeSecretBackend(state.ChangeSecretBackendParams) error
 	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)

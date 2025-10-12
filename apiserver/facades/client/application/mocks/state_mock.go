@@ -720,18 +720,18 @@ func (mr *MockSecretsStoreMockRecorder) WatchDeleted(arg0 any) *gomock.Call {
 }
 
 // WatchObsolete mocks base method.
-func (m *MockSecretsStore) WatchObsolete(arg0 []names.Tag) (state.StringsWatcher, error) {
+func (m *MockSecretsStore) WatchObsolete(arg0 []names.Tag, arg1 bool) (state.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchObsolete", arg0)
+	ret := m.ctrl.Call(m, "WatchObsolete", arg0, arg1)
 	ret0, _ := ret[0].(state.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchObsolete indicates an expected call of WatchObsolete.
-func (mr *MockSecretsStoreMockRecorder) WatchObsolete(arg0 any) *gomock.Call {
+func (mr *MockSecretsStoreMockRecorder) WatchObsolete(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsStore)(nil).WatchObsolete), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsStore)(nil).WatchObsolete), arg0, arg1)
 }
 
 // WatchRevisionsToPrune mocks base method.

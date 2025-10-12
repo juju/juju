@@ -93,7 +93,7 @@ type SecretsStore interface {
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	ListUnusedSecretRevisions(uri *secrets.URI) ([]int, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
-	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
+	WatchObsolete(owners []names.Tag, legacy bool) (StringsWatcher, error)
 	WatchDeleted(owners []names.Tag) (StringsWatcher, error)
 	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
@@ -2072,7 +2072,7 @@ func (w *consumedSecretsWatcher) loop() (err error) {
 //     has any consumers
 //
 // Obsolete revisions results are "uri/revno".
-func (s *secretsStore) WatchObsolete(ownerTags []names.Tag) (StringsWatcher, error) {
+func (s *secretsStore) WatchObsolete(ownerTags []names.Tag, legacy bool) (StringsWatcher, error) {
 	if len(ownerTags) == 0 {
 		return nil, errors.New("missing secret owners")
 	}
@@ -2080,7 +2080,7 @@ func (s *secretsStore) WatchObsolete(ownerTags []names.Tag) (StringsWatcher, err
 	for i, owner := range ownerTags {
 		owners[i] = owner.String()
 	}
-	return newObsoleteSecretsWatcher(s.st, owners, nil), nil
+	return newObsoleteSecretsWatcher(s.st, owners, nil, legacy), nil
 }
 
 // WatchRevisionsToPrune returns a watcher for notifying when a user supplied secret revision needs to be pruned.
@@ -2109,12 +2109,15 @@ func (s *secretsStore) WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatc
 		}
 		return md.AutoPrune
 	}
-	return newObsoleteSecretsWatcher(s.st, owners, fitler), nil
+	return newObsoleteSecretsWatcher(s.st, owners, fitler, false), nil
 }
 
 type obsoleteSecretsWatcher struct {
 	commonWatcher
 	out chan []string
+
+	// legacy implementation includes deleted secrets in the result.
+	legacy bool
 
 	obsoleteRevisionsWatcher *collectionWatcher
 
@@ -2122,7 +2125,7 @@ type obsoleteSecretsWatcher struct {
 	known  set.Strings
 }
 
-func newObsoleteSecretsWatcher(st modelBackend, owners []string, filter func(string) bool) *obsoleteSecretsWatcher {
+func newObsoleteSecretsWatcher(st modelBackend, owners []string, filter func(string) bool, legacy bool) *obsoleteSecretsWatcher {
 	// obsoleteRevisionsWatcher is for tracking secret revisions with no consumers.
 	obsoleteRevisionsWatcher := newCollectionWatcher(st, colWCfg{
 		col: secretRevisionsC,
@@ -2159,6 +2162,7 @@ func newObsoleteSecretsWatcher(st modelBackend, owners []string, filter func(str
 		out:                      make(chan []string),
 		known:                    set.NewStrings(),
 		owners:                   owners,
+		legacy:                   legacy,
 	}
 	w.tomb.Go(func() error {
 		defer w.finish()
@@ -2215,6 +2219,9 @@ func (w *obsoleteSecretsWatcher) mergedOwnedChanges(currentChanges []string, cha
 			if id != uri.String() {
 				newChanges = append(newChanges, c)
 			}
+		}
+		if w.legacy {
+			newChanges = append(newChanges, uri.String())
 		}
 		return newChanges, nil
 	}
