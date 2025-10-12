@@ -639,6 +639,9 @@ func (s *watcherSuite) TestWatchMachineCloudInstance(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
+// TestWatchStorageAttachmentsForUnit is testing that for any life change made
+// to a unit storage attachment the watcher's client is informed of the
+// corresponding storage ids of the attachments that changed.
 func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	svc := s.setupService(c)
 
