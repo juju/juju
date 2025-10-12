@@ -659,10 +659,23 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
+	// Attach the three storage instances to the unit. This MUST create three
+	// events in the watcher each containing the id of the storage instance.
+	var (
+		storageAttachmentUUID1 storageprovisioning.StorageAttachmentUUID
+		storageAttachmentUUID2 storageprovisioning.StorageAttachmentUUID
+		storageAttachmentUUID3 storageprovisioning.StorageAttachmentUUID
+	)
 	harness.AddTest(c, func(c *tc.C) {
-		s.newStorageAttachment(c, storageInstanceUUID1, unitUUID, domainlife.Alive)
-		s.newStorageAttachment(c, storageInstanceUUID2, unitUUID, domainlife.Alive)
-		s.newStorageAttachment(c, storageInstanceUUID3, unitUUID, domainlife.Alive)
+		storageAttachmentUUID1 = s.newStorageAttachment(
+			c, storageInstanceUUID1, unitUUID, domainlife.Alive,
+		)
+		storageAttachmentUUID2 = s.newStorageAttachment(
+			c, storageInstanceUUID2, unitUUID, domainlife.Alive,
+		)
+		storageAttachmentUUID3 = s.newStorageAttachment(
+			c, storageInstanceUUID3, unitUUID, domainlife.Alive,
+		)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -673,9 +686,16 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 		)
 	})
 
+	// Set attachments 1 and 2 to dying. This must trigger two events on the
+	// watcher one for each storage instance id the attachment corresponds to.
 	harness.AddTest(c, func(c *tc.C) {
-		s.changeStorageAttachmentLife(c, storageInstanceUUID1.String(), domainlife.Dying)
-		s.changeStorageAttachmentLife(c, storageInstanceUUID2.String(), domainlife.Dying)
+		s.changeStorageAttachmentLives(
+			c,
+			map[storageprovisioning.StorageAttachmentUUID]domainlife.Life{
+				storageAttachmentUUID1: domainlife.Dying,
+				storageAttachmentUUID2: domainlife.Dying,
+			},
+		)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -685,9 +705,16 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 		)
 	})
 
+	// Set attachments 1 to dead and 3 to dying. This must trigger two events on
+	// watcher one for each storage instance id the attachment corresponds to.
 	harness.AddTest(c, func(c *tc.C) {
-		s.changeStorageAttachmentLife(c, storageInstanceUUID1.String(), domainlife.Dead)
-		s.changeStorageAttachmentLife(c, storageInstanceUUID3.String(), domainlife.Dying)
+		s.changeStorageAttachmentLives(
+			c,
+			map[storageprovisioning.StorageAttachmentUUID]domainlife.Life{
+				storageAttachmentUUID1: domainlife.Dead,
+				storageAttachmentUUID3: domainlife.Dying,
+			},
+		)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -840,16 +867,33 @@ func (s *watcherSuite) TestWatchStorageAttachmentForFilesystem(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) changeStorageAttachmentLife(
-	c *tc.C, storageInstanceUUID string, life domainlife.Life,
+// changeStorageAttachmentLives is a utility function for updating the life
+// value of zero or more storage attachment uuids. This function is designed
+// to perform all of the changes within a single transaction.
+func (s *watcherSuite) changeStorageAttachmentLives(
+	c *tc.C, changes map[storageprovisioning.StorageAttachmentUUID]domainlife.Life,
 ) {
+	if len(changes) == 0 {
+		return
+	}
+
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
+		for uuid, life := range changes {
+			_, err := tx.ExecContext(
+				ctx,
+				`
 UPDATE storage_attachment
 SET    life_id = ?
-WHERE  storage_instance_uuid = ?
-`, int(life), storageInstanceUUID)
-		return err
+WHERE  uuid = ?
+`,
+				int(life),
+				uuid.String(),
+			)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
