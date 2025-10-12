@@ -2358,14 +2358,17 @@ func (st *State) getNewlyOrphanedSecretRevisions(uri *secrets.URI, exceptForCons
 
 	var doc secretRevisionDoc
 	allUnorphanedRevisions := set.NewInts()
+	latest := 0
 	iter := secretRevisionCollection.Find(q).Select(bson.D{{"revision", 1}}).Iter()
 	for iter.Next(&doc) {
 		allUnorphanedRevisions.Add(doc.Revision)
+		if doc.Revision > latest {
+			latest = doc.Revision
+		}
 	}
 	if err := iter.Close(); err != nil {
 		return nil, 0, errors.Trace(err)
 	}
-	latest := allUnorphanedRevisions.SortedValues()[allUnorphanedRevisions.Size()-1]
 	allUnorphanedRevisions.Remove(exceptForRev)
 
 	consumedRevs, err := st.getInUseSecretRevisions(secretConsumersC, uri, exceptForConsumer)
