@@ -561,10 +561,6 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 
 	// Collect the instances for all provisioned machines that are dead.
 	stopping := task.instancesForDeadMachines(ctx, dead)
-	if len(stopping) == 0 {
-		// no instances to stop, as the machines are not provisioned.
-		return nil
-	}
 
 	provTask := workerpool.Task{
 		Type: "stop-instances",

@@ -1414,6 +1414,29 @@ func (s *ProvisionerTaskSuite) TestDyingMachines(c *tc.C) {
 	c.Assert(m0.markForRemoval, tc.IsFalse)
 }
 
+// TestDeadNotProvisionedMachineIsRemoved ensures that a dead machine that failed
+// provisioning is reaped.
+func (s *ProvisionerTaskSuite) TestDeadNotProvisionedMachineIsRemoved(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	// Create a dead machine without an instance.
+	m0 := &testMachine{c: c, id: "0", life: life.Dead}
+
+	broker := environmocks.NewMockEnviron(ctrl)
+	exp := broker.EXPECT()
+	exp.AllRunningInstances(gomock.Any()).Return(nil, nil).MinTimes(1)
+	s.expectMachines(m0)
+
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
+	defer workertest.CleanKill(c, task)
+
+	s.sendModelMachinesChange(c, "0")
+
+	// The machine is marked for removal.
+	s.waitForRemovalMark(c, m0)
+}
+
 // setUpZonedEnviron creates a mock broker with instances based on those set
 // on the test suite, and 3 availability zones.
 func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machines ...*testMachine) *providermocks.MockZonedEnviron {
