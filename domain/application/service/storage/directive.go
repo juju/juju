@@ -75,7 +75,7 @@ func (s *Service) MakeApplicationStorageDirectiveArgs(
 		return nil, nil
 	}
 
-	defaultProvisioners, err := s.st.GetDefaultStorageProvisioners(ctx)
+	modelStoragePools, err := s.st.GetModelStoragePools(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
 			"getting default storage provisioners for model: %w", err,
@@ -94,7 +94,7 @@ func (s *Service) MakeApplicationStorageDirectiveArgs(
 			domainstorage.Name(charmStorageName),
 			directiveOverrides[charmStorageName],
 			charmStorageDef,
-			defaultProvisioners,
+			modelStoragePools,
 		)
 		rval = append(rval, arg)
 	}
@@ -113,7 +113,7 @@ func makeApplicationStorageDirectiveArg(
 	name domainstorage.Name,
 	directiveOverride StorageDirectiveOverride,
 	charmStorageDef internalcharm.Storage,
-	defaultProvisioners internal.DefaultStorageProvisioners,
+	modelStoragePools internal.ModelStoragePools,
 ) application.CreateApplicationStorageDirectiveArg {
 	rval := application.CreateApplicationStorageDirectiveArg{
 		Name: name,
@@ -141,16 +141,16 @@ func makeApplicationStorageDirectiveArg(
 	if directiveOverride.PoolUUID != nil {
 		// Set the pool uuid to the value supplied by the override.
 		rval.PoolUUID = *directiveOverride.PoolUUID
-	} else if defaultProvisioners.BlockdevicePoolUUID != nil &&
+	} else if modelStoragePools.BlockDevicePoolUUID != nil &&
 		charmStorageDef.Type == internalcharm.StorageBlock {
 		// Set the pool uuid if the charm storage is block and a block pool
 		// provisioner exists.
-		rval.PoolUUID = *defaultProvisioners.BlockdevicePoolUUID
-	} else if defaultProvisioners.FilesystemPoolUUID != nil &&
+		rval.PoolUUID = *modelStoragePools.BlockDevicePoolUUID
+	} else if modelStoragePools.FilesystemPoolUUID != nil &&
 		charmStorageDef.Type == internalcharm.StorageFilesystem {
 		// Set the pool uuid if the charm storage is filesystem and a filesystem
 		// pool provisioner exists.
-		rval.PoolUUID = *defaultProvisioners.FilesystemPoolUUID
+		rval.PoolUUID = *modelStoragePools.FilesystemPoolUUID
 	}
 
 	return rval
