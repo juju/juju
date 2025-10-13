@@ -14,14 +14,8 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
 	"github.com/juju/juju/api/controller/firewaller"
-	"github.com/juju/juju/api/controller/remoterelations"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
-
-// NewRemoteRelationsFacade creates a remote relations API facade.
-func NewRemoteRelationsFacade(apiCaller base.APICaller) *remoterelations.Client {
-	return remoterelations.NewClient(apiCaller)
-}
 
 // NewFirewallerFacade creates a firewaller API facade.
 func NewFirewallerFacade(apiCaller base.APICaller) (FirewallerAPI, error) {

@@ -20,6 +20,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
@@ -44,17 +45,17 @@ type newCrossModelFacadeFunc func(context.Context, *api.Info) (CrossModelFirewal
 
 // Config defines the operation of a Worker.
 type Config struct {
-	ModelUUID              string
-	Mode                   string
-	FirewallerAPI          FirewallerAPI
-	RemoteRelationsApi     RemoteRelationsAPI
-	PortsService           PortService
-	MachineService         MachineService
-	ApplicationService     ApplicationService
-	EnvironFirewaller      EnvironFirewaller
-	EnvironModelFirewaller EnvironModelFirewaller
-	EnvironInstances       EnvironInstances
-	EnvironIPV6CIDRSupport bool
+	ModelUUID                 string
+	Mode                      string
+	FirewallerAPI             FirewallerAPI
+	CrossModelRelationService CrossModelRelationService
+	PortsService              PortService
+	MachineService            MachineService
+	ApplicationService        ApplicationService
+	EnvironFirewaller         EnvironFirewaller
+	EnvironModelFirewaller    EnvironModelFirewaller
+	EnvironInstances          EnvironInstances
+	EnvironIPV6CIDRSupport    bool
 
 	NewCrossModelFacadeFunc newCrossModelFacadeFunc
 
@@ -86,8 +87,8 @@ func (cfg Config) Validate() error {
 	if cfg.FirewallerAPI == nil {
 		return errors.NotValidf("nil Firewaller Facade")
 	}
-	if cfg.RemoteRelationsApi == nil {
-		return errors.NotValidf("nil RemoteRelations Facade")
+	if cfg.CrossModelRelationService == nil {
+		return errors.NotValidf("nil crossmodelrelation service")
 	}
 	if cfg.PortsService == nil {
 		return errors.NotValidf("nil PortsService")
@@ -114,15 +115,15 @@ func (cfg Config) Validate() error {
 // machines and reflects those changes onto the backing environment.
 // Uses Firewaller API V1.
 type Firewaller struct {
-	catacomb               catacomb.Catacomb
-	firewallerApi          FirewallerAPI
-	remoteRelationsApi     RemoteRelationsAPI
-	portService            PortService
-	machineService         MachineService
-	applicationService     ApplicationService
-	environFirewaller      EnvironFirewaller
-	environModelFirewaller EnvironModelFirewaller
-	environInstances       EnvironInstances
+	catacomb                  catacomb.Catacomb
+	firewallerApi             FirewallerAPI
+	crossModelRelationService CrossModelRelationService
+	portService               PortService
+	machineService            MachineService
+	applicationService        ApplicationService
+	environFirewaller         EnvironFirewaller
+	environModelFirewaller    EnvironModelFirewaller
+	environInstances          EnvironInstances
 
 	machinesWatcher      watcher.StringsWatcher
 	portsWatcher         watcher.StringsWatcher
@@ -186,7 +187,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 
 	fw := &Firewaller{
 		firewallerApi:              cfg.FirewallerAPI,
-		remoteRelationsApi:         cfg.RemoteRelationsApi,
+		crossModelRelationService:  cfg.CrossModelRelationService,
 		portService:                cfg.PortsService,
 		machineService:             cfg.MachineService,
 		applicationService:         cfg.ApplicationService,
@@ -250,9 +251,14 @@ func (fw *Firewaller) setUp(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 
-	fw.remoteRelationsWatcher, err = fw.remoteRelationsApi.WatchRemoteRelations(ctx)
+	fw.remoteRelationsWatcher, err = fw.crossModelRelationService.WatchRemoteRelations(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		if errors.Is(err, errors.NotImplemented) {
+			// Fall back to a disabled watcher when remote relations are not implemented.
+			fw.remoteRelationsWatcher = common.NewDisabledWatcher()
+		} else {
+			return errors.Trace(err)
+		}
 	}
 	if err := fw.catacomb.Add(fw.remoteRelationsWatcher); err != nil {
 		return errors.Trace(err)
@@ -1493,7 +1499,7 @@ func (ad *applicationData) scopedContext() (context.Context, context.CancelFunc)
 // relationLifeChanged manages the workers to process ingress changes for
 // the specified relation.
 func (fw *Firewaller) relationLifeChanged(ctx context.Context, tag names.RelationTag) error {
-	results, err := fw.remoteRelationsApi.Relations(ctx, []string{tag.Id()})
+	results, err := fw.crossModelRelationService.Relations(ctx, []string{tag.Id()})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1559,7 +1565,7 @@ type remoteRelationData struct {
 // startRelation creates a new data value for tracking details of the
 // relation and starts watching the related models for subnets added or removed.
 func (fw *Firewaller) startRelation(ctx context.Context, rel *params.RemoteRelation, role charm.RelationRole) error {
-	remoteApps, err := fw.remoteRelationsApi.RemoteApplications(ctx, []string{rel.RemoteApplicationName})
+	remoteApps, err := fw.crossModelRelationService.RemoteApplications(ctx, []string{rel.RemoteApplicationName})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1874,7 +1880,7 @@ func (p *remoteRelationPoller) pollLoop() error {
 			return p.catacomb.ErrDying()
 		case <-p.fw.clk.After(3 * time.Second):
 			// Relation is exported with the consuming model UUID.
-			relToken, err := p.fw.remoteRelationsApi.GetToken(ctx, p.relationTag)
+			relToken, err := p.fw.crossModelRelationService.GetRelationToken(ctx, p.relationTag.Id())
 			if err != nil {
 				continue
 			}

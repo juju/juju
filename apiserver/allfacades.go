@@ -74,7 +74,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
-	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
@@ -202,7 +201,6 @@ func AllFacades() *facade.Registry {
 	provisioner.Register(registry)
 	proxyupdater.Register(registry)
 	reboot.Register(registry)
-	remoterelations.Register(registry)
 	resources.Register(registry)
 	resourceshookcontext.Register(registry)
 	retrystrategy.Register(registry)

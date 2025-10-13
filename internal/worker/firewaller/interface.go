@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
@@ -60,11 +61,15 @@ type CrossModelFirewallerFacadeCloser interface {
 	CrossModelFirewallerFacade
 }
 
-// RemoteRelationsAPI provides the remote relations facade.
-type RemoteRelationsAPI interface {
-	GetToken(context.Context, names.Tag) (string, error)
+// CrossModelRelationService provides access to cross-model relation domain operations needed by this worker.
+type CrossModelRelationService interface {
+	// GetRelationToken returns the token associated with the provided relation Key.
+	GetRelationToken(ctx context.Context, relationKey string) (string, error)
+	// Relations returns information about cross-model relations for the given keys.
 	Relations(ctx context.Context, keys []string) ([]params.RemoteRelationResult, error)
-	RemoteApplications(ctx context.Context, names []string) ([]params.RemoteApplicationResult, error)
+	// RemoteApplications returns the current state for the named remote applications.
+	RemoteApplications(ctx context.Context, applications []string) ([]params.RemoteApplicationResult, error)
+	// WatchRemoteRelations returns a disabled watcher for remote relations for now.
 	WatchRemoteRelations(context.Context) (watcher.StringsWatcher, error)
 }
 

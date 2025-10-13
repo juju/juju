@@ -457,7 +457,6 @@ func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) wo
 		PortsService:           s.portService,
 		MachineService:         s.machineService,
 		ApplicationService:     s.applicationService,
-		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
@@ -2594,7 +2593,6 @@ func (s *NoneModeSuite) TestStopImmediately(c *tc.C) {
 		PortsService:           s.portService,
 		MachineService:         s.machineService,
 		ApplicationService:     s.applicationService,
-		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},

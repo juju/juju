@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/remoterelations"
+
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -36,10 +36,9 @@ type ManifoldConfig struct {
 	EnvironName        string
 	Logger             logger.Logger
 
-	NewControllerConnection  apicaller.NewExternalControllerConnectionFunc
-	NewRemoteRelationsFacade func(base.APICaller) *remoterelations.Client
-	NewFirewallerFacade      func(base.APICaller) (FirewallerAPI, error)
-	NewFirewallerWorker      func(Config) (worker.Worker, error)
+	NewControllerConnection apicaller.NewExternalControllerConnectionFunc
+	NewFirewallerFacade     func(base.APICaller) (FirewallerAPI, error)
+	NewFirewallerWorker     func(Config) (worker.Worker, error)
 }
 
 // Manifold returns a Manifold that encapsulates the firewaller worker.
@@ -72,9 +71,7 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.NewControllerConnection == nil {
 		return errors.NotValidf("nil NewControllerConnection")
 	}
-	if cfg.NewRemoteRelationsFacade == nil {
-		return errors.NotValidf("nil NewRemoteRelationsFacade")
-	}
+
 	if cfg.NewFirewallerFacade == nil {
 		return errors.NotValidf("nil NewFirewallerFacade")
 	}
@@ -142,19 +139,19 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 	}
 
 	w, err := cfg.NewFirewallerWorker(Config{
-		ModelUUID:               agent.CurrentConfig().Model().Id(),
-		RemoteRelationsApi:      cfg.NewRemoteRelationsFacade(apiConn),
-		FirewallerAPI:           firewallerAPI,
-		PortsService:            domainServices.Port(),
-		MachineService:          domainServices.Machine(),
-		ApplicationService:      domainServices.Application(),
-		EnvironFirewaller:       fwEnv,
-		EnvironModelFirewaller:  modelFw,
-		EnvironInstances:        environ,
-		EnvironIPV6CIDRSupport:  envIPV6CIDRSupport,
-		Mode:                    mode,
-		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
-		Logger:                  cfg.Logger,
+		ModelUUID:                 agent.CurrentConfig().Model().Id(),
+		CrossModelRelationService: domainServices.CrossModelRelation(),
+		FirewallerAPI:             firewallerAPI,
+		PortsService:              domainServices.Port(),
+		MachineService:            domainServices.Machine(),
+		ApplicationService:        domainServices.Application(),
+		EnvironFirewaller:         fwEnv,
+		EnvironModelFirewaller:    modelFw,
+		EnvironInstances:          environ,
+		EnvironIPV6CIDRSupport:    envIPV6CIDRSupport,
+		Mode:                      mode,
+		NewCrossModelFacadeFunc:   crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
+		Logger:                    cfg.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
