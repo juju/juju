@@ -98,6 +98,28 @@ type SecretsStore interface {
 	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
 	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
+
+	GetOwnedSecretMetadataByLabelAsUnit(
+		unit names.UnitTag, label string,
+	) (*secrets.SecretMetadataOwnerIdent, error)
+	GetOwnedSecretMetadataByLabelAsApp(
+		app names.ApplicationTag, label string,
+	) (*secrets.SecretMetadataOwnerIdent, error)
+	GetOwnedSecretMetadataAsUnit(
+		unit names.UnitTag, uri *secrets.URI,
+	) (*secrets.SecretMetadataOwnerIdent, error)
+	GetOwnedSecretMetadataAsApp(
+		app names.ApplicationTag, uri *secrets.URI,
+	) (*secrets.SecretMetadataOwnerIdent, error)
+	GetOwnedSecretRevisionsAsUnit(
+		unit names.UnitTag,
+	) (map[secrets.URI][]int, error)
+	GetOwnedSecretRevisionsByIDAsUnit(
+		unit names.UnitTag, uri *secrets.URI,
+	) ([]int, error)
+	GetOwnedSecretRevisionsByIDAsLeaderUnit(
+		unit names.UnitTag, uri *secrets.URI,
+	) ([]int, error)
 }
 
 // NewSecrets creates a new mongo backed secrets store.

@@ -1566,6 +1566,257 @@ func (s *SecretsSuite) TestListUnusedSecretRevisions(c *gc.C) {
 	})
 }
 
+func (s *SecretsSuite) TestGetOwnedSecretMetadataByLabelAsUnit(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+			Label:       ptr("foo"),
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	r, err := s.store.GetOwnedSecretMetadataByLabelAsUnit(
+		s.ownerUnit.UnitTag(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, jc.DeepEquals, &secrets.SecretMetadataOwnerIdent{
+		URI:      md.URI,
+		OwnerTag: s.owner.Tag().String(),
+		Label:    "foo",
+	})
+}
+
+func (s *SecretsSuite) TestGetOwnedSecretMetadataByLabelAsApp(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+			Label:       ptr("foo"),
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	r, err := s.store.GetOwnedSecretMetadataByLabelAsApp(
+		s.owner.ApplicationTag(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, jc.DeepEquals, &secrets.SecretMetadataOwnerIdent{
+		URI:      md.URI,
+		OwnerTag: s.owner.Tag().String(),
+		Label:    "foo",
+	})
+}
+
+func (s *SecretsSuite) TestGetOwnedSecretMetadataAsUnit(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+			Label:       ptr("foo"),
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	r, err := s.store.GetOwnedSecretMetadataAsUnit(
+		s.ownerUnit.UnitTag(), uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, jc.DeepEquals, &secrets.SecretMetadataOwnerIdent{
+		URI:      md.URI,
+		OwnerTag: s.owner.Tag().String(),
+		Label:    "foo",
+	})
+}
+
+func (s *SecretsSuite) TestGetOwnedSecretMetadataAsApp(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+			Label:       ptr("foo"),
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	r, err := s.store.GetOwnedSecretMetadataAsApp(
+		s.owner.ApplicationTag(), uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, jc.DeepEquals, &secrets.SecretMetadataOwnerIdent{
+		URI:      md.URI,
+		OwnerTag: s.owner.Tag().String(),
+		Label:    "foo",
+	})
+}
+
+func (s *SecretsSuite) TestGetOwnedSecretRevisionsAsUnit(c *gc.C) {
+	appUri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err := s.store.CreateSecret(appUri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri := secrets.NewURI()
+	cp = state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err = s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "baz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	r, err := s.store.GetOwnedSecretRevisionsAsUnit(
+		s.ownerUnit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, jc.DeepEquals, map[secrets.URI][]int{
+		*uri: {1, 2},
+		// N.B. that there is no app secret listed here.
+	})
+}
+
+func (s *SecretsSuite) TestGetOwnedSecretRevisionsByIDAsUnit(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "baz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	r, err := s.store.GetOwnedSecretRevisionsByIDAsUnit(
+		s.ownerUnit.UnitTag(), uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, jc.DeepEquals, []int{
+		1, 2,
+	})
+}
+
+func (s *SecretsSuite) TestGetOwnedSecretRevisionsByIDAsUnitAppSecretNotFound(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "baz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.GetOwnedSecretRevisionsByIDAsUnit(
+		s.ownerUnit.UnitTag(), uri)
+	c.Assert(err, gc.ErrorMatches, `secret ".*" not found`)
+}
+
+func (s *SecretsSuite) TestGetOwnedSecretRevisionsByIDAsLeaderUnitAppSecret(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "baz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	r, err := s.store.GetOwnedSecretRevisionsByIDAsLeaderUnit(
+		s.ownerUnit.UnitTag(), uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, jc.DeepEquals, []int{
+		1, 2,
+	})
+}
+
+func (s *SecretsSuite) TestGetOwnedSecretRevisionsByIDAsLeaderUnitUnitSecret(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "baz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	r, err := s.store.GetOwnedSecretRevisionsByIDAsLeaderUnit(
+		s.ownerUnit.UnitTag(), uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, jc.DeepEquals, []int{
+		1, 2,
+	})
+}
+
 func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
