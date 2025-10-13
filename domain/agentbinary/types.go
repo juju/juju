@@ -34,6 +34,7 @@ type Metadata struct {
 	SHA256 string
 }
 
+// Architecture represents the architecture of the agent.
 type Architecture int
 
 const (
@@ -46,6 +47,7 @@ const (
 	RISCV64
 )
 
+// String returns the primitive string values for [Architecture].
 func (a Architecture) String() string {
 	switch a {
 	case AMD64:
