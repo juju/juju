@@ -50,6 +50,22 @@ type CascadedMachineLives struct {
 	// removals for a machine. These will be the machine's local storage
 	// instances.
 	StorageInstanceUUIDs []string
+
+	// FileSystemUUIDs identify any file-systems that transitioned
+	// to dying with the machine.
+	FileSystemUUIDs []string
+
+	// FileSystemAttachmentUUIDs identify any file-system attachments that
+	// transitioned to dying with the machine.
+	FileSystemAttachmentUUIDs []string
+
+	// VolumeUUIDs identify any volumes that transitioned
+	// to dying with the machine.
+	VolumeUUIDs []string
+
+	// VolumeAttachmentUUIDs identify any volume attachments that transitioned
+	// to dying with the machine.
+	VolumeAttachmentUUIDs []string
 }
 
 // IsEmpty returns true if the struct value indicates that no associated
@@ -58,7 +74,11 @@ func (c CascadedMachineLives) IsEmpty() bool {
 	return len(c.MachineUUIDs) == 0 &&
 		len(c.UnitUUIDs) == 0 &&
 		len(c.StorageAttachmentUUIDs) == 0 &&
-		len(c.StorageInstanceUUIDs) == 0
+		len(c.StorageInstanceUUIDs) == 0 &&
+		len(c.FileSystemUUIDs) == 0 &&
+		len(c.FileSystemAttachmentUUIDs) == 0 &&
+		len(c.VolumeUUIDs) == 0 &&
+		len(c.VolumeAttachmentUUIDs) == 0
 }
 
 // CascadedApplicationLives contains identifiers for entities that were ensured
