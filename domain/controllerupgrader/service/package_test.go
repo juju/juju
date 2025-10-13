@@ -3,4 +3,4 @@
 
 package service
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination service_mock_test.go github.com/juju/juju/domain/controllerupgrader/service AgentBinaryFinder,ControllerState,ControllerModelState
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination service_mock_test.go github.com/juju/juju/domain/controllerupgrader/service AgentBinaryFinder,ControllerState,ControllerModelState,SimpleStreamsAgentFinder,AgentFinderControllerState,AgentFinderControllerModelState
