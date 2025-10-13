@@ -389,9 +389,9 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "GetSecretMetadata")
 		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
-		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
-			Results: []params.ListSecretResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.ListSecretMetadataResults{})
+		*(result.(*params.ListSecretMetadataResults)) = params.ListSecretMetadataResults{
+			Results: []params.ListSecretMetadataResult{{
 				URI:                    uri.String(),
 				OwnerTag:               coretesting.ModelTag.String(),
 				Label:                  "label",
