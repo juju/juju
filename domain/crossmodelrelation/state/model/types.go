@@ -50,6 +50,8 @@ type offerDetail struct {
 	OfferName              string `db:"offer_name"`
 	ApplicationName        string `db:"application_name"`
 	ApplicationDescription string `db:"application_description"`
+	TotalConnections       int    `db:"total_connections"`
+	TotalActiveConnections int    `db:"total_active_connections"`
 
 	// CharmLocator parts
 	CharmName         string                    `db:"charm_name"`
@@ -108,6 +110,8 @@ func (o offerDetails) TransformToOfferDetails() []*crossmodelrelation.OfferDetai
 					Interface: details.EndpointInterface,
 				},
 			},
+			TotalConnections:       details.TotalConnections,
+			TotalActiveConnections: details.TotalActiveConnections,
 		}
 		converted[details.OfferUUID] = found
 	}
