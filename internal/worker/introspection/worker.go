@@ -179,9 +179,9 @@ func (w *socketListener) RegisterHTTPHandlers(
 	handle("/leases", notSupportedHandler{name: "Leases"})
 
 	// Flight recorder.
-	handle("/flightrecorder/start", http.HandlerFunc(introspectionflightrecorder.StartHandler(w.flightRecorder)))
-	handle("/flightrecorder/stop", http.HandlerFunc(introspectionflightrecorder.StopHandler(w.flightRecorder)))
-	handle("/flightrecorder/capture", http.HandlerFunc(introspectionflightrecorder.CaptureHandler(w.flightRecorder)))
+	handle("/flightrecorder/start", introspectionflightrecorder.StartHandler(w.flightRecorder))
+	handle("/flightrecorder/stop", introspectionflightrecorder.StopHandler(w.flightRecorder))
+	handle("/flightrecorder/capture", introspectionflightrecorder.CaptureHandler(w.flightRecorder))
 }
 
 type notSupportedHandler struct {

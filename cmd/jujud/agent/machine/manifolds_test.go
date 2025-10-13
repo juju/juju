@@ -74,11 +74,13 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"clock",
 			"deployer",
 			"disk-manager",
+			"flight-recorder",
 			"host-key-reporter",
 			"log-sender",
 			"logging-config-updater",
 			"lxd-container-provisioner",
 			"machine-action-runner",
+			"machine-converter",
 			"machine-setup",
 			"machiner",
 			"migration-fortress",
@@ -88,7 +90,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"reboot-executor",
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
-			"machine-converter",
 			"storage-provisioner",
 			"termination-signal-handler",
 			"trace",
@@ -115,6 +116,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"api-config-watcher",
 			"charmhub-http-client",
 			"clock",
+			"flight-recorder",
 			"log-sender",
 			"logging-config-updater",
 			"migration-fortress",
@@ -176,6 +178,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"deployer",
 		"domain-services",
 		"file-notify-watcher",
+		"flight-recorder",
 		"global-clock-updater",
 		"http-server-args",
 		"http-server",
@@ -464,6 +467,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 	},
 
+	"flight-recorder": {},
+
 	"log-sender": {
 		"agent",
 		"api-caller",
@@ -680,6 +685,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"trace": {
 		"agent",
 	},
+
+	"flight-recorder": {},
 
 	"log-sender": {
 		"agent",

@@ -1065,10 +1065,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// final removal of its agents' units from state when they are no
 		// longer needed.
 		deployerName: ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Logger:        internallogger.GetLogger("juju.worker.deployer"),
+			AgentName:      agentName,
+			APICallerName:  apiCallerName,
+			FlightRecorder: config.FlightRecorder,
+			Clock:          config.Clock,
+			Logger:         internallogger.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,
 			SetupLogging:     config.SetupLogging,

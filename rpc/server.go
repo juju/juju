@@ -653,6 +653,13 @@ func (conn *Conn) runRequest(
 }
 
 func (conn *Conn) withTrace(ctx context.Context, request Request, fn func(ctx context.Context)) {
+	// For some asinine reason, the connection may not have a root. In that
+	// case we just call the function without tracing.
+	if conn.root == nil {
+		fn(ctx)
+		return
+	}
+
 	ctx, span := conn.root.StartTrace(ctx)
 	defer span.End(
 		trace.StringAttr("request.type", request.Type),
@@ -677,7 +684,7 @@ func (conn *Conn) callRequest(
 ) {
 	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)
 	if err != nil {
-		if err := conn.root.FlightRecorder().Capture(flightrecorder.KindError); err != nil {
+		if err := conn.getFlightRecorder().Capture(flightrecorder.KindError); err != nil {
 			logger.Tracef(ctx, "error capturing flight recorder: %v", err)
 		}
 
@@ -703,7 +710,7 @@ func (conn *Conn) callRequest(
 			logger.Errorf(ctx, "error recording reply %+v: %T %+v", hdr, err, err)
 		}
 
-		if err := conn.root.FlightRecorder().Capture(flightrecorder.KindRequest); err != nil {
+		if err := conn.getFlightRecorder().Capture(flightrecorder.KindRequest); err != nil {
 			logger.Tracef(ctx, "error capturing flight recorder: %v", err)
 		}
 
@@ -729,6 +736,17 @@ func (conn *Conn) callRequest(
 			logger.Errorf(ctx, "error writing response: %T %+v", err, err)
 		}
 	}
+}
+
+var noop = flightrecorder.NoopRecorder{}
+
+func (conn *Conn) getFlightRecorder() flightrecorder.FlightRecorder {
+	// For some asinine reason, the connection may not have a root. In that
+	// case we just return a noop flight recorder.
+	if conn.root == nil {
+		return noop
+	}
+	return conn.root.FlightRecorder()
 }
 
 type serverError struct {

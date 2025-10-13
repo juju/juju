@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/agent/addons"
 	agentconfig "github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/core/flightrecorder"
 	corelogger "github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -79,9 +80,10 @@ func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 		logger:  logger,
 	}
 	s.config = deployer.ContextConfig{
-		Agent:  s.agent,
-		Clock:  clock.WallClock,
-		Logger: logger,
+		Agent:          s.agent,
+		FlightRecorder: flightrecorder.NoopRecorder{},
+		Clock:          clock.WallClock,
+		Logger:         logger,
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
 				dependency.DefaultMetrics(),

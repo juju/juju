@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/logger"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common/reboot"
@@ -61,6 +62,7 @@ type nestedContext struct {
 // needs to run.
 type ContextConfig struct {
 	Agent                    agent.Agent
+	FlightRecorder           flightrecorder.FlightRecorder
 	Clock                    clock.Clock
 	Logger                   logger.Logger
 	UnitEngineConfig         func() dependency.EngineConfig
@@ -73,6 +75,9 @@ type ContextConfig struct {
 func (c *ContextConfig) Validate() error {
 	if c.Agent == nil {
 		return errors.NotValidf("missing Agent")
+	}
+	if c.FlightRecorder == nil {
+		return errors.NotValidf("missing FlightRecorder")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing Clock")
@@ -118,6 +123,7 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 		agentConfig: agentConfig,
 		baseUnitConfig: UnitAgentConfig{
 			DataDir:          agentConfig.DataDir(),
+			FlightRecorder:   config.FlightRecorder,
 			Clock:            config.Clock,
 			Logger:           config.Logger,
 			UnitEngineConfig: config.UnitEngineConfig,
@@ -224,9 +230,11 @@ func (c *nestedContext) Report() map[string]interface{} {
 // needs to be created, along with a link to the tools directory for the
 // unit.
 func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
+	ctx := context.TODO()
+
 	// Create unit agent config file.
 	tag := names.NewUnitTag(unitName)
-	_, err := c.createUnitAgentConfig(tag, initialPassword)
+	_, err := c.createUnitAgentConfig(ctx, tag, initialPassword)
 	if err != nil {
 		// Any error here is indicative of a disk issue, potentially out of
 		// space or inodes. Either way, bouncing the deployer and having the
@@ -236,21 +244,21 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.logger.Tracef(context.TODO(), "starting the unit workers for %q", unitName)
+	c.logger.Tracef(ctx, "starting the unit workers for %q", unitName)
 
 	agent, err := c.newUnitAgent(unitName)
 	c.units[unitName] = agent
 	if err != nil {
-		c.logger.Errorf(context.TODO(), "unable to create unit agent %q: %v", unitName, err)
+		c.logger.Errorf(ctx, "unable to create unit agent %q: %v", unitName, err)
 		c.errors[unitName] = err
 	} else {
-		if err := c.startUnitWorkers(context.TODO(), unitName); err != nil {
-			c.logger.Errorf(context.TODO(), "unable to start workers for unit %q: %v", unitName, err)
+		if err := c.startUnitWorkers(ctx, unitName); err != nil {
+			c.logger.Errorf(ctx, "unable to start workers for unit %q: %v", unitName, err)
 			c.errors[unitName] = err
 		}
 	}
 
-	c.logger.Tracef(context.TODO(), "updating the deployed units to add %q", unitName)
+	c.logger.Tracef(ctx, "updating the deployed units to add %q", unitName)
 	// Add to deployed-units stored in the machine agent config.
 	units := c.deployedUnits()
 	units.Add(unitName)
@@ -258,7 +266,7 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 	if err := c.updateConfigValue(deployedUnitsKey, allUnits); err != nil {
 		// It isn't really fatal to the deployer if the deployed-units can't
 		// be updated, but it is indicative of a disk error.
-		c.logger.Warningf(context.TODO(), "couldn't update stopped deployed units to add %q, %s", unitName, err.Error())
+		c.logger.Warningf(ctx, "couldn't update stopped deployed units to add %q, %s", unitName, err.Error())
 	}
 
 	return nil
@@ -315,8 +323,8 @@ func (c *nestedContext) updateConfigValue(key, value string) error {
 	return writeErr
 }
 
-func (c *nestedContext) createUnitAgentConfig(tag names.UnitTag, initialPassword string) (agent.Config, error) {
-	c.logger.Tracef(context.TODO(), "create unit agent config for %q", tag)
+func (c *nestedContext) createUnitAgentConfig(ctx context.Context, tag names.UnitTag, initialPassword string) (agent.Config, error) {
+	c.logger.Tracef(ctx, "create unit agent config for %q", tag)
 	dataDir := c.agentConfig.DataDir()
 	logDir := c.agentConfig.LogDir()
 	apiAddresses, err := c.agentConfig.APIAddresses()
