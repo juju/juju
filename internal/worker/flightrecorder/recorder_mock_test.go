@@ -78,6 +78,44 @@ func (c *MockFileRecorderCaptureCall) DoAndReturn(f func(string) (string, error)
 	return c
 }
 
+// Enabled mocks base method.
+func (m *MockFileRecorder) Enabled() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Enabled")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Enabled indicates an expected call of Enabled.
+func (mr *MockFileRecorderMockRecorder) Enabled() *MockFileRecorderEnabledCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enabled", reflect.TypeOf((*MockFileRecorder)(nil).Enabled))
+	return &MockFileRecorderEnabledCall{Call: call}
+}
+
+// MockFileRecorderEnabledCall wrap *gomock.Call
+type MockFileRecorderEnabledCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockFileRecorderEnabledCall) Return(arg0 bool) *MockFileRecorderEnabledCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockFileRecorderEnabledCall) Do(f func() bool) *MockFileRecorderEnabledCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockFileRecorderEnabledCall) DoAndReturn(f func() bool) *MockFileRecorderEnabledCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Start mocks base method.
 func (m *MockFileRecorder) Start(arg0 time.Duration) error {
 	m.ctrl.T.Helper()

@@ -15,15 +15,17 @@ const (
 	KindRequest Kind = "request"
 	// KindError indicates an error capture.
 	KindError Kind = "error"
-	// Add new kinds here.
-	KindAny Kind = "" // special value meaning "any kind"
+	// KindAll indicates all captures.
+	KindAll Kind = "all"
 )
 
 // ParseKind parses a string into a Kind.
 func ParseKind(s string) (Kind, error) {
-	switch Kind(s) {
-	case KindRequest, KindError, KindAny:
+	switch s {
+	case "request", "error":
 		return Kind(s), nil
+	case "all", "":
+		return KindAll, nil
 	default:
 		return "", fmt.Errorf("unknown kind %q", s)
 	}
@@ -31,7 +33,7 @@ func ParseKind(s string) (Kind, error) {
 
 // IsAllowed returns true if the kind is allowed by the receiver.
 func (k Kind) IsAllowed(other Kind) bool {
-	if k == KindAny {
+	if k == KindAll {
 		return true
 	}
 	return k == other
@@ -47,6 +49,9 @@ type FlightRecorder interface {
 
 	// Capture captures a flight recording.
 	Capture(kind Kind) error
+
+	// Enabled returns whether the recorder is currently recording.
+	Enabled() bool
 }
 
 // FlightRecorderWorker is the interface for a flight recorder worker.
@@ -71,4 +76,9 @@ func (n NoopRecorder) Stop() error {
 // Capture is a no-op.
 func (n NoopRecorder) Capture(Kind) error {
 	return nil
+}
+
+// Enabled always returns false.
+func (n NoopRecorder) Enabled() bool {
+	return false
 }

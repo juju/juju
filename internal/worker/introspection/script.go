@@ -229,9 +229,9 @@ juju_api_connection_sources () {
 }
 
 juju_flightrecorder_start () {
-  kind=${1:-}
-  duration=${2:-}
-  juju_agent flightrecorder/start?kind=$kind&duration=$duration
+  duration=${1:-"0s"}
+  kind=${2:-"error"}
+  juju_agent "flightrecorder/start?kind=$kind&duration=$duration"
 }
 
 juju_flightrecorder_stop () {
