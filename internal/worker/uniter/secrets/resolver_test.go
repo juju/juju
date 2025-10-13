@@ -320,6 +320,7 @@ func (s *changeSecretsSuite) TestNextOpNone(c *gc.C) {
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
+	s.tracker.EXPECT().TrimSecretObsoleteRevisions(nil)
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
@@ -378,6 +379,8 @@ func (s *removeSecretSuite) TestNextOpNoneExisting(c *gc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
+	s.tracker.EXPECT().TrimSecretObsoleteRevisions(s.remoteState.ObsoleteSecretRevisions)
+
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/666) hook")
@@ -398,6 +401,7 @@ func (s *removeSecretSuite) TestNextOpNextRevision(c *gc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
+	s.tracker.EXPECT().TrimSecretObsoleteRevisions(s.remoteState.ObsoleteSecretRevisions)
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/668) hook")
@@ -418,6 +422,7 @@ func (s *removeSecretSuite) TestNextOpNone(c *gc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
+	s.tracker.EXPECT().TrimSecretObsoleteRevisions(s.remoteState.ObsoleteSecretRevisions)
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }

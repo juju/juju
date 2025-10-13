@@ -98,25 +98,35 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 			},
 		},
 	)}, nil)
-	//s.secretsClient.EXPECT().SecretMetadata().Return(
-	//	[]coresecrets.SecretOwnerMetadata{
-	//		{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}, Revisions: []int{665}},
-	//	}, nil)
-	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
-		&secrets.State{
-			ConsumedSecretInfo: map[string]int{},
-			SecretObsoleteRevisions: map[string][]int{
-				"secret:9m4e2mr0ui3e8a215n4g": {665}},
-		},
-	))})
 
-	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
-		&secrets.State{
-			ConsumedSecretInfo: map[string]int{},
-			SecretObsoleteRevisions: map[string][]int{
-				"secret:9m4e2mr0ui3e8a215n4g": {665, 666}},
-		},
-	))})
+	gomock.InOrder(
+		s.stateReadWriter.EXPECT().SetState(gomock.Any()).DoAndReturn(func(arg0 params.SetUnitStateArg) error {
+			var st secrets.State
+			err := yaml.Unmarshal([]byte(*arg0.SecretState), &st)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(st, jc.DeepEquals, secrets.State{
+				ConsumedSecretInfo: map[string]int{},
+				SecretObsoleteRevisions: map[string][]int{
+					"secret:666e2mr0ui3e8a215n4g": {664},
+					"secret:9m4e2mr0ui3e8a215n4g": {665},
+				},
+			})
+			return nil
+		}),
+		s.stateReadWriter.EXPECT().SetState(gomock.Any()).DoAndReturn(func(arg0 params.SetUnitStateArg) error {
+			var st secrets.State
+			err := yaml.Unmarshal([]byte(*arg0.SecretState), &st)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(st, jc.DeepEquals, secrets.State{
+				ConsumedSecretInfo: map[string]int{},
+				SecretObsoleteRevisions: map[string][]int{
+					"secret:666e2mr0ui3e8a215n4g": {664},
+					"secret:9m4e2mr0ui3e8a215n4g": {665, 666},
+				},
+			})
+			return nil
+		}),
+	)
 
 	tag := names.NewUnitTag("foo/0")
 	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggo.GetLogger("test"))
@@ -157,46 +167,110 @@ func (s *secretsSuite) TestCommitNoOpSecretRevisionRemoved(c *gc.C) {
 			"secret:777e2mr0ui3e8a215n4g": {Revision: 777},
 		}, nil,
 	)
-	//s.secretsClient.EXPECT().SecretMetadata().Return(
-	//	[]coresecrets.SecretOwnerMetadata{
-	//		{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}, Revisions: []int{665, 667}},
-	//		{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "666e2mr0ui3e8a215n4g"}}, Revisions: []int{664, 666}},
-	//		{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "777e2mr0ui3e8a215n4g"}}, Revisions: []int{777}},
-	//	}, nil)
-	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
-		&secrets.State{
-			ConsumedSecretInfo: map[string]int{
-				"secret:666e2mr0ui3e8a215n4g": 666,
-				"secret:9m4e2mr0ui3e8a215n4g": 667,
-				"secret:777e2mr0ui3e8a215n4g": 777,
-			},
-			SecretObsoleteRevisions: map[string][]int{
-				"secret:9m4e2mr0ui3e8a215n4g": {665},
-				"secret:666e2mr0ui3e8a215n4g": {664},
-				"secret:777e2mr0ui3e8a215n4g": {777},
-			},
-		},
-	))})
+
+	gomock.InOrder(
+		s.stateReadWriter.EXPECT().SetState(gomock.Any()).DoAndReturn(func(arg0 params.SetUnitStateArg) error {
+			var st secrets.State
+			err := yaml.Unmarshal([]byte(*arg0.SecretState), &st)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(st, jc.DeepEquals, secrets.State{
+				ConsumedSecretInfo: map[string]int{
+					"secret:666e2mr0ui3e8a215n4g": 666,
+					"secret:9m4e2mr0ui3e8a215n4g": 667,
+					"secret:777e2mr0ui3e8a215n4g": 777,
+				},
+				SecretObsoleteRevisions: map[string][]int{
+					"secret:9m4e2mr0ui3e8a215n4g": {665},
+					"secret:666e2mr0ui3e8a215n4g": {664},
+					"secret:777e2mr0ui3e8a215n4g": {777},
+					"secret:888e2mr0ui3e8a215n4g": {888},
+				},
+			})
+			return nil
+		}),
+		s.stateReadWriter.EXPECT().SetState(gomock.Any()).DoAndReturn(func(arg0 params.SetUnitStateArg) error {
+			var st secrets.State
+			err := yaml.Unmarshal([]byte(*arg0.SecretState), &st)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(st, jc.DeepEquals, secrets.State{
+				ConsumedSecretInfo: map[string]int{
+					"secret:666e2mr0ui3e8a215n4g": 666,
+					"secret:9m4e2mr0ui3e8a215n4g": 667,
+				},
+				SecretObsoleteRevisions: map[string][]int{
+					"secret:9m4e2mr0ui3e8a215n4g": {665},
+					"secret:888e2mr0ui3e8a215n4g": {888},
+				},
+			})
+			return nil
+		}),
+	)
 
 	tag := names.NewUnitTag("foo/0")
 	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
-		&secrets.State{
-			ConsumedSecretInfo: map[string]int{
-				"secret:666e2mr0ui3e8a215n4g": 666,
-				"secret:9m4e2mr0ui3e8a215n4g": 667,
-			},
-			SecretObsoleteRevisions: map[string][]int{
-				"secret:9m4e2mr0ui3e8a215n4g": {665},
-			},
-		},
-	))})
-
 	err = tracker.SecretsRemoved(map[string][]int{
 		"secret:666e2mr0ui3e8a215n4g": {664},
 		"secret:777e2mr0ui3e8a215n4g": {},
 	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *secretsSuite) TestCommitSecretRemoveAndTrim(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.stateReadWriter.EXPECT().State().Return(params.UnitStateResult{SecretState: s.yamlString(c,
+		&secrets.State{
+			SecretObsoleteRevisions: map[string][]int{
+				"secret:666e2mr0ui3e8a215n4g": {664},
+				"secret:9m4e2mr0ui3e8a215n4g": {665},
+			},
+		},
+	)}, nil)
+
+	gomock.InOrder(
+		s.stateReadWriter.EXPECT().SetState(gomock.Any()).DoAndReturn(func(arg0 params.SetUnitStateArg) error {
+			var st secrets.State
+			err := yaml.Unmarshal([]byte(*arg0.SecretState), &st)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(st, jc.DeepEquals, secrets.State{
+				ConsumedSecretInfo: map[string]int{},
+				SecretObsoleteRevisions: map[string][]int{
+					"secret:666e2mr0ui3e8a215n4g": {664},
+					"secret:9m4e2mr0ui3e8a215n4g": {665},
+				},
+			})
+			return nil
+		}),
+		s.stateReadWriter.EXPECT().SetState(gomock.Any()).DoAndReturn(func(arg0 params.SetUnitStateArg) error {
+			var st secrets.State
+			err := yaml.Unmarshal([]byte(*arg0.SecretState), &st)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(st, jc.DeepEquals, secrets.State{
+				ConsumedSecretInfo: map[string]int{},
+				SecretObsoleteRevisions: map[string][]int{
+					"secret:666e2mr0ui3e8a215n4g": {664},
+					"secret:9m4e2mr0ui3e8a215n4g": {666},
+				},
+			})
+			return nil
+		}),
+	)
+
+	tag := names.NewUnitTag("foo/0")
+	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggo.GetLogger("test"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	tracker.TrimSecretObsoleteRevisions(map[string][]int{
+		"secret:666e2mr0ui3e8a215n4g": {664},
+	})
+
+	info := hook.Info{
+		Kind:           hooks.SecretRemove,
+		SecretURI:      "secret:9m4e2mr0ui3e8a215n4g",
+		SecretRevision: 666,
+	}
+	err = tracker.CommitHook(info)
 	c.Assert(err, jc.ErrorIsNil)
 }
