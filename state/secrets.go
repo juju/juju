@@ -1198,6 +1198,9 @@ func (s *secretsStore) GetOwnedSecretRevisionsByIDAsUnit(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("secret %q", uri.ID)
+	}
 
 	ret := make([]int, len(docs))
 	for i, doc := range docs {
@@ -1229,6 +1232,9 @@ func (s *secretsStore) GetOwnedSecretRevisionsByIDAsLeaderUnit(
 	}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("secret %q", uri.ID)
 	}
 
 	ret := make([]int, len(docs))

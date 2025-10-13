@@ -2012,3 +2012,67 @@ func (s *SecretsManagerSuite) TestUnitOwnedSecretsAndRevisions(c *gc.C) {
 		}},
 	})
 }
+
+func (s *SecretsManagerSuite) TestOwnedSecretRevisionsByLeaderUnit(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check().Return(nil)
+
+	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetOwnedSecretRevisionsByIDAsLeaderUnit(
+		names.NewUnitTag("mariadb/0"), uri,
+	).Return([]int{1, 2, 3, 4, 5}, nil)
+
+	results, err := s.facade.OwnedSecretRevisions(params.SecretRevisionArgs{
+		SecretURIs: []string{uri.String()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretRevisionIDsResults{
+		Results: []params.SecretRevisionIDsResult{{
+			URI:       uri.String(),
+			Revisions: []int{1, 2, 3, 4, 5},
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestOwnedSecretRevisionsByUnit(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check().Return(leadership.NewNotLeaderError("mariadb/0", "mariadb"))
+
+	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetOwnedSecretRevisionsByIDAsUnit(
+		names.NewUnitTag("mariadb/0"), uri,
+	).Return([]int{1, 2, 3, 4, 5}, nil)
+
+	results, err := s.facade.OwnedSecretRevisions(params.SecretRevisionArgs{
+		SecretURIs: []string{uri.String()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretRevisionIDsResults{
+		Results: []params.SecretRevisionIDsResult{{
+			URI:       uri.String(),
+			Revisions: []int{1, 2, 3, 4, 5},
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestOwnedSecretRevisionsByUnitNotFound(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check().Return(leadership.NewNotLeaderError("mariadb/0", "mariadb"))
+
+	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetOwnedSecretRevisionsByIDAsUnit(
+		names.NewUnitTag("mariadb/0"), uri,
+	).Return(nil, errors.NotFound)
+
+	results, err := s.facade.OwnedSecretRevisions(params.SecretRevisionArgs{
+		SecretURIs: []string{uri.String()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `not found`)
+}

@@ -1304,7 +1304,10 @@ func (s *SecretsManagerAPI) OwnedSecretRevisions(args params.SecretRevisionArgs)
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		results.Results[i].Revisions = revs
+		results.Results[i] = params.SecretRevisionIDsResult{
+			URI:       secretID,
+			Revisions: revs,
+		}
 	}
 
 	return results, nil
