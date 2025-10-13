@@ -54,6 +54,22 @@ func (s *typesSuite) TestCascadedMachineLivesEmpty(c *tc.C) {
 	cml.StorageAttachmentUUIDs = nil
 	cml.StorageInstanceUUIDs = []string{"burp"}
 	c.Check(cml.IsEmpty(), tc.IsFalse)
+
+	cml.StorageInstanceUUIDs = nil
+	cml.FileSystemUUIDs = []string{"burp"}
+	c.Check(cml.IsEmpty(), tc.IsFalse)
+
+	cml.FileSystemUUIDs = nil
+	cml.FileSystemAttachmentUUIDs = []string{"burp"}
+	c.Check(cml.IsEmpty(), tc.IsFalse)
+
+	cml.FileSystemAttachmentUUIDs = nil
+	cml.VolumeUUIDs = []string{"burp"}
+	c.Check(cml.IsEmpty(), tc.IsFalse)
+
+	cml.VolumeUUIDs = nil
+	cml.VolumeAttachmentUUIDs = []string{"burp"}
+	c.Check(cml.IsEmpty(), tc.IsFalse)
 }
 
 func (s *typesSuite) TestCascadedApplicationLivesEmpty(c *tc.C) {
