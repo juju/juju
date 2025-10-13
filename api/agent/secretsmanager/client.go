@@ -331,25 +331,6 @@ func (c *Client) Revoke(uri *coresecrets.URI, p *SecretRevokeGrantArgs) error {
 	return nil
 }
 
-func (c *Client) OwnedSecrets() ([]*coresecrets.URI, error) {
-	var results params.StringResults
-	if err := c.facade.FacadeCall("OwnedSecrets", nil, &results); err != nil {
-		return nil, errors.Trace(err)
-	}
-	uris := make([]*coresecrets.URI, len(results.Results))
-	for i, s := range results.Results {
-		if err := s.Error; err != nil {
-			return nil, errors.Trace(err)
-		}
-		uri, err := coresecrets.ParseURI(s.Result)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		uris[i] = uri
-	}
-	return uris, nil
-}
-
 func (c *Client) UnitOwnedSecretsAndRevisions() ([]coresecrets.SecretURIWithRevisions, error) {
 	var results params.SecretRevisionIDsResults
 	if err := c.facade.FacadeCall("UnitOwnedSecretsAndRevisions", nil, &results); err != nil {

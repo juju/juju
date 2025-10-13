@@ -56,21 +56,6 @@ func (mr *MockSecretsClientMockRecorder) GetConsumerSecretsRevisionInfo(arg0, ar
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumerSecretsRevisionInfo", reflect.TypeOf((*MockSecretsClient)(nil).GetConsumerSecretsRevisionInfo), arg0, arg1)
 }
 
-// OwnedSecrets mocks base method.
-func (m *MockSecretsClient) OwnedSecrets() ([]*secrets.URI, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OwnedSecrets")
-	ret0, _ := ret[0].([]*secrets.URI)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// OwnedSecrets indicates an expected call of OwnedSecrets.
-func (mr *MockSecretsClientMockRecorder) OwnedSecrets() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OwnedSecrets", reflect.TypeOf((*MockSecretsClient)(nil).OwnedSecrets))
-}
-
 // WatchConsumedSecretsChanges mocks base method.
 func (m *MockSecretsClient) WatchConsumedSecretsChanges(arg0 string) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
