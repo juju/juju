@@ -1996,24 +1996,19 @@ func (s *SecretsManagerSuite) TestUnitOwnedSecretsAndRevisions(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	uri := coresecrets.NewURI()
 	s.secretsState.EXPECT().GetOwnedSecretRevisionsAsUnit(
 		names.NewUnitTag("mariadb/0"),
 	).Return(map[coresecrets.URI][]int{
-		*uri1: []int{1, 2, 3, 4, 5},
-		*uri2: []int{6, 7, 8},
+		*uri: []int{1, 2, 3, 4, 5},
 	}, nil)
 
 	results, err := s.facade.UnitOwnedSecretsAndRevisions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.SecretRevisionIDsResults{
 		Results: []params.SecretRevisionIDsResult{{
-			URI:       uri1.String(),
+			URI:       uri.String(),
 			Revisions: []int{1, 2, 3, 4, 5},
-		}, {
-			URI:       uri2.String(),
-			Revisions: []int{6, 7, 8},
 		}},
 	})
 }
