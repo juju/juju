@@ -22,10 +22,10 @@ run_state_delete_get_set() {
 	destroy_model "${model_name}"
 }
 
-# The unit's state set via the charm, is sharing a doc with the uniter's state.
-# They use the same method in state to update the db doc.  For the uniter's
-# state, SetState in the uniter api is used.  For the unit's state, Commit is
-# used.  Ensure that data set via Commit, is not overwritten by SetState.
+# This is probably a relic of old 3.6 where unit state and uniter state where sharing a doc in mongo.
+# In 4.0, both use the same state method to be updated but they update different table.
+# This ensures that setting the status of an application (`status-set`) doesn't erase or discard
+# a predefined state (`state-set`)
 run_state_set_clash_uniter_state() {
 	echo
 
@@ -34,18 +34,18 @@ run_state_set_clash_uniter_state() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu-lite
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	juju deploy ubuntu-lite app
+	wait_for "app" "$(idle_condition "app")"
 
-	juju exec --unit ubuntu-lite/0 'state-get | grep -q "{}"'
-	juju exec --unit ubuntu-lite/0 'state-set one=two'
-	juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
+	juju exec --unit app/0 'state-get | grep -q "{}"'
+	juju exec --unit app/0 'state-set one=two'
+	juju exec --unit app/0 'state-get | grep -q "one: two"'
 
-	# force a hook
-	juju exec --unit ubuntu-lite/0 hooks/update-status
+	# update status
+	juju exec --unit app/0 -- status-set active "update-status ran: $(date +"%H:%M")"
 
 	# verify charm set values
-	juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
+	juju exec --unit app/0 'state-get | grep -q "one: two"'
 
 	destroy_model "${model_name}"
 }
