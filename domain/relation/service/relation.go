@@ -415,7 +415,7 @@ func (s *Service) GetGoalStateRelationDataForApplication(
 	return s.st.GetGoalStateRelationDataForApplication(ctx, applicationID)
 }
 
-// GetRelationDetails returns RelationDetails for the given relationID.
+// GetRelationDetails returns RelationDetails for the given relation UUID.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID

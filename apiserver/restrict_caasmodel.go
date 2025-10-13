@@ -55,7 +55,6 @@ var commonModelFacadeNames = set.NewStrings(
 	"RelationStatusWatcher",
 	"RelationUnitsWatcher",
 	"ResourcesHookContext",
-	"RemoteRelations",
 	"Resumer",
 	"RetryStrategy",
 	"Secrets",

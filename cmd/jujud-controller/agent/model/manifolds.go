@@ -450,10 +450,9 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			EnvironName:        providerTrackerName,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.firewaller"),
 
-			NewControllerConnection:  apicaller.NewExternalControllerConnection,
-			NewFirewallerWorker:      firewaller.NewWorker,
-			NewFirewallerFacade:      firewaller.NewFirewallerFacade,
-			NewRemoteRelationsFacade: firewaller.NewRemoteRelationsFacade,
+			NewControllerConnection: apicaller.NewExternalControllerConnection,
+			NewFirewallerWorker:     firewaller.NewWorker,
+			NewFirewallerFacade:     firewaller.NewFirewallerFacade,
 		})),
 		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			DomainServicesName: domainServicesName,
