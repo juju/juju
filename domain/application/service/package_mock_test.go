@@ -1497,48 +1497,6 @@ func (c *MockStateGetApplicationScaleStateCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
-<<<<<<< HEAD
-// GetApplicationStorageDirectives mocks base method.
-func (m *MockState) GetApplicationStorageDirectives(arg0 context.Context, arg1 application.UUID) ([]application0.StorageDirective, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationStorageDirectives", arg0, arg1)
-	ret0, _ := ret[0].([]application0.StorageDirective)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetApplicationStorageDirectives indicates an expected call of GetApplicationStorageDirectives.
-func (mr *MockStateMockRecorder) GetApplicationStorageDirectives(arg0, arg1 any) *MockStateGetApplicationStorageDirectivesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStorageDirectives", reflect.TypeOf((*MockState)(nil).GetApplicationStorageDirectives), arg0, arg1)
-	return &MockStateGetApplicationStorageDirectivesCall{Call: call}
-}
-
-// MockStateGetApplicationStorageDirectivesCall wrap *gomock.Call
-type MockStateGetApplicationStorageDirectivesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationStorageDirectivesCall) Return(arg0 []application0.StorageDirective, arg1 error) *MockStateGetApplicationStorageDirectivesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationStorageDirectivesCall) Do(f func(context.Context, application.UUID) ([]application0.StorageDirective, error)) *MockStateGetApplicationStorageDirectivesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationStorageDirectivesCall) DoAndReturn(f func(context.Context, application.UUID) ([]application0.StorageDirective, error)) *MockStateGetApplicationStorageDirectivesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-=======
->>>>>>> 6c6f269805d (refactor: move storage code out of application service)
 // GetApplicationTrustSetting mocks base method.
 func (m *MockState) GetApplicationTrustSetting(arg0 context.Context, arg1 application.UUID) (bool, error) {
 	m.ctrl.T.Helper()
@@ -2753,11 +2711,7 @@ func (c *MockStateGetCharmModifiedVersionCall) Do(f func(context.Context, applic
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-<<<<<<< HEAD
 func (c *MockStateGetCharmModifiedVersionCall) DoAndReturn(f func(context.Context, application.UUID) (int, error)) *MockStateGetCharmModifiedVersionCall {
-=======
-func (c *MockStateGetCharmModifiedVersionCall) DoAndReturn(f func(context.Context, application.ID) (int, error)) *MockStateGetCharmModifiedVersionCall {
->>>>>>> 6c6f269805d (refactor: move storage code out of application service)
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3036,45 +2990,6 @@ func (c *MockStateGetModelConstraintsCall) DoAndReturn(f func(context.Context) (
 	return c
 }
 
-// GetModelStoragePools mocks base method.
-func (m *MockState) GetModelStoragePools(arg0 context.Context) (internal.ModelStoragePools, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelStoragePools", arg0)
-	ret0, _ := ret[0].(internal.ModelStoragePools)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetModelStoragePools indicates an expected call of GetModelStoragePools.
-func (mr *MockStateMockRecorder) GetModelStoragePools(arg0 any) *MockStateGetModelStoragePoolsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelStoragePools", reflect.TypeOf((*MockState)(nil).GetModelStoragePools), arg0)
-	return &MockStateGetModelStoragePoolsCall{Call: call}
-}
-
-// MockStateGetModelStoragePoolsCall wrap *gomock.Call
-type MockStateGetModelStoragePoolsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelStoragePoolsCall) Return(arg0 internal.ModelStoragePools, arg1 error) *MockStateGetModelStoragePoolsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelStoragePoolsCall) Do(f func(context.Context) (internal.ModelStoragePools, error)) *MockStateGetModelStoragePoolsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelStoragePoolsCall) DoAndReturn(f func(context.Context) (internal.ModelStoragePools, error)) *MockStateGetModelStoragePoolsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetNetNodeUUIDByUnitName mocks base method.
 func (m *MockState) GetNetNodeUUIDByUnitName(arg0 context.Context, arg1 unit.Name) (string, error) {
 	m.ctrl.T.Helper()
@@ -3153,87 +3068,6 @@ func (c *MockStateGetSpaceUUIDByNameCall) DoAndReturn(f func(context.Context, st
 	return c
 }
 
-<<<<<<< HEAD
-// GetStorageInstancesForProviderIDs mocks base method.
-func (m *MockState) GetStorageInstancesForProviderIDs(arg0 context.Context, arg1 application.UUID, arg2 []string) (map[string]storage0.StorageInstanceUUID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStorageInstancesForProviderIDs", arg0, arg1)
-	ret0, _ := ret[0].([]internal.StorageInstanceComposition)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetStorageInstancesForProviderIDs indicates an expected call of GetStorageInstancesForProviderIDs.
-func (mr *MockStateMockRecorder) GetStorageInstancesForProviderIDs(arg0, arg1 any) *MockStateGetStorageInstancesForProviderIDsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageInstancesForProviderIDs", reflect.TypeOf((*MockState)(nil).GetStorageInstancesForProviderIDs), arg0, arg1)
-	return &MockStateGetStorageInstancesForProviderIDsCall{Call: call}
-}
-
-// MockStateGetStorageInstancesForProviderIDsCall wrap *gomock.Call
-type MockStateGetStorageInstancesForProviderIDsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetStorageInstancesForProviderIDsCall) Return(arg0 []internal.StorageInstanceComposition, arg1 error) *MockStateGetStorageInstancesForProviderIDsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetStorageInstancesForProviderIDsCall) Do(f func(context.Context, application.UUID, []string) (map[string]storage0.StorageInstanceUUID, error)) *MockStateGetStorageInstancesForProviderIDsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetStorageInstancesForProviderIDsCall) DoAndReturn(f func(context.Context, application.UUID, []string) (map[string]storage0.StorageInstanceUUID, error)) *MockStateGetStorageInstancesForProviderIDsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetStorageUUIDByID mocks base method.
-func (m *MockState) GetStorageUUIDByID(arg0 context.Context, arg1 storage.ID) (storage0.StorageInstanceUUID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStorageUUIDByID", arg0, arg1)
-	ret0, _ := ret[0].(storage0.StorageInstanceUUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetStorageUUIDByID indicates an expected call of GetStorageUUIDByID.
-func (mr *MockStateMockRecorder) GetStorageUUIDByID(arg0, arg1 any) *MockStateGetStorageUUIDByIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageUUIDByID", reflect.TypeOf((*MockState)(nil).GetStorageUUIDByID), arg0, arg1)
-	return &MockStateGetStorageUUIDByIDCall{Call: call}
-}
-
-// MockStateGetStorageUUIDByIDCall wrap *gomock.Call
-type MockStateGetStorageUUIDByIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetStorageUUIDByIDCall) Return(arg0 storage0.StorageInstanceUUID, arg1 error) *MockStateGetStorageUUIDByIDCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetStorageUUIDByIDCall) Do(f func(context.Context, storage.ID) (storage0.StorageInstanceUUID, error)) *MockStateGetStorageUUIDByIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetStorageUUIDByIDCall) DoAndReturn(f func(context.Context, storage.ID) (storage0.StorageInstanceUUID, error)) *MockStateGetStorageUUIDByIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-=======
->>>>>>> 6c6f269805d (refactor: move storage code out of application service)
 // GetUnitK8sPodInfo mocks base method.
 func (m *MockState) GetUnitK8sPodInfo(arg0 context.Context, arg1 unit.Name) (application0.K8sPodInfo, error) {
 	m.ctrl.T.Helper()
