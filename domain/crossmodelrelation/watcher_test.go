@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -174,7 +175,7 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	}
 
 	controllerState := controllerstate.NewState(controllerDB, loggertesting.WrapCheckLog(c))
-	modelState := modelstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
+	modelState := modelstate.NewState(modelDB, coremodel.UUID(s.modelUUID), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	return service.NewWatchableService(
 		controllerState,

@@ -15,6 +15,7 @@ import (
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -36,16 +36,7 @@ type baseSuite struct {
 
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "test", "prod", "iaas", "fluffy", "ec2")
-		`, s.ModelUUID(), coretesting.ControllerTag.Id())
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	s.state = NewState(s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), clock.WallClock, loggertesting.WrapCheckLog(c))
 	s.relationCount = 0
 
 	c.Cleanup(func() {

@@ -1954,16 +1954,14 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 			latestRevisionStmt = selectLatestRemoteRevisionStmt
 		}
 		err = tx.Query(ctx, latestRevisionStmt, secretRef{ID: uri.ID}).Get(&latest)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				// Only return secret not found for local secrets.
-				// For remote secrets we may not yet know the latest revision.
-				if isLocal {
-					return secreterrors.SecretNotFound
-				}
-			} else {
-				return errors.Errorf("looking up latest revision for %q: %w", uri.ID, err)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// Only return secret not found for local secrets.
+			// For remote secrets we may not yet know the latest revision.
+			if isLocal {
+				return secreterrors.SecretNotFound
 			}
+		} else if err != nil {
+			return errors.Errorf("looking up latest revision for %q: %w", uri.ID, err)
 		}
 		latestRevision = latest.Revision
 

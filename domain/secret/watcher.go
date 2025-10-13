@@ -66,8 +66,8 @@ func (w *secretWatcher[T]) loop() error {
 			return nil
 		}
 		ctx, cancel := w.scopedContext()
+		defer cancel()
 		processed, err := w.processChanges(ctx, events.Values()...)
-		cancel()
 		if err != nil {
 			return errors.Capture(err)
 		}

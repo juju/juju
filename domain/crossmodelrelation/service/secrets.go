@@ -49,15 +49,16 @@ func (s *Service) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets
 	}
 	refresh = refresh ||
 		err != nil // Not found, so need to create one.
+	if !refresh {
+		return latestRevision, nil
+	}
 
-	if refresh {
-		if consumerInfo == nil {
-			consumerInfo = &secrets.SecretConsumerMetadata{}
-		}
-		consumerInfo.CurrentRevision = latestRevision
-		if err := s.modelState.SaveSecretRemoteConsumer(ctx, uri, unitName.String(), *consumerInfo); err != nil {
-			return 0, errors.Capture(err)
-		}
+	if consumerInfo == nil {
+		consumerInfo = &secrets.SecretConsumerMetadata{}
+	}
+	consumerInfo.CurrentRevision = latestRevision
+	if err := s.modelState.SaveSecretRemoteConsumer(ctx, uri, unitName.String(), *consumerInfo); err != nil {
+		return 0, errors.Capture(err)
 	}
 	return latestRevision, nil
 }

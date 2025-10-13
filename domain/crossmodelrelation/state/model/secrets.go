@@ -11,7 +11,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/eventsource"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -62,24 +61,6 @@ HAVING    sruc.current_revision < MAX(sr.revision)`
 	return "secret_revision", queryFunc
 }
 
-func (st *State) getModelUUID(ctx context.Context, tx *sqlair.TX) (string, error) {
-	result := modelUUID{}
-
-	getModelUUIDStmt, err := st.Prepare("SELECT &modelUUID.uuid FROM model", result)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, getModelUUIDStmt).Get(&result)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", modelerrors.NotFound
-	}
-	if err != nil {
-		return "", errors.Errorf("looking up model UUID: %w", err)
-	}
-	return result.UUID, nil
-}
-
 // GetRemoteConsumedSecretURIsWithChangesFromOfferingSide returns the URIs
 // of the secrets consumed by the specified remote application that has new
 // revisions.
@@ -110,19 +91,12 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	var (
-		remoteConsumers secretRemoteUnitConsumers
-		modelUUID       string
-	)
+	var remoteConsumers secretRemoteUnitConsumers
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, queryParams...).GetAll(&remoteConsumers)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// No consumed secrets found.
 			return nil
-		}
-		modelUUID, err = st.getModelUUID(ctx, tx)
-		if err != nil {
-			return errors.Capture(err)
 		}
 		return errors.Capture(err)
 	})
@@ -136,7 +110,7 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 			return nil, errors.Capture(err)
 		}
 		// We need to set the source model UUID to mark it as a remote secret for consumer side to use.
-		uri.SourceUUID = modelUUID
+		uri.SourceUUID = st.modelUUID
 		secretURIs[i] = uri.String()
 	}
 	return secretURIs, nil
@@ -146,16 +120,17 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 // specified secret URI does not exist in the model.
 func (st *State) checkExists(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
 	ref := secretRef{ID: uri.ID, SourceUUID: uri.SourceUUID}
+	modelUUID := modelUUID{UUID: st.modelUUID}
 	queryStmt, err := st.Prepare(`
 SELECT secret_id AS &secretRef.secret_id FROM secret_metadata sm
 WHERE  sm.secret_id = $secretRef.secret_id
-AND    ($secretRef.source_uuid = '' OR $secretRef.source_uuid = (SELECT uuid FROM model))
-`, ref)
+AND    ($secretRef.source_uuid = '' OR $secretRef.source_uuid = $modelUUID.uuid)
+`, ref, modelUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	var result secretRef
-	err = tx.Query(ctx, queryStmt, ref).Get(&result)
+	err = tx.Query(ctx, queryStmt, ref, modelUUID).Get(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return secreterrors.SecretNotFound
 	}
@@ -219,12 +194,10 @@ WHERE  rev.secret_id = $secretLatestRevision.secret_id`
 
 		result := secretLatestRevision{ID: uri.ID}
 		err = tx.Query(ctx, selectLatestRevisionStmt, result).Get(&result)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return secreterrors.SecretNotFound
-			} else {
-				return errors.Errorf("looking up latest revision for %q: %w", uri.ID, err)
-			}
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return secreterrors.SecretNotFound
+		} else if err != nil {
+			return errors.Errorf("looking up latest revision for %q: %w", uri.ID, err)
 		}
 		latestRevision = result.LatestRevision
 

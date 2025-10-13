@@ -182,7 +182,7 @@ func (w *WatchableService) WatchRemoteApplicationOfferers(ctx context.Context) (
 // that have had a new revision added.
 // Run on the offering model.
 func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID coreapplication.UUID) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := appUUID.Validate(); err != nil {
