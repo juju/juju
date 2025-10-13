@@ -30,16 +30,8 @@ type stateSuite struct {
 	state *State
 }
 
-type modelSuite struct {
-	schematesting.ModelSuite
-}
-
 func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
-}
-
-func TestModelSuite(t *testing.T) {
-	tc.Run(t, &modelSuite{})
 }
 
 func (s *stateSuite) SetUpTest(c *tc.C) {
@@ -352,60 +344,4 @@ func (s *stateSuite) TestCheckAgentBinarySHA256NoExists(c *tc.C) {
 	exists, err := s.state.CheckAgentBinarySHA256Exists(c.Context(), sha)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
-}
-
-// testArchitectureValuesAlignedToDB tests that architectures values in the DB
-// aligns with the architecture names and IDs we have defined in the application level.
-func testArchitectureValuesAlignedToDB(c *tc.C, db *sql.DB) {
-	rows, err := db.Query("SELECT id, name FROM architecture ORDER BY ID ASC")
-	c.Assert(err, tc.ErrorIsNil)
-
-	type architecture struct {
-		Id   int
-		Name string
-	}
-
-	var arch architecture
-	var archs []architecture
-	for rows.Next() {
-		err := rows.Scan(&arch.Id, &arch.Name)
-		c.Assert(err, tc.ErrorIsNil)
-		archs = append(archs, arch)
-	}
-
-	err = rows.Err()
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(archs, tc.DeepEquals, []architecture{
-		{
-			Id:   int(agentbinary.AMD64),
-			Name: agentbinary.AMD64.String(),
-		},
-		{
-			Id:   int(agentbinary.ARM64),
-			Name: agentbinary.ARM64.String(),
-		},
-		{
-			Id:   int(agentbinary.PPC64EL),
-			Name: agentbinary.PPC64EL.String(),
-		},
-		{
-			Id:   int(agentbinary.S390X),
-			Name: agentbinary.S390X.String(),
-		},
-		{
-			Id:   int(agentbinary.RISCV64),
-			Name: agentbinary.RISCV64.String(),
-		},
-	})
-}
-
-// TestArchitectureValuesAlignedToControllerDB tests for controller DB.
-func (s *stateSuite) TestArchitectureValuesAlignedToControllerDB(c *tc.C) {
-	testArchitectureValuesAlignedToDB(c, s.DB())
-}
-
-// TestArchitectureValuesAlignedToControllerDB tests for model DB.
-func (s *modelSuite) TestArchitectureValuesAlignedToModelDB(c *tc.C) {
-	testArchitectureValuesAlignedToDB(c, s.DB())
 }

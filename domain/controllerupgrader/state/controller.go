@@ -171,17 +171,22 @@ SET    target_version = $setControllerTargetVersion.target_version
 	return nil
 }
 
-// HasAgentBinaryForVersionArchitecturesAndStream is responsible for determining whether there exists agents
+// HasAgentBinariesForVersionArchitecturesAndStream is responsible for determining whether there exists agents
 // for a given version and slice of architectures.
 // There may be some architectures that doesn't exist in which the caller has to consult other source of truths
 // to grab the agent.
 // TODO(adisazhar123): at the moment, `stream` isn't modeled in the controller DB so it's a noop. This is for a
 // future effort to match the given `stream` when grabbing the agents.
-func (s *ControllerState) HasAgentBinaryForVersionArchitecturesAndStream(ctx context.Context, version semversion.Number, architectures []agentbinary.Architecture, stream modelagent.AgentStream) (map[agentbinary.Architecture]bool, error) {
+func (s *ControllerState) HasAgentBinariesForVersionArchitecturesAndStream(ctx context.Context, version semversion.Number, architectures []agentbinary.Architecture, stream modelagent.AgentStream) (map[agentbinary.Architecture]bool, error) {
+	if len(architectures) == 0 {
+		return map[agentbinary.Architecture]bool{}, nil
+	}
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+
+	binVersion := binaryVersion{Version: version.String()}
 
 	architectureIds := make(ids, len(architectures))
 	for i, arch := range architectures {
@@ -190,16 +195,17 @@ func (s *ControllerState) HasAgentBinaryForVersionArchitecturesAndStream(ctx con
 
 	stmt, err := s.Prepare(`
 SELECT &binaryForVersionAndArchitectures.*
-FROM agent_binary_store
-WHERE version = $binaryVersion.version AND architecture_id IN ($ids[:])
-`, binaryForVersionAndArchitectures{}, binaryVersion{}, ids{})
+FROM   agent_binary_store
+WHERE  version = $binaryVersion.version
+AND    architecture_id IN ($ids[:])
+`, binaryForVersionAndArchitectures{}, binVersion, architectureIds)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var binaries []binaryForVersionAndArchitectures
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, binaryVersion{Version: version.String()}, architectureIds).GetAll(&binaries)
+		err = tx.Query(ctx, stmt, binVersion, architectureIds).GetAll(&binaries)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
@@ -209,7 +215,7 @@ WHERE version = $binaryVersion.version AND architecture_id IN ($ids[:])
 	})
 
 	// Initialize each architecture to false.
-	result := make(map[agentbinary.Architecture]bool)
+	result := make(map[agentbinary.Architecture]bool, len(architectures))
 	for _, architecture := range architectures {
 		result[architecture] = false
 	}

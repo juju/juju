@@ -73,10 +73,10 @@ func (s *controllerStateSuite) setInitialControllerTargetVersion(
 
 // addObjectStore inserts a new row to `object_store_metadata` table. Its UUID is returned.
 func (s *controllerStateSuite) addObjectStore(c *tc.C) objectstore.UUID {
-	storeUUID := uuid.MustNewUUID().String()
+	storeUUID := tc.Must(c, objectstore.NewUUID)
 	hasher256 := sha256.New()
 	hasher384 := sha512.New384()
-	_, err := io.Copy(io.MultiWriter(hasher256, hasher384), strings.NewReader(storeUUID))
+	_, err := io.Copy(io.MultiWriter(hasher256, hasher384), strings.NewReader(storeUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 	sha256Hash := hex.EncodeToString(hasher256.Sum(nil))
 	sha384Hash := hex.EncodeToString(hasher384.Sum(nil))
@@ -204,7 +204,7 @@ func (s *controllerStateSuite) TestHasAgentBinaryForVersionArchitecturesAndStrea
 
 	st := NewControllerState(s.TxnRunnerFactory())
 
-	agents, err := st.HasAgentBinaryForVersionArchitecturesAndStream(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64}, modelagent.AgentStreamReleased)
+	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64}, modelagent.AgentStreamReleased)
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(agents, tc.DeepEquals, map[agentbinary.Architecture]bool{
@@ -224,7 +224,7 @@ func (s *controllerStateSuite) TestHasAgentBinaryForVersionArchitecturesAndStrea
 
 	st := NewControllerState(s.TxnRunnerFactory())
 
-	agents, err := st.HasAgentBinaryForVersionArchitecturesAndStream(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.PPC64EL, agentbinary.RISCV64}, modelagent.AgentStreamReleased)
+	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.PPC64EL, agentbinary.RISCV64}, modelagent.AgentStreamReleased)
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(agents, tc.DeepEquals, map[agentbinary.Architecture]bool{

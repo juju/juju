@@ -270,7 +270,7 @@ SET    target_version = $setAgentVersionTargetStream.target_version,
 // for a given version and slice of architectures.
 // There may be some architectures that doesn't exist in which the caller has to consult other source of truths
 // to grab the agent.
-func (s *ControllerModelState) HasAgentBinaryForVersionAndArchitectures(
+func (s *ControllerModelState) HasAgentBinariesForVersionAndArchitectures(
 	ctx context.Context,
 	version semversion.Number,
 	architectures []agentbinary.Architecture,
@@ -287,8 +287,9 @@ func (s *ControllerModelState) HasAgentBinaryForVersionAndArchitectures(
 
 	stmt, err := s.Prepare(`
 SELECT &binaryForVersionAndArchitectures.*
-FROM agent_binary_store
-WHERE version = $binaryVersion.version AND architecture_id IN ($ids[:])
+FROM   agent_binary_store
+WHERE  version = $binaryVersion.version
+AND    architecture_id IN ($ids[:])
 `, binaryForVersionAndArchitectures{}, binaryVersion{}, ids{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -306,7 +307,7 @@ WHERE version = $binaryVersion.version AND architecture_id IN ($ids[:])
 	})
 
 	// Initialize each architecture to false.
-	result := make(map[agentbinary.Architecture]bool)
+	result := make(map[agentbinary.Architecture]bool, len(architectures))
 	for _, architecture := range architectures {
 		result[architecture] = false
 	}
@@ -323,23 +324,23 @@ WHERE version = $binaryVersion.version AND architecture_id IN ($ids[:])
 func (s *ControllerModelState) GetModelAgentStream(ctx context.Context) (modelagent.AgentStream, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return modelagent.AgentStream(-1), errors.Capture(err)
-	}
-
-	stmt, err := s.Prepare(`
-SELECT &AgentStream.*
-FROM agent_version
-`, AgentStream{})
-	if err != nil {
-		return modelagent.AgentStream(-1), errors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 
 	stream := AgentStream{}
+	stmt, err := s.Prepare(`
+SELECT &AgentStream.*
+FROM   agent_version
+`, stream)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
 	var found bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt).Get(&stream)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
+			return errors.New("no agent stream has been set for the controller model")
 		} else if err != nil {
 			return errors.Capture(err)
 		}
@@ -348,7 +349,7 @@ FROM agent_version
 	})
 
 	if !found {
-		return modelagent.AgentStream(-1), errors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 
 	return modelagent.AgentStream(stream.StreamID), errors.Capture(err)

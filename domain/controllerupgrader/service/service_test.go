@@ -79,7 +79,7 @@ func (s *serviceSuite) TestUpgradeController(c *tc.C) {
 	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), highestVersion).Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	upgradedVer, err := svc.UpgradeController(c.Context(), []agentbinary.Architecture{agentbinary.AMD64})
+	upgradedVer, err := svc.UpgradeController(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(upgradedVer, tc.Equals, highestVersion)
 }
@@ -116,7 +116,7 @@ func (s *serviceSuite) TestUpgradeControllerNodeBlocker(c *tc.C) {
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	_, err = svc.UpgradeController(c.Context(), []agentbinary.Architecture{agentbinary.AMD64})
+	_, err = svc.UpgradeController(c.Context())
 	blocker, is := errors.AsType[controllerupgradererrors.ControllerUpgradeBlocker](err)
 	c.Check(is, tc.IsTrue)
 	c.Check(blocker.Reason, tc.Matches, "controller nodes \\[(3 1|1 3)\\] are not running controller version \"4\\.0\\.4\"")
@@ -131,7 +131,7 @@ func (s *serviceSuite) TestUpgradeControllerWithInvalidStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	_, err := svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStream(-1), []agentbinary.Architecture{agentbinary.AMD64})
+	_, err := svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStream(-1))
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentStreamNotValid)
 }
 
@@ -168,7 +168,7 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamNodeBlocker(c *tc.C) {
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	_, err = svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStreamDevel, []agentbinary.Architecture{agentbinary.AMD64})
+	_, err = svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStreamDevel)
 	blocker, is := errors.AsType[controllerupgradererrors.ControllerUpgradeBlocker](err)
 	c.Check(is, tc.IsTrue)
 	c.Check(blocker.Reason, tc.Matches, "controller nodes \\[(3 1|1 3)\\] are not running controller version \"4\\.0\\.4\"")
@@ -212,7 +212,7 @@ func (s *serviceSuite) TestUpgradeControllerWithStream(c *tc.C) {
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
 	upgradedVer, err := svc.UpgradeControllerWithStream(
-		c.Context(), modelagent.AgentStreamProposed, []agentbinary.Architecture{agentbinary.AMD64},
+		c.Context(), modelagent.AgentStreamProposed,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(upgradedVer, tc.Equals, highestVersion)
@@ -225,7 +225,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionZero(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err := svc.UpgradeControllerToVersion(c.Context(), semversion.Zero, []agentbinary.Architecture{agentbinary.AMD64})
+	err := svc.UpgradeControllerToVersion(c.Context(), semversion.Zero)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -250,7 +250,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionDowngrade(c *tc.C) {
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersion(c.Context(), downGradeVersion, []agentbinary.Architecture{agentbinary.AMD64})
+	err = svc.UpgradeControllerToVersion(c.Context(), downGradeVersion)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.DowngradeNotSupported)
 }
 
@@ -294,7 +294,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNoChange(c *tc.C) {
 		Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion, []agentbinary.Architecture{agentbinary.AMD64})
+	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -320,7 +320,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionGreaterThanPatch(c *tc.C) {
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion, []agentbinary.Architecture{agentbinary.AMD64})
+	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.VersionNotSupported)
 }
 
@@ -353,7 +353,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionMissingBinaries(c *tc.C) {
 	).Return(false, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion, []agentbinary.Architecture{agentbinary.AMD64})
+	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.MissingControllerBinaries)
 }
 
@@ -387,7 +387,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNodeBlocker(c *tc.C) {
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion, []agentbinary.Architecture{agentbinary.AMD64})
+	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion)
 	blocker, is := errors.AsType[controllerupgradererrors.ControllerUpgradeBlocker](err)
 	c.Check(is, tc.IsTrue)
 	c.Check(blocker.Reason, tc.Matches, "controller nodes \\[(2 1|1 2)\\] are not running controller version \"4\\.0\\.8\"")
@@ -443,7 +443,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion, []agentbinary.Architecture{agentbinary.AMD64})
+	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion)
 	c.Check(err, tc.NotNil)
 
 	// Step 2. Change mocks to now report the half saved state and check that a
@@ -472,7 +472,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 		nil,
 	)
 
-	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion, []agentbinary.Architecture{agentbinary.AMD64})
+	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -514,7 +514,6 @@ func (s *serviceSuite) TestUpgradeControllerToVersion(c *tc.C) {
 	err = svc.UpgradeControllerToVersion(
 		c.Context(),
 		upgradeVersion,
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -527,11 +526,10 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamZero(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err := svc.UpgradeControllerToVersionStreamAndArchitectures(
+	err := svc.UpgradeControllerToVersionAndStream(
 		c.Context(),
 		semversion.Zero,
 		modelagent.AgentStreamProposed,
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -557,11 +555,10 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamDowngrade(c *tc.C)
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionStreamAndArchitectures(
+	err = svc.UpgradeControllerToVersionAndStream(
 		c.Context(),
 		downGradeVersion,
 		modelagent.AgentStreamProposed,
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.DowngradeNotSupported)
 }
@@ -612,11 +609,10 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNoChange(c *tc.C) 
 		Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionStreamAndArchitectures(
+	err = svc.UpgradeControllerToVersionAndStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamDevel,
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -643,11 +639,10 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamGreaterThanPatch(c
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionStreamAndArchitectures(
+	err = svc.UpgradeControllerToVersionAndStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamProposed,
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.VersionNotSupported)
 }
@@ -684,11 +679,10 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamMissingBinaries(c 
 	).Return(false, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionStreamAndArchitectures(
+	err = svc.UpgradeControllerToVersionAndStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamProposed,
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.MissingControllerBinaries)
 }
@@ -704,11 +698,10 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamInvalidStream(c *t
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionStreamAndArchitectures(
+	err = svc.UpgradeControllerToVersionAndStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStream(-1),
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentStreamNotValid)
 }
@@ -743,11 +736,10 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNodeBlocker(c *tc.
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionStreamAndArchitectures(
+	err = svc.UpgradeControllerToVersionAndStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamProposed,
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	blocker, is := errors.AsType[controllerupgradererrors.ControllerUpgradeBlocker](err)
 	c.Check(is, tc.IsTrue)
@@ -810,11 +802,10 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionStreamAndArchitectures(
+	err = svc.UpgradeControllerToVersionAndStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamDevel,
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	c.Check(err, tc.NotNil)
 
@@ -847,17 +838,16 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 		nil,
 	)
 
-	err = svc.UpgradeControllerToVersionStreamAndArchitectures(
+	err = svc.UpgradeControllerToVersionAndStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamDevel,
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestUpgradeControllerToVersionAndStream is a happy path test for
-// [Service.UpgradeControllerToVersionStreamAndArchitectures].
+// [Service.UpgradeControllerToVersionAndStream].
 func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -897,11 +887,10 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionStreamAndArchitectures(
+	err = svc.UpgradeControllerToVersionAndStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamTesting,
-		[]agentbinary.Architecture{agentbinary.AMD64},
 	)
 	c.Check(err, tc.ErrorIsNil)
 }

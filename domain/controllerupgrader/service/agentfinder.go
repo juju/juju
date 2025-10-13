@@ -1,3 +1,6 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package service
 
 import (
@@ -20,9 +23,9 @@ type AgentFinderControllerState interface {
 	// cluster.
 	GetControllerTargetVersion(ctx context.Context) (semversion.Number, error)
 
-	// HasAgentBinaryForVersionArchitecturesAndStream returns whether the agents
+	// HasAgentBinariesForVersionArchitecturesAndStream returns whether the agents
 	// are supported for the given version, architectures, and stream.
-	HasAgentBinaryForVersionArchitecturesAndStream(
+	HasAgentBinariesForVersionArchitecturesAndStream(
 		context context.Context,
 		version semversion.Number,
 		architectures []agentbinary.Architecture,
@@ -31,9 +34,9 @@ type AgentFinderControllerState interface {
 }
 
 type AgentFinderControllerModelState interface {
-	// HasAgentBinaryForVersionAndArchitectures returns whether the agents
+	// HasAgentBinariesForVersionAndArchitectures returns whether the agents
 	// are supported for the given version and architectures.
-	HasAgentBinaryForVersionAndArchitectures(
+	HasAgentBinariesForVersionAndArchitectures(
 		context context.Context,
 		version semversion.Number,
 		architectures []agentbinary.Architecture,
@@ -277,7 +280,7 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 	hasStream := streamInModel == stream
 	missingArchsInModel := architectures
 	if hasStream {
-		archsInModel, err := a.modelSt.HasAgentBinaryForVersionAndArchitectures(ctx, version, architectures)
+		archsInModel, err := a.modelSt.HasAgentBinariesForVersionAndArchitectures(ctx, version, architectures)
 		if err != nil {
 			return false, errors.Capture(err)
 		}
@@ -291,7 +294,7 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 	// The stream in the model store doesn't match the given one OR
 	// some binaries don't exist in model state so we check if
 	// the missing ones exist in controller state.
-	archsInController, err := a.ctrlSt.HasAgentBinaryForVersionArchitecturesAndStream(ctx, version, missingArchsInModel, stream)
+	archsInController, err := a.ctrlSt.HasAgentBinariesForVersionArchitecturesAndStream(ctx, version, missingArchsInModel, stream)
 	if err != nil {
 		return false, errors.Capture(err)
 	}

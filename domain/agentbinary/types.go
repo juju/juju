@@ -38,9 +38,7 @@ type Metadata struct {
 type Architecture int
 
 const (
-	Unknown Architecture = iota - 1
-
-	AMD64
+	AMD64 Architecture = iota
 	ARM64
 	PPC64EL
 	S390X

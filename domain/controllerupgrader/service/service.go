@@ -132,7 +132,6 @@ func NewService(
 // exists preventing a controller upgrade from proceeding.
 func (s *Service) UpgradeController(
 	ctx context.Context,
-	architectures []agentbinary.Architecture,
 ) (semversion.Number, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -144,7 +143,7 @@ func (s *Service) UpgradeController(
 		)
 	}
 
-	err = s.UpgradeControllerToVersion(ctx, desiredVersion, architectures)
+	err = s.UpgradeControllerToVersion(ctx, desiredVersion)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
@@ -195,7 +194,6 @@ func (s *Service) UpgradeController(
 func (s *Service) UpgradeControllerWithStream(
 	ctx context.Context,
 	stream modelagent.AgentStream,
-	architectures []agentbinary.Architecture,
 ) (semversion.Number, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -215,15 +213,15 @@ func (s *Service) UpgradeControllerWithStream(
 		)
 	}
 
-	err = s.UpgradeControllerToVersionStreamAndArchitectures(ctx, desiredVersion, stream, architectures)
+	err = s.UpgradeControllerToVersionAndStream(ctx, desiredVersion, stream)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
 
 	// NOTE (tlm): Because this func uses
-	// [Service.UpgradeControllerToVersionStreamAndArchitectures] to compose its
+	// [Service.UpgradeControllerToVersionAndStream] to compose its
 	// implementation. This func must handle the contract of
-	// UpgradeControllerToVersionStreamAndArchitectures. Specifically the errors returned
+	// UpgradeControllerToVersionAndStream. Specifically the errors returned
 	// don't align with the expecations of the caller. The
 	// below switch statement re-writes the error cases to better explain the
 	// very unlikely error that has occurred. These exists to point a developer
@@ -277,7 +275,6 @@ func (s *Service) UpgradeControllerWithStream(
 func (s *Service) UpgradeControllerToVersion(
 	ctx context.Context,
 	desiredVersion semversion.Number,
-	architectures []agentbinary.Architecture,
 ) error {
 	// Controller upgrades are still controlled by that of the model agent
 	// version for the controllers model. Under the covers this is how they
@@ -304,6 +301,9 @@ func (s *Service) UpgradeControllerToVersion(
 		return errors.Capture(err)
 	}
 
+	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
+	// controller and model state. We hardcode this for now.
+	architectures := []agentbinary.Architecture{agentbinary.AMD64}
 	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionAndArchitectures(
 		ctx, desiredVersion, architectures,
 	)
@@ -341,7 +341,7 @@ func (s *Service) UpgradeControllerToVersion(
 	return nil
 }
 
-// UpgradeControllerToVersionStreamAndArchitectures upgrades the current clusters set of
+// UpgradeControllerToVersionAndStream upgrades the current clusters set of
 // controllers to the specified version. Also updated is the agent stream used
 // for getting the controller binaries. All controllers participating in the
 // cluster will eventually be upgraded to the new version after this call
@@ -364,11 +364,10 @@ func (s *Service) UpgradeControllerToVersion(
 // to is not valid.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
-func (s *Service) UpgradeControllerToVersionStreamAndArchitectures(
+func (s *Service) UpgradeControllerToVersionAndStream(
 	ctx context.Context,
 	desiredVersion semversion.Number,
 	stream modelagent.AgentStream,
-	architectures []agentbinary.Architecture,
 ) error {
 	// Controller upgrades are still controlled by that of the model agent
 	// version for the controllers model. Under the covers this is how they
@@ -401,6 +400,9 @@ func (s *Service) UpgradeControllerToVersionStreamAndArchitectures(
 		return errors.Capture(err)
 	}
 
+	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
+	// controller and model state. We hardcode this for now.
+	architectures := []agentbinary.Architecture{agentbinary.AMD64}
 	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionStreamAndArchitectures(
 		ctx, desiredVersion, stream, architectures,
 	)

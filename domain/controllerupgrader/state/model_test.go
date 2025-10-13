@@ -111,10 +111,10 @@ func (s *controllerModelStateSuite) setModelTargetAgentVersionAndStream(
 
 // addObjectStore inserts a new row to `object_store_metadata` table. Its UUID is returned.
 func (s *controllerModelStateSuite) addObjectStore(c *tc.C) objectstore.UUID {
-	storeUUID := uuid.MustNewUUID().String()
+	storeUUID := tc.Must(c, objectstore.NewUUID)
 	hasher256 := sha256.New()
 	hasher384 := sha512.New384()
-	_, err := io.Copy(io.MultiWriter(hasher256, hasher384), strings.NewReader(storeUUID))
+	_, err := io.Copy(io.MultiWriter(hasher256, hasher384), strings.NewReader(storeUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 	sha256Hash := hex.EncodeToString(hasher256.Sum(nil))
 	sha384Hash := hex.EncodeToString(hasher384.Sum(nil))
@@ -332,7 +332,7 @@ func (s *controllerModelStateSuite) TestHasAgentBinaryForVersionAndArchitectures
 
 	st := NewControllerModelState(s.TxnRunnerFactory())
 
-	agents, err := st.HasAgentBinaryForVersionAndArchitectures(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64})
+	agents, err := st.HasAgentBinariesForVersionAndArchitectures(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64})
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(agents, tc.DeepEquals, map[agentbinary.Architecture]bool{
@@ -352,7 +352,7 @@ func (s *controllerModelStateSuite) TestHasAgentBinaryForVersionAndArchitectures
 
 	st := NewControllerModelState(s.TxnRunnerFactory())
 
-	agents, err := st.HasAgentBinaryForVersionAndArchitectures(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.PPC64EL, agentbinary.RISCV64})
+	agents, err := st.HasAgentBinariesForVersionAndArchitectures(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.PPC64EL, agentbinary.RISCV64})
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(agents, tc.DeepEquals, map[agentbinary.Architecture]bool{
@@ -380,8 +380,7 @@ func (s *controllerModelStateSuite) TestGetModelAgentStream(c *tc.C) {
 func (s *controllerModelStateSuite) TestGetModelAgentStreamDoesntExist(c *tc.C) {
 	st := NewControllerModelState(s.TxnRunnerFactory())
 
-	agent, err := st.GetModelAgentStream(c.Context())
+	_, err := st.GetModelAgentStream(c.Context())
 
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(agent, tc.DeepEquals, modelagent.AgentStream(-1))
+	c.Assert(err, tc.ErrorMatches, "no agent stream has been set for the controller model")
 }
