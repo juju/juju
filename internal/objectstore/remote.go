@@ -90,6 +90,12 @@ func (c *remoteFileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Pre
 	return c.objectStore.GetBySHA256Prefix(ctx, sha256Prefix)
 }
 
+// ListFiles returns a list of all files in the object store, namespaced
+// to the model.
+func (c *remoteFileObjectStore) ListFiles(ctx context.Context) ([]string, error) {
+	return c.objectStore.ListFiles(ctx)
+}
+
 // Put stores data from reader at path, namespaced to the model.
 func (c *remoteFileObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) (objectstore.UUID, error) {
 	return c.objectStore.Put(ctx, path, r, size)
@@ -104,6 +110,13 @@ func (c *remoteFileObjectStore) PutAndCheckHash(ctx context.Context, path string
 // Remove removes data at path, namespaced to the model.
 func (c *remoteFileObjectStore) Remove(ctx context.Context, path string) error {
 	return c.objectStore.Remove(ctx, path)
+}
+
+// PruneFile removes the file at path, but doesn't check the metadata. This
+// just removes the file from the file system, and is used by the pruner to
+// remove files that are not referenced in the metadata.
+func (c *remoteFileObjectStore) PruneFile(ctx context.Context, path string) error {
+	return c.objectStore.PruneFile(ctx, path)
 }
 
 // RemoveAll removes all data for the namespaced model. It is destructive and
