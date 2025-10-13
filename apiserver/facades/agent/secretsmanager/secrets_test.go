@@ -674,20 +674,11 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 			Role:   coresecrets.RoleView,
 		},
 	}, nil)
-	s.secretsState.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{{
-		Revision: 666,
-		ValueRef: &coresecrets.ValueRef{
-			BackendID:  "backend-id",
-			RevisionID: "rev-id",
-		},
-	}, {
-		Revision: 667,
-	}}, nil)
 
 	results, err := s.facade.GetSecretMetadata()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
-		Results: []params.ListSecretResult{{
+	c.Assert(results, jc.DeepEquals, params.ListSecretMetadataResults{
+		Results: []params.ListSecretMetadataResult{{
 			URI:              uri.String(),
 			OwnerTag:         "application-mariadb",
 			Description:      "description",
@@ -696,15 +687,6 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 			LatestRevision:   666,
 			LatestExpireTime: &now,
 			NextRotateTime:   &now,
-			Revisions: []params.SecretRevision{{
-				Revision: 666,
-				ValueRef: &params.SecretValueRef{
-					BackendID:  "backend-id",
-					RevisionID: "rev-id",
-				},
-			}, {
-				Revision: 667,
-			}},
 			Access: []params.AccessInfo{
 				{TargetTag: "application-gitlab", ScopeTag: "relation-key", Role: "view"},
 			},
@@ -2008,4 +1990,30 @@ func (s *SecretsManagerSuite) TestUpdateTrackedRevisions(c *gc.C) {
 	result, err := s.facade.UpdateTrackedRevisions([]string{uri.ID})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
+}
+
+func (s *SecretsManagerSuite) TestUnitOwnedSecretsAndRevisions(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetOwnedSecretRevisionsAsUnit(
+		names.NewUnitTag("mariadb/0"),
+	).Return(map[coresecrets.URI][]int{
+		*uri1: []int{1, 2, 3, 4, 5},
+		*uri2: []int{6, 7, 8},
+	}, nil)
+
+	results, err := s.facade.UnitOwnedSecretsAndRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretRevisionIDsResults{
+		Results: []params.SecretRevisionIDsResult{{
+			URI:       uri1.String(),
+			Revisions: []int{1, 2, 3, 4, 5},
+		}, {
+			URI:       uri2.String(),
+			Revisions: []int{6, 7, 8},
+		}},
+	})
 }

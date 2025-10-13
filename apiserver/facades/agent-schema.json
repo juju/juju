@@ -9662,14 +9662,6 @@
                         }
                     }
                 },
-                "OwnedSecrets": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringsResult"
-                        }
-                    }
-                },
                 "RemoveSecrets": {
                     "type": "object",
                     "properties": {
@@ -10561,21 +10553,6 @@
                     "required": [
                         "results"
                     ]
-                },
-                "StringsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "StringsWatchResult": {
                     "type": "object",
@@ -12962,14 +12939,6 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/SecretRevisionIDsResults"
-                        }
-                    }
-                },
-                "OwnedSecrets": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringsResult"
                         }
                     }
                 },
