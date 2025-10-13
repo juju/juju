@@ -5,14 +5,21 @@ package state
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/modelagent"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -99,6 +106,36 @@ func (s *controllerModelStateSuite) setModelTargetAgentVersionAndStream(
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt, args).Run()
 	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// addObjectStore inserts a new row to `object_store_metadata` table. Its UUID is returned.
+func (s *controllerModelStateSuite) addObjectStore(c *tc.C) objectstore.UUID {
+	storeUUID := uuid.MustNewUUID().String()
+	hasher256 := sha256.New()
+	hasher384 := sha512.New384()
+	_, err := io.Copy(io.MultiWriter(hasher256, hasher384), strings.NewReader(storeUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	sha256Hash := hex.EncodeToString(hasher256.Sum(nil))
+	sha384Hash := hex.EncodeToString(hasher384.Sum(nil))
+
+	_, err = s.DB().Exec(`
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
+VALUES (?, ?, ?, ?)
+`, storeUUID, sha256Hash, sha384Hash, 1234)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return objectstore.UUID(storeUUID)
+}
+
+// addAgentBinaryStore inserts a new row to `agent_binary_store` table.
+// It is dependent upon architecture and object store metadata for its foreign keys.
+// Architecture is auto seeded in the DDL. However, addObjectStore must be invoked prior to
+// addAgentBinaryStore.
+func (s *controllerModelStateSuite) addAgentBinaryStore(c *tc.C, version semversion.Number, architecture agentbinary.Architecture, storeUUID objectstore.UUID) {
+	_, err := s.DB().Exec(`
+INSERT INTO agent_binary_store(version, architecture_id, object_store_uuid) VALUES(?, ?, ?)
+`, version.String(), int(architecture), storeUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -282,4 +319,69 @@ func (s *controllerModelStateSuite) TestSetModelTargetAgentVersionAndStreamNoStr
 	c.Check(ver.String(), tc.Equals, "4.2.0")
 
 	s.checkModelAgentStream(c, modelagent.AgentStreamReleased)
+}
+
+// TestHasAgentBinaryForVersionAndArchitectures tests that the given version and architectures
+// exists without returning errors.
+func (s *controllerModelStateSuite) TestHasAgentBinaryForVersionAndArchitectures(c *tc.C) {
+	version, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+	storeUUID := s.addObjectStore(c)
+	s.addAgentBinaryStore(c, version, agentbinary.AMD64, storeUUID)
+	s.addAgentBinaryStore(c, version, agentbinary.ARM64, storeUUID)
+
+	st := NewControllerModelState(s.TxnRunnerFactory())
+
+	agents, err := st.HasAgentBinaryForVersionAndArchitectures(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(agents, tc.DeepEquals, map[agentbinary.Architecture]bool{
+		agentbinary.AMD64: true,
+		agentbinary.ARM64: true,
+	})
+}
+
+// TestHasAgentBinaryForVersionAndArchitectures tests that some of the architectures doesn't exist
+// and no errors are returned.
+func (s *controllerModelStateSuite) TestHasAgentBinaryForVersionAndArchitecturesSomeArchitecturesDoesntExist(c *tc.C) {
+	version, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+	storeUUID := s.addObjectStore(c)
+	s.addAgentBinaryStore(c, version, agentbinary.AMD64, storeUUID)
+	s.addAgentBinaryStore(c, version, agentbinary.ARM64, storeUUID)
+
+	st := NewControllerModelState(s.TxnRunnerFactory())
+
+	agents, err := st.HasAgentBinaryForVersionAndArchitectures(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.PPC64EL, agentbinary.RISCV64})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(agents, tc.DeepEquals, map[agentbinary.Architecture]bool{
+		agentbinary.AMD64:   true,
+		agentbinary.PPC64EL: false,
+		agentbinary.RISCV64: false,
+	})
+}
+
+// TestGetModelAgentStream tests getting the stream currently in use for the agent.
+func (s *controllerModelStateSuite) TestGetModelAgentStream(c *tc.C) {
+	version, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+	s.setModelTargetAgentVersionAndStream(c, version.String(), modelagent.AgentStreamReleased)
+
+	st := NewControllerModelState(s.TxnRunnerFactory())
+
+	agent, err := st.GetModelAgentStream(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(agent, tc.DeepEquals, modelagent.AgentStreamReleased)
+}
+
+// TestGetModelAgentStreamDoesntExist tests getting the stream when it is missing.
+func (s *controllerModelStateSuite) TestGetModelAgentStreamDoesntExist(c *tc.C) {
+	st := NewControllerModelState(s.TxnRunnerFactory())
+
+	agent, err := st.GetModelAgentStream(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(agent, tc.DeepEquals, modelagent.AgentStream(-1))
 }
