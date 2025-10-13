@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
-	providerconst "github.com/juju/juju/internal/provider/kubernetes/constants"
 	providerutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
@@ -199,17 +198,8 @@ func patchForLabels(
 	controllerUUID, modelUUID, modelName string) []patchOperation {
 	patches := []patchOperation{}
 
-	modelLabels := providerutils.LabelsForModel(
-		modelName, modelUUID, controllerUUID, labelVersion,
-	)
-
-	appLabels := providerutils.LabelsForApp(appName, labelVersion)
-
-	createdByAppLabel := providerutils.LabelForKeyValue(
-		providerconst.LabelJujuAppCreatedBy, appName,
-	)
-
-	neededLabels := providerutils.LabelsMerge(appLabels, modelLabels, createdByAppLabel)
+	neededLabels := providerutils.LabelsForAppCreated(
+		appName, modelName, modelUUID, controllerUUID, labelVersion)
 
 	if len(labels) == 0 {
 		patches = append(patches, patchOperation{

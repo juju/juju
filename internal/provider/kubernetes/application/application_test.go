@@ -134,7 +134,7 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 	s.modelUUID = modelUUID.String()
 
 	return application.NewApplicationForTest(
-		s.appName, s.namespace, modelUUID.String(), s.namespace, 2,
+		s.appName, s.namespace, modelUUID.String(), s.namespace, constants.LabelVersion2,
 		deploymentType,
 		s.client,
 		s.extendedClient,
@@ -3055,9 +3055,7 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *gc.C) {
 	modelUUID := s.modelUUID
 	labelVersion := constants.LabelVersion2
 
-	appLabel := k8sutils.SelectorLabelsForApp(appName, labelVersion)
-	modelLabel := k8sutils.LabelsForModel(modelName, modelUUID, controllerUUID, labelVersion)
-	resourceLabels := k8sutils.LabelsMerge(appLabel, modelLabel)
+	resourceLabels := k8sutils.LabelsForAppCreated(appName, modelName, modelUUID, controllerUUID, labelVersion)
 
 	// ServiceAccount (namespace-scoped)
 	sa := &corev1.ServiceAccount{
@@ -3387,11 +3385,9 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *gc.C) {
 
 	// We now test the case where the resource labels do not match juju's label.
 	// We declare the names of these variables that use the wrong labels as {resource}Bad as belown.
-	wrongAppLabel := k8sutils.SelectorLabelsForApp(appName+"-other", labelVersion)
-	wrongAppResourceLabels := k8sutils.LabelsMerge(wrongAppLabel, modelLabel)
+	wrongAppResourceLabels := k8sutils.LabelsForAppCreated(appName+"-other", modelName, modelUUID, controllerUUID, labelVersion)
 
-	wrongModelLabel := k8sutils.LabelsForModel("not-model-name", modelUUID, controllerUUID, labelVersion)
-	wrongModelResourceLabels := k8sutils.LabelsMerge(appLabel, wrongModelLabel)
+	wrongModelResourceLabels := k8sutils.LabelsForAppCreated(appName, "not-model-name", modelUUID, controllerUUID, labelVersion)
 
 	// ServiceAccount (bad)
 	saBad := &corev1.ServiceAccount{
