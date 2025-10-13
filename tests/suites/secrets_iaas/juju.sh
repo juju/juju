@@ -178,7 +178,7 @@ obsolete_secret_revisions() {
 	secret_short_uri=${1}
 
 	out=$(
-		juju ssh ubuntu-lite/0 <<EOF
+		juju ssh ubuntu-lite/0 sh <<EOF
 . /etc/profile.d/juju-introspection.sh
 juju_engine_report | sed 1d | yq '..style="flow" | .manifolds.deployer.report.units.workers.ubuntu-lite/0.report.manifolds.uniter.report.secrets.obsolete-revisions."'"${secret_short_uri}"'"'
 EOF
