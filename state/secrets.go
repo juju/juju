@@ -93,7 +93,8 @@ type SecretsStore interface {
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	ListUnusedSecretRevisions(uri *secrets.URI) ([]int, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
-	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
+	WatchObsolete(owners []names.Tag, legacy bool) (StringsWatcher, error)
+	WatchDeleted(owners []names.Tag) (StringsWatcher, error)
 	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
 	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
@@ -2067,13 +2068,11 @@ func (w *consumedSecretsWatcher) loop() (err error) {
 }
 
 // WatchObsolete returns a watcher for notifying when:
-//   - a secret owned by the entity is deleted
 //   - a secret revision owed by the entity no longer
 //     has any consumers
 //
-// Obsolete revisions results are "uri/revno" and deleted
-// secret results are "uri".
-func (s *secretsStore) WatchObsolete(ownerTags []names.Tag) (StringsWatcher, error) {
+// Obsolete revisions results are "uri/revno".
+func (s *secretsStore) WatchObsolete(ownerTags []names.Tag, legacy bool) (StringsWatcher, error) {
 	if len(ownerTags) == 0 {
 		return nil, errors.New("missing secret owners")
 	}
@@ -2081,7 +2080,7 @@ func (s *secretsStore) WatchObsolete(ownerTags []names.Tag) (StringsWatcher, err
 	for i, owner := range ownerTags {
 		owners[i] = owner.String()
 	}
-	return newObsoleteSecretsWatcher(s.st, owners, nil), nil
+	return newObsoleteSecretsWatcher(s.st, owners, nil, legacy), nil
 }
 
 // WatchRevisionsToPrune returns a watcher for notifying when a user supplied secret revision needs to be pruned.
@@ -2110,12 +2109,15 @@ func (s *secretsStore) WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatc
 		}
 		return md.AutoPrune
 	}
-	return newObsoleteSecretsWatcher(s.st, owners, fitler), nil
+	return newObsoleteSecretsWatcher(s.st, owners, fitler, false), nil
 }
 
 type obsoleteSecretsWatcher struct {
 	commonWatcher
 	out chan []string
+
+	// legacy implementation includes deleted secrets in the result.
+	legacy bool
 
 	obsoleteRevisionsWatcher *collectionWatcher
 
@@ -2123,7 +2125,7 @@ type obsoleteSecretsWatcher struct {
 	known  set.Strings
 }
 
-func newObsoleteSecretsWatcher(st modelBackend, owners []string, filter func(string) bool) *obsoleteSecretsWatcher {
+func newObsoleteSecretsWatcher(st modelBackend, owners []string, filter func(string) bool, legacy bool) *obsoleteSecretsWatcher {
 	// obsoleteRevisionsWatcher is for tracking secret revisions with no consumers.
 	obsoleteRevisionsWatcher := newCollectionWatcher(st, colWCfg{
 		col: secretRevisionsC,
@@ -2160,6 +2162,7 @@ func newObsoleteSecretsWatcher(st modelBackend, owners []string, filter func(str
 		out:                      make(chan []string),
 		known:                    set.NewStrings(),
 		owners:                   owners,
+		legacy:                   legacy,
 	}
 	w.tomb.Go(func() error {
 		defer w.finish()
@@ -2194,6 +2197,8 @@ func (w *obsoleteSecretsWatcher) mergedOwnedChanges(currentChanges []string, cha
 	changeID := change.Id.(string)
 	known := w.known.Contains(changeID)
 
+	// Process any deleted secrets - if a secret is deleted
+	// there's no need for any obsolete revision event.
 	if change.Revno < 0 {
 		if !known {
 			return currentChanges, nil
@@ -2215,7 +2220,9 @@ func (w *obsoleteSecretsWatcher) mergedOwnedChanges(currentChanges []string, cha
 				newChanges = append(newChanges, c)
 			}
 		}
-		newChanges = append(newChanges, uri.String())
+		if w.legacy {
+			newChanges = append(newChanges, uri.String())
+		}
 		return newChanges, nil
 	}
 	if known {
@@ -2293,6 +2300,217 @@ func (w *obsoleteSecretsWatcher) loop() (err error) {
 				break
 			}
 			changes = w.mergeRevisionChanges(changes, obsoleteRevisions)
+		case change, ok := <-ownedChanges:
+			if !ok {
+				return tomb.ErrDying
+			}
+			if changes, err = w.mergedOwnedChanges(changes, change); err != nil {
+				return err
+			}
+			if len(changes) > 0 {
+				out = w.out
+			}
+		case <-timeout:
+			if len(changes) > 0 {
+				out = w.out
+			}
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
+}
+
+// WatchDeleted returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity is deleted
+//
+// Deleted revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (s *secretsStore) WatchDeleted(ownerTags []names.Tag) (StringsWatcher, error) {
+	if len(ownerTags) == 0 {
+		return nil, errors.New("missing secret owners")
+	}
+	owners := make([]string, len(ownerTags))
+	for i, owner := range ownerTags {
+		owners[i] = owner.String()
+	}
+	return newDeletedSecretsWatcher(s.st, owners), nil
+}
+
+type deletedSecretsWatcher struct {
+	commonWatcher
+	out chan []string
+
+	owners []string
+	known  map[string][]int
+}
+
+func newDeletedSecretsWatcher(st modelBackend, owners []string) *deletedSecretsWatcher {
+	w := &deletedSecretsWatcher{
+		commonWatcher: newCommonWatcher(st),
+		out:           make(chan []string),
+		known:         make(map[string][]int),
+		owners:        owners,
+	}
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+	return w
+}
+
+// Changes implements StringsWatcher.
+func (w *deletedSecretsWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *deletedSecretsWatcher) initial() error {
+	var doc secretMetadataDoc
+	secretRevisionCollection, closer := w.db.GetCollection(secretRevisionsC)
+	defer closer()
+
+	iter := secretRevisionCollection.Find(bson.D{secretOwnerTerm(w.owners)}).Select(bson.D{{"_id", 1}}).Iter()
+	for iter.Next(&doc) {
+		uriStr, rev := splitSecretRevision(w.backend.localID(doc.DocID))
+		w.known[uriStr] = append(w.known[uriStr], rev)
+	}
+	return errors.Trace(iter.Close())
+}
+
+func (w *deletedSecretsWatcher) mergedOwnedChanges(currentChanges []string, change watcher.Change) ([]string, error) {
+	changeID := change.Id.(string)
+	uriStr, _ := splitSecretRevision(w.backend.localID(changeID))
+
+	_, secretKnown := w.known[uriStr]
+
+	if change.Revno < 0 {
+		if !secretKnown {
+			return currentChanges, nil
+		}
+		// Secret deleted.
+		delete(w.known, uriStr)
+		uri, err := secrets.ParseURI(uriStr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// If there are any pending changes for deleted revisions and the
+		// secret becomes deleted, the deleted revision changes are no
+		// longer relevant.
+		var newChanges []string
+		for _, c := range currentChanges {
+			id, _ := splitSecretRevision(c)
+			if id != uri.String() {
+				newChanges = append(newChanges, c)
+			}
+		}
+		newChanges = append(newChanges, uri.String())
+		return newChanges, nil
+	}
+	if secretKnown {
+		return currentChanges, nil
+	}
+
+	var doc secretRevisionDoc
+	// Record added or updated - we don't emit an event but
+	// record that we know about it.
+	secretRevisionsColl, closer := w.db.GetCollection(secretRevisionsC)
+	defer closer()
+	relevantURI := false
+	iter := secretRevisionsColl.Find(bson.D{{"_id",
+		bson.D{{"$regex", fmt.Sprintf("^%s:%s/", w.backend.ModelUUID(), uriStr)}}},
+		secretOwnerTerm(w.owners)}).Iter()
+	currentRevs := set.NewInts(w.known[uriStr]...)
+	for iter.Next(&doc) {
+		relevantURI = true
+		_, knownRev := splitSecretRevision(w.backend.localID(doc.DocID))
+		currentRevs.Add(knownRev)
+	}
+	if relevantURI {
+		w.known[uriStr] = currentRevs.Values()
+	}
+	return currentChanges, nil
+}
+
+func (w *deletedSecretsWatcher) mergeRevisionChanges(currentChanges []string, change watcher.Change) ([]string, error) {
+	changeID := change.Id.(string)
+	uriStr, rev := splitSecretRevision(w.backend.localID(changeID))
+
+	knownRevs, secretKnown := w.known[uriStr]
+	revKnown := set.NewInts(knownRevs...).Contains(rev)
+
+	if change.Revno < 0 {
+		// Secret revision deleted.
+		if secretKnown {
+			resultRevs := set.NewInts(knownRevs...)
+			resultRevs.Remove(rev)
+			w.known[uriStr] = resultRevs.Values()
+		}
+		if !revKnown {
+			return currentChanges, nil
+		}
+
+		uri, err := secrets.ParseURI(uriStr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		currentChanges = append(currentChanges, fmt.Sprintf("%s/%d", uri.String(), rev))
+		return currentChanges, nil
+	}
+	if revKnown {
+		return currentChanges, nil
+	}
+
+	// Record added or updated - we don't emit an event but
+	// record that we know about it.
+	secretRevisionsColl, closer := w.db.GetCollection(secretRevisionsC)
+	defer closer()
+	n, err := secretRevisionsColl.Find(bson.D{{"_id", fmt.Sprintf("%s/%d", uriStr, rev)},
+		secretOwnerTerm(w.owners)}).Count()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n > 0 {
+		revs := set.NewInts(w.known[uriStr]...)
+		revs.Add(rev)
+		w.known[uriStr] = revs.Values()
+	}
+	return currentChanges, nil
+}
+
+func (w *deletedSecretsWatcher) loop() (err error) {
+	// Watch changes to secrets and revisions owned by the entity.
+	ownedChanges := make(chan watcher.Change)
+	w.watcher.WatchCollection(secretMetadataC, ownedChanges)
+	defer w.watcher.UnwatchCollection(secretMetadataC, ownedChanges)
+
+	revisionChanges := make(chan watcher.Change)
+	w.watcher.WatchCollection(secretRevisionsC, revisionChanges)
+	defer w.watcher.UnwatchCollection(secretRevisionsC, revisionChanges)
+
+	if err = w.initial(); err != nil {
+		return errors.Trace(err)
+	}
+
+	var changes []string
+	out := w.out
+	for {
+		// Give any incoming secret deletion events
+		// time to arrive so the revision deleted and
+		// secret delete events can be squashed.
+		timeout := time.After(time.Second)
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case change, ok := <-revisionChanges:
+			if !ok {
+				return tomb.ErrDying
+			}
+			if changes, err = w.mergeRevisionChanges(changes, change); err != nil {
+				return err
+			}
 		case change, ok := <-ownedChanges:
 			if !ok {
 				return tomb.ErrDying

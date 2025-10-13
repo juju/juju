@@ -110,7 +110,7 @@ func (mr *MockSecretStateTrackerMockRecorder) SecretObsoleteRevisions(arg0 any) 
 }
 
 // SecretsRemoved mocks base method.
-func (m *MockSecretStateTracker) SecretsRemoved(arg0 []string) error {
+func (m *MockSecretStateTracker) SecretsRemoved(arg0 map[string][]int) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SecretsRemoved", arg0)
 	ret0, _ := ret[0].(error)

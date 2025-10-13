@@ -32,13 +32,13 @@ type secretsResolver struct {
 	secretsTracker   SecretStateTracker
 	rotatedSecrets   func(url string)
 	expiredRevisions func(rev string)
-	deletedSecrets   func(uris []string)
+	deletedSecrets   func(revisions map[string][]int)
 }
 
 // NewSecretsResolver returns a new Resolver that returns operations
 // to rotate, expire, or run other secret related hooks.
 func NewSecretsResolver(logger Logger, secretsTracker SecretStateTracker,
-	rotatedSecrets func(string), expiredRevisions func(string), deletedSecrets func([]string),
+	rotatedSecrets func(string), expiredRevisions func(string), deletedSecrets func(map[string][]int),
 ) resolver.Resolver {
 	return &secretsResolver{logger: logger, secretsTracker: secretsTracker,
 		rotatedSecrets: rotatedSecrets, expiredRevisions: expiredRevisions, deletedSecrets: deletedSecrets}
@@ -79,13 +79,13 @@ func (s *secretsResolver) NextOp(
 			return op, err
 		}
 	}
-	if len(remoteState.DeletedSecrets) > 0 {
-		op, err := opFactory.NewNoOpSecretsRemoved(remoteState.DeletedSecrets)
+	if len(remoteState.DeletedSecretRevisions) > 0 {
+		op, err := opFactory.NewNoOpSecretsRemoved(remoteState.DeletedSecretRevisions)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		opCompleted := func() {
-			s.deletedSecrets(remoteState.DeletedSecrets)
+			s.deletedSecrets(remoteState.DeletedSecretRevisions)
 		}
 		return &secretCompleter{op, opCompleted}, nil
 	}

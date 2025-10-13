@@ -704,19 +704,34 @@ func (mr *MockSecretsStoreMockRecorder) UpdateSecret(arg0, arg1 any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockSecretsStore)(nil).UpdateSecret), arg0, arg1)
 }
 
-// WatchObsolete mocks base method.
-func (m *MockSecretsStore) WatchObsolete(arg0 []names.Tag) (state.StringsWatcher, error) {
+// WatchDeleted mocks base method.
+func (m *MockSecretsStore) WatchDeleted(arg0 []names.Tag) (state.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchObsolete", arg0)
+	ret := m.ctrl.Call(m, "WatchDeleted", arg0)
+	ret0, _ := ret[0].(state.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchDeleted indicates an expected call of WatchDeleted.
+func (mr *MockSecretsStoreMockRecorder) WatchDeleted(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchDeleted", reflect.TypeOf((*MockSecretsStore)(nil).WatchDeleted), arg0)
+}
+
+// WatchObsolete mocks base method.
+func (m *MockSecretsStore) WatchObsolete(arg0 []names.Tag, arg1 bool) (state.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchObsolete", arg0, arg1)
 	ret0, _ := ret[0].(state.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchObsolete indicates an expected call of WatchObsolete.
-func (mr *MockSecretsStoreMockRecorder) WatchObsolete(arg0 any) *gomock.Call {
+func (mr *MockSecretsStoreMockRecorder) WatchObsolete(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsStore)(nil).WatchObsolete), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsStore)(nil).WatchObsolete), arg0, arg1)
 }
 
 // WatchRevisionsToPrune mocks base method.

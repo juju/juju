@@ -516,6 +516,26 @@ func (s *SecretsSuite) TestWatchObsolete(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
+func (s *SecretsSuite) TestWatchDeleted(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchDeleted")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "unit-foo-0"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResult{})
+		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
+			Error: &params.Error{Message: "FAIL"},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	_, err := client.WatchDeleted(names.NewUnitTag("foo/0"))
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
 func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")

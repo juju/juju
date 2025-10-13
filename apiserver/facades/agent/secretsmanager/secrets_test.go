@@ -1662,7 +1662,8 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 	s.secretsState.EXPECT().WatchObsolete(
-		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
+		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
+		false).Return(
 		s.secretsWatcher, nil,
 	)
 	s.resources.EXPECT().Register(s.secretsWatcher).Return("1")
@@ -1673,6 +1674,36 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
 	s.secretsWatcher.EXPECT().Changes().Return(watchChan)
 
 	result, err := s.facade.WatchObsolete(params.Entities{
+		Entities: []params.Entity{{
+			Tag: "unit-mariadb-0",
+		}, {
+			Tag: "application-mariadb",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          []string{uri.String()},
+	})
+}
+
+func (s *SecretsManagerSuite) TestWatchDeleted(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check().Return(nil)
+	s.secretsState.EXPECT().WatchDeleted(
+		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
+		s.secretsWatcher, nil,
+	)
+	s.resources.EXPECT().Register(s.secretsWatcher).Return("1")
+
+	uri := coresecrets.NewURI()
+	watchChan := make(chan []string, 1)
+	watchChan <- []string{uri.String()}
+	s.secretsWatcher.EXPECT().Changes().Return(watchChan)
+
+	result, err := s.facade.WatchDeleted(params.Entities{
 		Entities: []params.Entity{{
 			Tag: "unit-mariadb-0",
 		}, {
