@@ -45,7 +45,7 @@ func (s *flightRecorderSuite) TestStart(c *tc.C) {
 	recorder := New(s.recorder, "/tmp", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start(flightrecorder.KindAny, time.Millisecond)
+	err := recorder.Start(flightrecorder.KindAll, time.Millisecond)
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, recorder)
@@ -60,7 +60,7 @@ func (s *flightRecorderSuite) TestStartStop(c *tc.C) {
 	recorder := New(s.recorder, "/tmp", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start(flightrecorder.KindAny, time.Millisecond)
+	err := recorder.Start(flightrecorder.KindAll, time.Millisecond)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = recorder.Stop()
@@ -79,10 +79,10 @@ func (s *flightRecorderSuite) TestStartCapture(c *tc.C) {
 	recorder := New(s.recorder, "/mytmp", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start(flightrecorder.KindAny, time.Millisecond)
+	err := recorder.Start(flightrecorder.KindAll, time.Millisecond)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = recorder.Capture(flightrecorder.KindAny)
+	err = recorder.Capture(flightrecorder.KindAll)
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, recorder)
@@ -98,10 +98,10 @@ func (s *flightRecorderSuite) TestStartCaptureDefaultPath(c *tc.C) {
 	recorder := New(s.recorder, "", loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, recorder)
 
-	err := recorder.Start(flightrecorder.KindAny, time.Millisecond)
+	err := recorder.Start(flightrecorder.KindAll, time.Millisecond)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = recorder.Capture(flightrecorder.KindAny)
+	err = recorder.Capture(flightrecorder.KindAll)
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, recorder)

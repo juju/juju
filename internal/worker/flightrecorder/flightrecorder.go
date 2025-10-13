@@ -8,9 +8,10 @@ import (
 	"errors"
 	"time"
 
+	"gopkg.in/tomb.v2"
+
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/logger"
-	"gopkg.in/tomb.v2"
 )
 
 // FileRecorder defines the interface for a flight recorder that can
@@ -24,6 +25,14 @@ type FileRecorder interface {
 
 	// Capture captures a flight recording to the given path.
 	Capture(path string) (string, error)
+
+	// Enabled returns whether the recorder is currently recording.
+	Enabled() bool
+}
+
+type report struct {
+	Enabled bool
+	Kind    flightrecorder.Kind
 }
 
 // FlightRecorder is the flight recorder worker.
@@ -41,7 +50,9 @@ type FlightRecorder struct {
 	logger   logger.Logger
 
 	currentKind flightrecorder.Kind
-	ch          chan request
+	requests    chan request
+
+	reports chan chan report
 }
 
 // New creates a new flight recorder worker.
@@ -50,9 +61,10 @@ func New(recorder FileRecorder, path string, logger logger.Logger) *FlightRecord
 		recorder:    recorder,
 		path:        path,
 		logger:      logger,
-		currentKind: flightrecorder.KindAny,
+		currentKind: flightrecorder.KindAll,
 
-		ch: make(chan request),
+		requests: make(chan request),
+		reports:  make(chan chan report),
 	}
 
 	w.tomb.Go(w.loop)
@@ -76,26 +88,26 @@ func (w *FlightRecorder) Start(kind flightrecorder.Kind, duration time.Duration)
 		Type:     requestTypeStart,
 		Kind:     kind,
 		Duration: duration,
-		Result:   make(chan error, 1),
+		Result:   make(chan response, 1),
 	}
 
 	select {
 	case <-w.tomb.Dying():
 		return errors.New("worker is stopping")
-	case w.ch <- request:
+	case w.requests <- request:
 	}
 
 	select {
 	case <-w.tomb.Dying():
 		return errors.New("worker is stopping")
-	case err := <-request.Result:
-		return err
+	case response := <-request.Result:
+		return response.Error
 	}
 }
 
 // Stop stops the flight recorder.
 func (w *FlightRecorder) Stop() error {
-	result := make(chan error, 1)
+	result := make(chan response, 1)
 	req := request{
 		Type:   requestTypeStop,
 		Result: result,
@@ -104,20 +116,20 @@ func (w *FlightRecorder) Stop() error {
 	select {
 	case <-w.tomb.Dying():
 		return errors.New("worker is stopping")
-	case w.ch <- req:
+	case w.requests <- req:
 	}
 
 	select {
 	case <-w.tomb.Dying():
 		return errors.New("worker is stopping")
-	case err := <-result:
-		return err
+	case response := <-result:
+		return response.Error
 	}
 }
 
 // Capture captures a flight recording.
 func (w *FlightRecorder) Capture(kind flightrecorder.Kind) error {
-	result := make(chan error, 1)
+	result := make(chan response, 1)
 	req := request{
 		Type:   requestTypeCapture,
 		Kind:   kind,
@@ -127,29 +139,74 @@ func (w *FlightRecorder) Capture(kind flightrecorder.Kind) error {
 	select {
 	case <-w.tomb.Dying():
 		return errors.New("worker is stopping")
-	case w.ch <- req:
+	case w.requests <- req:
 	}
 
 	select {
 	case <-w.tomb.Dying():
 		return errors.New("worker is stopping")
-	case err := <-result:
-		return err
+	case response := <-result:
+		return response.Error
+	}
+}
+
+// Enabled returns whether the recorder is currently recording.
+func (w *FlightRecorder) Enabled() bool {
+	result := make(chan response, 1)
+	req := request{
+		Type:   requestTypeEnabled,
+		Result: result,
+	}
+
+	select {
+	case <-w.tomb.Dying():
+		return false
+	case w.requests <- req:
+	}
+
+	select {
+	case <-w.tomb.Dying():
+		return false
+	case response := <-result:
+		return response.Enabled
+	}
+}
+
+// Report returns a map of internal state for introspection.
+func (w *FlightRecorder) Report() map[string]any {
+	ch := make(chan report, 1)
+	select {
+	case <-w.tomb.Dying():
+		return map[string]any{}
+	case w.reports <- ch:
+	}
+
+	select {
+	case <-w.tomb.Dying():
+		return map[string]any{}
+	case r := <-ch:
+		return map[string]any{
+			"enabled": r.Enabled,
+			"kind":    r.Kind,
+		}
 	}
 }
 
 func (w *FlightRecorder) loop() error {
 	ctx := w.tomb.Context(context.Background())
 
-	defer w.recorder.Stop()
+	defer func() { _ = w.recorder.Stop() }()
 
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 
-		case req := <-w.ch:
-			var err error
+		case req := <-w.requests:
+			var (
+				err     error
+				enabled bool
+			)
 			switch req.Type {
 			case requestTypeStart:
 				err = w.startRecording(ctx, req.Kind, req.Duration)
@@ -157,6 +214,8 @@ func (w *FlightRecorder) loop() error {
 				err = w.stopRecording(ctx)
 			case requestTypeCapture:
 				err = w.captureRecording(ctx, req.Kind)
+			case requestTypeEnabled:
+				enabled = w.recorder.Enabled()
 			default:
 				err = errors.New("unknown request type")
 			}
@@ -164,7 +223,17 @@ func (w *FlightRecorder) loop() error {
 			select {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
-			case req.Result <- err:
+			case req.Result <- response{Error: err, Enabled: enabled}:
+			}
+
+		case res := <-w.reports:
+			select {
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case res <- report{
+				Enabled: w.recorder.Enabled(),
+				Kind:    w.currentKind,
+			}:
 			}
 		}
 	}
@@ -185,13 +254,12 @@ func (w *FlightRecorder) startRecording(ctx context.Context, kind flightrecorder
 func (w *FlightRecorder) stopRecording(ctx context.Context) error {
 	w.logger.Debugf(ctx, "stopping flight recording")
 
-	w.recorder.Stop()
-	return nil
+	return w.recorder.Stop()
 }
 
 func (w *FlightRecorder) captureRecording(ctx context.Context, kind flightrecorder.Kind) error {
 	if !w.currentKind.IsAllowed(kind) {
-		w.logger.Debugf(ctx, "skipping capture of kind %q as current kind is %q", kind, w.currentKind)
+		w.logger.Tracef(ctx, "skipping capture of kind %q as current kind is %q", kind, w.currentKind)
 		return nil
 	}
 
@@ -199,14 +267,15 @@ func (w *FlightRecorder) captureRecording(ctx context.Context, kind flightrecord
 	if path == "" {
 		path = "/tmp"
 	}
-	w.logger.Debugf(ctx, "start capturing flight recording into %q", path)
 
 	path, err := w.recorder.Capture(path)
 	if err != nil {
 		return err
+	} else if path == "" {
+		return nil
 	}
 
-	w.logger.Infof(ctx, "captured flight recording into %q", path)
+	w.logger.Infof(ctx, "captured flight recording for %q into %q", kind, path)
 
 	return nil
 }
@@ -217,11 +286,17 @@ const (
 	requestTypeStart requestType = iota
 	requestTypeStop
 	requestTypeCapture
+	requestTypeEnabled
 )
 
 type request struct {
 	Type     requestType
 	Kind     flightrecorder.Kind
 	Duration time.Duration
-	Result   chan error
+	Result   chan response
+}
+
+type response struct {
+	Error   error
+	Enabled bool
 }
