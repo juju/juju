@@ -49,7 +49,7 @@ type AddApplicationArgs struct {
 	// for the application as a map of storage name to overrides. Each name in
 	// the map must match a storage name in the charm. Any other value will be
 	// an error.
-	StorageDirectiveOverrides map[string]storage.ApplicationStorageDirectiveOverride
+	StorageDirectiveOverrides map[string]storage.StorageDirectiveOverride
 
 	// DownloadInfo contains the download information for the charm.
 	DownloadInfo *domaincharm.DownloadInfo

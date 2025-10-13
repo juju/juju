@@ -245,7 +245,7 @@ type deployTemplate struct {
 	origin            corecharm.Origin
 	placement         []*instance.Placement
 	resources         map[string]string
-	storage           map[string]applicationservice.ApplicationStorageDirectiveOverride
+	storage           map[string]applicationservice.StorageDirectiveOverrides
 	resourcesToUpload []*params.PendingResourceUpload
 	resolvedResources applicationservice.ResolvedResources
 	downloadInfo      corecharm.DownloadInfo

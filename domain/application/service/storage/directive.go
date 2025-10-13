@@ -15,14 +15,14 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ApplicationStorageDirectiveOverride defines a single set of overrides for a
+// StorageDirectiveOverride defines a single set of overrides for a
 // storage directive to accompany an application when it is being added.
 // Typically, this is supplied by the caller when the user whishes to set
 // explicitly storage directive parameters of the application.
 //
 // Each value in this struct is optional and only when a value that is non nil
 // has been supplied will it be used to override the defaults.
-type ApplicationStorageDirectiveOverride struct {
+type StorageDirectiveOverride struct {
 	// Count is the number of storage instances to create for each unit. This
 	// value must be greater or equal to the minimum defined by the charm. This
 	// value must also be less or equal to the maximum defined by the charm.
@@ -68,7 +68,7 @@ func (s *Service) GetApplicationStorageDirectives(
 // The directives SHOULD still be validated.
 func (s *Service) MakeApplicationStorageDirectiveArgs(
 	ctx context.Context,
-	directiveOverrides map[string]ApplicationStorageDirectiveOverride,
+	directiveOverrides map[string]StorageDirectiveOverride,
 	charmMetaStorage map[string]internalcharm.Storage,
 ) ([]application.CreateApplicationStorageDirectiveArg, error) {
 	if len(charmMetaStorage) == 0 {
@@ -111,7 +111,7 @@ func (s *Service) MakeApplicationStorageDirectiveArgs(
 // sources to create the best approximation at an application storage directive.
 func makeApplicationStorageDirectiveArg(
 	name domainstorage.Name,
-	directiveOverride ApplicationStorageDirectiveOverride,
+	directiveOverride StorageDirectiveOverride,
 	charmStorageDef internalcharm.Storage,
 	defaultProvisioners internal.DefaultStorageProvisioners,
 ) application.CreateApplicationStorageDirectiveArg {
@@ -185,7 +185,7 @@ func MakeStorageDirectiveFromApplicationArg(
 func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 	ctx context.Context,
 	charmStorageDefs map[string]internalcharm.Storage,
-	overrides map[string]ApplicationStorageDirectiveOverride,
+	overrides map[string]StorageDirectiveOverride,
 ) error {
 	for name, override := range overrides {
 		storageDef, exists := charmStorageDefs[name]
@@ -212,7 +212,7 @@ func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 func validateApplicationStorageDirectiveOverride(
 	ctx context.Context,
 	charmStorageDef internalcharm.Storage,
-	override ApplicationStorageDirectiveOverride,
+	override StorageDirectiveOverride,
 	poolProvider StoragePoolProvider,
 ) error {
 	if override.Count != nil {

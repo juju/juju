@@ -44,14 +44,14 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 		Name                string
 		DefaultProvisioners internal.DefaultStorageProvisioners
 		CharmMetaStorage    map[string]internalcharm.Storage
-		Overrides           map[string]ApplicationStorageDirectiveOverride
+		Overrides           map[string]StorageDirectiveOverride
 
 		Expected []application.CreateApplicationStorageDirectiveArg
 	}{
 		{
 			Name:             "no overrides, no charm meta storage, no default provisioners",
 			CharmMetaStorage: map[string]internalcharm.Storage{},
-			Overrides:        map[string]ApplicationStorageDirectiveOverride{},
+			Overrides:        map[string]StorageDirectiveOverride{},
 			Expected:         []application.CreateApplicationStorageDirectiveArg{},
 		},
 		{

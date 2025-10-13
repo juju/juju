@@ -16,6 +16,11 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
+// StorageDirectiveOverrides represents override instructions for application
+// storage directives to alter the default values a new application will
+// recieve.
+type StorageDirectiveOverrides = storage.StorageDirectiveOverride
+
 type StorageService interface {
 	// GetApplicationStorageDirectives returns the storage directives that are
 	// set for an application. If the application does not have any storage
@@ -64,7 +69,7 @@ type StorageService interface {
 	// The directives SHOULD still be validated.
 	MakeApplicationStorageDirectiveArgs(
 		ctx context.Context,
-		directiveOverrides map[string]storage.ApplicationStorageDirectiveOverride,
+		directiveOverrides map[string]storage.StorageDirectiveOverride,
 		charmMetaStorage map[string]internalcharm.Storage,
 	) ([]application.CreateApplicationStorageDirectiveArg, error)
 
@@ -98,6 +103,6 @@ type StorageService interface {
 	ValidateApplicationStorageDirectiveOverrides(
 		ctx context.Context,
 		charmStorageDefs map[string]internalcharm.Storage,
-		overrides map[string]storage.ApplicationStorageDirectiveOverride,
+		overrides map[string]storage.StorageDirectiveOverride,
 	) error
 }

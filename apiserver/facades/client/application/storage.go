@@ -19,10 +19,10 @@ func storageDirectives(
 	ctx context.Context,
 	storageService StorageService,
 	storage map[string]storage.Directive,
-) (map[string]applicationservice.ApplicationStorageDirectiveOverride, error) {
-	res := map[string]applicationservice.ApplicationStorageDirectiveOverride{}
+) (map[string]applicationservice.StorageDirectiveOverrides, error) {
+	res := map[string]applicationservice.StorageDirectiveOverrides{}
 	for storageName, storageDirective := range storage {
-		sdo := applicationservice.ApplicationStorageDirectiveOverride{}
+		sdo := applicationservice.StorageDirectiveOverrides{}
 		if storageDirective.Count != 0 {
 			if storageDirective.Count > math.MaxUint32 {
 				return nil, errors.NotValidf(
