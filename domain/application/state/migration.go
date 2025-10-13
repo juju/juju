@@ -386,7 +386,7 @@ func (st *State) importCAASUnit(
 		return errors.Capture(err)
 	}
 
-	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
 	}

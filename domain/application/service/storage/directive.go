@@ -54,7 +54,7 @@ const (
 // when the application no longer exists.
 func (s *Service) GetApplicationStorageDirectives(
 	ctx context.Context,
-	uuid coreapplication.ID,
+	uuid coreapplication.UUID,
 ) ([]application.StorageDirective, error) {
 	return s.st.GetApplicationStorageDirectives(ctx, uuid)
 }

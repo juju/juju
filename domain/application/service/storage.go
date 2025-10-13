@@ -55,7 +55,7 @@ type StorageService interface {
 	// exists.
 	MakeRegisterNewCAASUnitStorageArg(
 		ctx context.Context,
-		appUUID coreapplication.ID,
+		appUUID coreapplication.UUID,
 		attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 		providerFilesystemInfo []caas.FilesystemInfo,
 	) (application.RegisterUnitStorageArg, error)

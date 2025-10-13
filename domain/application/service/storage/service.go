@@ -261,7 +261,7 @@ func (s Service) MakeRegisterExistingCAASUnitStorageArg(
 // exists.
 func (s Service) MakeRegisterNewCAASUnitStorageArg(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 	providerFilesystemInfo []caas.FilesystemInfo,
 ) (application.RegisterUnitStorageArg, error) {

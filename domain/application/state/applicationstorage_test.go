@@ -42,7 +42,7 @@ func (s *applicationStorageSuite) createApplicationWithStorageDirectives(
 	charmName string,
 	charmStorage map[string]charm.Storage,
 	directives []application.CreateApplicationStorageDirectiveArg,
-) coreapplication.ID {
+) coreapplication.UUID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",
