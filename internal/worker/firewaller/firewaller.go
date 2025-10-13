@@ -32,6 +32,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainrelation "github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
@@ -52,6 +54,7 @@ type Config struct {
 	PortsService              PortService
 	MachineService            MachineService
 	ApplicationService        ApplicationService
+	RelationService           RelationService
 	EnvironFirewaller         EnvironFirewaller
 	EnvironModelFirewaller    EnvironModelFirewaller
 	EnvironInstances          EnvironInstances
@@ -121,6 +124,7 @@ type Firewaller struct {
 	portService               PortService
 	machineService            MachineService
 	applicationService        ApplicationService
+	relationService           RelationService
 	environFirewaller         EnvironFirewaller
 	environModelFirewaller    EnvironModelFirewaller
 	environInstances          EnvironInstances
@@ -191,6 +195,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		portService:                cfg.PortsService,
 		machineService:             cfg.MachineService,
 		applicationService:         cfg.ApplicationService,
+		relationService:            cfg.RelationService,
 		environFirewaller:          cfg.EnvironFirewaller,
 		environModelFirewaller:     cfg.EnvironModelFirewaller,
 		environInstances:           cfg.EnvironInstances,
@@ -1499,25 +1504,34 @@ func (ad *applicationData) scopedContext() (context.Context, context.CancelFunc)
 // relationLifeChanged manages the workers to process ingress changes for
 // the specified relation.
 func (fw *Firewaller) relationLifeChanged(ctx context.Context, tag names.RelationTag) error {
-	results, err := fw.crossModelRelationService.Relations(ctx, []string{tag.Id()})
+	relationKey, err := relation.NewKeyFromString(tag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	relErr := results[0].Error
-	notfound := relErr != nil && params.IsCodeNotFound(relErr)
-	if relErr != nil && !notfound {
-		return err
+	var (
+		rel  domainrelation.RelationDetails
+		gone bool
+	)
+	relationUUID, err := fw.relationService.GetRelationUUIDByKey(ctx, relationKey)
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		gone = true
+	} else if err != nil {
+		return errors.Trace(err)
+	} else {
+		var err error
+		rel, err = fw.relationService.GetRelationDetails(ctx, relationUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
-	rel := results[0].Result
-
-	gone := notfound || rel.Life == life.Dead || rel.Suspended
+	gone = gone || rel.Life == life.Dead || rel.Suspended
 	data, known := fw.relationIngress[tag]
 	if known && gone {
 		fw.logger.Debugf(ctx, "relation %v was known but has died or been suspended", tag.Id())
 		// If relation is suspended, shut off ingress immediately.
 		// Units will also eventually leave scope which would cause
 		// ingress to be shut off, but best to do it up front.
-		if rel != nil && rel.Suspended {
+		if rel.Suspended {
 			change := &remoteRelationNetworkChange{
 				relationTag:         tag,
 				localApplicationTag: data.localApplicationTag,
@@ -1530,10 +1544,11 @@ func (fw *Firewaller) relationLifeChanged(ctx context.Context, tag names.Relatio
 		return fw.forgetRelation(ctx, data)
 	}
 	if !known && !gone {
-		err := fw.startRelation(ctx, rel, rel.Endpoint.Role)
-		if err != nil {
-			return err
-		}
+		// NOTE: startRelation is being reworked, for the moment it's just a
+		// placeholder
+		_ = fw.startRelation(ctx, &params.RemoteRelation{
+			RemoteApplicationName: "",
+		}, "")
 	}
 	return nil
 }

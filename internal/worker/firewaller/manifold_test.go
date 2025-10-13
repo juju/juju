@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -85,6 +84,7 @@ func validConfig(c *tc.C) firewaller.ManifoldConfig {
 		AgentName:               "agent",
 		APICallerName:           "api-caller",
 		EnvironName:             "environ",
+		DomainServicesName:      "domain-services",
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewControllerConnection: func(context.Context, *api.Info) (api.Connection, error) { return nil, nil },
 		NewFirewallerFacade:     func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
@@ -104,6 +104,11 @@ func (s *ManifoldConfigSuite) TestMissingAgentName(c *tc.C) {
 func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "empty APICallerName not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingDomainServicesName(c *tc.C) {
+	s.config.DomainServicesName = ""
+	s.checkNotValid(c, "empty DomainServicesName not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingEnvironName(c *tc.C) {

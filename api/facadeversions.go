@@ -80,7 +80,6 @@ var facadeVersions = facades.FacadeVersions{
 	"Reboot":                       {2},
 	"RelationStatusWatcher":        {1},
 	"RelationUnitsWatcher":         {1},
-	"RemoteRelations":              {2},
 	"RemoteRelationWatcher":        {1},
 	"Resources":                    {3},
 	"ResourcesHookContext":         {1},

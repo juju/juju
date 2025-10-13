@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -62,6 +61,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
+	if cfg.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
+	}
 	if cfg.EnvironName == "" {
 		return errors.NotValidf("empty EnvironName")
 	}
@@ -71,7 +73,6 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.NewControllerConnection == nil {
 		return errors.NotValidf("nil NewControllerConnection")
 	}
-
 	if cfg.NewFirewallerFacade == nil {
 		return errors.NotValidf("nil NewFirewallerFacade")
 	}
