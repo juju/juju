@@ -399,15 +399,6 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 				LatestRevisionChecksum: "checksum",
 				NextRotateTime:         &now,
 				LatestExpireTime:       &now,
-				Revisions: []params.SecretRevision{{
-					Revision: 666,
-					ValueRef: &params.SecretValueRef{
-						BackendID:  "backend-id",
-						RevisionID: "rev-id",
-					},
-				}, {
-					Revision: 667,
-				}},
 				Access: []params.AccessInfo{
 					{
 						TargetTag: "application-gitlab",
