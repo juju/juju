@@ -2536,7 +2536,7 @@ func (w *deletedSecretsWatcher) loop() (err error) {
 // not being tracked by any consumers as obsolete.
 func (st *State) markObsoleteRevisionOps(uri *secrets.URI, exceptForConsumer string, exceptForRev int) ([]txn.Op, error) {
 	var obsoleteOps []txn.Op
-	revs, latest, err := st.getOrphanedSecretRevisions(uri, exceptForConsumer, exceptForRev)
+	revs, latest, err := st.getNewlyOrphanedSecretRevisions(uri, exceptForConsumer, exceptForRev)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting orphaned secret revisions")
 	}
@@ -2562,21 +2562,32 @@ func (st *State) markObsoleteRevisionOps(uri *secrets.URI, exceptForConsumer str
 	return obsoleteOps, nil
 }
 
-// getOrphanedSecretRevisions returns revisions which are not being tracked by any consumer,
-// plus the current latest revision, for the specified secret, excluding the specified
-// consumer and/or revision.
-func (st *State) getOrphanedSecretRevisions(uri *secrets.URI, exceptForConsumer string, exceptForRev int) ([]int, int, error) {
-	store := NewSecrets(st)
-	revInfo, err := store.listSecretRevisions(uri, nil)
-	if err != nil {
+// getNewlyOrphanedSecretRevisions returns revisions which are not being tracked by any consumer,
+// and which have not yet been marked as orphaned, excluding the specified consumer and/or revision.
+// The result includes the current latest revision, for the specified secret
+func (st *State) getNewlyOrphanedSecretRevisions(uri *secrets.URI, exceptForConsumer string, exceptForRev int) ([]int, int, error) {
+	secretRevisionCollection, closer := st.db().GetCollection(secretRevisionsC)
+	defer closer()
+
+	q := bson.D{
+		{"_id", bson.D{{"$regex", st.localSecretURIRegex(uri, "/")}}},
+		{"obsolete", bson.D{{"$ne", true}}},
+	}
+
+	var doc secretRevisionDoc
+	allUnorphanedRevisions := set.NewInts()
+	latest := 0
+	iter := secretRevisionCollection.Find(q).Select(bson.D{{"revision", 1}}).Iter()
+	for iter.Next(&doc) {
+		allUnorphanedRevisions.Add(doc.Revision)
+		if doc.Revision > latest {
+			latest = doc.Revision
+		}
+	}
+	if err := iter.Close(); err != nil {
 		return nil, 0, errors.Trace(err)
 	}
-	allRevisions := set.NewInts()
-	for _, r := range revInfo {
-		allRevisions.Add(r.Revision)
-	}
-	latest := allRevisions.SortedValues()[allRevisions.Size()-1]
-	allRevisions.Remove(exceptForRev)
+	allUnorphanedRevisions.Remove(exceptForRev)
 
 	consumedRevs, err := st.getInUseSecretRevisions(secretConsumersC, uri, exceptForConsumer)
 	if err != nil {
@@ -2587,7 +2598,7 @@ func (st *State) getOrphanedSecretRevisions(uri *secrets.URI, exceptForConsumer 
 		return nil, 0, errors.Trace(err)
 	}
 	usedRevisions := consumedRevs.Union(remoteConsumedRevs)
-	return allRevisions.Difference(usedRevisions).Values(), latest, nil
+	return allUnorphanedRevisions.Difference(usedRevisions).Values(), latest, nil
 }
 
 func (st *State) getInUseSecretRevisions(collName string, uri *secrets.URI, exceptForConsumer string) (set.Ints, error) {

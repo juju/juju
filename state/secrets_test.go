@@ -3256,7 +3256,6 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(uri.String() + "/1")
 	wc.AssertNoChange()
 
 	// New revision 4 added, so rev 3 is now also obsolete.
@@ -3267,7 +3266,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(uri.String()+"/1", uri.String()+"/3")
+	wc.AssertChange(uri.String() + "/3")
 	wc.AssertNoChange()
 }
 
@@ -3309,7 +3308,6 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisionsToPrune(c *gc.C)
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(uri.String() + "/1")
 	wc.AssertNoChange()
 
 	// New revision 4 added, so rev 3 is now also obsolete.
@@ -3320,15 +3318,15 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisionsToPrune(c *gc.C)
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(uri.String()+"/1", uri.String()+"/3")
+	wc.AssertChange(uri.String() + "/3")
 	wc.AssertNoChange()
 
-	// The previous consumer of rev 1 now uses rev 2; rev 1 is orphaned.
+	// The previous consumer of rev 1 now uses rev 3; rev 2 is orphaned.
 	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 4,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(uri.String()+"/1", uri.String()+"/2", uri.String()+"/3")
+	wc.AssertChange(uri.String() + "/2")
 	wc.AssertNoChange()
 }
 
