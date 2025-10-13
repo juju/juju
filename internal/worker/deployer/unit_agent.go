@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
@@ -51,6 +52,7 @@ type UnitAgent struct {
 	unitEngineConfig   func() dependency.EngineConfig
 	unitManifolds      func(UnitManifoldsConfig) dependency.Manifolds
 	prometheusRegistry *prometheus.Registry
+	flightRecorder     flightrecorder.FlightRecorder
 
 	// Able to disable running units.
 	workerRunning bool
@@ -61,6 +63,7 @@ type UnitAgent struct {
 type UnitAgentConfig struct {
 	Name             string
 	DataDir          string
+	FlightRecorder   flightrecorder.FlightRecorder
 	Clock            clock.Clock
 	Logger           logger.Logger
 	UnitEngineConfig func() dependency.EngineConfig
@@ -75,6 +78,9 @@ func (u *UnitAgentConfig) Validate() error {
 	}
 	if u.DataDir == "" {
 		return errors.NotValidf("missing DataDir")
+	}
+	if u.FlightRecorder == nil {
+		return errors.NotValidf("missing FlightRecorder")
 	}
 	if u.Clock == nil {
 		return errors.NotValidf("missing Clock")
@@ -146,6 +152,7 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 		unitEngineConfig:   config.UnitEngineConfig,
 		unitManifolds:      config.UnitManifolds,
 		prometheusRegistry: prometheusRegistry,
+		flightRecorder:     config.FlightRecorder,
 	}
 	// Update the 'upgradedToVersion' in the agent.conf file if it is
 	// different to the current version.
@@ -232,6 +239,7 @@ func (a *UnitAgent) start(ctx context.Context) (worker.Worker, error) {
 		AgentDir:           a.CurrentConfig().Dir(),
 		Engine:             engine,
 		PrometheusGatherer: a.prometheusRegistry,
+		FlightRecorder:     a.flightRecorder,
 		MachineLock:        machineLock,
 		WorkerFunc:         introspection.NewWorker,
 		Logger:             a.logger,

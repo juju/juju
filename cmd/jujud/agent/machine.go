@@ -54,6 +54,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/container/broker"
 	internaldependency "github.com/juju/juju/internal/dependency"
+	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -65,6 +66,7 @@ import (
 	"github.com/juju/juju/internal/upgradesteps"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/deployer"
+	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -511,6 +513,9 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
+		clock := clock.WallClock
+		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(clock), "", internallogger.GetLogger("juju.flightrecorder"))
+
 		// Create a single HTTP client so we can reuse HTTP connections, for
 		// example across the various Charmhub API requests required for deploy.
 		charmhubLogger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
@@ -532,7 +537,8 @@ func (a *MachineAgent) makeEngineCreator(
 			UpgradeSteps:                      a.upgradeSteps,
 			LogSource:                         a.bufferedLogger.Logs(),
 			NewDeployContext:                  deployer.NewNestedContext,
-			Clock:                             clock.WallClock,
+			Clock:                             clock,
+			FlightRecorder:                    flightRecorder,
 			ValidateMigration:                 a.validateMigration,
 			PrometheusRegisterer:              a.prometheusRegistry,
 			UpdateLoggerConfig:                updateAgentConfLogging,
@@ -568,8 +574,9 @@ func (a *MachineAgent) makeEngineCreator(
 			Engine:             engine,
 			MachineLock:        a.machineLock,
 			PrometheusGatherer: a.prometheusRegistry,
+			FlightRecorder:     flightRecorder,
 			WorkerFunc:         introspection.NewWorker,
-			Clock:              clock.WallClock,
+			Clock:              clock,
 			Logger:             logger.Child("introspection"),
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error
