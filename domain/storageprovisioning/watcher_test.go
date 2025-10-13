@@ -674,7 +674,6 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 			storageInstanceUUID2,
 			storageInstanceUUID3,
 		)
-		fmt.Println(attachmenUUIDs)
 
 		storageAttachmentUUID1 = attachmenUUIDs[0]
 		storageAttachmentUUID2 = attachmenUUIDs[1]
