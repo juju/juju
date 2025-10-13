@@ -667,15 +667,18 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 		storageAttachmentUUID3 storageprovisioning.StorageAttachmentUUID
 	)
 	harness.AddTest(c, func(c *tc.C) {
-		storageAttachmentUUID1 = s.newStorageAttachment(
-			c, storageInstanceUUID1, unitUUID, domainlife.Alive,
+		attachmenUUIDs := s.newStorageAttachmentsForInstances(
+			c,
+			unitUUID,
+			storageInstanceUUID1,
+			storageInstanceUUID2,
+			storageInstanceUUID3,
 		)
-		storageAttachmentUUID2 = s.newStorageAttachment(
-			c, storageInstanceUUID2, unitUUID, domainlife.Alive,
-		)
-		storageAttachmentUUID3 = s.newStorageAttachment(
-			c, storageInstanceUUID3, unitUUID, domainlife.Alive,
-		)
+		fmt.Println(attachmenUUIDs)
+
+		storageAttachmentUUID1 = attachmenUUIDs[0]
+		storageAttachmentUUID2 = attachmenUUIDs[1]
+		storageAttachmentUUID3 = attachmenUUIDs[2]
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -1783,6 +1786,52 @@ VALUES (?, ?, ?, ?)`,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return saUUID
+}
+
+// newStorageAttachmentsForInstances is responsible for create storage
+// attachments on to each of the supplied storage instances using the unit uuid.
+// Each attachment created sets a default life of alive.
+//
+// Use this function when it is required that all of the storage attachments be
+// created within a single transaction.
+func (s *watcherSuite) newStorageAttachmentsForInstances(
+	c *tc.C,
+	unitUUID coreunit.UUID,
+	instances ...domainstorage.StorageInstanceUUID,
+) []storageprovisioning.StorageAttachmentUUID {
+	rval := make([]storageprovisioning.StorageAttachmentUUID, 0, len(instances))
+
+	err := s.TxnRunner().StdTxn(
+		c.Context(),
+		func(ctx context.Context, tx *sql.Tx) error {
+			for _, instUUID := range instances {
+				attachmentUUID, err := storageprovisioning.NewStorageAttachmentUUID()
+				if err != nil {
+					return err
+				}
+				rval = append(rval, attachmentUUID)
+				_, err = tx.ExecContext(
+					ctx,
+					`
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES (?, ?, ?, ?)
+`,
+					attachmentUUID.String(),
+					instUUID.String(),
+					unitUUID.String(),
+					domainlife.Alive,
+				)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+
+	return rval
 }
 
 func (s *watcherSuite) newStorageInstanceFilesystem(
