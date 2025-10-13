@@ -1295,7 +1295,7 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
 	secretsBackend, err := secrets.NewClient(jujuSecretsAPI)
 	c.Assert(err, jc.ErrorIsNil)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsBackend)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{}, jujuSecretsAPI, secretsBackend)
 
 	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsBackend)
 
