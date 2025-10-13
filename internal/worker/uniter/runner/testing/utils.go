@@ -129,19 +129,16 @@ func (s SecretsContextAccessor) CreateSecretURIs(int) ([]*secrets.URI, error) {
 	}}, nil
 }
 
-func (s SecretsContextAccessor) SecretMetadata() ([]secrets.SecretOwnerMetadata, error) {
+func (s SecretsContextAccessor) SecretMetadata() ([]secrets.SecretMetadata, error) {
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
-	return []secrets.SecretOwnerMetadata{{
-		Metadata: secrets.SecretMetadata{
-			URI:                    uri,
-			LatestRevision:         666,
-			LatestRevisionChecksum: "deadbeef",
-			OwnerTag:               "application-mariadb",
-			Description:            "description",
-			RotatePolicy:           secrets.RotateHourly,
-			Label:                  "label",
-		},
-		Revisions: []int{666},
+	return []secrets.SecretMetadata{{
+		URI:                    uri,
+		LatestRevision:         666,
+		LatestRevisionChecksum: "deadbeef",
+		OwnerTag:               "application-mariadb",
+		Description:            "description",
+		RotatePolicy:           secrets.RotateHourly,
+		Label:                  "label",
 	}}, nil
 }
 

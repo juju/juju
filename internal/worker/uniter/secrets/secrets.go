@@ -5,13 +5,13 @@ package secrets
 
 import (
 	"reflect"
+	"slices"
 	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 )
@@ -19,7 +19,6 @@ import (
 // SecretsClient is used by the secrets tracker to access the Juju model.
 type SecretsClient interface {
 	remotestate.SecretsClient
-	SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error)
 }
 
 // Secrets generates storage hooks in response to changes to
@@ -83,30 +82,6 @@ func (s *Secrets) init() error {
 			s.secretsState.ConsumedSecretInfo = updated
 		}
 	}
-	metadata, err := s.client.SecretMetadata()
-	if err != nil {
-		return errors.Annotate(err, "reading secret metadata")
-	}
-	owned := make(map[string][]int)
-	for _, md := range metadata {
-		owned[md.Metadata.URI.String()] = md.Revisions
-	}
-	for uri, currentObsoleteRevs := range s.secretsState.SecretObsoleteRevisions {
-		ownedRevs, ok := owned[uri]
-		if !ok {
-			changed = true
-			delete(s.secretsState.SecretObsoleteRevisions, uri)
-			continue
-		}
-		newObsoleteRevs := set.NewInts(ownedRevs...).Intersection(set.NewInts(currentObsoleteRevs...))
-		if len(currentObsoleteRevs) != newObsoleteRevs.Size() {
-			changed = true
-			s.secretsState.SecretObsoleteRevisions[uri] = newObsoleteRevs.SortedValues()
-		}
-	}
-	if !changed {
-		return nil
-	}
 
 	return s.stateOps.Write(s.secretsState)
 }
@@ -117,6 +92,28 @@ func (s *Secrets) ConsumedSecretRevision(uri string) int {
 	defer s.mu.Unlock()
 
 	return s.secretsState.ConsumedSecretInfo[uri]
+}
+
+// TrimSecretObsoleteRevisions implements SecretStateTracker.
+func (s *Secrets) TrimSecretObsoleteRevisions(known map[string][]int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for id, trackedRevs := range s.secretsState.SecretObsoleteRevisions {
+		revs, ok := known[id]
+		if !ok {
+			delete(s.secretsState.SecretObsoleteRevisions, id)
+			continue
+		}
+		slices.Sort(revs)
+		trackedRevs = slices.DeleteFunc(trackedRevs, func(rev int) bool {
+			_, found := slices.BinarySearch(revs, rev)
+			return !found
+		})
+		s.secretsState.SecretObsoleteRevisions[id] = trackedRevs
+	}
+
+	// No need to write as this will be picked up the next secret state write.
 }
 
 // SecretObsoleteRevisions implements SecretStateTracker.

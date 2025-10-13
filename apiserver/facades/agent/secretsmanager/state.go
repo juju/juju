@@ -57,6 +57,17 @@ type SecretsState interface {
 	GetOwnedSecretMetadataAsApp(
 		app names.ApplicationTag, uri *secrets.URI,
 	) (*secrets.SecretMetadataOwnerIdent, error)
+
+	GetOwnedSecretRevisionsAsUnit(
+		unit names.UnitTag,
+	) (map[secrets.URI][]int, error)
+
+	GetOwnedSecretRevisionsByIDAsUnit(
+		unit names.UnitTag, uri *secrets.URI,
+	) ([]int, error)
+	GetOwnedSecretRevisionsByIDAsLeaderUnit(
+		unit names.UnitTag, uri *secrets.URI,
+	) ([]int, error)
 }
 
 type CrossModelState interface {

@@ -519,8 +519,8 @@ func PingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) err
 	return b.Ping()
 }
 
-// GetSecretMetadata returns the secrets metadata for the given filter.
-func GetSecretMetadata(
+// GetSecretMetadataWithRevisions returns the secrets metadata for the given filter.
+func GetSecretMetadataWithRevisions(
 	ownerTag names.Tag, secretsState SecretsMetaState, leadershipChecker leadership.Checker,
 	filter func(*coresecrets.SecretMetadata, *coresecrets.SecretRevisionMetadata) bool,
 ) (params.ListSecretResults, error) {
@@ -594,6 +594,63 @@ func GetSecretMetadata(
 		}
 		if len(secretResult.Revisions) == 0 {
 			continue
+		}
+		result.Results = append(result.Results, secretResult)
+	}
+	return result, nil
+}
+
+// GetSecretMetadata returns the secrets metadata for the given filter.
+func GetSecretMetadata(
+	ownerTag names.Tag, secretsState SecretsMetaState, leadershipChecker leadership.Checker,
+	filter func(*coresecrets.SecretMetadata, *coresecrets.SecretRevisionMetadata) bool,
+) (params.ListSecretMetadataResults, error) {
+	var result params.ListSecretMetadataResults
+	listFilter := state.SecretsFilter{
+		// TODO: there is a bug that operator agents can't get any unit owned secrets!
+		// Because the ownerTag here is the application tag, but not unit tag.
+		OwnerTags: []names.Tag{ownerTag},
+	}
+	if ownerTag.Kind() == names.UnitTagKind {
+		// Unit leaders can also get metadata for secrets owned by the app.
+		// TODO(wallyworld) - temp fix for old podspec charms
+		isLeader, err := IsLeaderUnit(ownerTag, leadershipChecker)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		if isLeader {
+			appOwner := names.NewApplicationTag(AuthTagApp(ownerTag))
+			listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
+		}
+	}
+
+	secrets, err := secretsState.ListSecrets(listFilter)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	for _, md := range secrets {
+		secretResult := params.ListSecretMetadataResult{
+			URI:                    md.URI.String(),
+			Version:                md.Version,
+			OwnerTag:               md.OwnerTag,
+			RotatePolicy:           md.RotatePolicy.String(),
+			NextRotateTime:         md.NextRotateTime,
+			Description:            md.Description,
+			Label:                  md.Label,
+			LatestRevision:         md.LatestRevision,
+			LatestRevisionChecksum: md.LatestRevisionChecksum,
+			LatestExpireTime:       md.LatestExpireTime,
+			CreateTime:             md.CreateTime,
+			UpdateTime:             md.UpdateTime,
+		}
+		grants, err := secretsState.SecretGrants(md.URI, coresecrets.RoleView)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		for _, g := range grants {
+			secretResult.Access = append(secretResult.Access, params.AccessInfo{
+				TargetTag: g.Target, ScopeTag: g.Scope, Role: g.Role,
+			})
 		}
 		result.Results = append(result.Results, secretResult)
 	}

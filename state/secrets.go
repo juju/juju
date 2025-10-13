@@ -1056,7 +1056,9 @@ func (s *secretsStore) GetOwnedSecretMetadataByLabelAsApp(
 	}
 
 	var doc secretMetadataDoc
-	err := c.Find(q).Select(bson.D{}).One(&doc)
+	err := c.Find(q).Select(bson.D{
+		{"_id", 1},
+	}).One(&doc)
 	if errors.Is(err, mgo.ErrNotFound) {
 		return nil, errors.NotFoundf(
 			"secret owned by %v by label %q",
@@ -1143,6 +1145,98 @@ func (s *secretsStore) GetOwnedSecretMetadataAsApp(
 		OwnerTag: app.String(),
 		Label:    doc.Label,
 	}, nil
+}
+
+func (s *secretsStore) GetOwnedSecretRevisionsAsUnit(
+	unit names.UnitTag,
+) (map[secrets.URI][]int, error) {
+	c, closer := s.st.db().GetCollection(secretRevisionsC)
+	defer closer()
+
+	q := bson.D{
+		{"owner-tag", unit.String()},
+	}
+
+	var docs []secretRevisionDoc
+	err := c.Find(q).Select(bson.D{
+		{"_id", 1},
+	}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ret := map[secrets.URI][]int{}
+	for _, doc := range docs {
+		secretID, revID := splitSecretRevision(s.st.localID(doc.DocID))
+		uri, err := secrets.ParseURI(secretID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		revs := ret[*uri]
+		revs = append(revs, revID)
+		ret[*uri] = revs
+	}
+
+	return ret, nil
+}
+
+func (s *secretsStore) GetOwnedSecretRevisionsByIDAsUnit(
+	unit names.UnitTag, uri *secrets.URI,
+) ([]int, error) {
+	c, closer := s.st.db().GetCollection(secretRevisionsC)
+	defer closer()
+
+	q := bson.D{
+		{"_id", bson.D{{"$regex", s.st.localSecretURIRegex(uri, "/")}}},
+		{"owner-tag", unit.String()},
+	}
+
+	var docs []secretRevisionDoc
+	err := c.Find(q).Select(bson.D{
+		{"revision", 1},
+	}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ret := make([]int, len(docs))
+	for i, doc := range docs {
+		ret[i] = doc.Revision
+	}
+
+	return ret, nil
+}
+
+func (s *secretsStore) GetOwnedSecretRevisionsByIDAsLeaderUnit(
+	unit names.UnitTag, uri *secrets.URI,
+) ([]int, error) {
+	c, closer := s.st.db().GetCollection(secretRevisionsC)
+	defer closer()
+
+	appName, _ := names.UnitApplication(unit.Id())
+	owners := []string{
+		unit.String(),
+		names.NewApplicationTag(appName).String(),
+	}
+	q := bson.D{
+		{"_id", bson.D{{"$regex", s.st.localSecretURIRegex(uri, "/")}}},
+		secretOwnerTerm(owners),
+	}
+
+	var docs []secretRevisionDoc
+	err := c.Find(q).Select(bson.D{
+		{"revision", 1},
+	}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ret := make([]int, len(docs))
+	for i, doc := range docs {
+		ret[i] = doc.Revision
+	}
+
+	return ret, nil
 }
 
 // allModelRevisions uses a raw collection to load secret revisions for all models.

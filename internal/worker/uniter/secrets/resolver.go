@@ -89,6 +89,8 @@ func (s *secretsResolver) NextOp(
 		}
 		return &secretCompleter{op, opCompleted}, nil
 	}
+
+	s.secretsTracker.TrimSecretObsoleteRevisions(remoteState.ObsoleteSecretRevisions)
 	for uri, revs := range remoteState.ObsoleteSecretRevisions {
 		s.logger.Debugf("%s: resolving obsolete %v", uri, revs)
 		alreadyProcessed := set.NewInts(s.secretsTracker.SecretObsoleteRevisions(uri)...)

@@ -454,8 +454,13 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	return consumer, nil
 }
 
+// GetSecretMetadata returns metadata with revisions for the caller's secrets.
+func (s *SecretsManagerAPIV3) GetSecretMetadata() (params.ListSecretResults, error) {
+	return commonsecrets.GetSecretMetadataWithRevisions(s.authTag, s.secretsState, s.leadershipChecker, nil)
+}
+
 // GetSecretMetadata returns metadata for the caller's secrets.
-func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error) {
+func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretMetadataResults, error) {
 	return commonsecrets.GetSecretMetadata(s.authTag, s.secretsState, s.leadershipChecker, nil)
 }
 
@@ -1227,5 +1232,80 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs
 		result.Error = apiservererrors.ServerError(one(arg))
 		results.Results[i] = result
 	}
+	return results, nil
+}
+
+// UnitOwnedSecretsAndRevisions is not implemented on version 3.
+func (s *SecretsManagerAPIV3) UnitOwnedSecretsAndRevisions(_ struct{}) {}
+
+func (s *SecretsManagerAPI) UnitOwnedSecretsAndRevisions() (params.SecretRevisionIDsResults, error) {
+	var results params.SecretRevisionIDsResults
+	if !s.authorizer.AuthUnitAgent() {
+		return results, apiservererrors.ErrPerm
+	}
+	unitTag, ok := s.authTag.(names.UnitTag)
+	if !ok {
+		return results, apiservererrors.ErrPerm
+	}
+
+	info, err := s.secretsState.GetOwnedSecretRevisionsAsUnit(unitTag)
+	if err != nil {
+		return results, apiservererrors.ServerError(err)
+	}
+
+	results.Results = make([]params.SecretRevisionIDsResult, 0, len(info))
+	for id, revs := range info {
+		result := params.SecretRevisionIDsResult{
+			URI:       id.String(),
+			Revisions: revs,
+		}
+		results.Results = append(results.Results, result)
+	}
+
+	return results, nil
+}
+
+// OwnedSecretRevisions is not implemented on version 3.
+func (s *SecretsManagerAPIV3) OwnedSecretRevisions(_ struct{}) {}
+
+func (s *SecretsManagerAPI) OwnedSecretRevisions(args params.SecretRevisionArgs) (params.SecretRevisionIDsResults, error) {
+	if !s.authorizer.AuthUnitAgent() {
+		return params.SecretRevisionIDsResults{}, apiservererrors.ErrPerm
+	}
+	unitTag, ok := s.authTag.(names.UnitTag)
+	if !ok {
+		return params.SecretRevisionIDsResults{}, apiservererrors.ErrPerm
+	}
+	// Unit leaders can also get metadata for secrets owned by the app.
+	// TODO(wallyworld) - temp fix for old podspec charms
+	isLeader, err := commonsecrets.IsLeaderUnit(unitTag, s.leadershipChecker)
+	if err != nil {
+		return params.SecretRevisionIDsResults{}, errors.Trace(err)
+	}
+
+	results := params.SecretRevisionIDsResults{
+		Results: make([]params.SecretRevisionIDsResult, len(args.SecretURIs)),
+	}
+	for i, secretID := range args.SecretURIs {
+		uri, err := coresecrets.ParseURI(secretID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		var revs []int
+		if isLeader {
+			revs, err = s.secretsState.GetOwnedSecretRevisionsByIDAsLeaderUnit(
+				unitTag, uri)
+		} else {
+			revs, err = s.secretsState.GetOwnedSecretRevisionsByIDAsUnit(
+				unitTag, uri)
+		}
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i].Revisions = revs
+	}
+
 	return results, nil
 }

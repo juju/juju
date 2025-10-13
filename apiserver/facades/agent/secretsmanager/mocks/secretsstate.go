@@ -90,6 +90,36 @@ func (mr *MockSecretsStateMockRecorder) DeleteSecret(arg0 any, arg1 ...any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockSecretsState)(nil).DeleteSecret), varargs...)
 }
 
+// GetOwnedSecretIDsAsLeaderUnit mocks base method.
+func (m *MockSecretsState) GetOwnedSecretIDsAsLeaderUnit(arg0 names.UnitTag) ([]*secrets.URI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretIDsAsLeaderUnit", arg0)
+	ret0, _ := ret[0].([]*secrets.URI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretIDsAsLeaderUnit indicates an expected call of GetOwnedSecretIDsAsLeaderUnit.
+func (mr *MockSecretsStateMockRecorder) GetOwnedSecretIDsAsLeaderUnit(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretIDsAsLeaderUnit", reflect.TypeOf((*MockSecretsState)(nil).GetOwnedSecretIDsAsLeaderUnit), arg0)
+}
+
+// GetOwnedSecretIDsAsUnit mocks base method.
+func (m *MockSecretsState) GetOwnedSecretIDsAsUnit(arg0 names.UnitTag) ([]*secrets.URI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretIDsAsUnit", arg0)
+	ret0, _ := ret[0].([]*secrets.URI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretIDsAsUnit indicates an expected call of GetOwnedSecretIDsAsUnit.
+func (mr *MockSecretsStateMockRecorder) GetOwnedSecretIDsAsUnit(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretIDsAsUnit", reflect.TypeOf((*MockSecretsState)(nil).GetOwnedSecretIDsAsUnit), arg0)
+}
+
 // GetOwnedSecretMetadataAsApp mocks base method.
 func (m *MockSecretsState) GetOwnedSecretMetadataAsApp(arg0 names.ApplicationTag, arg1 *secrets.URI) (*secrets.SecretMetadataOwnerIdent, error) {
 	m.ctrl.T.Helper()
@@ -148,6 +178,51 @@ func (m *MockSecretsState) GetOwnedSecretMetadataByLabelAsUnit(arg0 names.UnitTa
 func (mr *MockSecretsStateMockRecorder) GetOwnedSecretMetadataByLabelAsUnit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretMetadataByLabelAsUnit", reflect.TypeOf((*MockSecretsState)(nil).GetOwnedSecretMetadataByLabelAsUnit), arg0, arg1)
+}
+
+// GetOwnedSecretRevisionsAsUnit mocks base method.
+func (m *MockSecretsState) GetOwnedSecretRevisionsAsUnit(arg0 names.UnitTag) (map[secrets.URI][]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretRevisionsAsUnit", arg0)
+	ret0, _ := ret[0].(map[secrets.URI][]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretRevisionsAsUnit indicates an expected call of GetOwnedSecretRevisionsAsUnit.
+func (mr *MockSecretsStateMockRecorder) GetOwnedSecretRevisionsAsUnit(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretRevisionsAsUnit", reflect.TypeOf((*MockSecretsState)(nil).GetOwnedSecretRevisionsAsUnit), arg0)
+}
+
+// GetOwnedSecretRevisionsByIDAsLeaderUnit mocks base method.
+func (m *MockSecretsState) GetOwnedSecretRevisionsByIDAsLeaderUnit(arg0 names.UnitTag, arg1 *secrets.URI) ([]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretRevisionsByIDAsLeaderUnit", arg0, arg1)
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretRevisionsByIDAsLeaderUnit indicates an expected call of GetOwnedSecretRevisionsByIDAsLeaderUnit.
+func (mr *MockSecretsStateMockRecorder) GetOwnedSecretRevisionsByIDAsLeaderUnit(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretRevisionsByIDAsLeaderUnit", reflect.TypeOf((*MockSecretsState)(nil).GetOwnedSecretRevisionsByIDAsLeaderUnit), arg0, arg1)
+}
+
+// GetOwnedSecretRevisionsByIDAsUnit mocks base method.
+func (m *MockSecretsState) GetOwnedSecretRevisionsByIDAsUnit(arg0 names.UnitTag, arg1 *secrets.URI) ([]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretRevisionsByIDAsUnit", arg0, arg1)
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretRevisionsByIDAsUnit indicates an expected call of GetOwnedSecretRevisionsByIDAsUnit.
+func (mr *MockSecretsStateMockRecorder) GetOwnedSecretRevisionsByIDAsUnit(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretRevisionsByIDAsUnit", reflect.TypeOf((*MockSecretsState)(nil).GetOwnedSecretRevisionsByIDAsUnit), arg0, arg1)
 }
 
 // GetSecret mocks base method.

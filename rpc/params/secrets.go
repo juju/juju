@@ -277,7 +277,7 @@ type SecretRevision struct {
 	ExpireTime  *time.Time      `json:"expire-time,omitempty"`
 }
 
-// ListSecretResult is the result of getting secret metadata.
+// ListSecretResult is the result of getting secret and revision metadata.
 type ListSecretResult struct {
 	URI                    string             `json:"uri"`
 	Version                int                `json:"version"`
@@ -292,6 +292,29 @@ type ListSecretResult struct {
 	CreateTime             time.Time          `json:"create-time"`
 	UpdateTime             time.Time          `json:"update-time"`
 	Revisions              []SecretRevision   `json:"revisions"`
+	Value                  *SecretValueResult `json:"value,omitempty"`
+	Access                 []AccessInfo       `json:"access,omitempty"`
+}
+
+// ListSecretMetadataResults holds secret metadata results.
+type ListSecretMetadataResults struct {
+	Results []ListSecretMetadataResult `json:"results"`
+}
+
+// ListSecretMetadataResult is the result of getting secret metadata.
+type ListSecretMetadataResult struct {
+	URI                    string             `json:"uri"`
+	Version                int                `json:"version"`
+	OwnerTag               string             `json:"owner-tag"`
+	RotatePolicy           string             `json:"rotate-policy,omitempty"`
+	NextRotateTime         *time.Time         `json:"next-rotate-time,omitempty"`
+	Description            string             `json:"description,omitempty"`
+	Label                  string             `json:"label,omitempty"`
+	LatestRevision         int                `json:"latest-revision"`
+	LatestRevisionChecksum string             `json:"latest-revision-checksum"`
+	LatestExpireTime       *time.Time         `json:"latest-expire-time,omitempty"`
+	CreateTime             time.Time          `json:"create-time"`
+	UpdateTime             time.Time          `json:"update-time"`
 	Value                  *SecretValueResult `json:"value,omitempty"`
 	Access                 []AccessInfo       `json:"access,omitempty"`
 }
@@ -570,4 +593,21 @@ type SecretRevisionWatchResult struct {
 // returning a list of SecretRevisionWatchers.
 type SecretRevisionWatchResults struct {
 	Results []SecretRevisionWatchResult `json:"results"`
+}
+
+// SecretRevisionIDsResults holds secret revision IDs for many secrets.
+type SecretRevisionIDsResults struct {
+	Results []SecretRevisionIDsResult `json:"results"`
+}
+
+// SecretRevisionIDsResult holds secret revision IDs for a secret.
+type SecretRevisionIDsResult struct {
+	URI       string `json:"uri"`
+	Revisions []int  `json:"revisions"`
+	Error     *Error `json:"error,omitempty"`
+}
+
+// SecretRevisionArgs holds the secret URI strings to request revision IDs for.
+type SecretRevisionArgs struct {
+	SecretURIs []string `json:"secret-uris"`
 }

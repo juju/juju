@@ -59,7 +59,6 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 		[]string{"secret:666e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g"}).Return(
 		map[string]coresecrets.SecretRevisionInfo{"secret:9m4e2mr0ui3e8a215n4g": {Revision: 667}}, nil,
 	)
-	s.secretsClient.EXPECT().SecretMetadata().Return(nil, nil)
 
 	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
@@ -99,10 +98,10 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 			},
 		},
 	)}, nil)
-	s.secretsClient.EXPECT().SecretMetadata().Return(
-		[]coresecrets.SecretOwnerMetadata{
-			{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}, Revisions: []int{665}},
-		}, nil)
+	//s.secretsClient.EXPECT().SecretMetadata().Return(
+	//	[]coresecrets.SecretOwnerMetadata{
+	//		{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}, Revisions: []int{665}},
+	//	}, nil)
 	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo: map[string]int{},
@@ -158,12 +157,12 @@ func (s *secretsSuite) TestCommitNoOpSecretRevisionRemoved(c *gc.C) {
 			"secret:777e2mr0ui3e8a215n4g": {Revision: 777},
 		}, nil,
 	)
-	s.secretsClient.EXPECT().SecretMetadata().Return(
-		[]coresecrets.SecretOwnerMetadata{
-			{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}, Revisions: []int{665, 667}},
-			{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "666e2mr0ui3e8a215n4g"}}, Revisions: []int{664, 666}},
-			{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "777e2mr0ui3e8a215n4g"}}, Revisions: []int{777}},
-		}, nil)
+	//s.secretsClient.EXPECT().SecretMetadata().Return(
+	//	[]coresecrets.SecretOwnerMetadata{
+	//		{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}, Revisions: []int{665, 667}},
+	//		{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "666e2mr0ui3e8a215n4g"}}, Revisions: []int{664, 666}},
+	//		{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "777e2mr0ui3e8a215n4g"}}, Revisions: []int{777}},
+	//	}, nil)
 	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo: map[string]int{

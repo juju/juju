@@ -73,7 +73,14 @@ type SecretsAccessor interface {
 
 	// SecretMetadata is used by secrets-get to fetch
 	// metadata for secrets.
-	SecretMetadata() ([]secrets.SecretOwnerMetadata, error)
+	SecretMetadata() ([]secrets.SecretMetadata, error)
+
+	// UnitOwnedSecretsAndRevisions returns all the secrets owned by the unit
+	// with all the associated revisions.
+	UnitOwnedSecretsAndRevisions() ([]secrets.SecretURIWithRevisions, error)
+
+	// OwnedSecretRevisions returns the revisions for a secret.
+	OwnedSecretRevisions(*secrets.URI) ([]int, error)
 
 	// SecretRotated records the outcome of rotating a secret.
 	SecretRotated(uri string, oldRevision int) error
@@ -443,30 +450,6 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), f.modelType, machPortRanges, appPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
-	info, err := ctx.secretsClient.SecretMetadata()
-	if err != nil {
-		return err
-	}
-	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
-	for _, v := range info {
-		md := v.Metadata
-		ownerTag, err := names.ParseTag(md.OwnerTag)
-		if err != nil {
-			return err
-		}
-		ctx.secretMetadata[md.URI.ID] = jujuc.SecretMetadata{
-			Description:      md.Description,
-			Label:            md.Label,
-			Owner:            ownerTag,
-			RotatePolicy:     md.RotatePolicy,
-			LatestRevision:   md.LatestRevision,
-			LatestChecksum:   md.LatestRevisionChecksum,
-			LatestExpireTime: md.LatestExpireTime,
-			NextRotateTime:   md.NextRotateTime,
-			Revisions:        v.Revisions,
-			Access:           md.Access,
-		}
-	}
 
 	return nil
 }

@@ -775,7 +775,7 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 		Revision: 667,
 	}}, nil)
 
-	results, err := secrets.GetSecretMetadata(authTag, secretsMetaState, leadershipChecker, nil)
+	results, err := secrets.GetSecretMetadataWithRevisions(authTag, secretsMetaState, leadershipChecker, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{

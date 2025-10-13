@@ -424,15 +424,14 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	for _, info := range result {
-		c.Assert(info.Metadata.URI.String(), gc.Equals, uri.String())
-		c.Assert(info.Metadata.OwnerTag, gc.Equals, coretesting.ModelTag.String())
-		c.Assert(info.Metadata.Label, gc.Equals, "label")
-		c.Assert(info.Metadata.LatestRevision, gc.Equals, 667)
-		c.Assert(info.Metadata.LatestRevisionChecksum, gc.Equals, "checksum")
-		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
-		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
-		c.Assert(info.Revisions, jc.DeepEquals, []int{666, 667})
-		c.Assert(info.Metadata.Access, jc.DeepEquals, []coresecrets.AccessInfo{
+		c.Assert(info.URI.String(), gc.Equals, uri.String())
+		c.Assert(info.OwnerTag, gc.Equals, coretesting.ModelTag.String())
+		c.Assert(info.Label, gc.Equals, "label")
+		c.Assert(info.LatestRevision, gc.Equals, 667)
+		c.Assert(info.LatestRevisionChecksum, gc.Equals, "checksum")
+		c.Assert(info.LatestExpireTime, gc.Equals, &now)
+		c.Assert(info.NextRotateTime, gc.Equals, &now)
+		c.Assert(info.Access, jc.DeepEquals, []coresecrets.AccessInfo{
 			{
 				Target: "application-gitlab",
 				Scope:  coretesting.ModelTag.Id(),

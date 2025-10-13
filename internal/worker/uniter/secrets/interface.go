@@ -23,6 +23,10 @@ type SecretStateTracker interface {
 	// is currently tracked for the given secret.
 	ConsumedSecretRevision(uri string) int
 
+	// TrimSecretObsoleteRevisions removes unknown secrets and revisions from
+	// the secret tracker.
+	TrimSecretObsoleteRevisions(known map[string][]int)
+
 	// SecretObsoleteRevisions returns the obsolete
 	// revisions that have been reported already for
 	// the given secret.
