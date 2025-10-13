@@ -147,36 +147,3 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 	}
 	return s.secretState.ListGrantedSecretsForBackend(ctx, backendID, accessors, role)
 }
-
-// UpdateRemoteConsumedRevision returns the latest revision for the specified secret,
-// updating the tracked revision for the specified consumer if refresh is true.
-func (s *SecretService) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets.URI, unitName unit.Name, refresh bool) (int, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	consumerInfo, latestRevision, err := s.secretState.GetSecretRemoteConsumer(ctx, uri, unitName)
-	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
-		return 0, errors.Capture(err)
-	}
-	refresh = refresh ||
-		err != nil // Not found, so need to create one.
-
-	if refresh {
-		if consumerInfo == nil {
-			consumerInfo = &secrets.SecretConsumerMetadata{}
-		}
-		consumerInfo.CurrentRevision = latestRevision
-		if err := s.secretState.SaveSecretRemoteConsumer(ctx, uri, unitName, consumerInfo); err != nil {
-			return 0, errors.Capture(err)
-		}
-	}
-	return latestRevision, nil
-}
-
-// UpdateRemoteSecretRevision records the specified revision for the secret
-// which has been consumed from a different model.
-func (s *SecretService) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	return s.secretState.UpdateRemoteSecretRevision(ctx, uri, latestRevision)
-}

@@ -9,6 +9,7 @@ import (
 	"slices"
 	"time"
 
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -267,4 +268,50 @@ type setApplicationEndpointBinding struct {
 type charmRelationName struct {
 	UUID string `db:"uuid"`
 	Name string `db:"name"`
+}
+
+type modelUUID struct {
+	UUID string `db:"uuid"`
+}
+type applicationUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type secretRevisions []revisionUUID
+type revisionUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type secretRemoteUnitConsumer struct {
+	UnitName        string `db:"unit_name"`
+	SecretID        string `db:"secret_id"`
+	CurrentRevision int    `db:"current_revision"`
+}
+
+type secretRemoteUnitConsumers []secretRemoteUnitConsumer
+
+func (rows secretRemoteUnitConsumers) toSecretConsumers() []*coresecrets.SecretConsumerMetadata {
+	result := make([]*coresecrets.SecretConsumerMetadata, len(rows))
+	for i, row := range rows {
+		result[i] = &coresecrets.SecretConsumerMetadata{
+			CurrentRevision: row.CurrentRevision,
+		}
+	}
+	return result
+}
+
+type secretRef struct {
+	ID         string `db:"secret_id"`
+	SourceUUID string `db:"source_uuid"`
+}
+
+type secretLatestRevision struct {
+	ID             string `db:"secret_id"`
+	LatestRevision int    `db:"latest_revision"`
+}
+
+type secretRevisionObsolete struct {
+	ID            string `db:"revision_uuid"`
+	Obsolete      bool   `db:"obsolete"`
+	PendingDelete bool   `db:"pending_delete"`
 }

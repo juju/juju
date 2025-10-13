@@ -179,18 +179,19 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 			}
 		}
 
-		for _, rc := range modelSecrets.RemoteConsumers[md.URI.ID] {
-			unitName, err := unit.NewName(rc.Accessor.ID)
-			if err != nil {
-				return errors.Errorf("invalid remote secret consumer: %w", err)
-			}
-			if err := s.secretState.SaveSecretRemoteConsumer(ctx, md.URI, unitName, &coresecrets.SecretConsumerMetadata{
-				Label:           rc.Label,
-				CurrentRevision: rc.CurrentRevision,
-			}); err != nil {
-				return errors.Errorf("saving secret remote consumer %q for %q: %w", rc.Accessor.ID, md.URI.ID, err)
-			}
-		}
+		// TODO(secrets) - move to crossmodelrelation domain
+		//for _, rc := range modelSecrets.RemoteConsumers[md.URI.ID] {
+		//	unitName, err := unit.NewName(rc.Accessor.ID)
+		//	if err != nil {
+		//		return errors.Errorf("invalid remote secret consumer: %w", err)
+		//	}
+		//	if err := s.secretState.SaveSecretRemoteConsumer(ctx, md.URI, unitName, &coresecrets.SecretConsumerMetadata{
+		//		Label:           rc.Label,
+		//		CurrentRevision: rc.CurrentRevision,
+		//	}); err != nil {
+		//		return errors.Errorf("saving secret remote consumer %q for %q: %w", rc.Accessor.ID, md.URI.ID, err)
+		//	}
+		//}
 
 		for _, access := range modelSecrets.Access[md.URI.ID] {
 			p := grantParams(SecretAccessParams{
@@ -321,11 +322,12 @@ func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets [
 	for _, rs := range remoteSecrets {
 		remoteSecretLatest[rs.URI] = rs.LatestRevision
 	}
-	for uri, latest := range remoteSecretLatest {
-		if err := s.secretState.UpdateRemoteSecretRevision(ctx, uri, latest); err != nil {
-			return errors.Errorf("saving remote secret reference for %q: %w", uri, err)
-		}
-	}
+	// TODO(secrets) - move to crossmodelrelation domain
+	//for uri, latest := range remoteSecretLatest {
+	//	if err := s.secretState.UpdateRemoteSecretRevision(ctx, uri, latest); err != nil {
+	//		return errors.Errorf("saving remote secret reference for %q: %w", uri, err)
+	//	}
+	//}
 	for _, rs := range remoteSecrets {
 		unitName, err := unit.NewName(rs.Accessor.ID)
 		if err != nil {

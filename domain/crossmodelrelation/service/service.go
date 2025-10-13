@@ -5,9 +5,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/clock"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/offer"
@@ -17,6 +19,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/secret"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -34,6 +38,7 @@ type StatusHistory interface {
 type ModelState interface {
 	ModelOfferState
 	ModelRemoteApplicationState
+	ModelSecretsState
 }
 
 // ControllerState describes retrieval and persistence methods for cross
@@ -76,6 +81,17 @@ type WatcherFactory interface {
 		filterOption eventsource.FilterOption,
 		filterOptions ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
+	// NewNamespaceWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted only if
+	// the filter accepts them, and dispatching the notifications via the
+	// Changes channel. A filter option is required, though additional filter
+	// options can be provided.
+	NewNamespaceWatcher(
+		ctx context.Context,
+		initialQuery eventsource.NamespaceQuery,
+		summary string,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
 }
 
 // Service provides the API for working with cross model relations.
@@ -159,6 +175,34 @@ func (w *WatchableService) WatchRemoteApplicationOfferers(ctx context.Context) (
 		"watch remote application offerer",
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
+}
+
+// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any
+// unit of the specified app and returns a watcher which notifies of secret URIs
+// that have had a new revision added.
+// Run on the offering model.
+func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID coreapplication.UUID) (watcher.StringsWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appUUID.Validate(); err != nil {
+		return nil, errors.Errorf("validating application UUID: %w", err)
+	}
+
+	table, query := s.modelState.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appUUID.String())
+	w, err := s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		query,
+		fmt.Sprintf("remote consumed secrets watcher for application %q", appUUID),
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	processChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
+		return s.modelState.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appUUID.String(), secretIDs...)
+	}
+	return secret.NewSecretStringWatcher(w, s.logger, processChanges)
 }
 
 func ptr[T any](v T) *T {

@@ -169,12 +169,6 @@ type secretUnitConsumer struct {
 	CurrentRevision int           `db:"current_revision"`
 }
 
-type secretRemoteUnitConsumer struct {
-	UnitName        coreunit.Name `db:"unit_name"`
-	SecretID        string        `db:"secret_id"`
-	CurrentRevision int           `db:"current_revision"`
-}
-
 type secretUnitConsumerInfo struct {
 	SecretID        string `db:"secret_id"`
 	SourceModelID   string `db:"source_model_uuid"`
@@ -379,18 +373,6 @@ func (rows secretValues) toSecretData() coresecrets.SecretData {
 }
 
 type secretValueRefs []secretValueRef
-
-type secretRemoteUnitConsumers []secretRemoteUnitConsumer
-
-func (rows secretRemoteUnitConsumers) toSecretConsumers() []*coresecrets.SecretConsumerMetadata {
-	result := make([]*coresecrets.SecretConsumerMetadata, len(rows))
-	for i, row := range rows {
-		result[i] = &coresecrets.SecretConsumerMetadata{
-			CurrentRevision: row.CurrentRevision,
-		}
-	}
-	return result
-}
 
 type secretUnitConsumers []secretUnitConsumer
 
