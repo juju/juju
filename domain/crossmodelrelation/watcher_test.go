@@ -383,7 +383,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	ctx := c.Context()
 
 	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
+		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
 		err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)

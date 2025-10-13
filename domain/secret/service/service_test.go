@@ -932,7 +932,7 @@ func (s *serviceSuite) TestSaveSecretConsumer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my secret",
 		CurrentRevision: 666,
 	}
@@ -1664,7 +1664,7 @@ func (s *serviceSuite) TestGetConsumedRevisionFirstTime(c *tc.C) {
 	uri := coresecrets.NewURI()
 
 	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0")).Return(nil, 666, secreterrors.SecretConsumerNotFound)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	})
 
@@ -1679,7 +1679,7 @@ func (s *serviceSuite) TestGetConsumedRevisionFirstTimeUpdateLabel(c *tc.C) {
 	uri := coresecrets.NewURI()
 
 	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0")).Return(nil, 666, secreterrors.SecretConsumerNotFound)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), coresecrets.SecretConsumerMetadata{
 		Label:           "label",
 		CurrentRevision: 666,
 	})
@@ -1698,7 +1698,7 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionUpdateLabel(c *tc.C) {
 		Label:           "old-label",
 		CurrentRevision: 666,
 	}, 666, nil)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), coresecrets.SecretConsumerMetadata{
 		Label:           "new-label",
 		CurrentRevision: 666,
 	})
@@ -1717,7 +1717,7 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionRefresh(c *tc.C) {
 		Label:           "old-label",
 		CurrentRevision: 666,
 	}, 668, nil)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), coresecrets.SecretConsumerMetadata{
 		Label:           "old-label",
 		CurrentRevision: 668,
 	})
@@ -1750,7 +1750,7 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionSecretNotFound(c *tc.C) {
 	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0")).Return(&coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	}, 668, nil)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 668,
 	})
 

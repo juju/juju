@@ -171,7 +171,7 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 			if err != nil {
 				return errors.Errorf("invalid local secret consumer: %w", err)
 			}
-			if err := s.secretState.SaveSecretConsumer(ctx, md.URI, unitName, &coresecrets.SecretConsumerMetadata{
+			if err := s.secretState.SaveSecretConsumer(ctx, md.URI, unitName, coresecrets.SecretConsumerMetadata{
 				Label:           sc.Label,
 				CurrentRevision: sc.CurrentRevision,
 			}); err != nil {
@@ -333,7 +333,7 @@ func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets [
 		if err != nil {
 			return errors.Errorf("invalid remote secret consumer: %w", err)
 		}
-		if err := s.secretState.SaveSecretConsumer(ctx, rs.URI, unitName, &coresecrets.SecretConsumerMetadata{
+		if err := s.secretState.SaveSecretConsumer(ctx, rs.URI, unitName, coresecrets.SecretConsumerMetadata{
 			Label:           rs.Label,
 			CurrentRevision: rs.CurrentRevision,
 		}); err != nil {

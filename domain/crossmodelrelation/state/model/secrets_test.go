@@ -163,7 +163,7 @@ VALUES (?, ?, (SELECT MAX(revision)+1 FROM secret_revision WHERE secret_id=?), ?
 func (s *modelSecretsSuite) prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide(c *tc.C) (string, *coresecrets.URI, *coresecrets.URI) {
 	ctx := c.Context()
 	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
+		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
 		err := s.state.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
@@ -230,7 +230,7 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumer(c *tc.C) {
 	}
 
 	ctx := c.Context()
-	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
+	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, latest, err := s.state.GetSecretRemoteConsumer(ctx, uri, "remote-app/0")
@@ -244,7 +244,7 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *tc.C) {
 	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"})
 	s.addRevision(c, uri, map[string]string{"foo": "bar2"})
 
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 	}
 
@@ -270,7 +270,7 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *tc.C) {
 func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerSecretNotExists(c *tc.C) {
 	uri := coresecrets.NewURI().WithSource(s.ModelUUID())
 	ctx := c.Context()
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	}
 

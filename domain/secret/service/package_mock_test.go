@@ -2099,7 +2099,7 @@ func (c *MockStateRunAtomicCall) DoAndReturn(f func(context.Context, func(domain
 }
 
 // SaveSecretConsumer mocks base method.
-func (m *MockState) SaveSecretConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 unit.Name, arg3 *secrets.SecretConsumerMetadata) error {
+func (m *MockState) SaveSecretConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 unit.Name, arg3 secrets.SecretConsumerMetadata) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveSecretConsumer", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -2125,13 +2125,13 @@ func (c *MockStateSaveSecretConsumerCall) Return(arg0 error) *MockStateSaveSecre
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSaveSecretConsumerCall) Do(f func(context.Context, *secrets.URI, unit.Name, *secrets.SecretConsumerMetadata) error) *MockStateSaveSecretConsumerCall {
+func (c *MockStateSaveSecretConsumerCall) Do(f func(context.Context, *secrets.URI, unit.Name, secrets.SecretConsumerMetadata) error) *MockStateSaveSecretConsumerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSaveSecretConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, unit.Name, *secrets.SecretConsumerMetadata) error) *MockStateSaveSecretConsumerCall {
+func (c *MockStateSaveSecretConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, unit.Name, secrets.SecretConsumerMetadata) error) *MockStateSaveSecretConsumerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

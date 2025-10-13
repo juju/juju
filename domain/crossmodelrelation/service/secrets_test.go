@@ -49,7 +49,7 @@ func (s *secretsServiceSuite) TestUpdateRemoteConsumedRevision(c *tc.C) {
 func (s *secretsServiceSuite) TestUpdateRemoteConsumedRevisionRefresh(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	}
 	uri := coresecrets.NewURI()
@@ -67,7 +67,7 @@ func (s *secretsServiceSuite) TestUpdateRemoteConsumedRevisionRefresh(c *tc.C) {
 func (s *secretsServiceSuite) TestUpdateRemoteConsumedRevisionFirstTimeRefresh(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	}
 	uri := coresecrets.NewURI()

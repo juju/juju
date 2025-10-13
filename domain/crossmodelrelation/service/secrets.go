@@ -17,12 +17,18 @@ import (
 // ModelSecretsState describes retrieval and persistence methods for
 // cross model relations secrets related functionality in the model database.
 type ModelSecretsState interface {
-	// For watching local secret changes that consumed by remote consumers.
+	// InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide initialises a watcher used to notify
+	// of changes to consumed secrets in an offering model.
 	InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appUUID string) (string, eventsource.NamespaceQuery)
+	// GetRemoteConsumedSecretURIsWithChangesFromOfferingSide composes changes to consumed secrets in an offering model.
 	GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appUUID string, secretIDs ...string) ([]string, error)
 
+	// GetSecretRemoteConsumer returns the secret consumer info from a cross model consumer
+	// for the specified unit and secret.
 	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	// SaveSecretRemoteConsumer saves the consumer metadata for the given secret and unit.
+	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md secrets.SecretConsumerMetadata) error
+	// UpdateRemoteSecretRevision records the latest revision of the specified cross model secret.
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
 }
 
@@ -49,7 +55,7 @@ func (s *Service) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets
 			consumerInfo = &secrets.SecretConsumerMetadata{}
 		}
 		consumerInfo.CurrentRevision = latestRevision
-		if err := s.modelState.SaveSecretRemoteConsumer(ctx, uri, unitName.String(), consumerInfo); err != nil {
+		if err := s.modelState.SaveSecretRemoteConsumer(ctx, uri, unitName.String(), *consumerInfo); err != nil {
 			return 0, errors.Capture(err)
 		}
 	}

@@ -61,7 +61,7 @@ type State interface {
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name, md *secrets.SecretConsumerMetadata) error
+	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name, md secrets.SecretConsumerMetadata) error
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
 	GetURIByConsumerLabel(ctx context.Context, label string, unitName coreunit.Name) (*secrets.URI, error)
 	GrantAccess(ctx context.Context, uri *secrets.URI, params domainsecret.GrantParams) error

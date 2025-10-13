@@ -466,7 +466,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	svc, st := s.setupServiceAndState(c)
 
 	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
+		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
 		unitName := unittesting.GenNewName(c, consumerID)
@@ -580,7 +580,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	svc, st := s.setupServiceAndState(c)
 
 	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
+		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
 		unitName := unittesting.GenNewName(c, consumerID)

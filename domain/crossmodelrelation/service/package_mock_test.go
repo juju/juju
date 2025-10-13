@@ -811,7 +811,7 @@ func (c *MockModelStateSaveMacaroonForRelationCall) DoAndReturn(f func(context.C
 }
 
 // SaveSecretRemoteConsumer mocks base method.
-func (m *MockModelState) SaveSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3 *secrets.SecretConsumerMetadata) error {
+func (m *MockModelState) SaveSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3 secrets.SecretConsumerMetadata) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveSecretRemoteConsumer", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -837,13 +837,13 @@ func (c *MockModelStateSaveSecretRemoteConsumerCall) Return(arg0 error) *MockMod
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateSaveSecretRemoteConsumerCall) Do(f func(context.Context, *secrets.URI, string, *secrets.SecretConsumerMetadata) error) *MockModelStateSaveSecretRemoteConsumerCall {
+func (c *MockModelStateSaveSecretRemoteConsumerCall) Do(f func(context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata) error) *MockModelStateSaveSecretRemoteConsumerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateSaveSecretRemoteConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, string, *secrets.SecretConsumerMetadata) error) *MockModelStateSaveSecretRemoteConsumerCall {
+func (c *MockModelStateSaveSecretRemoteConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata) error) *MockModelStateSaveSecretRemoteConsumerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -1322,19 +1322,19 @@ func (s *stateSuite) TestAllSecretConsumers(c *tc.C) {
 	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/1", sp2)
 	c.Assert(err, tc.ErrorIsNil)
 
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	}
 	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
-	consumer = &coresecrets.SecretConsumerMetadata{
+	consumer = coresecrets.SecretConsumerMetadata{
 		Label:           "my label2",
 		CurrentRevision: 668,
 	}
 	err = st.SaveSecretConsumer(ctx, uri2, "mysql/1", consumer)
 	c.Assert(err, tc.ErrorIsNil)
-	consumer = &coresecrets.SecretConsumerMetadata{
+	consumer = coresecrets.SecretConsumerMetadata{
 		Label:           "my label3",
 		CurrentRevision: 667,
 	}
@@ -1386,7 +1386,7 @@ func (s *stateSuite) TestSaveSecretConsumer(c *tc.C) {
 		CurrentRevision: 666,
 	}
 
-	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, latest, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1415,7 +1415,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *tc.C) {
 	consumer := &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 	}
-	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, latest, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1459,7 +1459,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *tc.C) {
 		Label:           "my label",
 		CurrentRevision: 2,
 	}
-	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	obsolete, pendingDelete = s.getObsolete(c, uri, 1)
@@ -1477,7 +1477,7 @@ func (s *stateSuite) TestSaveSecretConsumerSecretNotExists(c *tc.C) {
 
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := c.Context()
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	}
@@ -1502,7 +1502,7 @@ func (s *stateSuite) TestSaveSecretConsumerUnitNotExists(c *tc.C) {
 	err := createUserSecret(ctx, st, 1, uri, sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	}
@@ -1557,7 +1557,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *tc.C) {
 		CurrentRevision: 666,
 	}
 
-	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, _, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1581,7 +1581,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModelFirstTime(c *tc.C) {
 		CurrentRevision: 666,
 	}
 
-	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, _, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1613,14 +1613,14 @@ func (s *stateSuite) TestAllRemoteSecrets(c *tc.C) {
 	s.updateRemoteSecretRevision(c, uri, 666)
 
 	ctx := c.Context()
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 1,
 	}
 	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
-	consumer = &coresecrets.SecretConsumerMetadata{
+	consumer = coresecrets.SecretConsumerMetadata{
 		Label:           "my label2",
 		CurrentRevision: 2,
 	}
@@ -1753,7 +1753,7 @@ func (s *stateSuite) TestGetURIByConsumerLabel(c *tc.C) {
 	ctx := c.Context()
 	err := createCharmUnitSecret(ctx, st, 1, uri, "mysql/0", sp)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", &coresecrets.SecretConsumerMetadata{
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	})
@@ -2107,7 +2107,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create a consumer so revision 1 does not go obsolete.
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 1,
 	}
@@ -3467,7 +3467,7 @@ func (s *stateSuite) assertDeleteAllRevisions(c *tc.C, revs []int) {
 	err = updateSecret(ctx, st, uri, sp3)
 	c.Assert(err, tc.ErrorIsNil)
 
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	}
 	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
@@ -3543,7 +3543,7 @@ func (s *stateSuite) prepareWatchForConsumedSecrets(c *tc.C, ctx context.Context
 	s.setupUnits(c, "mediawiki")
 
 	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
+		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
 		unitName := unittesting.GenNewName(c, consumerID)
@@ -3609,7 +3609,7 @@ func (s *stateSuite) prepareWatchForRemoteConsumedSecrets(c *tc.C, ctx context.C
 	s.setupUnits(c, "mediawiki")
 
 	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
+		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
 		unitName := unittesting.GenNewName(c, consumerID)

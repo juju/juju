@@ -1982,9 +1982,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 // SaveSecretConsumer saves the consumer metadata for the given secret and unit.
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
-func (st State) SaveSecretConsumer(
-	ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name, md *coresecrets.SecretConsumerMetadata,
-) error {
+func (st State) SaveSecretConsumer(ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name, md coresecrets.SecretConsumerMetadata) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)

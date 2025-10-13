@@ -244,9 +244,7 @@ WHERE  rev.secret_id = $secretLatestRevision.secret_id`
 
 // SaveSecretRemoteConsumer saves the consumer metadata for the given secret and unit.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
-func (st *State) SaveSecretRemoteConsumer(
-	ctx context.Context, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata,
-) error {
+func (st *State) SaveSecretRemoteConsumer(ctx context.Context, uri *coresecrets.URI, unitName string, md coresecrets.SecretConsumerMetadata) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)

@@ -62,7 +62,7 @@ func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI,
 // SaveSecretConsumer saves the consumer metadata for the given secret and unit.
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
-func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md *secrets.SecretConsumerMetadata) error {
+func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md secrets.SecretConsumerMetadata) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -112,7 +112,7 @@ func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.UR
 		if labelToUpdate != nil {
 			consumerInfo.Label = *labelToUpdate
 		}
-		if err := s.SaveSecretConsumer(ctx, uri, unitName, consumerInfo); err != nil {
+		if err := s.SaveSecretConsumer(ctx, uri, unitName, *consumerInfo); err != nil {
 			return 0, errors.Capture(err)
 		}
 	}
