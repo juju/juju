@@ -1238,13 +1238,16 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs
 // UnitOwnedSecretsAndRevisions is not implemented on version 3.
 func (s *SecretsManagerAPIV3) UnitOwnedSecretsAndRevisions(_ struct{}) {}
 
-func (s *SecretsManagerAPI) UnitOwnedSecretsAndRevisions() (params.SecretRevisionIDsResults, error) {
+func (s *SecretsManagerAPI) UnitOwnedSecretsAndRevisions(arg params.Entity) (params.SecretRevisionIDsResults, error) {
 	var results params.SecretRevisionIDsResults
-	if !s.authorizer.AuthUnitAgent() {
+	if !s.authorizer.AuthUnitAgent() && !s.authorizer.AuthApplicationAgent() {
 		return results, apiservererrors.ErrPerm
 	}
-	unitTag, ok := s.authTag.(names.UnitTag)
-	if !ok {
+	unitTag, err := names.ParseUnitTag(arg.Tag)
+	if err != nil {
+		return results, apiservererrors.ErrPerm
+	}
+	if !commonsecrets.IsSameApplication(s.authTag, unitTag) {
 		return results, apiservererrors.ErrPerm
 	}
 
@@ -1269,11 +1272,14 @@ func (s *SecretsManagerAPI) UnitOwnedSecretsAndRevisions() (params.SecretRevisio
 func (s *SecretsManagerAPIV3) OwnedSecretRevisions(_ struct{}) {}
 
 func (s *SecretsManagerAPI) OwnedSecretRevisions(args params.SecretRevisionArgs) (params.SecretRevisionIDsResults, error) {
-	if !s.authorizer.AuthUnitAgent() {
+	if !s.authorizer.AuthUnitAgent() && !s.authorizer.AuthApplicationAgent() {
 		return params.SecretRevisionIDsResults{}, apiservererrors.ErrPerm
 	}
-	unitTag, ok := s.authTag.(names.UnitTag)
-	if !ok {
+	unitTag, err := names.ParseUnitTag(args.Unit.Tag)
+	if err != nil {
+		return params.SecretRevisionIDsResults{}, apiservererrors.ErrPerm
+	}
+	if !commonsecrets.IsSameApplication(s.authTag, unitTag) {
 		return params.SecretRevisionIDsResults{}, apiservererrors.ErrPerm
 	}
 	// Unit leaders can also get metadata for secrets owned by the app.

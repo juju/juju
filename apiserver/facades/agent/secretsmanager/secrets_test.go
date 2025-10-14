@@ -2000,10 +2000,13 @@ func (s *SecretsManagerSuite) TestUnitOwnedSecretsAndRevisions(c *gc.C) {
 	s.secretsState.EXPECT().GetOwnedSecretRevisionsAsUnit(
 		names.NewUnitTag("mariadb/0"),
 	).Return(map[coresecrets.URI][]int{
-		*uri: []int{1, 2, 3, 4, 5},
+		*uri: {1, 2, 3, 4, 5},
 	}, nil)
 
-	results, err := s.facade.UnitOwnedSecretsAndRevisions()
+	arg := params.Entity{
+		Tag: names.NewUnitTag("mariadb/0").String(),
+	}
+	results, err := s.facade.UnitOwnedSecretsAndRevisions(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.SecretRevisionIDsResults{
 		Results: []params.SecretRevisionIDsResult{{
@@ -2025,6 +2028,9 @@ func (s *SecretsManagerSuite) TestOwnedSecretRevisionsByLeaderUnit(c *gc.C) {
 	).Return([]int{1, 2, 3, 4, 5}, nil)
 
 	results, err := s.facade.OwnedSecretRevisions(params.SecretRevisionArgs{
+		Unit: params.Entity{
+			Tag: names.NewUnitTag("mariadb/0").String(),
+		},
 		SecretURIs: []string{uri.String()},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2048,6 +2054,9 @@ func (s *SecretsManagerSuite) TestOwnedSecretRevisionsByUnit(c *gc.C) {
 	).Return([]int{1, 2, 3, 4, 5}, nil)
 
 	results, err := s.facade.OwnedSecretRevisions(params.SecretRevisionArgs{
+		Unit: params.Entity{
+			Tag: names.NewUnitTag("mariadb/0").String(),
+		},
 		SecretURIs: []string{uri.String()},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2071,6 +2080,9 @@ func (s *SecretsManagerSuite) TestOwnedSecretRevisionsByUnitNotFound(c *gc.C) {
 	).Return(nil, errors.NotFound)
 
 	results, err := s.facade.OwnedSecretRevisions(params.SecretRevisionArgs{
+		Unit: params.Entity{
+			Tag: names.NewUnitTag("mariadb/0").String(),
+		},
 		SecretURIs: []string{uri.String()},
 	})
 	c.Assert(err, jc.ErrorIsNil)

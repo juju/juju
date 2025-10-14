@@ -331,9 +331,12 @@ func (c *Client) Revoke(uri *coresecrets.URI, p *SecretRevokeGrantArgs) error {
 	return nil
 }
 
-func (c *Client) UnitOwnedSecretsAndRevisions() ([]coresecrets.SecretURIWithRevisions, error) {
+func (c *Client) UnitOwnedSecretsAndRevisions(unit names.UnitTag) ([]coresecrets.SecretURIWithRevisions, error) {
+	arg := params.Entity{
+		Tag: unit.String(),
+	}
 	var results params.SecretRevisionIDsResults
-	if err := c.facade.FacadeCall("UnitOwnedSecretsAndRevisions", nil, &results); err != nil {
+	if err := c.facade.FacadeCall("UnitOwnedSecretsAndRevisions", arg, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	ret := make([]coresecrets.SecretURIWithRevisions, len(results.Results))
@@ -353,8 +356,11 @@ func (c *Client) UnitOwnedSecretsAndRevisions() ([]coresecrets.SecretURIWithRevi
 	return ret, nil
 }
 
-func (c *Client) OwnedSecretRevisions(uri *secrets.URI) ([]int, error) {
+func (c *Client) OwnedSecretRevisions(unit names.UnitTag, uri *secrets.URI) ([]int, error) {
 	args := params.SecretRevisionArgs{
+		Unit: params.Entity{
+			Tag: unit.String(),
+		},
 		SecretURIs: []string{uri.String()},
 	}
 	var results params.SecretRevisionIDsResults

@@ -609,5 +609,6 @@ type SecretRevisionIDsResult struct {
 
 // SecretRevisionArgs holds the secret URI strings to request revision IDs for.
 type SecretRevisionArgs struct {
+	Unit       Entity   `json:"entity"`
 	SecretURIs []string `json:"secret-uris"`
 }

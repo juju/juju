@@ -1760,7 +1760,8 @@ func (ctx *HookContext) doFlush(process string) error {
 			// Delete all known revisions, this avoids a race condition where a
 			// new revision is being created concurrently with us asking to
 			// delete existing revisions
-			allRevs, err := ctx.secretsClient.OwnedSecretRevisions(d.URI)
+			allRevs, err := ctx.secretsClient.OwnedSecretRevisions(
+				ctx.unit.Tag(), d.URI)
 			if err != nil {
 				return errors.Annotatef(
 					err, "getting revisions for %q", d.URI.ID,

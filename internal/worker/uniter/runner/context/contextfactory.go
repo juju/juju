@@ -77,10 +77,10 @@ type SecretsAccessor interface {
 
 	// UnitOwnedSecretsAndRevisions returns all the secrets owned by the unit
 	// with all the associated revisions.
-	UnitOwnedSecretsAndRevisions() ([]secrets.SecretURIWithRevisions, error)
+	UnitOwnedSecretsAndRevisions(unit names.UnitTag) ([]secrets.SecretURIWithRevisions, error)
 
 	// OwnedSecretRevisions returns the revisions for a secret.
-	OwnedSecretRevisions(*secrets.URI) ([]int, error)
+	OwnedSecretRevisions(names.UnitTag, *secrets.URI) ([]int, error)
 
 	// SecretRotated records the outcome of rotating a secret.
 	SecretRotated(uri string, oldRevision int) error

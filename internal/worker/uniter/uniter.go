@@ -764,7 +764,7 @@ func (u *Uniter) terminate() error {
 			// can only be deleted when the app itself is removed. This is
 			// done in the api server.
 			u.logger.Debugf("deleting secret content")
-			secrets, err := u.secretsClient.UnitOwnedSecretsAndRevisions()
+			secrets, err := u.secretsClient.UnitOwnedSecretsAndRevisions(u.unit.Tag())
 			if err != nil {
 				return errors.Trace(err)
 			}
