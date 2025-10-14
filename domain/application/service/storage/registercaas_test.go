@@ -122,7 +122,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 			Filesystem: &application.CreateUnitStorageFilesystemArg{
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
 			},
-			Kind:            domainstorageprov.KindFilesystem,
+			Kind:            domainstorage.StorageKindFilesystem,
 			Name:            "st1",
 			RequestSizeMiB:  1024,
 			StoragePoolUUID: poolUUID,

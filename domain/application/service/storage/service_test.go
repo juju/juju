@@ -146,7 +146,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 			Filesystem: &application.CreateUnitStorageFilesystemArg{
 				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
 			},
-			Kind:            domainstorageprov.KindFilesystem,
+			Kind:            domainstorage.StorageKindFilesystem,
 			Name:            "st1",
 			RequestSizeMiB:  1024,
 			StoragePoolUUID: poolUUID,
@@ -156,7 +156,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 			Filesystem: &application.CreateUnitStorageFilesystemArg{
 				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
 			},
-			Kind:            domainstorageprov.KindFilesystem,
+			Kind:            domainstorage.StorageKindFilesystem,
 			Name:            "st1",
 			RequestSizeMiB:  1024,
 			StoragePoolUUID: poolUUID,

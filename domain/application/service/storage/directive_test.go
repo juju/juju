@@ -41,10 +41,10 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 	fakeBlockdevicePoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
 	tests := []struct {
-		Name                string
-		DefaultProvisioners internal.DefaultStorageProvisioners
-		CharmMetaStorage    map[string]internalcharm.Storage
-		Overrides           map[string]StorageDirectiveOverride
+		Name              string
+		ModelStoragePools internal.ModelStoragePools
+		CharmMetaStorage  map[string]internalcharm.Storage
+		Overrides         map[string]StorageDirectiveOverride
 
 		Expected []application.CreateApplicationStorageDirectiveArg
 	}{
@@ -67,11 +67,10 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 					MinimumSize: 256,
 				},
 			},
-			DefaultProvisioners: internal.DefaultStorageProvisioners{
+			ModelStoragePools: internal.ModelStoragePools{
 				FilesystemPoolUUID:  &fakeFilesytemPoolUUID,
-				BlockdevicePoolUUID: &fakeBlockdevicePoolUUID,
+				BlockDevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
-
 			Expected: []application.CreateApplicationStorageDirectiveArg{
 				{
 					Count:    2,
@@ -94,8 +93,8 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 					MinimumSize: 256,
 				},
 			},
-			DefaultProvisioners: internal.DefaultStorageProvisioners{
-				BlockdevicePoolUUID: &fakeBlockdevicePoolUUID,
+			ModelStoragePools: internal.ModelStoragePools{
+				BlockDevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
@@ -119,9 +118,9 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 					MinimumSize: 256,
 				},
 			},
-			DefaultProvisioners: internal.DefaultStorageProvisioners{
+			ModelStoragePools: internal.ModelStoragePools{
 				FilesystemPoolUUID:  &fakeFilesytemPoolUUID,
-				BlockdevicePoolUUID: &fakeBlockdevicePoolUUID,
+				BlockDevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
@@ -146,7 +145,7 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 					MinimumSize: 256,
 				},
 			},
-			DefaultProvisioners: internal.DefaultStorageProvisioners{},
+			ModelStoragePools: internal.ModelStoragePools{},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
 				{
@@ -160,9 +159,9 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 
 	for _, test := range tests {
 		c.Run(test.Name, func(t *testing.T) {
-			s.state.EXPECT().GetDefaultStorageProvisioners(
+			s.state.EXPECT().GetModelStoragePools(
 				gomock.Any(),
-			).Return(test.DefaultProvisioners, nil).AnyTimes()
+			).Return(test.ModelStoragePools, nil).AnyTimes()
 
 			svc := NewService(s.state, s.poolProvider)
 			args, err := svc.MakeApplicationStorageDirectiveArgs(
