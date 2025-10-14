@@ -79,8 +79,13 @@ func (s *secretsResolver) NextOp(
 			return op, err
 		}
 	}
-	if len(remoteState.DeletedSecretRevisions) > 0 {
-		op, err := opFactory.NewNoOpSecretsRemoved(remoteState.DeletedSecretRevisions)
+
+	deletedObsoleteRevisions := s.secretsTracker.CollectRemovedSecretObsoleteRevisions(
+		remoteState.ObsoleteSecretRevisions)
+	if len(remoteState.DeletedSecretRevisions) > 0 ||
+		len(deletedObsoleteRevisions) > 0 {
+		op, err := opFactory.NewNoOpSecretsRemoved(
+			remoteState.DeletedSecretRevisions, deletedObsoleteRevisions)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -90,7 +95,6 @@ func (s *secretsResolver) NextOp(
 		return &secretCompleter{op, opCompleted}, nil
 	}
 
-	s.secretsTracker.TrimSecretObsoleteRevisions(remoteState.ObsoleteSecretRevisions)
 	for uri, revs := range remoteState.ObsoleteSecretRevisions {
 		s.logger.Debugf("%s: resolving obsolete %v", uri, revs)
 		alreadyProcessed := set.NewInts(s.secretsTracker.SecretObsoleteRevisions(uri)...)

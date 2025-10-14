@@ -39,6 +39,20 @@ func (m *MockSecretStateTracker) EXPECT() *MockSecretStateTrackerMockRecorder {
 	return m.recorder
 }
 
+// CollectRemovedSecretObsoleteRevisions mocks base method.
+func (m *MockSecretStateTracker) CollectRemovedSecretObsoleteRevisions(arg0 map[string][]int) map[string][]int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CollectRemovedSecretObsoleteRevisions", arg0)
+	ret0, _ := ret[0].(map[string][]int)
+	return ret0
+}
+
+// CollectRemovedSecretObsoleteRevisions indicates an expected call of CollectRemovedSecretObsoleteRevisions.
+func (mr *MockSecretStateTrackerMockRecorder) CollectRemovedSecretObsoleteRevisions(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectRemovedSecretObsoleteRevisions", reflect.TypeOf((*MockSecretStateTracker)(nil).CollectRemovedSecretObsoleteRevisions), arg0)
+}
+
 // CommitHook mocks base method.
 func (m *MockSecretStateTracker) CommitHook(arg0 hook.Info) error {
 	m.ctrl.T.Helper()
@@ -110,27 +124,15 @@ func (mr *MockSecretStateTrackerMockRecorder) SecretObsoleteRevisions(arg0 any) 
 }
 
 // SecretsRemoved mocks base method.
-func (m *MockSecretStateTracker) SecretsRemoved(arg0 map[string][]int) error {
+func (m *MockSecretStateTracker) SecretsRemoved(arg0, arg1 map[string][]int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretsRemoved", arg0)
+	ret := m.ctrl.Call(m, "SecretsRemoved", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SecretsRemoved indicates an expected call of SecretsRemoved.
-func (mr *MockSecretStateTrackerMockRecorder) SecretsRemoved(arg0 any) *gomock.Call {
+func (mr *MockSecretStateTrackerMockRecorder) SecretsRemoved(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockSecretStateTracker)(nil).SecretsRemoved), arg0)
-}
-
-// TrimSecretObsoleteRevisions mocks base method.
-func (m *MockSecretStateTracker) TrimSecretObsoleteRevisions(arg0 map[string][]int) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "TrimSecretObsoleteRevisions", arg0)
-}
-
-// TrimSecretObsoleteRevisions indicates an expected call of TrimSecretObsoleteRevisions.
-func (mr *MockSecretStateTrackerMockRecorder) TrimSecretObsoleteRevisions(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrimSecretObsoleteRevisions", reflect.TypeOf((*MockSecretStateTracker)(nil).TrimSecretObsoleteRevisions), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockSecretStateTracker)(nil).SecretsRemoved), arg0, arg1)
 }

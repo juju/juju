@@ -257,18 +257,18 @@ func (mr *MockFactoryMockRecorder) NewNoOpFinishUpgradeSeries() *gomock.Call {
 }
 
 // NewNoOpSecretsRemoved mocks base method.
-func (m *MockFactory) NewNoOpSecretsRemoved(arg0 map[string][]int) (operation.Operation, error) {
+func (m *MockFactory) NewNoOpSecretsRemoved(arg0, arg1 map[string][]int) (operation.Operation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewNoOpSecretsRemoved", arg0)
+	ret := m.ctrl.Call(m, "NewNoOpSecretsRemoved", arg0, arg1)
 	ret0, _ := ret[0].(operation.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewNoOpSecretsRemoved indicates an expected call of NewNoOpSecretsRemoved.
-func (mr *MockFactoryMockRecorder) NewNoOpSecretsRemoved(arg0 any) *gomock.Call {
+func (mr *MockFactoryMockRecorder) NewNoOpSecretsRemoved(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNoOpSecretsRemoved", reflect.TypeOf((*MockFactory)(nil).NewNoOpSecretsRemoved), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNoOpSecretsRemoved", reflect.TypeOf((*MockFactory)(nil).NewNoOpSecretsRemoved), arg0, arg1)
 }
 
 // NewRemoteInit mocks base method.
@@ -526,17 +526,17 @@ func (mr *MockCallbacksMockRecorder) RemoteInit(arg0, arg1 any) *gomock.Call {
 }
 
 // SecretsRemoved mocks base method.
-func (m *MockCallbacks) SecretsRemoved(arg0 map[string][]int) error {
+func (m *MockCallbacks) SecretsRemoved(arg0, arg1 map[string][]int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretsRemoved", arg0)
+	ret := m.ctrl.Call(m, "SecretsRemoved", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SecretsRemoved indicates an expected call of SecretsRemoved.
-func (mr *MockCallbacksMockRecorder) SecretsRemoved(arg0 any) *gomock.Call {
+func (mr *MockCallbacksMockRecorder) SecretsRemoved(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockCallbacks)(nil).SecretsRemoved), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockCallbacks)(nil).SecretsRemoved), arg0, arg1)
 }
 
 // SetCurrentCharm mocks base method.

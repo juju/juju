@@ -12,8 +12,9 @@ import (
 
 type noOpSecretsRemoved struct {
 	Operation
-	deletedRevisions map[string][]int
-	callbacks        Callbacks
+	deletedRevisions         map[string][]int
+	deletedObsoleteRevisions map[string][]int
+	callbacks                Callbacks
 }
 
 // String is part of the Operation interface.
@@ -22,12 +23,16 @@ func (op *noOpSecretsRemoved) String() string {
 	for uri, revs := range op.deletedRevisions {
 		lines = append(lines, fmt.Sprintf("%s: %v", uri, revs))
 	}
-	return fmt.Sprintf("process removed secrets:\n%v", strings.Join(lines, "\n"))
+	for uri, revs := range op.deletedObsoleteRevisions {
+		lines = append(lines, fmt.Sprintf("%s: %v", uri, revs))
+	}
+	return fmt.Sprintf("remove deleted secrets:\n%v", strings.Join(lines, "\n"))
 }
 
 // Commit is part of the Operation interface.
 func (op *noOpSecretsRemoved) Commit(state State) (*State, error) {
-	if err := op.callbacks.SecretsRemoved(op.deletedRevisions); err != nil {
+	err := op.callbacks.SecretsRemoved(op.deletedRevisions, op.deletedObsoleteRevisions)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// make no change to state

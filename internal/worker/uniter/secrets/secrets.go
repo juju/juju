@@ -82,6 +82,9 @@ func (s *Secrets) init() error {
 			s.secretsState.ConsumedSecretInfo = updated
 		}
 	}
+	if !changed {
+		return nil
+	}
 
 	return s.stateOps.Write(s.secretsState)
 }
@@ -94,26 +97,47 @@ func (s *Secrets) ConsumedSecretRevision(uri string) int {
 	return s.secretsState.ConsumedSecretInfo[uri]
 }
 
-// TrimSecretObsoleteRevisions implements SecretStateTracker.
-func (s *Secrets) TrimSecretObsoleteRevisions(known map[string][]int) {
+// CollectRemovedSecretObsoleteRevisions takes the list of known obsolete
+// secrets and their revisions. It returns which secrets or revisions need to
+// be trimmed from the local secret state. Secrets where all the revisions are
+// to be trimmed have a length of 0.
+// CollectRemovedSecretObsoleteRevisions implements SecretStateTracker.
+func (s *Secrets) CollectRemovedSecretObsoleteRevisions(
+	known map[string][]int,
+) map[string][]int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	for id, trackedRevs := range s.secretsState.SecretObsoleteRevisions {
-		revs, ok := known[id]
-		if !ok {
-			delete(s.secretsState.SecretObsoleteRevisions, id)
-			continue
-		}
-		slices.Sort(revs)
-		trackedRevs = slices.DeleteFunc(trackedRevs, func(rev int) bool {
-			_, found := slices.BinarySearch(revs, rev)
-			return !found
-		})
-		s.secretsState.SecretObsoleteRevisions[id] = trackedRevs
+	if len(s.secretsState.SecretObsoleteRevisions) == 0 {
+		return nil
 	}
 
-	// No need to write as this will be picked up the next secret state write.
+	collected := map[string][]int{}
+	for id, trackedRevs := range s.secretsState.SecretObsoleteRevisions {
+		knownRevs, ok := known[id]
+		if !ok {
+			// Secret no longer exists, mark it for removal.
+			collected[id] = nil
+			continue
+		}
+		slices.Sort(knownRevs)
+
+		var lostRevs []int
+		for _, rev := range trackedRevs {
+			_, found := slices.BinarySearch(knownRevs, rev)
+			if !found {
+				lostRevs = append(lostRevs, rev)
+			}
+		}
+		if len(lostRevs) > 0 {
+			collected[id] = lostRevs
+		}
+	}
+
+	if len(collected) == 0 {
+		return nil
+	}
+
+	return collected
 }
 
 // SecretObsoleteRevisions implements SecretStateTracker.
@@ -153,13 +177,29 @@ func (s *Secrets) CommitHook(hi hook.Info) error {
 }
 
 // SecretsRemoved implements SecretStateTracker.
-func (s *Secrets) SecretsRemoved(deletedRevisions map[string][]int) error {
+func (s *Secrets) SecretsRemoved(
+	deletedRevisions map[string][]int,
+	deletedObsoleteRevisions map[string][]int,
+) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for uri, revs := range deletedRevisions {
 		if len(revs) == 0 {
 			delete(s.secretsState.ConsumedSecretInfo, uri)
+			delete(s.secretsState.SecretObsoleteRevisions, uri)
+			continue
+		}
+		obsoleteRevs := set.NewInts(s.secretsState.SecretObsoleteRevisions[uri]...)
+		newObsoleteRevs := obsoleteRevs.Difference(set.NewInts(revs...)).SortedValues()
+		if len(newObsoleteRevs) == 0 {
+			delete(s.secretsState.SecretObsoleteRevisions, uri)
+		} else {
+			s.secretsState.SecretObsoleteRevisions[uri] = newObsoleteRevs
+		}
+	}
+	for uri, revs := range deletedObsoleteRevisions {
+		if len(revs) == 0 {
 			delete(s.secretsState.SecretObsoleteRevisions, uri)
 			continue
 		}

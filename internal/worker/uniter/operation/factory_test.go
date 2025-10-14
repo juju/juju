@@ -256,7 +256,7 @@ func (s *FactorySuite) TestNewActionUnauthorised(c *gc.C) {
 }
 
 func (s *FactorySuite) TestNewNoOpSecretsRemoved(c *gc.C) {
-	op, err := s.factory.NewNoOpSecretsRemoved(map[string][]int{"secreturi": {666}})
+	op, err := s.factory.NewNoOpSecretsRemoved(map[string][]int{"secreturi": {666}}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), jc.Contains, "secreturi: [666]")
 }
