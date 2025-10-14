@@ -43,7 +43,11 @@ func (s *applicationStorageSuite) createApplicationWithStorageDirectives(
 	charmStorage map[string]charm.Storage,
 	directives []application.CreateApplicationStorageDirectiveArg,
 ) coreapplication.UUID {
-	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	state := NewState(
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",
 		OSType:       deployment.Ubuntu,
@@ -149,7 +153,9 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectives(c *tc.C) {
 	)
 
 	st := NewState(
-		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	expected := []application.StorageDirective{
@@ -189,7 +195,9 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesEmpty(c *tc
 	)
 
 	st := NewState(
-		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	directives, err := st.GetApplicationStorageDirectives(c.Context(), appUUID)
@@ -202,7 +210,9 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesEmpty(c *tc
 func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesNotFound(c *tc.C) {
 	appUUID := tc.Must(c, coreapplication.NewID)
 	st := NewState(
-		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	_, err := st.GetApplicationStorageDirectives(c.Context(), appUUID)
