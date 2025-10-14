@@ -242,14 +242,21 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
 	// Create a storage pool and a storage instance attached to the app's unit.
+	// Link the storage instance to simulated volume-backed file-system on the
+	// machine. The volume is model scoped, but the file-system and attachments
+	// are machine scopes and will be "dying" with the machine.
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE application_uuid = ?", appUUID.String())
+		row := tx.QueryRowContext(
+			ctx, "SELECT uuid, net_node_uuid FROM unit WHERE application_uuid = ?", appUUID.String())
 		if row.Err() != nil {
 			return row.Err()
 		}
 
-		var unitUUID string
-		if err := row.Scan(&unitUUID); err != nil {
+		var (
+			unitUUID    string
+			netNodeUUID string
+		)
+		if err := row.Scan(&unitUUID, &netNodeUUID); err != nil {
 			return err
 		}
 
@@ -261,8 +268,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {
 
 		inst := `
 INSERT INTO storage_instance (
-    uuid, storage_id, storage_pool_uuid, storage_kind_id, requested_size_mib,
-    charm_name, storage_name, life_id
+    uuid, storage_id, storage_pool_uuid, storage_kind_id, requested_size_mib, charm_name, storage_name, life_id
 )
 VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 1, 100, 'charm-name', 'storage-name', 0)`
 		if _, err := tx.ExecContext(ctx, inst); err != nil {
@@ -273,6 +279,48 @@ VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 1, 100, 'charm-name', '
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
 		if _, err := tx.ExecContext(ctx, attach, unitUUID); err != nil {
+			return err
+		}
+
+		fs := `
+INSERT INTO storage_filesystem(uuid, filesystem_id, life_id, provision_scope_id)
+VALUES ('filesystem-uuid', 'filesystem-id', 0, 1)`
+		if _, err := tx.ExecContext(ctx, fs); err != nil {
+			return err
+		}
+
+		fsa := `
+iNSERT INTO storage_filesystem_attachment(uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id)
+VALUES ('filesystem-attachment-uuid', 'filesystem-uuid', ?, 0, 1)`
+		if _, err := tx.ExecContext(ctx, fsa, netNodeUUID); err != nil {
+			return err
+		}
+
+		fsi := `
+INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
+VALUES ('instance-uuid', 'filesystem-uuid')`
+		if _, err := tx.ExecContext(ctx, fsi); err != nil {
+			return err
+		}
+
+		vol := `
+INSERT INTO storage_volume(uuid, volume_id, life_id, provision_scope_id)
+VALUES ('volume-uuid', 'volume-id', 0, 0)`
+		if _, err := tx.ExecContext(ctx, vol); err != nil {
+			return err
+		}
+
+		vola := `
+iNSERT INTO storage_volume_attachment(uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id)
+VALUES ('volume-attachment-uuid', 'volume-uuid', ?, 0, 0)`
+		if _, err := tx.ExecContext(ctx, vola, netNodeUUID); err != nil {
+			return err
+		}
+
+		voli := `
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES ('instance-uuid', 'volume-uuid')`
+		if _, err := tx.ExecContext(ctx, voli); err != nil {
 			return err
 		}
 
@@ -292,6 +340,12 @@ VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
 	s.checkInstanceLife(c, machineUUID.String(), life.Dying)
 
 	c.Check(cascaded.StorageAttachmentUUIDs, tc.DeepEquals, []string{"storage-attachment-uuid"})
+	c.Check(cascaded.StorageInstanceUUIDs, tc.DeepEquals, []string{"instance-uuid"})
+	c.Check(cascaded.FileSystemUUIDs, tc.DeepEquals, []string{"filesystem-uuid"})
+	c.Check(cascaded.FileSystemAttachmentUUIDs, tc.DeepEquals, []string{"filesystem-attachment-uuid"})
+	c.Check(cascaded.VolumeUUIDs, tc.HasLen, 0)
+	c.Check(cascaded.VolumeAttachmentUUIDs, tc.HasLen, 0)
+	c.Check(cascaded.VolumeAttachmentPlanUUIDs, tc.HasLen, 0)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
