@@ -1506,7 +1506,7 @@ func (s *unitStateSuite) TestGetUnitUUIDAndNetNodeForName(c *tc.C) {
 // doesn't exist in the model that the caller gets back 'false' and no error.
 func (s *unitStateSuite) TestCheckCAASUnitNotRegistered(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
-	isRegistered, _, _, err := s.state.CheckCAASUnitRegistered(
+	isRegistered, _, _, err := s.state.GetCAASUnitRegistered(
 		c.Context(), unitName,
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -1519,7 +1519,7 @@ func (s *unitStateSuite) TestCheckCAASUnitNotRegistered(c *tc.C) {
 func (s *unitStateSuite) TestCheckCAASUnitRegistered(c *tc.C) {
 	unitName, unitUUID := s.createNamedCAASUnit(c)
 	isRegistered, gotUUID, gotNetNodeUUID, err := s.state.
-		CheckCAASUnitRegistered(c.Context(), unitName)
+		GetCAASUnitRegistered(c.Context(), unitName)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(isRegistered, tc.IsTrue)
 	c.Check(gotUUID, tc.Equals, unitUUID)

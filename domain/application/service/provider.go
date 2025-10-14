@@ -491,7 +491,7 @@ func (s *ProviderService) RegisterCAASUnit(
 	registerArgs.OrderedScale = true
 
 	isRegistered, unitUUID, unitNetNodeUUID, err :=
-		s.st.CheckCAASUnitRegistered(ctx, unitName)
+		s.st.GetCAASUnitRegistered(ctx, unitName)
 	if err != nil {
 		return "", "", errors.Errorf(
 			"checking if unit %q is already registered in the model: %w",

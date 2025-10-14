@@ -713,47 +713,6 @@ func (c *MockStateCheckAllApplicationsAndUnitsAreAliveCall) DoAndReturn(f func(c
 	return c
 }
 
-// CheckCAASUnitRegistered mocks base method.
-func (m *MockState) CheckCAASUnitRegistered(arg0 context.Context, arg1 unit.Name) (bool, unit.UUID, network0.NetNodeUUID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckCAASUnitRegistered", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(unit.UUID)
-	ret2, _ := ret[2].(network0.NetNodeUUID)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
-}
-
-// CheckCAASUnitRegistered indicates an expected call of CheckCAASUnitRegistered.
-func (mr *MockStateMockRecorder) CheckCAASUnitRegistered(arg0, arg1 any) *MockStateCheckCAASUnitRegisteredCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCAASUnitRegistered", reflect.TypeOf((*MockState)(nil).CheckCAASUnitRegistered), arg0, arg1)
-	return &MockStateCheckCAASUnitRegisteredCall{Call: call}
-}
-
-// MockStateCheckCAASUnitRegisteredCall wrap *gomock.Call
-type MockStateCheckCAASUnitRegisteredCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateCheckCAASUnitRegisteredCall) Return(arg0 bool, arg1 unit.UUID, arg2 network0.NetNodeUUID, arg3 error) *MockStateCheckCAASUnitRegisteredCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateCheckCAASUnitRegisteredCall) Do(f func(context.Context, unit.Name) (bool, unit.UUID, network0.NetNodeUUID, error)) *MockStateCheckCAASUnitRegisteredCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCheckCAASUnitRegisteredCall) DoAndReturn(f func(context.Context, unit.Name) (bool, unit.UUID, network0.NetNodeUUID, error)) *MockStateCheckCAASUnitRegisteredCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CreateCAASApplication mocks base method.
 func (m *MockState) CreateCAASApplication(arg0 context.Context, arg1 string, arg2 application0.AddCAASApplicationArg, arg3 []application0.AddCAASUnitArg) (application.UUID, error) {
 	m.ctrl.T.Helper()
@@ -1967,6 +1926,47 @@ func (c *MockStateGetAvailableCharmArchiveSHA256Call) Do(f func(context.Context,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetAvailableCharmArchiveSHA256Call) DoAndReturn(f func(context.Context, charm.ID) (string, error)) *MockStateGetAvailableCharmArchiveSHA256Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetCAASUnitRegistered mocks base method.
+func (m *MockState) GetCAASUnitRegistered(arg0 context.Context, arg1 unit.Name) (bool, unit.UUID, network0.NetNodeUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCAASUnitRegistered", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(unit.UUID)
+	ret2, _ := ret[2].(network0.NetNodeUUID)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// GetCAASUnitRegistered indicates an expected call of GetCAASUnitRegistered.
+func (mr *MockStateMockRecorder) GetCAASUnitRegistered(arg0, arg1 any) *MockStateGetCAASUnitRegisteredCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCAASUnitRegistered", reflect.TypeOf((*MockState)(nil).GetCAASUnitRegistered), arg0, arg1)
+	return &MockStateGetCAASUnitRegisteredCall{Call: call}
+}
+
+// MockStateGetCAASUnitRegisteredCall wrap *gomock.Call
+type MockStateGetCAASUnitRegisteredCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetCAASUnitRegisteredCall) Return(arg0 bool, arg1 unit.UUID, arg2 network0.NetNodeUUID, arg3 error) *MockStateGetCAASUnitRegisteredCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetCAASUnitRegisteredCall) Do(f func(context.Context, unit.Name) (bool, unit.UUID, network0.NetNodeUUID, error)) *MockStateGetCAASUnitRegisteredCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetCAASUnitRegisteredCall) DoAndReturn(f func(context.Context, unit.Name) (bool, unit.UUID, network0.NetNodeUUID, error)) *MockStateGetCAASUnitRegisteredCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

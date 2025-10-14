@@ -104,7 +104,7 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 		}},
 	}}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
-	s.state.EXPECT().CheckCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
+	s.state.EXPECT().GetCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
 		false, "", "", nil,
 	)
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").
@@ -178,7 +178,7 @@ func (s *registerCAASUnitSuite) TestRegisterExistingCAASUnit(c *tc.C) {
 		}},
 	}}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
-	s.state.EXPECT().CheckCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
+	s.state.EXPECT().GetCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
 		true, unitUUID, unitNetNodeUUID, nil,
 	)
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").
@@ -254,7 +254,7 @@ func (s *registerCAASUnitSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 	app.EXPECT().Units().Return([]caas.Unit{}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
-	s.state.EXPECT().CheckCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
+	s.state.EXPECT().GetCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
 		false, "", "", nil,
 	).AnyTimes()
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(

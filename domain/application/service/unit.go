@@ -35,10 +35,10 @@ type UnitState interface {
 	// names.
 	AddCAASUnits(context.Context, coreapplication.UUID, ...application.AddCAASUnitArg) ([]coreunit.Name, error)
 
-	// CheckCAASUnitRegistered checks if a caas unit by the provided name is
+	// GetCAASUnitRegistered checks if a caas unit by the provided name is
 	// already registered in the model. False is returned when no unit exists,
 	// otherwise the units existing uuid and netnode uuid is returned.
-	CheckCAASUnitRegistered(
+	GetCAASUnitRegistered(
 		context.Context, coreunit.Name,
 	) (bool, coreunit.UUID, domainnetwork.NetNodeUUID, error)
 
