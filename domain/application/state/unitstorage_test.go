@@ -71,7 +71,7 @@ func (u *unitStorageSuite) newStorageInstanceWithModelFilesystem(
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	filesystemUUID := tc.Must(c, domainstorageprov.NewFilesystemUUID)
 
-	storagePoolUUID := u.newStoragePool(c, "test-pool", "test-provider")
+	storagePoolUUID := u.newStoragePool(c, storageInstanceUUID.String(), "test-provider")
 
 	_, err := u.DB().ExecContext(
 		c.Context(),
