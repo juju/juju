@@ -25,6 +25,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
@@ -63,6 +64,28 @@ type DeployApplicationParams struct {
 	// If set to true, any charm-specific requirements ("assumes" section)
 	// will be ignored.
 	Force bool
+}
+
+// handleApplicationDomainError is a first low past effort to start handling
+// some of the errors that will come out of the application domain. If a handler
+// does not exist then the original error will be returned.
+func handleApplicationDomainError(err error) error {
+	// Check to see if the user has creeped over or under a charm storage count
+	// limit.
+	limitErr, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+	if is && limitErr.Requested < limitErr.Minimum {
+		return errors.Errorf(
+			"storage directive %q exceeds the charms minimum of %d",
+			limitErr.StorageName, limitErr.Minimum,
+		)
+	} else if is && limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
+		return errors.Errorf(
+			"storage directive %q exceeds the charms maximum of %d",
+			limitErr.StorageName, *limitErr.Maximum,
+		)
+	}
+
+	return err
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
@@ -154,27 +177,28 @@ func DeployApplication(
 			unitArgs...,
 		)
 		if err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		unitArgs, err := makeIAASUnitArgs(args)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		_, err = applicationService.CreateIAASApplication(
-			ctx,
-			args.ApplicationName,
-			args.Charm,
-			args.CharmOrigin,
-			applicationArg,
-			unitArgs...,
-		)
-		if err != nil {
-			return errors.Trace(err)
+			return handleApplicationDomainError(errors.Trace(err))
 		}
 	}
-	return errors.Trace(err)
+
+	unitArgs, err := makeIAASUnitArgs(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	_, err = applicationService.CreateIAASApplication(
+		ctx,
+		args.ApplicationName,
+		args.Charm,
+		args.CharmOrigin,
+		applicationArg,
+		unitArgs...,
+	)
+	if err != nil {
+		return handleApplicationDomainError(err)
+	}
+
+	return nil
 }
 
 func makeIAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddIAASUnitArg, error) {

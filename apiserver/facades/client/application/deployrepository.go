@@ -156,7 +156,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			})...)
 	}
 	if err != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
+		return params.DeployFromRepositoryInfo{}, nil, []error{
+			handleApplicationDomainError(errors.Trace(err)),
+		}
 	}
 
 	return info, dt.resourcesToUpload, nil
