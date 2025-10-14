@@ -763,6 +763,49 @@ func (s *applicationSuite) TestCharmConfig(c *tc.C) {
 	})
 }
 
+func (s *applicationSuite) TestSetCharm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), "foo", applicationcharm.CharmLocator{
+		Name:         "foo",
+		Revision:     42,
+		Source:       applicationcharm.CharmHubSource,
+		Architecture: architecture.ARM64,
+	}, domainapplication.SetCharmParams{
+		CharmUpgradeOnError: true,
+		EndpointBindings: map[string]network.SpaceName{
+			"binding-1": "endpoint-1",
+			"binding-2": "endpoint-2",
+		},
+	}).Return(nil)
+
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
+		ApplicationName: "foo",
+		CharmURL:        "ch:arm64/foo-42",
+		CharmOrigin: &params.CharmOrigin{
+			Type:   "charm",
+			Source: "charm-hub",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "24.04",
+			},
+			Architecture: "arm64",
+			Revision:     ptr(42),
+			Track:        ptr("1.0"),
+			Risk:         "stable",
+		},
+		Force: true,
+		EndpointBindings: map[string]string{
+			"binding-1": "endpoint-1",
+			"binding-2": "endpoint-2",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+}
+
 func (s *applicationSuite) TestSetConfigsYAMLNotImplemented(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
