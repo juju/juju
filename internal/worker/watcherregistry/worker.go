@@ -19,7 +19,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
-	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -96,7 +95,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			return false
 		},
 		Clock:  config.Clock,
-		Logger: internalworker.WrapLogger(config.Logger),
+		Logger: &runnerLogger{logger: config.Logger},
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -368,4 +367,30 @@ func (r *trackedWorker) prefixNamespace(id string) string {
 
 func (r *trackedWorker) isOwnedByNamespace(id string) bool {
 	return strings.HasPrefix(id, r.id+":")
+}
+
+// runnerLogger is a logger.Logger that logs to worker.Logger interface, but
+// all INFO and DEBUG messages are logged as TRACE. This is because the
+// runner produces a lot of INFO and DEBUG messages that are not useful
+// in the context of the watcher registry.
+type runnerLogger struct {
+	logger logger.Logger
+}
+
+// Error logs a message at the ERROR level.
+func (c *runnerLogger) Errorf(msg string, args ...any) {
+	c.logger.Helper()
+	c.logger.Errorf(context.Background(), msg, args...)
+}
+
+// Info logs a message at the TRACE level.
+func (c *runnerLogger) Infof(msg string, args ...any) {
+	c.logger.Helper()
+	c.logger.Tracef(context.Background(), msg, args...)
+}
+
+// Debug logs a message at the TRACE level.
+func (c *runnerLogger) Debugf(msg string, args ...any) {
+	c.logger.Helper()
+	c.logger.Tracef(context.Background(), msg, args...)
 }
