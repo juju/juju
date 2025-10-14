@@ -670,45 +670,6 @@ func (c *MockStateGetRelationUUIDByIDCall) DoAndReturn(f func(context.Context, i
 	return c
 }
 
-// GetRelationUnit mocks base method.
-func (m *MockState) GetRelationUnit(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name) (relation.UnitUUID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationUnit", arg0, arg1, arg2)
-	ret0, _ := ret[0].(relation.UnitUUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetRelationUnit indicates an expected call of GetRelationUnit.
-func (mr *MockStateMockRecorder) GetRelationUnit(arg0, arg1, arg2 any) *MockStateGetRelationUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnit", reflect.TypeOf((*MockState)(nil).GetRelationUnit), arg0, arg1, arg2)
-	return &MockStateGetRelationUnitCall{Call: call}
-}
-
-// MockStateGetRelationUnitCall wrap *gomock.Call
-type MockStateGetRelationUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetRelationUnitCall) Return(arg0 relation.UnitUUID, arg1 error) *MockStateGetRelationUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetRelationUnitCall) Do(f func(context.Context, relation.UUID, unit.Name) (relation.UnitUUID, error)) *MockStateGetRelationUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetRelationUnitCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name) (relation.UnitUUID, error)) *MockStateGetRelationUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetRelationUnitChanges mocks base method.
 func (m *MockState) GetRelationUnitChanges(arg0 context.Context, arg1 []unit.UUID, arg2 []application.UUID) (relation0.RelationUnitsChange, error) {
 	m.ctrl.T.Helper()
@@ -822,6 +783,45 @@ func (c *MockStateGetRelationUnitSettingsArchiveCall) Do(f func(context.Context,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetRelationUnitSettingsArchiveCall) DoAndReturn(f func(context.Context, string, string) (map[string]string, error)) *MockStateGetRelationUnitSettingsArchiveCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRelationUnitUUID mocks base method.
+func (m *MockState) GetRelationUnitUUID(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name) (relation.UnitUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationUnitUUID", arg0, arg1, arg2)
+	ret0, _ := ret[0].(relation.UnitUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationUnitUUID indicates an expected call of GetRelationUnitUUID.
+func (mr *MockStateMockRecorder) GetRelationUnitUUID(arg0, arg1, arg2 any) *MockStateGetRelationUnitUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitUUID", reflect.TypeOf((*MockState)(nil).GetRelationUnitUUID), arg0, arg1, arg2)
+	return &MockStateGetRelationUnitUUIDCall{Call: call}
+}
+
+// MockStateGetRelationUnitUUIDCall wrap *gomock.Call
+type MockStateGetRelationUnitUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationUnitUUIDCall) Return(arg0 relation.UnitUUID, arg1 error) *MockStateGetRelationUnitUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationUnitUUIDCall) Do(f func(context.Context, relation.UUID, unit.Name) (relation.UnitUUID, error)) *MockStateGetRelationUnitUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationUnitUUIDCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name) (relation.UnitUUID, error)) *MockStateGetRelationUnitUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

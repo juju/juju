@@ -111,7 +111,7 @@ type State interface {
 
 	// GetRelationUnit retrieves the UUID of a relation unit based on the given
 	// relation UUID and unit name.
-	GetRelationUnit(
+	GetRelationUnitUUID(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
@@ -137,19 +137,19 @@ type State interface {
 	// relation UUID is for a peer relation.
 	IsPeerRelation(ctx context.Context, relationUUID string) (bool, error)
 
+	// SetRelationUnitSettings records settings for a specific relation unit.
+	SetRelationUnitSettings(
+		ctx context.Context,
+		relationUnitUUID corerelation.UnitUUID,
+		settings map[string]string,
+	) error
+
 	// SetRelationApplicationAndUnitSettings records settings for a unit and
 	// an application in a relation.
 	SetRelationApplicationAndUnitSettings(
 		ctx context.Context,
 		relationUnitUUID corerelation.UnitUUID,
 		applicationSettings, unitSettings map[string]string,
-	) error
-
-	// SetRelationUnitSettings records settings for a specific relation unit.
-	SetRelationUnitSettings(
-		ctx context.Context,
-		relationUnitUUID corerelation.UnitUUID,
-		settings map[string]string,
 	) error
 
 	// ApplicationExists checks if the given application exists.
@@ -226,6 +226,43 @@ func (s *LeadershipService) GetRelationApplicationSettingsWithLeader(
 	return settings, nil
 }
 
+// SetRelationUnitSettings records settings for a unit in a relation.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] is returned if the
+//     relation unit is not found.
+func (s *LeadershipService) SetRelationUnitSettings(
+	ctx context.Context,
+	unitName unit.Name,
+	relationUUID corerelation.UUID,
+	unitSettings map[string]string,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// Note: do not check if the settings are length 0 here, as we want to
+	// enable clearing settings by passing empty maps. If the maps are nil, then
+	// it becomes a no-op.
+	if unitSettings == nil {
+		return nil
+	}
+
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := relationUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
+	relationUnitUUID, err := s.st.GetRelationUnitUUID(ctx, relationUUID, unitName)
+	if err != nil {
+		return errors.Capture(fmt.Errorf("getting relation unit: %w", err))
+	}
+
+	return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, unitSettings)
+}
+
 // SetRelationApplicationAndUnitSettings records settings for a unit and
 // an application in a relation.
 //
@@ -237,33 +274,38 @@ func (s *LeadershipService) GetRelationApplicationSettingsWithLeader(
 func (s *LeadershipService) SetRelationApplicationAndUnitSettings(
 	ctx context.Context,
 	unitName unit.Name,
-	relationUnitUUID corerelation.UnitUUID,
+	relationUUID corerelation.UUID,
 	applicationSettings, unitSettings map[string]string,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if len(applicationSettings) == 0 && len(unitSettings) == 0 {
+	// Note: do not check if the settings are length 0 here, as we want to
+	// enable clearing settings by passing empty maps. If the maps are nil, then
+	// it becomes a no-op.
+	if applicationSettings == nil && unitSettings == nil {
 		return nil
 	}
 
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
-	if err := relationUnitUUID.Validate(); err != nil {
+	if err := relationUUID.Validate(); err != nil {
 		return errors.Errorf(
 			"%w:%w", relationerrors.RelationUUIDNotValid, err)
 	}
 
-	// If not setting the application settings, do not check leadership.
-	if len(applicationSettings) == 0 {
-		return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, unitSettings)
+	relationUnitUUID, err := s.st.GetRelationUnitUUID(ctx, relationUUID, unitName)
+	if err != nil {
+		return errors.Capture(fmt.Errorf("getting relation unit: %w", err))
 	}
 
+	// Always ensure that we are the leader, don't be tempted to skip the
+	// leader check if applicationSettings is empty, as we need to
+	// ensure that the unit is allowed to set its own settings.
 	return s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
 		return s.st.SetRelationApplicationAndUnitSettings(ctx, relationUnitUUID, applicationSettings, unitSettings)
 	})
-
 }
 
 // Service provides the API for working with relations.
@@ -501,9 +543,9 @@ func (s *Service) GetRelationsStatusForUnit(
 	return statuses, nil
 }
 
-// GetRelationUnit returns the relation unit UUID for the given unit for the
+// GetRelationUnitUUID returns the relation unit UUID for the given unit for the
 // given relation.
-func (s *Service) GetRelationUnit(
+func (s *Service) GetRelationUnitUUID(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
@@ -518,7 +560,7 @@ func (s *Service) GetRelationUnit(
 	if err := unitName.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
-	return s.st.GetRelationUnit(ctx, relationUUID, unitName)
+	return s.st.GetRelationUnitUUID(ctx, relationUUID, unitName)
 }
 
 // getRelationUnitByID returns the relation unit UUID for the given unit for the
@@ -535,7 +577,7 @@ func (s *Service) getRelationUnitByID(
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return s.st.GetRelationUnit(ctx, uuid, unitName)
+	return s.st.GetRelationUnitUUID(ctx, uuid, unitName)
 }
 
 // GetRelationUnitChanges validates the given unit and application UUIDs,
@@ -581,7 +623,7 @@ func (s *Service) GetRelationUnitSettings(
 		return nil, errors.Capture(err)
 	}
 
-	ruUUID, err := s.st.GetRelationUnit(ctx, relationUUID, unitName)
+	ruUUID, err := s.st.GetRelationUnitUUID(ctx, relationUUID, unitName)
 	if err != nil && !errors.Is(err, relationerrors.RelationUnitNotFound) {
 		return nil, errors.Capture(err)
 	}
