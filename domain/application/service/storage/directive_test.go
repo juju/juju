@@ -213,7 +213,7 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesNoMaxLi
 
 // TestValidateApplicationStorageDirectiveOverridesExceedMax tests that when a
 // a storage override requests more storage then the charm supports the caller
-// gets back an error satsifying [applicationerrors.StorageCountLimitExceeded].
+// gets back an error satisfying [applicationerrors.StorageCountLimitExceeded].
 func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedMax(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 
