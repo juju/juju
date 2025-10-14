@@ -5,9 +5,14 @@ package domain
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/errors"
@@ -31,16 +36,40 @@ type StateBase struct {
 
 	// statements is a cache of sqlair statements keyed by the query string.
 	statementMutex sync.RWMutex
-	statements     map[string]*sqlair.Statement
+	statements     map[queryKey]*sqlair.Statement
 
 	atomicPool sync.Pool
+}
+
+// queryKey is a key for the statement cache.
+type queryKey struct {
+	query   string
+	argHash string
+}
+
+// newQueryKey creates a new queryKey to index statement by both its query text
+// and the types of the arguments.
+func newQueryKey(query string, args ...any) queryKey {
+	argHashes := transform.Slice(args, func(arg any) string {
+		t := reflect.TypeOf(arg)
+		// If it's a pointer, get the element type
+		if t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
+		return fmt.Sprintf("%s.%s", t.PkgPath(), t.Name())
+	})
+	sort.Strings(argHashes)
+	return queryKey{
+		query:   query,
+		argHash: strings.Join(argHashes, ","),
+	}
 }
 
 // NewStateBase returns a new StateBase.
 func NewStateBase(getDB database.TxnRunnerFactory) *StateBase {
 	return &StateBase{
 		getDB:      getDB,
-		statements: make(map[string]*sqlair.Statement),
+		statements: make(map[queryKey]*sqlair.Statement),
 		atomicPool: sync.Pool{
 			New: func() interface{} {
 				return &atomicContext{}
@@ -95,9 +124,10 @@ func (st *StateBase) DB(ctx context.Context) (TxnRunner, error) {
 // would have to be in the same state package. This issue should be relatively
 // rare and caught by QA if present.
 func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
+	key := newQueryKey(query, typeSamples...)
 	// Take a read lock to check if the statement is already prepared.
 	st.statementMutex.RLock()
-	if stmt, ok := st.statements[query]; ok && stmt != nil {
+	if stmt, ok := st.statements[key]; ok && stmt != nil {
 		st.statementMutex.RUnlock()
 		return stmt, nil
 	}
@@ -112,7 +142,7 @@ func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statemen
 		return nil, errors.Errorf("preparing:: %w", err)
 	}
 
-	st.statements[query] = stmt
+	st.statements[key] = stmt
 	return stmt, nil
 }
 

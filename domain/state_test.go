@@ -104,6 +104,34 @@ func (s *stateSuite) TestStateBasePrepareKeyClash(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `cannot get result: parameter with type "domain.TestType" missing, have type with same name: "domain.TestType"`)
 }
 
+func (s *stateSuite) TestStateBasePrepareSeveralType(c *tc.C) {
+	f := s.TxnRunnerFactory()
+	base := NewStateBase(f)
+	db, err := base.DB(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(db, tc.NotNil)
+
+	// Define two types with the same name.
+	type TestTypeA struct {
+		Name string `db:"type_a"`
+	}
+	type TestTypeB struct {
+		Name string `db:"type_b"`
+	}
+
+	// Prepare statement using types args in different order.
+	stmt1, err := base.Prepare("SELECT &TestTypeA.type_a, &TestTypeB.type_b FROM sqlite_schema", TestTypeA{},
+		TestTypeB{})
+	c.Assert(err, tc.ErrorIsNil)
+	stmt2, err := base.Prepare("SELECT &TestTypeA.type_a, &TestTypeB.type_b FROM sqlite_schema", TestTypeB{},
+		TestTypeA{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// this is the same statement, even though the order of the types is different
+	c.Assert(base.statements, tc.HasLen, 1)
+	c.Assert(stmt1, tc.Equals, stmt2)
+}
+
 func (s *stateSuite) TestStateBaseRunAtomicTransactionExists(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
