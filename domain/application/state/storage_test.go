@@ -229,7 +229,7 @@ func (s *storageSuite) TestGetProviderTypeForPool(c *tc.C) {
 // TestGetModelStoragePoolsWithModelDefaults tests getting model default storage
 // pools when only the model defaults have been set via model config.
 func (s *storageSuite) TestGetModelStoragePoolsWithModelConfig(c *tc.C) {
-	poolUUID := s.storageHelper.newStoragePool(c, "test-pool1", "ptype")
+	poolUUID := s.storageHelper.newStoragePool(c, "test-pool", "ptype")
 
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
@@ -242,7 +242,9 @@ func (s *storageSuite) TestGetModelStoragePoolsWithModelConfig(c *tc.C) {
 
 	_, err = db.Exec(
 		"INSERT INTO model_config(key, value) VALUES (?, ?)",
-		application.StorageDefaultBlockSourceKey, "test-pool",
+		application.StorageDefaultBlockSourceKey,
+		// "test-pool" matches the name pool created above
+		"test-pool",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	res, err = st.GetModelStoragePools(c.Context())
@@ -254,6 +256,7 @@ func (s *storageSuite) TestGetModelStoragePoolsWithModelConfig(c *tc.C) {
 	_, err = db.Exec(
 		"INSERT INTO model_config(key, value) VALUES (?, ?)",
 		application.StorageDefaultFilesystemSourceKey,
+		// "test-pool" matches the name pool created above
 		"test-pool",
 	)
 	c.Assert(err, tc.ErrorIsNil)
