@@ -13,12 +13,14 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
@@ -256,9 +258,72 @@ WHERE   arc.life_id < 2;`
 // the unit is departed, the settings will be applied and then transitioned
 // into LeaveScope.
 func (st *State) ProcessOffererRelationChange(
-	context.Context,
-	corerelation.UUID,
-	crossmodelrelation.ProcessOffererRelationChangeArgs,
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	args crossmodelrelation.ProcessOffererRelationChangeArgs,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// We first need to insert all units that are not already present in the
+	// database.
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		for unitName, settings := range args.UnitSettings {
+			if settings.Departed {
+				// 1. If the unit exists, we need to force it to leave scope.
+				// 2. Then apply the settings to the archive settings table.
+				if err := st.departRelationUnit(ctx, tx, relationUUID, unitName, settings.Settings); err != nil {
+					return errors.Capture(err)
+				}
+				continue
+			}
+
+			// 1. We have an existing unit, or we need to create one.
+			// 2. Force the unit to enter scope.
+			// 3. Apply the settings to the active settings table.
+			if err := st.assignRelationUnit(ctx, tx, relationUUID, unitName, settings.Settings); err != nil {
+				return errors.Capture(err)
+			}
+		}
+
+		// Apply the application settings to any existing relation units.
+
+		// Finally transition any departed units to leave scope.
+
+		return nil
+	}); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) departRelationUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID corerelation.UUID,
+	unitName unit.Name,
+	settings map[string]string,
+) error {
+	if err := st.relationUnitExists(ctx, tx, relationUUID, unitName); errors.Is(err, relationerrors.RelationUnitNotFound) {
+		// Just write the settings to the archive table and return without
+		// leaving scope.
+
+	} else if err != nil {
+		return errors.Errorf("checking if relation unit %q exists: %w", unitName, err)
+	}
+
+	return nil
+}
+
+func (st *State) assignRelationUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID corerelation.UUID,
+	unitName unit.Name,
+	settings map[string]string,
 ) error {
 	return nil
 }
