@@ -924,6 +924,24 @@ func (p AddRemoteApplicationParams) Validate() error {
 	return nil
 }
 
+func (st *State) destroyExistingRemoteApplicationOp(args AddRemoteApplicationParams) (*DestroyRemoteApplicationOperation, error) {
+	if !args.IsConsumerProxy {
+		return nil, nil
+	}
+	existingRemoteApp, err := st.RemoteApplication(args.Name)
+	if errors.Is(err, errors.NotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if existingRemoteApp.ConsumeVersion() < args.ConsumeVersion {
+		logger.Infof("consume newer version %d of remote app for offer %v: %v", args.ConsumeVersion, args.OfferUUID, args.Name)
+		return existingRemoteApp.DestroyOperation(true), nil
+	}
+	return nil, nil
+}
+
 // AddRemoteApplication creates a new remote application record,
 // having the supplied relation endpoints, with the supplied name,
 // which must be unique across all applications, local and remote.
@@ -1004,6 +1022,8 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	appDoc.Spaces = spaces
 	app := newRemoteApplication(st, appDoc)
 
+	var destroyStaleOp *DestroyRemoteApplicationOperation
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
@@ -1024,19 +1044,53 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 				return nil, errors.AlreadyExistsf("saas application")
 			}
 		}
-		ops := []txn.Op{
-			model.assertActiveOp(),
-			{
+
+		var ops []txn.Op
+
+		// If there's an older existing consumer app proxy for the same consuming app,
+		// it needs to be removed.
+		if destroyStaleOp, err = st.destroyExistingRemoteApplicationOp(args); err != nil {
+			return nil, errors.Trace(err)
+		}
+		replaceExisting := destroyStaleOp != nil
+		if replaceExisting {
+			destroyOps, err := destroyStaleOp.Build(attempt)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, destroyOps...)
+			ops = append(ops, txn.Op{
+				C:      remoteApplicationsC,
+				Id:     appDoc.Name,
+				Insert: appDoc,
+			})
+			// If we know the token, import it.
+			if args.Token != "" {
+				importRemoteEntityOps := st.RemoteEntities().replaceRemoteEntityOps(app.Tag(), args.Token)
+				ops = append(ops, importRemoteEntityOps...)
+			}
+		} else {
+			ops = append(ops, txn.Op{
 				C:      remoteApplicationsC,
 				Id:     appDoc.Name,
 				Assert: txn.DocMissing,
 				Insert: appDoc,
-			}, {
+			})
+			// If we know the token, import it.
+			if args.Token != "" {
+				importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(app.Tag(), args.Token)
+				ops = append(ops, importRemoteEntityOps...)
+			}
+		}
+
+		ops = append(ops,
+			model.assertActiveOp(),
+			txn.Op{
 				C:      applicationsC,
 				Id:     appDoc.Name,
 				Assert: txn.DocMissing,
 			},
-		}
+		)
 		if !args.IsConsumerProxy {
 			statusDoc := statusDoc{
 				ModelUUID: st.ModelUUID(),
@@ -1044,11 +1098,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 				Updated:   st.clock().Now().UnixNano(),
 			}
 			ops = append(ops, createStatusOp(st, app.globalKey(), statusDoc))
-		}
-		// If we know the token, import it.
-		if args.Token != "" {
-			importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(app.Tag(), args.Token)
-			ops = append(ops, importRemoteEntityOps...)
 		}
 
 		if args.ExternalControllerUUID != "" {
@@ -1062,6 +1111,11 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	}
 	if err = st.db().Run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
+	}
+	if destroyStaleOp != nil {
+		if err := destroyStaleOp.Done(nil); err != nil {
+			return nil, errors.Annotatef(err, "cleaning up state remote application proxy for %q", destroyStaleOp.app.Name())
+		}
 	}
 	return app, nil
 }
