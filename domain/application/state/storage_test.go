@@ -22,12 +22,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-type baseStorageSuite struct {
-	baseSuite
-
-	state *State
-}
-
 // storageSuite is a suite for testing generic storage related state interfaces.
 // The primary means for testing state funcs not realted to applications
 // themselves.
@@ -42,23 +36,17 @@ func TestStorageSuite(t *stdtesting.T) {
 	tc.Run(t, suite)
 }
 
-func (s *baseStorageSuite) SetUpTest(c *tc.C) {
-	s.baseSuite.SetUpTest(c)
-
-	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-}
-
-func (s *baseStorageSuite) TestGetStorageUUIDByID(c *tc.C) {
+func (s *storageSuite) TestGetStorageUUIDByID(c *tc.C) {
 	ctx := c.Context()
 
 	uuid := storagetesting.GenStorageInstanceUUID(c)
 
 	poolUUID := storagetesting.GenStoragePoolUUID(c)
-	_, err := s.DB().Exec(`
+	_, err := s.ModelSuite.DB().Exec(`
 INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 		poolUUID, "rootfs", "rootfs")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = s.DB().Exec(`
+	_, err = s.ModelSuite.DB().Exec(`
 INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
                              storage_kind_id, life_id, storage_pool_uuid,
                              requested_size_mib)
@@ -73,15 +61,23 @@ VALUES (?, ?, ?, ?, 1, ?, ?, ?)`,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")
+	st := NewState(
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+	result, err := st.GetStorageUUIDByID(ctx, "pgdata/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, uuid)
 }
 
-func (s *baseStorageSuite) TestGetStorageUUIDByIDNotFound(c *tc.C) {
-	ctx := c.Context()
-
-	_, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")
+func (s *storageSuite) TestGetStorageUUIDByIDNotFound(c *tc.C) {
+	st := NewState(
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+	_, err := st.GetStorageUUIDByID(c.Context(), "pgdata/0")
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageNotFound)
 }
 
