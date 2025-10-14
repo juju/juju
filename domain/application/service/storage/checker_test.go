@@ -4,8 +4,9 @@
 package storage
 
 import (
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/tc"
+
+	"github.com/juju/juju/domain/application"
 )
 
 // createUnitStorageArgChecker returns a new [tc.MultiChecker] capable of

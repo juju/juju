@@ -7,12 +7,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/juju/tc"
+	gomock "go.uber.org/mock/gomock"
+
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalstorage "github.com/juju/juju/internal/storage"
-	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 )
 
 type storagePoolProviderSuite struct {

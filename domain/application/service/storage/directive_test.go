@@ -6,12 +6,13 @@ package storage
 import (
 	"testing"
 
+	"github.com/juju/tc"
+	gomock "go.uber.org/mock/gomock"
+
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/internal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 )
 
 type directiveSuite struct {

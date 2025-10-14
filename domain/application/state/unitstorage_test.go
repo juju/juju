@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
+	"github.com/juju/tc"
+
 	corecharm "github.com/juju/juju/core/charm"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -16,7 +18,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/tc"
 )
 
 // unitStorageSuite is a test suite for asserting state based storage related to
