@@ -191,3 +191,16 @@ func (s *MigrationService) ExportRelations(ctx context.Context) ([]relation.Expo
 
 	return relations, nil
 }
+
+func settingsMap(in map[string]interface{}) (map[string]string, error) {
+	res := make(map[string]string)
+	for k, v := range in {
+		switch v := v.(type) {
+		case string:
+			res[k] = v
+		default:
+			return nil, errors.Errorf("%+v no a string", v)
+		}
+	}
+	return res, nil
+}

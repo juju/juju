@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/collections/transform"
-
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
@@ -754,8 +752,8 @@ func (s *Service) GetRelationApplicationSettings(
 	return settings, nil
 }
 
-// RelationUnitInScopeByID returns a boolean to indicate whether the given
-// unit is in scopen of a given relation
+// RelationUnitInScopeByID returns a boolean to indicate whether the given unit
+// is in scope of a given relation
 func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -769,61 +767,9 @@ func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, u
 }
 
 // GetRelationUnits returns the current state of the relation units.
-func (s *Service) GetRelationUnits(ctx context.Context, appID application.UUID) (relation.RelationUnitChange, error) {
+func (s *Service) GetRelationUnits(ctx context.Context, appUUID application.UUID) (relation.RelationUnitChange, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return relation.RelationUnitChange{}, nil
-}
-
-// SetRelationRemoteApplicationAndUnitSettings records settings for a unit and
-// an application in a remote relation.
-//
-// The following error types can be expected to be returned:
-//   - [corelease.ErrNotHeld] if the unit is not the leader and
-//     applicationSettings has a none zero length.
-//   - [relationerrors.RelationUnitNotFound] is returned if the
-//     relation unit is not found.
-func (s *Service) SetRelationRemoteApplicationAndUnitSettings(
-	ctx context.Context,
-	unitName unit.Name,
-	relationUUID corerelation.UUID,
-	applicationSettings, unitSettings map[string]string,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// Note: do not check if the settings are length 0 here, as we want to
-	// enable clearing settings by passing empty maps. If the maps are nil, then
-	// it becomes a no-op.
-	if applicationSettings == nil && unitSettings == nil {
-		return nil
-	}
-
-	if err := unitName.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-	if err := relationUUID.Validate(); err != nil {
-		return errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
-	}
-
-	relationUnitUUID, err := s.st.GetRelationUnitUUID(ctx, relationUUID, unitName)
-	if err != nil {
-		return errors.Capture(fmt.Errorf("getting relation unit: %w", err))
-	}
-
-	return s.st.SetRelationApplicationAndUnitSettings(ctx, relationUnitUUID, applicationSettings, unitSettings)
-}
-
-func settingsMap(in map[string]interface{}) (map[string]string, error) {
-	var errs error
-	return transform.Map(in, func(k string, v interface{}) (string, string) {
-		switch v.(type) {
-		case string:
-		default:
-			errs = errors.Join(errs, errors.Errorf("%+v no a string", v))
-		}
-		return k, fmt.Sprintf("%v", v)
-	}), errs
 }
