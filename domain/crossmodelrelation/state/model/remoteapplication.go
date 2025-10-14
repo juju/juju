@@ -250,6 +250,19 @@ WHERE   arc.life_id < 2;`
 	return result, nil
 }
 
+// ProcessOffererRelationChange records settings for units and an
+// application in a remote relation. If the unit hasn't been created it will
+// be created, and then transitioned int EnterScope and settings applied. If
+// the unit is departed, the settings will be applied and then transitioned
+// into LeaveScope.
+func (st *State) ProcessOffererRelationChange(
+	context.Context,
+	corerelation.UUID,
+	crossmodelrelation.ProcessOffererRelationChangeArgs,
+) error {
+	return nil
+}
+
 func (st *State) insertApplication(
 	ctx context.Context,
 	tx *sqlair.TX,

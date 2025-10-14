@@ -15,6 +15,7 @@ import (
 
 	application "github.com/juju/juju/core/application"
 	offer "github.com/juju/juju/core/offer"
+	relation "github.com/juju/juju/core/relation"
 	user "github.com/juju/juju/core/user"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
 	internal "github.com/juju/juju/domain/crossmodelrelation/internal"
@@ -643,6 +644,44 @@ func (c *MockModelStateNamespaceRemoteApplicationOfferersCall) Do(f func() strin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateNamespaceRemoteApplicationOfferersCall) DoAndReturn(f func() string) *MockModelStateNamespaceRemoteApplicationOfferersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ProcessOffererRelationChange mocks base method.
+func (m *MockModelState) ProcessOffererRelationChange(arg0 context.Context, arg1 relation.UUID, arg2 crossmodelrelation.ProcessOffererRelationChangeArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProcessOffererRelationChange", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ProcessOffererRelationChange indicates an expected call of ProcessOffererRelationChange.
+func (mr *MockModelStateMockRecorder) ProcessOffererRelationChange(arg0, arg1, arg2 any) *MockModelStateProcessOffererRelationChangeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessOffererRelationChange", reflect.TypeOf((*MockModelState)(nil).ProcessOffererRelationChange), arg0, arg1, arg2)
+	return &MockModelStateProcessOffererRelationChangeCall{Call: call}
+}
+
+// MockModelStateProcessOffererRelationChangeCall wrap *gomock.Call
+type MockModelStateProcessOffererRelationChangeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateProcessOffererRelationChangeCall) Return(arg0 error) *MockModelStateProcessOffererRelationChangeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateProcessOffererRelationChangeCall) Do(f func(context.Context, relation.UUID, crossmodelrelation.ProcessOffererRelationChangeArgs) error) *MockModelStateProcessOffererRelationChangeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateProcessOffererRelationChangeCall) DoAndReturn(f func(context.Context, relation.UUID, crossmodelrelation.ProcessOffererRelationChangeArgs) error) *MockModelStateProcessOffererRelationChangeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

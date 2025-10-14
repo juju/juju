@@ -10,6 +10,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
@@ -276,4 +277,25 @@ type ApplicationRemoteRelation struct {
 	// consuming model (the original relation UUID provided to the offering
 	// model when registering the remote relation).
 	ConsumerRelationUUID string
+}
+
+// UnitSettingChange represents a change to the settings of a relation unit.
+type UnitSettingChange struct {
+	// Departed indicates if the unit has departed the relation.
+	Departed bool
+
+	// Settings are the current settings for the relation unit.
+	Settings map[string]string
+}
+
+// ProcessOffererRelationChangeArgs contains the settings for a remote relation.
+type ProcessOffererRelationChangeArgs struct {
+	// ApplicationSettings are the settings for the remote application.
+	ApplicationSettings map[string]string
+
+	// UnitSettings are the settings for the units of the remote application.
+	UnitSettings map[unit.Name]UnitSettingChange
+
+	// DepartedUnits are the names of units that have departed the relation.
+	DepartedUnits []unit.Name
 }

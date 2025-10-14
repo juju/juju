@@ -22,6 +22,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -66,11 +67,20 @@ type ModelRemoteApplicationState interface {
 	// remote application.
 	SaveMacaroonForRelation(context.Context, string, []byte) error
 
-	// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
-	// for the given offer UUID.
-	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
-	// application is not found.
+	// GetApplicationNameAndUUIDByOfferUUID returns the application name and
+	// UUID for the given offer UUID.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error)
+
+	// ProcessOffererRelationChange records settings for units and an
+	// application in a remote relation. If the unit hasn't been created it will
+	// be created, and then transitioned int EnterScope and settings applied. If
+	// the unit is departed, the settings will be applied and then transitioned
+	// into LeaveScope.
+	ProcessOffererRelationChange(
+		context.Context,
+		corerelation.UUID,
+		crossmodelrelation.ProcessOffererRelationChangeArgs,
+	) error
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -251,9 +261,14 @@ func (s *Service) SetRemoteApplicationOffererStatus(context.Context, coreapplica
 	return nil
 }
 
+// ConsumeRemoteSecretChanges applies secret changes received
+// from a remote model to the local model.
+func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
+	return nil
+}
+
 // SuspendRelation suspends the specified relation in the local model
-// with the given reason. This will also update the status of the associated
-// synthetic application to Error with the given reason.
+// with the given reason.
 func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.UUID, relUUID corerelation.UUID, reason string) error {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -261,17 +276,56 @@ func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.U
 	return nil
 }
 
-// ConsumeRemoteSecretChanges applies secret changes received
-// from a remote model to the local model.
-func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
+// SuspendRelation suspends the specified relation in the local model
+// with the given reason.
+func (s *Service) SetRelationSuspendedState(ctx context.Context, appUUID coreapplication.UUID, relUUID corerelation.UUID, suspended bool, reason string) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+	}
+	if err := relUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
 	return nil
 }
 
-// ProcessRelationChange processes any pending relation changes from the
-// offerer side of the relation. This ensures that we have a mirror image
-// of the relation data in the consumer model.
-func (s *Service) ProcessRelationChange(context.Context) error {
-	return nil
+// ProcessOffererRelationChange records settings for units and an application in a
+// remote relation. If the unit hasn't been created it will be created, and then
+// transitioned int EnterScope and settings applied. If the unit is departed,
+// the settings will be applied and then transitioned into LeaveScope.
+func (s *Service) ProcessOffererRelationChange(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	args crossmodelrelation.ProcessOffererRelationChangeArgs,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
+	for unitName := range args.UnitSettings {
+		if err := unitName.Validate(); err != nil {
+			return internalerrors.Errorf(
+				"%w:%w", applicationerrors.UnitNameNotValid, err)
+		}
+	}
+
+	for _, unitName := range args.DepartedUnits {
+		if err := unitName.Validate(); err != nil {
+			return internalerrors.Errorf(
+				"%w:%w", applicationerrors.UnitNameNotValid, err)
+		}
+	}
+
+	return s.modelState.ProcessOffererRelationChange(ctx, relationUUID, args)
 }
 
 // SaveMacaroonForRelation saves the given macaroon for the specified remote

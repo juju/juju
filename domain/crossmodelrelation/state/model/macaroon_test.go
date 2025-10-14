@@ -22,8 +22,6 @@ func TestMacaroonSuite(t *testing.T) {
 func (s *macaroonSuite) TestSaveMacaroonForRelation(c *tc.C) {
 	relationUUID := s.addRelation(c)
 
-	s.DumpTable(c, "relation")
-
 	err := s.state.SaveMacaroonForRelation(c.Context(), relationUUID.String(), []byte("macaroon"))
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -39,8 +37,6 @@ SELECT macaroon FROM application_remote_offerer_relation_macaroon WHERE relation
 
 func (s *macaroonSuite) TestSaveMacaroonForRelationCalledMultipleTimes(c *tc.C) {
 	relationUUID := s.addRelation(c)
-
-	s.DumpTable(c, "relation")
 
 	err := s.state.SaveMacaroonForRelation(c.Context(), relationUUID.String(), []byte("macaroon"))
 	c.Assert(err, tc.ErrorIsNil)

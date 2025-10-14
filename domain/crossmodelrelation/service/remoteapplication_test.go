@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -670,4 +671,31 @@ func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationConsumersError(c
 
 	_, err := service.GetRemoteApplicationConsumers(c.Context())
 	c.Assert(err, tc.ErrorMatches, "front fell off")
+}
+
+func (s *remoteApplicationServiceSuite) TestProcessOffererRelationChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	args := crossmodelrelation.ProcessOffererRelationChangeArgs{
+		ApplicationSettings: map[string]string{
+			"foo": "bar",
+		},
+		UnitSettings: map[unit.Name]crossmodelrelation.UnitSettingChange{
+			unit.Name("app/0"): {
+				Settings: map[string]string{
+					"baz": "bap",
+				},
+				Departed: false,
+			},
+		},
+		DepartedUnits: []unit.Name{unit.Name("app/1")},
+	}
+
+	s.modelState.EXPECT().ProcessOffererRelationChange(gomock.Any(), relationUUID, args).Return(nil)
+
+	service := s.service(c)
+
+	err := service.ProcessOffererRelationChange(c.Context(), relationUUID, args)
+	c.Assert(err, tc.ErrorIsNil)
 }
