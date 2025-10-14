@@ -15,6 +15,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
@@ -23,6 +24,9 @@ import (
 // State describes retrieval and persistence methods for relations.
 type State interface {
 	WatcherState
+
+	// ApplicationExists checks if the given application exists.
+	ApplicationExists(ctx context.Context, applicationID application.UUID) error
 
 	// ApplicationRelationEndpointNames returns a slice of names of the given application's
 	// relation endpoints.
@@ -117,6 +121,14 @@ type State interface {
 		unitName unit.Name,
 	) (corerelation.UnitUUID, error)
 
+	// GetRelationUnitsChanges returns RelationUnitChange for the given relation
+	// application pair.
+	GetRelationUnitsChanges(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationUUID application.UUID,
+	) (relation.RelationUnitChange, error)
+
 	// GetRelationUnitSettings returns the relation unit settings for the given
 	// relation unit.
 	GetRelationUnitSettings(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (map[string]string, error)
@@ -137,13 +149,6 @@ type State interface {
 	// relation UUID is for a peer relation.
 	IsPeerRelation(ctx context.Context, relationUUID string) (bool, error)
 
-	// SetRelationUnitSettings records settings for a specific relation unit.
-	SetRelationUnitSettings(
-		ctx context.Context,
-		relationUnitUUID corerelation.UnitUUID,
-		settings map[string]string,
-	) error
-
 	// SetRelationApplicationAndUnitSettings records settings for a unit and
 	// an application in a relation.
 	SetRelationApplicationAndUnitSettings(
@@ -152,8 +157,12 @@ type State interface {
 		applicationSettings, unitSettings map[string]string,
 	) error
 
-	// ApplicationExists checks if the given application exists.
-	ApplicationExists(ctx context.Context, applicationID application.UUID) error
+	// SetRelationUnitSettings records settings for a specific relation unit.
+	SetRelationUnitSettings(
+		ctx context.Context,
+		relationUnitUUID corerelation.UnitUUID,
+		settings map[string]string,
+	) error
 }
 
 // LeadershipService provides the API for working with the statuses of
@@ -815,11 +824,24 @@ func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, u
 }
 
 // GetRelationUnits returns the current state of the relation units.
-func (s *Service) GetRelationUnits(ctx context.Context, appID application.UUID) (relation.RelationUnitChange, error) {
+func (s *Service) GetRelationUnits(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationUUID application.UUID,
+) (relation.RelationUnitChange, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return relation.RelationUnitChange{}, nil
+	if err := relationUUID.Validate(); err != nil {
+		return relation.RelationUnitChange{}, errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	if err := applicationUUID.Validate(); err != nil {
+		return relation.RelationUnitChange{}, errors.Errorf(
+			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
+	}
+
+	return s.st.GetRelationUnitsChanges(ctx, relationUUID, applicationUUID)
 }
 
 func settingsMap(in map[string]interface{}) (map[string]string, error) {

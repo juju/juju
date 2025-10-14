@@ -2158,8 +2158,59 @@ func (s *relationSuite) TestGetRelationApplicationSettingsApplicationNotFoundFor
 	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
 }
 
-func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
+func (s *relationSuite) TestGetRelationUnitsChanges(c *tc.C) {
+	// Arrange
+	// - 1 application with settings hash => will return a non nil hash
+	// - 1 unit with no settings hash => will return a version of 0
+	// - 1 unit with settings hash => will return a non nil hash
+	// - 1 unit requested but not found => will be added to departed
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
+	withSettingAppUUID := s.addApplication(c, charmUUID, "withsetting")
+	withSettingAppEndpointUUID := s.addApplicationEndpoint(c, withSettingAppUUID, charmRelationUUID)
+	relationUUID := s.addRelation(c)
+	s.addUnit(c, "withsetting/1", withSettingAppUUID, charmUUID)
+	noSettingUnitUUID := s.addUnit(c, "withsetting/0", withSettingAppUUID, charmUUID)
+	withSettingUnitUUID := s.addUnit(c, "withsetting/3", withSettingAppUUID, charmUUID)
+	withSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, withSettingAppEndpointUUID)
+	s.addRelationUnit(c, noSettingUnitUUID, withSettingRelationEndpointUUID)
+	relUnitUUID := s.addRelationUnit(c, withSettingUnitUUID, withSettingRelationEndpointUUID)
+	s.addRelationUnitSetting(c, relUnitUUID, "foo", "bar")
+	s.addRelationApplicationSetting(c, withSettingRelationEndpointUUID, "baz", "simple")
+	expected := domainrelation.RelationUnitChange{
+		RelationUUID: relationUUID,
+		Life:         corelife.Alive,
+		UnitsSettings: []domainrelation.UnitSettings{
+			{
+				UnitID:   3,
+				Settings: map[string]any{"foo": "bar"},
+			},
+		},
+		ApplicationSettings: map[string]any{"baz": "simple"},
+	}
 
+	// Act
+	obtained, err := s.state.GetRelationUnitsChanges(c.Context(),
+		relationUUID, withSettingAppUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.AllUnits", tc.SameContents, []int{1, 0, 3})
+	mc.AddExpr("_.InScopeUnits", tc.SameContents, []int{0, 3})
+	c.Assert(obtained, mc, expected)
+}
+
+func (s *relationSuite) TestGetRelationUnitsChangesRelationNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetRelationUnitsChanges(c.Context(), corerelationtesting.GenRelationUUID(c),
+		coreapplicationtesting.GenApplicationUUID(c))
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 	// Arrange
 	// - 1 application with no settings hash => will return a version of 0
 	// - 1 application with settings hash => will return a non nil hash

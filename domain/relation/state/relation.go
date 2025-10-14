@@ -1122,6 +1122,81 @@ func (st *State) GetRelationUnitUUID(
 	return result, errors.Capture(err)
 }
 
+// GetRelationUnitsChanges returns RelationUnitChange for the given relation
+// application pair.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] if the relation  cannot be
+//     found.
+func (st *State) GetRelationUnitsChanges(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationUUID application.UUID,
+) (domainrelation.RelationUnitChange, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return domainrelation.RelationUnitChange{}, errors.Capture(err)
+	}
+
+	var settings []relationSetting
+	var unitRelationData map[string]domainrelation.RelationData
+	var relationLife life.Value
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		relationLife, err = st.getLife(ctx, tx, "relation", relationUUID.String())
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		settings, err = st.getApplicationSettingsByRelAndApp(ctx, tx, relationUUID, applicationUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		unitRelationData, err = st.getUnitsRelationData(ctx, tx, relationUUID, applicationUUID)
+		if err != nil {
+			return errors.Errorf("getting unit relation data: %w", err)
+		}
+
+		return nil
+	})
+	if errors.Is(err, coreerrors.NotFound) {
+		return domainrelation.RelationUnitChange{}, errors.Capture(relationerrors.RelationNotFound)
+	} else if err != nil {
+		return domainrelation.RelationUnitChange{}, errors.Capture(err)
+	}
+
+	// Transform the data into RelationUnitChange.
+	appSettings := transform.SliceToMap(settings, func(s relationSetting) (string, any) {
+		return s.Key, s.Value
+	})
+	inScopeUnits := make([]int, 0)
+	allUnits := make([]int, 0, len(unitRelationData))
+	unitSettings := make([]domainrelation.UnitSettings, 0)
+	for unitName, data := range unitRelationData {
+		id := unit.Name(unitName).Number()
+		allUnits = append(allUnits, id)
+		if !data.InScope {
+			continue
+		}
+		inScopeUnits = append(inScopeUnits, id)
+		if len(data.UnitData) == 0 {
+			continue
+		}
+		unitSettings = append(unitSettings, domainrelation.UnitSettings{
+			UnitID:   id,
+			Settings: data.UnitData,
+		})
+	}
+	return domainrelation.RelationUnitChange{
+		RelationUUID:        relationUUID,
+		Life:                relationLife,
+		UnitsSettings:       unitSettings,
+		AllUnits:            allUnits,
+		InScopeUnits:        inScopeUnits,
+		ApplicationSettings: appSettings,
+	}, nil
+}
+
 // getRelationUnit returns the unit UUID and the relation unit UUID for the
 // given relation and unit name.
 //
