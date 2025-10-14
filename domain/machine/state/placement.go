@@ -6,8 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/canonical/sqlair"
@@ -41,7 +39,6 @@ func PlaceMachine(
 	clock clock.Clock,
 	args domainmachine.PlaceMachineArgs,
 ) ([]coremachine.Name, error) {
-	os.WriteFile("/var/lib/juju/ALEX_PlaceMachine.txt", []byte(fmt.Sprintf("PlaceMachine args: %+v\n", args)), 0644)
 	switch args.Directive.Type {
 	case deployment.PlacementTypeUnset:
 		machineName, err := CreateMachine(ctx, tx, preparer, clock, CreateMachineArgs{
@@ -204,8 +201,6 @@ VALUES ($insertMachine.*);
 	if err := insertContainerType(ctx, tx, preparer, args.MachineUUID); err != nil {
 		return errors.Errorf("inserting machine container type: %w", err)
 	}
-
-	os.WriteFile("/var/lib/juju/ALEX_CreateMachineWithName_args.txt", []byte(fmt.Sprintf("CreateMachineWithName args: %+v\n", args)), 0644)
 
 	now := clock.Now()
 
