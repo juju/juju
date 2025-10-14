@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -698,4 +699,65 @@ func (s *remoteApplicationServiceSuite) TestProcessOffererRelationChange(c *tc.C
 
 	err := service.ProcessOffererRelationChange(c.Context(), relationUUID, args)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *remoteApplicationServiceSuite) TestProcessOffererRelationChangeInvalidRelationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := crossmodelrelation.ProcessOffererRelationChangeArgs{}
+
+	service := s.service(c)
+
+	err := service.ProcessOffererRelationChange(c.Context(), corerelation.UUID("!!!!"), args)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestProcessOffererRelationChangeInvalidUnitSettingNames(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	args := crossmodelrelation.ProcessOffererRelationChangeArgs{
+		ApplicationSettings: map[string]string{
+			"foo": "bar",
+		},
+		UnitSettings: map[unit.Name]crossmodelrelation.UnitSettingChange{
+			unit.Name("app!!!"): {
+				Settings: map[string]string{
+					"baz": "bap",
+				},
+				Departed: false,
+			},
+		},
+		DepartedUnits: []unit.Name{unit.Name("app/1")},
+	}
+
+	service := s.service(c)
+
+	err := service.ProcessOffererRelationChange(c.Context(), relationUUID, args)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNameNotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestProcessOffererRelationChangeInvalidUnitDepartedNames(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	args := crossmodelrelation.ProcessOffererRelationChangeArgs{
+		ApplicationSettings: map[string]string{
+			"foo": "bar",
+		},
+		UnitSettings: map[unit.Name]crossmodelrelation.UnitSettingChange{
+			unit.Name("app/0"): {
+				Settings: map[string]string{
+					"baz": "bap",
+				},
+				Departed: false,
+			},
+		},
+		DepartedUnits: []unit.Name{unit.Name("app!!!")},
+	}
+
+	service := s.service(c)
+
+	err := service.ProcessOffererRelationChange(c.Context(), relationUUID, args)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNameNotValid)
 }
