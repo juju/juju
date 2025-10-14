@@ -206,7 +206,9 @@ func (s *storageSuite) TestGetProviderTypeForPoolNotFound(c *tc.C) {
 	poolUUID, err := domainstorage.NewStoragePoolUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	st := NewState(
-		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	_, err = st.GetProviderTypeForPool(c.Context(), poolUUID)
@@ -218,7 +220,9 @@ func (s *storageSuite) TestGetProviderTypeForPoolNotFound(c *tc.C) {
 func (s *storageSuite) TestGetProviderTypeForPool(c *tc.C) {
 	poolUUID := s.newStoragePool(c, "test-pool", "ptype")
 	st := NewState(
-		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	pType, err := st.GetProviderTypeForPool(c.Context(), poolUUID)
@@ -232,7 +236,9 @@ func (s *storageSuite) TestGetModelStoragePoolsWithModelConfig(c *tc.C) {
 	poolUUID := s.storageHelper.newStoragePool(c, "test-pool", "ptype")
 
 	st := NewState(
-		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 	db := s.ModelSuite.DB()
 
@@ -285,7 +291,9 @@ func (s *storageSuite) TestGetModelStoragePoolsWithModelDefaults(c *tc.C) {
 	poolUUID := s.storageHelper.newStoragePool(c, "test-pool1", "ptype")
 
 	st := NewState(
-		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 	db := s.ModelSuite.DB()
 
@@ -344,7 +352,7 @@ func (s *storageSuite) TestGetModelStoragePoolsMix(c *tc.C) {
 	poolUUID2 := s.storageHelper.newStoragePool(c, "test-pool2", "ptype")
 
 	st := NewState(
-		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+		s.ModelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
 	db := s.ModelSuite.DB()
 	_, err := db.Exec(
@@ -388,7 +396,11 @@ VALUES (?, ?)
 // instances exist in the model using any of the supplied provider ids an empty
 // map is returned with no error.
 func (s *storageSuite) TestGetStorageInstancesForProviderIDsNotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	res, err := st.GetStorageInstancesForProviderIDs(
 		c.Context(), []string{"providerid1", "providerid2"},
@@ -402,7 +414,11 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsNotFound(c *tc.C) {
 // ids to [State.GetStorageInstancesForProviderIDs] the caller recieves an empty
 // result back.
 func (s *storageSuite) TestGetStorageInstancesForNoProviderIDs(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	res, err := st.GetStorageInstancesForProviderIDs(
 		c.Context(), nil,
@@ -422,7 +438,11 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 	instUUID3, fsUUID3 := s.newStorageInstanceFilesysatemWithProviderID(c, "st1", "provider3")
 	instUUID4, vUUID1 := s.newStorageInstanceVolumeWithProviderID(c, "st3", "provider4")
 
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	res, err := st.GetStorageInstancesForProviderIDs(
 		c.Context(), []string{
@@ -491,7 +511,11 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsVolumeBackedFilesyst
 			c, "st2", "providerfs", "providerv",
 		)
 
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	res, err := st.GetStorageInstancesForProviderIDs(
 		c.Context(), []string{
