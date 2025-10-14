@@ -311,6 +311,12 @@ FROM (
 	return rval, nil
 }
 
+// GetUnitStorageDirectives returns the storage directives that are set for
+// a unit. If the unit does not have any storage directives set then an
+// empty result is returned.
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit no longer exists.
 func (st *State) GetUnitStorageDirectives(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
@@ -322,13 +328,14 @@ func (st *State) GetUnitStorageDirectives(
 
 	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
 	query, err := st.Prepare(`
-SELECT &storageDirective.* (
+SELECT &storageDirective.* FROM (
     SELECT usd.count,
            usd.size_mib,
            usd.storage_name,
            usd.storage_pool_uuid,
            cm.name AS charm_metadata_name,
-           csk.kind AS charm_storage_kind
+           csk.kind AS charm_storage_kind,
+           cs.count_max AS count_max
     FROM   unit_storage_directive usd
     JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
     JOIN   charm_metadata cm ON cm.charm_uuid = usd.charm_uuid
@@ -372,6 +379,7 @@ SELECT &storageDirective.* (
 		rval = append(rval, application.StorageDirective{
 			CharmMetadataName: val.CharmMetadataName,
 			Count:             val.Count,
+			MaxCount:          val.CountMax,
 			Name:              domainstorage.Name(val.StorageName),
 			CharmStorageType:  charm.StorageType(val.CharmStorageKind),
 			PoolUUID:          domainstorage.StoragePoolUUID(val.StoragePoolUUID),

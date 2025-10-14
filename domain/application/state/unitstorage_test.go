@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
+	corecharm "github.com/juju/juju/core/charm"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -33,6 +34,46 @@ func TestUnitStorageSuite(t *testing.T) {
 	tc.Run(t, &unitStorageSuite{})
 }
 
+func (u *unitStorageSuite) newCharmWithStorage(
+	c *tc.C,
+	name string,
+	storage map[string]charm.Storage,
+) corecharm.ID {
+	ch := charm.Charm{
+		Metadata: charm.Metadata{
+			Name:    name,
+			Storage: storage,
+		},
+		Manifest:      u.minimalManifest(c),
+		Config:        charm.Config{},
+		ReferenceName: name,
+		Source:        charm.LocalSource,
+		Revision:      43,
+	}
+
+	st := NewState(
+		u.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+	charmID, _, err := st.AddCharm(c.Context(), ch, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+	return charmID
+}
+
+func (u *unitStorageSuite) newStoragePool(c *tc.C) domainstorage.StoragePoolUUID {
+	storagePoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err := u.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, 'test')",
+		storagePoolUUID.String(),
+		storagePoolUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return storagePoolUUID
+}
+
 // newStorageUnitOwner is a helper function to create a new storage unit owner
 // for the supplied instance and unit.
 func (u *unitStorageSuite) newStorageUnitOwner(
@@ -55,19 +96,12 @@ INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid) VALUES (?, ?)
 func (u *unitStorageSuite) newStorageInstanceWithModelFilesystem(
 	c *tc.C,
 ) (domainstorage.StorageInstanceUUID, domainstorageprov.FilesystemUUID) {
-	storagePoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	filesystemUUID := tc.Must(c, domainstorageprov.NewFilesystemUUID)
 
-	_, err := u.DB().ExecContext(
-		c.Context(),
-		"INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, 'test')",
-		storagePoolUUID.String(),
-		storagePoolUUID.String(),
-	)
-	c.Assert(err, tc.ErrorIsNil)
+	storagePoolUUID := u.newStoragePool(c)
 
-	_, err = u.DB().ExecContext(
+	_, err := u.DB().ExecContext(
 		c.Context(),
 		`
 INSERT INTO storage_instance (uuid, storage_name, storage_kind_id, storage_id,
@@ -230,4 +264,111 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstances(c *tc.C) {
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_[_].StorageName", tc.Ignore)
 	c.Check(owned, mc, expected)
+}
+
+// TestGetUnitStorageDirectives tests the happy path of getting a units storage
+// directives.
+func (u *unitStorageSuite) TestGetUnitStorageDirectives(c *tc.C) {
+	charmUUID := u.newCharmWithStorage(
+		c,
+		"test-charm",
+		map[string]charm.Storage{
+			"st1": charm.Storage{
+				CountMax:    10,
+				CountMin:    1,
+				Description: "st1",
+				Name:        "st1",
+				MinimumSize: 1024,
+				Type:        charm.StorageFilesystem,
+			},
+			"st2": charm.Storage{
+				CountMax:    1,
+				CountMin:    1,
+				Description: "st2",
+				Name:        "st2",
+				MinimumSize: 2048,
+				Type:        charm.StorageBlock,
+			},
+		})
+	unitUUID := u.newUnit(c)
+	storagePoolUUID := u.newStoragePool(c)
+
+	_, err := u.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		charmUUID.String(),
+		"st1",
+		storagePoolUUID.String(),
+		5000,
+		4,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = u.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		charmUUID.String(),
+		"st2",
+		storagePoolUUID.String(),
+		8000,
+		1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(
+		u.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+	gotDirectives, err := st.GetUnitStorageDirectives(c.Context(), unitUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(gotDirectives, tc.SameContents, []application.StorageDirective{
+		{
+			CharmMetadataName: "test-charm",
+			CharmStorageType:  charm.StorageBlock,
+			Count:             1,
+			MaxCount:          1,
+			Name:              domainstorage.Name("st2"),
+			PoolUUID:          storagePoolUUID,
+			Size:              8000,
+		},
+		{
+			CharmMetadataName: "test-charm",
+			CharmStorageType:  charm.StorageFilesystem,
+			Count:             4,
+			MaxCount:          10,
+			Name:              domainstorage.Name("st1"),
+			PoolUUID:          storagePoolUUID,
+			Size:              5000,
+		},
+	})
+}
+
+// TestGetUnitStorageDirectivesEmpty ensures that when a unit has no storage
+func (u *unitStorageSuite) TestGetUnitStorageDirectivesEmpty(c *tc.C) {
+	unitUUID := u.newUnit(c)
+
+	st := NewState(
+		u.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+	directives, err := st.GetUnitStorageDirectives(c.Context(), unitUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(directives, tc.HasLen, 0)
+}
+
+// TestGetUnitStorageDirectivesUnitNotFound ensures that when asking for the
+// storage directives of a unit that does not exist in the model the caller gets
+// back a [applicationerrors.UnitNotFound] error.
+func (u *unitStorageSuite) TestGetUnitStorageDirectivesUnitNotFound(c *tc.C) {
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	st := NewState(
+		u.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+	_, err := st.GetUnitStorageDirectives(c.Context(), unitUUID)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
