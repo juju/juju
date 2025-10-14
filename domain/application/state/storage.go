@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -192,29 +191,28 @@ FROM (
 	}
 
 	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
-	slices.Values(dbVals)(func(s storageInstanceComposition) bool {
+	for _, dbVal := range dbVals {
 		v := internal.StorageInstanceComposition{
-			StorageName: domainstorage.Name(s.StorageName),
-			UUID:        domainstorage.StorageInstanceUUID(s.UUID),
+			StorageName: domainstorage.Name(dbVal.StorageName),
+			UUID:        domainstorage.StorageInstanceUUID(dbVal.UUID),
 		}
 
-		if s.FilesystemUUID.Valid {
+		if dbVal.FilesystemUUID.Valid {
 			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorageprov.ProvisionScope(s.FilesystemProvisionScope.V),
-				UUID:           domainstorageprov.FilesystemUUID(s.FilesystemUUID.V),
+				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
+				UUID:           domainstorageprov.FilesystemUUID(dbVal.FilesystemUUID.V),
 			}
 		}
 
-		if s.VolumeUUID.Valid {
+		if dbVal.VolumeUUID.Valid {
 			v.Volume = &internal.StorageInstanceCompositionVolume{
-				ProvisionScope: domainstorageprov.ProvisionScope(s.VolumeProvisionScope.V),
-				UUID:           domainstorageprov.VolumeUUID(s.VolumeUUID.V),
+				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.VolumeProvisionScope.V),
+				UUID:           domainstorageprov.VolumeUUID(dbVal.VolumeUUID.V),
 			}
 		}
 
 		rval = append(rval, v)
-		return true
-	})
+	}
 
 	return rval, nil
 }
@@ -287,29 +285,28 @@ FROM (
 	}
 
 	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
-	slices.Values(dbVals)(func(s storageInstanceComposition) bool {
+	for _, dbVal := range dbVals {
 		v := internal.StorageInstanceComposition{
-			StorageName: domainstorage.Name(s.StorageName),
-			UUID:        domainstorage.StorageInstanceUUID(s.UUID),
+			StorageName: domainstorage.Name(dbVal.StorageName),
+			UUID:        domainstorage.StorageInstanceUUID(dbVal.UUID),
 		}
 
-		if s.FilesystemUUID.Valid {
+		if dbVal.FilesystemUUID.Valid {
 			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorageprov.ProvisionScope(s.FilesystemProvisionScope.V),
-				UUID:           domainstorageprov.FilesystemUUID(s.FilesystemUUID.V),
+				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
+				UUID:           domainstorageprov.FilesystemUUID(dbVal.FilesystemUUID.V),
 			}
 		}
 
-		if s.VolumeUUID.Valid {
+		if dbVal.VolumeUUID.Valid {
 			v.Volume = &internal.StorageInstanceCompositionVolume{
-				ProvisionScope: domainstorageprov.ProvisionScope(s.VolumeProvisionScope.V),
-				UUID:           domainstorageprov.VolumeUUID(s.VolumeUUID.V),
+				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.VolumeProvisionScope.V),
+				UUID:           domainstorageprov.VolumeUUID(dbVal.VolumeUUID.V),
 			}
 		}
 
 		rval = append(rval, v)
-		return true
-	})
+	}
 	return rval, nil
 }
 
