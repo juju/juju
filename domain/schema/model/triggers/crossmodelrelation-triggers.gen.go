@@ -33,6 +33,7 @@ WHEN
 	NEW.offerer_application_uuid != OLD.offerer_application_uuid OR
 	NEW.consumer_application_uuid != OLD.consumer_application_uuid OR
 	NEW.offer_connection_uuid != OLD.offer_connection_uuid OR
+	NEW.consumer_model_uuid != OLD.consumer_model_uuid OR
 	NEW.version != OLD.version OR
 	NEW.life_id != OLD.life_id 
 BEGIN

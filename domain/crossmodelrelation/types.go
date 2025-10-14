@@ -242,6 +242,10 @@ type AddRemoteApplicationArgs struct {
 	// OfferUUID is the UUID of the offer that the remote application is
 	// consuming. The offer is in this model, the offering model.
 	OfferUUID string
+
+	// ConsumerModelUUID is the UUID of the model that is consuming the
+	// application.
+	ConsumerModelUUID string
 }
 
 // RemoteRelationChangedArgs contains the parameters required to process a

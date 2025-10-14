@@ -218,6 +218,7 @@ type remoteApplicationConsumer struct {
 	OffererApplicationUUID  string    `db:"offerer_application_uuid"`
 	ConsumerApplicationUUID string    `db:"consumer_application_uuid"`
 	OfferConnectionUUID     string    `db:"offer_connection_uuid"`
+	ConsumerModelUUID       string    `db:"consumer_model_uuid"`
 	Version                 uint64    `db:"version"`
 	LifeID                  life.Life `db:"life_id"`
 }

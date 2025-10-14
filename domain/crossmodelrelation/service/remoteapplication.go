@@ -161,6 +161,9 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 	if !uuid.IsValidUUIDString(args.RelationUUID) {
 		return internalerrors.Errorf("relation UUID %q is not a valid UUID", args.RelationUUID).Add(errors.NotValid)
 	}
+	if !uuid.IsValidUUIDString(args.ConsumerModelUUID) {
+		return internalerrors.Errorf("consumer model UUID %q is not a valid UUID", args.ConsumerModelUUID).Add(errors.NotValid)
+	}
 
 	// Construct a synthetic charm to represent the remote application charm,
 	// so we can track the endpoints it offers.
@@ -185,10 +188,11 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 			// NOTE: We use the same UUID as in the remote (consuming) model for
 			// the synthetic application we are creating in the offering model.
 			// We can do that because we know it's a valid UUID at this point.
-			ApplicationUUID: remoteApplicationUUID.String(),
-			CharmUUID:       charmUUID.String(),
-			Charm:           syntheticCharm,
-			OfferUUID:       args.OfferUUID.String(),
+			ApplicationUUID:   remoteApplicationUUID.String(),
+			CharmUUID:         charmUUID.String(),
+			Charm:             syntheticCharm,
+			OfferUUID:         args.OfferUUID.String(),
+			ConsumerModelUUID: args.ConsumerModelUUID,
 		},
 		RelationUUID: args.RelationUUID,
 	}); internalerrors.Is(err, crossmodelrelationerrors.RemoteRelationAlreadyRegistered) {

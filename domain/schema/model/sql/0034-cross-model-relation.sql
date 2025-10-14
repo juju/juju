@@ -77,6 +77,10 @@ CREATE TABLE application_remote_consumer (
     -- offer_connection_uuid is the offer connection that links the remote
     -- consumer to the offer.
     offer_connection_uuid TEXT NOT NULL,
+    -- consumer_model_uuid is the model in the consuming controller where
+    -- the consumer application is located. There is no FK constraint on it,
+    -- because we don't have the model locally.
+    consumer_model_uuid TEXT NOT NULL,
     -- version is the unique version number that is incremented when the
     -- consumer model changes the consumer application.
     version INT NOT NULL,

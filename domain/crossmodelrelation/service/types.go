@@ -49,6 +49,10 @@ type AddRemoteApplicationConsumerArgs struct {
 	// application to a local application, on the consuming model.
 	RelationUUID string
 
+	// ConsumerModelUUID is the UUID of the model that is consuming the
+	// application.
+	ConsumerModelUUID string
+
 	// Endpoints is the collection of endpoint relations offered.
 	Endpoints []charm.Relation
 }
