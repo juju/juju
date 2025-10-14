@@ -91,6 +91,10 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	if err != nil {
 		return nil, err
 	}
+	sourceModelTag, err := names.ParseModelTag(relation.SourceModelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	appName, appUUID, err := api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
 	if err != nil {
@@ -115,6 +119,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 			RemoteApplicationUUID: relation.ApplicationToken,
 			OfferUUID:             offerUUID,
 			RelationUUID:          relation.RelationToken,
+			ConsumerModelUUID:     sourceModelTag.Id(),
 			// We only have the actual consumed endpoint.
 			Endpoints: []charm.Relation{
 				{

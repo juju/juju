@@ -108,7 +108,9 @@ func (s *watcherSuite) TestWatchRemoteApplicationConsumers(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relationUUID := uuid.MustNewUUID().String()
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
+
 	s.createLocalOfferForConsumer(c, db, offerUUID)
 
 	watcher, err := svc.WatchRemoteApplicationConsumers(c.Context())
@@ -121,6 +123,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationConsumers(c *tc.C) {
 			RemoteApplicationUUID: uuid.MustNewUUID().String(),
 			OfferUUID:             offerUUID,
 			RelationUUID:          relationUUID,
+			ConsumerModelUUID:     consumerModelUUID,
 			Endpoints: []charm.Relation{{
 				Name:  "db",
 				Role:  charm.RoleProvider,

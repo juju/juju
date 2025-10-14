@@ -131,7 +131,7 @@ func (st *State) AddRemoteApplicationConsumer(
 
 		// Insert the remote application consumer record, this allows us to find
 		// the synthetic application later.
-		if err := st.insertRemoteApplicationConsumer(ctx, tx, offerConnectionUUID, localApplicationUUID, args.ApplicationUUID, args.OfferUUID); err != nil {
+		if err := st.insertRemoteApplicationConsumer(ctx, tx, offerConnectionUUID, localApplicationUUID, args.ApplicationUUID, args.ConsumerModelUUID, args.OfferUUID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -349,6 +349,7 @@ func (st *State) insertRemoteApplicationConsumer(
 	offerConnectionUUID string,
 	localApplicationUUID string,
 	consumerApplicationUUID string,
+	consumerModelUUID string,
 	offerUUID string,
 ) error {
 
@@ -368,6 +369,7 @@ func (st *State) insertRemoteApplicationConsumer(
 		OffererApplicationUUID:  localApplicationUUID,
 		ConsumerApplicationUUID: consumerApplicationUUID,
 		OfferConnectionUUID:     offerConnectionUUID,
+		ConsumerModelUUID:       consumerModelUUID,
 		Version:                 version,
 		LifeID:                  life.Alive,
 	}

@@ -88,7 +88,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 		Return(&bakery.Macaroon{}, nil)
 
 	api := s.api(c)
-	arg := s.relationArg(remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", macaroon.Slice{testMac})
+	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", macaroon.Slice{testMac})
 	results, err := api.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArgs{
 		Relations: []params.RegisterRemoteRelationArg{arg},
 	})
@@ -117,7 +117,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsGetApplicationError(c *tc.C) {
 		Return("", application.UUID(""), errors.New("boom"))
 
 	api := s.api(c)
-	arg := s.relationArg(remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
+	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
 	results, err := api.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArgs{Relations: []params.RegisterRemoteRelationArg{arg}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "boom")
@@ -141,7 +141,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsAuthError(c *tc.C) {
 		Return(nil, errors.New("boom"))
 
 	api := s.api(c)
-	arg := s.relationArg(remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
+	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
 	results, err := api.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArgs{Relations: []params.RegisterRemoteRelationArg{arg}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "boom")
@@ -165,7 +165,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsMissingUsername(c *tc.C) {
 		Return(map[string]string{}, nil)
 
 	api := s.api(c)
-	arg := s.relationArg(remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
+	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
 	results, err := api.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArgs{Relations: []params.RegisterRemoteRelationArg{arg}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, apiservererrors.ErrPerm.Error())
@@ -192,7 +192,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsAddConsumerError(c *tc.C) {
 		Return(map[string]string{"username": "bob"}, nil)
 
 	api := s.api(c)
-	arg := s.relationArg(remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
+	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
 	results, err := api.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArgs{Relations: []params.RegisterRemoteRelationArg{arg}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "adding remote application consumer: insert failed")
@@ -221,7 +221,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsRelationKeyParseError(c *tc.C) 
 
 	api := s.api(c)
 	// remote endpoint name lacks application prefix -> parse failure.
-	arg := s.relationArg(remoteAppToken, offerUUID, relationUUID, "db", "db", nil)
+	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "db", "db", nil)
 	results, err := api.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArgs{Relations: []params.RegisterRemoteRelationArg{arg}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "parsing relation key.*")
@@ -252,7 +252,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsCreateMacaroonError(c *tc.C) {
 		Return(nil, errors.New("mint failed"))
 
 	api := s.api(c)
-	arg := s.relationArg(remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
+	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
 	results, err := api.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArgs{Relations: []params.RegisterRemoteRelationArg{arg}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "creating relation macaroon: mint failed")
@@ -382,7 +382,8 @@ func (s *facadeSuite) api(c *tc.C) *CrossModelRelationsAPIv3 {
 	return api
 }
 
-func (s *facadeSuite) relationArg(appToken string, offerUUID offer.UUID, relationUUID, remoteEndpoint, localEndpoint string, macs macaroon.Slice) params.RegisterRemoteRelationArg {
+func (s *facadeSuite) relationArg(c *tc.C, appToken string, offerUUID offer.UUID, relationUUID, remoteEndpoint, localEndpoint string, macs macaroon.Slice) params.RegisterRemoteRelationArg {
+	sourceModelUUID := tc.Must(c, model.NewUUID).String()
 	return params.RegisterRemoteRelationArg{
 		ApplicationToken:  appToken,
 		OfferUUID:         offerUUID.String(),
@@ -392,7 +393,7 @@ func (s *facadeSuite) relationArg(appToken string, offerUUID offer.UUID, relatio
 		Macaroons:         macs,
 		BakeryVersion:     bakery.LatestVersion,
 		ConsumeVersion:    1,
-		SourceModelTag:    "",
+		SourceModelTag:    names.NewModelTag(sourceModelUUID).String(),
 	}
 }
 
