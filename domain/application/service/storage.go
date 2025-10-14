@@ -86,7 +86,7 @@ type StorageService interface {
 	// this storage.
 	//
 	// No guarantee is made that existing storage supplied to this func will be
-	// used in it's entirety. If a storage directive has less demand then what
+	// used in its entirety. If a storage directive has less demand then what
 	// is supplied it is possible that some existing storage will be unused. It
 	// is up to the caller to validate what storage was and wasn't used by
 	// looking at the storage attachments.

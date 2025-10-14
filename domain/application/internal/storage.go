@@ -25,12 +25,12 @@ type ModelStoragePools struct {
 // storage in the model to a unit. To be able to properly generate attachments
 // this information is required.
 type StorageInstanceComposition struct {
-	// Filesystem when non nil describes the filesystem information that is part
+	// Filesystem when non-nil describes the filesystem information that is part
 	// of the storage composition.
 	Filesystem *StorageInstanceCompositionFilesystem
 
 	// StorageName is the name of the storage instance and can be considered to be
-	// directly related to the chamr storage for which it was provisioned.
+	// directly related to the charm storage for which it was provisioned.
 	StorageName domainstorage.Name
 
 	// UUID is the unique id of the storage instance.
