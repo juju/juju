@@ -519,12 +519,9 @@ func PingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) err
 	return b.Ping()
 }
 
-// GetSecretMetadataWithRevisions returns the secrets metadata for the given filter.
-func GetSecretMetadataWithRevisions(
+func getSecretMetadata(
 	ownerTag names.Tag, secretsState SecretsMetaState, leadershipChecker leadership.Checker,
-	filter func(*coresecrets.SecretMetadata, *coresecrets.SecretRevisionMetadata) bool,
-) (params.ListSecretResults, error) {
-	var result params.ListSecretResults
+) ([]*coresecrets.SecretMetadata, error) {
 	listFilter := state.SecretsFilter{
 		// TODO: there is a bug that operator agents can't get any unit owned secrets!
 		// Because the ownerTag here is the application tag, but not unit tag.
@@ -535,7 +532,7 @@ func GetSecretMetadataWithRevisions(
 		// TODO(wallyworld) - temp fix for old podspec charms
 		isLeader, err := IsLeaderUnit(ownerTag, leadershipChecker)
 		if err != nil {
-			return result, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		if isLeader {
 			appOwner := names.NewApplicationTag(AuthTagApp(ownerTag))
@@ -545,8 +542,25 @@ func GetSecretMetadataWithRevisions(
 
 	secrets, err := secretsState.ListSecrets(listFilter)
 	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return secrets, nil
+}
+
+// GetSecretMetadataWithRevisions returns the secrets metadata for the given
+// owner unit or application with revision metadata. The supplied filter can be
+// used to filter out secret revisions.
+func GetSecretMetadataWithRevisions(
+	ownerTag names.Tag, secretsState SecretsMetaState, leadershipChecker leadership.Checker,
+	filter func(*coresecrets.SecretMetadata, *coresecrets.SecretRevisionMetadata) bool,
+) (params.ListSecretResults, error) {
+	var result params.ListSecretResults
+	secrets, err := getSecretMetadata(ownerTag, secretsState, leadershipChecker)
+	if err != nil {
 		return result, errors.Trace(err)
 	}
+
 	for _, md := range secrets {
 		secretResult := params.ListSecretResult{
 			URI:                    md.URI.String(),
@@ -600,31 +614,13 @@ func GetSecretMetadataWithRevisions(
 	return result, nil
 }
 
-// GetSecretMetadata returns the secrets metadata for the given filter.
+// GetSecretMetadata returns the secrets metadata for the given owner unit or
+// application. It does not return revision information.
 func GetSecretMetadata(
 	ownerTag names.Tag, secretsState SecretsMetaState, leadershipChecker leadership.Checker,
-	filter func(*coresecrets.SecretMetadata, *coresecrets.SecretRevisionMetadata) bool,
 ) (params.ListSecretMetadataResults, error) {
 	var result params.ListSecretMetadataResults
-	listFilter := state.SecretsFilter{
-		// TODO: there is a bug that operator agents can't get any unit owned secrets!
-		// Because the ownerTag here is the application tag, but not unit tag.
-		OwnerTags: []names.Tag{ownerTag},
-	}
-	if ownerTag.Kind() == names.UnitTagKind {
-		// Unit leaders can also get metadata for secrets owned by the app.
-		// TODO(wallyworld) - temp fix for old podspec charms
-		isLeader, err := IsLeaderUnit(ownerTag, leadershipChecker)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		if isLeader {
-			appOwner := names.NewApplicationTag(AuthTagApp(ownerTag))
-			listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
-		}
-	}
-
-	secrets, err := secretsState.ListSecrets(listFilter)
+	secrets, err := getSecretMetadata(ownerTag, secretsState, leadershipChecker)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

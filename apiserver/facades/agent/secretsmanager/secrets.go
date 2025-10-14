@@ -461,7 +461,7 @@ func (s *SecretsManagerAPIV3) GetSecretMetadata() (params.ListSecretResults, err
 
 // GetSecretMetadata returns metadata for the caller's secrets.
 func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretMetadataResults, error) {
-	return commonsecrets.GetSecretMetadata(s.authTag, s.secretsState, s.leadershipChecker, nil)
+	return commonsecrets.GetSecretMetadata(s.authTag, s.secretsState, s.leadershipChecker)
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
