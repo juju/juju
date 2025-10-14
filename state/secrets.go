@@ -1026,6 +1026,9 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	return result, nil
 }
 
+// GetOwnedSecretMetadataByLabelAsUnit returns the URI and Owner of a secret
+// with the supplied label, owned either by the application or the supplied
+// unit. If the secret is not found, a not found error is returned.
 func (s *secretsStore) GetOwnedSecretMetadataByLabelAsUnit(
 	unit names.UnitTag, label string,
 ) (*secrets.SecretMetadataOwnerIdent, error) {
@@ -1066,6 +1069,9 @@ func (s *secretsStore) GetOwnedSecretMetadataByLabelAsUnit(
 	}, nil
 }
 
+// GetOwnedSecretMetadataByLabelAsApp returns the URI and Owner of a secret
+// with the supplied label, owned by the application. If the secret is not
+// found, a not found error is returned.
 func (s *secretsStore) GetOwnedSecretMetadataByLabelAsApp(
 	app names.ApplicationTag, label string,
 ) (*secrets.SecretMetadataOwnerIdent, error) {
@@ -1101,6 +1107,9 @@ func (s *secretsStore) GetOwnedSecretMetadataByLabelAsApp(
 	}, nil
 }
 
+// GetOwnedSecretMetadataAsUnit returns the Label and Owner of a secret with the
+// supplied secret URI. A not found error is returned if either the secret is
+// not found or the secret is not owned by the unit or the unit's application.
 func (s *secretsStore) GetOwnedSecretMetadataAsUnit(
 	unit names.UnitTag, uri *secrets.URI,
 ) (*secrets.SecretMetadataOwnerIdent, error) {
@@ -1138,6 +1147,9 @@ func (s *secretsStore) GetOwnedSecretMetadataAsUnit(
 	}, nil
 }
 
+// GetOwnedSecretMetadataAsApp returns the Label and Owner of a secret with the
+// supplied secret URI. A not found error is returned if either the secret is
+// not found or the secret is not owned by the application.
 func (s *secretsStore) GetOwnedSecretMetadataAsApp(
 	app names.ApplicationTag, uri *secrets.URI,
 ) (*secrets.SecretMetadataOwnerIdent, error) {
@@ -1169,6 +1181,8 @@ func (s *secretsStore) GetOwnedSecretMetadataAsApp(
 	}, nil
 }
 
+// GetOwnedSecretRevisionsAsUnit returns all the secrets' URIs that are owned by
+// the supplied unit, with all the revision IDs as well.
 func (s *secretsStore) GetOwnedSecretRevisionsAsUnit(
 	unit names.UnitTag,
 ) (map[secrets.URI][]int, error) {
@@ -1202,6 +1216,9 @@ func (s *secretsStore) GetOwnedSecretRevisionsAsUnit(
 	return ret, nil
 }
 
+// GetOwnedSecretRevisionsByIDAsUnit returns all the revision IDs for the given
+// secret URI. If the supplied unit is not the owner of the secret, or the
+// secret is not found, a not found error is returned.
 func (s *secretsStore) GetOwnedSecretRevisionsByIDAsUnit(
 	unit names.UnitTag, uri *secrets.URI,
 ) ([]int, error) {
@@ -1232,6 +1249,9 @@ func (s *secretsStore) GetOwnedSecretRevisionsByIDAsUnit(
 	return ret, nil
 }
 
+// GetOwnedSecretRevisionsByIDAsLeaderUnit returns all the revision IDs for the
+// given secret URI. If the supplied unit/application is not the owner of the
+// secret, or the secret is not found, a not found error is returned.
 func (s *secretsStore) GetOwnedSecretRevisionsByIDAsLeaderUnit(
 	unit names.UnitTag, uri *secrets.URI,
 ) ([]int, error) {
