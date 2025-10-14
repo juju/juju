@@ -32,6 +32,7 @@ const (
 )
 
 const (
+	// InvalidUnitName is returned when a unit name is not valid.
 	InvalidUnitName = errors.ConstError("invalid unit name")
 )
 

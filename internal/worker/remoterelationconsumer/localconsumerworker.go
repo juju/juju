@@ -771,6 +771,7 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 
 	// Create the event to send to the offering model.
 	event := params.RemoteRelationChangeEvent{
+		Life:                    change.Life,
 		RelationToken:           change.RelationUUID.String(),
 		ApplicationOrOfferToken: w.applicationUUID.String(),
 		ApplicationSettings: transform.Map(change.ApplicationSettings, func(k, v string) (string, any) {
@@ -891,68 +892,13 @@ func (w *localConsumerWorker) isRelationWorkerDead(ctx context.Context, relation
 }
 
 func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Context, change offererunitrelations.RelationUnitChange) error {
-	departedUnits := make(map[unit.Name]struct{})
-	for _, n := range change.DeprecatedDepartedUnits {
-		name, err := unit.NewNameFromParts(w.applicationName, n)
-		if err != nil {
-			return errors.Annotatef(err, "parsing departed unit name for %q", n)
-		}
-		departedUnits[name] = struct{}{}
-	}
-
-	// First ensure that all application and unit settings are replicated.
-	// If we remove the units after the fact, the settings will be correctly
-	// saved in the settings archive for access by the charm if required.
-	applicationSettings := make(map[string]string)
-	for k, v := range change.ApplicationSettings {
-		switch t := v.(type) {
-		case string:
-			applicationSettings[k] = t
-		default:
-			return errors.NotValidf("non-string value for application setting %q on relation %q", k, change.ConsumerRelationUUID)
-		}
-	}
-
-	unitSettings := make(map[unit.Name]crossmodelrelation.UnitSettingChange)
-	for _, setting := range change.ChangedUnits {
-		unitName, err := unit.NewNameFromParts(w.applicationName, setting.UnitID)
-		if err != nil {
-			return errors.Annotatef(err, "parsing unit name for %q", setting.UnitID)
-		}
-
-		// Unit and application set
-		settings := make(map[string]string)
-		for k, v := range setting.Settings {
-			switch t := v.(type) {
-			case string:
-				settings[k] = t
-			default:
-				return errors.NotValidf("non-string value for setting %q on unit %q for relation %q", k, unitName, change.ConsumerRelationUUID)
-			}
-		}
-
-		_, departed := departedUnits[unitName]
-		delete(departedUnits, unitName)
-
-		unitSettings[unitName] = crossmodelrelation.UnitSettingChange{
-			Departed: departed,
-			Settings: settings,
-		}
-	}
-
-	departedUnitNames := make([]unit.Name, 0, len(departedUnits))
-	for u := range departedUnits {
-		departedUnitNames = append(departedUnitNames, u)
+	args, err := w.constructProcessOffererRelationChangeArgs(change)
+	if err != nil {
+		return errors.Annotatef(err, "constructing process offerer relation change args for %q", change.ConsumerRelationUUID)
 	}
 
 	// This will force all units to enter scope if they are not already.
-	if err := w.crossModelService.ProcessOffererRelationChange(ctx,
-		change.ConsumerRelationUUID,
-		crossmodelrelation.ProcessOffererRelationChangeArgs{
-			ApplicationSettings: applicationSettings,
-			UnitSettings:        unitSettings,
-			DepartedUnits:       departedUnitNames,
-		}); err != nil {
+	if err := w.crossModelService.ProcessOffererRelationChange(ctx, change.ConsumerRelationUUID, args); err != nil {
 		return errors.Annotatef(err, "setting application and unit settings for relation %q", change.ConsumerRelationUUID)
 	}
 
@@ -989,6 +935,67 @@ func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, c
 	}
 
 	return nil
+}
+
+func (w *localConsumerWorker) constructProcessOffererRelationChangeArgs(change offererunitrelations.RelationUnitChange) (crossmodelrelation.ProcessOffererRelationChangeArgs, error) {
+	departedUnits := make(map[unit.Name]struct{})
+	for _, n := range change.DeprecatedDepartedUnits {
+		name, err := unit.NewNameFromParts(w.applicationName, n)
+		if err != nil {
+			return crossmodelrelation.ProcessOffererRelationChangeArgs{}, errors.Annotatef(err, "parsing departed unit name for %q", n)
+		}
+		departedUnits[name] = struct{}{}
+	}
+
+	// First ensure that all application and unit settings are replicated.
+	// If we remove the units after the fact, the settings will be correctly
+	// saved in the settings archive for access by the charm if required.
+	applicationSettings := make(map[string]string)
+	for k, v := range change.ApplicationSettings {
+		switch t := v.(type) {
+		case string:
+			applicationSettings[k] = t
+		default:
+			return crossmodelrelation.ProcessOffererRelationChangeArgs{}, errors.NotValidf("non-string value for application setting %q on relation %q", k, change.ConsumerRelationUUID)
+		}
+	}
+
+	unitSettings := make(map[unit.Name]crossmodelrelation.UnitSettingChange)
+	for _, setting := range change.ChangedUnits {
+		unitName, err := unit.NewNameFromParts(w.applicationName, setting.UnitID)
+		if err != nil {
+			return crossmodelrelation.ProcessOffererRelationChangeArgs{}, errors.Annotatef(err, "parsing unit name for %q", setting.UnitID)
+		}
+
+		// Unit and application set
+		settings := make(map[string]string)
+		for k, v := range setting.Settings {
+			switch t := v.(type) {
+			case string:
+				settings[k] = t
+			default:
+				return crossmodelrelation.ProcessOffererRelationChangeArgs{}, errors.NotValidf("non-string value for setting %q on unit %q for relation %q", k, unitName, change.ConsumerRelationUUID)
+			}
+		}
+
+		_, departed := departedUnits[unitName]
+		delete(departedUnits, unitName)
+
+		unitSettings[unitName] = crossmodelrelation.UnitSettingChange{
+			Departed: departed,
+			Settings: settings,
+		}
+	}
+
+	departedUnitNames := make([]unit.Name, 0, len(departedUnits))
+	for u := range departedUnits {
+		departedUnitNames = append(departedUnitNames, u)
+	}
+	return crossmodelrelation.ProcessOffererRelationChangeArgs{
+		ApplicationSettings: applicationSettings,
+		UnitSettings:        unitSettings,
+		DepartedUnits:       departedUnitNames,
+	}, nil
 }
 
 type consumerRelationResult struct {
