@@ -1096,13 +1096,13 @@ WHERE u.uuid IN ($uuids[:])`, getUnit{}, uuids{})
 	}, nil
 }
 
-// GetRelationUnit retrieves the UUID of a relation unit based on the given
+// GetRelationUnitUUID retrieves the UUID of a relation unit based on the given
 // relation UUID and unit name.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be
 //     found.
-func (st *State) GetRelationUnit(
+func (st *State) GetRelationUnitUUID(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
@@ -2113,37 +2113,17 @@ AND    unit_name = $name.unit_name
 	return relationSettings, nil
 }
 
-// SetRelationUnitSettings records settings for a specific relation unit.
-//
-// The following error types can be expected to be returned:
-//   - [relationerrors.RelationUnitNotFound] is returned if relation unit does
-//     not exist.
-func (st *State) SetRelationUnitSettings(
-	ctx context.Context,
-	relationUnitUUID corerelation.UnitUUID,
-	settings map[string]string,
-) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.setRelationUnitSettings(ctx, tx, relationUnitUUID.String(), settings)
-	})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	return nil
-}
-
 func (st *State) setRelationUnitSettings(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relationUnitUUID string,
 	settings map[string]string,
 ) error {
+	// If the settings are nil then there is nothing to do. Do not check for
+	// length of 0, as that is valid for deleting all settings.
+	if settings == nil {
+		return nil
+	}
 
 	// Get the relation endpoint UUID.
 	exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID)
@@ -3404,6 +3384,12 @@ func (st *State) setRelationApplicationSettings(
 	applicationID application.UUID,
 	settings map[string]string,
 ) error {
+	// If the settings are nil then there is nothing to do. Do not check for
+	// length of 0, as that is valid for deleting all settings.
+	if settings == nil {
+		return nil
+	}
+
 	// Get the relation endpoint UUID.
 	endpointUUID, err := st.getRelationEndpointUUID(ctx, tx, relationUUID, applicationID)
 	if err != nil {

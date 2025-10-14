@@ -387,7 +387,7 @@ func (s *migrationSuite) TestSetRelationApplicationSettingsApplicationNotFoundIn
 		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
-		nil,
+		map[string]string{"key": "value"},
 	)
 
 	// Assert:
@@ -400,7 +400,7 @@ func (s *migrationSuite) TestSetRelationApplicationSettingsRelationNotFound(c *t
 		c.Context(),
 		"bad-uuid",
 		s.fakeApplicationUUID1,
-		nil,
+		map[string]string{"key": "value"},
 	)
 
 	// Assert:

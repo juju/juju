@@ -1376,7 +1376,7 @@ func (s *relationSuite) TestGetRelationDetailsNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestGetRelationUnit(c *tc.C) {
+func (s *relationSuite) TestGetRelationUnitUUID(c *tc.C) {
 	// Arrange: one relation unit
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, "my-app")
@@ -1388,16 +1388,16 @@ func (s *relationSuite) TestGetRelationUnit(c *tc.C) {
 	relUnitUUID := s.addRelationUnit(c, unitUUID, relEndpointUUID)
 
 	// Act
-	uuid, err := s.state.GetRelationUnit(c.Context(), relUUID, "my-app/0")
+	uuid, err := s.state.GetRelationUnitUUID(c.Context(), relUUID, "my-app/0")
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 	c.Check(uuid, tc.Equals, relUnitUUID)
 }
 
-func (s *relationSuite) TestGetRelationUnitNotFound(c *tc.C) {
+func (s *relationSuite) TestGetRelationUnitUUIDNotFound(c *tc.C) {
 	// Act
-	_, err := s.state.GetRelationUnit(c.Context(), "unknown-relation-uuid", "some-unit-name")
+	_, err := s.state.GetRelationUnitUUID(c.Context(), "unknown-relation-uuid", "some-unit-name")
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
@@ -2409,11 +2409,14 @@ func (s *relationSuite) TestSetRelationUnitSettings(c *tc.C) {
 	}
 
 	// Act:
-	err := s.state.SetRelationUnitSettings(
-		c.Context(),
-		relationUnitUUID,
-		settingsUpdate,
-	)
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationUnitSettings(
+			ctx,
+			tx,
+			relationUnitUUID.String(),
+			settingsUpdate,
+		)
+	})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -2461,11 +2464,14 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToSet(c *tc.C) {
 	}
 
 	// Act:
-	err := s.state.SetRelationUnitSettings(
-		c.Context(),
-		relationUnitUUID,
-		settingsUpdate,
-	)
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationUnitSettings(
+			ctx,
+			tx,
+			relationUnitUUID.String(),
+			settingsUpdate,
+		)
+	})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -2515,11 +2521,14 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToUnset(c *tc.C) {
 	}
 
 	// Act:
-	err := s.state.SetRelationUnitSettings(
-		c.Context(),
-		relationUnitUUID,
-		settingsUpdate,
-	)
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationUnitSettings(
+			ctx,
+			tx,
+			relationUnitUUID.String(),
+			settingsUpdate,
+		)
+	})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -2550,11 +2559,14 @@ func (s *relationSuite) TestSetRelationUnitSettingsNilMap(c *tc.C) {
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
 	// Act:
-	err := s.state.SetRelationUnitSettings(
-		c.Context(),
-		relationUnitUUID,
-		nil,
-	)
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationUnitSettings(
+			ctx,
+			tx,
+			relationUnitUUID.String(),
+			nil,
+		)
+	})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -2590,23 +2602,30 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *tc.C) {
 	initialSettings := map[string]string{
 		"key1": "value1",
 	}
-	err := s.state.SetRelationUnitSettings(
-		c.Context(),
-		relationUnitUUID,
-		initialSettings,
-	)
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationUnitSettings(
+			ctx,
+			tx,
+			relationUnitUUID.String(),
+			initialSettings,
+		)
+	})
+
 	c.Assert(err, tc.ErrorIsNil)
 
 	initialHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
 
 	// Act:
-	err = s.state.SetRelationUnitSettings(
-		c.Context(),
-		relationUnitUUID,
-		map[string]string{
-			"key1": "value2",
-		},
-	)
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationUnitSettings(
+			ctx,
+			tx,
+			relationUnitUUID.String(),
+			map[string]string{
+				"key1": "value2",
+			},
+		)
+	})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -2643,21 +2662,27 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 	settings := map[string]string{
 		"key1": "value1",
 	}
-	err := s.state.SetRelationUnitSettings(
-		c.Context(),
-		relationUnitUUID,
-		settings,
-	)
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationUnitSettings(
+			ctx,
+			tx,
+			relationUnitUUID.String(),
+			settings,
+		)
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	initialHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
 
 	// Act:
-	err = s.state.SetRelationUnitSettings(
-		c.Context(),
-		relationUnitUUID,
-		settings,
-	)
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationUnitSettings(
+			ctx,
+			tx,
+			relationUnitUUID.String(),
+			settings,
+		)
+	})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -2669,11 +2694,14 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 
 func (s *relationSuite) TestSetRelationUnitSettingsRelationUnitNotFound(c *tc.C) {
 	// Act:
-	err := s.state.SetRelationUnitSettings(
-		c.Context(),
-		"bad-uuid",
-		nil,
-	)
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationUnitSettings(
+			ctx,
+			tx,
+			"bad-uuid",
+			map[string]string{"key": "value"},
+		)
+	})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
@@ -2795,8 +2823,8 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitNot
 	err := s.state.SetRelationApplicationAndUnitSettings(
 		c.Context(),
 		"bad-uuid",
-		nil,
-		nil,
+		map[string]string{"key": "value"},
+		map[string]string{"key": "value"},
 	)
 
 	// Assert:

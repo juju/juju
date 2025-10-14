@@ -478,9 +478,9 @@ type RelationService interface {
 	// for a relation.
 	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetails, error)
 
-	// GetRelationUnit returns the relation unit UUID for the given unit within
-	// the given relation.
-	GetRelationUnit(
+	// GetRelationUnitUUID returns the relation unit UUID for the given unit
+	// within the given relation.
+	GetRelationUnitUUID(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		unitName coreunit.Name,
@@ -533,7 +533,7 @@ type RelationService interface {
 	SetRelationApplicationAndUnitSettings(
 		ctx context.Context,
 		unitName coreunit.Name,
-		relationUnitUUID corerelation.UnitUUID,
+		relationUnitUUID corerelation.UUID,
 		applicationSettings, unitSettings map[string]string,
 	) error
 
