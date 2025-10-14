@@ -3,6 +3,38 @@
 
 package internal
 
+// CascadedStorageInstanceLives contains identifiers for entities that were
+// ensured to be "dying" along with a storage instance. It is intended to
+// inform the service layer which entities should have removal jobs scheduled
+// for them.
+// Note that there is no IsEmpty method for this struct; an instance always
+// has an attachment to something.
+type CascadedStorageInstanceLives struct {
+	// FileSystemUUID identifes a file-system that the storage instance was
+	// attached to. They are removed if provisioned with "machine" scope
+	// and have no other storage instance attachments.
+	FileSystemUUID *string
+
+	// FileSystemAttachmentUUID identifies the actual attachment of the storage
+	// instance to a file-system. It can be removed even when the attached
+	// file-system is not.
+	FileSystemAttachmentUUID *string
+
+	// VolumeUUID identifes a volume that the storage instance was attached to.
+	// They are removed if provisioned with "machine" scope and have no
+	// other storage instance attachments.
+	VolumeUUID *string
+
+	// VolumeAttachmentUUID identifies the actual attachment of the storage
+	// instance to a volume. It can be removed even when the attached
+	// volume is not.
+	VolumeAttachmentUUID *string
+
+	// VolumeAttachmentPlanUUID identifies the plan for actioning a volume
+	// attachment that is run on the actual attached machine.
+	VolumeAttachmentPlanUUID *string
+}
+
 // CascadedStorageLives identifies all storage entities that transitioned to
 // "dying" as part of another entity removal.
 type CascadedStorageLives struct {
@@ -36,6 +68,32 @@ type CascadedStorageLives struct {
 	// VolumeAttachmentUUIDs identify any volume attachments that transitioned
 	// to dying with the machine/app/unit.
 	VolumeAttachmentPlanUUIDs []string
+}
+
+// MergeInstance merges the result of cascading the destruction of a single
+// storage instance into this value and returns the result.
+func (c CascadedStorageLives) MergeInstance(i CascadedStorageInstanceLives) CascadedStorageLives {
+	if i.FileSystemAttachmentUUID != nil {
+		c.FileSystemAttachmentUUIDs = append(c.FileSystemAttachmentUUIDs, *i.FileSystemAttachmentUUID)
+	}
+
+	if i.VolumeAttachmentUUID != nil {
+		c.VolumeAttachmentUUIDs = append(c.VolumeAttachmentUUIDs, *i.VolumeAttachmentUUID)
+	}
+
+	if i.VolumeAttachmentPlanUUID != nil {
+		c.VolumeAttachmentPlanUUIDs = append(c.VolumeAttachmentPlanUUIDs, *i.VolumeAttachmentPlanUUID)
+	}
+
+	if i.FileSystemUUID != nil {
+		c.FileSystemUUIDs = append(c.FileSystemUUIDs, *i.FileSystemUUID)
+	}
+
+	if i.VolumeUUID != nil {
+		c.VolumeUUIDs = append(c.VolumeUUIDs, *i.VolumeUUID)
+	}
+
+	return c
 }
 
 // IsEmpty returns true if the struct value indicates that no associated
@@ -131,34 +189,3 @@ func (c CascadedRemoteApplicationOffererLives) IsEmpty() bool {
 	return len(c.RelationUUIDs) == 0
 }
 
-// CascadedStorageInstanceLives contains identifiers for entities that were
-// ensured to be "dying" along with a storage instance. It is intended to
-// inform the service layer which entities should have removal jobs scheduled
-// for them.
-// Note that there is no IsEmpty method for this struct; an instance always
-// has an attachment to something.
-type CascadedStorageInstanceLives struct {
-	// FileSystemUUID identifes a file-system that the storage instance was
-	// attached to. They are removed if provisioned with "machine" scope
-	// and have no other storage instance attachments.
-	FileSystemUUID *string
-
-	// FileSystemAttachmentUUID identifies the actual attachment of the storage
-	// instance to a file-system. It can be removed even when the attached
-	// file-system is not.
-	FileSystemAttachmentUUID *string
-
-	// VolumeUUID identifes a volume that the storage instance was attached to.
-	// They are removed if provisioned with "machine" scope and have no
-	// other storage instance attachments.
-	VolumeUUID *string
-
-	// VolumeAttachmentUUID identifies the actual attachment of the storage
-	// instance to a volume. It can be removed even when the attached
-	// volume is not.
-	VolumeAttachmentUUID *string
-
-	// VolumeAttachmentPlanUUID identifies the plan for actioning a volume
-	// attachment that is run on the actual attached machine.
-	VolumeAttachmentPlanUUID *string
-}
