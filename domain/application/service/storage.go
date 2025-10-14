@@ -18,7 +18,7 @@ import (
 
 // StorageDirectiveOverrides represents override instructions for application
 // storage directives to alter the default values a new application will
-// recieve.
+// receive.
 type StorageDirectiveOverrides = storage.StorageDirectiveOverride
 
 type StorageService interface {

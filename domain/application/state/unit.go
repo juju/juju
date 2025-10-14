@@ -2282,7 +2282,7 @@ SELECT
 	k.provider_id AS &unitK8sPodInfoWithName.provider_id,
 	ip.address_value AS &unitK8sPodInfoWithName.address,
 	COALESCE(
-		GROUP_CONCAT(kpp.port, ','), 
+		GROUP_CONCAT(kpp.port, ','),
 		''
 	) AS &unitK8sPodInfoWithName.ports
 FROM
@@ -2670,7 +2670,7 @@ DO NOTHING
 }
 
 // ensureFutureUnitNetNode exists to ensure that a netnode uuid that is about to
-// be used for a machine exists. We do this because the buisness logic around if
+// be used for a machine exists. We do this because the business logic around if
 // netnode uuid for a unit is shared or already exists is outside the scope of
 // state.
 func (st *State) ensureFutureUnitNetNode(

@@ -402,7 +402,7 @@ func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) e
 }
 
 // makeCAASStorageInstanceProviderIDAssociations takes the reported filesystem
-// information from a CAAS unit and assoicates the reported provider ids to new
+// information from a CAAS unit and associates the reported provider ids to new
 // storage instances that are to be created for the unit.
 //
 // This function will not use any provider ids that are already associated with

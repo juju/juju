@@ -411,7 +411,7 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsNotFound(c *tc.C) {
 }
 
 // TestGetStorageInstancesForNoProviderIDs tests that when supplying no provider
-// ids to [State.GetStorageInstancesForProviderIDs] the caller recieves an empty
+// ids to [State.GetStorageInstancesForProviderIDs] the caller receives an empty
 // result back.
 func (s *storageSuite) TestGetStorageInstancesForNoProviderIDs(c *tc.C) {
 	st := NewState(

@@ -154,7 +154,7 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 // CAAS unit into the model. This would be the case where a unit has an un
 // expected restart and wishes to drive itself back into the model idempotently.
 //
-// It is also concievable that a container is changed outside of Juju's perview.
+// It is also concievable that a container is changed outside of Juju's preview.
 //
 // Key observabilities in this test:
 // - We want to see that the existing net node uuid for the caas unit is re-used.
