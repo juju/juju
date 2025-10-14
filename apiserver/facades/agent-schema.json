@@ -9709,6 +9709,9 @@
                 "UnitOwnedSecretsAndRevisions": {
                     "type": "object",
                     "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
                         "Result": {
                             "$ref": "#/definitions/SecretRevisionIDsResults"
                         }
@@ -10365,6 +10368,9 @@
                 "SecretRevisionArgs": {
                     "type": "object",
                     "properties": {
+                        "entity": {
+                            "$ref": "#/definitions/Entity"
+                        },
                         "secret-uris": {
                             "type": "array",
                             "items": {
@@ -10374,6 +10380,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "entity",
                         "secret-uris"
                     ]
                 },
@@ -13280,6 +13287,9 @@
                 "UnitOwnedSecretsAndRevisions": {
                     "type": "object",
                     "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
                         "Result": {
                             "$ref": "#/definitions/SecretRevisionIDsResults"
                         }
@@ -15879,6 +15889,9 @@
                 "SecretRevisionArgs": {
                     "type": "object",
                     "properties": {
+                        "entity": {
+                            "$ref": "#/definitions/Entity"
+                        },
                         "secret-uris": {
                             "type": "array",
                             "items": {
@@ -15888,6 +15901,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "entity",
                         "secret-uris"
                     ]
                 },
