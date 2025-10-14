@@ -17,9 +17,10 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	applicationservicetest "github.com/juju/juju/domain/application/service/testing"
+	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/domain/schema/testing"
@@ -30,6 +31,7 @@ import (
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -124,9 +126,20 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 	st := applicationstate.NewState(func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, s.modelUUID.String()), nil
 	}, clock.WallClock, loggertesting.WrapCheckLog(c))
+	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
+		func() internalstorage.ProviderRegistry {
+			return internalstorage.NotImplementedProviderRegistry{}
+		},
+	)
+	storageSvc := applicationstorageservice.NewService(
+		st, applicationstorageservice.NewStoragePoolProvider(
+			storageProviderRegistryGetter, st,
+		),
+	)
 
 	appService := applicationservice.NewProviderService(
 		st,
+		storageSvc,
 		domaintesting.NoopLeaderEnsurer(),
 		nil,
 		func(ctx context.Context) (applicationservice.Provider, error) {
@@ -135,7 +148,6 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
-		applicationservicetest.StoragePoolProvider{},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

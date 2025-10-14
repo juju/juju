@@ -29,6 +29,7 @@ import (
 	annotationState "github.com/juju/juju/domain/annotation/state"
 	charmstore "github.com/juju/juju/domain/application/charm/store"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
 	blockcommandstate "github.com/juju/juju/domain/blockcommand/state"
@@ -236,18 +237,21 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger,
 	)
 
-	storageValidator := applicationservice.NewStoragePoolProvider(
-		s.storageRegistry, state,
+	storageSvc := applicationstorageservice.NewService(
+		state,
+		applicationstorageservice.NewStoragePoolProvider(
+			s.storageRegistry, state,
+		),
 	)
 
 	return applicationservice.NewWatchableService(
 		state,
+		storageSvc,
 		domain.NewLeaseService(s.leaseManager),
 		s.modelWatcherFactory("application"),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.CAASProvider](s.providerFactory, s.modelUUID.String()),
-		storageValidator,
 		charmstore.NewCharmStore(s.modelObjectStoreGetter, logger.Child("charmstore")),
 		domain.NewStatusHistory(logger, s.clock),
 		s.clock,

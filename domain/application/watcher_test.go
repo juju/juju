@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
-	appstorageservice "github.com/juju/juju/domain/application/service/storage"
+	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
@@ -1305,7 +1305,7 @@ func (s *watcherSuite) TestWatchApplications(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
-UPDATE application 
+UPDATE application
 SET name = ?
 WHERE uuid=?
 `, "bar", appID)
@@ -1687,13 +1687,16 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		return nil, coreerrors.NotSupported
 	}
 
-	registryGetter := corestorage.ConstModelStorageRegistry(func() internalstorage.ProviderRegistry {
-		return internalstorage.NotImplementedProviderRegistry{}
-	})
+	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
+		func() internalstorage.ProviderRegistry {
+			return internalstorage.NotImplementedProviderRegistry{}
+		},
+	)
 	state := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
-
-	storageSvc := appstorageservice.NewService(
-		state, appstorageservice.NewStoragePoolProvider(registryGetter, state),
+	storageSvc := applicationstorageservice.NewService(
+		state, applicationstorageservice.NewStoragePoolProvider(
+			storageProviderRegistryGetter, state,
+		),
 	)
 
 	return service.NewWatchableService(

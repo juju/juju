@@ -19,11 +19,13 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	"github.com/juju/juju/domain/removal/service"
@@ -36,6 +38,7 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -195,14 +198,28 @@ func (s *watcherSuite) setupApplicationService(c *tc.C, factory domain.Watchable
 		return appProvider{}, nil
 	}
 
+	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
+		func() internalstorage.ProviderRegistry {
+			return internalstorage.NotImplementedProviderRegistry{}
+		},
+	)
+	state := applicationstate.NewState(
+		modelDB, clock.WallClock, loggertesting.WrapCheckLog(c),
+	)
+	storageSvc := applicationstorageservice.NewService(
+		state, applicationstorageservice.NewStoragePoolProvider(
+			storageProviderRegistryGetter, state,
+		),
+	)
+
 	return applicationservice.NewWatchableService(
 		applicationstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		storageSvc,
 		domaintesting.NoopLeaderEnsurer(),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil,
 		providerGetter,
 		caasProviderGetter,
-		nil,
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
