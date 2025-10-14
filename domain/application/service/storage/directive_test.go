@@ -21,13 +21,14 @@ type directiveSuite struct {
 }
 
 func TestDirectiveSuite(t *testing.T) {
+	tc.Run(t, &directiveSuite{})
 }
 
-func (s *directiveSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
+func (s *directiveSuite) setupMocks(t *testing.T) *gomock.Controller {
+	ctrl := gomock.NewController(t)
 	s.state = NewMockState(ctrl)
 	s.poolProvider = NewMockStoragePoolProvider(ctrl)
-	c.Cleanup(func() {
+	t.Cleanup(func() {
 		s.state = nil
 		s.poolProvider = nil
 	})
@@ -160,6 +161,8 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 
 	for _, test := range tests {
 		c.Run(test.Name, func(t *testing.T) {
+			defer s.setupMocks(t).Finish()
+
 			s.state.EXPECT().GetModelStoragePools(
 				gomock.Any(),
 			).Return(test.ModelStoragePools, nil).AnyTimes()
