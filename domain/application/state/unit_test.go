@@ -1166,6 +1166,9 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionNotFound(c *tc.C) {
 func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 	// Arrange: 2 applications with 1 unit each, and a third application with a dead unit.
 	app1UUID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+		},
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "foo-id",
 			Ports:      ptr([]string{"666", "668"}),
@@ -1180,6 +1183,9 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	app2UUID := s.createCAASApplication(c, "bar", life.Alive, application.AddCAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+		},
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "bar-id",
 			Ports:      ptr([]string{"777"}),
@@ -1194,6 +1200,9 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	app1UUID3 := s.createCAASApplication(c, "zoo", life.Alive, application.AddCAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+		},
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "zoo-id",
 			Ports:      ptr([]string{"666", "668"}),
@@ -1222,7 +1231,6 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 		Address:    "10.6.6.7/24",
 		Ports:      []string{"777"},
 	})
-
 }
 
 func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
