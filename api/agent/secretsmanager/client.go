@@ -331,6 +331,8 @@ func (c *Client) Revoke(uri *coresecrets.URI, p *SecretRevokeGrantArgs) error {
 	return nil
 }
 
+// UnitOwnedSecretsAndRevisions returns all secret URIs and revision IDs for all
+// secrets owned by the given unit.
 func (c *Client) UnitOwnedSecretsAndRevisions(unit names.UnitTag) ([]coresecrets.SecretURIWithRevisions, error) {
 	arg := params.Entity{
 		Tag: unit.String(),
@@ -356,6 +358,8 @@ func (c *Client) UnitOwnedSecretsAndRevisions(unit names.UnitTag) ([]coresecrets
 	return ret, nil
 }
 
+// OwnedSecretRevisions returns all the revision IDs for the given secret that
+// is owned by either the unit or the unit's application.
 func (c *Client) OwnedSecretRevisions(unit names.UnitTag, uri *secrets.URI) ([]int, error) {
 	args := params.SecretRevisionArgs{
 		Unit: params.Entity{

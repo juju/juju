@@ -654,3 +654,63 @@ func (s *SecretsSuite) TestRevoke(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
+
+func (s *SecretsSuite) TestUnitOwnedSecretsAndRevisions(c *gc.C) {
+	uri := coresecrets.NewURI()
+	unit := names.NewUnitTag("foo/0")
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "UnitOwnedSecretsAndRevisions")
+		c.Check(arg, jc.DeepEquals, params.Entity{
+			Tag: unit.String(),
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretRevisionIDsResults{})
+		*(result.(*params.SecretRevisionIDsResults)) = params.SecretRevisionIDsResults{
+			Results: []params.SecretRevisionIDsResult{{
+				URI:       uri.String(),
+				Revisions: []int{1, 2, 3, 4, 5},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	secrets, err := client.UnitOwnedSecretsAndRevisions(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(secrets, jc.DeepEquals, []coresecrets.SecretURIWithRevisions{{
+		URI:       uri,
+		Revisions: []int{1, 2, 3, 4, 5},
+	}})
+}
+
+func (s *SecretsSuite) TestOwnedSecretRevisions(c *gc.C) {
+	uri := coresecrets.NewURI()
+	unit := names.NewUnitTag("foo/0")
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "OwnedSecretRevisions")
+		c.Check(arg, jc.DeepEquals, params.SecretRevisionArgs{
+			Unit: params.Entity{
+				Tag: unit.String(),
+			},
+			SecretURIs: []string{
+				uri.String(),
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretRevisionIDsResults{})
+		*(result.(*params.SecretRevisionIDsResults)) = params.SecretRevisionIDsResults{
+			Results: []params.SecretRevisionIDsResult{{
+				URI:       uri.String(),
+				Revisions: []int{1, 2, 3, 4, 5},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	revs, err := client.OwnedSecretRevisions(unit, uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(revs, jc.DeepEquals, []int{1, 2, 3, 4, 5})
+}
