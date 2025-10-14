@@ -730,7 +730,7 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
 }
 
-func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
+func (s *secretsSuite) TestGetSecretMetadataWithRevisions(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -797,6 +797,62 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 			}, {
 				Revision: 667,
 			}},
+			Access: []params.AccessInfo{
+				{TargetTag: "application-gitlab", ScopeTag: "relation-key", Role: "view"},
+			},
+		}},
+	})
+}
+
+func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	leadershipChecker := mocks.NewMockChecker(ctrl)
+	token := mocks.NewMockToken(ctrl)
+	secretsMetaState := mocks.NewMockSecretsMetaState(ctrl)
+
+	leadershipChecker.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(token)
+	token.EXPECT().Check().Return(nil)
+
+	now := time.Now()
+	uri := coresecrets.NewURI()
+	authTag := names.NewUnitTag("mariadb/0")
+	secretsMetaState.EXPECT().ListSecrets(
+		state.SecretsFilter{
+			OwnerTags: []names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
+		}).Return([]*coresecrets.SecretMetadata{{
+		URI:                    uri,
+		OwnerTag:               "application-mariadb",
+		Description:            "description",
+		Label:                  "label",
+		RotatePolicy:           coresecrets.RotateHourly,
+		LatestRevision:         666,
+		LatestRevisionChecksum: "checksum",
+		LatestExpireTime:       &now,
+		NextRotateTime:         &now,
+	}}, nil)
+	secretsMetaState.EXPECT().SecretGrants(uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{
+		{
+			Target: "application-gitlab",
+			Scope:  "relation-key",
+			Role:   coresecrets.RoleView,
+		},
+	}, nil)
+
+	results, err := secrets.GetSecretMetadata(authTag, secretsMetaState, leadershipChecker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ListSecretMetadataResults{
+		Results: []params.ListSecretMetadataResult{{
+			URI:                    uri.String(),
+			OwnerTag:               "application-mariadb",
+			Description:            "description",
+			Label:                  "label",
+			RotatePolicy:           coresecrets.RotateHourly.String(),
+			LatestRevision:         666,
+			LatestRevisionChecksum: "checksum",
+			LatestExpireTime:       &now,
+			NextRotateTime:         &now,
 			Access: []params.AccessInfo{
 				{TargetTag: "application-gitlab", ScopeTag: "relation-key", Role: "view"},
 			},
