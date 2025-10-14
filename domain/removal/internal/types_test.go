@@ -47,6 +47,34 @@ func (s *typesSuite) TestCascadedStorageLivesEmpty(c *tc.C) {
 	c.Check(csl.IsEmpty(), tc.IsFalse)
 }
 
+func (s *typesSuite) TestCascadedStorageLivesMergeInstance(c *tc.C) {
+	merged := CascadedStorageLives{
+		StorageInstanceUUIDs: []string{"si1"},
+	}.MergeInstance(CascadedStorageInstanceLives{
+		FileSystemUUID:           ptr("fs1"),
+		FileSystemAttachmentUUID: ptr("fsa1"),
+	}).MergeInstance(CascadedStorageInstanceLives{
+		FileSystemUUID:           ptr("fs2"),
+		FileSystemAttachmentUUID: ptr("fsa2"),
+	}).MergeInstance(CascadedStorageInstanceLives{
+		VolumeUUID:               ptr("v1"),
+		VolumeAttachmentUUID:     ptr("va1"),
+		VolumeAttachmentPlanUUID: ptr("vap1"),
+	})
+
+	expected := CascadedStorageLives{
+		StorageInstanceUUIDs:      []string{"si1"},
+		StorageAttachmentUUIDs:    nil,
+		FileSystemUUIDs:           []string{"fs1", "fs2"},
+		FileSystemAttachmentUUIDs: []string{"fsa1", "fsa2"},
+		VolumeUUIDs:               []string{"v1"},
+		VolumeAttachmentUUIDs:     []string{"va1"},
+		VolumeAttachmentPlanUUIDs: []string{"vap1"},
+	}
+
+	c.Check(merged, tc.DeepEquals, expected)
+}
+
 func (s *typesSuite) TestCascadedUnitLivesEmpty(c *tc.C) {
 	cul := CascadedUnitLives{}
 	c.Check(cul.IsEmpty(), tc.IsTrue)
@@ -99,4 +127,8 @@ func (s *typesSuite) TestCascadedApplicationLivesEmpty(c *tc.C) {
 	cal.StorageAttachmentUUIDs = nil
 	cal.RelationUUIDs = []string{"burp"}
 	c.Check(cal.IsEmpty(), tc.IsFalse)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
