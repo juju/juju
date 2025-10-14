@@ -107,10 +107,8 @@ type State interface {
 
 	// GetStorageInstancesForProviderIDs returns all of the storage instances
 	// found in the model using one of the provider ids supplied. The storage
-	// instance must not also be owned by a unit already. If no storage
-	// instance is found associated with a provider id then it is simply
-	// ignored. If no storage instances exist matching the provider ids then an
-	// empty result is returned to the caller.
+	// instance must also not be owned by a unit. If no storage instances are found
+	// then an empty result is returned.
 	GetStorageInstancesForProviderIDs(
 		ctx context.Context,
 		ids []string,

@@ -455,43 +455,98 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 	)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr("_[_][_].Filesystem.ProvisionScope", tc.Ignore)
-	mc.AddExpr("_[_][_].Volume.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_", tc.SameContents, tc.ExpectedValue)
+	mc.AddExpr("_[_].Filesystem.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_[_].Volume.ProvisionScope", tc.Ignore)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(res, mc, map[domainstorage.Name][]internal.StorageInstanceComposition{
-		"st1": {
-			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID1,
-				},
-				StorageName: "st1",
-				UUID:        instUUID1,
+	c.Check(res, mc, []internal.StorageInstanceComposition{
+		{
+			Filesystem: &internal.StorageInstanceCompositionFilesystem{
+				UUID: fsUUID1,
 			},
-			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID3,
-				},
-				StorageName: "st1",
-				UUID:        instUUID3,
-			},
+			StorageName: "st1",
+			UUID:        instUUID1,
 		},
-		"st2": {
-			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID2,
-				},
-				StorageName: "st2",
-				UUID:        instUUID2,
+		{
+			Filesystem: &internal.StorageInstanceCompositionFilesystem{
+				UUID: fsUUID3,
 			},
+			StorageName: "st1",
+			UUID:        instUUID3,
 		},
-		"st3": {
-			{
-				StorageName: "st3",
-				Volume: &internal.StorageInstanceCompositionVolume{
-					UUID: vUUID1,
-				},
-				UUID: instUUID4,
+		{
+			Filesystem: &internal.StorageInstanceCompositionFilesystem{
+				UUID: fsUUID2,
 			},
+			StorageName: "st2",
+			UUID:        instUUID2,
+		},
+		{
+			StorageName: "st3",
+			Volume: &internal.StorageInstanceCompositionVolume{
+				UUID: vUUID1,
+			},
+			UUID: instUUID4,
+		},
+	})
+}
+
+// TestGetStorageInstancesForProviderIDSomeStorageOwned tests that when storage
+// is requested matching a set of supplied provider ids the caller does not get
+// back storage instances that ore owned by a unit in the model should these
+// storage instances match in every other respect.
+func (s *storageSuite) TestGetStorageInstancesForProviderIDSomeStorageOwned(c *tc.C) {
+	// This first storage instance is to be owned by a unit in the model.
+	instUUID1, _ := s.newStorageInstanceFilesysatemWithProviderID(c, "st1", "provider1")
+	instUUID2, fsUUID2 := s.newStorageInstanceFilesysatemWithProviderID(c, "st2", "provider2")
+	instUUID3, fsUUID3 := s.newStorageInstanceFilesysatemWithProviderID(c, "st1", "provider3")
+	instUUID4, vUUID1 := s.newStorageInstanceVolumeWithProviderID(c, "st3", "provider4")
+
+	unitUUID := s.newUnit(c)
+	s.newStorageUnitOwner(c, instUUID1, unitUUID)
+
+	st := NewState(
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	res, err := st.GetStorageInstancesForProviderIDs(
+		c.Context(), []string{
+			"provider1",
+			"provider2",
+			"provider3",
+			"provider4",
+			"providernotexist",
+		},
+	)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_", tc.SameContents, tc.ExpectedValue)
+	mc.AddExpr("_[_].Filesystem.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_[_].Volume.ProvisionScope", tc.Ignore)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, mc, []internal.StorageInstanceComposition{
+		{
+			Filesystem: &internal.StorageInstanceCompositionFilesystem{
+				UUID: fsUUID3,
+			},
+			StorageName: "st1",
+			UUID:        instUUID3,
+		},
+		{
+			Filesystem: &internal.StorageInstanceCompositionFilesystem{
+				UUID: fsUUID2,
+			},
+			StorageName: "st2",
+			UUID:        instUUID2,
+		},
+		{
+			StorageName: "st3",
+			Volume: &internal.StorageInstanceCompositionVolume{
+				UUID: vUUID1,
+			},
+			UUID: instUUID4,
 		},
 	})
 }
@@ -526,33 +581,30 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsVolumeBackedFilesyst
 	)
 
 	mc := tc.NewMultiChecker()
+	mc.AddExpr("_", tc.SameContents, tc.ExpectedValue)
 	mc.AddExpr("_[_][_].Filesystem.ProvisionScope", tc.Ignore)
 	mc.AddExpr("_[_][_].Volume.ProvisionScope", tc.Ignore)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(res, mc, map[domainstorage.Name][]internal.StorageInstanceComposition{
-		"st1": {
-			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID1,
-				},
-				StorageName: "st1",
-				Volume: &internal.StorageInstanceCompositionVolume{
-					UUID: vUUID1,
-				},
-				UUID: instUUID1,
+	c.Check(res, mc, []internal.StorageInstanceComposition{
+		{
+			Filesystem: &internal.StorageInstanceCompositionFilesystem{
+				UUID: fsUUID1,
 			},
+			StorageName: "st1",
+			Volume: &internal.StorageInstanceCompositionVolume{
+				UUID: vUUID1,
+			},
+			UUID: instUUID1,
 		},
-		"st2": {
-			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID2,
-				},
-				StorageName: "st2",
-				Volume: &internal.StorageInstanceCompositionVolume{
-					UUID: vUUID2,
-				},
-				UUID: instUUID2,
+		{
+			Filesystem: &internal.StorageInstanceCompositionFilesystem{
+				UUID: fsUUID2,
 			},
+			StorageName: "st2",
+			Volume: &internal.StorageInstanceCompositionVolume{
+				UUID: vUUID2,
+			},
+			UUID: instUUID2,
 		},
 	})
 }

@@ -118,11 +118,10 @@ SELECT &storageDirective.* FROM (
 	return rval, nil
 }
 
-// GetStorageInstancesForProviderIDs returns all of the storage instances found
-// in the model using one of the provider ids supplied. If no storage instance
-// is found associated with a provider id then it is simply ignored. If no
-// storage instances exist matching the provider ids then an empty result is
-// returned to the caller.
+// GetStorageInstancesForProviderIDs returns all of the storage instances
+// found in the model using one of the provider ids supplied. The storage
+// instance must also not be owned by a unit. If no storage instances are found
+// then an empty result is returned.
 func (st *State) GetStorageInstancesForProviderIDs(
 	ctx context.Context,
 	ids []string,
@@ -143,10 +142,11 @@ func (st *State) GetStorageInstancesForProviderIDs(
 	/*
 		id	parent	notused	detail
 		15	0     	0      	SCAN si USING INDEX sqlite_autoindex_storage_instance_1
-		18	0     	0      	SEARCH sif USING INDEX sqlite_autoindex_storage_instance_filesystem_1 (storage_instance_uuid=?) LEFT-JOIN
-		25	0     	0      	SEARCH sf USING INDEX sqlite_autoindex_storage_filesystem_1 (uuid=?) LEFT-JOIN
-		33	0     	0      	SEARCH siv USING INDEX sqlite_autoindex_storage_instance_volume_1 (storage_instance_uuid=?) LEFT-JOIN
-		40	0     	0      	SEARCH sv USING INDEX sqlite_autoindex_storage_volume_1 (uuid=?) LEFT-JOIN
+		19	0     	0      	USING INDEX sqlite_autoindex_storage_unit_owner_1 FOR IN-OPERATOR
+		29	0     	0      	SEARCH sif USING INDEX sqlite_autoindex_storage_instance_filesystem_1 (storage_instance_uuid=?) LEFT-JOIN
+		36	0     	0      	SEARCH sf USING INDEX sqlite_autoindex_storage_filesystem_1 (uuid=?) LEFT-JOIN
+		44	0     	0      	SEARCH siv USING INDEX sqlite_autoindex_storage_instance_volume_1 (storage_instance_uuid=?) LEFT-JOIN
+		51	0     	0      	SEARCH sv USING INDEX sqlite_autoindex_storage_volume_1 (uuid=?) LEFT-JOIN
 	*/
 	compositionQ := `
 SELECT &storageInstanceComposition.*
@@ -162,8 +162,10 @@ FROM (
     LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
     LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
     LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-    WHERE     sf.provider_id IN ($storageProviderIDs[:])
-    OR        sv.provider_id IN ($storageProviderIDs[:])
+    WHERE     si.uuid NOT IN (SELECT storage_instance_uuid
+                              FROM storage_unit_owner)
+    AND	     (sf.provider_id IN ($storageProviderIDs[:])
+           OR sv.provider_id IN ($storageProviderIDs[:]))
     GROUP BY  si.uuid
 )
 `
