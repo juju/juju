@@ -1524,7 +1524,7 @@ func (st *State) SetApplicationCharm(
 	ctx context.Context,
 	appID coreapplication.UUID,
 	chID corecharm.ID,
-	params application.SetCharmParams,
+	params application.SetCharmStateParams,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1583,6 +1583,11 @@ WHERE  uuid = $entityUUID.uuid
 		if err := st.refreshApplicationEndpointBindings(ctx, tx, appIdent, charmIdent); err != nil {
 			return errors.Errorf("refreshing application endpoint bindings: %w", err)
 		}
+		if params.Channel != nil {
+			if err := st.updateApplicationChannel(ctx, tx, *params.Channel, appID); err != nil {
+				return errors.Errorf("updating application channel: %w", err)
+			}
+		}
 
 		charmModifiedVersionNamespace := domainsequence.MakePrefixNamespace(
 			application.ApplicationCharmSequenceNamespace, appIdent.UUID,
@@ -1603,6 +1608,29 @@ WHERE  uuid = $entityUUID.uuid
 		return errors.Capture(err)
 	}
 
+	return nil
+}
+
+func (st *State) updateApplicationChannel(ctx context.Context, tx *sqlair.TX, channel deployment.Channel, appID coreapplication.UUID) error {
+	appChannel := applicationChannel{
+		ApplicationID: appID,
+		Track:         channel.Track,
+		Risk:          string(channel.Risk),
+		Branch:        channel.Branch,
+	}
+	updateAppChannelStmt, err := st.Prepare(`
+UPDATE application_channel
+SET track = $applicationChannel.track,
+	risk  = $applicationChannel.risk,
+	branch = $applicationChannel.branch
+WHERE application_uuid = $applicationChannel.application_uuid;
+`, applicationChannel{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, updateAppChannelStmt, appChannel).Run(); err != nil {
+		return errors.Errorf("setting application channel: %w", err)
+	}
 	return nil
 }
 

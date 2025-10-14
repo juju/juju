@@ -707,8 +707,13 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	if err != nil {
 		return errors.Trace(err)
 	}
-
+	charmOrigin, err := convertCharmOrigin(args.CharmOrigin)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
+		CharmOrigin: charmOrigin,
+
 		// Storage: args.StorageDirectives,
 		CharmUpgradeOnError: args.Force,
 		EndpointBindings:    transform.Map(args.EndpointBindings, func(k, v string) (string, network.SpaceName) { return k, network.SpaceName(v) }),

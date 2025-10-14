@@ -1529,3 +1529,54 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 
 	return ctrl
 }
+
+func (s *applicationServiceSuite) TestSetApplicationCharmWithChannel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appID := applicationtesting.GenApplicationUUID(c)
+	charmID := charmtesting.GenCharmID(c)
+	origin := corecharm.Origin{
+		Source: corecharm.CharmHub,
+		ID:     "charm-id",
+		Channel: &internalcharm.Channel{
+			Risk: internalcharm.Stable,
+		},
+	}
+	params := application.SetCharmParams{
+		CharmOrigin: origin,
+	}
+	channel, err := encodeChannel(params.CharmOrigin.Channel)
+	c.Assert(err, tc.ErrorIsNil)
+	paramsToExpect := application.SetCharmStateParams{
+		Channel: channel,
+	}
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appID, charmID, paramsToExpect).Return(nil)
+
+	err = s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationCharmEmptyChannel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appID := applicationtesting.GenApplicationUUID(c)
+	charmID := charmtesting.GenCharmID(c)
+	origin := corecharm.Origin{
+		Source: corecharm.CharmHub,
+		ID:     "charm-id",
+	}
+	params := application.SetCharmParams{
+		CharmOrigin: origin,
+	}
+	paramsToExpect := application.SetCharmStateParams{}
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appID, charmID, paramsToExpect).Return(nil)
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	c.Assert(err, tc.ErrorIsNil)
+}

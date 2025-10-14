@@ -768,13 +768,27 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-
+	revisionPtr := ptr(42)
 	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), "foo", applicationcharm.CharmLocator{
 		Name:         "foo",
 		Revision:     42,
 		Source:       applicationcharm.CharmHubSource,
 		Architecture: architecture.ARM64,
 	}, domainapplication.SetCharmParams{
+		CharmOrigin: corecharm.Origin{
+			Source: "charm-hub",
+			Type:   "charm",
+			Channel: &internalcharm.Channel{
+				Track: "1.0",
+				Risk:  "stable",
+			},
+			Revision: revisionPtr,
+			Platform: corecharm.Platform{
+				Architecture: "arm64",
+				OS:           "ubuntu",
+				Channel:      "24.04",
+			},
+		},
 		CharmUpgradeOnError: true,
 		EndpointBindings: map[string]network.SpaceName{
 			"binding-1": "endpoint-1",
@@ -793,7 +807,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 				Channel: "24.04",
 			},
 			Architecture: "arm64",
-			Revision:     ptr(42),
+			Revision:     revisionPtr,
 			Track:        ptr("1.0"),
 			Risk:         "stable",
 		},
