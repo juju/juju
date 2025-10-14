@@ -659,7 +659,7 @@ func (w *localConsumerWorker) ensureOffererRelationWorker(
 func (w *localConsumerWorker) ensureUnitRelationWorkers(
 	ctx context.Context,
 	details relation.RelationDetails,
-	offferApplicationUUID application.UUID,
+	offerApplicationUUID application.UUID,
 	mac *macaroon.Macaroon,
 ) error {
 	if err := w.runner.StartWorker(ctx, consumerUnitRelationWorkerName(details.UUID), func(ctx context.Context) (worker.Worker, error) {
@@ -680,7 +680,7 @@ func (w *localConsumerWorker) ensureUnitRelationWorkers(
 		return w.newOffererUnitRelationsWorker(offererunitrelations.Config{
 			Client:                 w.remoteModelClient,
 			ConsumerRelationUUID:   details.UUID,
-			OffererApplicationUUID: offferApplicationUUID,
+			OffererApplicationUUID: offerApplicationUUID,
 			Macaroon:               mac,
 			Changes:                w.offererRelationUnitChanges,
 			Clock:                  w.clock,

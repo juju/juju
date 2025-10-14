@@ -123,7 +123,7 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 			defer close(sync)
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
-	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerApplicationUUID).
+	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerRelationUUID, s.consumerApplicationUUID).
 		Return(relation.RelationUnitChange{
 			UnitsSettings: []relation.UnitSettings{{
 				UnitID: 0,
@@ -195,7 +195,7 @@ func (s *localUnitRelationsWorker) TestChangeEventIsEmpty(c *tc.C) {
 			defer close(sync)
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
-	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerApplicationUUID).
+	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerRelationUUID, s.consumerApplicationUUID).
 		Return(relation.RelationUnitChange{}, nil)
 
 	w := s.newWorker(c, s.newConfig(c))
@@ -234,8 +234,8 @@ func (s *localUnitRelationsWorker) TestGetRelationUnitsError(c *tc.C) {
 			defer close(sync)
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
-	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerApplicationUUID).
-		DoAndReturn(func(ctx context.Context, u coreapplication.UUID) (relation.RelationUnitChange, error) {
+	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerRelationUUID, s.consumerApplicationUUID).
+		DoAndReturn(func(ctx context.Context, _ corerelation.UUID, _ coreapplication.UUID) (relation.RelationUnitChange, error) {
 			defer close(done)
 			return relation.RelationUnitChange{}, errors.NotFound
 		})
@@ -276,7 +276,7 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 			defer close(sync)
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
-	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerApplicationUUID).
+	s.service.EXPECT().GetRelationUnits(gomock.Any(), s.consumerRelationUUID, s.consumerApplicationUUID).
 		Return(relation.RelationUnitChange{
 			UnitsSettings: []relation.UnitSettings{{
 				UnitID: 0,

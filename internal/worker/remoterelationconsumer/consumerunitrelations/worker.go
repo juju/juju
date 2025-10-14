@@ -27,7 +27,7 @@ type Service interface {
 	WatchRelationUnits(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error)
 
 	// GetRelationUnits returns the current state of the relation units.
-	GetRelationUnits(context.Context, coreapplication.UUID) (relation.RelationUnitChange, error)
+	GetRelationUnits(context.Context, corerelation.UUID, coreapplication.UUID) (relation.RelationUnitChange, error)
 }
 
 // RelationUnitChange encapsulates a local relation event, adding the macaroon
@@ -181,7 +181,7 @@ func (w *localWorker) loop() error {
 
 			w.logger.Debugf(ctx, "local relation units changed for %v", w.consumerRelationUUID)
 
-			unitRelationInfo, err := w.service.GetRelationUnits(ctx, w.consumerApplicationUUID)
+			unitRelationInfo, err := w.service.GetRelationUnits(ctx, w.consumerRelationUUID, w.consumerApplicationUUID)
 			if err != nil {
 				return errors.Annotatef(
 					err, "fetching local side of relation %v", w.consumerRelationUUID)
