@@ -518,8 +518,13 @@ VALUES ($setConstraint.*)
 		return errors.Capture(err)
 	}
 
+	// note(gfouillet): this Prepare statement use directly sqlair to avoid
+	// a clash with the same query in the application state.
+	// Both prepare uses a setConstraintTag struct from different packages,
+	// which causes a clash in sqlair.Query below.
+	// See https://github.com/juju/juju/pull/20882 for more details.
 	insertConstraintTagsQuery := `INSERT INTO constraint_tag(*) VALUES ($setConstraintTag.*)`
-	insertConstraintTagsStmt, err := preparer.Prepare(insertConstraintTagsQuery, setConstraintTag{})
+	insertConstraintTagsStmt, err := sqlair.Prepare(insertConstraintTagsQuery, setConstraintTag{})
 	if err != nil {
 		return errors.Capture(err)
 	}
