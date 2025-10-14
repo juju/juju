@@ -130,10 +130,10 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstancesUnitNotFound(c *tc.C)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-// TestGetUnitOwnedStorageInstancesNotStorage tests that if the unit has no
+// TestGetUnitOwnedStorageInstancesNoStorage tests that if the unit has no
 // storage that it owns no error is returned and an empty results set is
 // provided.
-func (u *unitStorageSuite) TestGetUnitOwnedStorageInstancesNotStorage(c *tc.C) {
+func (u *unitStorageSuite) TestGetUnitOwnedStorageInstancesNoStorage(c *tc.C) {
 	unitUUID := u.newUnit(c)
 
 	st := NewState(

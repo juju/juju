@@ -449,42 +449,44 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 			"providernotexist",
 		},
 	)
-
 	mc := tc.NewMultiChecker()
-	mc.AddExpr("_", tc.SameContents, tc.ExpectedValue)
-	mc.AddExpr("_[_].Filesystem.ProvisionScope", tc.Ignore)
-	mc.AddExpr("_[_].Volume.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Filesystem.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Volume.ProvisionScope", tc.Ignore)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(res, mc, []internal.StorageInstanceComposition{
-		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				UUID: fsUUID1,
+	c.Check(
+		res,
+		tc.UnorderedMatch[[]internal.StorageInstanceComposition](mc),
+		[]internal.StorageInstanceComposition{
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID1,
+				},
+				StorageName: "st1",
+				UUID:        instUUID1,
 			},
-			StorageName: "st1",
-			UUID:        instUUID1,
-		},
-		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				UUID: fsUUID3,
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID3,
+				},
+				StorageName: "st1",
+				UUID:        instUUID3,
 			},
-			StorageName: "st1",
-			UUID:        instUUID3,
-		},
-		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				UUID: fsUUID2,
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID2,
+				},
+				StorageName: "st2",
+				UUID:        instUUID2,
 			},
-			StorageName: "st2",
-			UUID:        instUUID2,
-		},
-		{
-			StorageName: "st3",
-			Volume: &internal.StorageInstanceCompositionVolume{
-				UUID: vUUID1,
+			{
+				StorageName: "st3",
+				Volume: &internal.StorageInstanceCompositionVolume{
+					UUID: vUUID1,
+				},
+				UUID: instUUID4,
 			},
-			UUID: instUUID4,
 		},
-	})
+	)
 }
 
 // TestGetStorageInstancesForProviderIDSomeStorageOwned tests that when storage
@@ -577,30 +579,32 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsVolumeBackedFilesyst
 	)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr("_", tc.SameContents, tc.ExpectedValue)
-	mc.AddExpr("_[_][_].Filesystem.ProvisionScope", tc.Ignore)
-	mc.AddExpr("_[_][_].Volume.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Filesystem.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Volume.ProvisionScope", tc.Ignore)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(res, mc, []internal.StorageInstanceComposition{
-		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				UUID: fsUUID1,
+	c.Check(
+		res,
+		tc.UnorderedMatch[[]internal.StorageInstanceComposition](mc),
+		[]internal.StorageInstanceComposition{
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID1,
+				},
+				StorageName: "st1",
+				Volume: &internal.StorageInstanceCompositionVolume{
+					UUID: vUUID1,
+				},
+				UUID: instUUID1,
 			},
-			StorageName: "st1",
-			Volume: &internal.StorageInstanceCompositionVolume{
-				UUID: vUUID1,
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID2,
+				},
+				StorageName: "st2",
+				Volume: &internal.StorageInstanceCompositionVolume{
+					UUID: vUUID2,
+				},
+				UUID: instUUID2,
 			},
-			UUID: instUUID1,
-		},
-		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				UUID: fsUUID2,
-			},
-			StorageName: "st2",
-			Volume: &internal.StorageInstanceCompositionVolume{
-				UUID: vUUID2,
-			},
-			UUID: instUUID2,
-		},
-	})
+		})
 }
