@@ -342,6 +342,9 @@ func (d GetRelationUUIDForRemovalArgs) Validate() error {
 
 // RelationUnitChange encapsulates a remote relation event,
 // adding the tag of the relation which changed.
+//
+// Note: unit IDs are used as the name of the application may
+// be different on the other side of a remote relation.
 type RelationUnitChange struct {
 	// RelationUUID is the UUID of the relation being changed.
 	RelationUUID corerelation.UUID
@@ -349,23 +352,23 @@ type RelationUnitChange struct {
 	// Life is the current life value of the relation.
 	Life life.Value
 
-	// ChangedUnits represents the changed units in this relation.
-	ChangedUnits []UnitChange
+	// UnitsSettings represents the units settings in this relation.
+	UnitsSettings []UnitSettings
 
-	// AllUnits represents all the units that are part of this relation.
+	// AllUnits represents the IDs of all units in this relation.
 	AllUnits []int
 
-	// InScopeUnits represents all the units that are in-scope in the
-	// relation.
+	// InScopeUnits represents the IDs of all units that are in-scope
+	// in the relation.
 	InScopeUnits []int
 
-	// ApplicationSettings represent the updated application-level settings in
-	// this relation.
+	// ApplicationSettings represent the updated application-level settings
+	// in this relation.
 	ApplicationSettings map[string]any
 }
 
-// UnitChange represents a change to a single unit in a relation.
-type UnitChange struct {
+// UnitSettings represents the settings of a single unit in a relation.
+type UnitSettings struct {
 	// UnitId uniquely identifies the remote unit.
 	UnitID int
 

@@ -222,7 +222,7 @@ func (w *localWorker) Report() map[string]any {
 		result["error"] = "worker is dying"
 
 	case event := <-w.reportRequests:
-		result["changed-units"] = event.ChangedUnits
+		result["changed-units"] = event.UnitsSettings
 		result["all-units"] = event.AllUnits
 		result["in-scope-units"] = event.InScopeUnits
 		result["settings"] = event.ApplicationSettings
@@ -232,5 +232,5 @@ func (w *localWorker) Report() map[string]any {
 }
 
 func isEmpty(change relation.RelationUnitChange) bool {
-	return len(change.ChangedUnits)+len(change.InScopeUnits) == 0
+	return len(change.UnitsSettings)+len(change.InScopeUnits) == 0
 }

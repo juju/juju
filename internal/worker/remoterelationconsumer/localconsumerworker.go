@@ -773,7 +773,7 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 		ApplicationOrOfferToken: w.applicationUUID.String(),
 		ApplicationSettings:     change.ApplicationSettings,
 
-		ChangedUnits: transform.Slice(change.ChangedUnits, func(v relation.UnitChange) params.RemoteRelationUnitChange {
+		ChangedUnits: transform.Slice(change.UnitsSettings, func(v relation.UnitSettings) params.RemoteRelationUnitChange {
 			return params.RemoteRelationUnitChange{
 				UnitId:   v.UnitID,
 				Settings: v.Settings,
