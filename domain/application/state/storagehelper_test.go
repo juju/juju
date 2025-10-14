@@ -4,16 +4,27 @@
 package state
 
 import (
+	"context"
 	"database/sql"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	coredatabase "github.com/juju/juju/core/database"
+	coremachine "github.com/juju/juju/core/machine"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/application/charm"
+	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type dbGetter interface {
 	DB() *sql.DB
+	TxnRunnerFactory() func(context.Context) (coredatabase.TxnRunner, error)
 }
 
 type storageHelper struct {
@@ -198,4 +209,75 @@ VALUES (?, ?, 0, ?)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return storageInstUUID, storageVolumeUUID
+}
+
+// newStorageUnitOwner is a helper function to create a new storage unit owner
+// for the supplied instance and unit.
+func (s *storageHelper) newStorageUnitOwner(
+	c *tc.C, instUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+) {
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid) VALUES (?, ?)
+`,
+		instUUID.String(),
+		unitUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// newUnit is a helper function for generating a new unit in the model for
+// testing. This should be used when the caller just needs a unit with a uuid to
+// exist but cares no more about the details of the unit.
+func (s *storageHelper) newUnit(c *tc.C) coreunit.UUID {
+	st := NewState(
+		s.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	appUUID, _, err := st.CreateIAASApplication(
+		c.Context(),
+		"foo",
+		application.AddIAASApplicationArg{
+			BaseAddApplicationArg: application.BaseAddApplicationArg{
+				Charm: charm.Charm{
+					Metadata: charm.Metadata{
+						Name: "foo",
+					},
+					Manifest: charm.Manifest{
+						Bases: []charm.Base{{
+							Name:          "ubuntu",
+							Channel:       charm.Channel{Risk: charm.RiskStable},
+							Architectures: []string{"amd64"},
+						}},
+					},
+					ReferenceName: "foo",
+					Architecture:  architecture.AMD64,
+					Revision:      1,
+					Source:        charm.LocalSource,
+				},
+				IsController: false,
+			},
+		},
+		[]application.AddIAASUnitArg{
+			{
+				AddUnitArg: application.AddUnitArg{
+					NetNodeUUID: netNodeUUID,
+				},
+				MachineNetNodeUUID: netNodeUUID,
+				MachineUUID:        tc.Must(c, coremachine.NewUUID),
+				Nonce:              ptr("foo"),
+			},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	units, err := st.getApplicationUnits(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 1)
+
+	return units[0]
 }
