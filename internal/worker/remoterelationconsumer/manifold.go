@@ -175,10 +175,12 @@ func GetCrossModelService(getter dependency.Getter, domainServicesName string) (
 		RelationService
 		CrossModelRelationService
 		StatusService
+		RemovalService
 	}{
 		RelationService:           services.Relation(),
 		CrossModelRelationService: services.CrossModelRelation(),
 		StatusService:             services.Status(),
+		RemovalService:            services.Removal(),
 	}, nil
 }
 

@@ -80,6 +80,7 @@ type CrossModelService interface {
 	RelationService
 	CrossModelRelationService
 	StatusService
+	RemovalService
 }
 
 // RelationService is an interface that defines the methods for
@@ -112,9 +113,13 @@ type CrossModelRelationService interface {
 	// application consumers in the local model.
 	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
 
-	// SuspendRelation suspends the specified relation in the local model
-	// with the given reason.
-	SuspendRelation(ctx context.Context, appUUID application.UUID, relUUID corerelation.UUID, reason string) error
+	// ProcessOffererRelationChange records settings for all the units and an
+	// application in a remote relation.
+	ProcessOffererRelationChange(
+		context.Context,
+		corerelation.UUID,
+		crossmodelrelation.ProcessOffererRelationChangeArgs,
+	) error
 
 	// ConsumeRemoteSecretChanges applies secret changes received
 	// from a remote model to the local model.
@@ -124,10 +129,24 @@ type CrossModelRelationService interface {
 	// application.
 	SaveMacaroonForRelation(context.Context, corerelation.UUID, *macaroon.Macaroon) error
 
-	// ProcessRelationChange processes any pending relation changes from the
-	// offerer side of the relation. This ensures that we have a mirror image
-	// of the relation data in the consumer model.
-	ProcessRelationChange(context.Context) error
+	// SuspendRelation suspends the specified relation in the local model
+	// with the given reason.
+	SuspendRelation(ctx context.Context, appUUID application.UUID, relUUID corerelation.UUID, reason string) error
+
+	// SetRelationSuspendedState sets the suspended state of the specified
+	// relation in the local model.
+	SetRelationSuspendedState(ctx context.Context, appUUID application.UUID, relUUID corerelation.UUID, suspended bool, reason string) error
+}
+
+// RemovalService is an interface that defines the methods for
+// removing relations directly on the local model database.
+type RemovalService interface {
+	// RemoveRelation checks if a relation with the input UUID exists.
+	// If it does, the relation is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	RemoveRemoteRelation(
+		ctx context.Context, relUUID corerelation.UUID) error
 }
 
 // StatusService is an interface that defines the methods for

@@ -24,10 +24,13 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
@@ -1442,7 +1445,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChange(c *tc.C) {
 			Life:         life.Alive,
 			ChangedUnits: []domainrelation.UnitChange{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1499,7 +1502,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithIn
 			Life:         life.Alive,
 			ChangedUnits: []domainrelation.UnitChange{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1623,7 +1626,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 			RelationUUID: relationUUID,
 			ChangedUnits: []domainrelation.UnitChange{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1682,7 +1685,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 			Life:         life.Alive,
 			ChangedUnits: []domainrelation.UnitChange{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1736,7 +1739,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 			Life:         life.Alive,
 			ChangedUnits: []domainrelation.UnitChange{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1797,7 +1800,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 			Life:         life.Alive,
 			ChangedUnits: []domainrelation.UnitChange{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1816,10 +1819,24 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 
 	done := s.expectWorkerStartup(c)
 
+	args := crossmodelrelation.ProcessOffererRelationChangeArgs{
+		ApplicationSettings: map[string]string{
+			"foo": "bar",
+		},
+		UnitSettings: map[unit.Name]crossmodelrelation.UnitSettingChange{
+			unit.Name(s.applicationName + "0"): {
+				Settings: map[string]string{
+					"foo": "bar",
+				},
+				Departed: true,
+			},
+		},
+	}
+
 	sync := make(chan struct{})
 	s.crossModelService.EXPECT().
-		ProcessRelationChange(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) error {
+		ProcessOffererRelationChange(gomock.Any(), relationUUID, args).
+		DoAndReturn(func(context.Context, relation.UUID, crossmodelrelation.ProcessOffererRelationChangeArgs) error {
 			close(sync)
 			return nil
 		})
@@ -1846,7 +1863,51 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 				"foo": "bar",
 			},
 		}},
-		Suspended: false,
+		Suspended:               false,
+		DeprecatedDepartedUnits: []int{0},
+	}
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for ProcessRelationChange to be called")
+	}
+
+	// We don't want to test the full loop, just that we handle the change.
+	// The rest of the logic is covered in other tests.
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleOffererRelationChangeDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	done := s.expectWorkerStartup(c)
+
+	sync := make(chan struct{})
+	s.crossModelService.EXPECT().
+		RemoveRemoteRelation(gomock.Any(), relationUUID).
+		DoAndReturn(func(ctx context.Context, rel corerelation.UUID) error {
+			close(sync)
+			return nil
+		})
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	w.offererRelationChanges <- offererrelations.RelationChange{
+		ConsumerRelationUUID:   relationUUID,
+		OffererApplicationUUID: s.applicationUUID,
+		Life:                   life.Dying,
+		Suspended:              false,
 	}
 
 	select {
@@ -1870,8 +1931,8 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationChange(c *tc.C) {
 
 	sync := make(chan struct{})
 	s.crossModelService.EXPECT().
-		ProcessRelationChange(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) error {
+		SetRelationSuspendedState(gomock.Any(), s.applicationUUID, relationUUID, true, "front fell off").
+		DoAndReturn(func(context.Context, application.UUID, corerelation.UUID, bool, string) error {
 			close(sync)
 			return nil
 		})
@@ -1889,7 +1950,8 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationChange(c *tc.C) {
 		ConsumerRelationUUID:   relationUUID,
 		OffererApplicationUUID: s.applicationUUID,
 		Life:                   life.Alive,
-		Suspended:              false,
+		Suspended:              true,
+		SuspendedReason:        "front fell off",
 	}
 
 	select {

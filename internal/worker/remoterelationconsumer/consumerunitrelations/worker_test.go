@@ -127,7 +127,7 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 		Return(relation.RelationUnitChange{
 			ChangedUnits: []relation.UnitChange{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "baz",
 				},
 			}},
@@ -137,7 +137,7 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 			InScopeUnits: []int{
 				0, 1, 2,
 			},
-			ApplicationSettings: map[string]any{
+			ApplicationSettings: map[string]string{
 				"foo": "bar",
 			},
 		}, nil)
@@ -168,13 +168,13 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 		RelationUnitChange: relation.RelationUnitChange{
 			ChangedUnits: []relation.UnitChange{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "baz",
 				},
 			}},
 			AllUnits:     []int{0, 1, 2, 4},
 			InScopeUnits: []int{0, 1, 2},
-			ApplicationSettings: map[string]any{
+			ApplicationSettings: map[string]string{
 				"foo": "bar",
 			},
 		},
@@ -280,7 +280,7 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 		Return(relation.RelationUnitChange{
 			ChangedUnits: []relation.UnitChange{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "baz",
 				},
 			}},
@@ -290,7 +290,7 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 			InScopeUnits: []int{
 				0, 1, 2,
 			},
-			ApplicationSettings: map[string]any{
+			ApplicationSettings: map[string]string{
 				"foo": "bar",
 			},
 		}, nil)
@@ -310,7 +310,7 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 		"changed-units":             []relation.UnitChange(nil),
 		"all-units":                 []int(nil),
 		"in-scope-units":            []int(nil),
-		"settings":                  map[string]any(nil),
+		"settings":                  map[string]string(nil),
 	})
 
 	select {
@@ -330,13 +330,13 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 		"consumer-relation-uuid":    s.consumerRelationUUID.String(),
 		"changed-units": []relation.UnitChange{{
 			UnitID: 0,
-			Settings: map[string]any{
+			Settings: map[string]string{
 				"foo": "baz",
 			},
 		}},
 		"all-units":      []int{0, 1, 2, 4},
 		"in-scope-units": []int{0, 1, 2},
-		"settings": map[string]any{
+		"settings": map[string]string{
 			"foo": "bar",
 		},
 	})

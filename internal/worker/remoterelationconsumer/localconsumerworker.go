@@ -23,8 +23,10 @@ import (
 	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -771,12 +773,16 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           change.RelationUUID.String(),
 		ApplicationOrOfferToken: w.applicationUUID.String(),
-		ApplicationSettings:     change.ApplicationSettings,
+		ApplicationSettings: transform.Map(change.ApplicationSettings, func(k, v string) (string, any) {
+			return k, v
+		}),
 
 		ChangedUnits: transform.Slice(change.ChangedUnits, func(v relation.UnitChange) params.RemoteRelationUnitChange {
 			return params.RemoteRelationUnitChange{
-				UnitId:   v.UnitID,
-				Settings: v.Settings,
+				UnitId: v.UnitID,
+				Settings: transform.Map(v.Settings, func(k, v string) (string, any) {
+					return k, v
+				}),
 			}
 		}),
 		InScopeUnits: change.InScopeUnits,
@@ -885,11 +891,104 @@ func (w *localConsumerWorker) isRelationWorkerDead(ctx context.Context, relation
 }
 
 func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Context, change offererunitrelations.RelationUnitChange) error {
-	return w.crossModelService.ProcessRelationChange(ctx)
+	departedUnits := make(map[unit.Name]struct{})
+	for _, n := range change.DeprecatedDepartedUnits {
+		name, err := unit.NewNameFromParts(w.applicationName, n)
+		if err != nil {
+			return errors.Annotatef(err, "parsing departed unit name for %q", n)
+		}
+		departedUnits[name] = struct{}{}
+	}
+
+	// First ensure that all application and unit settings are replicated.
+	// If we remove the units after the fact, the settings will be correctly
+	// saved in the settings archive for access by the charm if required.
+	applicationSettings := make(map[string]string)
+	for k, v := range change.ApplicationSettings {
+		switch t := v.(type) {
+		case string:
+			applicationSettings[k] = t
+		default:
+			return errors.NotValidf("non-string value for application setting %q on relation %q", k, change.ConsumerRelationUUID)
+		}
+	}
+
+	unitSettings := make(map[unit.Name]crossmodelrelation.UnitSettingChange)
+	for _, setting := range change.ChangedUnits {
+		unitName, err := unit.NewNameFromParts(w.applicationName, setting.UnitID)
+		if err != nil {
+			return errors.Annotatef(err, "parsing unit name for %q", setting.UnitID)
+		}
+
+		// Unit and application set
+		settings := make(map[string]string)
+		for k, v := range setting.Settings {
+			switch t := v.(type) {
+			case string:
+				settings[k] = t
+			default:
+				return errors.NotValidf("non-string value for setting %q on unit %q for relation %q", k, unitName, change.ConsumerRelationUUID)
+			}
+		}
+
+		_, departed := departedUnits[unitName]
+		delete(departedUnits, unitName)
+
+		unitSettings[unitName] = crossmodelrelation.UnitSettingChange{
+			Departed: departed,
+			Settings: settings,
+		}
+	}
+
+	departedUnitNames := make([]unit.Name, 0, len(departedUnits))
+	for u := range departedUnits {
+		departedUnitNames = append(departedUnitNames, u)
+	}
+
+	// This will force all units to enter scope if they are not already.
+	if err := w.crossModelService.ProcessOffererRelationChange(ctx,
+		change.ConsumerRelationUUID,
+		crossmodelrelation.ProcessOffererRelationChangeArgs{
+			ApplicationSettings: applicationSettings,
+			UnitSettings:        unitSettings,
+			DepartedUnits:       departedUnitNames,
+		}); err != nil {
+		return errors.Annotatef(err, "setting application and unit settings for relation %q", change.ConsumerRelationUUID)
+	}
+
+	// Handle the dying/dead case of the relation. We do this **after** setting
+	// the settings, so that the removal of the relation doesn't prevent us from
+	// setting the settings.
+	if change.Life != life.Alive {
+		// If the relation is dying or dead, then we're done here. The units
+		// will have already transitioned to departed.
+		return w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID)
+	}
+
+	// Handle the case where the relation has become (un)suspended.
+	if err := w.crossModelService.SetRelationSuspendedState(ctx, w.applicationUUID, change.ConsumerRelationUUID, change.Suspended, change.SuspendedReason); err != nil {
+		return errors.Annotatef(err, "setting suspended state for relation %q", change.ConsumerRelationUUID)
+	}
+
+	return nil
 }
 
 func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, change offererrelations.RelationChange) error {
-	return w.crossModelService.ProcessRelationChange(ctx)
+	// Handle the dying/dead case of the relation. We do this **after** setting
+	// the settings, so that the removal of the relation doesn't prevent us from
+	// setting the settings.
+	if change.Life != life.Alive {
+		// If the relation is dying or dead, then we're done here. The units
+		// will have already transitioned to departed.
+		return w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID)
+	}
+
+	// Handle the case where the relation has become (un)suspended.
+	if err := w.crossModelService.SetRelationSuspendedState(ctx, w.applicationUUID, change.ConsumerRelationUUID, change.Suspended, change.SuspendedReason); err != nil {
+		return errors.Annotatef(err, "setting suspended state for relation %q", change.ConsumerRelationUUID)
+	}
+
+	return nil
 }
 
 type consumerRelationResult struct {
