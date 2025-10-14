@@ -469,6 +469,8 @@ type InsertApplicationArgs struct {
 // SetCharmParams contains the parameters for updating
 // an application's charm and storage.
 type SetCharmParams struct {
+	// CharmOrigin contains the origin information for the new charm.
+	CharmOrigin charm.Origin
 	// Storage contains the storage directives to add or update when
 	// upgrading the charm.
 	//
@@ -480,6 +482,18 @@ type SetCharmParams struct {
 	// CharmUpgradeOnError indicates whether the charm must be upgraded
 	// even when on error.
 	CharmUpgradeOnError bool
+
+	// EndpointBindings is an operator-defined map of endpoint names to
+	// space names that should be merged with any existing bindings.
+	EndpointBindings map[string]network.SpaceName
+}
+
+// SetCharmParams contains the parameters for updating
+// an application's charm and storage in the state.
+type SetCharmStateParams struct {
+	// Channel contains the channel information for the application. The track,
+	// risk and branch of the charm when it was downloaded from the charm store.
+	Channel *deployment.Channel
 
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
