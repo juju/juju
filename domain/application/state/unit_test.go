@@ -1526,11 +1526,6 @@ func (s *unitStateSuite) TestCheckCAASUnitRegistered(c *tc.C) {
 	c.Check(gotNetNodeUUID, tc.IsNonZeroUUID)
 }
 
-type applicationSpace struct {
-	SpaceName    string `db:"space"`
-	SpaceExclude bool   `db:"exclude"`
-}
-
 type unitStateSubordinateSuite struct {
 	baseSuite
 

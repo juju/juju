@@ -100,21 +100,9 @@ type insertStorageVolumeStatus struct {
 	UpdateAt   time.Time `db:"updated_at"`
 }
 
-// storageFilesystemUUIDRef is a database type for selecting a foreign key
-// reference to a storage filesystem uuid.
-type storageFilesystemUUIDRef struct {
-	UUID string `db:"storage_filesystem_uuid"`
-}
-
 // storageProviderIDs  represents a list of provider ids that have been given to
 // either a volume or filesystem in the model.
 type storageProviderIDs []string
-
-// storageVolumeUUIDRef is a database type for selecting a foreign key reference
-// to a storage volume uuid.
-type storageVolumeUUIDRef struct {
-	UUID string `db:"storage_volume_uuid"`
-}
 
 // storageDirective represents either a storage directive from a unit in the
 // model or an application.
@@ -137,23 +125,6 @@ type storageInstanceComposition struct {
 	UUID                     string           `db:"uuid"`
 	VolumeProvisionScope     sql.Null[int]    `db:"volume_provision_scope"`
 	VolumeUUID               sql.Null[string] `db:"volume_uuid"`
-}
-
-// unitStorageDirective is used to represent the values held in the
-// unit_storage_directive table representing the storage directives of
-// a unit.
-type unitStorageDirective struct {
-	CharmName       string
-	Count           uint32
-	SizeMiB         uint64
-	StorageName     string
-	StoragePoolUUID string
-}
-
-// unitOwnedStorage is represents a storage instance that is owned by a unit.
-type unitOwnedStorage struct {
-	UUID        string `db:"uuid"`
-	StorageName string `db:"storage_name"`
 }
 
 // storageModelConfigKeys is used to get model config to select the storage pool
