@@ -9,6 +9,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -182,6 +183,10 @@ func MakeStorageDirectiveFromApplicationArg(
 // ValidateApplicationStorageDirectiveOverrides checks a set of storage
 // directive overrides to make sure they are valid with respect to the charms
 // storage definitions.
+//
+// The following errors may be expected:
+// - [applicationerrors.StorageCountLimitExceeded] the the requested storage
+// falls outside of the bounds defined by the charm.
 func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 	ctx context.Context,
 	charmStorageDefs map[string]internalcharm.Storage,
@@ -209,6 +214,10 @@ func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 // validateApplicationStorageDirectiveOverride checks a set of storage directive
 // override values to make sure they are valid with respect to the charm
 // storage.
+//
+// The following errors may be expected:
+// - [applicationerrors.StorageCountLimitExceeded] the the requested storage
+// falls outside of the bounds defined by the charm.
 func validateApplicationStorageDirectiveOverride(
 	ctx context.Context,
 	charmStorageDef internalcharm.Storage,
@@ -216,26 +225,38 @@ func validateApplicationStorageDirectiveOverride(
 	poolProvider StoragePoolProvider,
 ) error {
 	if override.Count != nil {
-		minCount := uint32(0)
+		var minCount uint32
 		if charmStorageDef.CountMin > 0 {
 			minCount = uint32(charmStorageDef.CountMin)
 		}
-		maxCount := uint32(0)
-		if charmStorageDef.CountMax > 0 {
+
+		var (
+			// hasMaxCount is true when the charm storage definition has
+			// indicated that there is a maximum value it will tolerate. When
+			// the charm specifies -1 the charm has no opinion what the maximum
+			// should be.
+			hasMaxCount bool
+			maxCount    uint32
+		)
+		if charmStorageDef.CountMax >= 0 {
 			maxCount = uint32(charmStorageDef.CountMax)
+			hasMaxCount = true
 		}
 
 		if *override.Count < minCount {
-			return errors.Errorf(
-				"storage directive count %d is less than the charm minimum of %d",
-				*override.Count, minCount,
-			)
+			return applicationerrors.StorageCountLimitExceeded{
+				Minimum:     charmStorageDef.CountMin,
+				Requested:   int(*override.Count),
+				StorageName: charmStorageDef.Name,
+			}
 		}
-		if *override.Count > maxCount {
-			return errors.Errorf(
-				"storage directive count %d is greater than the charm maximum of %d",
-				*override.Count, maxCount,
-			)
+		if hasMaxCount && *override.Count > maxCount {
+			return applicationerrors.StorageCountLimitExceeded{
+				Maximum:     &charmStorageDef.CountMax,
+				Minimum:     charmStorageDef.CountMin,
+				Requested:   int(*override.Count),
+				StorageName: charmStorageDef.Name,
+			}
 		}
 	}
 

@@ -10,9 +10,11 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/application"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 type directiveSuite struct {
@@ -177,4 +179,72 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 			tc.Check(t, args, tc.DeepEquals, test.Expected)
 		})
 	}
+}
+
+// TestValidateApplicationStorageDirectiveOverridesNoMinLimit is a regression
+// test to make sure that when the charm has not specified any limit on storage
+// count the caller is free to provide a count to their liking.
+func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesNoMaxLimit(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+
+	charmStorageDefs := map[string]internalcharm.Storage{
+		"st1": {
+			CountMin:    0,
+			CountMax:    -1, // -1 indicates no max limit
+			Description: "",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        internalcharm.StorageBlock,
+		},
+	}
+
+	overrides := map[string]StorageDirectiveOverride{
+		"st1": {
+			Count: ptr(uint32(5)),
+		},
+	}
+
+	svc := NewService(s.state, s.poolProvider)
+	err := svc.ValidateApplicationStorageDirectiveOverrides(
+		c.Context(), charmStorageDefs, overrides,
+	)
+	tc.Check(c, err, tc.ErrorIsNil)
+}
+
+// TestValidateApplicationStorageDirectiveOverridesExceedMax tests that when a
+// a storage override requests more storage then the charm supports the caller
+// gets back an error satsifying [applicationerrors.StorageCountLimitExceeded].
+func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedMax(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+
+	charmStorageDefs := map[string]internalcharm.Storage{
+		"st1": {
+			CountMin:    0,
+			CountMax:    2,
+			Description: "",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        internalcharm.StorageBlock,
+		},
+	}
+
+	overrides := map[string]StorageDirectiveOverride{
+		"st1": {
+			Count: ptr(uint32(3)),
+		},
+	}
+
+	svc := NewService(s.state, s.poolProvider)
+	err := svc.ValidateApplicationStorageDirectiveOverrides(
+		c.Context(), charmStorageDefs, overrides,
+	)
+
+	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+	c.Check(is, tc.IsTrue)
+	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
+		Maximum:     ptr(2),
+		Minimum:     0,
+		Requested:   3,
+		StorageName: "st1",
+	})
 }

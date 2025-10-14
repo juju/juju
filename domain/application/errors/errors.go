@@ -3,7 +3,13 @@
 
 package errors
 
-import "github.com/juju/juju/internal/errors"
+import (
+	"fmt"
+	"math"
+	"strconv"
+
+	"github.com/juju/juju/internal/errors"
+)
 
 const (
 	// ApplicationNotFound describes an error that occurs when the application
@@ -267,18 +273,6 @@ const (
 )
 
 const (
-	// StorageAlreadyAttached describes an error that occurs when
-	// a storage attachment already exists.
-	StorageAlreadyAttached = errors.ConstError("storage already attached")
-
-	// FilesystemAlreadyAttached describes an error that occurs when
-	// a filesystem attachment already exists.
-	FilesystemAlreadyAttached = errors.ConstError("filesystem already attached")
-
-	// VolumeAlreadyAttached describes an error that occurs when
-	// a volume attachment already exists.
-	VolumeAlreadyAttached = errors.ConstError("volume already attached")
-
 	// StorageNotAlive describes an error that occurs when
 	// a storage is not alive.
 	StorageNotAlive = errors.ConstError("storage not alive")
@@ -290,12 +284,54 @@ const (
 	// InvalidStorageCount describes an error that occurs when
 	// a storage attachment would violate charm expectations for cardinality.
 	InvalidStorageCount = errors.ConstError("invalid storage count")
-
-	// StorageNotDetachable describes an error that occurs when
-	// a storage does not support being detached.
-	StorageNotDetachable = errors.ConstError("storage cannot be detached")
-
-	// InvalidStorageMountPoint describes an error that occurs when
-	// a storage attachment's location cannot be mounted on the node.
-	InvalidStorageMountPoint = errors.ConstError("invalid storage mount point")
 )
+
+// StorageCountLimitExceeded describes an error that occurs when an operation
+// to change the storage count would exceed the supported limits. This error is
+// a struct so that the context can be supplied upwards to the caller.
+type StorageCountLimitExceeded struct {
+	// Maximum when not nill defines the maximum number of storage instances
+	// that can be realised.
+	Maximum *int
+
+	// Minimum defines the minimum number of storage instances that MUST exist.
+	Minimum int
+
+	// Requested is the number of storage instances that were requested by the
+	// caller.
+	Requested int
+
+	// StorageName is the name of the storage whose count was being changed in
+	// the operation.
+	StorageName string
+}
+
+// Error returns a description on the storage count limit that has been
+// violated. This func implements the [error] interface.
+func (s StorageCountLimitExceeded) Error() string {
+	if s.Maximum != nil && s.Requested > *s.Maximum {
+		return fmt.Sprintf(
+			"storage %q cannot exceed %d storage instances",
+			s.StorageName, *s.Maximum,
+		)
+	} else if s.Requested < s.Minimum {
+		return fmt.Sprintf(
+			"storage %q cannot have less than %d storage instances",
+			s.StorageName, s.Minimum,
+		)
+	}
+
+	// We should never get here but if we do we can at least try to provide a
+	// sensible error message within the limits we have.
+	maxStr := strconv.Itoa(math.MaxUint32)
+	if s.Maximum != nil {
+		maxStr = strconv.Itoa(*s.Maximum)
+	}
+	return fmt.Sprintf(
+		"storage %q count must be between %d and %s, requested was %d",
+		s.StorageName,
+		s.Minimum,
+		maxStr,
+		s.Requested,
+	)
+}
