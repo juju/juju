@@ -993,6 +993,97 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeerFail(c *tc.C
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationServiceSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	appSettings := map[string]string{
+		"appKey": "appValue",
+	}
+	unitSettings := map[string]string{
+		"unitKey": "unitValue",
+	}
+	s.state.EXPECT().GetRelationUnitUUID(gomock.Any(), relationUUID, unitName).Return(relationUnitUUID, nil)
+	s.state.EXPECT().SetRelationApplicationAndUnitSettings(gomock.Any(), relationUnitUUID, appSettings, unitSettings).Return(nil)
+
+	// Act:
+	err := s.service.SetRelationRemoteApplicationAndUnitSettings(c.Context(), unitName, relationUUID, appSettings, unitSettings)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationServiceSuite) TestSetRelationApplicationAndUnitSettingsEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	applicationSettings := make(map[string]string)
+	unitSettings := make(map[string]string)
+
+	s.state.EXPECT().GetRelationUnitUUID(gomock.Any(), relationUUID, unitName).Return(relationUnitUUID, nil)
+	s.state.EXPECT().SetRelationApplicationAndUnitSettings(gomock.Any(), relationUnitUUID, applicationSettings, unitSettings).Return(nil)
+
+	// Act:
+	err := s.service.SetRelationRemoteApplicationAndUnitSettings(c.Context(), unitName, relationUUID, applicationSettings, unitSettings)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationServiceSuite) TestSetRelationApplicationAndUnitSettingsNil(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	// Act:
+	err := s.service.SetRelationRemoteApplicationAndUnitSettings(c.Context(), unitName, relationUUID, nil, nil)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationServiceSuite) TestSetRelationRemoteApplicationAndUnitSettingsUnitNameNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	settings := map[string]string{
+		"key": "value",
+	}
+
+	// Act:
+	err := s.service.SetRelationRemoteApplicationAndUnitSettings(c.Context(), "", relationUUID, settings, nil)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *relationServiceSuite) TestSetRelationRemoteApplicationAndUnitSettingsRelationUnitUUIDNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	settings := map[string]string{
+		"key": "value",
+	}
+
+	// Act:
+	err := s.service.SetRelationRemoteApplicationAndUnitSettings(c.Context(), unitName, "bad-uuid", nil, settings)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
 type relationLeadershipServiceSuite struct {
 	baseServiceSuite
 

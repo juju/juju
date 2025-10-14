@@ -262,7 +262,6 @@ func (s *LeadershipService) SetRelationApplicationAndUnitSettings(
 	return s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
 		return s.st.SetRelationApplicationAndUnitSettings(ctx, relationUnitUUID, applicationSettings, unitSettings)
 	})
-
 }
 
 // Service provides the API for working with relations.
@@ -775,6 +774,46 @@ func (s *Service) GetRelationUnits(ctx context.Context, appID application.UUID) 
 	defer span.End()
 
 	return relation.RelationUnitChange{}, nil
+}
+
+// SetRelationRemoteApplicationAndUnitSettings records settings for a unit and
+// an application in a remote relation.
+//
+// The following error types can be expected to be returned:
+//   - [corelease.ErrNotHeld] if the unit is not the leader and
+//     applicationSettings has a none zero length.
+//   - [relationerrors.RelationUnitNotFound] is returned if the
+//     relation unit is not found.
+func (s *Service) SetRelationRemoteApplicationAndUnitSettings(
+	ctx context.Context,
+	unitName unit.Name,
+	relationUUID corerelation.UUID,
+	applicationSettings, unitSettings map[string]string,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// Note: do not check if the settings are length 0 here, as we want to
+	// enable clearing settings by passing empty maps. If the maps are nil, then
+	// it becomes a no-op.
+	if applicationSettings == nil && unitSettings == nil {
+		return nil
+	}
+
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := relationUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
+	relationUnitUUID, err := s.st.GetRelationUnitUUID(ctx, relationUUID, unitName)
+	if err != nil {
+		return errors.Capture(fmt.Errorf("getting relation unit: %w", err))
+	}
+
+	return s.st.SetRelationApplicationAndUnitSettings(ctx, relationUnitUUID, applicationSettings, unitSettings)
 }
 
 func settingsMap(in map[string]interface{}) (map[string]string, error) {
