@@ -51,7 +51,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 						UUID:           fsUUID,
 						ProvisionScope: domainstorageprov.ProvisionScopeModel,
 					},
-					Kind:            domainstorageprov.KindFilesystem,
+					Kind:            domainstorage.StorageKindFilesystem,
 					RequestSizeMiB:  1024,
 					StoragePoolUUID: storagePoolUUID,
 					UUID:            storageInstUUID,
@@ -107,7 +107,7 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 	s.state.EXPECT().CheckCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
 		false, "", "", nil,
 	)
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").
 		Return(appUUID, nil)
 	s.storageService.EXPECT().MakeRegisterNewCAASUnitStorageArg(
 		gomock.Any(), appUUID, gomock.Any(), gomock.Any(),
@@ -181,7 +181,7 @@ func (s *registerCAASUnitSuite) TestRegisterExistingCAASUnit(c *tc.C) {
 	s.state.EXPECT().CheckCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
 		true, unitUUID, unitNetNodeUUID, nil,
 	)
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").
 		Return(appUUID, nil)
 	s.storageService.EXPECT().MakeRegisterExistingCAASUnitStorageArg(
 		gomock.Any(), unitUUID, gomock.Any(), gomock.Any(),
@@ -257,7 +257,7 @@ func (s *registerCAASUnitSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 	s.state.EXPECT().CheckCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
 		false, "", "", nil,
 	).AnyTimes()
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(
 		appUUID, nil,
 	).AnyTimes()
 
