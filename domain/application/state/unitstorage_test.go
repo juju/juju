@@ -191,7 +191,7 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectives(c *tc.C) {
 		c,
 		"test-charm",
 		map[string]charm.Storage{
-			"st1": charm.Storage{
+			"st1": {
 				CountMax:    10,
 				CountMin:    1,
 				Description: "st1",
@@ -199,7 +199,7 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectives(c *tc.C) {
 				MinimumSize: 1024,
 				Type:        charm.StorageFilesystem,
 			},
-			"st2": charm.Storage{
+			"st2": {
 				CountMax:    1,
 				CountMin:    1,
 				Description: "st2",

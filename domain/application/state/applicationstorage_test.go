@@ -123,13 +123,13 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectives(c *tc.C) {
 		c,
 		"testcharm",
 		map[string]charm.Storage{
-			"str1": charm.Storage{
+			"str1": {
 				CountMax: 10,
 				CountMin: 2,
 				Name:     "str1",
 				Type:     charm.StorageFilesystem,
 			},
-			"str2": charm.Storage{
+			"str2": {
 				CountMax: 1,
 				CountMin: 0,
 				Name:     "str2",
