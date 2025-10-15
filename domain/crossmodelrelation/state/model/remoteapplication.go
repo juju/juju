@@ -11,8 +11,10 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -37,6 +39,12 @@ func (st *State) NamespaceRemoteApplicationOfferers() string {
 // NamespaceRemoteApplicationConsumers returns the remote application consumers.
 func (st *State) NamespaceRemoteApplicationConsumers() string {
 	return "application_remote_consumer"
+}
+
+// NamespaceRemoteConsumerRelations returns the remote consumer relations
+// namespace (i.e. the relations table).
+func (st *State) NamespaceRemoteConsumerRelations() string {
+	return "relation"
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -791,6 +799,107 @@ func (st *State) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offer
 	}
 
 	return applicationName, coreapplication.UUID(applicationUUID), nil
+}
+
+// InitialWatchStatementForConsumerRelations returns the namespace and the
+// initial query function for watching relation UUIDs that are associated with
+// remote offerer applications present in this model (i.e. consumer side).
+func (st *State) InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		stmt, err := st.Prepare(`
+SELECT DISTINCT re.relation_uuid AS &uuid.uuid
+FROM   v_relation_endpoint AS re
+JOIN   application_remote_offerer AS aro ON aro.application_uuid = re.application_uuid
+`, uuid{})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		var rows []uuid
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt).GetAll(&rows)
+
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		res := make([]string, len(rows))
+		for i, r := range rows {
+			res[i] = r.UUID
+		}
+		return res, nil
+	}
+
+	return "relation", queryFunc
+}
+
+// GetConsumerRelationUUIDs filters the provided relation UUIDs and returns only
+// those that are associated with remote offerer applications in this model.
+// Passing an empty list of relation UUIDs will return *all* remote relation
+// UUIDs.
+func (st *State) GetConsumerRelationUUIDs(ctx context.Context, relationUUIDs ...string) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []uuid
+	// If no relation UUIDs were provided, return all consumer relations.
+	if len(relationUUIDs) == 0 {
+		stmt, err := st.Prepare(`
+SELECT DISTINCT re.relation_uuid AS &uuid.uuid
+FROM   v_relation_endpoint AS re
+JOIN   application_remote_offerer AS aro ON aro.application_uuid = re.application_uuid
+`, uuid{})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt).GetAll(&rows)
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	} else {
+		type ids []string
+		ident := ids(relationUUIDs)
+
+		stmt, err := st.Prepare(`
+SELECT DISTINCT re.relation_uuid AS &uuid.uuid
+FROM   v_relation_endpoint AS re
+JOIN   application_remote_offerer AS aro ON aro.application_uuid = re.application_uuid
+WHERE  re.relation_uuid IN ($ids[:])`, uuid{}, ident)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt, ident).GetAll(&rows)
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	}
+
+	res := make([]string, len(rows))
+	for i, r := range rows {
+		res[i] = r.UUID
+	}
+	return res, nil
 }
 
 func (st *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid string, ch charm.Charm) error {

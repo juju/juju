@@ -1273,3 +1273,227 @@ ORDER BY cr.name`, appID)
 	c.Assert(err, tc.ErrorIsNil)
 	return endpoints
 }
+
+func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsFiltering(c *tc.C) {
+	ctx := c.Context()
+
+	// Create a remote offerer application with at least one endpoint (juju-info
+	// is added automatically).
+	remoteAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteOfferUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteCharm := charm.Charm{
+		ReferenceName: "remote-ref",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "remote-app",
+			Description: "remote offerer",
+			// No relations specified; juju-info will be auto-added.
+			Provides: map[string]charm.Relation{},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddRemoteApplicationOfferer(ctx, "remote-app", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       remoteAppUUID,
+			CharmUUID:             remoteCharmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             remoteOfferUUID,
+			Charm:                 remoteCharm,
+		},
+		EncodedMacaroon: []byte("m"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	remoteEndpointUUID := s.getAppEndpointUUID(c, remoteAppUUID, "juju-info")
+
+	// Create a non-offerer local application and one endpoint named "endpoint0".
+	localOfferUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, localOfferUUID)
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createCharm(c, localCharmUUID)
+	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createApplication(c, localAppUUID, localCharmUUID, localOfferUUID)
+	localEndpointUUID := s.getAppEndpointUUID(c, localAppUUID, "endpoint0")
+
+	// Create two relations: one linked to the remote offerer app endpoint, one
+	// to the local app endpoint.
+	remoteRelUUID := s.addRelation(c).String()
+	localRelUUID := s.addRelation(c).String()
+
+	s.query(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), remoteRelUUID, remoteEndpointUUID)
+	s.query(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), localRelUUID, localEndpointUUID)
+
+	// Filter both relation UUIDs; expect only the remote relation returned.
+	got, err := s.state.GetConsumerRelationUUIDs(ctx, remoteRelUUID, localRelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 1)
+	c.Check(got[0], tc.Equals, remoteRelUUID)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsEmptyArgsReturnsAll(c *tc.C) {
+	ctx := c.Context()
+
+	// Create a remote offerer application with two endpoints: juju-info and db.
+	remoteAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteOfferUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteCharm := charm.Charm{
+		ReferenceName: "remote-ref-2",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "remote-app-2",
+			Description: "remote offerer",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddRemoteApplicationOfferer(ctx, "remote-app-2", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       remoteAppUUID,
+			CharmUUID:             remoteCharmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             remoteOfferUUID,
+			Charm:                 remoteCharm,
+		},
+		EncodedMacaroon: []byte("m"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	epJujuInfo := s.getAppEndpointUUID(c, remoteAppUUID, "juju-info")
+	epDB := s.getAppEndpointUUID(c, remoteAppUUID, "db")
+
+	// Create two relations both associated with the remote offerer app.
+	rel1 := s.addRelation(c).String()
+	rel2 := s.addRelation(c).String()
+
+	s.query(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), rel1, epJujuInfo)
+	s.query(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), rel2, epDB)
+
+	// Call with no args; expect both relation UUIDs returned (order not
+	// guaranteed).
+	got, err := s.state.GetConsumerRelationUUIDs(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotSet := map[string]struct{}{}
+	for _, r := range got {
+		gotSet[r] = struct{}{}
+	}
+	c.Check(gotSet, tc.DeepEquals, map[string]struct{}{rel1: {}, rel2: {}})
+}
+
+func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsNoMatches(c *tc.C) {
+	ctx := c.Context()
+
+	// Create a local (non-offerer) application and a relation for it.
+	localOfferUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, localOfferUUID)
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createCharm(c, localCharmUUID)
+	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createApplication(c, localAppUUID, localCharmUUID, localOfferUUID)
+	localEndpointUUID := s.getAppEndpointUUID(c, localAppUUID, "endpoint0")
+
+	relLocal := s.addRelation(c).String()
+	s.query(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), relLocal, localEndpointUUID)
+
+	// Pass only non-offerer relation UUIDs; expect empty result.
+	got, err := s.state.GetConsumerRelationUUIDs(ctx, relLocal)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.HasLen, 0)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsDeduplicates(c *tc.C) {
+	ctx := c.Context()
+
+	// Create a remote offerer application with two endpoints (juju-info and
+	// db).
+	remoteAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteOfferUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteCharm := charm.Charm{
+		ReferenceName: "remote-ref-3",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "remote-app-3",
+			Description: "remote offerer",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddRemoteApplicationOfferer(ctx, "remote-app-3", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       remoteAppUUID,
+			CharmUUID:             remoteCharmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             remoteOfferUUID,
+			Charm:                 remoteCharm,
+		},
+		EncodedMacaroon: []byte("m"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	epJujuInfo := s.getAppEndpointUUID(c, remoteAppUUID, "juju-info")
+	epDB := s.getAppEndpointUUID(c, remoteAppUUID, "db")
+
+	// Create a single relation that is linked to two endpoints of the same
+	// remote application.
+	rel := s.addRelation(c).String()
+	s.query(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), rel, epJujuInfo)
+	s.query(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), rel, epDB)
+
+	// Provide duplicate relation UUIDs in input; expect a single entry in
+	// output.
+	got, err := s.state.GetConsumerRelationUUIDs(ctx, rel, rel)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 1)
+	c.Check(got[0], tc.Equals, rel)
+}
+
+// getAppEndpointUUID returns the application_endpoint.uuid for the given
+// application and charm relation (endpoint) name.
+func (s *modelRemoteApplicationSuite) getAppEndpointUUID(c *tc.C, applicationUUID string, endpointName string) string {
+	var epUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT ae.uuid
+FROM application_endpoint AS ae
+JOIN charm_relation AS cr ON cr.uuid = ae.charm_relation_uuid
+WHERE ae.application_uuid = ? AND cr.name = ?`, applicationUUID, endpointName).Scan(&epUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return epUUID
+}
