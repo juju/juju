@@ -27,7 +27,7 @@ type Service interface {
 	WatchRelationUnits(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error)
 
 	// GetRelationUnits returns the current state of the relation units.
-	GetRelationUnits(context.Context, coreapplication.UUID) (relation.RelationUnitChange, error)
+	GetRelationUnits(context.Context, corerelation.UUID, coreapplication.UUID) (relation.RelationUnitChange, error)
 }
 
 // RelationUnitChange encapsulates a local relation event, adding the macaroon
@@ -181,7 +181,7 @@ func (w *localWorker) loop() error {
 
 			w.logger.Debugf(ctx, "local relation units changed for %v", w.consumerRelationUUID)
 
-			unitRelationInfo, err := w.service.GetRelationUnits(ctx, w.consumerApplicationUUID)
+			unitRelationInfo, err := w.service.GetRelationUnits(ctx, w.consumerRelationUUID, w.consumerApplicationUUID)
 			if err != nil {
 				return errors.Annotatef(
 					err, "fetching local side of relation %v", w.consumerRelationUUID)
@@ -222,7 +222,7 @@ func (w *localWorker) Report() map[string]any {
 		result["error"] = "worker is dying"
 
 	case event := <-w.reportRequests:
-		result["changed-units"] = event.ChangedUnits
+		result["changed-units"] = event.UnitsSettings
 		result["all-units"] = event.AllUnits
 		result["in-scope-units"] = event.InScopeUnits
 		result["settings"] = event.ApplicationSettings
@@ -232,5 +232,5 @@ func (w *localWorker) Report() map[string]any {
 }
 
 func isEmpty(change relation.RelationUnitChange) bool {
-	return len(change.ChangedUnits)+len(change.InScopeUnits) == 0
+	return len(change.UnitsSettings)+len(change.InScopeUnits) == 0
 }

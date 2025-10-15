@@ -826,6 +826,45 @@ func (c *MockStateGetRelationUnitUUIDCall) DoAndReturn(f func(context.Context, r
 	return c
 }
 
+// GetRelationUnitsChanges mocks base method.
+func (m *MockState) GetRelationUnitsChanges(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (relation0.RelationUnitChange, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationUnitsChanges", arg0, arg1, arg2)
+	ret0, _ := ret[0].(relation0.RelationUnitChange)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationUnitsChanges indicates an expected call of GetRelationUnitsChanges.
+func (mr *MockStateMockRecorder) GetRelationUnitsChanges(arg0, arg1, arg2 any) *MockStateGetRelationUnitsChangesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitsChanges", reflect.TypeOf((*MockState)(nil).GetRelationUnitsChanges), arg0, arg1, arg2)
+	return &MockStateGetRelationUnitsChangesCall{Call: call}
+}
+
+// MockStateGetRelationUnitsChangesCall wrap *gomock.Call
+type MockStateGetRelationUnitsChangesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationUnitsChangesCall) Return(arg0 relation0.RelationUnitChange, arg1 error) *MockStateGetRelationUnitsChangesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationUnitsChangesCall) Do(f func(context.Context, relation.UUID, application.UUID) (relation0.RelationUnitChange, error)) *MockStateGetRelationUnitsChangesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationUnitsChangesCall) DoAndReturn(f func(context.Context, relation.UUID, application.UUID) (relation0.RelationUnitChange, error)) *MockStateGetRelationUnitsChangesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationsStatusForUnit mocks base method.
 func (m *MockState) GetRelationsStatusForUnit(arg0 context.Context, arg1 unit.UUID) ([]relation0.RelationUnitStatusResult, error) {
 	m.ctrl.T.Helper()

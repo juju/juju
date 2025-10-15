@@ -1440,7 +1440,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChange(c *tc.C) {
 		RelationUnitChange: domainrelation.RelationUnitChange{
 			RelationUUID: relationUUID,
 			Life:         life.Alive,
-			ChangedUnits: []domainrelation.UnitChange{{
+			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
 				Settings: map[string]any{
 					"foo": "bar",
@@ -1497,7 +1497,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithIn
 		RelationUnitChange: domainrelation.RelationUnitChange{
 			RelationUUID: relationUUID,
 			Life:         life.Alive,
-			ChangedUnits: []domainrelation.UnitChange{{
+			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
 				Settings: map[string]any{
 					"foo": "bar",
@@ -1621,7 +1621,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 	err = w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
 		RelationUnitChange: domainrelation.RelationUnitChange{
 			RelationUUID: relationUUID,
-			ChangedUnits: []domainrelation.UnitChange{{
+			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
 				Settings: map[string]any{
 					"foo": "bar",
@@ -1680,7 +1680,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 		RelationUnitChange: domainrelation.RelationUnitChange{
 			RelationUUID: relationUUID,
 			Life:         life.Alive,
-			ChangedUnits: []domainrelation.UnitChange{{
+			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
 				Settings: map[string]any{
 					"foo": "bar",
@@ -1734,7 +1734,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 		RelationUnitChange: domainrelation.RelationUnitChange{
 			RelationUUID: relationUUID,
 			Life:         life.Alive,
-			ChangedUnits: []domainrelation.UnitChange{{
+			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
 				Settings: map[string]any{
 					"foo": "bar",
@@ -1795,7 +1795,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 		RelationUnitChange: domainrelation.RelationUnitChange{
 			RelationUUID: relationUUID,
 			Life:         life.Alive,
-			ChangedUnits: []domainrelation.UnitChange{{
+			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
 				Settings: map[string]any{
 					"foo": "bar",

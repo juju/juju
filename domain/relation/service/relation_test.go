@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -991,6 +992,58 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeerFail(c *tc.C
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	expected := relation.RelationUnitChange{
+		RelationUUID: relUUID,
+		Life:         corelife.Alive,
+	}
+	s.state.EXPECT().GetRelationUnitsChanges(gomock.Any(), relUUID, appUUID).Return(expected, nil)
+
+	// Act
+	obtained, err := s.service.GetRelationUnits(c.Context(), relUUID, appUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, expected)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitsFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	boom := errors.Errorf("boom")
+	s.state.EXPECT().GetRelationUnitsChanges(gomock.Any(), relUUID, appUUID).Return(relation.RelationUnitChange{}, boom)
+
+	// Act
+	_, err := s.service.GetRelationUnits(c.Context(), relUUID, appUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, boom)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitsRelationUUIDNotValid(c *tc.C) {
+	// Act
+	_, err := s.service.GetRelationUnits(c.Context(), "bad-uuid", coreapplicationtesting.GenApplicationUUID(c))
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitsApplicationIDNotValid(c *tc.C) {
+	// Act
+	_, err := s.service.GetRelationUnits(c.Context(), corerelationtesting.GenRelationUUID(c), "bad-uuid")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
 type relationLeadershipServiceSuite struct {

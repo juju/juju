@@ -583,18 +583,18 @@ func (c *MockCrossModelServiceGetRelationDetailsCall) DoAndReturn(f func(context
 }
 
 // GetRelationUnits mocks base method.
-func (m *MockCrossModelService) GetRelationUnits(arg0 context.Context, arg1 application.UUID) (relation0.RelationUnitChange, error) {
+func (m *MockCrossModelService) GetRelationUnits(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (relation0.RelationUnitChange, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationUnits", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetRelationUnits", arg0, arg1, arg2)
 	ret0, _ := ret[0].(relation0.RelationUnitChange)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRelationUnits indicates an expected call of GetRelationUnits.
-func (mr *MockCrossModelServiceMockRecorder) GetRelationUnits(arg0, arg1 any) *MockCrossModelServiceGetRelationUnitsCall {
+func (mr *MockCrossModelServiceMockRecorder) GetRelationUnits(arg0, arg1, arg2 any) *MockCrossModelServiceGetRelationUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnits", reflect.TypeOf((*MockCrossModelService)(nil).GetRelationUnits), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnits", reflect.TypeOf((*MockCrossModelService)(nil).GetRelationUnits), arg0, arg1, arg2)
 	return &MockCrossModelServiceGetRelationUnitsCall{Call: call}
 }
 
@@ -610,13 +610,13 @@ func (c *MockCrossModelServiceGetRelationUnitsCall) Return(arg0 relation0.Relati
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceGetRelationUnitsCall) Do(f func(context.Context, application.UUID) (relation0.RelationUnitChange, error)) *MockCrossModelServiceGetRelationUnitsCall {
+func (c *MockCrossModelServiceGetRelationUnitsCall) Do(f func(context.Context, relation.UUID, application.UUID) (relation0.RelationUnitChange, error)) *MockCrossModelServiceGetRelationUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceGetRelationUnitsCall) DoAndReturn(f func(context.Context, application.UUID) (relation0.RelationUnitChange, error)) *MockCrossModelServiceGetRelationUnitsCall {
+func (c *MockCrossModelServiceGetRelationUnitsCall) DoAndReturn(f func(context.Context, relation.UUID, application.UUID) (relation0.RelationUnitChange, error)) *MockCrossModelServiceGetRelationUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -992,18 +992,18 @@ func (c *MockRelationServiceGetRelationDetailsCall) DoAndReturn(f func(context.C
 }
 
 // GetRelationUnits mocks base method.
-func (m *MockRelationService) GetRelationUnits(arg0 context.Context, arg1 application.UUID) (relation0.RelationUnitChange, error) {
+func (m *MockRelationService) GetRelationUnits(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (relation0.RelationUnitChange, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationUnits", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetRelationUnits", arg0, arg1, arg2)
 	ret0, _ := ret[0].(relation0.RelationUnitChange)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRelationUnits indicates an expected call of GetRelationUnits.
-func (mr *MockRelationServiceMockRecorder) GetRelationUnits(arg0, arg1 any) *MockRelationServiceGetRelationUnitsCall {
+func (mr *MockRelationServiceMockRecorder) GetRelationUnits(arg0, arg1, arg2 any) *MockRelationServiceGetRelationUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnits", reflect.TypeOf((*MockRelationService)(nil).GetRelationUnits), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnits", reflect.TypeOf((*MockRelationService)(nil).GetRelationUnits), arg0, arg1, arg2)
 	return &MockRelationServiceGetRelationUnitsCall{Call: call}
 }
 
@@ -1019,13 +1019,13 @@ func (c *MockRelationServiceGetRelationUnitsCall) Return(arg0 relation0.Relation
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceGetRelationUnitsCall) Do(f func(context.Context, application.UUID) (relation0.RelationUnitChange, error)) *MockRelationServiceGetRelationUnitsCall {
+func (c *MockRelationServiceGetRelationUnitsCall) Do(f func(context.Context, relation.UUID, application.UUID) (relation0.RelationUnitChange, error)) *MockRelationServiceGetRelationUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceGetRelationUnitsCall) DoAndReturn(f func(context.Context, application.UUID) (relation0.RelationUnitChange, error)) *MockRelationServiceGetRelationUnitsCall {
+func (c *MockRelationServiceGetRelationUnitsCall) DoAndReturn(f func(context.Context, relation.UUID, application.UUID) (relation0.RelationUnitChange, error)) *MockRelationServiceGetRelationUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

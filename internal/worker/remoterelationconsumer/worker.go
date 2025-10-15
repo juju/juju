@@ -98,7 +98,7 @@ type RelationService interface {
 	WatchRelationUnits(context.Context, application.UUID) (watcher.NotifyWatcher, error)
 
 	// GetRelationUnits returns the current state of the relation units.
-	GetRelationUnits(context.Context, application.UUID) (relation.RelationUnitChange, error)
+	GetRelationUnits(context.Context, corerelation.UUID, application.UUID) (relation.RelationUnitChange, error)
 }
 
 // CrossModelRelationService is an interface that defines the methods for
