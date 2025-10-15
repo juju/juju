@@ -260,6 +260,57 @@ WHERE   arc.life_id < 2;`
 	return result, nil
 }
 
+// EnsureUnitsExist creates units are created for the given synthetic
+// application if they do not already exist.
+func (st *State) EnsureUnitsExist(ctx context.Context, appUUID string, units []string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Create a new unique net node uuid for each unit.
+	netNodeUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	netNodeUUIDStr := netNodeUUID.String()
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Find all the units that already exist for this application, so that
+		// we don't try and insert duplicates. If there are no missing units,
+		// we effectively do nothing. This prevents the query becoming
+		// a write query when there is nothing to do.
+		missingUnits, err := st.getMissingApplicationUnits(ctx, tx, appUUID, units)
+		if err != nil {
+			return errors.Errorf("checking existing units for application %q: %w", appUUID, err)
+		} else if len(missingUnits) == 0 {
+			return nil
+		}
+
+		charmUUID, err := st.getCharmUUIDByApplicationUUID(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf("getting charm UUID for application %q: %w", appUUID, err)
+		}
+
+		if err := st.insertNetNode(ctx, tx, netNodeUUIDStr); err != nil {
+			return errors.Errorf("inserting net node: %w", err)
+		}
+
+		// Create the missing units.
+		for _, unitName := range missingUnits {
+			if err := st.insertUnit(ctx, tx, unitName, appUUID, charmUUID, netNodeUUIDStr); err != nil {
+				return errors.Errorf("inserting unit %q: %w", unitName, err)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
 func (st *State) insertApplication(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -1122,6 +1173,144 @@ func (st *State) addCharmRelations(ctx context.Context, tx *sqlair.TX, uuid stri
 		return applicationerrors.CharmRelationNameConflict
 	} else if err != nil {
 		return errors.Errorf("inserting charm relations: %w", err)
+	}
+
+	return nil
+}
+
+func (st *State) getCharmUUIDByApplicationUUID(ctx context.Context, tx *sqlair.TX, appUUID string) (string, error) {
+	input := uuid{UUID: appUUID}
+
+	query := `
+SELECT charm_uuid AS &uuid.uuid
+FROM application
+WHERE uuid = $uuid.uuid AND life_id < 2;
+`
+	queryStmt, err := st.Prepare(query, input)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var charmUUID uuid
+
+	if err := tx.Query(ctx, queryStmt, input).Get(&charmUUID); errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.ApplicationNotFound
+	} else if err != nil {
+		return "", errors.Errorf("querying charm UUID for application %q: %w", appUUID, err)
+	}
+
+	return charmUUID.UUID, nil
+}
+
+func (st *State) insertNetNode(
+	ctx context.Context,
+	tx *sqlair.TX,
+	netNodeUUID string,
+) error {
+	input := uuid{UUID: netNodeUUID}
+
+	query := `INSERT INTO net_node (uuid) VALUES ($uuid.*)`
+	queryStmt, err := st.Prepare(query, input)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, queryStmt, input).Run(); err != nil {
+		return errors.Errorf("creating net node for machine: %w", err)
+	}
+
+	return nil
+}
+
+func (st *State) getMissingApplicationUnits(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID string,
+	units []string,
+) ([]string, error) {
+	if len(units) == 0 {
+		return nil, nil
+	}
+
+	type unitName struct {
+		Name string `db:"name"`
+	}
+	type unitNames []string
+	names := unitNames(units)
+	appUUIDRec := uuid{UUID: appUUID}
+
+	query := `
+SELECT name AS &unitName.name
+FROM   unit
+WHERE  application_uuid = $uuid.uuid
+AND    name IN ($unitNames[:]);
+`
+
+	queryStmt, err := st.Prepare(query, names, unitName{}, appUUIDRec)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var foundUnits []unitName
+	if err := tx.Query(ctx, queryStmt, names, appUUIDRec).GetAll(&foundUnits); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("querying existing units for application %q: %w", appUUID, err)
+	}
+
+	foundUnitSet := make(map[string]struct{})
+	for _, unit := range foundUnits {
+		foundUnitSet[unit.Name] = struct{}{}
+	}
+
+	var missingUnits []string
+	for _, unit := range units {
+		if _, ok := foundUnitSet[unit]; !ok {
+			missingUnits = append(missingUnits, unit)
+		}
+	}
+
+	return missingUnits, nil
+}
+
+func (st *State) insertUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitName string,
+	appUUID string,
+	charmUUID string,
+	netNodeUUID string,
+) error {
+	unitUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type unitRow struct {
+		ApplicationID string    `db:"application_uuid"`
+		UnitUUID      string    `db:"uuid"`
+		CharmUUID     string    `db:"charm_uuid"`
+		Name          string    `db:"name"`
+		NetNodeID     string    `db:"net_node_uuid"`
+		LifeID        life.Life `db:"life_id"`
+	}
+
+	createParams := unitRow{
+		ApplicationID: appUUID,
+		UnitUUID:      unitUUID.String(),
+		CharmUUID:     charmUUID,
+		Name:          unitName,
+		NetNodeID:     netNodeUUID,
+		LifeID:        life.Alive,
+	}
+
+	createUnit := `INSERT INTO unit (*) VALUES ($unitRow.*)`
+	createUnitStmt, err := st.Prepare(createUnit, createParams)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// If we've already got the units we don't need to do anything.
+	if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
+		return errors.Errorf("inserting row for unit %q: %w", unitName, err)
 	}
 
 	return nil

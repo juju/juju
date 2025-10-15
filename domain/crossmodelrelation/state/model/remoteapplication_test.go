@@ -1472,6 +1472,81 @@ WHERE  arc.uuid = ?`, consumerUUID).Scan(&offererRelationUUID)
 	c.Check(results[0], tc.Equals, offererRelationUUID)
 }
 
+func (s *modelRemoteApplicationSuite) TestEnsureUnitsExist(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, charmUUID)
+	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
+
+	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertUnitNames(c, applicationUUID, []string{"app/0", "app/1", "app/2"})
+}
+
+func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistIdempotent(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, charmUUID)
+	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
+
+	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/1", "app/2"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertUnitNames(c, applicationUUID, []string{"app/0", "app/1", "app/2"})
+}
+
+func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistMissing(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, charmUUID)
+	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
+
+	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/1", "app/4"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertUnitNames(c, applicationUUID, []string{"app/0", "app/1", "app/2", "app/4"})
+}
+
+func (s *modelRemoteApplicationSuite) assertUnitNames(c *tc.C, applicationUUID string, expectedNames []string) {
+	var names []string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT name
+FROM unit
+WHERE application_uuid = ?`, applicationUUID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err != nil {
+				return err
+			}
+			names = append(names, name)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.SameContents, expectedNames)
+}
+
 func (s *modelRemoteApplicationSuite) assertApplicationRemoteConsumer(c *tc.C, applicationUUID string) {
 	var count int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
