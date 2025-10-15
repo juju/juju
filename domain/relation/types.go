@@ -362,9 +362,9 @@ type RelationUnitChange struct {
 	// in the relation.
 	InScopeUnits []int
 
-	// ApplicationSettings represent the updated application-level settings
-	// in this relation.
-	ApplicationSettings map[string]any
+	// ApplicationSettings represent the updated application-level settings in
+	// this relation.
+	ApplicationSettings map[string]string
 }
 
 // UnitSettings represents the settings of a single unit in a relation.
@@ -373,5 +373,5 @@ type UnitSettings struct {
 	UnitID int
 
 	// Settings is the current settings for the relation unit.
-	Settings map[string]any
+	Settings map[string]string
 }

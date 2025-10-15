@@ -1442,9 +1442,139 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChange(c *tc.C) {
 			Life:         life.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
+			}},
+			AllUnits:     []int{0, 1, 2, 3},
+			InScopeUnits: []int{0, 1, 2},
+		},
+		Macaroon: s.macaroon,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeNonNilApplicationSettings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ApplicationSettings: map[string]any{
+			"foo": "bar",
+		},
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"foo": "bar",
+			},
+		}},
+		InScopeUnits:  []int{0, 1, 2},
+		DepartedUnits: []int{3},
+		UnitCount:     3, // This is the length of InScopeUnits.
+		Macaroons:     macaroon.Slice{s.macaroon},
+		BakeryVersion: bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), event).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	// Force the offerer relation worker to be created, so that we can
+	// test the relation dead logic.
+	err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.offererRelationWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for offerer relation worker to be started")
+	}
+
+	err = w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			Life:         life.Alive,
+			ApplicationSettings: map[string]string{
+				"foo": "bar",
+			},
+			ChangedUnits: []domainrelation.UnitChange{{
+				UnitID: 0,
+				Settings: map[string]string{
+					"foo": "bar",
+				},
+			}},
+			AllUnits:     []int{0, 1, 2, 3},
+			InScopeUnits: []int{0, 1, 2},
+		},
+		Macaroon: s.macaroon,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeNilUnitSettings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+		}},
+		InScopeUnits:  []int{0, 1, 2},
+		DepartedUnits: []int{3},
+		UnitCount:     3, // This is the length of InScopeUnits.
+		Macaroons:     macaroon.Slice{s.macaroon},
+		BakeryVersion: bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), event).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	// Force the offerer relation worker to be created, so that we can
+	// test the relation dead logic.
+	err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.offererRelationWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for offerer relation worker to be started")
+	}
+
+	err = w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			Life:         life.Alive,
+			ChangedUnits: []domainrelation.UnitChange{{
+				UnitID: 0,
 			}},
 			AllUnits:     []int{0, 1, 2, 3},
 			InScopeUnits: []int{0, 1, 2},
@@ -1499,7 +1629,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithIn
 			Life:         life.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1623,7 +1753,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 			RelationUUID: relationUUID,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1682,7 +1812,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 			Life:         life.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1736,7 +1866,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 			Life:         life.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1797,7 +1927,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 			Life:         life.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},

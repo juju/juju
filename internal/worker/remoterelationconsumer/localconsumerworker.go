@@ -771,12 +771,12 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           change.RelationUUID.String(),
 		ApplicationOrOfferToken: w.applicationUUID.String(),
-		ApplicationSettings:     change.ApplicationSettings,
+		ApplicationSettings:     convertSettingsMap(change.ApplicationSettings),
 
 		ChangedUnits: transform.Slice(change.UnitsSettings, func(v relation.UnitSettings) params.RemoteRelationUnitChange {
 			return params.RemoteRelationUnitChange{
 				UnitId:   v.UnitID,
-				Settings: v.Settings,
+				Settings: convertSettingsMap(v.Settings),
 			}
 		}),
 		InScopeUnits: change.InScopeUnits,
@@ -931,4 +931,19 @@ func offererUnitRelationWorkerName(relationUUID corerelation.UUID) string {
 
 func offererRelationWorkerName(relationUUID corerelation.UUID) string {
 	return fmt.Sprintf("offerer-relation:%s", relationUUID)
+}
+
+func convertSettingsMap(in map[string]string) map[string]any {
+	// It's important that we return nil if the input is nil, as this indicates
+	// that there are no settings. An empty map indicates that there are
+	// settings, but they are all empty.
+	if in == nil {
+		return nil
+	}
+
+	// Transform map method always returns a non-nil map in the presence of
+	// a non-nil input map.
+	return transform.Map(in, func(k, v string) (string, any) {
+		return k, v
+	})
 }
