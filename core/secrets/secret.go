@@ -144,6 +144,21 @@ func (u *URI) String() string {
 	return urlValue.String()
 }
 
+// SecretMetadataOwnerIdent contains enough information to identify a secret for
+// an owner.
+type SecretMetadataOwnerIdent struct {
+	URI      *URI
+	OwnerTag string
+	Label    string
+}
+
+// SecretURIWithRevisions contains enough information to identify revisions that
+// exist for a secret.
+type SecretURIWithRevisions struct {
+	URI       *URI
+	Revisions []int
+}
+
 // SecretMetadata holds metadata about a secret.
 type SecretMetadata struct {
 	// Read only after creation.

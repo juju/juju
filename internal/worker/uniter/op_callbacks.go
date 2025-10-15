@@ -172,6 +172,6 @@ func (opc *operationCallbacks) SetSecretRotated(uri string, oldRevision int) err
 }
 
 // SecretsRemoved is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SecretsRemoved(deletedRevisions map[string][]int) error {
-	return opc.u.secretsTracker.SecretsRemoved(deletedRevisions)
+func (opc *operationCallbacks) SecretsRemoved(deletedRevisions, deletedObsoleteRevisions map[string][]int) error {
+	return opc.u.secretsTracker.SecretsRemoved(deletedRevisions, deletedObsoleteRevisions)
 }

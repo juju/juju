@@ -1295,7 +1295,7 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
 	secretsBackend, err := secrets.NewClient(jujuSecretsAPI)
 	c.Assert(err, jc.ErrorIsNil)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsBackend)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{}, jujuSecretsAPI, secretsBackend)
 
 	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsBackend)
 
@@ -2114,4 +2114,64 @@ func (s *mockHookContextSuite) TestHookCloudSpecK8s(c *gc.C) {
 		CACertificates:    []string{"start\ncadata\nend\n"},
 		IsControllerCloud: true,
 	})
+}
+
+func (s *mockHookContextSuite) TestSecretsMetadataLazyLoaded(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	called := false
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(called, jc.IsFalse)
+		called = true
+		c.Assert(objType, gc.Equals, "SecretsManager")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "GetSecretMetadata")
+		c.Check(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.ListSecretMetadataResults{})
+		*(result.(*params.ListSecretMetadataResults)) = params.ListSecretMetadataResults{
+			[]params.ListSecretMetadataResult{{
+				URI:      "secret:9m4e2mr0ui3e8a215n4g",
+				OwnerTag: names.NewUnitTag("wordpress/0").String(),
+			}},
+		}
+		return nil
+	})
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
+	context.SetEnvironmentHookContextSecret(hookContext, "", nil, jujuSecretsAPI, nil)
+
+	value, err := hookContext.SecretMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value, jc.DeepEquals, map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			Owner: names.NewUnitTag("wordpress/0"),
+		},
+	})
+
+	// Second time, it should not call the api.
+	value, err = hookContext.SecretMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value, jc.DeepEquals, map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			Owner: names.NewUnitTag("wordpress/0"),
+		},
+	})
+}
+
+func (s *mockHookContextSuite) TestSecretsMetadataLazyLoadedAlreadyLoaded(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	metadata := map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			Owner: names.NewUnitTag("wordpress/0"),
+		},
+	}
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, "", metadata, nil, nil)
+
+	value, err := hookContext.SecretMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value, jc.DeepEquals, metadata)
 }

@@ -121,11 +121,12 @@ func (f *factory) NewSkipHook(hookInfo hook.Info) (Operation, error) {
 }
 
 // NewNoOpSecretsRemoved is part of the Factory interface.
-func (f *factory) NewNoOpSecretsRemoved(deletedRevisions map[string][]int) (Operation, error) {
+func (f *factory) NewNoOpSecretsRemoved(deletedRevisions, deletedObsoleteRevisions map[string][]int) (Operation, error) {
 	return &noOpSecretsRemoved{
-		Operation:        &skipOperation{},
-		deletedRevisions: deletedRevisions,
-		callbacks:        f.config.Callbacks,
+		Operation:                &skipOperation{},
+		deletedRevisions:         deletedRevisions,
+		deletedObsoleteRevisions: deletedObsoleteRevisions,
+		callbacks:                f.config.Callbacks,
 	}, nil
 }
 

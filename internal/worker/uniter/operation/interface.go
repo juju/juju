@@ -162,7 +162,7 @@ type Factory interface {
 
 	// NewNoOpSecretsRemoved creates an operation to update the secrets
 	// state when secret revisions are removed.
-	NewNoOpSecretsRemoved(deletedRevisions map[string][]int) (Operation, error)
+	NewNoOpSecretsRemoved(deletedRevisions, deletedObsoleteRevisions map[string][]int) (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.
@@ -250,7 +250,7 @@ type Callbacks interface {
 
 	// SecretsRemoved updates the unit secret state when
 	// secret revisions are removed.
-	SecretsRemoved(deletedRevisions map[string][]int) error
+	SecretsRemoved(deletedRevisions, deletedObsoleteRevisions map[string][]int) error
 
 	// RemoteInit copies the charm to the remote instance. CAAS only.
 	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error

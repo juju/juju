@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -979,8 +980,41 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets
 	return uris[0], nil
 }
 
+func (ctx *HookContext) lazyLoadSecretMetadata() error {
+	if ctx.secretMetadata != nil {
+		return nil
+	}
+	info, err := ctx.secretsClient.SecretMetadata()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
+	for _, md := range info {
+		ownerTag, err := names.ParseTag(md.OwnerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ctx.secretMetadata[md.URI.ID] = jujuc.SecretMetadata{
+			Description:      md.Description,
+			Label:            md.Label,
+			Owner:            ownerTag,
+			RotatePolicy:     md.RotatePolicy,
+			LatestRevision:   md.LatestRevision,
+			LatestChecksum:   md.LatestRevisionChecksum,
+			LatestExpireTime: md.LatestExpireTime,
+			NextRotateTime:   md.NextRotateTime,
+			Access:           md.Access,
+		}
+	}
+	return nil
+}
+
 // UpdateSecret creates a secret with the specified data.
 func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpdateArgs) error {
+	err := ctx.lazyLoadSecretMetadata()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	md, knowSecret := ctx.secretMetadata[uri.ID]
 	if knowSecret && md.Owner.Kind() == names.ApplicationTagKind {
 		isLeader, err := ctx.IsLeader()
@@ -1022,6 +1056,10 @@ func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpd
 
 // RemoveSecret removes a secret with the specified uri.
 func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI, revision *int) error {
+	err := ctx.lazyLoadSecretMetadata()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	md, ok := ctx.secretMetadata[uri.ID]
 	if ok && md.Owner.Kind() == names.ApplicationTagKind {
 		isLeader, err := ctx.IsLeader()
@@ -1039,6 +1077,10 @@ func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI, revision *int) error 
 // SecretMetadata gets the secret ids and their labels and latest revisions created by the charm.
 // The result includes any pending updates.
 func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+	err := ctx.lazyLoadSecretMetadata()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	result := make(map[string]jujuc.SecretMetadata)
 	for _, c := range ctx.secretChanges.pendingCreates {
 		md := jujuc.SecretMetadata{
@@ -1151,6 +1193,10 @@ func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrant
 
 // RevokeSecret revokes access to a specified secret.
 func (ctx *HookContext) RevokeSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
+	err := ctx.lazyLoadSecretMetadata()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	md, ok := ctx.secretMetadata[uri.ID]
 	if ok && md.Owner.Kind() == names.ApplicationTagKind {
 		isLeader, err := ctx.IsLeader()
@@ -1711,13 +1757,26 @@ func (ctx *HookContext) doFlush(process string) error {
 		}
 		var toDelete []int
 		if d.Revisions == nil {
-			// Delete all known revisions, this avoids a race condition where a new revision is being created
-			// concurrently with us asking to delete existing revisions
-			toDelete = md.Revisions
+			// Delete all known revisions, this avoids a race condition where a
+			// new revision is being created concurrently with us asking to
+			// delete existing revisions
+			allRevs, err := ctx.secretsClient.OwnedSecretRevisions(
+				ctx.unit.Tag(), d.URI)
+			if err != nil {
+				return errors.Annotatef(
+					err, "getting revisions for %q", d.URI.ID,
+				)
+			}
+			// Do not delete revisions this hook was unaware of.
+			toDelete = slices.DeleteFunc(allRevs, func(rev int) bool {
+				return rev > md.LatestRevision
+			})
 		} else {
 			// Delete only the requested revisions
 			toDelete = d.Revisions
 		}
+		// TODO: let the controller know that these secret revisions likely
+		// don't exist anymore before attempting to delete their content.
 		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.ID, toDelete)
 		for _, rev := range toDelete {
 			if err := secretsBackend.DeleteContent(d.URI, rev); err != nil {

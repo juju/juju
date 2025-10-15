@@ -98,6 +98,28 @@ type SecretsStore interface {
 	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
 	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
+
+	GetOwnedSecretMetadataByLabelAsUnit(
+		unit names.UnitTag, label string,
+	) (*secrets.SecretMetadataOwnerIdent, error)
+	GetOwnedSecretMetadataByLabelAsApp(
+		app names.ApplicationTag, label string,
+	) (*secrets.SecretMetadataOwnerIdent, error)
+	GetOwnedSecretMetadataAsUnit(
+		unit names.UnitTag, uri *secrets.URI,
+	) (*secrets.SecretMetadataOwnerIdent, error)
+	GetOwnedSecretMetadataAsApp(
+		app names.ApplicationTag, uri *secrets.URI,
+	) (*secrets.SecretMetadataOwnerIdent, error)
+	GetOwnedSecretRevisionsAsUnit(
+		unit names.UnitTag,
+	) (map[secrets.URI][]int, error)
+	GetOwnedSecretRevisionsByIDAsUnit(
+		unit names.UnitTag, uri *secrets.URI,
+	) ([]int, error)
+	GetOwnedSecretRevisionsByIDAsLeaderUnit(
+		unit names.UnitTag, uri *secrets.URI,
+	) ([]int, error)
 }
 
 // NewSecrets creates a new mongo backed secrets store.
@@ -1002,6 +1024,267 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 		result = append(result, md)
 	}
 	return result, nil
+}
+
+// GetOwnedSecretMetadataByLabelAsUnit returns the URI and Owner of a secret
+// with the supplied label, owned either by the application or the supplied
+// unit. If the secret is not found, a not found error is returned.
+func (s *secretsStore) GetOwnedSecretMetadataByLabelAsUnit(
+	unit names.UnitTag, label string,
+) (*secrets.SecretMetadataOwnerIdent, error) {
+	c, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	appName, _ := names.UnitApplication(unit.Id())
+	owners := []string{
+		unit.String(),
+		names.NewApplicationTag(appName).String(),
+	}
+	q := bson.D{
+		secretOwnerTerm(owners),
+		{"label", label},
+	}
+
+	var doc secretMetadataDoc
+	err := c.Find(q).Select(bson.D{
+		{"owner-tag", 1},
+	}).One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return nil, errors.NotFoundf(
+			"secret owned by %v by label %q",
+			unit, label,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	uri, err := secrets.ParseURI(s.st.localID(doc.DocID))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &secrets.SecretMetadataOwnerIdent{
+		URI:      uri,
+		OwnerTag: doc.OwnerTag,
+		Label:    label,
+	}, nil
+}
+
+// GetOwnedSecretMetadataByLabelAsApp returns the URI and Owner of a secret
+// with the supplied label, owned by the application. If the secret is not
+// found, a not found error is returned.
+func (s *secretsStore) GetOwnedSecretMetadataByLabelAsApp(
+	app names.ApplicationTag, label string,
+) (*secrets.SecretMetadataOwnerIdent, error) {
+	c, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	q := bson.D{
+		{"owner-tag", app.String()},
+		{"label", label},
+	}
+
+	var doc secretMetadataDoc
+	err := c.Find(q).Select(bson.D{
+		{"_id", 1},
+	}).One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return nil, errors.NotFoundf(
+			"secret owned by %v by label %q",
+			app, label,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	uri, err := secrets.ParseURI(s.st.localID(doc.DocID))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &secrets.SecretMetadataOwnerIdent{
+		URI:      uri,
+		OwnerTag: app.String(),
+		Label:    label,
+	}, nil
+}
+
+// GetOwnedSecretMetadataAsUnit returns the Label and Owner of a secret with the
+// supplied secret URI. A not found error is returned if either the secret is
+// not found or the secret is not owned by the unit or the unit's application.
+func (s *secretsStore) GetOwnedSecretMetadataAsUnit(
+	unit names.UnitTag, uri *secrets.URI,
+) (*secrets.SecretMetadataOwnerIdent, error) {
+	c, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	appName, _ := names.UnitApplication(unit.Id())
+	owners := []string{
+		unit.String(),
+		names.NewApplicationTag(appName).String(),
+	}
+	q := bson.D{
+		{"_id", uri.ID},
+		secretOwnerTerm(owners),
+	}
+
+	var doc secretMetadataDoc
+	err := c.Find(q).Select(bson.D{
+		{"owner-tag", 1},
+		{"label", 1},
+	}).One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return nil, errors.NotFoundf(
+			"secret owned by %v by id %q",
+			unit, uri,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &secrets.SecretMetadataOwnerIdent{
+		URI:      uri,
+		OwnerTag: doc.OwnerTag,
+		Label:    doc.Label,
+	}, nil
+}
+
+// GetOwnedSecretMetadataAsApp returns the Label and Owner of a secret with the
+// supplied secret URI. A not found error is returned if either the secret is
+// not found or the secret is not owned by the application.
+func (s *secretsStore) GetOwnedSecretMetadataAsApp(
+	app names.ApplicationTag, uri *secrets.URI,
+) (*secrets.SecretMetadataOwnerIdent, error) {
+	c, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	q := bson.D{
+		{"_id", uri.ID},
+		{"owner-tag", app.String()},
+	}
+
+	var doc secretMetadataDoc
+	err := c.Find(q).Select(bson.D{
+		{"label", 1},
+	}).One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return nil, errors.NotFoundf(
+			"secret owned by %v by id %q",
+			app, uri,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &secrets.SecretMetadataOwnerIdent{
+		URI:      uri,
+		OwnerTag: app.String(),
+		Label:    doc.Label,
+	}, nil
+}
+
+// GetOwnedSecretRevisionsAsUnit returns all the secrets' URIs that are owned by
+// the supplied unit, with all the revision IDs as well.
+func (s *secretsStore) GetOwnedSecretRevisionsAsUnit(
+	unit names.UnitTag,
+) (map[secrets.URI][]int, error) {
+	c, closer := s.st.db().GetCollection(secretRevisionsC)
+	defer closer()
+
+	q := bson.D{
+		{"owner-tag", unit.String()},
+	}
+
+	var docs []secretRevisionDoc
+	err := c.Find(q).Select(bson.D{
+		{"_id", 1},
+	}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ret := map[secrets.URI][]int{}
+	for _, doc := range docs {
+		secretID, revID := splitSecretRevision(s.st.localID(doc.DocID))
+		uri, err := secrets.ParseURI(secretID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		revs := ret[*uri]
+		revs = append(revs, revID)
+		ret[*uri] = revs
+	}
+
+	return ret, nil
+}
+
+// GetOwnedSecretRevisionsByIDAsUnit returns all the revision IDs for the given
+// secret URI. If the supplied unit is not the owner of the secret, or the
+// secret is not found, a not found error is returned.
+func (s *secretsStore) GetOwnedSecretRevisionsByIDAsUnit(
+	unit names.UnitTag, uri *secrets.URI,
+) ([]int, error) {
+	c, closer := s.st.db().GetCollection(secretRevisionsC)
+	defer closer()
+
+	q := bson.D{
+		{"_id", bson.D{{"$regex", s.st.localSecretURIRegex(uri, "/")}}},
+		{"owner-tag", unit.String()},
+	}
+
+	var docs []secretRevisionDoc
+	err := c.Find(q).Select(bson.D{
+		{"revision", 1},
+	}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("secret %q", uri.ID)
+	}
+
+	ret := make([]int, len(docs))
+	for i, doc := range docs {
+		ret[i] = doc.Revision
+	}
+
+	return ret, nil
+}
+
+// GetOwnedSecretRevisionsByIDAsLeaderUnit returns all the revision IDs for the
+// given secret URI. If the supplied unit/application is not the owner of the
+// secret, or the secret is not found, a not found error is returned.
+func (s *secretsStore) GetOwnedSecretRevisionsByIDAsLeaderUnit(
+	unit names.UnitTag, uri *secrets.URI,
+) ([]int, error) {
+	c, closer := s.st.db().GetCollection(secretRevisionsC)
+	defer closer()
+
+	appName, _ := names.UnitApplication(unit.Id())
+	owners := []string{
+		unit.String(),
+		names.NewApplicationTag(appName).String(),
+	}
+	q := bson.D{
+		{"_id", bson.D{{"$regex", s.st.localSecretURIRegex(uri, "/")}}},
+		secretOwnerTerm(owners),
+	}
+
+	var docs []secretRevisionDoc
+	err := c.Find(q).Select(bson.D{
+		{"revision", 1},
+	}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("secret %q", uri.ID)
+	}
+
+	ret := make([]int, len(docs))
+	for i, doc := range docs {
+		ret[i] = doc.Revision
+	}
+
+	return ret, nil
 }
 
 // allModelRevisions uses a raw collection to load secret revisions for all models.

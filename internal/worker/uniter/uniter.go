@@ -76,6 +76,7 @@ type RebootQuerier interface {
 type SecretsClient interface {
 	remotestate.SecretsClient
 	context.SecretsAccessor
+	secrets.SecretsClient
 }
 
 // RemoteInitFunc is used to init remote state
@@ -763,7 +764,7 @@ func (u *Uniter) terminate() error {
 			// can only be deleted when the app itself is removed. This is
 			// done in the api server.
 			u.logger.Debugf("deleting secret content")
-			secrets, err := u.secretsClient.SecretMetadata()
+			secrets, err := u.secretsClient.UnitOwnedSecretsAndRevisions(u.unit.Tag())
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -772,17 +773,10 @@ func (u *Uniter) terminate() error {
 				return errors.Trace(err)
 			}
 			for _, s := range secrets {
-				owner, err := names.ParseTag(s.Metadata.OwnerTag)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if owner.Kind() == names.ApplicationTagKind {
-					continue
-				}
 				for _, rev := range s.Revisions {
-					err = backend.DeleteContent(s.Metadata.URI, rev)
+					err = backend.DeleteContent(s.URI, rev)
 					if err != nil {
-						return errors.Annotatef(err, "deleting secret content for %s/%d", s.Metadata.URI.ID, rev)
+						return errors.Annotatef(err, "deleting secret content for %s/%d", s.URI.ID, rev)
 					}
 				}
 			}
