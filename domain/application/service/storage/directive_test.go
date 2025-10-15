@@ -9,7 +9,6 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -50,13 +49,13 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 		CharmMetaStorage  map[string]internalcharm.Storage
 		Overrides         map[string]StorageDirectiveOverride
 
-		Expected []application.CreateApplicationStorageDirectiveArg
+		Expected []internal.CreateApplicationStorageDirectiveArg
 	}{
 		{
 			Name:             "no overrides, no charm meta storage, no default provisioners",
 			CharmMetaStorage: map[string]internalcharm.Storage{},
 			Overrides:        map[string]StorageDirectiveOverride{},
-			Expected:         []application.CreateApplicationStorageDirectiveArg{},
+			Expected:         []internal.CreateApplicationStorageDirectiveArg{},
 		},
 		{
 			// Check to see that the correct provisioner is chosen (filesystem)
@@ -75,7 +74,7 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 				FilesystemPoolUUID:  &fakeFilesytemPoolUUID,
 				BlockDevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
-			Expected: []application.CreateApplicationStorageDirectiveArg{
+			Expected: []internal.CreateApplicationStorageDirectiveArg{
 				{
 					Count:    2,
 					Name:     domainstorage.Name("foo"),
@@ -101,7 +100,7 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 				BlockDevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
 
-			Expected: []application.CreateApplicationStorageDirectiveArg{
+			Expected: []internal.CreateApplicationStorageDirectiveArg{
 				{
 					Count: 2,
 					Name:  domainstorage.Name("foo"),
@@ -127,7 +126,7 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 				BlockDevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
 
-			Expected: []application.CreateApplicationStorageDirectiveArg{
+			Expected: []internal.CreateApplicationStorageDirectiveArg{
 				{
 					Count:    2,
 					Name:     domainstorage.Name("foo"),
@@ -151,7 +150,7 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 			},
 			ModelStoragePools: internal.ModelStoragePools{},
 
-			Expected: []application.CreateApplicationStorageDirectiveArg{
+			Expected: []internal.CreateApplicationStorageDirectiveArg{
 				{
 					Count: 2,
 					Name:  domainstorage.Name("foo"),

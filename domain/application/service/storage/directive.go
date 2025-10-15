@@ -71,7 +71,7 @@ func (s *Service) MakeApplicationStorageDirectiveArgs(
 	ctx context.Context,
 	directiveOverrides map[string]StorageDirectiveOverride,
 	charmMetaStorage map[string]internalcharm.Storage,
-) ([]application.CreateApplicationStorageDirectiveArg, error) {
+) ([]internal.CreateApplicationStorageDirectiveArg, error) {
 	if len(charmMetaStorage) == 0 {
 		return nil, nil
 	}
@@ -83,7 +83,7 @@ func (s *Service) MakeApplicationStorageDirectiveArgs(
 		)
 	}
 
-	rval := make([]application.CreateApplicationStorageDirectiveArg, 0, len(charmMetaStorage))
+	rval := make([]internal.CreateApplicationStorageDirectiveArg, 0, len(charmMetaStorage))
 	for charmStorageName, charmStorageDef := range charmMetaStorage {
 		// We don't support shared storage. If the charm has a shared storage
 		// definition we ignore it.
@@ -115,8 +115,8 @@ func makeApplicationStorageDirectiveArg(
 	directiveOverride StorageDirectiveOverride,
 	charmStorageDef internalcharm.Storage,
 	modelStoragePools internal.ModelStoragePools,
-) application.CreateApplicationStorageDirectiveArg {
-	rval := application.CreateApplicationStorageDirectiveArg{
+) internal.CreateApplicationStorageDirectiveArg {
+	rval := internal.CreateApplicationStorageDirectiveArg{
 		Name: name,
 	}
 
@@ -163,7 +163,7 @@ func makeApplicationStorageDirectiveArg(
 func MakeStorageDirectiveFromApplicationArg(
 	charmMetadataName string,
 	charmStorage map[string]internalcharm.Storage,
-	applicationArgs []application.CreateApplicationStorageDirectiveArg,
+	applicationArgs []internal.CreateApplicationStorageDirectiveArg,
 ) []application.StorageDirective {
 	rval := make([]application.StorageDirective, 0, len(applicationArgs))
 	for _, arg := range applicationArgs {

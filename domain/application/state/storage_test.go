@@ -113,7 +113,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStorage(c *tc.C) {
 		Name: "cache",
 		Type: "block",
 	}}
-	directives := []application.CreateApplicationStorageDirectiveArg{
+	directives := []internal.CreateApplicationStorageDirectiveArg{
 		{
 			Name:     "database",
 			PoolUUID: ebsPoolUUID,
@@ -148,7 +148,7 @@ WHERE name=?`, "666").Scan(&charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	var (
 		foundCharmStorage []charm.Storage
-		foundAppStorage   []application.CreateApplicationStorageDirectiveArg
+		foundAppStorage   []internal.CreateApplicationStorageDirectiveArg
 	)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -182,7 +182,7 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 		}
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
-			stor := application.CreateApplicationStorageDirectiveArg{}
+			stor := internal.CreateApplicationStorageDirectiveArg{}
 			if err := rows.Scan(&stor.Name, &stor.PoolUUID, &stor.Size, &stor.Count); err != nil {
 				return errors.Capture(err)
 			}

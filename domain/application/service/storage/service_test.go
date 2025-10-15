@@ -125,7 +125,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	)
 	c.Check(err, tc.IsNil)
 
-	expectStorageDirectives := []application.CreateUnitStorageDirectiveArg{
+	expectStorageDirectives := []internal.CreateUnitStorageDirectiveArg{
 		{
 			Count:    3,
 			Name:     "st1",
@@ -140,10 +140,10 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageInstances := []application.CreateUnitStorageInstanceArg{
+	expectedStorageInstances := []internal.CreateUnitStorageInstanceArg{
 		{
 			CharmName: "big-beautiful-charm",
-			Filesystem: &application.CreateUnitStorageFilesystemArg{
+			Filesystem: &internal.CreateUnitStorageFilesystemArg{
 				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
 			},
 			Kind:            domainstorage.StorageKindFilesystem,
@@ -153,7 +153,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		},
 		{
 			CharmName: "big-beautiful-charm",
-			Filesystem: &application.CreateUnitStorageFilesystemArg{
+			Filesystem: &internal.CreateUnitStorageFilesystemArg{
 				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
 			},
 			Kind:            domainstorage.StorageKindFilesystem,
@@ -163,10 +163,10 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageToAttach := []application.CreateUnitStorageAttachmentArg{
+	expectedStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
 		// Existing st1 storage
 		{
-			FilesystemAttachment: &application.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: existingSt1Storage[0].Filesystem.UUID,
 				NetNodeUUID:    attachNetNodeUUID,
 				ProvisionScope: existingSt1Storage[0].Filesystem.ProvisionScope,
@@ -177,7 +177,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		// Existing st2 storage
 		{
 			StorageInstanceUUID: existingSt2Storage[0].UUID,
-			VolumeAttachment: &application.CreateUnitStorageVolumeAttachmentArg{
+			VolumeAttachment: &internal.CreateUnitStorageVolumeAttachmentArg{
 				NetNodeUUID:    attachNetNodeUUID,
 				ProvisionScope: existingSt2Storage[0].Volume.ProvisionScope,
 				VolumeUUID:     existingSt2Storage[0].Volume.UUID,
@@ -185,7 +185,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		},
 		{
 			StorageInstanceUUID: existingSt2Storage[1].UUID,
-			VolumeAttachment: &application.CreateUnitStorageVolumeAttachmentArg{
+			VolumeAttachment: &internal.CreateUnitStorageVolumeAttachmentArg{
 				NetNodeUUID:    attachNetNodeUUID,
 				ProvisionScope: existingSt2Storage[1].Volume.ProvisionScope,
 				VolumeUUID:     existingSt2Storage[1].Volume.UUID,
@@ -196,13 +196,13 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	// attachment expectations.
 	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
-		attachArg := application.CreateUnitStorageAttachmentArg{
+		attachArg := internal.CreateUnitStorageAttachmentArg{
 			StorageInstanceUUID: si.UUID,
 		}
 
 		if si.Filesystem != nil {
 			attachArg.FilesystemAttachment =
-				&application.CreateUnitStorageFilesystemAttachmentArg{
+				&internal.CreateUnitStorageFilesystemAttachmentArg{
 					FilesystemUUID: si.Filesystem.UUID,
 					NetNodeUUID:    attachNetNodeUUID,
 					ProvisionScope: si.Filesystem.ProvisionScope,
@@ -210,7 +210,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		}
 		if si.Volume != nil {
 			attachArg.VolumeAttachment =
-				&application.CreateUnitStorageVolumeAttachmentArg{
+				&internal.CreateUnitStorageVolumeAttachmentArg{
 					VolumeUUID:     si.Volume.UUID,
 					NetNodeUUID:    attachNetNodeUUID,
 					ProvisionScope: si.Volume.ProvisionScope,
@@ -224,7 +224,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		expectedStorageToOwn = append(expectedStorageToOwn, si.UUID)
 	}
 
-	c.Check(arg, createUnitStorageArgChecker(), application.CreateUnitStorageArg{
+	c.Check(arg, createUnitStorageArgChecker(), internal.CreateUnitStorageArg{
 		StorageDirectives: expectStorageDirectives,
 		StorageInstances:  expectedStorageInstances,
 		StorageToAttach:   expectedStorageToAttach,

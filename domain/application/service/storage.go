@@ -45,7 +45,7 @@ type StorageService interface {
 		unitUUID coreunit.UUID,
 		attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 		providerFilesystemInfo []caas.FilesystemInfo,
-	) (application.RegisterUnitStorageArg, error)
+	) (internal.RegisterUnitStorageArg, error)
 
 	// MakeRegisterNewCAASUnitStorageArg is responsible for constructing the storage
 	// arguments for registering a new caas unit in the model.
@@ -58,7 +58,7 @@ type StorageService interface {
 		appUUID coreapplication.UUID,
 		attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 		providerFilesystemInfo []caas.FilesystemInfo,
-	) (application.RegisterUnitStorageArg, error)
+	) (internal.RegisterUnitStorageArg, error)
 
 	// MakeApplicationStorageDirectiveArgs creates a slice of
 	// [application.CreateApplicationStorageDirectiveArg] from a set of overrides
@@ -71,7 +71,7 @@ type StorageService interface {
 		ctx context.Context,
 		directiveOverrides map[string]storage.StorageDirectiveOverride,
 		charmMetaStorage map[string]internalcharm.Storage,
-	) ([]application.CreateApplicationStorageDirectiveArg, error)
+	) ([]internal.CreateApplicationStorageDirectiveArg, error)
 
 	// MakeUnitStorageArgs creates the storage arguments required for a unit in
 	// the model. This func looks at the set of directives for the unit and the
@@ -95,7 +95,7 @@ type StorageService interface {
 		attachNetNodeUUID domainnetwork.NetNodeUUID,
 		storageDirectives []application.StorageDirective,
 		existingStorage []internal.StorageInstanceComposition,
-	) (application.CreateUnitStorageArg, error)
+	) (internal.CreateUnitStorageArg, error)
 
 	// ValidateApplicationStorageDirectiveOverrides checks a set of storage
 	// directive overrides to make sure they are valid with respect to the charms

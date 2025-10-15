@@ -396,7 +396,7 @@ func (st *State) insertApplicationStorageDirectives(
 	tx *sqlair.TX,
 	uuid coreapplication.UUID,
 	charmUUID corecharm.ID,
-	directives []application.CreateApplicationStorageDirectiveArg,
+	directives []internal.CreateApplicationStorageDirectiveArg,
 ) error {
 	if len(directives) == 0 {
 		return nil
@@ -441,7 +441,7 @@ func (st *State) insertUnitStorageAttachments(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	storageToAttach []application.CreateUnitStorageAttachmentArg,
+	storageToAttach []internal.CreateUnitStorageAttachmentArg,
 ) error {
 	storageAttachmentArgs := makeInsertUnitStorageAttachmentArgs(
 		ctx, unitUUID, storageToAttach,
@@ -522,7 +522,7 @@ func (st *State) insertUnitStorageDirectives(
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
 	charmUUID corecharm.ID,
-	args []application.CreateUnitStorageDirectiveArg,
+	args []internal.CreateUnitStorageDirectiveArg,
 ) error {
 	if len(args) == 0 {
 		return nil
@@ -563,7 +563,7 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 func (st *State) insertUnitStorageInstances(
 	ctx context.Context,
 	tx *sqlair.TX,
-	stArgs []application.CreateUnitStorageInstanceArg,
+	stArgs []internal.CreateUnitStorageInstanceArg,
 ) error {
 	storageInstArgs, err := st.makeInsertUnitStorageInstanceArgs(
 		ctx, tx, stArgs,
@@ -811,7 +811,7 @@ WHERE  uuid = $storagePoolUUID.uuid
 func (st *State) makeInsertUnitFilesystemArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
-	args []application.CreateUnitStorageInstanceArg,
+	args []internal.CreateUnitStorageInstanceArg,
 ) (
 	[]insertStorageFilesystem,
 	[]insertStorageFilesystemInstance,
@@ -882,7 +882,7 @@ func (st *State) makeInsertUnitFilesystemArgs(
 // [insertStorageFilesystemAttachment] for each filesystem attachment defined in
 // args.
 func (st *State) makeInsertUnitFilesystemAttachmentArgs(
-	args []application.CreateUnitStorageAttachmentArg,
+	args []internal.CreateUnitStorageAttachmentArg,
 ) []insertStorageFilesystemAttachment {
 	rval := []insertStorageFilesystemAttachment{}
 	for _, arg := range args {
@@ -910,7 +910,7 @@ func (st *State) makeInsertUnitFilesystemAttachmentArgs(
 func (st *State) makeInsertUnitStorageInstanceArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
-	args []application.CreateUnitStorageInstanceArg,
+	args []internal.CreateUnitStorageInstanceArg,
 ) ([]insertStorageInstance, error) {
 	storageInstancesRval := make([]insertStorageInstance, 0, len(args))
 
@@ -945,7 +945,7 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 func makeInsertUnitStorageAttachmentArgs(
 	_ context.Context,
 	unitUUID coreunit.UUID,
-	storageToAttach []application.CreateUnitStorageAttachmentArg,
+	storageToAttach []internal.CreateUnitStorageAttachmentArg,
 ) []insertStorageInstanceAttachment {
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, sa := range storageToAttach {
@@ -984,7 +984,7 @@ func makeInsertUnitStorageOwnerArgs(
 func (st *State) makeInsertUnitVolumeArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
-	args []application.CreateUnitStorageInstanceArg,
+	args []internal.CreateUnitStorageInstanceArg,
 ) (
 	[]insertStorageVolume,
 	[]insertStorageVolumeInstance,
@@ -1055,7 +1055,7 @@ func (st *State) makeInsertUnitVolumeArgs(
 // [insertStorageVolumeAttachment] values for each volume attachment argument
 // supplied.
 func (st *State) makeInsertUnitVolumeAttachmentArgs(
-	args []application.CreateUnitStorageAttachmentArg,
+	args []internal.CreateUnitStorageAttachmentArg,
 ) []insertStorageVolumeAttachment {
 	rval := []insertStorageVolumeAttachment{}
 	for _, arg := range args {

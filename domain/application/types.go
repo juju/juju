@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
@@ -52,7 +53,7 @@ type BaseAddApplicationArg struct {
 	PendingResources []resource.UUID
 	// StorageDirectives defines the list of storage directives to add to an
 	// application. The Name values must match the storage defined in the Charm.
-	StorageDirectives []CreateApplicationStorageDirectiveArg
+	StorageDirectives []internal.CreateApplicationStorageDirectiveArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
 	Config map[string]AddApplicationConfig
@@ -196,7 +197,7 @@ type AddCAASUnitArg struct {
 
 // AddUnitArg contains parameters for adding a unit to state.
 type AddUnitArg struct {
-	CreateUnitStorageArg
+	internal.CreateUnitStorageArg
 	UnitStatusArg
 	Constraints constraints.Constraints
 	Placement   deployment.Placement
@@ -246,7 +247,7 @@ type RegisterCAASUnitArg struct {
 	// attaching existing storage to the unit. Described as well is the set of
 	// storage directives the unit should use if it is being created for the
 	// first time.
-	RegisterUnitStorageArg
+	internal.RegisterUnitStorageArg
 }
 
 // UnitStatusArg contains parameters for updating a unit status in state.
@@ -256,7 +257,7 @@ type UnitStatusArg struct {
 }
 
 type SubordinateUnitArg struct {
-	CreateUnitStorageArg
+	internal.CreateUnitStorageArg
 	UnitStatusArg
 	SubordinateAppID application.UUID
 	// NetNodeUUID describes the network node uuid for this subordinate unit.

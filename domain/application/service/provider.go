@@ -27,6 +27,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -542,7 +543,7 @@ func (s *ProviderService) RegisterCAASUnit(
 		registerArgs.Ports = &caasUnit.Ports
 	}
 
-	var storageArg application.RegisterUnitStorageArg
+	var storageArg internal.RegisterUnitStorageArg
 	if isRegistered {
 		storageArg, err = s.storageService.MakeRegisterExistingCAASUnitStorageArg(
 			ctx, unitUUID, unitNetNodeUUID, caasUnit.FilesystemInfo,

@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -625,7 +626,7 @@ func validateDeviceConstraints(cons map[string]devices.Constraints, charmMeta *i
 // directives are missing that are required by the charm.
 func validateApplicationStorageDirectives(
 	charmStorageDefs map[string]internalcharm.Storage,
-	directives []application.CreateApplicationStorageDirectiveArg,
+	directives []internal.CreateApplicationStorageDirectiveArg,
 ) error {
 	// seenDirectives acts as a sanity check to see if a directive by a name has
 	// been witnessed.
@@ -676,7 +677,7 @@ func validateApplicationStorageDirectives(
 // expectations of the charm storage definition.
 func validateApplicationStorageDirective(
 	charmStorageDef internalcharm.Storage,
-	directive application.CreateApplicationStorageDirectiveArg,
+	directive internal.CreateApplicationStorageDirectiveArg,
 ) error {
 	minCount := uint32(0)
 	if charmStorageDef.CountMin > 0 {

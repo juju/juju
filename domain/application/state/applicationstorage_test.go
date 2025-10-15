@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -41,7 +42,7 @@ func (s *applicationStorageSuite) createApplicationWithStorageDirectives(
 	c *tc.C,
 	charmName string,
 	charmStorage map[string]charm.Storage,
-	directives []application.CreateApplicationStorageDirectiveArg,
+	directives []internal.CreateApplicationStorageDirectiveArg,
 ) coreapplication.UUID {
 	state := NewState(
 		s.ModelSuite.TxnRunnerFactory(),
@@ -136,7 +137,7 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectives(c *tc.C) {
 				Type:     charm.StorageFilesystem,
 			},
 		},
-		[]application.CreateApplicationStorageDirectiveArg{
+		[]internal.CreateApplicationStorageDirectiveArg{
 			{
 				Count:    2,
 				Name:     domainstorage.Name("str1"),
@@ -191,7 +192,7 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesEmpty(c *tc
 		c,
 		"testcharm",
 		map[string]charm.Storage{},
-		[]application.CreateApplicationStorageDirectiveArg{},
+		[]internal.CreateApplicationStorageDirectiveArg{},
 	)
 
 	st := NewState(
