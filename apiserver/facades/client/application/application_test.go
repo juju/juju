@@ -1206,15 +1206,15 @@ func (s *applicationSuite) testUnitsInfoCAAS(c *tc.C, inputTag names.Tag, result
 		RelationID:      3,
 		Endpoint:        "relation",
 		RelatedEndpoint: "fake-provides",
-		ApplicationData: map[string]interface{}{},
+		ApplicationData: map[string]string{},
 		UnitRelationData: map[string]relation.RelationData{
 			"foo/0": {
 				InScope:  true,
-				UnitData: map[string]interface{}{"foo": "bar"},
+				UnitData: map[string]string{"foo": "bar"},
 			},
 			"foo/1": {
 				InScope:  true,
-				UnitData: map[string]interface{}{"foo": "baz"},
+				UnitData: map[string]string{"foo": "baz"},
 			},
 		},
 	}}, nil)

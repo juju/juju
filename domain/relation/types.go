@@ -79,7 +79,7 @@ type RelationData struct {
 	InScope bool
 	// UnitData are the settings for the relation and current unit,
 	// set by an individual unit.
-	UnitData map[string]interface{} // unit settings
+	UnitData map[string]string // unit settings
 }
 
 // EndpointRelationData holds information about a relation to a given endpoint.
@@ -93,7 +93,7 @@ type EndpointRelationData struct {
 	RelatedEndpoint string
 	// ApplicationData are the settings for the relation and current application,
 	// set by the leader unit.
-	ApplicationData map[string]interface{}
+	ApplicationData map[string]string
 	// UnitRelationData are the RelationData for the relation and current unit,
 	// set by an individual unit, keyed on the unit name.
 	UnitRelationData map[string]RelationData

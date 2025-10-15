@@ -1511,7 +1511,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeNonNilApplication
 			ApplicationSettings: map[string]string{
 				"foo": "bar",
 			},
-			ChangedUnits: []domainrelation.UnitChange{{
+			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
 				Settings: map[string]string{
 					"foo": "bar",
@@ -1573,7 +1573,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeNilUnitSettings(c
 		RelationUnitChange: domainrelation.RelationUnitChange{
 			RelationUUID: relationUUID,
 			Life:         life.Alive,
-			ChangedUnits: []domainrelation.UnitChange{{
+			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
 			}},
 			AllUnits:     []int{0, 1, 2, 3},

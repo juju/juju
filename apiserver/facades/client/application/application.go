@@ -2147,16 +2147,20 @@ func (api *APIBase) relationData(ctx context.Context, appName string) ([]params.
 		unitRelationData := make(map[string]params.RelationData)
 		for k, v := range endpointData.UnitRelationData {
 			unitRelationData[k] = params.RelationData{
-				InScope:  v.InScope,
-				UnitData: v.UnitData,
+				InScope: v.InScope,
+				UnitData: transform.Map(v.UnitData, func(k, v string) (string, interface{}) {
+					return k, v
+				}),
 			}
 		}
 		result = append(result, params.EndpointRelationData{
-			RelationId:       endpointData.RelationID,
-			Endpoint:         endpointData.Endpoint,
-			CrossModel:       false,
-			RelatedEndpoint:  endpointData.RelatedEndpoint,
-			ApplicationData:  endpointData.ApplicationData,
+			RelationId:      endpointData.RelationID,
+			Endpoint:        endpointData.Endpoint,
+			CrossModel:      false,
+			RelatedEndpoint: endpointData.RelatedEndpoint,
+			ApplicationData: transform.Map(endpointData.ApplicationData, func(k, v string) (string, interface{}) {
+				return k, v
+			}),
 			UnitRelationData: unitRelationData,
 		})
 	}

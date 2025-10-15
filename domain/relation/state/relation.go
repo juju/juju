@@ -1166,7 +1166,7 @@ func (st *State) GetRelationUnitsChanges(
 	}
 
 	// Transform the data into RelationUnitChange.
-	appSettings := transform.SliceToMap(settings, func(s relationSetting) (string, any) {
+	appSettings := transform.SliceToMap(settings, func(s relationSetting) (string, string) {
 		return s.Key, s.Value
 	})
 	inScopeUnits := make([]int, 0)
@@ -3343,8 +3343,8 @@ WHERE  ru.uuid = $getUnitRelAndApp.uuid
 	return args.RelationUUID, args.ApplicationUUID, nil
 }
 
-func convertSettings(input []relationSetting) map[string]interface{} {
-	output := make(map[string]interface{}, len(input))
+func convertSettings(input []relationSetting) map[string]string {
+	output := make(map[string]string, len(input))
 	for _, in := range input {
 		output[in.Key] = in.Value
 	}
