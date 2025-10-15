@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -50,7 +51,7 @@ func (c *Charm) ArchiveSha256(ctx context.Context) (string, error) {
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return "", result.Error
+		return "", apiservererrors.RestoreError(result.Error)
 	}
 	return result.Result, nil
 }
