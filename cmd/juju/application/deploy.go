@@ -197,7 +197,7 @@ func newDeployCommand() *DeployCommand {
 			spacesClient:         spaces.NewAPI(apiRoot),
 		}, nil
 	}
-	deployCmd.NewConsumeDetailsAPI = func(ctx context.Context, url *crossmodel.OfferURL) (deployer.ConsumeDetails, error) {
+	deployCmd.NewConsumeDetailsAPI = func(ctx context.Context, url crossmodel.OfferURL) (deployer.ConsumeDetails, error) {
 		root, err := deployCmd.CommandBase.NewAPIRoot(ctx, deployCmd.ClientStore(), url.Source, "")
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -324,7 +324,7 @@ type DeployCommand struct {
 
 	// NewConsumeDetailsAPI stores a function which will return a new API
 	// for consume details API using the url as the source.
-	NewConsumeDetailsAPI func(ctx context.Context, url *crossmodel.OfferURL) (deployer.ConsumeDetails, error)
+	NewConsumeDetailsAPI func(ctx context.Context, url crossmodel.OfferURL) (deployer.ConsumeDetails, error)
 
 	// DeployResources stores a function which deploys charm resources.
 	DeployResources deployer.DeployResourcesFunc

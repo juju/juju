@@ -388,7 +388,7 @@ type DeployerDependencies struct {
 	Model                ModelCommand
 	FileSystem           modelcmd.Filesystem
 	CharmReader          CharmReader
-	NewConsumeDetailsAPI func(ctx context.Context, url *crossmodel.OfferURL) (ConsumeDetails, error)
+	NewConsumeDetailsAPI func(ctx context.Context, url crossmodel.OfferURL) (ConsumeDetails, error)
 	DeployKind           DeployerFactory
 }
 
@@ -434,7 +434,7 @@ type factory struct {
 	// DeployerDependencies
 	model                ModelCommand
 	deployResources      DeployResourcesFunc
-	newConsumeDetailsAPI func(ctx context.Context, url *crossmodel.OfferURL) (ConsumeDetails, error)
+	newConsumeDetailsAPI func(ctx context.Context, url crossmodel.OfferURL) (ConsumeDetails, error)
 	fileSystem           modelcmd.Filesystem
 	charmReader          CharmReader
 

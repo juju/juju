@@ -57,7 +57,7 @@ func TestModelStateSuite(t *testing.T) {
 }
 
 func (s *modelStateSuite) SetUpTest(c *tc.C) {
-	s.ModelSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 
 	_, err := s.DB().ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
 	c.Assert(err, tc.ErrorIsNil)
@@ -127,7 +127,7 @@ func (s *modelStateSuite) TestGetAllRelationStatusesNone(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationUUIDByName(c *tc.C) {
-	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
 
 	gotID, err := s.state.GetApplicationUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
@@ -154,7 +154,7 @@ func (s *modelStateSuite) TestGetApplicationUUIDAndNameByUnitNameNotFound(c *tc.
 }
 
 func (s *modelStateSuite) TestSetApplicationStatus(c *tc.C) {
-	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.WorkloadStatusType]{
@@ -173,7 +173,7 @@ func (s *modelStateSuite) TestSetApplicationStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetApplicationStatusMultipleTimes(c *tc.C) {
-	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
 
 	err := s.state.SetApplicationStatus(c.Context(), id, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusBlocked,
@@ -199,7 +199,7 @@ func (s *modelStateSuite) TestSetApplicationStatusMultipleTimes(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetApplicationStatusWithNoData(c *tc.C) {
-	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.WorkloadStatusType]{
@@ -230,7 +230,7 @@ func (s *modelStateSuite) TestSetApplicationStatusApplicationNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetApplicationStatusInvalidStatus(c *tc.C) {
-	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
 
 	expected := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusType(99),
@@ -246,7 +246,7 @@ func (s *modelStateSuite) TestGetApplicationStatusApplicationNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationStatusNotSet(c *tc.C) {
-	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, nil)
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, nil)
 
 	sts, err := s.state.GetApplicationStatus(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
@@ -502,8 +502,8 @@ func (s *modelStateSuite) TestGetUnitAgentStatusUnset(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitAgentStatusDead(c *tc.C) {
-	_, unitUUIDs := s.createIAASApplication(
-		c, "foo", life.Dead, true, s.workloadStatus(time.Now()),
+	_, unitUUIDs := s.createSubordinateIAASApplication(
+		c, "foo", life.Dead, s.workloadStatus(time.Now()),
 		s.createIAASUnitArg(c),
 	)
 	unitUUID := unitUUIDs[0]
@@ -574,7 +574,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *tc.C) {
 func (s *modelStateSuite) TestGetUnitWorkloadStatusDead(c *tc.C) {
 	u1 := s.createIAASUnitArg(c)
 	_, unitUUIDs := s.createIAASApplication(
-		c, "foo", life.Dead, false, s.workloadStatus(time.Now()), u1,
+		c, "foo", life.Dead, s.workloadStatus(time.Now()), u1,
 	)
 	unitUUID := unitUUIDs[0]
 
@@ -718,7 +718,7 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatusUnitNotFound(c *tc.C) {
 func (s *modelStateSuite) TestGetUnitK8sPodStatusDead(c *tc.C) {
 	u1 := s.createCAASUnitArg(c)
 	_, unitUUIDs := s.createCAASApplication(
-		c, "foo", life.Dead, false, s.workloadStatus(time.Now()), u1,
+		c, "foo", life.Dead, s.workloadStatus(time.Now()), u1,
 	)
 	unitUUID := unitUUIDs[0]
 
@@ -859,7 +859,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationNotFound(c *t
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationNoUnits(c *tc.C) {
-	appId, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
+	appId, _ := s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
 
 	results, err := s.state.GetUnitWorkloadStatusesForApplication(c.Context(), appId)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1014,7 +1014,7 @@ func (s *modelStateSuite) TestGetAllUnitStatusesForApplicationNotFound(c *tc.C) 
 }
 
 func (s *modelStateSuite) TestGetAllUnitStatusesForApplicationNoUnits(c *tc.C) {
-	appId, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
+	appId, _ := s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
 
 	fullStatuses, err := s.state.GetAllFullUnitStatusesForApplication(c.Context(), appId)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1152,10 +1152,10 @@ func (s *modelStateSuite) TestGetAllApplicationStatusesEmptyModel(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllApplicationStatusesUnsetStatuses(c *tc.C) {
-	s.createIAASApplication(c, "foo", life.Alive, false, nil,
+	s.createIAASApplication(c, "foo", life.Alive, nil,
 		s.createIAASUnitArg(c),
 	)
-	s.createIAASApplication(c, "bar", life.Alive, false, nil)
+	s.createIAASApplication(c, "bar", life.Alive, nil)
 
 	statuses, err := s.state.GetAllApplicationStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1164,8 +1164,8 @@ func (s *modelStateSuite) TestGetAllApplicationStatusesUnsetStatuses(c *tc.C) {
 
 func (s *modelStateSuite) TestGetAllApplicationStatuses(c *tc.C) {
 	app1ID, _ := s.createIAASApplicationWithNUnits(c, "foo", 1)
-	app2ID, _ := s.createIAASApplication(c, "bar", life.Alive, false, s.workloadStatus(time.Now()))
-	s.createIAASApplication(c, "goo", life.Alive, false, s.workloadStatus(time.Now()))
+	app2ID, _ := s.createIAASApplication(c, "bar", life.Alive, s.workloadStatus(time.Now()))
+	s.createIAASApplication(c, "goo", life.Alive, s.workloadStatus(time.Now()))
 
 	app1Status := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
@@ -1264,7 +1264,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoApplications(c *tc.
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesCMRSyntheticApplication(c *tc.C) {
-	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, nil)
+	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, nil)
 
 	// Convert the application to a CMRSyntheticApplication by setting source_id to 2
 	// and architecture_id to NULL.
@@ -1283,7 +1283,7 @@ WHERE uuid=(SELECT charm_uuid FROM application WHERE uuid=?)`, appUUID)
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C) {
-	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, nil,
+	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, nil,
 		s.createIAASUnitArg(c),
 		s.createIAASUnitArg(c),
 	)
@@ -1387,7 +1387,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 	}
 
 	appStatus := s.workloadStatus(now)
-	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, appStatus, u1, u2)
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1500,10 +1500,10 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 	}
 
 	appStatus := s.workloadStatus(now)
-	appUUID0, units0 := s.createIAASApplication(c, "foo", life.Alive, false, appStatus, u1)
+	appUUID0, units0 := s.createIAASApplication(c, "foo", life.Alive, appStatus, u1)
 	c.Assert(units0, tc.HasLen, 1)
 
-	appUUID1, units1 := s.createIAASApplication(c, "sub", life.Alive, true, appStatus, u2, u3)
+	appUUID1, units1 := s.createSubordinateIAASApplication(c, "sub", life.Alive, appStatus, u2, u3)
 	c.Assert(units1, tc.HasLen, 2)
 	for _, unit := range units1 {
 		// This will cause the subordinates to have incorrect machine names
@@ -1627,7 +1627,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	appUUID, _ := s.createIAASApplication(
-		c, "foo", life.Alive, false, appStatus,
+		c, "foo", life.Alive, appStatus,
 		s.createIAASUnitArg(c),
 		s.createIAASUnitArg(c),
 	)
@@ -1689,7 +1689,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	appUUID, unitUUDs := s.createCAASApplication(
-		c, "foo", life.Alive, false, appStatus,
+		c, "foo", life.Alive, appStatus,
 		s.createCAASUnitArg(c),
 		s.createCAASUnitArg(c),
 	)
@@ -1765,7 +1765,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	appUUID, _ := s.createCAASApplication(
-		c, "foo", life.Alive, false, appStatus,
+		c, "foo", life.Alive, appStatus,
 		s.createCAASUnitArg(c),
 		s.createCAASUnitArg(c),
 	)
@@ -1832,7 +1832,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	appUUID, _ := s.createCAASApplication(
-		c, "foo", life.Alive, false, appStatus,
+		c, "foo", life.Alive, appStatus,
 		s.createCAASUnitArg(c),
 		s.createCAASUnitArg(c),
 	)
@@ -1934,7 +1934,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitModelStatusesNoApplication(c 
 func (s *modelStateSuite) TestGetApplicationAndUnitModelStatusesNoUnits(c *tc.C) {
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
-	s.createIAASApplication(c, "foo", life.Alive, false, appStatus)
+	s.createIAASApplication(c, "foo", life.Alive, appStatus)
 
 	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -2507,23 +2507,6 @@ func (s *modelStateSuite) TestIsUnitForApplicationFalse(c *tc.C) {
 	c.Assert(ret, tc.IsFalse)
 }
 
-// addRelationWithLifeAndID inserts a new relation into the database with the
-// given details.
-func (s *modelStateSuite) addRelationWithLifeAndID(c *tc.C, life corelife.Value, relationID int) corerelation.UUID {
-	relationUUID := corerelationtesting.GenRelationUUID(c)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.Exec(`
-INSERT INTO relation (uuid, relation_id, life_id, scope_id)
-SELECT ?, ?, id, 0
-FROM life
-WHERE value = ?
-`, relationUUID, relationID, life)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) Failed to insert relation %s, id %d", relationUUID, relationID))
-	return relationUUID
-}
-
 // addRelationStatusWithMessage inserts a relation status into the relation_status table.
 func (s *modelStateSuite) addRelationStatusWithMessage(c *tc.C, relationUUID corerelation.UUID, status corestatus.Status,
 	message string, since time.Time) {
@@ -2538,36 +2521,6 @@ WHERE rst.name = ?
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) Failed to insert relation status %s, status %s, message %q",
 		relationUUID, status, message))
-}
-
-func (s *modelStateSuite) addRelationToApplication(c *tc.C, appUUID coreapplication.UUID, relationUUID corerelation.UUID) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var charmRelationUUID string
-		err := tx.QueryRowContext(ctx, `SELECT uuid FROM charm_relation WHERE name = 'endpoint'`).Scan(&charmRelationUUID)
-		if err != nil {
-			return err
-		}
-
-		var endpointUUID string
-		err = tx.QueryRowContext(ctx, `SELECT uuid FROM application_endpoint WHERE application_uuid = ? AND charm_relation_uuid = ?`, appUUID, charmRelationUUID).Scan(&endpointUUID)
-		if err != nil {
-			return err
-		}
-
-		relationEndpointUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(ctx, `INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?);`, relationEndpointUUID, relationUUID, endpointUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO application_exposed_endpoint_cidr (application_uuid, application_endpoint_uuid, cidr) VALUES (?, ?, "10.0.0.0/24") ON CONFLICT DO NOTHING;`, appUUID, endpointUUID)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelStateSuite) createMachine(c *tc.C) (coremachine.UUID, coremachine.Name) {

@@ -49,7 +49,7 @@ type ModelService interface {
 // CrossModelRelationService defines the interface for interacting with the crossmodelrelation domain.
 type CrossModelRelationService interface {
 	// GetOfferUUID returns the uuid for the provided offer URL.
-	GetOfferUUID(ctx context.Context, offerURL *crossmodel.OfferURL) (offer.UUID, error)
+	GetOfferUUID(ctx context.Context, offerURL crossmodel.OfferURL) (offer.UUID, error)
 
 	// GetOffers returns offer details for all offers satisfying any of the
 	// provided filters.

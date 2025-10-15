@@ -169,6 +169,9 @@ type remoteApplicationOfferer struct {
 	// OfferUUID is the offer uuid that ties both the offerer and consumer
 	// together.
 	OfferUUID string `db:"offer_uuid"`
+	// OfferURL is the URL of the offer that the remote application is
+	// consuming.
+	OfferURL string `db:"offer_url"`
 	// Version is the version of the remote application offerer.
 	Version uint64 `db:"version"`
 	// OffererControllerUUID is the unique identifier for the controller
@@ -193,6 +196,9 @@ type remoteApplicationOffererInfo struct {
 	// OfferUUID is the offer uuid that ties both the offerer and consumer
 	// together.
 	OfferUUID string `db:"offer_uuid"`
+	// OfferURL is the URL of the offer that the remote application is
+	// consuming.
+	OfferURL string `db:"offer_url"`
 	// Version is the version of the remote application offerer.
 	Version uint64 `db:"version"`
 	// OffererControllerUUID is the unique identifier for the controller

@@ -467,6 +467,21 @@ type remoteApplicationStatus struct {
 	UpdatedAt             *time.Time `db:"updated_at"`
 }
 
+type fullRemoteApplicationStatus struct {
+	Name              string           `db:"name"`
+	LifeID            domainlife.Life  `db:"life_id"`
+	StatusID          int              `db:"status_id"`
+	Message           string           `db:"message"`
+	Data              []byte           `db:"data"`
+	UpdatedAt         *time.Time       `db:"updated_at"`
+	OfferURL          string           `db:"offer_url"`
+	EndpointName      string           `db:"endpoint_name"`
+	EndpointRole      string           `db:"endpoint_role"`
+	EndpointInterface string           `db:"endpoint_interface"`
+	EndpointLimit     int              `db:"endpoint_limit"`
+	RelationUUID      sql.Null[string] `db:"relation_uuid"`
+}
+
 func decodeHardwareCharacteristics(
 	arch sql.Null[string],
 	cpuCores sql.Null[uint64],

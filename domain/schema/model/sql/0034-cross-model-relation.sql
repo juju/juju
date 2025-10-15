@@ -9,6 +9,9 @@ CREATE TABLE application_remote_offerer (
     -- offer_uuid is the offer uuid that ties both the offerer and the consumer
     -- together.
     offer_uuid TEXT NOT NULL,
+    -- offer_url is the URL of the offer that the remote application is
+    -- consuming.
+    offer_url TEXT NOT NULL,
     -- version is the unique version number that is incremented when the 
     -- consumer model changes the offerer application.
     version INT NOT NULL,

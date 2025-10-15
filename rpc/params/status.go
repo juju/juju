@@ -22,17 +22,17 @@ type StatusParams struct {
 
 // FullStatus holds information about the status of a juju model.
 type FullStatus struct {
-	Model               ModelStatusInfo                    `json:"model"`
-	Machines            map[string]MachineStatus           `json:"machines"`
-	Applications        map[string]ApplicationStatus       `json:"applications"`
-	RemoteApplications  map[string]RemoteApplicationStatus `json:"remote-applications"`
-	Offers              map[string]ApplicationOfferStatus  `json:"offers"`
-	Relations           []RelationStatus                   `json:"relations"`
-	ControllerTimestamp *time.Time                         `json:"controller-timestamp"`
-	Branches            map[string]BranchStatus            `json:"branches"`
-	Storage             []StorageDetails                   `json:"storage,omitempty"`
-	Filesystems         []FilesystemDetails                `json:"filesystems,omitempty"`
-	Volumes             []VolumeDetails                    `json:"volumes,omitempty"`
+	Model                     ModelStatusInfo                    `json:"model"`
+	Machines                  map[string]MachineStatus           `json:"machines"`
+	Applications              map[string]ApplicationStatus       `json:"applications"`
+	RemoteApplicationOfferers map[string]RemoteApplicationStatus `json:"remote-applications"`
+	Offers                    map[string]ApplicationOfferStatus  `json:"offers"`
+	Relations                 []RelationStatus                   `json:"relations"`
+	ControllerTimestamp       *time.Time                         `json:"controller-timestamp"`
+	Branches                  map[string]BranchStatus            `json:"branches"`
+	Storage                   []StorageDetails                   `json:"storage,omitempty"`
+	Filesystems               []FilesystemDetails                `json:"filesystems,omitempty"`
+	Volumes                   []VolumeDetails                    `json:"volumes,omitempty"`
 }
 
 // IsEmpty checks all collections on FullStatus to determine if the status is empty.
@@ -41,7 +41,7 @@ func (fs *FullStatus) IsEmpty() bool {
 	return len(fs.Applications) == 0 &&
 		len(fs.Machines) == 0 &&
 		len(fs.Offers) == 0 &&
-		len(fs.RemoteApplications) == 0 &&
+		len(fs.RemoteApplicationOfferers) == 0 &&
 		len(fs.Relations) == 0
 }
 

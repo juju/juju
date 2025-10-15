@@ -1195,7 +1195,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) modelcmd.ModelCommand {
 	deployCmd.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
 		return apicharms.NewClient(fakeAPI)
 	}
-	deployCmd.NewConsumeDetailsAPI = func(ctx context.Context, url *crossmodel.OfferURL) (deployer.ConsumeDetails, error) {
+	deployCmd.NewConsumeDetailsAPI = func(ctx context.Context, url crossmodel.OfferURL) (deployer.ConsumeDetails, error) {
 		return fakeAPI, nil
 	}
 	return cmd

@@ -1018,6 +1018,45 @@ func (c *MockStatusServiceGetModelStatusCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetRemoteApplicationOffererStatuses mocks base method.
+func (m *MockStatusService) GetRemoteApplicationOffererStatuses(arg0 context.Context) (map[string]service.RemoteApplicationOfferer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteApplicationOffererStatuses", arg0)
+	ret0, _ := ret[0].(map[string]service.RemoteApplicationOfferer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteApplicationOffererStatuses indicates an expected call of GetRemoteApplicationOffererStatuses.
+func (mr *MockStatusServiceMockRecorder) GetRemoteApplicationOffererStatuses(arg0 any) *MockStatusServiceGetRemoteApplicationOffererStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteApplicationOffererStatuses", reflect.TypeOf((*MockStatusService)(nil).GetRemoteApplicationOffererStatuses), arg0)
+	return &MockStatusServiceGetRemoteApplicationOffererStatusesCall{Call: call}
+}
+
+// MockStatusServiceGetRemoteApplicationOffererStatusesCall wrap *gomock.Call
+type MockStatusServiceGetRemoteApplicationOffererStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusServiceGetRemoteApplicationOffererStatusesCall) Return(arg0 map[string]service.RemoteApplicationOfferer, arg1 error) *MockStatusServiceGetRemoteApplicationOffererStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusServiceGetRemoteApplicationOffererStatusesCall) Do(f func(context.Context) (map[string]service.RemoteApplicationOfferer, error)) *MockStatusServiceGetRemoteApplicationOffererStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusServiceGetRemoteApplicationOffererStatusesCall) DoAndReturn(f func(context.Context) (map[string]service.RemoteApplicationOfferer, error)) *MockStatusServiceGetRemoteApplicationOffererStatusesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStatusHistory mocks base method.
 func (m *MockStatusService) GetStatusHistory(arg0 context.Context, arg1 service.StatusHistoryRequest) ([]status.DetailedStatus, error) {
 	m.ctrl.T.Helper()

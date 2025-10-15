@@ -7,9 +7,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/relation"
-	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/constraints"
@@ -145,7 +143,18 @@ type VolumeAttachmentPlan struct {
 	DeviceAttributes map[string]string
 }
 
-type Offer struct {
-	UUID   offer.UUID
-	Status corestatus.StatusInfo
+type RemoteApplicationOfferer struct {
+	Status    StatusInfo[WorkloadStatusType]
+	OfferName string
+	OfferURL  string
+	Life      life.Life
+	Endpoints []Endpoint
+	Relations []string
+}
+
+type Endpoint struct {
+	Name      string
+	Role      string
+	Interface string
+	Limit     int
 }

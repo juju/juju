@@ -106,7 +106,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		if !names.IsValidApplication(c.url) {
 			return errors.Trace(err)
 		}
-		url = &crossmodel.OfferURL{
+		url = crossmodel.OfferURL{
 			Name: c.url,
 		}
 	}

@@ -127,6 +127,7 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 			Charm:                 syntheticCharm,
 			OfferUUID:             args.OfferUUID.String(),
 		},
+		OfferURL:              args.OfferURL.String(),
 		OffererControllerUUID: args.OffererControllerUUID,
 		OffererModelUUID:      args.OffererModelUUID,
 		EncodedMacaroon:       encodedMacaroon,

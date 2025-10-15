@@ -365,7 +365,7 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 			if c.remoteEndpoint != nil {
 				return errors.NotSupportedf("providing more than one remote endpoints")
 			}
-			c.remoteEndpoint = url
+			c.remoteEndpoint = &url
 			c.endpoints = append(c.endpoints, url.Name)
 			continue
 		}

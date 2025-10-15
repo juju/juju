@@ -6,14 +6,19 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
+
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/offer"
+	corerelation "github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/status"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -22,6 +27,10 @@ type CrossModelRelationState interface {
 	// GetRemoteApplicationOffererUUIDByName returns the UUID for the named for the remote
 	// application wrapping the named application
 	GetRemoteApplicationOffererUUIDByName(ctx context.Context, name string) (coreremoteapplication.UUID, error)
+
+	// GetRemoteApplicationOffererStatuses returns the statuses of all remote
+	// application offerers in the model, indexed by application name.
+	GetRemoteApplicationOffererStatuses(ctx context.Context) (map[string]status.RemoteApplicationOfferer, error)
 
 	// SetRemoteApplicationOffererStatus sets the status of the specified remote
 	// application in the local model.
@@ -76,6 +85,20 @@ func (s *Service) GetOfferStatus(ctx context.Context, offerUUID offer.UUID) (cor
 	return appStatus, nil
 }
 
+// GetRemoteApplicationOffererStatuses returns the statuses of all remote
+// application offerers in the model, indexed by application name.
+func (s *Service) GetRemoteApplicationOffererStatuses(ctx context.Context) (map[string]RemoteApplicationOfferer, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	res, err := s.modelState.GetRemoteApplicationOffererStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return decodeRemoteApplicationOffererStatuses(res)
+}
+
 // SetRemoteApplicationOffererStatus sets the status of the specified remote
 // application in the local model.
 func (s *Service) SetRemoteApplicationOffererStatus(
@@ -106,4 +129,67 @@ func (s *Service) SetRemoteApplicationOffererStatus(
 	}
 
 	return nil
+}
+
+func decodeRemoteApplicationOffererStatuses(statuses map[string]status.RemoteApplicationOfferer) (map[string]RemoteApplicationOfferer, error) {
+	res := make(map[string]RemoteApplicationOfferer, len(statuses))
+	for name, sts := range statuses {
+		life, err := sts.Life.Value()
+		if err != nil {
+			return nil, errors.Errorf("decoding remote application offerer life: %w", err)
+		}
+
+		eps, err := transform.SliceOrErr(sts.Endpoints, func(ep status.Endpoint) (Endpoint, error) {
+			role, err := decodeRole(ep.Role)
+			if err != nil {
+				return Endpoint{}, errors.Errorf("decoding remote application offerer role: %w", err)
+			}
+			return Endpoint{
+				Name:      ep.Name,
+				Role:      role,
+				Interface: ep.Interface,
+				Limit:     ep.Limit,
+			}, nil
+		})
+		if err != nil {
+			return nil, errors.Errorf("decoding remote application offerer endpoints: %w", err)
+		}
+
+		rels, err := transform.SliceOrErr(sts.Relations, corerelation.ParseUUID)
+		if err != nil {
+			return nil, errors.Errorf("decoding remote application offerer relations: %w", err)
+		}
+
+		appStatus, err := decodeApplicationStatus(sts.Status)
+		if err != nil {
+			return nil, errors.Errorf("decoding remote application offerer status: %w", err)
+		}
+
+		offerURL, err := crossmodel.ParseOfferURL(sts.OfferURL)
+		if err != nil {
+			return nil, errors.Errorf("parsing remote application offerer offer URL: %w", err)
+		}
+
+		res[name] = RemoteApplicationOfferer{
+			Status:    appStatus,
+			OfferURL:  offerURL,
+			Life:      life,
+			Endpoints: eps,
+			Relations: rels,
+		}
+	}
+	return res, nil
+}
+
+func decodeRole(role string) (internalcharm.RelationRole, error) {
+	switch role {
+	case "provider":
+		return internalcharm.RoleProvider, nil
+	case "requirer":
+		return internalcharm.RoleRequirer, nil
+	case "peer":
+		return internalcharm.RolePeer, nil
+	default:
+		return "", errors.Errorf("unknown role %q", role)
+	}
 }

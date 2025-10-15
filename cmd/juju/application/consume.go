@@ -99,7 +99,7 @@ func (c *consumeCommand) getTargetAPI(ctx context.Context) (applicationConsumeAP
 	return application.NewClient(root), nil
 }
 
-func (c *consumeCommand) getSourceAPI(ctx context.Context, url *crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
+func (c *consumeCommand) getSourceAPI(ctx context.Context, url crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
 	if c.sourceAPI != nil {
 		return c.sourceAPI, nil
 	}
