@@ -187,6 +187,16 @@ func (r *RemoteEntities) importRemoteEntityOps(entity names.Tag, token string) [
 	}}
 }
 
+func (r *RemoteEntities) replaceRemoteEntityOps(entity names.Tag, token string) []txn.Op {
+	return []txn.Op{{
+		C:  remoteEntitiesC,
+		Id: entity.String(),
+		Insert: &remoteEntityDoc{
+			Token: token,
+		},
+	}}
+}
+
 // RemoveRemoteEntity removes the entity from the remote entities collection,
 // and releases the token if the entity belongs to the local model.
 func (r *RemoteEntities) RemoveRemoteEntity(entity names.Tag) error {
