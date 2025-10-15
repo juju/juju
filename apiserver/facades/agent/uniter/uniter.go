@@ -1726,7 +1726,7 @@ func (u *UniterAPI) oneLeaveScope(ctx context.Context, canAccess common.AuthFunc
 	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
-	relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, coreunit.Name(unit.Id()))
+	relUnitUUID, err := u.relationService.GetRelationUnitUUID(ctx, relUUID, coreunit.Name(unit.Id()))
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -2009,18 +2009,13 @@ func (u *UniterAPI) updateUnitAndApplicationSettings(ctx context.Context, arg pa
 	}
 	unitName := coreunit.Name(unitTag.Id())
 
-	relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, unitName)
-	if err != nil {
-		return internalerrors.Capture(err)
-	}
-
 	// This is not the place to update those fields they are updated
 	// if required in setUnitRelationNetworks.
 	// Keeping those entries here may override incoming update with old values
 	delete(arg.Settings, "ingress-address")
 	delete(arg.Settings, "egress-subnets")
 
-	err = u.relationService.SetRelationApplicationAndUnitSettings(ctx, unitName, relUnitUUID, arg.ApplicationSettings, arg.Settings)
+	err = u.relationService.SetRelationApplicationAndUnitSettings(ctx, unitName, relUUID, arg.ApplicationSettings, arg.Settings)
 	if errors.Is(err, corelease.ErrNotHeld) {
 		return apiservererrors.ErrPerm
 	} else if err != nil {
@@ -3004,11 +2999,14 @@ func (u *UniterAPI) setUnitRelationNetworks(ctx context.Context, name coreunit.N
 		return internalerrors.Errorf("getting UUID of unit %q: %w", name, err)
 	}
 
+	// TODO (stickupkid): This should be just one bulk request on the relation
+	// service.
 	unitRelations, err := u.relationService.GetRelationsStatusForUnit(ctx, unitUUID)
 	if err != nil {
 		return internalerrors.Errorf("getting relations for unit %q: %w", name, err)
 	}
-	// Fetch all joined relation for the unit
+
+	// Fetch all joined relation for the unit.
 	for _, rel := range unitRelations {
 		if !rel.InScope {
 			continue
@@ -3017,25 +3015,21 @@ func (u *UniterAPI) setUnitRelationNetworks(ctx context.Context, name coreunit.N
 		if err != nil {
 			return internalerrors.Errorf("getting relation UUID: %w", err)
 		}
-		relationUnitUUID, err := u.relationService.GetRelationUnit(ctx, relationUUID, name)
-		if err != nil {
-			return internalerrors.Errorf("getting relation uni UUIDt: %w", err)
-		}
 		unitNetwork, err := u.networkService.GetUnitRelationNetwork(ctx, name, rel.Key)
 		if err != nil {
 			return internalerrors.Errorf("getting relation network: %w", err)
 		}
-		if err := u.relationService.SetRelationApplicationAndUnitSettings(ctx,
+
+		// Set relation settings.
+		if err := u.relationService.SetRelationUnitSettings(ctx,
 			name,
-			relationUnitUUID,
-			nil,
+			relationUUID,
 			unitNetworkToUnitSettings(unitNetwork),
 		); err != nil {
-			return internalerrors.Errorf("setting relation application and unit settings: %w", err)
+			return internalerrors.Errorf("setting relation unit settings: %w", err)
 		}
 	}
 
-	// Set relation settings.
 	return nil
 }
 

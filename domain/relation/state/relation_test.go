@@ -1376,7 +1376,7 @@ func (s *relationSuite) TestGetRelationDetailsNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestGetRelationUnit(c *tc.C) {
+func (s *relationSuite) TestGetRelationUnitUUID(c *tc.C) {
 	// Arrange: one relation unit
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, "my-app")
@@ -1388,16 +1388,16 @@ func (s *relationSuite) TestGetRelationUnit(c *tc.C) {
 	relUnitUUID := s.addRelationUnit(c, unitUUID, relEndpointUUID)
 
 	// Act
-	uuid, err := s.state.GetRelationUnit(c.Context(), relUUID, "my-app/0")
+	uuid, err := s.state.GetRelationUnitUUID(c.Context(), relUUID, "my-app/0")
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 	c.Check(uuid, tc.Equals, relUnitUUID)
 }
 
-func (s *relationSuite) TestGetRelationUnitNotFound(c *tc.C) {
+func (s *relationSuite) TestGetRelationUnitUUIDNotFound(c *tc.C) {
 	// Act
-	_, err := s.state.GetRelationUnit(c.Context(), "unknown-relation-uuid", "some-unit-name")
+	_, err := s.state.GetRelationUnitUUID(c.Context(), "unknown-relation-uuid", "some-unit-name")
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
@@ -2595,6 +2595,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *tc.C) {
 		relationUnitUUID,
 		initialSettings,
 	)
+
 	c.Assert(err, tc.ErrorIsNil)
 
 	initialHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
@@ -2672,7 +2673,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsRelationUnitNotFound(c *tc.C)
 	err := s.state.SetRelationUnitSettings(
 		c.Context(),
 		"bad-uuid",
-		nil,
+		map[string]string{"key": "value"},
 	)
 
 	// Assert:
@@ -2795,8 +2796,8 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitNot
 	err := s.state.SetRelationApplicationAndUnitSettings(
 		c.Context(),
 		"bad-uuid",
-		nil,
-		nil,
+		map[string]string{"key": "value"},
+		map[string]string{"key": "value"},
 	)
 
 	// Assert:
