@@ -4,249 +4,46 @@
 package service
 
 import (
-	"context"
-	"testing"
-
-	"github.com/juju/clock"
-	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
-	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/application/errors"
-	domainstorage "github.com/juju/juju/domain/storage"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
-	internalcharm "github.com/juju/juju/internal/charm"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
-	internalstorage "github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/internal"
 )
 
-// storageProviderSuite provides a set of tests for validating
-// [DefaultStoragePoolProvider].
-type storageProviderSuite struct {
-	provider *MockStorageProvider
-	registry *MockProviderRegistry
-	state    *MockStorageProviderState
+// setAddUnitNoopStorageExpects sets on the storage service mock a set of noop
+// storage service calls for when a new unit is being added to an application.
+// This exists as there is a range of tests that need to assert functionality
+// other then storage which is tested in its own right. Having these expects and
+// junk data pollute the tests encourages poor effort in testing.
+func setAddUnitNoopStorageExpects(
+	storageService *MockStorageService,
+) {
+	storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), gomock.Any()).Return(
+		[]application.StorageDirective{}, nil,
+	).AnyTimes()
+	storageService.EXPECT().MakeUnitStorageArgs(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
 }
 
-type storageSuite struct {
-	testhelpers.IsolationSuite
-
-	mockState *MockState
-
-	service *Service
-}
-
-func TestStorageProviderSuite(t *testing.T) {
-	tc.Run(t, &storageProviderSuite{})
-}
-
-func TestStorageSuite(t *testing.T) {
-	tc.Run(t, &storageSuite{})
-}
-
-func (s *storageProviderSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.provider = NewMockStorageProvider(ctrl)
-	s.registry = NewMockProviderRegistry(ctrl)
-	s.state = NewMockStorageProviderState(ctrl)
-
-	c.Cleanup(func() {
-		s.provider = nil
-		s.registry = nil
-		s.state = nil
-	})
-	return ctrl
-}
-
-func (s *storageSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.mockState = NewMockState(ctrl)
-	s.service = NewService(
-		s.mockState,
-		nil,
-		nil,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
-		clock.WallClock,
-		loggertesting.WrapCheckLog(c),
-	)
-	return ctrl
-}
-
-// GetStorageRegistry returns the [storageProviderSuite.registry] mock. This
-// func implements the [corestorage.ModelStorageRegistryGetter] interface for
-// the purpose of testing.
-func (s *storageProviderSuite) GetStorageRegistry(
-	_ context.Context,
-) (internalstorage.ProviderRegistry, error) {
-	return s.registry, nil
-}
-
-func (s *storageSuite) TestAttachStorage(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	storageUUID := storagetesting.GenStorageInstanceUUID(c)
-	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
-	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
-	s.mockState.EXPECT().AttachStorage(gomock.Any(), storageUUID, unitUUID)
-
-	err := s.service.AttachStorage(c.Context(), "pgdata/0", "postgresql/666")
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *storageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	storageUUID := storagetesting.GenStorageInstanceUUID(c)
-	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
-	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
-	s.mockState.EXPECT().AttachStorage(gomock.Any(), storageUUID, unitUUID).Return(errors.StorageAlreadyAttached)
-
-	err := s.service.AttachStorage(c.Context(), "pgdata/0", "postgresql/666")
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *storageSuite) TestAttachStorageValidate(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := s.service.AttachStorage(c.Context(), "pgdata/0", "666")
-	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
-	err = s.service.AttachStorage(c.Context(), "0", "postgresql/666")
-	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
-}
-
-func (s *storageSuite) TestAddStorageToUnit(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	stor := internalstorage.Directive{}
-	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
-	s.mockState.EXPECT().AddStorageForUnit(gomock.Any(), corestorage.Name("pgdata"), unitUUID, stor).Return([]corestorage.ID{"pgdata/0"}, nil)
-
-	result, err := s.service.AddStorageForUnit(c.Context(), "pgdata", "postgresql/666", stor)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, []corestorage.ID{"pgdata/0"})
-}
-
-func (s *storageSuite) TestAddStorageForUnitValidate(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.AddStorageForUnit(c.Context(), "pgdata", "666", internalstorage.Directive{})
-	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
-	_, err = s.service.AddStorageForUnit(c.Context(), "0", "postgresql/666", internalstorage.Directive{})
-	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageName)
-}
-
-func (s *storageSuite) TestDetachStorageForUnit(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	storageUUID := storagetesting.GenStorageInstanceUUID(c)
-	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
-	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
-	s.mockState.EXPECT().DetachStorageForUnit(gomock.Any(), storageUUID, unitUUID)
-
-	err := s.service.DetachStorageForUnit(c.Context(), "pgdata/0", "postgresql/666")
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *storageSuite) TestDetachStorageForUnitValidate(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := s.service.DetachStorageForUnit(c.Context(), "pgdata/0", "666")
-	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
-	err = s.service.DetachStorageForUnit(c.Context(), "0", "postgresql/666")
-	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
-}
-
-func (s *storageSuite) TestDetachStorage(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	storageUUID := storagetesting.GenStorageInstanceUUID(c)
-	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
-	s.mockState.EXPECT().DetachStorage(gomock.Any(), storageUUID)
-
-	err := s.service.DetachStorage(c.Context(), "pgdata/0")
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *storageSuite) TestDetachStorageValidate(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := s.service.DetachStorage(c.Context(), "0")
-	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
-}
-
-// TestPoolSupportsCharmStorageNotFound tests that if no storage pool exists for
-// a given storage pool uuid the caller gets back an error satisfying
-// [storageerrors.PoolNotFoundError].
-func (s *storageProviderSuite) TestPoolSupportsCharmStorageNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	poolUUID, err := domainstorage.NewStoragePoolUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.state.EXPECT().GetProviderTypeForPool(gomock.Any(), poolUUID).Return(
-		"", storageerrors.PoolNotFoundError,
-	)
-
-	validator := NewStoragePoolProvider(s, s.state)
-	_, err = validator.CheckPoolSupportsCharmStorage(
-		c.Context(), poolUUID, internalcharm.StorageFilesystem,
-	)
-	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
-}
-
-// TestPoolSupportsCharmStorageFilesystem tests that the storage pool exists
-// and supports charm filesystem storage.
-func (s *storageProviderSuite) TestPoolSupportsCharmStorageFilesystem(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	poolUUID, err := domainstorage.NewStoragePoolUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.state.EXPECT().GetProviderTypeForPool(gomock.Any(), poolUUID).Return(
-		"testprovider", nil,
-	)
-	s.registry.EXPECT().StorageProvider(internalstorage.ProviderType("testprovider")).Return(
-		s.provider, nil,
-	)
-	s.provider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(true)
-
-	validator := NewStoragePoolProvider(s, s.state)
-	supports, err := validator.CheckPoolSupportsCharmStorage(
-		c.Context(), poolUUID, internalcharm.StorageFilesystem,
-	)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(supports, tc.IsTrue)
-}
-
-// TestPoolSupportsCharmStorageBlockdevice tests that the storage pool exists
-// and supports charm blockdevice storage.
-func (s *storageProviderSuite) TestPoolSupportsCharmStorageBlockdevice(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	poolUUID, err := domainstorage.NewStoragePoolUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.state.EXPECT().GetProviderTypeForPool(gomock.Any(), poolUUID).Return(
-		"testprovider", nil,
-	)
-	s.registry.EXPECT().StorageProvider(internalstorage.ProviderType("testprovider")).Return(
-		s.provider, nil,
-	)
-	s.provider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true)
-
-	validator := NewStoragePoolProvider(s, s.state)
-	supports, err := validator.CheckPoolSupportsCharmStorage(
-		c.Context(), poolUUID, internalcharm.StorageBlock,
-	)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(supports, tc.IsTrue)
+// setCreateApplicationNoopStorageExpects sets on the storage service mock a set
+// of noop storage service calls for when a new application is being created.
+// This exists as there is a range of tests that need to assert functionality
+// other then storage which is tested in its own right. Having these expects and
+// junk data pollute the tests encourages poor effort in testing.
+func setCreateApplicationNoopStorageExpects(
+	storageService *MockStorageService,
+) {
+	storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), gomock.Any()).Return(
+		[]application.StorageDirective{}, nil,
+	).AnyTimes()
+	storageService.EXPECT().MakeApplicationStorageDirectiveArgs(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(nil, nil).AnyTimes()
+	storageService.EXPECT().MakeUnitStorageArgs(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
+	storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(nil).AnyTimes()
 }

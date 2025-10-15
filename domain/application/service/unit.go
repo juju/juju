@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
@@ -34,6 +34,13 @@ type UnitState interface {
 	// AddCAASUnits adds the specified units to the application, returning their
 	// names.
 	AddCAASUnits(context.Context, coreapplication.UUID, ...application.AddCAASUnitArg) ([]coreunit.Name, error)
+
+	// GetCAASUnitRegistered checks if a caas unit by the provided name is
+	// already registered in the model. False is returned when no unit exists,
+	// otherwise the units existing uuid and netnode uuid is returned.
+	GetCAASUnitRegistered(
+		context.Context, coreunit.Name,
+	) (bool, coreunit.UUID, domainnetwork.NetNodeUUID, error)
 
 	// InsertMigratingIAASUnits inserts the fully formed units for the specified
 	// IAAS application. This is only used when inserting units during model
@@ -80,7 +87,7 @@ type UnitState interface {
 	// name.
 	GetUnitUUIDAndNetNodeForName(
 		context.Context, coreunit.Name,
-	) (coreunit.UUID, network.NetNodeUUID, error)
+	) (coreunit.UUID, domainnetwork.NetNodeUUID, error)
 
 	// GetUnitLife looks up the life of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
@@ -115,7 +122,7 @@ type UnitState interface {
 	// machine exists for the supplied machine name.
 	GetMachineUUIDAndNetNodeForName(
 		context.Context, string,
-	) (coremachine.UUID, network.NetNodeUUID, error)
+	) (coremachine.UUID, domainnetwork.NetNodeUUID, error)
 
 	// GetModelConstraints returns the currently set constraints for the model.
 	// The following error types can be expected:
@@ -206,7 +213,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 
 		var (
 			machineUUID        coremachine.UUID
-			machineNetNodeUUID network.NetNodeUUID
+			machineNetNodeUUID domainnetwork.NetNodeUUID
 		)
 		// If the placement of the unit is on to an already established machine
 		// we need to resolve this to a machine uuid and netnode uuid.
@@ -233,7 +240,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 				)
 			}
 
-			machineNetNodeUUID, err = network.NewNetNodeUUID()
+			machineNetNodeUUID, err = domainnetwork.NewNetNodeUUID()
 			if err != nil {
 				return nil, errors.Errorf(
 					"generating new machine net node uuid for IAAS unit: %w", err,
@@ -241,8 +248,13 @@ func (s *ProviderService) makeIAASUnitArgs(
 			}
 		}
 
-		unitStorageArgs, err := makeUnitStorageArgs(
-			ctx, s.storagePoolProvider, storageDirectives, nil,
+		// make unit storage args. IAAS units always have their storage
+		// attached to the machine's net node.
+		unitStorageArgs, err := s.storageService.MakeUnitStorageArgs(
+			ctx,
+			machineNetNodeUUID,
+			storageDirectives,
+			nil,
 		)
 		if err != nil {
 			return nil, errors.Errorf(
@@ -283,15 +295,20 @@ func (s *ProviderService) makeCAASUnitArgs(
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
-		netNodeUUID, err := network.NewNetNodeUUID()
+		netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 		if err != nil {
 			return nil, errors.Errorf(
 				"making new net node uuid for caas unit: %w", err,
 			)
 		}
 
-		unitStorageArgs, err := makeUnitStorageArgs(
-			ctx, s.storagePoolProvider, storageDirectives, nil,
+		// make unit storage args. CAAS units always have their storage
+		// attached to the unit's net node.
+		unitStorageArgs, err := s.storageService.MakeUnitStorageArgs(
+			ctx,
+			netNodeUUID,
+			storageDirectives,
+			nil,
 		)
 		if err != nil {
 			return nil, errors.Errorf("making storage for CAAS unit: %w", err)

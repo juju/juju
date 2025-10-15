@@ -1166,6 +1166,9 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionNotFound(c *tc.C) {
 func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 	// Arrange: 2 applications with 1 unit each, and a third application with a dead unit.
 	app1UUID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+		},
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "foo-id",
 			Ports:      ptr([]string{"666", "668"}),
@@ -1180,6 +1183,9 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	app2UUID := s.createCAASApplication(c, "bar", life.Alive, application.AddCAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+		},
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "bar-id",
 			Ports:      ptr([]string{"777"}),
@@ -1194,6 +1200,9 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	app1UUID3 := s.createCAASApplication(c, "zoo", life.Alive, application.AddCAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+		},
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "zoo-id",
 			Ports:      ptr([]string{"666", "668"}),
@@ -1222,7 +1231,6 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 		Address:    "10.6.6.7/24",
 		Ports:      []string{"777"},
 	})
-
 }
 
 func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
@@ -1491,6 +1499,30 @@ func (s *unitStateSuite) TestGetUnitUUIDAndNetNodeForName(c *tc.C) {
 
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(gotUnitUUID, tc.Equals, unitUUID)
+	c.Check(gotNetNodeUUID, tc.IsNonZeroUUID)
+}
+
+// TestCheckCAASUnitNotRegistered tests that when provided with a unit name that
+// doesn't exist in the model that the caller gets back 'false' and no error.
+func (s *unitStateSuite) TestCheckCAASUnitNotRegistered(c *tc.C) {
+	unitName := coreunit.Name("foo/0")
+	isRegistered, _, _, err := s.state.GetCAASUnitRegistered(
+		c.Context(), unitName,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(isRegistered, tc.Equals, false)
+}
+
+// TestCheckCAASUnitRegistered tests that when provided with a unit name that
+// exists in the model is registered returns true with the correct uuid and
+// net node.
+func (s *unitStateSuite) TestCheckCAASUnitRegistered(c *tc.C) {
+	unitName, unitUUID := s.createNamedCAASUnit(c)
+	isRegistered, gotUUID, gotNetNodeUUID, err := s.state.
+		GetCAASUnitRegistered(c.Context(), unitName)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(isRegistered, tc.IsTrue)
+	c.Check(gotUUID, tc.Equals, unitUUID)
 	c.Check(gotNetNodeUUID, tc.IsNonZeroUUID)
 }
 

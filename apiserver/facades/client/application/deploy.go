@@ -5,16 +5,15 @@ package application
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -25,11 +24,12 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -65,6 +65,28 @@ type DeployApplicationParams struct {
 	Force bool
 }
 
+// handleApplicationDomainError is a first low pass effort to start handling
+// some of the errors that will come out of the application domain. If a handler
+// does not exist then the original error will be returned.
+func handleApplicationDomainError(err error) error {
+	// Check to see if the user has creeped over or under a charm storage count
+	// limit.
+	limitErr, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+	if is && limitErr.Requested < limitErr.Minimum {
+		return errors.Errorf(
+			"storage directive %q request count %d insufficient for the charms minimum count of %d",
+			limitErr.StorageName, limitErr.Requested, limitErr.Minimum,
+		).Add(coreerrors.NotValid)
+	} else if is && limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
+		return errors.Errorf(
+			"storage directive %q request count %d exceeds the charms maximum count of %d",
+			limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
+		).Add(coreerrors.NotValid)
+	}
+
+	return err
+}
+
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
 	ctx context.Context,
@@ -77,21 +99,22 @@ func DeployApplication(
 	clock clock.Clock,
 ) error {
 	if args.Charm.Meta().Name == bootstrap.ControllerCharmName {
-		return errors.NotSupportedf("manual deploy of the controller charm")
+		return errors.New("manual deploy of the controller charm not supported").
+			Add(coreerrors.NotSupported)
 	}
 	if args.Charm.Meta().Subordinate {
 		if args.NumUnits != 0 {
-			return fmt.Errorf("subordinate application must be deployed without units")
+			return errors.New("subordinate application must be deployed without units")
 		}
 		if !constraints.IsEmpty(&args.Constraints) {
-			return fmt.Errorf("subordinate application must be deployed without constraints")
+			return errors.New("subordinate application must be deployed without constraints")
 		}
 	}
 
 	// Enforce "assumes" requirements.
 	if err := assertCharmAssumptions(ctx, applicationService, args.Charm.Meta().Assumes); err != nil {
-		if !errors.Is(err, errors.NotSupported) || !args.Force {
-			return errors.Trace(err)
+		if !errors.Is(err, coreerrors.NotSupported) || !args.Force {
+			return errors.Capture(err)
 		}
 
 		logger.Warningf(ctx, "proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
@@ -99,7 +122,10 @@ func DeployApplication(
 
 	if modelType == coremodel.CAAS {
 		if charm.MetaFormat(args.Charm) == charm.FormatV1 {
-			return errors.NotSupportedf("deploying format v1 charm %q", args.ApplicationName)
+			return errors.Errorf(
+				"deploying format v1 charm %q not supported",
+				args.ApplicationName,
+			).Add(coreerrors.NotSupported)
 		}
 	}
 
@@ -108,18 +134,18 @@ func DeployApplication(
 		var err error
 		downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, args.Charm.locator)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 
 	pendingResources, err := transformToPendingResources(args.Resources)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	sdo, err := storageDirectives(ctx, storageService, args.Storage)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	applicationArg := applicationservice.AddApplicationArgs{
@@ -142,7 +168,7 @@ func DeployApplication(
 	if modelType == coremodel.CAAS {
 		unitArgs, err := makeCAASUnitArgs(args)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = applicationService.CreateCAASApplication(
@@ -154,27 +180,28 @@ func DeployApplication(
 			unitArgs...,
 		)
 		if err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		unitArgs, err := makeIAASUnitArgs(args)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		_, err = applicationService.CreateIAASApplication(
-			ctx,
-			args.ApplicationName,
-			args.Charm,
-			args.CharmOrigin,
-			applicationArg,
-			unitArgs...,
-		)
-		if err != nil {
-			return errors.Trace(err)
+			return handleApplicationDomainError(errors.Capture(err))
 		}
 	}
-	return errors.Trace(err)
+
+	unitArgs, err := makeIAASUnitArgs(args)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	_, err = applicationService.CreateIAASApplication(
+		ctx,
+		args.ApplicationName,
+		args.Charm,
+		args.CharmOrigin,
+		applicationArg,
+		unitArgs...,
+	)
+	if err != nil {
+		return handleApplicationDomainError(err)
+	}
+
+	return nil
 }
 
 func makeIAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddIAASUnitArg, error) {
@@ -222,7 +249,7 @@ func transformToPendingResources(argResources map[string]string) ([]coreresource
 	for _, res := range argResources {
 		resUUID, err := coreresource.ParseUUID(res)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		pendingResources = append(pendingResources, resUUID)
 	}
@@ -263,7 +290,7 @@ func (api *APIBase) addUnits(
 			})
 		}
 		if err != nil {
-			return nil, internalerrors.Errorf("adding unit to application %q: %w", appName, err)
+			return nil, errors.Errorf("adding unit to application %q: %w", appName, err)
 		}
 		units = append(units, unitNames...)
 	}
@@ -282,11 +309,11 @@ func assertCharmAssumptions(
 
 	featureSet, err := applicationService.GetSupportedFeatures(ctx)
 	if err != nil {
-		return errors.Annotate(err, "querying feature set supported by the model")
+		return errors.Errorf("querying feature set supported by the model: %w", err)
 	}
 
 	if err = featureSet.Satisfies(assumesExprTree); err != nil {
-		return errors.NewNotSupported(err, "")
+		return errors.Errorf("not supported %w", err).Add(coreerrors.NotSupported)
 	}
 
 	return nil

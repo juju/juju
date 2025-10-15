@@ -95,6 +95,54 @@ WHERE uuid = $unitUUID.uuid
 	return life.Life(lifeAndNetNode.LifeID), lifeAndNetNode.NetNodeID, nil
 }
 
+// GetCAASUnitRegistered checks if a caas unit by the provided name is already
+// registered in the model. False is returned when no unit exists, otherwise
+// the units existing uuid and netnode uuid is returned.
+func (st *State) GetCAASUnitRegistered(
+	ctx context.Context,
+	uName coreunit.Name,
+) (bool, coreunit.UUID, domainnetwork.NetNodeUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, "", "", errors.Capture(err)
+	}
+
+	var (
+		unitNameInput = unitName{Name: uName}
+		dbVal         unitUUIDAndNetNode
+	)
+
+	q := "SELECT &unitUUIDAndNetNode.* FROM unit WHERE name = $unitName.name"
+	stmt, err := st.Prepare(q, unitNameInput, dbVal)
+	if err != nil {
+		return false, "", "", errors.Capture(err)
+	}
+
+	var registered bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, unitNameInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err == nil {
+			registered = true
+		}
+		return err
+	})
+
+	if err != nil {
+		return false, "", "", errors.Capture(err)
+	}
+
+	if !registered {
+		return false, "", "", nil
+	}
+
+	return true,
+		coreunit.UUID(dbVal.UUID),
+		domainnetwork.NetNodeUUID(dbVal.NetNodeUUID),
+		nil
+}
+
 // status data. If returns an error satisfying [applicationerrors.UnitNotFound]
 // if the unit doesn't exist.
 func (st *State) setUnitAgentStatus(
@@ -1335,17 +1383,7 @@ func (st *State) insertCAASUnitWithName(
 		return "", errors.Capture(err)
 	}
 
-	netNodeUUID, err := st.insertNetNode(ctx, tx)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	charmName, err := st.getCharmMetadataName(ctx, tx, charmUUID)
-	if err != nil {
-		return "", errors.Errorf("getting charm name for charm %q: %w", charmUUID, err)
-	}
-
-	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
 		CharmUUID:      charmUUID,
 		UnitName:       unitName,
 		CloudContainer: args.CloudContainer,
@@ -1355,8 +1393,8 @@ func (st *State) insertCAASUnitWithName(
 		return "", errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
 
-	unitStorageDirectives, err := st.insertUnitStorageDirectives(
-		ctx, tx, unitUUID, charmUUID, charmName, args.StorageDirectives,
+	err = st.insertUnitStorageDirectives(
+		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
 		return "", errors.Errorf(
@@ -1365,7 +1403,7 @@ func (st *State) insertCAASUnitWithName(
 	}
 
 	err = st.insertUnitStorageInstances(
-		ctx, tx, unitStorageDirectives, args.StorageInstances,
+		ctx, tx, args.StorageInstances,
 	)
 	if err != nil {
 		return "", errors.Errorf(
@@ -1377,7 +1415,6 @@ func (st *State) insertCAASUnitWithName(
 		ctx,
 		tx,
 		unitUUID,
-		domainnetwork.NetNodeUUID(netNodeUUID),
 		args.StorageToAttach,
 	)
 	if err != nil {
@@ -1452,11 +1489,6 @@ func (st *State) insertIAASUnit(
 		return "", "", nil, errors.Capture(err)
 	}
 
-	charmName, err := st.getCharmMetadataName(ctx, tx, charmUUID)
-	if err != nil {
-		return "", "", nil, errors.Errorf("getting charm name for charm %q: %w", charmUUID, err)
-	}
-
 	err = st.insertUnit(
 		ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
 			CharmUUID:     charmUUID,
@@ -1469,8 +1501,8 @@ func (st *State) insertIAASUnit(
 		return "", "", nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
 	}
 
-	unitStorageDirectives, err := st.insertUnitStorageDirectives(
-		ctx, tx, unitUUID, charmUUID, charmName, args.StorageDirectives,
+	err = st.insertUnitStorageDirectives(
+		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
 		return "", "", nil, errors.Errorf(
@@ -1478,7 +1510,7 @@ func (st *State) insertIAASUnit(
 		)
 	}
 
-	err = st.insertUnitStorageInstances(ctx, tx, unitStorageDirectives, args.StorageInstances)
+	err = st.insertUnitStorageInstances(ctx, tx, args.StorageInstances)
 	if err != nil {
 		return "", "", nil, errors.Errorf(
 			"creating storage instances for unit %q: %w", unitName, err,
@@ -1489,7 +1521,6 @@ func (st *State) insertIAASUnit(
 		ctx,
 		tx,
 		unitUUID,
-		args.NetNodeUUID,
 		args.StorageToAttach,
 	)
 	if err != nil {
@@ -1555,6 +1586,15 @@ func (st *State) insertUnit(
 	if err != nil {
 		return errors.Capture(err)
 	}
+
+	err = st.ensureFutureUnitNetNode(ctx, tx, netNodeUUID)
+	if err != nil {
+		return errors.Errorf(
+			"ensuring that the net node %q exists for new unit %q: %w",
+			netNodeUUID, args.UnitName, err,
+		)
+	}
+
 	if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
 		return errors.Errorf("creating unit for unit %q: %w", args.UnitName, err)
 	}
@@ -2242,7 +2282,7 @@ SELECT
 	k.provider_id AS &unitK8sPodInfoWithName.provider_id,
 	ip.address_value AS &unitK8sPodInfoWithName.address,
 	COALESCE(
-		GROUP_CONCAT(kpp.port, ','), 
+		GROUP_CONCAT(kpp.port, ','),
 		''
 	) AS &unitK8sPodInfoWithName.ports
 FROM
@@ -2624,6 +2664,31 @@ DO NOTHING
 		if err := tx.Query(ctx, upsertStmt, ccPort).Run(); err != nil {
 			return errors.Errorf("updating cloud container ports for %q: %w", unitUUID, err)
 		}
+	}
+
+	return nil
+}
+
+// ensureFutureUnitNetNode exists to ensure that a netnode uuid that is about to
+// be used for a machine exists. We do this because the business logic around if
+// netnode uuid for a unit is shared or already exists is outside the scope of
+// state.
+func (st *State) ensureFutureUnitNetNode(
+	ctx context.Context, tx *sqlair.TX, uuid string,
+) error {
+	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}
+
+	ensureNode := `INSERT INTO net_node (uuid) VALUES ($netNodeUUID.*)`
+	ensureNodeStmt, err := st.Prepare(ensureNode, netNodeUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, ensureNodeStmt, netNodeUUID).Run()
+	if internaldatabase.IsErrConstraintPrimaryKey(err) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("ensuring net node %q for future unit: %w", uuid, err)
 	}
 
 	return nil

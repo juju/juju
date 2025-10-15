@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -136,7 +137,7 @@ INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
 func (s *baseSuite) addIAASApplicationArgForStorage(c *tc.C,
 	name string,
 	charmStorage []charm.Storage,
-	directives []application.CreateApplicationStorageDirectiveArg,
+	directives []internal.CreateApplicationStorageDirectiveArg,
 ) application.AddIAASApplicationArg {
 	platform := deployment.Platform{
 		Channel:      "666",
@@ -514,8 +515,16 @@ func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
 func (s *baseSuite) createCAASApplicationWithNUnits(
 	c *tc.C, name string, l life.Life, unitCount int,
 ) (coreapplication.UUID, []coreunit.UUID) {
+	units := make([]application.AddCAASUnitArg, 0, unitCount)
+	for range unitCount {
+		units = append(units, application.AddCAASUnitArg{
+			AddUnitArg: application.AddUnitArg{
+				NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+			},
+		})
+	}
 	appUUID := s.createCAASApplication(
-		c, name, l, make([]application.AddCAASUnitArg, unitCount)...,
+		c, name, l, units...,
 	)
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	uuids, err := state.getApplicationUnits(c.Context(), appUUID)

@@ -20,13 +20,12 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/life"
-	domainnetwork "github.com/juju/juju/domain/network"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
+	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -57,19 +56,28 @@ func (st *State) GetApplicationStorageDirectives(
 
 	appUUIDInput := entityUUID{UUID: appUUID.String()}
 	query, err := st.Prepare(`
-SELECT &applicationStorageDirective.*
-FROM   application_storage_directive asd
-JOIN   charm_storage cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.storage_name
-JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
-WHERE  application_uuid = $entityUUID.uuid
+SELECT &storageDirective.* FROM (
+    SELECT asd.count,
+           asd.size_mib,
+           asd.storage_name,
+           asd.storage_pool_uuid,
+           cm.name AS charm_metadata_name,
+           csk.kind AS charm_storage_kind,
+           cs.count_max AS count_max
+    FROM   application_storage_directive asd
+    JOIN   charm_storage cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.storage_name
+    JOIN   charm_metadata cm ON cm.charm_uuid = asd.charm_uuid
+    JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
+    WHERE  application_uuid = $entityUUID.uuid
+)
 		`,
-		appUUIDInput, applicationStorageDirective{},
+		appUUIDInput, storageDirective{},
 	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	dbVals := []applicationStorageDirective{}
+	dbVals := []storageDirective{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
 		if err != nil {
@@ -96,49 +104,162 @@ WHERE  application_uuid = $entityUUID.uuid
 
 	rval := make([]application.StorageDirective, 0, len(dbVals))
 	for _, val := range dbVals {
-
 		rval = append(rval, application.StorageDirective{
-			Count:    val.Count,
-			Name:     domainstorage.Name(val.StorageName),
-			Type:     charm.StorageType(val.CharmStorageKind),
-			PoolUUID: domainstorage.StoragePoolUUID(val.StoragePoolUUID),
-			Size:     val.SizeMiB,
+			CharmMetadataName: val.CharmMetadataName,
+			CharmStorageType:  charm.StorageType(val.CharmStorageKind),
+			Count:             val.Count,
+			MaxCount:          val.CountMax,
+			Name:              domainstorage.Name(val.StorageName),
+			PoolUUID:          domainstorage.StoragePoolUUID(val.StoragePoolUUID),
+			Size:              val.SizeMiB,
 		})
 	}
 	return rval, nil
 }
 
+// GetStorageInstancesForProviderIDs returns all of the storage instances
+// found in the model using one of the provider ids supplied. The storage
+// instance must also not be owned by a unit. If no storage instances are found
+// then an empty result is returned.
 func (st *State) GetStorageInstancesForProviderIDs(
 	ctx context.Context,
-	appUUID coreapplication.UUID,
 	ids []string,
-) (map[string]domainstorage.StorageInstanceUUID, error) {
-	return nil, nil
-}
+) ([]internal.StorageInstanceComposition, error) {
+	// Early exit if no ids are supplied. We cannot have empty values with an
+	// IN expression.
+	if len(ids) == 0 {
+		return nil, nil
+	}
 
-func (st *State) GetUnitOwnedStorageInstances(
-	ctx context.Context,
-	unitUUID coreunit.UUID,
-) (map[domainstorage.Name][]domainstorage.StorageInstanceUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
-	unitOwnedQuery, err := st.Prepare(`
-SELECT &unitOwnedStorage.*
-FROM   storage_unit_owner suo
-JOIN   storage_instance si ON suo.storage_instance_uuid = si.uuid
-WHERE  suo.unit_uuid = $entityUUID.uuid
-		`,
-		unitUUIDInput, unitOwnedStorage{},
+	providerIDsInput := storageProviderIDs(ids)
+
+	/*
+		id	parent	notused	detail
+		15	0     	0      	SCAN si USING INDEX sqlite_autoindex_storage_instance_1
+		19	0     	0      	USING INDEX sqlite_autoindex_storage_unit_owner_1 FOR IN-OPERATOR
+		29	0     	0      	SEARCH sif USING INDEX sqlite_autoindex_storage_instance_filesystem_1 (storage_instance_uuid=?) LEFT-JOIN
+		36	0     	0      	SEARCH sf USING INDEX sqlite_autoindex_storage_filesystem_1 (uuid=?) LEFT-JOIN
+		44	0     	0      	SEARCH siv USING INDEX sqlite_autoindex_storage_instance_volume_1 (storage_instance_uuid=?) LEFT-JOIN
+		51	0     	0      	SEARCH sv USING INDEX sqlite_autoindex_storage_volume_1 (uuid=?) LEFT-JOIN
+	*/
+	compositionQ := `
+SELECT &storageInstanceComposition.*
+FROM (
+    SELECT    sf.uuid AS filesystem_uuid,
+              sf.provision_scope_id AS filesystem_provision_scope,
+              si.storage_name AS storage_name,
+              si.uuid AS uuid,
+              sv.uuid AS volume_uuid,
+              sv.provision_scope_id AS volume_provision_scope
+    FROM      storage_instance si
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    WHERE     si.uuid NOT IN (SELECT storage_instance_uuid
+                              FROM storage_unit_owner)
+    AND	     (sf.provider_id IN ($storageProviderIDs[:])
+           OR sv.provider_id IN ($storageProviderIDs[:]))
+    GROUP BY  si.uuid
+)
+`
+
+	stmt, err := st.Prepare(
+		compositionQ,
+		providerIDsInput,
+		storageInstanceComposition{},
 	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var dbVals []unitOwnedStorage
+	var dbVals []storageInstanceComposition
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, providerIDsInput).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
+	for _, dbVal := range dbVals {
+		v := internal.StorageInstanceComposition{
+			StorageName: domainstorage.Name(dbVal.StorageName),
+			UUID:        domainstorage.StorageInstanceUUID(dbVal.UUID),
+		}
+
+		if dbVal.FilesystemUUID.Valid {
+			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
+				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
+				UUID:           domainstorageprov.FilesystemUUID(dbVal.FilesystemUUID.V),
+			}
+		}
+
+		if dbVal.VolumeUUID.Valid {
+			v.Volume = &internal.StorageInstanceCompositionVolume{
+				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.VolumeProvisionScope.V),
+				UUID:           domainstorageprov.VolumeUUID(dbVal.VolumeUUID.V),
+			}
+		}
+
+		rval = append(rval, v)
+	}
+
+	return rval, nil
+}
+
+// GetUnitOwnedStorageInstances returns the storage instance compositions
+// for all storage instances owned by the unit in the model. If the unit
+// does not currently own any storage instances then an empty result is
+// returned.
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit no longer exists.
+func (st *State) GetUnitOwnedStorageInstances(
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+) ([]internal.StorageInstanceComposition, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	uuidInput := entityUUID{UUID: unitUUID.String()}
+
+	compositionQ := `
+SELECT &storageInstanceComposition.*
+FROM (
+    SELECT    sf.uuid AS filesystem_uuid,
+              sf.provision_scope_id AS filesystem_provision_scope,
+              si.storage_name AS storage_name,
+              si.uuid AS uuid,
+              sv.uuid AS volume_uuid,
+              sv.provision_scope_id AS volume_provision_scope
+    FROM      storage_unit_owner suo
+    JOIN      storage_instance si ON suo.storage_instance_uuid = si.uuid
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    WHERE     suo.unit_uuid = $entityUUID.uuid
+)
+`
+
+	stmt, err := st.Prepare(compositionQ, uuidInput, storageInstanceComposition{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbVals []storageInstanceComposition
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkUnitExists(ctx, tx, unitUUID)
 		if err != nil {
@@ -147,10 +268,12 @@ WHERE  suo.unit_uuid = $entityUUID.uuid
 			)
 		}
 		if !exists {
-			return errors.Errorf("unit %q doest not exist: %w", unitUUID, err)
+			return errors.Errorf("unit %q does not exist", unitUUID).Add(
+				applicationerrors.UnitNotFound,
+			)
 		}
 
-		err = tx.Query(ctx, unitOwnedQuery, unitUUIDInput).GetAll(&dbVals)
+		err = tx.Query(ctx, stmt, uuidInput).GetAll(&dbVals)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
@@ -161,15 +284,38 @@ WHERE  suo.unit_uuid = $entityUUID.uuid
 		return nil, errors.Capture(err)
 	}
 
-	rval := make(map[domainstorage.Name][]domainstorage.StorageInstanceUUID,
-		len(dbVals))
-	for _, v := range dbVals {
-		k := domainstorage.Name(v.StorageName)
-		rval[k] = append(rval[k], domainstorage.StorageInstanceUUID(v.UUID))
+	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
+	for _, dbVal := range dbVals {
+		v := internal.StorageInstanceComposition{
+			StorageName: domainstorage.Name(dbVal.StorageName),
+			UUID:        domainstorage.StorageInstanceUUID(dbVal.UUID),
+		}
+
+		if dbVal.FilesystemUUID.Valid {
+			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
+				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
+				UUID:           domainstorageprov.FilesystemUUID(dbVal.FilesystemUUID.V),
+			}
+		}
+
+		if dbVal.VolumeUUID.Valid {
+			v.Volume = &internal.StorageInstanceCompositionVolume{
+				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.VolumeProvisionScope.V),
+				UUID:           domainstorageprov.VolumeUUID(dbVal.VolumeUUID.V),
+			}
+		}
+
+		rval = append(rval, v)
 	}
 	return rval, nil
 }
 
+// GetUnitStorageDirectives returns the storage directives that are set for
+// a unit. If the unit does not have any storage directives set then an
+// empty result is returned.
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit no longer exists.
 func (st *State) GetUnitStorageDirectives(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
@@ -181,11 +327,20 @@ func (st *State) GetUnitStorageDirectives(
 
 	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
 	query, err := st.Prepare(`
-SELECT &storageDirective.*
-FROM   unit_storage_directive usd
-JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
-JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
-WHERE  unit_uuid = $entityUUID.uuid
+SELECT &storageDirective.* FROM (
+    SELECT usd.count,
+           usd.size_mib,
+           usd.storage_name,
+           usd.storage_pool_uuid,
+           cm.name AS charm_metadata_name,
+           csk.kind AS charm_storage_kind,
+           cs.count_max AS count_max
+    FROM   unit_storage_directive usd
+    JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
+    JOIN   charm_metadata cm ON cm.charm_uuid = usd.charm_uuid
+    JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
+    WHERE  unit_uuid = $entityUUID.uuid
+)
 		`,
 		unitUUIDInput, storageDirective{},
 	)
@@ -220,13 +375,14 @@ WHERE  unit_uuid = $entityUUID.uuid
 
 	rval := make([]application.StorageDirective, 0, len(dbVals))
 	for _, val := range dbVals {
-
 		rval = append(rval, application.StorageDirective{
-			Count:    val.Count,
-			Name:     domainstorage.Name(val.StorageName),
-			Type:     charm.StorageType(val.Kind),
-			PoolUUID: domainstorage.StoragePoolUUID(val.StoragePoolUUID),
-			Size:     val.SizeMiB,
+			CharmMetadataName: val.CharmMetadataName,
+			Count:             val.Count,
+			MaxCount:          val.CountMax,
+			Name:              domainstorage.Name(val.StorageName),
+			CharmStorageType:  charm.StorageType(val.CharmStorageKind),
+			PoolUUID:          domainstorage.StoragePoolUUID(val.StoragePoolUUID),
+			Size:              val.SizeMiB,
 		})
 	}
 	return rval, nil
@@ -240,7 +396,7 @@ func (st *State) insertApplicationStorageDirectives(
 	tx *sqlair.TX,
 	uuid coreapplication.UUID,
 	charmUUID corecharm.ID,
-	directives []application.CreateApplicationStorageDirectiveArg,
+	directives []internal.CreateApplicationStorageDirectiveArg,
 ) error {
 	if len(directives) == 0 {
 		return nil
@@ -285,41 +441,19 @@ func (st *State) insertUnitStorageAttachments(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	storageToAttach []application.CreateStorageAttachmentArg,
+	storageToAttach []internal.CreateUnitStorageAttachmentArg,
 ) error {
-	storageAttachmentArgs, err := makeInsertUnitStorageAttachmentArgs(
+	storageAttachmentArgs := makeInsertUnitStorageAttachmentArgs(
 		ctx, unitUUID, storageToAttach,
 	)
-	if err != nil {
-		return errors.Errorf(
-			"creating database input for makeing unit storage attachments: %w",
-			err,
-		)
-	}
-	storageInstanceUUIDs := make([]domainstorage.StorageInstanceUUID, 0, len(storageToAttach))
-	for _, sa := range storageToAttach {
-		storageInstanceUUIDs = append(storageInstanceUUIDs, sa.StorageInstanceUUID)
-	}
-	fsAttachmentArgs, err := st.makeInsertUnitFilesystemAttachmentArgs(
-		ctx, tx, netNodeUUID, storageInstanceUUIDs,
-	)
-	if err != nil {
-		return errors.Errorf(
-			"create database input for making unit filesystem attachments: %w",
-			err,
-		)
-	}
 
-	volAttachmentArgs, err := st.makeInsertUnitVolumeAttachmentArgs(
-		ctx, tx, netNodeUUID, storageInstanceUUIDs,
+	fsAttachmentArgs := st.makeInsertUnitFilesystemAttachmentArgs(
+		storageToAttach,
 	)
-	if err != nil {
-		return errors.Errorf(
-			"create database input for making unit volume attachments: %w",
-			err,
-		)
-	}
+
+	volAttachmentArgs := st.makeInsertUnitVolumeAttachmentArgs(
+		storageToAttach,
+	)
 
 	insertStorageAttachmentStmt, err := st.Prepare(`
 INSERT INTO storage_attachment (*) VALUES ($insertStorageInstanceAttachment.*)
@@ -388,11 +522,10 @@ func (st *State) insertUnitStorageDirectives(
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
 	charmUUID corecharm.ID,
-	charmName string,
-	args []application.CreateUnitStorageDirectiveArg,
-) ([]unitStorageDirective, error) {
+	args []internal.CreateUnitStorageDirectiveArg,
+) error {
 	if len(args) == 0 {
-		return []unitStorageDirective{}, nil
+		return nil
 	}
 
 	insertStorageDirectiveStmt, err := st.Prepare(`
@@ -400,11 +533,10 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 `,
 		insertUnitStorageDirective{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	insertArgs := make([]insertUnitStorageDirective, 0, len(args))
-	rval := make([]unitStorageDirective, 0, len(args))
 	for _, arg := range args {
 		insertArgs = append(insertArgs, insertUnitStorageDirective{
 			CharmUUID:       charmUUID.String(),
@@ -414,22 +546,16 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 			StoragePoolUUID: arg.PoolUUID.String(),
 			UnitUUID:        unitUUID.String(),
 		})
-
-		rval = append(rval, unitStorageDirective{
-			CharmName:       charmName,
-			Count:           arg.Count,
-			StorageName:     arg.Name.String(),
-			StoragePoolUUID: arg.PoolUUID.String(),
-			SizeMiB:         arg.Size,
-		})
 	}
 
 	err = tx.Query(ctx, insertStorageDirectiveStmt, insertArgs).Run()
 	if err != nil {
-		return nil, errors.Errorf("creating unit %q storage directives: %w", unitUUID, err)
+		return errors.Errorf(
+			"creating unit %q storage directives: %w", unitUUID, err,
+		)
 	}
 
-	return rval, nil
+	return nil
 }
 
 // insertUnitStorageInstances is responsible for creating all of the needed
@@ -437,11 +563,11 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 func (st *State) insertUnitStorageInstances(
 	ctx context.Context,
 	tx *sqlair.TX,
-	stDirectives []unitStorageDirective,
-	stArgs []application.CreateUnitStorageInstanceArg,
+	stArgs []internal.CreateUnitStorageInstanceArg,
 ) error {
 	storageInstArgs, err := st.makeInsertUnitStorageInstanceArgs(
-		ctx, tx, stDirectives, stArgs)
+		ctx, tx, stArgs,
+	)
 	if err != nil {
 		return errors.Errorf(
 			"creating database input for makeing unit storage instances: %w",
@@ -685,7 +811,7 @@ WHERE  uuid = $storagePoolUUID.uuid
 func (st *State) makeInsertUnitFilesystemArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
-	args []application.CreateUnitStorageInstanceArg,
+	args []internal.CreateUnitStorageInstanceArg,
 ) (
 	[]insertStorageFilesystem,
 	[]insertStorageFilesystemInstance,
@@ -753,84 +879,27 @@ func (st *State) makeInsertUnitFilesystemArgs(
 }
 
 // makeInsertUnitFilesystemAttachmentArgs will make a slice of
-// [insertStorageFilesystemAttachment] values that will make a filesystem
-// attachment for every storage instance supplied that has a filesystem.
-//
-// The returned attachment values will be attached to the supplied net node.
+// [insertStorageFilesystemAttachment] for each filesystem attachment defined in
+// args.
 func (st *State) makeInsertUnitFilesystemAttachmentArgs(
-	ctx context.Context,
-	tx *sqlair.TX,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	storageInstances []domainstorage.StorageInstanceUUID,
-) ([]insertStorageFilesystemAttachment, error) {
-	storageInstancesInput := make(sqlair.S, 0, len(storageInstances))
-	for _, uuid := range storageInstances {
-		storageInstancesInput = append(storageInstancesInput, uuid.String())
-	}
-
-	filesystemUUIDStmt, err := st.Prepare(`
-SELECT &storageFilesystemUUIDRef.*
-FROM storage_instance_filesystem
-WHERE storage_instance_uuid IN ($S[:])
-`,
-		storageFilesystemUUIDRef{}, storageInstancesInput)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var dbVals []storageFilesystemUUIDRef
-	err = tx.Query(ctx, filesystemUUIDStmt, storageInstancesInput).GetAll(&dbVals)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	// TODO(storage): calculate filesystem attachment provision scope instead of
-	// querying the filesystems they correspond to.
-	fsUUIDs := make(sqlair.S, 0, len(dbVals))
-	for _, v := range dbVals {
-		fsUUIDs = append(fsUUIDs, v.UUID)
-	}
-	filesystemProvisionScopeStmt, err := st.Prepare(`
-SELECT &storageFilesystemProvisionScope.*
-FROM storage_filesystem
-WHERE uuid IN ($S[:])
-`,
-		storageFilesystemProvisionScope{}, fsUUIDs)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var fsProvisionScopeVals []storageFilesystemProvisionScope
-	err = tx.Query(ctx, filesystemProvisionScopeStmt, fsUUIDs).GetAll(&fsProvisionScopeVals)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	provisionScopes := map[string]int{}
-	for _, v := range fsProvisionScopeVals {
-		provisionScopes[v.UUID] = v.ProvisionScopeID
-	}
-
-	rval := make([]insertStorageFilesystemAttachment, 0, len(dbVals))
-	for _, val := range dbVals {
-		uuid, err := storageprovisioning.NewFilesystemAttachmentUUID()
-		if err != nil {
-			return nil, errors.Errorf(
-				"generating new filesystem %q attachment uuid for net node uuid %q: %w",
-				val.UUID, netNodeUUID, err,
-			)
+	args []internal.CreateUnitStorageAttachmentArg,
+) []insertStorageFilesystemAttachment {
+	rval := []insertStorageFilesystemAttachment{}
+	for _, arg := range args {
+		if arg.FilesystemAttachment == nil {
+			continue
 		}
 
 		rval = append(rval, insertStorageFilesystemAttachment{
 			LifeID:                int(life.Alive),
-			NetNodeUUID:           netNodeUUID.String(),
-			StorageFilesystemUUID: val.UUID,
-			UUID:                  uuid.String(),
-			ProvisionScopeID:      provisionScopes[val.UUID],
+			NetNodeUUID:           arg.FilesystemAttachment.NetNodeUUID.String(),
+			ProvisionScopeID:      int(arg.FilesystemAttachment.ProvisionScope),
+			StorageFilesystemUUID: arg.FilesystemAttachment.FilesystemUUID.String(),
+			UUID:                  arg.FilesystemAttachment.UUID.String(),
 		})
 	}
 
-	return rval, nil
+	return rval
 }
 
 // makeInsertUnitStorageInstanceArgs is responsible for making the insert args
@@ -841,20 +910,11 @@ WHERE uuid IN ($S[:])
 func (st *State) makeInsertUnitStorageInstanceArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
-	directives []unitStorageDirective,
-	args []application.CreateUnitStorageInstanceArg,
+	args []internal.CreateUnitStorageInstanceArg,
 ) ([]insertStorageInstance, error) {
-
-	directiveMap := make(map[domainstorage.Name]unitStorageDirective, len(directives))
-	for _, directive := range directives {
-		directiveMap[domainstorage.Name(directive.StorageName)] = directive
-	}
-
 	storageInstancesRval := make([]insertStorageInstance, 0, len(args))
 
 	for _, arg := range args {
-		directive := directiveMap[arg.Name]
-
 		id, err := sequencestate.NextValue(ctx, st, tx, storageNamespace)
 		if err != nil {
 			return nil, errors.Errorf(
@@ -866,13 +926,13 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 		).String()
 
 		storageInstancesRval = append(storageInstancesRval, insertStorageInstance{
-			CharmName:       directive.CharmName,
+			CharmName:       arg.CharmName,
 			LifeID:          int(life.Alive),
-			RequestSizeMiB:  directive.SizeMiB,
+			RequestSizeMiB:  arg.RequestSizeMiB,
 			StorageID:       storageID,
 			StorageKindID:   int(arg.Kind),
 			StorageName:     arg.Name.String(),
-			StoragePoolUUID: directive.StoragePoolUUID,
+			StoragePoolUUID: arg.StoragePoolUUID.String(),
 			UUID:            arg.UUID.String(),
 		})
 	}
@@ -885,8 +945,8 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 func makeInsertUnitStorageAttachmentArgs(
 	_ context.Context,
 	unitUUID coreunit.UUID,
-	storageToAttach []application.CreateStorageAttachmentArg,
-) ([]insertStorageInstanceAttachment, error) {
+	storageToAttach []internal.CreateUnitStorageAttachmentArg,
+) []insertStorageInstanceAttachment {
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, sa := range storageToAttach {
 		rval = append(rval, insertStorageInstanceAttachment{
@@ -897,7 +957,7 @@ func makeInsertUnitStorageAttachmentArgs(
 		})
 	}
 
-	return rval, nil
+	return rval
 }
 
 // makeInsertUnitStorageOwnerArgs is responsible for making the set of
@@ -924,7 +984,7 @@ func makeInsertUnitStorageOwnerArgs(
 func (st *State) makeInsertUnitVolumeArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
-	args []application.CreateUnitStorageInstanceArg,
+	args []internal.CreateUnitStorageInstanceArg,
 ) (
 	[]insertStorageVolume,
 	[]insertStorageVolumeInstance,
@@ -992,84 +1052,27 @@ func (st *State) makeInsertUnitVolumeArgs(
 }
 
 // makeInsertUnitVolumeAttachmentArgs will make a slice of
-// [insertStorageVolumeAttachment] values that will make a volume
-// attachment for every storage instance supplied that has a volume.
-//
-// The returned attachment values will be attached to the supplied net node.
+// [insertStorageVolumeAttachment] values for each volume attachment argument
+// supplied.
 func (st *State) makeInsertUnitVolumeAttachmentArgs(
-	ctx context.Context,
-	tx *sqlair.TX,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	storageInstances []domainstorage.StorageInstanceUUID,
-) ([]insertStorageVolumeAttachment, error) {
-	storageInstancesInput := make(sqlair.S, 0, len(storageInstances))
-	for _, uuid := range storageInstances {
-		storageInstancesInput = append(storageInstancesInput, uuid.String())
-	}
-
-	volumeUUIDStmt, err := st.Prepare(`
-SELECT &storageVolumeUUIDRef.*
-FROM storage_instance_volume
-WHERE storage_instance_uuid IN ($S[:])
-`,
-		storageVolumeUUIDRef{}, storageInstancesInput)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var dbVals []storageVolumeUUIDRef
-	err = tx.Query(ctx, volumeUUIDStmt, storageInstancesInput).GetAll(&dbVals)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	// TODO(storage): calculate volume attachment provision scope instead of
-	// querying the volume they correspond to.
-	volUUIDs := make(sqlair.S, 0, len(dbVals))
-	for _, v := range dbVals {
-		volUUIDs = append(volUUIDs, v.UUID)
-	}
-	volumeProvisionScopeStmt, err := st.Prepare(`
-SELECT &storageVolumeProvisionScope.*
-FROM storage_volume
-WHERE uuid IN ($S[:])
-`,
-		storageVolumeProvisionScope{}, volUUIDs)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var volProvisionScopeVals []storageVolumeProvisionScope
-	err = tx.Query(ctx, volumeProvisionScopeStmt, volUUIDs).GetAll(&volProvisionScopeVals)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	provisionScopes := map[string]int{}
-	for _, v := range volProvisionScopeVals {
-		provisionScopes[v.UUID] = v.ProvisionScopeID
-	}
-
-	rval := make([]insertStorageVolumeAttachment, 0, len(dbVals))
-	for _, val := range dbVals {
-		uuid, err := storageprovisioning.NewVolumeAttachmentUUID()
-		if err != nil {
-			return nil, errors.Errorf(
-				"generating new volume %q attachment uuid for net node uuid %q: %w",
-				val.UUID, netNodeUUID, err,
-			)
+	args []internal.CreateUnitStorageAttachmentArg,
+) []insertStorageVolumeAttachment {
+	rval := []insertStorageVolumeAttachment{}
+	for _, arg := range args {
+		if arg.VolumeAttachment == nil {
+			continue
 		}
 
 		rval = append(rval, insertStorageVolumeAttachment{
 			LifeID:            int(life.Alive),
-			NetNodeUUID:       netNodeUUID.String(),
-			StorageVolumeUUID: val.UUID,
-			UUID:              uuid.String(),
-			ProvisionScopeID:  provisionScopes[val.UUID],
+			NetNodeUUID:       arg.VolumeAttachment.NetNodeUUID.String(),
+			ProvisionScopeID:  int(arg.VolumeAttachment.ProvisionScope),
+			StorageVolumeUUID: arg.VolumeAttachment.VolumeUUID.String(),
+			UUID:              arg.VolumeAttachment.UUID.String(),
 		})
 	}
 
-	return rval, nil
+	return rval
 }
 
 // GetStorageUUIDByID returns the UUID for the specified storage, returning an error

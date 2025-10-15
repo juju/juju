@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -28,14 +27,14 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
+	"github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
-	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -60,22 +59,22 @@ type CAASProvider interface {
 // model state.
 type ProviderService struct {
 	*Service
+	storageService StorageService
 
 	agentVersionGetter      AgentVersionGetter
 	provider                providertracker.ProviderGetter[Provider]
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider]
-
-	storagePoolProvider StoragePoolProvider
+	st                      State
 }
 
 // NewProviderService returns a new Service for interacting with a models state.
 func NewProviderService(
 	st State,
+	storageSvc StorageService,
 	leaderEnsurer leadership.Ensurer,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
-	storagePoolProvider StoragePoolProvider,
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -90,10 +89,11 @@ func NewProviderService(
 			clock,
 			logger,
 		),
+		storageService:          storageSvc,
 		agentVersionGetter:      agentVersionGetter,
 		provider:                provider,
 		caasApplicationProvider: caasApplicationProvider,
-		storagePoolProvider:     storagePoolProvider,
+		st:                      st,
 	}
 }
 
@@ -283,7 +283,7 @@ func (s *ProviderService) AddIAASUnits(
 		return nil, nil, errors.Errorf("getting application %q platform: %w", appName, err)
 	}
 
-	storageDirectives, err := s.st.GetApplicationStorageDirectives(ctx, appUUID)
+	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
 	if err != nil {
 		return nil, nil, errors.Errorf(
 			"getting application %q storage directives: %w",
@@ -349,7 +349,7 @@ func (s *ProviderService) AddCAASUnits(
 		return nil, errors.Errorf("making application %q constraints: %w", appName, err)
 	}
 
-	storageDirectives, err := s.st.GetApplicationStorageDirectives(ctx, appUUID)
+	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Errorf(
 			"getting application %q storage directives: %w",
@@ -491,14 +491,28 @@ func (s *ProviderService) RegisterCAASUnit(
 	registerArgs.OrderedId = ord
 	registerArgs.OrderedScale = true
 
-	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	isRegistered, unitUUID, unitNetNodeUUID, err :=
+		s.st.GetCAASUnitRegistered(ctx, unitName)
 	if err != nil {
 		return "", "", errors.Errorf(
-			"generating new net node uuid for caas unit %q: %w",
+			"checking if unit %q is already registered in the model: %w",
 			unitName, err,
 		)
 	}
-	registerArgs.NetNodeUUID = netNodeUUID
+
+	if !isRegistered {
+		// TODO (tlm): This code SHOULD be responsible for generating the unit
+		// uuid of a new CAAS unit. However this is still done in state. We need
+		// to fix this and have this driven from above.
+		unitNetNodeUUID, err = domainnetwork.NewNetNodeUUID()
+		if err != nil {
+			return "", "", errors.Errorf(
+				"generating new unit %q net node: %w", unitName, err,
+			)
+		}
+	}
+
+	registerArgs.NetNodeUUID = unitNetNodeUUID
 
 	// Find the pod/unit in the provider.
 	caasApplicationProvider, err := s.caasApplicationProvider(ctx)
@@ -529,12 +543,19 @@ func (s *ProviderService) RegisterCAASUnit(
 		registerArgs.Ports = &caasUnit.Ports
 	}
 
-	storageArg, err := s.getRegisterCAASUnitStorageArgs(
-		ctx, appUUID, unitName, caasUnit.FilesystemInfo,
-	)
+	var storageArg internal.RegisterUnitStorageArg
+	if isRegistered {
+		storageArg, err = s.storageService.MakeRegisterExistingCAASUnitStorageArg(
+			ctx, unitUUID, unitNetNodeUUID, caasUnit.FilesystemInfo,
+		)
+	} else {
+		storageArg, err = s.storageService.MakeRegisterNewCAASUnitStorageArg(
+			ctx, appUUID, unitNetNodeUUID, caasUnit.FilesystemInfo,
+		)
+	}
 	if err != nil {
 		return "", "", errors.Errorf(
-			"creating storage registrations for caas unit %q: %w",
+			"making storage registration arg for caas unit %q: %w",
 			unitName, err,
 		)
 	}
@@ -559,176 +580,6 @@ func (s *ProviderService) ResolveApplicationConstraints(
 	defer span.End()
 
 	return s.resolveApplicationConstraints(ctx, appCons)
-}
-
-// getRegisterCAASUnitStorageArgs is responsible for fetching the storage
-// arguments required to register a CAAS unit in the model. This func considers
-// pre existing storage already in the model for the unit and that of storage
-// which exists matching the provider's unique ids.
-//
-// This function will first use all the existing storage in the model for the
-// unit before creating new storage to meet the storage directives of the unit.
-// Storage created by this func will be associated with the providers
-// information on first creation. All storage created and re-used will also now
-// be owned by the unit being registered.
-//
-// The following errors may be expected:
-// - [applicationerrors.ApplicationNotFound] when the application no longer
-// exists.
-func (s *ProviderService) getRegisterCAASUnitStorageArgs(
-	ctx context.Context,
-	appUUID coreapplication.UUID,
-	unitName coreunit.Name,
-	providerFilesystemInfo []caas.FilesystemInfo,
-) (application.RegisterUnitStorageArg, error) {
-	// We don't consider or look at volume information for the caas filesystem.
-	// Volume sequences have previously been used as a means of associating
-	// provider information to storage instances. It is impossible to keep these
-	// two sources in sync so instead we rely on the unique id from the
-	// provider.
-	//
-	// For CAAS this provider value lives in caas.FilesystemInfo.FilesystemId.
-	//
-	// Collect the set of provider ids and form a mapping from charm storage
-	// name.
-	providerIDs := make([]string, 0, len(providerFilesystemInfo))
-	providerIDName := make(map[string]domainstorage.Name, len(providerFilesystemInfo))
-	for _, fsInfo := range providerFilesystemInfo {
-		providerIDs = append(providerIDs, fsInfo.FilesystemId)
-		providerIDName[fsInfo.FilesystemId] = domainstorage.Name(fsInfo.StorageName)
-	}
-
-	// We fetch all existing storage instances in the model that are using one
-	// of the provider ids.
-	existingProviderStorage, err := s.st.GetStorageInstancesForProviderIDs(
-		ctx, appUUID, providerIDs,
-	)
-	if err != nil {
-		return application.RegisterUnitStorageArg{}, errors.Errorf(
-			"getting existing storage instances based on observed provider ids: %w",
-			err,
-		)
-	}
-
-	var (
-		existingUnitStorage map[domainstorage.Name][]domainstorage.StorageInstanceUUID
-		directivesToFollow  []application.StorageDirective
-	)
-
-	// Check if the unit already exists.
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
-		return application.RegisterUnitStorageArg{}, errors.Errorf(
-			"checking if unit %q already exists: %w", unitName, err,
-		)
-	}
-
-	if unitUUID != "" {
-		// If the unit exists, we will get the already established storage
-		// directives including and storage that the unit currently owns.
-		directivesToFollow, existingUnitStorage, err = s.getUnitStorageInfo(
-			ctx, unitUUID,
-		)
-		if err != nil {
-			return application.RegisterUnitStorageArg{}, errors.Errorf(
-				"getting existing unit %q storage information for registration: %w",
-				unitUUID, err,
-			)
-		}
-	} else {
-		// If the unit does not exist, we will instead get and follow the
-		// storage directives of the application.
-		directivesToFollow, err = s.st.GetApplicationStorageDirectives(
-			ctx, appUUID,
-		)
-		if err != nil {
-			return application.RegisterUnitStorageArg{}, errors.Errorf(
-				"getting application %q storage directives: %w", appUUID, err,
-			)
-		}
-		existingUnitStorage = map[domainstorage.Name][]domainstorage.StorageInstanceUUID{}
-	}
-
-	// We need to walk through all of the storage in the model that is using one
-	// of the provider ids and make it available under the units existing
-	// storage.
-	//
-	// It is possible for storage to exist in the model that is not currently
-	// owned by a unit. This happens in CAAS models where a unit going away does
-	// not remove provisioned storage.
-	for providerId, instanceUUID := range existingProviderStorage {
-		storageName := providerIDName[providerId]
-
-		// If the storage has already been identified as belonging to the unit
-		// there is nothing more to do.
-		if slices.Contains(existingUnitStorage[storageName], instanceUUID) {
-			continue
-		}
-
-		existingUnitStorage[storageName] = append(
-			existingUnitStorage[storageName], instanceUUID,
-		)
-	}
-
-	unitStorageArgs, err := makeUnitStorageArgs(
-		ctx, s.storagePoolProvider, directivesToFollow, existingUnitStorage,
-	)
-	if err != nil {
-		return application.RegisterUnitStorageArg{}, errors.Capture(err)
-	}
-
-	// Build a list of provider ids that are not associated with a storage
-	// instance as of yet. This would be the case for a new unit getting
-	// registered for the first time.
-	unassignedProviderIDs := slices.DeleteFunc(providerIDs, func(id string) bool {
-		_, exists := existingProviderStorage[id]
-		return exists
-	})
-
-	// Now map all of the unassigned provider ids to the storage name that
-	// they can be assigned to.
-	unassignedNameMapping := map[domainstorage.Name][]string{}
-	for _, unassignedProviderID := range unassignedProviderIDs {
-		nameIDs := unassignedNameMapping[providerIDName[unassignedProviderID]]
-		nameIDs = append(nameIDs, unassignedProviderID)
-		unassignedNameMapping[providerIDName[unassignedProviderID]] = nameIDs
-	}
-
-	// filesystemProviderIDs is a mapping of new filesystem uuids that are to be
-	// created and the provider id for the filesystem.
-	filesystemProviderIDs := map[domainstorageprov.FilesystemUUID]string{}
-
-	// We need to walk through all of the new storage instances being created
-	// and assign a provider id to them.
-	for _, inst := range unitStorageArgs.StorageInstances {
-		// We can safely assume that all CAAS units create filesystems but we
-		// are not in charge of the business logic here. So instead let us just
-		// skip this instance if it does not have a non filesystem uuid.
-		if inst.Filesystem == nil {
-			continue
-		}
-
-		nameIDs := unassignedNameMapping[inst.Name]
-		if len(nameIDs) == 0 {
-			// This should never happen, but it does mean we have a disjoint
-			// situation between what the provider is creating and the
-			// information in the database.
-			return application.RegisterUnitStorageArg{}, errors.Errorf(
-				"no provider id exists to assign to unit %q new storage instance %q",
-				unitName, inst.Name,
-			)
-		}
-
-		// Pop the first unassigned provider id and give it to the new
-		// filesystem.
-		filesystemProviderIDs[inst.Filesystem.UUID] = nameIDs[0]
-		unassignedNameMapping[inst.Name] = nameIDs[1:]
-	}
-
-	return application.RegisterUnitStorageArg{
-		CreateUnitStorageArg:  unitStorageArgs,
-		FilesystemProviderIDs: filesystemProviderIDs,
-	}, nil
 }
 
 func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
@@ -782,7 +633,8 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	}
 	addIAASApplicationArgs.Constraints = constraints.DecodeConstraints(cons)
 
-	storageDirectives := makeStorageDirectiveFromApplicationArg(
+	storageDirectives := storage.MakeStorageDirectiveFromApplicationArg(
+		charm.Meta().Name,
 		charm.Meta().Storage,
 		arg.StorageDirectives,
 	)
@@ -841,7 +693,8 @@ func (s *ProviderService) makeCAASApplicationArg(
 	}
 	addCAASApplicationArg.Constraints = constraints.DecodeConstraints(cons)
 
-	storageDirectives := makeStorageDirectiveFromApplicationArg(
+	storageDirectives := storage.MakeStorageDirectiveFromApplicationArg(
+		charm.Meta().Name,
 		charm.Meta().Storage,
 		arg.StorageDirectives,
 	)
@@ -870,11 +723,10 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		return errors.Errorf("invalid application args: %w", err)
 	}
 
-	err := validateApplicationStorageDirectiveParams(
+	err := s.storageService.ValidateApplicationStorageDirectiveOverrides(
 		ctx,
 		charm.Meta().Storage,
 		args.StorageDirectiveOverrides,
-		s.storagePoolProvider,
 	)
 	if err != nil {
 		return errors.Errorf(
@@ -909,7 +761,7 @@ func (s *ProviderService) makeApplicationArg(
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 ) (string, application.BaseAddApplicationArg, error) {
-	appArg, err := makeCreateApplicationArgs(ctx, s.st, charm, origin, args)
+	appArg, err := makeCreateApplicationArgs(ctx, s.storageService, charm, origin, args)
 	if err != nil {
 		return "", application.BaseAddApplicationArg{}, errors.Errorf("creating application args: %w", err)
 	}
@@ -1028,24 +880,22 @@ func (s *ProviderService) validateConstraints(ctx context.Context, cons corecons
 
 func makeCreateApplicationArgs(
 	ctx context.Context,
-	storageSt StorageState,
+	storageSvc StorageService,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 ) (application.BaseAddApplicationArg, error) {
-	modelStoragePools, err := storageSt.GetModelStoragePools(ctx)
-	if err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf(
-			"getting default storage provisioners for model: %w", err,
-		)
-	}
-
 	charmMeta := charm.Meta()
-	storageDirectiveArgs := makeApplicationStorageDirectiveArgs(
+	storageDirectiveArgs, err := storageSvc.MakeApplicationStorageDirectiveArgs(
+		ctx,
 		args.StorageDirectiveOverrides,
 		charmMeta.Storage,
-		modelStoragePools,
 	)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf(
+			"making application storage directives: %w", err,
+		)
+	}
 
 	err = validateApplicationStorageDirectives(charmMeta.Storage, storageDirectiveArgs)
 	if err != nil {

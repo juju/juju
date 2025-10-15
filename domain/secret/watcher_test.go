@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -23,7 +24,7 @@ import (
 	"github.com/juju/juju/domain"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	applicationservicetest "github.com/juju/juju/domain/application/service/testing"
+	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/secret/service"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -965,8 +967,20 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 	logger := loggertesting.WrapCheckLog(c)
 	st := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger)
+	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
+		func() internalstorage.ProviderRegistry {
+			return internalstorage.NotImplementedProviderRegistry{}
+		},
+	)
+	storageSvc := applicationstorageservice.NewService(
+		st, applicationstorageservice.NewStoragePoolProvider(
+			storageProviderRegistryGetter, st,
+		),
+	)
+
 	svc := applicationservice.NewProviderService(
 		st,
+		storageSvc,
 		domaintesting.NoopLeaderEnsurer(),
 		nil,
 		func(ctx context.Context) (applicationservice.Provider, error) {
@@ -975,7 +989,6 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
-		applicationservicetest.StoragePoolProvider{},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

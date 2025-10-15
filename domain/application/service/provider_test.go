@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -56,6 +55,7 @@ func TestProviderServiceSuite(t *testing.T) {
 
 func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -144,9 +144,6 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
-	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
-		internal.ModelStoragePools{}, nil,
-	)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Constraints: coreconstraints.MustParse("arch=arm64"),
 		Base: corebase.Base{
@@ -227,6 +224,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -241,9 +239,6 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
-	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
-		internal.ModelStoragePools{}, nil,
-	)
 
 	var receivedArgs application.AddIAASApplicationArg
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, appArgs application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.UUID, []coremachine.Name, error) {
@@ -295,6 +290,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 
 func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -335,9 +331,6 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
-		internal.ModelStoragePools{}, nil,
-	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -397,6 +390,7 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 
 func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -442,9 +436,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	s.state.EXPECT().GetMachineUUIDAndNetNodeForName(gomock.Any(), "0").Return(
 		machineUUID, machineNetNodeUUID, nil,
 	)
-	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
-		internal.ModelStoragePools{}, nil,
-	)
+
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -826,15 +818,13 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 	preCheckError := errors.New("precheck failure error")
 
 	s.state.EXPECT().GetMachineUUIDAndNetNodeForName(gomock.Any(), "0").Return(
 		machinetesting.GenUUID(c), tc.Must(c, domainnetwork.NewNetNodeUUID), nil,
-	)
-	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
-		internal.ModelStoragePools{}, nil,
 	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
@@ -892,6 +882,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -937,9 +928,6 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 		},
 	}
 
-	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
-		internal.ModelStoragePools{}, nil,
-	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -1109,6 +1097,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithNoArchitecture(c *tc
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesNotAllResourcesResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo", Resources: map[string]charmresource.Meta{
 		"not-resolved": {Name: "not-resolved"},
@@ -1141,6 +1130,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesNotA
 // pending resources are mutually exclusive.
 func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourceBothTypes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo", Resources: map[string]charmresource.Meta{
 		"not-resolved": {Name: "not-resolved"},
@@ -1216,6 +1206,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesInva
 
 func (s *providerServiceSuite) testCreateIAASApplicationWithInvalidResource(c *tc.C, resources ResolvedResources) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
@@ -1241,6 +1232,7 @@ func (s *providerServiceSuite) testCreateIAASApplicationWithInvalidResource(c *t
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationConfigMissingOption(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
@@ -1283,6 +1275,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationCo
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationConfigWrongType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
@@ -1324,6 +1317,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationCo
 
 func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	id := applicationtesting.GenApplicationUUID(c)
 
@@ -1331,9 +1325,6 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(
-		internal.ModelStoragePools{}, nil,
-	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), []application.AddIAASUnitArg{}).Return(id, nil, rErr)
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -2132,6 +2123,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
@@ -2432,6 +2424,7 @@ func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
 func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
+	setAddUnitNoopStorageExpects(s.storageService)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
@@ -2452,7 +2445,6 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
@@ -2477,6 +2469,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
+	setAddUnitNoopStorageExpects(s.storageService)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -2519,7 +2512,6 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
@@ -2548,6 +2540,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
+	setAddUnitNoopStorageExpects(s.storageService)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
@@ -2585,7 +2578,6 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
@@ -2611,6 +2603,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
+	setAddUnitNoopStorageExpects(s.storageService)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -2636,7 +2629,6 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
@@ -2691,11 +2683,11 @@ func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
+	setAddUnitNoopStorageExpects(s.storageService)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
@@ -2724,13 +2716,13 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
+	setAddUnitNoopStorageExpects(s.storageService)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	machineUUID := tc.Must(c, coremachine.NewUUID)
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 
-	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,

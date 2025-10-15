@@ -24,11 +24,13 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/life"
 	machineservice "github.com/juju/juju/domain/machine/service"
@@ -44,6 +46,7 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -196,14 +199,25 @@ func (s *baseSuite) setupApplicationService(c *tc.C) *applicationservice.Provide
 	caasProviderGetter := func(ctx context.Context) (applicationservice.CAASProvider, error) {
 		return appProvider{}, nil
 	}
+	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
+		func() internalstorage.ProviderRegistry {
+			return internalstorage.NotImplementedProviderRegistry{}
+		},
+	)
+	state := applicationstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
+	storageSvc := applicationstorageservice.NewService(
+		state, applicationstorageservice.NewStoragePoolProvider(
+			storageProviderRegistryGetter, state,
+		),
+	)
 
 	return applicationservice.NewProviderService(
 		applicationstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		storageSvc,
 		domaintesting.NoopLeaderEnsurer(),
 		nil,
 		providerGetter,
 		caasProviderGetter,
-		nil,
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
@@ -593,7 +607,7 @@ VALUES (?, ?)`, spaceUUID, spaceName)
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO subnet (uuid, cidr, space_uuid) 
+INSERT INTO subnet (uuid, cidr, space_uuid)
 VALUES (?, ?, ?)`, subnetUUID, subnet, spaceUUID)
 		if err != nil {
 			return errors.Errorf("failed to insert subnet: %v", err)
@@ -642,7 +656,7 @@ VALUES (?, ?)`, "provider-id-"+name, lldUUID)
 func (s *baseSuite) addLinkLayerDeviceParent(c *tc.C, parentUUID, childUUID string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO link_layer_device_parent (parent_uuid, device_uuid) 
+INSERT INTO link_layer_device_parent (parent_uuid, device_uuid)
 VALUES (?, ?)`, parentUUID, childUUID)
 		if err != nil {
 			return err
@@ -665,7 +679,7 @@ SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID).Scan(&netNodeUUI
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) 
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, ipAddrUUID, lldUUID, "10.16.42.9/24", netNodeUUID, 0, 0, 0, 0, subnetUUID)
 		if err != nil {
 			return errors.Errorf("failed to insert ip_address: %v", err)
@@ -706,7 +720,7 @@ func (s *baseSuite) addOperation(c *tc.C) string {
 	opUUID := uuid.MustNewUUID().String()
 	opID := s.nextOperationID()
 	enqueued := time.Now().UTC()
-	_, err := s.DB().Exec(`INSERT INTO operation (uuid, operation_id, summary, enqueued_at) 
+	_, err := s.DB().Exec(`INSERT INTO operation (uuid, operation_id, summary, enqueued_at)
 VALUES (?, ?, ?, ?)`, opUUID, opID,
 		"", enqueued)
 	c.Assert(err, tc.ErrorIsNil)
@@ -796,7 +810,7 @@ func (s *baseSuite) linkOperationTaskOutput(c *tc.C, taskUUID, path string) {
 func (s *baseSuite) addOperationTaskStatus(c *tc.C, taskUUID string, status corestatus.Status) {
 	beforeCount := s.getRowCount(c, "operation_task_status")
 	// Map status to id via the table
-	_, err := s.DB().Exec(`INSERT INTO operation_task_status (task_uuid, status_id, updated_at) 
+	_, err := s.DB().Exec(`INSERT INTO operation_task_status (task_uuid, status_id, updated_at)
 		SELECT ?, id, ? FROM operation_task_status_value WHERE status = ?`, taskUUID, time.Now().UTC(), status)
 	c.Assert(err, tc.ErrorIsNil)
 	afterCount := s.getRowCount(c, "operation_task_status")
