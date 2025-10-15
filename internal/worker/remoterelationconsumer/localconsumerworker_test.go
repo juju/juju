@@ -1967,12 +1967,12 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 		ConsumerRelationUUID:   relationUUID,
 		OffererApplicationUUID: s.applicationUUID,
 		Life:                   life.Alive,
-		ApplicationSettings: map[string]any{
+		ApplicationSettings: map[string]string{
 			"foo": "bar",
 		},
 		ChangedUnits: []offererunitrelations.UnitChange{{
 			UnitID: 0,
-			Settings: map[string]any{
+			Settings: map[string]string{
 				"foo": "bar",
 			},
 		}},

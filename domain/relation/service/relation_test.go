@@ -645,6 +645,73 @@ func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
+func (s *relationServiceSuite) TestEnterScopeForUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	applicationSettings := map[string]string{"foo": "bar"}
+	unitSettings := map[coreunit.Name]map[string]string{
+		coreunit.Name("app1/0"): {"ingress": "x.x.x.x"},
+	}
+	expectedUnitSettings := map[string]map[string]string{
+		unitName.String(): unitSettings[unitName],
+	}
+	s.state.EXPECT().EnterScopeForUnits(gomock.Any(), relationUUID.String(), applicationSettings, expectedUnitSettings).Return(nil)
+
+	// Act.
+	err := s.service.EnterScopeForUnits(
+		c.Context(),
+		relationUUID,
+		applicationSettings,
+		unitSettings,
+	)
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationServiceSuite) TestEnterScopeForUnitsInvalidRelationName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	applicationSettings := map[string]string{"foo": "bar"}
+	unitSettings := map[coreunit.Name]map[string]string{
+		coreunit.Name("app1/0"): {"ingress": "x.x.x.x"},
+	}
+
+	// Act.
+	err := s.service.EnterScopeForUnits(
+		c.Context(),
+		"bad-uuid",
+		applicationSettings,
+		unitSettings,
+	)
+	// Assert.
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestEnterScopeForUnitsInvalidUnitName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	applicationSettings := map[string]string{"foo": "bar"}
+	unitSettings := map[coreunit.Name]map[string]string{
+		coreunit.Name("!!!"): {"ingress": "x.x.x.x"},
+	}
+
+	// Act.
+	err := s.service.EnterScopeForUnits(
+		c.Context(),
+		relationUUID,
+		applicationSettings,
+		unitSettings,
+	)
+	// Assert.
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
 func (s *relationServiceSuite) TestGetRelationUnitSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

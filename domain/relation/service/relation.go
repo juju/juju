@@ -47,8 +47,8 @@ type State interface {
 		principalUnitName unit.Name,
 	) (*application.UUID, error)
 
-	// EnterScope indicates that the provided unit has joined the relation.
-	// When the unit has already entered its relation scope, EnterScope will report
+	// EnterScope indicates that the provided unit has joined the relation. When
+	// the unit has already entered its relation scope, EnterScope will report
 	// success but make no changes to state. The unit's settings are created or
 	// overwritten in the relation according to the supplied map.
 	EnterScope(
@@ -56,6 +56,19 @@ type State interface {
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
 		settings map[string]string,
+	) error
+
+	// EnterScopeForUnits indicates that the provided unit has joined the
+	// relation. When the unit has already entered its relation scope,
+	// EnterScopeForUnits will report success but make no changes to state. The
+	// unit's settings are created or overwritten in the relation according to
+	// the supplied map. This does not handle subordinate unit creation, or
+	// related checks.
+	EnterScopeForUnits(
+		ctx context.Context,
+		relationUUID string,
+		applicationSettings map[string]string,
+		unitSettings map[string]map[string]string,
 	) error
 
 	// GetAllRelationDetails return RelationDetailResults for all relations
@@ -460,14 +473,18 @@ func (s *Service) EnterScopeForUnits(
 		return errors.Errorf(
 			"%w:%w", relationerrors.RelationUUIDNotValid, err)
 	}
-	for unitName := range unitSettings {
+
+	uSettings := make(map[string]map[string]string)
+	for unitName, settings := range unitSettings {
 		if err := unitName.Validate(); err != nil {
 			return errors.Capture(err)
 		}
+
+		uSettings[unitName.String()] = settings
 	}
 
 	// Enter the unit into the relation scope.
-	if err := s.st.EnterScopeForUnits(ctx, relationUUID, applicationSettings, unitSettings); err != nil {
+	if err := s.st.EnterScopeForUnits(ctx, relationUUID.String(), applicationSettings, uSettings); err != nil {
 		return errors.Capture(err)
 	}
 
