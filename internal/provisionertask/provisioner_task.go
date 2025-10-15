@@ -560,9 +560,20 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 	}
 
 	// Collect the instances for all provisioned machines that are dead.
-	stopping := task.instancesForDeadMachines(ctx, dead)
+	stopping, orphaned := task.instancesForDeadMachines(ctx, dead)
+
+	// We know that there are dead machines, but none of them have an
+	// assigned instance, so there is nothing to stop in terms of an
+	// instance, but we still need to mark the machines for removal.
+	for _, machine := range orphaned {
+		task.logger.Infof(ctx, "removing dead machine with no machine ID")
+		if err := machine.MarkForRemoval(ctx); err != nil {
+			task.logger.Errorf(ctx, "failed to remove dead machine %q: %v", machine.Id(), err)
+		}
+	}
+
 	if len(stopping) == 0 {
-		// no instances to stop, as the machines are not provisioned.
+		// Nothing to do.
 		return nil
 	}
 
@@ -654,8 +665,11 @@ func (task *provisionerTask) deferStopForNotYetStartedMachines(dead []apiprovisi
 // instancesForDeadMachines returns a list of instances that correspond to
 // machines with a life of "dead" in state. Missing machines and machines that
 // have not finished starting are omitted from the list.
-func (task *provisionerTask) instancesForDeadMachines(ctx context.Context, dead []apiprovisioner.MachineProvisioner) []instances.Instance {
-	var deadInstances []instances.Instance
+func (task *provisionerTask) instancesForDeadMachines(ctx context.Context, dead []apiprovisioner.MachineProvisioner) ([]instances.Instance, []apiprovisioner.MachineProvisioner) {
+	var (
+		deadInstances []instances.Instance
+		orphaned      []apiprovisioner.MachineProvisioner
+	)
 	for _, machine := range dead {
 		// Ignore machines that are still provisioning
 		task.machinesMutex.RLock()
@@ -666,7 +680,10 @@ func (task *provisionerTask) instancesForDeadMachines(ctx context.Context, dead 
 		task.machinesMutex.RUnlock()
 
 		instId, err := machine.InstanceId(ctx)
-		if err == nil {
+		if params.IsCodeNotProvisioned(err) {
+			orphaned = append(orphaned, machine)
+			continue
+		} else if err == nil {
 			keep, _ := machine.KeepInstance(ctx)
 			if keep {
 				task.logger.Debugf(ctx, "machine %v is dead but keep-instance is true", instId)
@@ -681,7 +698,7 @@ func (task *provisionerTask) instancesForDeadMachines(ctx context.Context, dead 
 			task.machinesMutex.RUnlock()
 		}
 	}
-	return deadInstances
+	return deadInstances, orphaned
 }
 
 func (task *provisionerTask) doStopInstances(ctx context.Context, instances []instances.Instance) error {
