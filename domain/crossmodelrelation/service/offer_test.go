@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
+	relationtesting "github.com/juju/juju/core/relation/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -555,4 +556,16 @@ func (m createOfferArgsMatcher) Matches(x interface{}) bool {
 
 func (m createOfferArgsMatcher) String() string {
 	return "match CreateOfferArgs"
+}
+
+func (s *offerServiceSuite) TestGetOfferUUIDByRelationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, offer.NewUUID)
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.modelState.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID.String()).Return(offerUUID.String(), nil)
+
+	got, err := s.service(c).GetOfferUUIDByRelationUUID(c.Context(), relUUID)
+	c.Assert(err, tc.IsNil)
+	c.Assert(got, tc.Equals, offerUUID)
 }

@@ -1877,6 +1877,28 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *tc.C) {
 	c.Assert(gotLabel, tc.DeepEquals, ptr("foo"))
 }
 
+func (s *serviceSuite) TestGetLatestRevisions(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uris := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+	ctx := c.Context()
+
+	s.state.EXPECT().GetLatestRevisions(gomock.Any(), uris).Return(map[string]int{
+		uris[0].ID: 666,
+		uris[1].ID: 667,
+	}, nil)
+
+	latest, err := s.service.GetLatestRevisions(ctx, uris)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(latest, tc.DeepEquals, map[string]int{
+		uris[0].ID: 666,
+		uris[1].ID: 667,
+	})
+}
+
 type changeEvent struct {
 	changed    string
 	namespace  string

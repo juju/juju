@@ -177,7 +177,7 @@ INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`, offerUUID
 	return offerUUID
 }
 
-func (s *baseSuite) addOfferConnection(c *tc.C, offerUUID offer.UUID, statusID status.RelationStatusType) {
+func (s *baseSuite) addOfferConnection(c *tc.C, offerUUID offer.UUID, statusID status.RelationStatusType) string {
 	relUUID := s.addRelation(c)
 	consumerRelUUID := tc.Must(c, internaluuid.NewUUID).String()
 	s.query(c, `
@@ -192,6 +192,7 @@ VALUES (?, ?, ?, "bob")`, connUUID, offerUUID, relUUID)
 	s.query(c, `
 INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
 VALUES (?, ?, 0)`, relUUID, statusID)
+	return relUUID.String()
 }
 
 // encodeRoleID returns the ID used in the database for the given charm role. This

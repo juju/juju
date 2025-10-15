@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/offer"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
@@ -49,6 +50,11 @@ type ModelOfferState interface {
 		offerName string,
 		offerEndpoints []string,
 	) error
+
+	// GetOfferUUIDByRelationUUID returns the offer UUID corresponding to
+	// the cross model relation UUID, returning an error satisfying
+	// [crossmodelrelationerrors.OfferNotFound] if the relation is not found.
+	GetOfferUUIDByRelationUUID(ctx context.Context, relationUUID string) (string, error)
 }
 
 // GetOfferUUID returns the uuid for the provided offer URL.
@@ -58,6 +64,28 @@ func (s *Service) GetOfferUUID(ctx context.Context, offerURL crossmodel.OfferURL
 	defer span.End()
 
 	offerUUID, err := s.modelState.GetOfferUUID(ctx, offerURL.Name)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	res, err := offer.ParseUUID(offerUUID)
+	if err != nil {
+		return "", errors.Errorf("parsing offer UUID: %w", err)
+	}
+	return res, nil
+}
+
+// GetOfferUUIDByRelationUUID returns the offer UUID corresponding to
+// the cross model relation UUID, returning an error satisfying
+// [crossmodelrelationerrors.OfferNotFound] if the relation is not found.
+func (s *Service) GetOfferUUIDByRelationUUID(ctx context.Context, relationUUID corerelation.UUID) (offer.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return "", errors.Errorf("validating relation UUID: %w", err)
+	}
+
+	offerUUID, err := s.modelState.GetOfferUUIDByRelationUUID(ctx, relationUUID.String())
 	if err != nil {
 		return "", errors.Capture(err)
 	}

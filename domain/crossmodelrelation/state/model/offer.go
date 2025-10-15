@@ -133,6 +133,41 @@ func (st *State) UpdateOffer(
 	return errors.Capture(err)
 }
 
+// GetOfferUUIDByRelationUUID returns the offer UUID corresponding to
+// the cross model relation UUID, returning an error satisfying
+// [crossmodelrelationerrors.OfferNotFound] if the relation is not found.
+func (st *State) GetOfferUUIDByRelationUUID(ctx context.Context, relationUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	remoteRelationUUID := remoteRelationUUID{
+		UUID: relationUUID,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &offerConnection.*
+FROM   offer_connection oc
+WHERE  oc.application_remote_relation_uuid = $remoteRelationUUID.uuid
+`, remoteRelationUUID, offerConnection{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result offerConnection
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, remoteRelationUUID).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("offer for relation %q: %w", relationUUID, crossmodelrelationerrors.OfferNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return err
+	})
+	return result.OfferUUID, err
+}
+
 // GetOfferUUID returns the offer uuid for provided name.
 // Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
 func (st *State) GetOfferUUID(ctx context.Context, name string) (string, error) {

@@ -237,6 +237,10 @@ type offerConnection struct {
 	Username                      string `db:"username"`
 }
 
+type remoteRelationUUID struct {
+	UUID string `db:"uuid"`
+}
+
 type offerConnectionQuery struct {
 	OfferUUID string `db:"offer_uuid"`
 }

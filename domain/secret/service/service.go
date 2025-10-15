@@ -1014,3 +1014,12 @@ func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, par
 		return s.secretState.SecretRotated(innerCtx, uri, nextRotateTime)
 	})
 }
+
+// GetLatestRevisions returns the latest secret revisions for the specified URIs, keyed on secret ID.
+// It returns [secreterrors.SecretNotFound] if any of the specified URIs do not exist.
+func (s *SecretService) GetLatestRevisions(ctx context.Context, uris []*secrets.URI) (map[string]int, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.secretState.GetLatestRevisions(ctx, uris)
+}

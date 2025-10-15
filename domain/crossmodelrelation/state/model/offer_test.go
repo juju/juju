@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/offer"
+	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -560,4 +561,52 @@ func (s *modelOfferSuite) setupOfferWithInterface(c *tc.C, interfaceName string)
 			},
 		},
 	}
+}
+
+func (s *modelOfferSuite) setupOfferConnection(c *tc.C) (string, string) {
+	// Create an offer with one endpoint
+	charmUUID := s.addCharm(c)
+	description := "testing application"
+	s.addCharmMetadataWithDescription(c, charmUUID, description)
+	relation := charm.Relation{
+		Name:      "db-admin",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	appEndpointUUD1 := s.addApplicationEndpoint(c, appUUID, relationUUID)
+
+	// Add a second relation
+	relation2 := charm.Relation{
+		Name:      "log",
+		Role:      charm.RoleRequirer,
+		Interface: "log",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID2 := s.addCharmRelation(c, charmUUID, relation2)
+	s.addApplicationEndpoint(c, appUUID, relationUUID2)
+
+	offerName := "test-offer"
+	offerUUID := s.addOffer(c, offerName, []string{appEndpointUUD1})
+
+	crossModelRelUUID := s.addOfferConnection(c, offerUUID, domainstatus.RelationStatusTypeJoined)
+	s.addOfferConnection(c, offerUUID, domainstatus.RelationStatusTypeJoining)
+
+	return crossModelRelUUID, offerUUID.String()
+}
+
+func (s *modelOfferSuite) TestGetOfferUUIDByRelationUUID(c *tc.C) {
+	relationUUID, offerUUID := s.setupOfferConnection(c)
+	obtainedOfferUUID, err := s.state.GetOfferUUIDByRelationUUID(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedOfferUUID, tc.Equals, offerUUID)
+}
+
+func (s *modelOfferSuite) TestGetOfferUUIDByRelationUUIDNotFound(c *tc.C) {
+	_, err := s.state.GetOfferUUIDByRelationUUID(c.Context(), relationtesting.GenRelationUUID(c).String())
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }

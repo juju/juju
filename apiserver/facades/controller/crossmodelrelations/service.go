@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/offer"
+	corerelation "github.com/juju/juju/core/relation"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
@@ -24,6 +26,21 @@ type CrossModelRelationService interface {
 	// AddRemoteApplicationConsumer adds a new synthetic application representing
 	// a remote relation on the consuming model, to this, the offering model.
 	AddRemoteApplicationConsumer(ctx context.Context, args crossmodelrelationservice.AddRemoteApplicationConsumerArgs) error
+
+	// GetOfferUUIDByRelationUUID returns the offer UUID corresponding to
+	// the cross model relation UUID.
+	GetOfferUUIDByRelationUUID(ctx context.Context, relationUUID corerelation.UUID) (offer.UUID, error)
+
+	// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any
+	// unit of the specified app and returns a watcher which notifies of secret URIs
+	// that have had a new revision added.
+	WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID application.UUID) (watcher.StringsWatcher, error)
+}
+
+// SecretService provides access to secrets.
+type SecretService interface {
+	// GetLatestRevisions returns the latest secret revisions for the specified URIs.
+	GetLatestRevisions(ctx context.Context, uris []*coresecrets.URI) (map[string]int, error)
 }
 
 // StatusService provides access to the status service.
