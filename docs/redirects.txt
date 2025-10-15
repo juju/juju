@@ -32,7 +32,8 @@ contributor/unsorted/what-we-run-and-why contributor
 contributor/unsorted/simplestreams-metadata reference/metadata
 contributor/unsorted/architectural-overview contributor/reference/architectural-overview
 contributor/unsorted/high-availability contributor/reference/high-availability
-contributor/unsorted/observing-mongodb-performance contributor/howto/manage-mongodb
+contributor/unsorted/observing-mongodb-performance contributor/howto/
+contributor/howto/manage-mongodb contributor/howto/
 contributor/unsorted/writing-workers contributor/reference/writing-workers/
 contributor/unsorted contributor
 contributor/tutorial contributor
