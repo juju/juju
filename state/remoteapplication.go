@@ -924,22 +924,35 @@ func (p AddRemoteApplicationParams) Validate() error {
 	return nil
 }
 
-func (st *State) destroyExistingRemoteApplicationOp(args AddRemoteApplicationParams) (*DestroyRemoteApplicationOperation, error) {
+func (st *State) destroyExistingRemoteApplicationOps(attempt int, args AddRemoteApplicationParams) ([]txn.Op, func() error, error) {
 	if !args.IsConsumerProxy {
-		return nil, nil
+		return nil, nil, nil
 	}
 	existingRemoteApp, err := st.RemoteApplication(args.Name)
 	if errors.Is(err, errors.NotFound) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	if existingRemoteApp.ConsumeVersion() < args.ConsumeVersion {
 		logger.Infof("consume newer version %d of remote app for offer %v: %v", args.ConsumeVersion, args.OfferUUID, args.Name)
-		return existingRemoteApp.DestroyOperation(true), nil
+		destroyModelOp := existingRemoteApp.DestroyOperation(true)
+		destroyOps, err := destroyModelOp.Build(attempt)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		ops := []txn.Op{{
+			C:  remoteApplicationsC,
+			Id: existingRemoteApp.doc.DocID,
+			Assert: append(notDeadDoc,
+				bson.DocElem{Name: "version", Value: existingRemoteApp.ConsumeVersion()}),
+		}}
+		return append(ops, destroyOps...), func() error {
+			return destroyModelOp.Done(err)
+		}, nil
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 // AddRemoteApplication creates a new remote application record,
@@ -1022,9 +1035,16 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	appDoc.Spaces = spaces
 	app := newRemoteApplication(st, appDoc)
 
-	var destroyStaleOp *DestroyRemoteApplicationOperation
-
+	var destroyStaleDone func() error
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var destroyStaleOps []txn.Op
+		// If there's an older existing consumer app proxy for the same consuming app,
+		// it needs to be removed.
+		if destroyStaleOps, destroyStaleDone, err = st.destroyExistingRemoteApplicationOps(attempt, args); err != nil {
+			return nil, errors.Trace(err)
+		}
+		replaceExisting := len(destroyStaleOps) > 0
+
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
 		if attempt > 0 {
@@ -1037,28 +1057,20 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 			} else if localExists {
 				return nil, errors.AlreadyExistsf("local application with same name")
 			}
-			// Ensure a remote application with the same name doesn't exist.
-			if exists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
-				return nil, errors.Trace(err)
-			} else if exists {
-				return nil, errors.AlreadyExistsf("saas application")
+			// Ensure a remote application with the same name doesn't exist
+			// but only if we are not replacing it.
+			if !replaceExisting {
+				if exists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
+					return nil, errors.Trace(err)
+				} else if exists {
+					return nil, errors.AlreadyExistsf("saas application")
+				}
 			}
 		}
 
-		var ops []txn.Op
+		ops := destroyStaleOps
 
-		// If there's an older existing consumer app proxy for the same consuming app,
-		// it needs to be removed.
-		if destroyStaleOp, err = st.destroyExistingRemoteApplicationOp(args); err != nil {
-			return nil, errors.Trace(err)
-		}
-		replaceExisting := destroyStaleOp != nil
 		if replaceExisting {
-			destroyOps, err := destroyStaleOp.Build(attempt)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, destroyOps...)
 			ops = append(ops, txn.Op{
 				C:      remoteApplicationsC,
 				Id:     appDoc.Name,
@@ -1112,9 +1124,9 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	if err = st.db().Run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if destroyStaleOp != nil {
-		if err := destroyStaleOp.Done(nil); err != nil {
-			return nil, errors.Annotatef(err, "cleaning up state remote application proxy for %q", destroyStaleOp.app.Name())
+	if destroyStaleDone != nil {
+		if err := destroyStaleDone(); err != nil {
+			return nil, errors.Annotatef(err, "cleaning up state remote application proxy for %q", args.Name)
 		}
 	}
 	return app, nil
