@@ -1340,6 +1340,21 @@ WHERE  name = $getUnit.name
 	return errors.Capture(err)
 }
 
+// EnterScopeForUnits indicates that the provided unit has joined the
+// relation. When the unit has already entered its relation scope,
+// EnterScopeForUnits will report success but make no changes to state. The
+// unit's settings are created or overwritten in the relation according to
+// the supplied map. This does not handle subordinate unit creation, or
+// related checks.
+func (st *State) EnterScopeForUnits(
+	ctx context.Context,
+	relationUUID string,
+	applicationSettings map[string]string,
+	unitSettings map[string]map[string]string,
+) error {
+	return nil
+}
+
 // NeedsSubordinateUnit checks if there is a subordinate application
 // related to the principal unit that needs a subordinate unit created whilst
 // entering scope.

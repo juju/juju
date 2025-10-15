@@ -900,6 +900,17 @@ func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Contex
 		return errors.Annotatef(err, "ensuring units exist for relation %q", change.ConsumerRelationUUID)
 	}
 
+	// Map the unit settings into a map keyed by unit name.
+	unitSettings := make(map[unit.Name]map[string]string, len(change.ChangedUnits))
+	for _, u := range change.ChangedUnits {
+		unitName, err := unit.NewNameFromParts(w.applicationName, u.UnitID)
+		if err != nil {
+			return errors.Annotatef(err, "parsing unit name %q for relation %q", u.UnitID, change.ConsumerRelationUUID)
+		}
+
+		unitSettings[unitName] = u.Settings
+	}
+
 	// Process the relation application and unit settings changes.
 	if err := w.crossModelService.EnterScopeForUnits(ctx, change.ConsumerRelationUUID, change.ApplicationSettings, unitSettings); err != nil {
 		return errors.Annotatef(err, "processing relation change for relation %q", change.ConsumerRelationUUID)

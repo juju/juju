@@ -44,7 +44,7 @@ type RelationUnitChange struct {
 
 	// ApplicationSettings represent the updated application-level settings in
 	// this relation.
-	ApplicationSettings map[string]any
+	ApplicationSettings map[string]string
 
 	// Life is the current life state of the relation.
 	Life corelife.Value
@@ -62,7 +62,7 @@ type UnitChange struct {
 	UnitID int
 
 	// Settings is the current settings for the relation unit.
-	Settings map[string]any
+	Settings map[string]string
 }
 
 // RemoteModelRelationsClient watches for changes to relations in a remote
@@ -224,17 +224,41 @@ func (w *remoteWorker) loop() error {
 
 			w.logger.Debugf(ctx, "remote relation units changed for %v: %v", w.consumerRelationUUID, change)
 
-			event = RelationUnitChange{
-				ConsumerRelationUUID:   w.consumerRelationUUID,
-				OffererApplicationUUID: w.offererApplicationUUID,
-				ChangedUnits: transform.Slice(change.ChangedUnits, func(c params.RemoteRelationUnitChange) UnitChange {
-					return UnitChange{
-						UnitID:   c.UnitId,
-						Settings: c.Settings,
+			appSettings := make(map[string]string)
+			for k, v := range change.ApplicationSettings {
+				switch val := v.(type) {
+				case string:
+					appSettings[k] = val
+				default:
+					w.logger.Errorf(ctx, "unexpected application setting value type %T for key %q", v, k)
+					continue
+				}
+			}
+
+			var unitSettings []UnitChange
+			for _, c := range change.ChangedUnits {
+				settings := make(map[string]string)
+				for k, v := range c.Settings {
+					switch val := v.(type) {
+					case string:
+						settings[k] = val
+					default:
+						w.logger.Errorf(ctx, "unexpected unit setting value type %T for key %q", v, k)
+						continue
 					}
-				}),
+				}
+				unitSettings = append(unitSettings, UnitChange{
+					UnitID:   c.UnitId,
+					Settings: settings,
+				})
+			}
+
+			event = RelationUnitChange{
+				ConsumerRelationUUID:    w.consumerRelationUUID,
+				OffererApplicationUUID:  w.offererApplicationUUID,
+				ChangedUnits:            unitSettings,
 				DeprecatedDepartedUnits: change.DepartedUnits,
-				ApplicationSettings:     change.ApplicationSettings,
+				ApplicationSettings:     appSettings,
 				Life:                    change.Life,
 				Suspended:               unptr(change.Suspended, false),
 				SuspendedReason:         change.SuspendedReason,

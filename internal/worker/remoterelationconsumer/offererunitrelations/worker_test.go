@@ -169,11 +169,11 @@ func (s *offererUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 		OffererApplicationUUID: s.offererApplicationUUID,
 		ChangedUnits: []UnitChange{{
 			UnitID: 0,
-			Settings: map[string]any{
+			Settings: map[string]string{
 				"foo": "baz",
 			},
 		}},
-		ApplicationSettings: map[string]any{
+		ApplicationSettings: map[string]string{
 			"foo": "bar",
 		},
 		DeprecatedDepartedUnits: []int{

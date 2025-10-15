@@ -582,6 +582,44 @@ func (c *MockCrossModelServiceEnsureUnitsExistCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// EnterScopeForUnits mocks base method.
+func (m *MockCrossModelService) EnterScopeForUnits(ctx context.Context, relationUUID relation.UUID, applicationSettings map[string]string, unitSettings map[unit.Name]map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnterScopeForUnits", ctx, relationUUID, applicationSettings, unitSettings)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnterScopeForUnits indicates an expected call of EnterScopeForUnits.
+func (mr *MockCrossModelServiceMockRecorder) EnterScopeForUnits(ctx, relationUUID, applicationSettings, unitSettings any) *MockCrossModelServiceEnterScopeForUnitsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnterScopeForUnits", reflect.TypeOf((*MockCrossModelService)(nil).EnterScopeForUnits), ctx, relationUUID, applicationSettings, unitSettings)
+	return &MockCrossModelServiceEnterScopeForUnitsCall{Call: call}
+}
+
+// MockCrossModelServiceEnterScopeForUnitsCall wrap *gomock.Call
+type MockCrossModelServiceEnterScopeForUnitsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelServiceEnterScopeForUnitsCall) Return(arg0 error) *MockCrossModelServiceEnterScopeForUnitsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelServiceEnterScopeForUnitsCall) Do(f func(context.Context, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockCrossModelServiceEnterScopeForUnitsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelServiceEnterScopeForUnitsCall) DoAndReturn(f func(context.Context, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockCrossModelServiceEnterScopeForUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationDetails mocks base method.
 func (m *MockCrossModelService) GetRelationDetails(arg0 context.Context, arg1 relation.UUID) (relation0.RelationDetails, error) {
 	m.ctrl.T.Helper()
@@ -1142,6 +1180,44 @@ func NewMockRelationService(ctrl *gomock.Controller) *MockRelationService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRelationService) EXPECT() *MockRelationServiceMockRecorder {
 	return m.recorder
+}
+
+// EnterScopeForUnits mocks base method.
+func (m *MockRelationService) EnterScopeForUnits(ctx context.Context, relationUUID relation.UUID, applicationSettings map[string]string, unitSettings map[unit.Name]map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnterScopeForUnits", ctx, relationUUID, applicationSettings, unitSettings)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnterScopeForUnits indicates an expected call of EnterScopeForUnits.
+func (mr *MockRelationServiceMockRecorder) EnterScopeForUnits(ctx, relationUUID, applicationSettings, unitSettings any) *MockRelationServiceEnterScopeForUnitsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnterScopeForUnits", reflect.TypeOf((*MockRelationService)(nil).EnterScopeForUnits), ctx, relationUUID, applicationSettings, unitSettings)
+	return &MockRelationServiceEnterScopeForUnitsCall{Call: call}
+}
+
+// MockRelationServiceEnterScopeForUnitsCall wrap *gomock.Call
+type MockRelationServiceEnterScopeForUnitsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceEnterScopeForUnitsCall) Return(arg0 error) *MockRelationServiceEnterScopeForUnitsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceEnterScopeForUnitsCall) Do(f func(context.Context, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockRelationServiceEnterScopeForUnitsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceEnterScopeForUnitsCall) DoAndReturn(f func(context.Context, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockRelationServiceEnterScopeForUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetRelationDetails mocks base method.
