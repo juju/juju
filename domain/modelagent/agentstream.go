@@ -55,3 +55,21 @@ func (s AgentStream) IsValid() bool {
 		return false
 	}
 }
+
+// String returns the primitive string values of [AgentStream].
+// It is the client's responsibility to validate that [AgentStream]
+// is indeed valid before calling [AgentStream.String].
+func (s AgentStream) String() string {
+	switch s {
+	case AgentStreamReleased:
+		return "released"
+	case AgentStreamProposed:
+		return "proposed"
+	case AgentStreamTesting:
+		return "testing"
+	case AgentStreamDevel:
+		return "devel"
+	}
+
+	return ""
+}

@@ -10,32 +10,40 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/agentbinary"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
 	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
-// AgentBinaryFinder defines a helper for asserting if agent binaries are
+// AgentBinaryFinder defines a agentFinder for asserting if agent binaries are
 // available and identifying upgrade versions.
 type AgentBinaryFinder interface {
-	// HasBinariesForVersion will interrogate agent binaries available in the
+	// HasBinariesForVersionAndArchitectures will interrogate agent binaries available in the
 	// system and return true or false if agent binaries exist for the provided
-	// version.
-	HasBinariesForVersion(context.Context, semversion.Number) (bool, error)
+	// version and architectures.
+	HasBinariesForVersionAndArchitectures(
+		context.Context,
+		semversion.Number,
+		[]agentbinary.Architecture,
+	) (bool, error)
 
-	// HasBinariesForVersionAndStream will interrogate agent binaries available
+	// HasBinariesForVersionStreamAndArchitectures will interrogate agent binaries available
 	// in the system and return true or false if agent binaries exist for the
-	// provided version on the supplied stream.
-	HasBinariesForVersionAndStream(
-		context.Context, semversion.Number, modelagent.AgentStream,
+	// provided version and architectures on the supplied stream.
+	HasBinariesForVersionStreamAndArchitectures(
+		context.Context,
+		semversion.Number,
+		modelagent.AgentStream,
+		[]agentbinary.Architecture,
 	) (bool, error)
 
 	// GetHighestPatchVersionAvailable will return the highest available patch
 	// version available for the current controller version.
 	GetHighestPatchVersionAvailable(context.Context) (semversion.Number, error)
 
-	// GetHighestPatchVersionAvailable will return the highest available patch
+	// GetHighestPatchVersionAvailableForStream will return the highest available patch
 	// version available for the current controller version and stream.
 	GetHighestPatchVersionAvailableForStream(
 		context.Context, modelagent.AgentStream,
@@ -143,7 +151,7 @@ func (s *Service) UpgradeController(
 	// NOTE (tlm): Because this func uses
 	// [Service.UpgradeControllerToVersion] to compose its implementation. This
 	// func must handle the contract of UpgradeControllerToVersion. Specifically
-	// the errors returned don't align with the expecations of the caller. The
+	// the errors returned don't align with the expectations of the caller. The
 	// below switch statement re-writes the error cases to better explain the
 	// very unlikely error that has occurred. These exists to point a developer
 	// at the problem and not to offer any actionable item for a caller.
@@ -258,14 +266,15 @@ func (s *Service) UpgradeControllerWithStream(
 // version number.
 // - [controllerupgradererrors.DowngradeNotSupported] if the requested version
 // being upgraded to would result in a downgrade of the controller.
-// - [controllerupgradeerrors.VersionNotSupported] if the requested version
+// - [controllerupgradererrors.VersionNotSupported] if the requested version
 // being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.MissingControllerBinaries] if no controller
 // binaries can be found for the requested version.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
 func (s *Service) UpgradeControllerToVersion(
-	ctx context.Context, desiredVersion semversion.Number,
+	ctx context.Context,
+	desiredVersion semversion.Number,
 ) error {
 	// Controller upgrades are still controlled by that of the model agent
 	// version for the controllers model. Under the covers this is how they
@@ -292,8 +301,11 @@ func (s *Service) UpgradeControllerToVersion(
 		return errors.Capture(err)
 	}
 
-	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersion(
-		ctx, desiredVersion,
+	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
+	// controller and model state. We hardcode this for now.
+	architectures := []agentbinary.Architecture{agentbinary.AMD64}
+	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionAndArchitectures(
+		ctx, desiredVersion, architectures,
 	)
 	if err != nil {
 		return errors.Errorf(
@@ -344,7 +356,7 @@ func (s *Service) UpgradeControllerToVersion(
 // version number.
 // - [controllerupgradererrors.DowngradeNotSupported] if the requested version
 // being upgraded to would result in a downgrade of the controller.
-// - [controllerupgradeerrors.VersionNotSupported] if the requested version
+// - [controllerupgradererrors.VersionNotSupported] if the requested version
 // being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.MissingControllerBinaries] if no controller
 // binaries can be found for the requested version.
@@ -388,8 +400,11 @@ func (s *Service) UpgradeControllerToVersionAndStream(
 		return errors.Capture(err)
 	}
 
-	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionAndStream(
-		ctx, desiredVersion, stream,
+	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
+	// controller and model state. We hardcode this for now.
+	architectures := []agentbinary.Architecture{agentbinary.AMD64}
+	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionStreamAndArchitectures(
+		ctx, desiredVersion, stream, architectures,
 	)
 	if err != nil {
 		return errors.Errorf(
@@ -457,9 +472,9 @@ func (s *Service) validateControllerCanBeUpgraded(
 		// node, then this node still needs to be upgraded.
 		//
 		// It is on purpose that this is not an exact check. Due to the
-		// possability the model agent version could be out of sync with the
+		// possibility the model agent version could be out of sync with the
 		// controller version it is possible for the controller nodes to be
-		// running a version higher then the current version. This is ok and
+		// running a version higher than the current version. This is ok and
 		// permissible.
 		if currentVersion.Compare(version) > 0 {
 			blockedNodes = append(blockedNodes, node)
@@ -484,7 +499,7 @@ func (s *Service) validateControllerCanBeUpgraded(
 // The following errors may be expected:
 // - [controllerupgradererrors.DowngradeNotSupported] if the requested version
 // being upgraded to would result in a downgrade of the controller.
-// - [controllerupgradeerrors.VersionNotSupported] if the requested version
+// - [controllerupgradererrors.VersionNotSupported] if the requested version
 // being upgraded to is more then a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.

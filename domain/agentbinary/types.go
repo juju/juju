@@ -33,3 +33,32 @@ type Metadata struct {
 	// TODO: do we want to switch to the SHA384 hash?
 	SHA256 string
 }
+
+// Architecture represents the architecture of the agent.
+type Architecture int
+
+const (
+	AMD64 Architecture = iota
+	ARM64
+	PPC64EL
+	S390X
+	RISCV64
+)
+
+// String returns the primitive string values for [Architecture].
+func (a Architecture) String() string {
+	switch a {
+	case AMD64:
+		return "amd64"
+	case ARM64:
+		return "arm64"
+	case PPC64EL:
+		return "ppc64el"
+	case S390X:
+		return "s390x"
+	case RISCV64:
+		return "riscv64"
+	default:
+		return ""
+	}
+}

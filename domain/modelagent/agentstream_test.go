@@ -44,10 +44,10 @@ func (s *agentStreamSuite) TestAgentStreamDBValues(c *tc.C) {
 		})
 	}
 	c.Assert(dbValues, tc.DeepEquals, map[AgentStream]string{
-		AgentStreamReleased: "released",
-		AgentStreamDevel:    "devel",
-		AgentStreamTesting:  "testing",
-		AgentStreamProposed: "proposed",
+		AgentStreamReleased: AgentStreamReleased.String(),
+		AgentStreamDevel:    AgentStreamDevel.String(),
+		AgentStreamTesting:  AgentStreamTesting.String(),
+		AgentStreamProposed: AgentStreamProposed.String(),
 	})
 }
 

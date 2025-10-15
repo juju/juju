@@ -46,3 +46,21 @@ type setAgentVersionTargetStream struct {
 type setControllerTargetVersion struct {
 	TargetVersion string `db:"target_version"`
 }
+
+type ids []int
+
+type binaryVersion struct {
+	Version string `db:"version"`
+}
+
+// binaryForVersionAndArchitectures represents the binary agent version
+// we want to check the existence for.
+type binaryForVersionAndArchitectures struct {
+	ArchitectureID int    `db:"architecture_id"`
+	Version        string `db:"version"`
+}
+
+// AgentStream represents the stream in use for the agent.
+type AgentStream struct {
+	StreamID int `db:"stream_id"`
+}

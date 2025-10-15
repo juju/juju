@@ -4,12 +4,20 @@
 package state
 
 import (
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/juju/tc"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/agentbinary"
+	"github.com/juju/juju/domain/modelagent"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -63,6 +71,36 @@ func (s *controllerStateSuite) setInitialControllerTargetVersion(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// addObjectStore inserts a new row to `object_store_metadata` table. Its UUID is returned.
+func (s *controllerStateSuite) addObjectStore(c *tc.C) objectstore.UUID {
+	storeUUID := tc.Must(c, objectstore.NewUUID)
+	hasher256 := sha256.New()
+	hasher384 := sha512.New384()
+	_, err := io.Copy(io.MultiWriter(hasher256, hasher384), strings.NewReader(storeUUID.String()))
+	c.Assert(err, tc.ErrorIsNil)
+	sha256Hash := hex.EncodeToString(hasher256.Sum(nil))
+	sha384Hash := hex.EncodeToString(hasher384.Sum(nil))
+
+	_, err = s.DB().Exec(`
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
+VALUES (?, ?, ?, ?)
+`, storeUUID, sha256Hash, sha384Hash, 1234)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return storeUUID
+}
+
+// addAgentBinaryStore inserts a new row to `agent_binary_store` table.
+// It is dependent upon architecture and object store metadata for its foreign keys.
+// Architecture is auto seeded in the DDL. However, addObjectStore must be invoked prior to
+// addAgentBinaryStore.
+func (s *controllerStateSuite) addAgentBinaryStore(c *tc.C, version semversion.Number, architecture agentbinary.Architecture, storeUUID objectstore.UUID) {
+	_, err := s.DB().Exec(`
+INSERT INTO agent_binary_store(version, architecture_id, object_store_uuid) VALUES(?, ?, ?)
+`, version.String(), int(architecture), storeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestGetControllerNodeVersionsEmpty tests that when no controller node
 // versions have been reported an empty value is returned with no error.
 func (s *controllerStateSuite) TestGetControllerNodeVersionsEmpty(c *tc.C) {
@@ -108,7 +146,7 @@ func (s *controllerStateSuite) TestSetAndGetControllerVersion(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
 	// Check initial version is reported correctly.
-	ver, err := st.GetControllerVersion(c.Context())
+	ver, err := st.GetControllerTargetVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.Equals, initialVersion)
 
@@ -117,7 +155,7 @@ func (s *controllerStateSuite) TestSetAndGetControllerVersion(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 
 	// Check upgraded version is reported correctly.
-	ver, err = st.GetControllerVersion(c.Context())
+	ver, err = st.GetControllerTargetVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.Equals, upgradeVersion)
 }
@@ -150,7 +188,48 @@ func (s *controllerStateSuite) TestSetControllerVersionMultipleSetSafe(c *tc.C) 
 	c.Check(err, tc.ErrorIsNil)
 
 	// Check upgraded version is reported correctly.
-	ver, err := st.GetControllerVersion(c.Context())
+	ver, err := st.GetControllerTargetVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.Equals, upgradeVersion)
+}
+
+// TestHasAgentBinaryForVersionArchitecturesAndStream tests determining whether an agent for
+// a given version and architectures work without errors.
+func (s *controllerStateSuite) TestHasAgentBinaryForVersionArchitecturesAndStream(c *tc.C) {
+	version, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+	storeUUID := s.addObjectStore(c)
+	s.addAgentBinaryStore(c, version, agentbinary.AMD64, storeUUID)
+	s.addAgentBinaryStore(c, version, agentbinary.ARM64, storeUUID)
+
+	st := NewControllerState(s.TxnRunnerFactory())
+
+	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64}, modelagent.AgentStreamReleased)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(agents, tc.DeepEquals, map[agentbinary.Architecture]bool{
+		agentbinary.AMD64: true,
+		agentbinary.ARM64: true,
+	})
+}
+
+// TestHasAgentBinaryForVersionArchitecturesAndStream tests determining whether an agent for
+// a given version and architectures work with some architectures not existing.
+func (s *controllerStateSuite) TestHasAgentBinaryForVersionArchitecturesAndStreamNotSupported(c *tc.C) {
+	version, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+	storeUUID := s.addObjectStore(c)
+	s.addAgentBinaryStore(c, version, agentbinary.AMD64, storeUUID)
+	s.addAgentBinaryStore(c, version, agentbinary.ARM64, storeUUID)
+
+	st := NewControllerState(s.TxnRunnerFactory())
+
+	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.PPC64EL, agentbinary.RISCV64}, modelagent.AgentStreamReleased)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(agents, tc.DeepEquals, map[agentbinary.Architecture]bool{
+		agentbinary.AMD64:   true,
+		agentbinary.PPC64EL: false,
+		agentbinary.RISCV64: false,
+	})
 }
