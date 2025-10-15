@@ -90,10 +90,17 @@ func customModelTriggers() []func() schema.Patch {
 		operationTaskStatusPendingTrigger(
 			customNamespaceOperatingTaskStatusPending,
 		),
+
 		// Setup trigger for operation task status changes to PENDING or
 		// ABORTING.
 		operationTaskStatusPendingOrAbortingTrigger(
 			customNamespaceOperatingTaskStatusPendingOrAborting,
+		),
+
+		// Setup trigger for relation unit changes by the relation
+		// endpoint UUID.
+		relationUnitByEndpointUUID(
+			customNamespaceRelationUnitByEndpointUUID,
 		),
 	}
 }
@@ -556,4 +563,33 @@ END;
 `,
 		namespace)
 	return func() schema.Patch { return schema.MakePatch(stmt) }
+}
+
+// relationUnitByEndpointUUID generates the triggers for the
+// relation_unit table based on the relation endpoint UUID.
+func relationUnitByEndpointUUID(namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for RelationUnit
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+        'custom_relation_unit_by_endpoint_uuid',
+        'RelationUnit changes based on relation_endpoint_uuid');
+
+-- insert trigger for RelationUnit
+CREATE TRIGGER trg_log_custom_relation_unit_insert
+AFTER INSERT ON relation_unit FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[1]d, NEW.relation_endpoint_uuid, DATETIME('now'));
+END;
+
+-- delete trigger for RelationUnit
+CREATE TRIGGER trg_log_custom_relation_unit_delete
+AFTER DELETE ON relation_unit FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[1]d, OLD.relation_endpoint_uuid, DATETIME('now'));
+END;`, namespaceID))
+	}
 }
