@@ -34,7 +34,6 @@ Manage storage pools <manage-storage-pools>
 Manage spaces <manage-spaces>
 Manage subnets <manage-subnets>
 Define resource tags in a cloud <define-resource-tags-in-a-cloud>
-Fan container networking <fan-container-networking>
 
 ```
 
