@@ -86,6 +86,8 @@ See more: {ref}`upgrade-juju`
 See more: {ref}`upgrade-a-controllers-minor-or-major-version`
 ```
 
+If you care about a specific base, use configs (e.g., for the controller machine: `juju bootstrap aws aws-new --bootstrap-base=<base>`; for new machines on migrated models: `juju model-config -m <model name> default-base=<base>`; for new machines on new models: `juju model-defaults default-base=<base>`).
+
 3. Migrate your old controller's models to the new controller and upgrade them to match the version of the new controller. Optionally, for each application on the model: Upgrade the application's charm. For example:
 
 ```text
