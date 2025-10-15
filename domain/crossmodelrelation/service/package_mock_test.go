@@ -495,6 +495,45 @@ func (c *MockModelStateGetOfferUUIDCall) DoAndReturn(f func(context.Context, str
 	return c
 }
 
+// GetOfferUUIDByRelationUUID mocks base method.
+func (m *MockModelState) GetOfferUUIDByRelationUUID(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOfferUUIDByRelationUUID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOfferUUIDByRelationUUID indicates an expected call of GetOfferUUIDByRelationUUID.
+func (mr *MockModelStateMockRecorder) GetOfferUUIDByRelationUUID(arg0, arg1 any) *MockModelStateGetOfferUUIDByRelationUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferUUIDByRelationUUID", reflect.TypeOf((*MockModelState)(nil).GetOfferUUIDByRelationUUID), arg0, arg1)
+	return &MockModelStateGetOfferUUIDByRelationUUIDCall{Call: call}
+}
+
+// MockModelStateGetOfferUUIDByRelationUUIDCall wrap *gomock.Call
+type MockModelStateGetOfferUUIDByRelationUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetOfferUUIDByRelationUUIDCall) Return(arg0 string, arg1 error) *MockModelStateGetOfferUUIDByRelationUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetOfferUUIDByRelationUUIDCall) Do(f func(context.Context, string) (string, error)) *MockModelStateGetOfferUUIDByRelationUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetOfferUUIDByRelationUUIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelStateGetOfferUUIDByRelationUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRemoteApplicationConsumers mocks base method.
 func (m *MockModelState) GetRemoteApplicationConsumers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
 	m.ctrl.T.Helper()

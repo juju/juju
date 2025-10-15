@@ -1209,6 +1209,55 @@ WHERE  sr.secret_id = $secretInfo.secret_id
 	return info.LatestRevision, nil
 }
 
+// GetLatestRevisions returns the latest secret revisions for the specified URIs, keyed on secret ID.
+// An error satisfying [secreterrors.SecretNotFound] is return if any of the secreta do not exist.
+func (st State) GetLatestRevisions(ctx context.Context, uris []*coresecrets.URI) (map[string]int, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type secretIDStr []string
+	uriStr := make(secretIDStr, len(uris))
+	for i, uri := range uris {
+		uriStr[i] = uri.ID
+	}
+
+	stmt, err := st.Prepare(`
+SELECT   sr.secret_id AS &lastestSecretRevision.secret_id,
+         MAX(sr.revision) AS &lastestSecretRevision.latest_revision
+FROM     secret_revision sr
+WHERE    sr.secret_id IN ($secretIDStr[:])
+GROUP BY sr.secret_id
+`, uriStr, lastestSecretRevision{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var latestRevisions []lastestSecretRevision
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, uriStr).GetAll(&latestRevisions)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]int)
+	for _, rev := range latestRevisions {
+		result[rev.SecretID] = rev.LatestRevision
+	}
+	for _, want := range uris {
+		if _, ok := result[want.ID]; !ok {
+			return nil, errors.Errorf("secret %q not found", want.ID).Add(secreterrors.SecretNotFound)
+		}
+	}
+
+	return result, nil
+}
+
 // GetRotationExpiryInfo returns the rotation expiry information for the specified secret.
 func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI) (*domainsecret.RotationExpiryInfo, error) {
 	db, err := st.DB(ctx)
@@ -2012,10 +2061,10 @@ ON CONFLICT DO NOTHING`
 		return errors.Capture(err)
 	}
 
-	remoteRef := remoteSecret{SecretID: uri.ID, LatestRevision: md.CurrentRevision}
+	remoteRef := lastestSecretRevision{SecretID: uri.ID, LatestRevision: md.CurrentRevision}
 	insertRemoteSecretReferenceQuery := `
 INSERT INTO secret_reference (secret_id, latest_revision)
-VALUES ($remoteSecret.secret_id, $remoteSecret.latest_revision)
+VALUES ($lastestSecretRevision.secret_id, $lastestSecretRevision.latest_revision)
 ON CONFLICT DO NOTHING`
 
 	insertRemoteSecretReferenceStmt, err := st.Prepare(insertRemoteSecretReferenceQuery, remoteRef)
@@ -2850,7 +2899,7 @@ HAVING suc.current_revision < MAX(sr.revision)`
 	return secretURIs, nil
 }
 
-type remoteSecrets []remoteSecret
+type remoteSecrets []lastestSecretRevision
 
 // InitialWatchStatementForConsumedRemoteSecretsChange returns the initial
 // watch statement and the table name for watching consumed secrets hosted
@@ -2858,7 +2907,7 @@ type remoteSecrets []remoteSecret
 func (st State) InitialWatchStatementForConsumedRemoteSecretsChange(unitName coreunit.Name) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		q := `
-SELECT   DISTINCT sr.secret_id AS &remoteSecret.secret_id
+SELECT   DISTINCT sr.secret_id AS &lastestSecretRevision.secret_id
 FROM     secret_unit_consumer suc
          JOIN unit u ON u.uuid = suc.unit_uuid
          JOIN secret_reference sr ON sr.secret_id = suc.secret_id
@@ -2870,7 +2919,7 @@ HAVING   suc.current_revision < sr.latest_revision`
 			unit{Name: unitName},
 		}
 
-		stmt, err := st.Prepare(q, append(queryParams, remoteSecret{})...)
+		stmt, err := st.Prepare(q, append(queryParams, lastestSecretRevision{})...)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}

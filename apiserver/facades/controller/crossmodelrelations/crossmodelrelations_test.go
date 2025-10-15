@@ -12,16 +12,20 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/application"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
+	relationtesting "github.com/juju/juju/core/relation/testing"
+	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
@@ -38,6 +42,7 @@ type facadeSuite struct {
 	watcherRegistry           *facademocks.MockWatcherRegistry
 	statusService             *MockStatusService
 	crossModelRelationService *MockCrossModelRelationService
+	secretService             *MockSecretService
 	crossModelAuthContext     *MockCrossModelAuthContext
 	authenticator             *MockMacaroonAuthenticator
 
@@ -350,11 +355,107 @@ func (s *facadeSuite) TestWatchOfferStatusAuthError(c *tc.C) {
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "boom")
 }
 
+func (s *facadeSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	relUUID := relationtesting.GenRelationUUID(c)
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	uri := coresecrets.NewURI()
+
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
+		Return(nil, nil)
+
+	changes := s.expectWatchConsumedSecretsChanges(ctrl, appUUID)
+	changes <- []string{uri.ID}
+	s.secretService.EXPECT().GetLatestRevisions(gomock.Any(), []*coresecrets.URI{uri}).
+		Return(map[string]int{uri.ID: 666}, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, w worker.Worker) (string, error) {
+			_, ok := w.(watcher.StringsWatcher)
+			c.Assert(ok, tc.IsTrue)
+			return "1", nil
+		})
+
+	results, err := s.api(c).WatchConsumedSecretsChanges(c.Context(), params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appUUID.String(),
+			RelationToken:    relUUID.String(),
+			Macaroons:        macaroon.Slice{testMac},
+			BakeryVersion:    bakery.LatestVersion,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[0].WatcherId, tc.Equals, "1")
+	c.Assert(results.Results[0].Changes, tc.HasLen, 1)
+	c.Check(results.Results[0].Changes[0].URI, tc.Equals, uri.String())
+	c.Check(results.Results[0].Changes[0].LatestRevision, tc.Equals, 666)
+}
+
+func (s *facadeSuite) TestWatchConsumedSecretsChangesNotFound(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID := relationtesting.GenRelationUUID(c)
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return("", crossmodelrelationerrors.OfferNotFound)
+
+	results, err := s.api(c).WatchConsumedSecretsChanges(c.Context(), params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appUUID.String(),
+			RelationToken:    relUUID.String(),
+			Macaroons:        macaroon.Slice{testMac},
+			BakeryVersion:    bakery.LatestVersion,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *facadeSuite) TestWatchConsumedSecretsChangesAuthError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	relUUID := relationtesting.GenRelationUUID(c)
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
+		Return(nil, errors.New("boom"))
+
+	results, err := s.api(c).WatchConsumedSecretsChanges(c.Context(), params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appUUID.String(),
+			RelationToken:    relUUID.String(),
+			Macaroons:        macaroon.Slice{testMac},
+			BakeryVersion:    bakery.LatestVersion,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, "boom")
+}
+
 func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
+	s.secretService = NewMockSecretService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.crossModelAuthContext = NewMockCrossModelAuthContext(ctrl)
 	s.authenticator = NewMockMacaroonAuthenticator(ctrl)
@@ -362,6 +463,7 @@ func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	c.Cleanup(func() {
 		s.watcherRegistry = nil
 		s.crossModelRelationService = nil
+		s.secretService = nil
 		s.statusService = nil
 		s.crossModelAuthContext = nil
 		s.authenticator = nil
@@ -376,6 +478,7 @@ func (s *facadeSuite) api(c *tc.C) *CrossModelRelationsAPIv3 {
 		s.watcherRegistry,
 		s.crossModelRelationService,
 		s.statusService,
+		s.secretService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -401,6 +504,14 @@ func (s *facadeSuite) expectWatchOfferStatus(ctrl *gomock.Controller, offerUUID 
 	mockWatcher := NewMockNotifyWatcher(ctrl)
 	changes := make(chan struct{}, 1)
 	mockWatcher.EXPECT().Changes().Return(changes)
-	s.statusService.EXPECT().WatchOfferStatus(gomock.Any(), gomock.Any()).Return(mockWatcher, nil)
+	s.statusService.EXPECT().WatchOfferStatus(gomock.Any(), offerUUID).Return(mockWatcher, nil)
+	return changes
+}
+
+func (s *facadeSuite) expectWatchConsumedSecretsChanges(ctrl *gomock.Controller, appUUID application.UUID) chan []string {
+	mockWatcher := NewMockStringsWatcher(ctrl)
+	changes := make(chan []string, 1)
+	mockWatcher.EXPECT().Changes().Return(changes)
+	s.crossModelRelationService.EXPECT().WatchRemoteConsumedSecretsChanges(gomock.Any(), appUUID).Return(mockWatcher, nil)
 	return changes
 }

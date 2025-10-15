@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/internal"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
-	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc/params"
 )
@@ -542,7 +541,7 @@ func (w *srvSecretBackendsRotateWatcher) translateChanges(changes []corewatcher.
 }
 
 type secretService interface {
-	GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecrets.SecretMetadata, error)
+	GetLatestRevisions(ctx context.Context, uris []*coresecrets.URI) (map[string]int, error)
 }
 
 // srvSecretsRevisionWatcher defines the API wrapping a SecretsRevisionWatcher.
@@ -597,22 +596,23 @@ func (w *srvSecretsRevisionWatcher) translateChanges(ctx context.Context, change
 	if changes == nil {
 		return nil, nil
 	}
-	result := make([]params.SecretRevisionChange, len(changes))
-	for i, uriStr := range changes {
-		uri, err := coresecrets.ParseURI(uriStr)
+	uris := make([]*coresecrets.URI, len(changes))
+	for i, s := range changes {
+		uri, err := coresecrets.ParseURI(s)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		md, err := w.secretService.GetSecret(ctx, uri)
-		if errors.Is(err, secreterrors.SecretNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		uris[i] = uri
+	}
+	latest, err := w.secretService.GetLatestRevisions(ctx, uris)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]params.SecretRevisionChange, len(uris))
+	for i, uri := range uris {
 		result[i] = params.SecretRevisionChange{
 			URI:            uri.String(),
-			LatestRevision: md.LatestRevision,
+			LatestRevision: latest[uri.ID],
 		}
 	}
 	return result, nil

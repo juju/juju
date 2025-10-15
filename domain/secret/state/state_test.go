@@ -235,6 +235,67 @@ func (s *stateSuite) TestGetLatestRevision(c *tc.C) {
 	c.Assert(latest, tc.Equals, 2)
 }
 
+func (s *stateSuite) TestGetLatestRevisions(c *tc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	wantURIs := make([]*coresecrets.URI, 2)
+	for i := range 3 {
+		sp := domainsecret.UpsertSecretParams{
+			Data:       coresecrets.SecretData{"foo": "bar"},
+			RevisionID: ptr(uuid.MustNewUUID().String()),
+		}
+		uri := coresecrets.NewURI()
+		ctx := c.Context()
+		err := createUserSecret(ctx, st, 1, uri, sp)
+		c.Assert(err, tc.ErrorIsNil)
+		for r := range i + 1 {
+			err = updateSecret(ctx, st, uri, domainsecret.UpsertSecretParams{
+				RevisionID: ptr(uuid.MustNewUUID().String()),
+				Data:       coresecrets.SecretData{"foo": fmt.Sprintf("bar%d", r)},
+			})
+			c.Assert(err, tc.ErrorIsNil)
+		}
+		if i < 2 {
+			wantURIs[i] = uri
+		}
+	}
+	latest, err := st.GetLatestRevisions(c.Context(), wantURIs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(latest, tc.DeepEquals, map[string]int{
+		wantURIs[0].ID: 2,
+		wantURIs[1].ID: 3,
+	})
+}
+
+func (s *stateSuite) TestGetLatestRevisionsSomeNotFound(c *tc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	wantURIs := make([]*coresecrets.URI, 3)
+	for i := range 3 {
+		sp := domainsecret.UpsertSecretParams{
+			Data:       coresecrets.SecretData{"foo": "bar"},
+			RevisionID: ptr(uuid.MustNewUUID().String()),
+		}
+		uri := coresecrets.NewURI()
+		ctx := c.Context()
+		err := createUserSecret(ctx, st, 1, uri, sp)
+		c.Assert(err, tc.ErrorIsNil)
+		err = updateSecret(ctx, st, uri, domainsecret.UpsertSecretParams{
+			RevisionID: ptr(uuid.MustNewUUID().String()),
+			Data:       coresecrets.SecretData{"foo": "bar1"},
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		if i < 2 {
+			wantURIs[i] = uri
+		}
+	}
+	// The not found URI.
+	wantURIs[2] = coresecrets.NewURI()
+
+	_, err := st.GetLatestRevisions(c.Context(), wantURIs)
+	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
+}
+
 func (s *stateSuite) TestGetRotatePolicy(c *tc.C) {
 	s.setupUnits(c, "mysql")
 

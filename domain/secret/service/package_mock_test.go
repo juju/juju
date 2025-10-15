@@ -719,6 +719,45 @@ func (c *MockStateGetLatestRevisionCall) DoAndReturn(f func(context.Context, *se
 	return c
 }
 
+// GetLatestRevisions mocks base method.
+func (m *MockState) GetLatestRevisions(arg0 context.Context, arg1 []*secrets.URI) (map[string]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLatestRevisions", arg0, arg1)
+	ret0, _ := ret[0].(map[string]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLatestRevisions indicates an expected call of GetLatestRevisions.
+func (mr *MockStateMockRecorder) GetLatestRevisions(arg0, arg1 any) *MockStateGetLatestRevisionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestRevisions", reflect.TypeOf((*MockState)(nil).GetLatestRevisions), arg0, arg1)
+	return &MockStateGetLatestRevisionsCall{Call: call}
+}
+
+// MockStateGetLatestRevisionsCall wrap *gomock.Call
+type MockStateGetLatestRevisionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetLatestRevisionsCall) Return(arg0 map[string]int, arg1 error) *MockStateGetLatestRevisionsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetLatestRevisionsCall) Do(f func(context.Context, []*secrets.URI) (map[string]int, error)) *MockStateGetLatestRevisionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetLatestRevisionsCall) DoAndReturn(f func(context.Context, []*secrets.URI) (map[string]int, error)) *MockStateGetLatestRevisionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelUUID mocks base method.
 func (m *MockState) GetModelUUID(arg0 context.Context) (model.UUID, error) {
 	m.ctrl.T.Helper()
