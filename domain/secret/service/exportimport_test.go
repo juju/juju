@@ -185,8 +185,9 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri2, 668)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri2, unittesting.GenNewName(c, "mysql/0"), &coresecrets.SecretConsumerMetadata{
+	// TODO(secrets) - move to crossmodelrelation domain
+	// s.state.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri2, 668)
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri2, unittesting.GenNewName(c, "mysql/0"), coresecrets.SecretConsumerMetadata{
 		Label:           "remote label",
 		CurrentRevision: 666,
 	})
@@ -225,13 +226,14 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	}, s.modelID, s.fakeUUID.String()).Return(
 		func() error { return nil }, nil,
 	)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mysql/0"), &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mysql/0"), coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	})
-	s.state.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "remote-app/0"), &coresecrets.SecretConsumerMetadata{
-		CurrentRevision: 668,
-	})
+	// TODO(secrets) - move to crossmodelrelation domain
+	//s.state.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "remote-app/0"), coresecrets.SecretConsumerMetadata{
+	//	CurrentRevision: 668,
+	//})
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   3,
 		ScopeID:       "wordpress:db mysql:server",

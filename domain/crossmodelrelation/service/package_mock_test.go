@@ -15,7 +15,9 @@ import (
 
 	application "github.com/juju/juju/core/application"
 	offer "github.com/juju/juju/core/offer"
+	secrets "github.com/juju/juju/core/secrets"
 	user "github.com/juju/juju/core/user"
+	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
 	internal "github.com/juju/juju/domain/crossmodelrelation/internal"
 	uuid "github.com/juju/juju/internal/uuid"
@@ -571,6 +573,129 @@ func (c *MockModelStateGetRemoteApplicationOfferersCall) DoAndReturn(f func(cont
 	return c
 }
 
+// GetRemoteConsumedSecretURIsWithChangesFromOfferingSide mocks base method.
+func (m *MockModelState) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(arg0 context.Context, arg1 string, arg2 ...string) ([]string, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetRemoteConsumedSecretURIsWithChangesFromOfferingSide", varargs...)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteConsumedSecretURIsWithChangesFromOfferingSide indicates an expected call of GetRemoteConsumedSecretURIsWithChangesFromOfferingSide.
+func (mr *MockModelStateMockRecorder) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(arg0, arg1 any, arg2 ...any) *MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1}, arg2...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteConsumedSecretURIsWithChangesFromOfferingSide", reflect.TypeOf((*MockModelState)(nil).GetRemoteConsumedSecretURIsWithChangesFromOfferingSide), varargs...)
+	return &MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall{Call: call}
+}
+
+// MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall wrap *gomock.Call
+type MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall) Return(arg0 []string, arg1 error) *MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall) Do(f func(context.Context, string, ...string) ([]string, error)) *MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall) DoAndReturn(f func(context.Context, string, ...string) ([]string, error)) *MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetSecretRemoteConsumer mocks base method.
+func (m *MockModelState) GetSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string) (*secrets.SecretConsumerMetadata, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretRemoteConsumer", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetSecretRemoteConsumer indicates an expected call of GetSecretRemoteConsumer.
+func (mr *MockModelStateMockRecorder) GetSecretRemoteConsumer(arg0, arg1, arg2 any) *MockModelStateGetSecretRemoteConsumerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretRemoteConsumer", reflect.TypeOf((*MockModelState)(nil).GetSecretRemoteConsumer), arg0, arg1, arg2)
+	return &MockModelStateGetSecretRemoteConsumerCall{Call: call}
+}
+
+// MockModelStateGetSecretRemoteConsumerCall wrap *gomock.Call
+type MockModelStateGetSecretRemoteConsumerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetSecretRemoteConsumerCall) Return(arg0 *secrets.SecretConsumerMetadata, arg1 int, arg2 error) *MockModelStateGetSecretRemoteConsumerCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetSecretRemoteConsumerCall) Do(f func(context.Context, *secrets.URI, string) (*secrets.SecretConsumerMetadata, int, error)) *MockModelStateGetSecretRemoteConsumerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetSecretRemoteConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, string) (*secrets.SecretConsumerMetadata, int, error)) *MockModelStateGetSecretRemoteConsumerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide mocks base method.
+func (m *MockModelState) InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(arg0 string) (string, eventsource.NamespaceQuery) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	return ret0, ret1
+}
+
+// InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide indicates an expected call of InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide.
+func (mr *MockModelStateMockRecorder) InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(arg0 any) *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide", reflect.TypeOf((*MockModelState)(nil).InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide), arg0)
+	return &MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall{Call: call}
+}
+
+// MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall wrap *gomock.Call
+type MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall) Do(f func(string) (string, eventsource.NamespaceQuery)) *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall) DoAndReturn(f func(string) (string, eventsource.NamespaceQuery)) *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceRemoteApplicationConsumers mocks base method.
 func (m *MockModelState) NamespaceRemoteApplicationConsumers() string {
 	m.ctrl.T.Helper()
@@ -685,6 +810,44 @@ func (c *MockModelStateSaveMacaroonForRelationCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// SaveSecretRemoteConsumer mocks base method.
+func (m *MockModelState) SaveSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3 secrets.SecretConsumerMetadata) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveSecretRemoteConsumer", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveSecretRemoteConsumer indicates an expected call of SaveSecretRemoteConsumer.
+func (mr *MockModelStateMockRecorder) SaveSecretRemoteConsumer(arg0, arg1, arg2, arg3 any) *MockModelStateSaveSecretRemoteConsumerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSecretRemoteConsumer", reflect.TypeOf((*MockModelState)(nil).SaveSecretRemoteConsumer), arg0, arg1, arg2, arg3)
+	return &MockModelStateSaveSecretRemoteConsumerCall{Call: call}
+}
+
+// MockModelStateSaveSecretRemoteConsumerCall wrap *gomock.Call
+type MockModelStateSaveSecretRemoteConsumerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateSaveSecretRemoteConsumerCall) Return(arg0 error) *MockModelStateSaveSecretRemoteConsumerCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateSaveSecretRemoteConsumerCall) Do(f func(context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata) error) *MockModelStateSaveSecretRemoteConsumerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateSaveSecretRemoteConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata) error) *MockModelStateSaveSecretRemoteConsumerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateOffer mocks base method.
 func (m *MockModelState) UpdateOffer(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
@@ -719,6 +882,44 @@ func (c *MockModelStateUpdateOfferCall) Do(f func(context.Context, string, []str
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateUpdateOfferCall) DoAndReturn(f func(context.Context, string, []string) error) *MockModelStateUpdateOfferCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateRemoteSecretRevision mocks base method.
+func (m *MockModelState) UpdateRemoteSecretRevision(arg0 context.Context, arg1 *secrets.URI, arg2 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRemoteSecretRevision", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateRemoteSecretRevision indicates an expected call of UpdateRemoteSecretRevision.
+func (mr *MockModelStateMockRecorder) UpdateRemoteSecretRevision(arg0, arg1, arg2 any) *MockModelStateUpdateRemoteSecretRevisionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteSecretRevision", reflect.TypeOf((*MockModelState)(nil).UpdateRemoteSecretRevision), arg0, arg1, arg2)
+	return &MockModelStateUpdateRemoteSecretRevisionCall{Call: call}
+}
+
+// MockModelStateUpdateRemoteSecretRevisionCall wrap *gomock.Call
+type MockModelStateUpdateRemoteSecretRevisionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateUpdateRemoteSecretRevisionCall) Return(arg0 error) *MockModelStateUpdateRemoteSecretRevisionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateUpdateRemoteSecretRevisionCall) Do(f func(context.Context, *secrets.URI, int) error) *MockModelStateUpdateRemoteSecretRevisionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateUpdateRemoteSecretRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, int) error) *MockModelStateUpdateRemoteSecretRevisionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

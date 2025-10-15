@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/unit"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -18,7 +17,6 @@ import (
 type SecretService interface {
 	GetSecret(context.Context, *secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(context.Context, *secrets.URI, int, secretservice.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error)
-	UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets.URI, unitName unit.Name, refresh bool) (int, error)
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor secretservice.SecretAccessor) (secretservice.SecretAccessScope, error)
 	ListGrantedSecretsForBackend(
 		ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secretservice.SecretAccessor,

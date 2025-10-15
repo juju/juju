@@ -468,7 +468,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	svc, st := s.setupServiceAndState(c)
 
 	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
+		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
 		unitName := unittesting.GenNewName(c, consumerID)
@@ -558,6 +558,23 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 
 }
 
+func (s *watcherSuite) updateRemoteSecretRevisionInConsumingModel(c *tc.C, uri *coresecrets.URI, latestRevision int) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO secret (id) VALUES (?) ON CONFLICT(id) DO NOTHING`, uri.ID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, ?)
+ON CONFLICT(secret_id) DO UPDATE SET
+    latest_revision=excluded.latest_revision
+`,
+			uri.ID, latestRevision)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	s.setupUnits(c, "mediawiki")
 
@@ -565,7 +582,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	svc, st := s.setupServiceAndState(c)
 
 	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
+		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
 		unitName := unittesting.GenNewName(c, consumerID)
@@ -597,8 +614,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	// We update the remote secret revision to 2.
 	// A remote consumed secret change event of uri1 should be fired.
 	harness.AddTest(c, func(c *tc.C) {
-		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
-		c.Assert(err, tc.ErrorIsNil)
+		s.updateRemoteSecretRevisionInConsumingModel(c, uri1, 2)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -643,108 +659,6 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	harness2.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
-	harness2.Run(c, []string(nil))
-}
-
-func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
-	s.setupUnits(c, "mysql")
-
-	ctx := c.Context()
-	svc, st := s.setupServiceAndState(c)
-
-	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
-			CurrentRevision: revision,
-		}
-		unitName := unittesting.GenNewName(c, consumerID)
-		err := st.SaveSecretRemoteConsumer(ctx, uri, unitName, consumer)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-
-	uri1 := coresecrets.NewURI()
-	uri1.SourceUUID = s.ModelUUID()
-	uri2 := coresecrets.NewURI()
-	uri2.SourceUUID = s.ModelUUID()
-
-	w, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
-	c.Assert(err, tc.IsNil)
-	c.Assert(w, tc.NotNil)
-	defer watchertest.CleanKill(c, w)
-
-	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(c, func(c *tc.C) {
-		sp := secret.UpsertSecretParams{
-			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
-		}
-
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
-		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, tc.ErrorIsNil)
-
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
-		err = createCharmApplicationSecret(ctx, st, 1, uri2, "mysql", sp)
-		c.Assert(err, tc.ErrorIsNil)
-
-		// The consumed revision 1 is the initial revision - will be ignored.
-		saveRemoteConsumer(uri1, 1, "mediawiki/0")
-		// The consumed revision 1 is the initial revision - will be ignored.
-		saveRemoteConsumer(uri2, 1, "mediawiki/0")
-
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
-
-	// We create a new revision 2 and update the remote secret revision to 2.
-	// A remote consumed secret change event of uri1 should be fired.
-	harness.AddTest(c, func(c *tc.C) {
-		createNewRevision(c, st, uri1)
-		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(
-			watchertest.StringSliceAssert(
-				uri1.String(),
-			),
-		)
-	})
-
-	harness.Run(c, []string(nil))
-
-	// Pretend that the agent restarted and the watcher is re-created.
-	w1, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
-	c.Assert(err, tc.IsNil)
-	c.Assert(w1, tc.NotNil)
-	defer watchertest.CleanKill(c, w1)
-
-	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(
-			watchertest.StringSliceAssert(
-				uri1.String(),
-			),
-		)
-	})
-
-	harness1.AddTest(c, func(c *tc.C) {
-		// The consumed revision 2 is the updated current_revision.
-		saveRemoteConsumer(uri1, 2, "mediawiki/0")
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
-	harness1.Run(c, []string(nil))
-
-	// Pretend that the agent restarted and the watcher is re-created again.
-	// Since we comsume the latest revision already, so there should be no change.
-	w2, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
-	c.Assert(err, tc.IsNil)
-	c.Assert(w2, tc.NotNil)
-	defer watchertest.CleanKill(c, w2)
-
-	harness2 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w2))
-	harness2.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
-
 	harness2.Run(c, []string(nil))
 }
 

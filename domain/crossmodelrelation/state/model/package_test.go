@@ -15,6 +15,7 @@ import (
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
@@ -35,8 +36,7 @@ type baseSuite struct {
 
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
-
-	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	s.state = NewState(s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), clock.WallClock, loggertesting.WrapCheckLog(c))
 	s.relationCount = 0
 
 	c.Cleanup(func() {

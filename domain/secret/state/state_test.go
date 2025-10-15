@@ -1322,19 +1322,19 @@ func (s *stateSuite) TestAllSecretConsumers(c *tc.C) {
 	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/1", sp2)
 	c.Assert(err, tc.ErrorIsNil)
 
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	}
 	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
-	consumer = &coresecrets.SecretConsumerMetadata{
+	consumer = coresecrets.SecretConsumerMetadata{
 		Label:           "my label2",
 		CurrentRevision: 668,
 	}
 	err = st.SaveSecretConsumer(ctx, uri2, "mysql/1", consumer)
 	c.Assert(err, tc.ErrorIsNil)
-	consumer = &coresecrets.SecretConsumerMetadata{
+	consumer = coresecrets.SecretConsumerMetadata{
 		Label:           "my label3",
 		CurrentRevision: 667,
 	}
@@ -1386,7 +1386,7 @@ func (s *stateSuite) TestSaveSecretConsumer(c *tc.C) {
 		CurrentRevision: 666,
 	}
 
-	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, latest, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1415,7 +1415,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *tc.C) {
 	consumer := &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 	}
-	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, latest, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1459,7 +1459,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *tc.C) {
 		Label:           "my label",
 		CurrentRevision: 2,
 	}
-	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	obsolete, pendingDelete = s.getObsolete(c, uri, 1)
@@ -1477,7 +1477,7 @@ func (s *stateSuite) TestSaveSecretConsumerSecretNotExists(c *tc.C) {
 
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := c.Context()
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	}
@@ -1502,13 +1502,43 @@ func (s *stateSuite) TestSaveSecretConsumerUnitNotExists(c *tc.C) {
 	err := createUserSecret(ctx, st, 1, uri, sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	}
 
 	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *stateSuite) updateRemoteSecretRevision(c *tc.C, uri *coresecrets.URI, latestRevision int) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO secret (id) VALUES (?) ON CONFLICT(id) DO NOTHING`, uri.ID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, ?)
+ON CONFLICT(secret_id) DO UPDATE SET
+    latest_revision=excluded.latest_revision
+`,
+			uri.ID, latestRevision)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) saveSecretRemoteConsumer(c *tc.C, uri *coresecrets.URI, unitName string, currentRevision int) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO secret_remote_unit_consumer (secret_id, unit_name, current_revision) VALUES (?, ?, ?)
+ON CONFLICT(secret_id, unit_name) DO UPDATE SET
+    current_revision=excluded.current_revision
+`,
+			uri.ID, unitName, currentRevision)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *tc.C) {
@@ -1519,8 +1549,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *tc.C) {
 	uri := coresecrets.NewURI().WithSource("some-other-model")
 
 	// Save the remote secret and its latest revision.
-	err := st.UpdateRemoteSecretRevision(c.Context(), uri, 666)
-	c.Assert(err, tc.ErrorIsNil)
+	s.updateRemoteSecretRevision(c, uri, 666)
 
 	ctx := c.Context()
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -1528,7 +1557,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *tc.C) {
 		CurrentRevision: 666,
 	}
 
-	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, _, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1552,7 +1581,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModelFirstTime(c *tc.C) {
 		CurrentRevision: 666,
 	}
 
-	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, _, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1581,18 +1610,17 @@ func (s *stateSuite) TestAllRemoteSecrets(c *tc.C) {
 	uri := coresecrets.NewURI().WithSource("some-other-model")
 
 	// Save the remote secret and its latest revision.
-	err := st.UpdateRemoteSecretRevision(c.Context(), uri, 666)
-	c.Assert(err, tc.ErrorIsNil)
+	s.updateRemoteSecretRevision(c, uri, 666)
 
 	ctx := c.Context()
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 1,
 	}
-	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
-	consumer = &coresecrets.SecretConsumerMetadata{
+	consumer = coresecrets.SecretConsumerMetadata{
 		Label:           "my label2",
 		CurrentRevision: 2,
 	}
@@ -1647,12 +1675,9 @@ func (s *stateSuite) TestGetSecretConsumerRemoteSecretFirstTime(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	uri := coresecrets.NewURI().WithSource("some-other-model")
-	ctx := c.Context()
+	s.updateRemoteSecretRevision(c, uri, 666)
 
-	err := st.UpdateRemoteSecretRevision(ctx, uri, 666)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, latest, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
+	_, latest, err := st.GetSecretConsumer(c.Context(), uri, "mysql/0")
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretConsumerNotFound)
 	c.Assert(latest, tc.Equals, 666)
 }
@@ -1728,7 +1753,7 @@ func (s *stateSuite) TestGetURIByConsumerLabel(c *tc.C) {
 	ctx := c.Context()
 	err := createCharmUnitSecret(ctx, st, 1, uri, "mysql/0", sp)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", &coresecrets.SecretConsumerMetadata{
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	})
@@ -2082,7 +2107,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create a consumer so revision 1 does not go obsolete.
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 1,
 	}
@@ -2273,34 +2298,6 @@ SELECT count(*) FROM secret_rotation WHERE secret_id = ?
 	c.Assert(count, tc.Equals, 0)
 }
 
-func (s *stateSuite) TestSaveSecretRemoteConsumer(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-
-	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  ptr(uuid.MustNewUUID().String()),
-		Description: ptr("my secretMetadata"),
-		Label:       ptr("my label"),
-		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
-		AutoPrune:   ptr(true),
-	}
-	uri := coresecrets.NewURI()
-	ctx := c.Context()
-	err := createUserSecret(ctx, st, 1, uri, sp)
-	c.Assert(err, tc.ErrorIsNil)
-
-	consumer := &coresecrets.SecretConsumerMetadata{
-		CurrentRevision: 666,
-	}
-
-	err = st.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
-	c.Assert(err, tc.ErrorIsNil)
-
-	got, latest, err := st.GetSecretRemoteConsumer(ctx, uri, "remote-app/0")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.DeepEquals, consumer)
-	c.Assert(latest, tc.Equals, 1)
-}
-
 func (s *stateSuite) TestAllSecretRemoteConsumers(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
@@ -2323,21 +2320,9 @@ func (s *stateSuite) TestAllSecretRemoteConsumers(c *tc.C) {
 	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/1", sp2)
 	c.Assert(err, tc.ErrorIsNil)
 
-	consumer := &coresecrets.SecretConsumerMetadata{
-		CurrentRevision: 666,
-	}
-	err = st.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
-	c.Assert(err, tc.ErrorIsNil)
-	consumer = &coresecrets.SecretConsumerMetadata{
-		CurrentRevision: 668,
-	}
-	err = st.SaveSecretRemoteConsumer(ctx, uri2, "remote-app/1", consumer)
-	c.Assert(err, tc.ErrorIsNil)
-	consumer = &coresecrets.SecretConsumerMetadata{
-		CurrentRevision: 667,
-	}
-	err = st.SaveSecretRemoteConsumer(ctx, uri, "remote-app/1", consumer)
-	c.Assert(err, tc.ErrorIsNil)
+	s.saveSecretRemoteConsumer(c, uri, "remote-app/0", 666)
+	s.saveSecretRemoteConsumer(c, uri2, "remote-app/1", 668)
+	s.saveSecretRemoteConsumer(c, uri, "remote-app/1", 667)
 
 	got, err := st.AllSecretRemoteConsumers(ctx)
 	c.Assert(err, tc.ErrorIsNil)
@@ -2357,120 +2342,6 @@ func (s *stateSuite) TestAllSecretRemoteConsumers(c *tc.C) {
 			CurrentRevision: 668,
 		}}},
 	)
-}
-
-func (s *stateSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-
-	sp := domainsecret.UpsertSecretParams{
-		Description: ptr("my secretMetadata"),
-		Label:       ptr("my label"),
-		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
-		AutoPrune:   ptr(true),
-	}
-	uri := coresecrets.NewURI()
-	ctx := c.Context()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err := createUserSecret(ctx, st, 1, uri, sp)
-	c.Assert(err, tc.ErrorIsNil)
-	sp.Label = ptr("")
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err = updateSecret(ctx, st, uri, sp)
-	c.Assert(err, tc.ErrorIsNil)
-
-	consumer := &coresecrets.SecretConsumerMetadata{
-		CurrentRevision: 1,
-	}
-
-	err = st.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
-	c.Assert(err, tc.ErrorIsNil)
-
-	consumer.CurrentRevision = 2
-	err = st.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Revision 1 is obsolete.
-	obsolete, pendingDelete := s.getObsolete(c, uri, 1)
-	c.Check(obsolete, tc.IsTrue)
-	c.Check(pendingDelete, tc.IsTrue)
-
-	// But not revision 2.
-	obsolete, pendingDelete = s.getObsolete(c, uri, 2)
-	c.Check(obsolete, tc.IsFalse)
-	c.Check(pendingDelete, tc.IsFalse)
-}
-
-func (s *stateSuite) TestSaveSecretRemoteConsumerSecretNotExists(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-
-	uri := coresecrets.NewURI().WithSource(s.modelUUID)
-	ctx := c.Context()
-	consumer := &coresecrets.SecretConsumerMetadata{
-		CurrentRevision: 666,
-	}
-
-	err := st.SaveSecretConsumer(ctx, uri, "remote-app/0", consumer)
-	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
-}
-
-func (s *stateSuite) TestGetSecretRemoteConsumerFirstTime(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-
-	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  ptr(uuid.MustNewUUID().String()),
-		Description: ptr("my secretMetadata"),
-		Label:       ptr("my label"),
-		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
-		AutoPrune:   ptr(true),
-	}
-	uri := coresecrets.NewURI()
-	ctx := c.Context()
-
-	err := createUserSecret(ctx, st, 1, uri, sp)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, latest, err := st.GetSecretRemoteConsumer(ctx, uri, "remote-app/0")
-	c.Assert(err, tc.ErrorIs, secreterrors.SecretConsumerNotFound)
-	c.Assert(latest, tc.Equals, 1)
-}
-
-func (s *stateSuite) TestGetSecretRemoteConsumerSecretNotExists(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-
-	uri := coresecrets.NewURI()
-
-	_, _, err := st.GetSecretRemoteConsumer(c.Context(), uri, "remite-app/0")
-	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
-}
-
-func (s *stateSuite) TestUpdateRemoteSecretRevision(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-
-	uri := coresecrets.NewURI()
-
-	getLatest := func() int {
-		var got int
-		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			row := tx.QueryRowContext(ctx, `
-			SELECT latest_revision FROM secret_reference WHERE secret_id = ?
-		`, uri.ID)
-			if err := row.Scan(&got); err != nil {
-				return err
-			}
-			return row.Err()
-		})
-		c.Assert(err, tc.ErrorIsNil)
-		return got
-	}
-
-	err := st.UpdateRemoteSecretRevision(c.Context(), uri, 666)
-	c.Assert(err, tc.ErrorIsNil)
-	got := getLatest()
-	c.Assert(got, tc.Equals, 666)
-	err = st.UpdateRemoteSecretRevision(c.Context(), uri, 667)
-	c.Assert(err, tc.ErrorIsNil)
-	got = getLatest()
-	c.Assert(got, tc.Equals, 667)
 }
 
 func (s *stateSuite) TestGrantUnitAccess(c *tc.C) {
@@ -3596,13 +3467,12 @@ func (s *stateSuite) assertDeleteAllRevisions(c *tc.C, revs []int) {
 	err = updateSecret(ctx, st, uri, sp3)
 	c.Assert(err, tc.ErrorIsNil)
 
-	consumer := &coresecrets.SecretConsumerMetadata{
+	consumer := coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	}
 	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
-	c.Assert(err, tc.ErrorIsNil)
+	s.saveSecretRemoteConsumer(c, uri, "remote-app/0", 666)
 
 	uri2 := coresecrets.NewURI()
 	sp.RevisionID = ptr(uuid.MustNewUUID().String())
@@ -3673,7 +3543,7 @@ func (s *stateSuite) prepareWatchForConsumedSecrets(c *tc.C, ctx context.Context
 	s.setupUnits(c, "mediawiki")
 
 	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
+		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
 		unitName := unittesting.GenNewName(c, consumerID)
@@ -3739,7 +3609,7 @@ func (s *stateSuite) prepareWatchForRemoteConsumedSecrets(c *tc.C, ctx context.C
 	s.setupUnits(c, "mediawiki")
 
 	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
+		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
 		unitName := unittesting.GenNewName(c, consumerID)
@@ -3759,8 +3629,7 @@ func (s *stateSuite) prepareWatchForRemoteConsumedSecrets(c *tc.C, ctx context.C
 	// The consumed revision 1.
 	saveConsumer(uri2, 1, "mediawiki/0")
 
-	err := st.UpdateRemoteSecretRevision(ctx, uri1, 2)
-	c.Assert(err, tc.ErrorIsNil)
+	s.updateRemoteSecretRevision(c, uri1, 2)
 	return uri1, uri2
 }
 
@@ -3786,77 +3655,6 @@ func (s *stateSuite) TestGetConsumedRemoteSecretURIsWithChanges(c *tc.C) {
 	result, err := st.GetConsumedRemoteSecretURIsWithChanges(ctx, "mediawiki/0",
 		uri1.ID,
 		uri2.ID,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.HasLen, 1)
-	c.Assert(result, tc.SameContents, []string{
-		uri1.String(),
-	})
-}
-
-func (s *stateSuite) prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide(c *tc.C, ctx context.Context, st *State) (*coresecrets.URI, *coresecrets.URI) {
-	s.setupUnits(c, "mysql")
-
-	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := &coresecrets.SecretConsumerMetadata{
-			CurrentRevision: revision,
-		}
-		unitName := unittesting.GenNewName(c, consumerID)
-		err := st.SaveSecretRemoteConsumer(ctx, uri, unitName, consumer)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-
-	sp := domainsecret.UpsertSecretParams{
-		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
-	}
-	uri1 := coresecrets.NewURI()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-	c.Assert(err, tc.ErrorIsNil)
-	uri1.SourceUUID = s.modelUUID
-
-	uri2 := coresecrets.NewURI()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err = createCharmApplicationSecret(ctx, st, 1, uri2, "mysql", sp)
-	c.Assert(err, tc.ErrorIsNil)
-	uri2.SourceUUID = s.modelUUID
-
-	// The consumed revision 1.
-	saveRemoteConsumer(uri1, 1, "mediawiki/0")
-	// The consumed revision 1.
-	saveRemoteConsumer(uri2, 1, "mediawiki/0")
-
-	// create revision 2.
-	updateSecretContent(c, st, uri1)
-
-	err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
-	c.Assert(err, tc.ErrorIsNil)
-	return uri1, uri2
-}
-
-func (s *stateSuite) TestInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-	ctx := c.Context()
-	uri1, _ := s.prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide(c, ctx, st)
-
-	tableName, f := st.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide("mediawiki")
-	c.Assert(tableName, tc.Equals, "secret_revision")
-	result, err := f(ctx, s.TxnRunner())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.SameContents, []string{
-		getRevUUID(c, s.DB(), uri1, 2),
-	})
-}
-
-func (s *stateSuite) TestGetRemoteConsumedSecretURIsWithChangesFromOfferingSide(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-	ctx := c.Context()
-	uri1, uri2 := s.prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide(c, ctx, st)
-
-	result, err := st.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, "mediawiki",
-		getRevUUID(c, s.DB(), uri1, 1),
-		getRevUUID(c, s.DB(), uri1, 2),
-		getRevUUID(c, s.DB(), uri2, 1),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)

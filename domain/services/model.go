@@ -549,6 +549,7 @@ func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.Watchabl
 			logger.Child("state.controller")),
 		crossmodelrelationstatemodel.NewState(
 			changestream.NewTxnRunnerFactory(s.modelDB),
+			s.modelUUID,
 			s.clock,
 			logger.Child("state.model"),
 		),

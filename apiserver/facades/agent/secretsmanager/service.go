@@ -27,7 +27,7 @@ type SecretsConsumer interface {
 	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name) (*secrets.SecretConsumerMetadata, error)
 	GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName unit.Name) (*secrets.SecretConsumerMetadata, int, error)
 	GetURIByConsumerLabel(ctx context.Context, label string, unitName unit.Name) (*secrets.URI, error)
-	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md *secrets.SecretConsumerMetadata) error
+	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md secrets.SecretConsumerMetadata) error
 	GetConsumedRevision(
 		ctx context.Context, uri *secrets.URI, unitName unit.Name,
 		refresh, peek bool, labelToUpdate *string) (int, error)

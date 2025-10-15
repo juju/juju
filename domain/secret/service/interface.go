@@ -61,12 +61,9 @@ type State interface {
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name, md *secrets.SecretConsumerMetadata) error
+	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name, md secrets.SecretConsumerMetadata) error
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
 	GetURIByConsumerLabel(ctx context.Context, label string, unitName coreunit.Name) (*secrets.URI, error)
-	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name, md *secrets.SecretConsumerMetadata) error
-	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
 	GrantAccess(ctx context.Context, uri *secrets.URI, params domainsecret.GrantParams) error
 	RevokeAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) error
 	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
@@ -109,10 +106,6 @@ type State interface {
 	// For watching consumed remote secret changes.
 	InitialWatchStatementForConsumedRemoteSecretsChange(unitName coreunit.Name) (string, eventsource.NamespaceQuery)
 	GetConsumedRemoteSecretURIsWithChanges(ctx context.Context, unitName coreunit.Name, secretIDs ...string) (secretURIs []string, err error)
-
-	// For watching local secret changes that consumed by remote consumers.
-	InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName string) (string, eventsource.NamespaceQuery)
-	GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appName string, secretIDs ...string) ([]string, error)
 
 	// For watching secret rotation changes.
 	InitialWatchStatementForSecretsRotationChanges(
