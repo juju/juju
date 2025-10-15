@@ -928,18 +928,18 @@ func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) DoAndRetu
 }
 
 // WatchRelationUnits mocks base method.
-func (m *MockCrossModelService) WatchRelationUnits(arg0 context.Context, arg1 application.UUID) (watcher0.NotifyWatcher, error) {
+func (m *MockCrossModelService) WatchRelationUnits(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (watcher0.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchRelationUnits", arg0, arg1)
+	ret := m.ctrl.Call(m, "WatchRelationUnits", arg0, arg1, arg2)
 	ret0, _ := ret[0].(watcher0.NotifyWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchRelationUnits indicates an expected call of WatchRelationUnits.
-func (mr *MockCrossModelServiceMockRecorder) WatchRelationUnits(arg0, arg1 any) *MockCrossModelServiceWatchRelationUnitsCall {
+func (mr *MockCrossModelServiceMockRecorder) WatchRelationUnits(arg0, arg1, arg2 any) *MockCrossModelServiceWatchRelationUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationUnits", reflect.TypeOf((*MockCrossModelService)(nil).WatchRelationUnits), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationUnits", reflect.TypeOf((*MockCrossModelService)(nil).WatchRelationUnits), arg0, arg1, arg2)
 	return &MockCrossModelServiceWatchRelationUnitsCall{Call: call}
 }
 
@@ -955,13 +955,13 @@ func (c *MockCrossModelServiceWatchRelationUnitsCall) Return(arg0 watcher0.Notif
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceWatchRelationUnitsCall) Do(f func(context.Context, application.UUID) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRelationUnitsCall {
+func (c *MockCrossModelServiceWatchRelationUnitsCall) Do(f func(context.Context, relation.UUID, application.UUID) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRelationUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, application.UUID) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRelationUnitsCall {
+func (c *MockCrossModelServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, relation.UUID, application.UUID) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRelationUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1146,18 +1146,18 @@ func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) DoAndReturn
 }
 
 // WatchRelationUnits mocks base method.
-func (m *MockRelationService) WatchRelationUnits(arg0 context.Context, arg1 application.UUID) (watcher0.NotifyWatcher, error) {
+func (m *MockRelationService) WatchRelationUnits(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (watcher0.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchRelationUnits", arg0, arg1)
+	ret := m.ctrl.Call(m, "WatchRelationUnits", arg0, arg1, arg2)
 	ret0, _ := ret[0].(watcher0.NotifyWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchRelationUnits indicates an expected call of WatchRelationUnits.
-func (mr *MockRelationServiceMockRecorder) WatchRelationUnits(arg0, arg1 any) *MockRelationServiceWatchRelationUnitsCall {
+func (mr *MockRelationServiceMockRecorder) WatchRelationUnits(arg0, arg1, arg2 any) *MockRelationServiceWatchRelationUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationUnits", reflect.TypeOf((*MockRelationService)(nil).WatchRelationUnits), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationUnits", reflect.TypeOf((*MockRelationService)(nil).WatchRelationUnits), arg0, arg1, arg2)
 	return &MockRelationServiceWatchRelationUnitsCall{Call: call}
 }
 
@@ -1173,13 +1173,13 @@ func (c *MockRelationServiceWatchRelationUnitsCall) Return(arg0 watcher0.NotifyW
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceWatchRelationUnitsCall) Do(f func(context.Context, application.UUID) (watcher0.NotifyWatcher, error)) *MockRelationServiceWatchRelationUnitsCall {
+func (c *MockRelationServiceWatchRelationUnitsCall) Do(f func(context.Context, relation.UUID, application.UUID) (watcher0.NotifyWatcher, error)) *MockRelationServiceWatchRelationUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, application.UUID) (watcher0.NotifyWatcher, error)) *MockRelationServiceWatchRelationUnitsCall {
+func (c *MockRelationServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, relation.UUID, application.UUID) (watcher0.NotifyWatcher, error)) *MockRelationServiceWatchRelationUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

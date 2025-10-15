@@ -24,7 +24,7 @@ import (
 type Service interface {
 	// WatchRelationUnits returns a watcher for changes to the units
 	// in the given relation in the local model.
-	WatchRelationUnits(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error)
+	WatchRelationUnits(context.Context, corerelation.UUID, coreapplication.UUID) (watcher.NotifyWatcher, error)
 
 	// GetRelationUnits returns the current state of the relation units.
 	GetRelationUnits(context.Context, corerelation.UUID, coreapplication.UUID) (relation.RelationUnitChange, error)
@@ -154,7 +154,7 @@ func (w *localWorker) Wait() error {
 func (w *localWorker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
-	watcher, err := w.service.WatchRelationUnits(ctx, w.consumerApplicationUUID)
+	watcher, err := w.service.WatchRelationUnits(ctx, w.consumerRelationUUID, w.consumerApplicationUUID)
 	if err != nil {
 		return errors.Annotatef(err, "watching local side of relation %v", w.consumerRelationUUID)
 	}
