@@ -901,7 +901,7 @@ func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Contex
 	}
 
 	// Process the relation application and unit settings changes.
-	if err := w.crossModelService.ProcessRelationChange(ctx); err != nil {
+	if err := w.crossModelService.EnterScopeForUnits(ctx, change.ConsumerRelationUUID, change.ApplicationSettings, unitSettings); err != nil {
 		return errors.Annotatef(err, "processing relation change for relation %q", change.ConsumerRelationUUID)
 	}
 

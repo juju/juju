@@ -102,13 +102,26 @@ type RelationService interface {
 	// GetRelationUnits returns the current state of the relation units.
 	GetRelationUnits(context.Context, corerelation.UUID, application.UUID) (relation.RelationUnitChange, error)
 
-	// GetRelationUnitUUID returns the relation unit UUID for the given unit for the
-	// given relation.
+	// GetRelationUnitUUID returns the relation unit UUID for the given unit for
+	// the given relation.
 	GetRelationUnitUUID(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
 	) (corerelation.UnitUUID, error)
+
+	// EnterScopeForUnits indicates that the provided unit has joined the
+	// relation. When the unit has already entered its relation scope,
+	// EnterScopeForUnits will report success but make no changes to state. The
+	// unit's settings are created or overwritten in the relation according to
+	// the supplied map. This does not handle subordinate unit creation, or
+	// related checks.
+	EnterScopeForUnits(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationSettings map[string]string,
+		unitSettings map[unit.Name]map[string]string,
+	) error
 }
 
 // CrossModelRelationService is an interface that defines the methods for
