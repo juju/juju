@@ -14,13 +14,45 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/docker/registry"
+	"github.com/juju/juju/rpc/params"
 )
+
+// UpgraderAPI holds the common methods for upgrading agents in controllers and models.
+// At the moment it is used to dynamically register the facade because the facade names
+// are the same for both [ControllerUpgraderAPI] and [ModelUpgraderAPI].
+// See [Register] func.
+type UpgraderAPI interface {
+	AbortModelUpgrade(ctx context.Context, arg params.ModelParam) error
+	UpgradeModel(ctx context.Context, arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error)
+}
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegisterForMultiModel("ModelUpgrader", 1, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-		return newFacadeV1(ctx)
-	}, reflect.TypeOf((*ModelUpgraderAPI)(nil)))
+		return newUpgraderFacadeV1(ctx)
+	}, reflect.TypeOf((UpgraderAPI)(nil)))
+}
+
+// newUpgraderFacadeV1 returns which facade to register.
+// It will return a [ControllerUpgraderAPI] if the current model hosts the controller.
+// Otherwise, it defaults to [ModelUpgraderAPI].
+func newUpgraderFacadeV1(ctx facade.MultiModelContext) (UpgraderAPI, error) {
+	if ctx.IsControllerModelScoped() {
+		auth := ctx.Auth()
+		// Since we know this is a user tag (because AuthClient is true),
+		// we just do the type assertion to the UserTag.
+		if !auth.AuthClient() {
+			return nil, apiservererrors.ErrPerm
+		}
+		domainServices := ctx.DomainServices()
+		return NewControllerUpgraderAPI(
+			auth,
+			common.NewBlockChecker(domainServices.BlockCommand()),
+			domainServices.ControllerUpgraderService(),
+			ctx.Logger().Child("modelupgrader"),
+		), nil
+	}
+	return newFacadeV1(ctx)
 }
 
 // newFacadeV1 is used for API registration.
