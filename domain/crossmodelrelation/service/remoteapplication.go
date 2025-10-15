@@ -17,6 +17,7 @@ import (
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -266,6 +267,26 @@ func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
 // offerer side of the relation. This ensures that we have a mirror image
 // of the relation data in the consumer model.
 func (s *Service) ProcessRelationChange(context.Context) error {
+	return nil
+}
+
+// EnsureUnitsExist ensures that the given synthetic units exist in the local
+// model.
+func (s *Service) EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+	}
+	for _, u := range units {
+		if err := u.Validate(); err != nil {
+			return internalerrors.Errorf(
+				"%w:%w", applicationerrors.UnitNameNotValid, err)
+		}
+	}
+
 	return nil
 }
 

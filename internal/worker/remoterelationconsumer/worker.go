@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/relation"
@@ -100,6 +101,14 @@ type RelationService interface {
 
 	// GetRelationUnits returns the current state of the relation units.
 	GetRelationUnits(context.Context, corerelation.UUID, application.UUID) (relation.RelationUnitChange, error)
+
+	// GetRelationUnitUUID returns the relation unit UUID for the given unit for the
+	// given relation.
+	GetRelationUnitUUID(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		unitName unit.Name,
+	) (corerelation.UnitUUID, error)
 }
 
 // CrossModelRelationService is an interface that defines the methods for
@@ -133,6 +142,10 @@ type CrossModelRelationService interface {
 	// SetRelationSuspendedState sets the suspended state of the specified
 	// relation in the local model.
 	SetRelationSuspendedState(ctx context.Context, appUUID application.UUID, relUUID corerelation.UUID, suspended bool, reason string) error
+
+	// EnsureUnitsExist ensures that the specified units exist in the local
+	// model, creating any that are missing.
+	EnsureUnitsExist(ctx context.Context, appUUID application.UUID, units []unit.Name) error
 }
 
 // StatusService is an interface that defines the methods for
@@ -152,6 +165,10 @@ type RemovalService interface {
 	// - Removed or scheduled to be removed with the input force qualification.
 	RemoveRemoteRelation(
 		ctx context.Context, relUUID corerelation.UUID) error
+
+	// LeaveScope updates the relation to indicate that the unit represented by
+	// the input relation unit UUID is not in the implied relation scope.
+	LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error
 }
 
 // Config defines the operation of a Worker.

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
@@ -885,7 +886,47 @@ func (w *localConsumerWorker) isRelationWorkerDead(ctx context.Context, relation
 }
 
 func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Context, change offererunitrelations.RelationUnitChange) error {
-	return w.crossModelService.ProcessRelationChange(ctx)
+	// Ensure all units exist in the local model.
+	units, err := transform.SliceOrErr(change.ChangedUnits, func(u offererunitrelations.UnitChange) (unit.Name, error) {
+		return unit.NewNameFromParts(w.applicationName, u.UnitID)
+	})
+	if err != nil {
+		return errors.Annotatef(err, "parsing unit names for relation %q", change.ConsumerRelationUUID)
+	}
+
+	// Ensure all the units exist in the local model, we'll need these upfront
+	// before we can process the application and unit settings.
+	if err := w.crossModelService.EnsureUnitsExist(ctx, w.applicationUUID, units); err != nil {
+		return errors.Annotatef(err, "ensuring units exist for relation %q", change.ConsumerRelationUUID)
+	}
+
+	// Process the relation application and unit settings changes.
+	if err := w.crossModelService.ProcessRelationChange(ctx); err != nil {
+		return errors.Annotatef(err, "processing relation change for relation %q", change.ConsumerRelationUUID)
+	}
+
+	// We've got departed units, these need to leave scope.
+	for _, u := range change.DeprecatedDepartedUnits {
+		unitName, err := unit.NewNameFromParts(w.applicationName, u)
+		if err != nil {
+			return errors.Annotatef(err, "parsing departed unit name %q for relation %q", u, change.ConsumerRelationUUID)
+		}
+
+		// If the relation unit doesn't exist, then it has already been removed,
+		// so we can skip it.
+		relationUnitUUID, err := w.crossModelService.GetRelationUnitUUID(ctx, change.ConsumerRelationUUID, unitName)
+		if errors.Is(err, relationerrors.RelationUnitNotFound) {
+			continue
+		} else if err != nil {
+			return errors.Annotatef(err, "querying relation unit UUID for departed unit %q for relation %q", unitName, change.ConsumerRelationUUID)
+		}
+
+		if err := w.crossModelService.LeaveScope(ctx, relationUnitUUID); err != nil {
+			return errors.Annotatef(err, "removing departed unit %q for relation %q", unitName, change.ConsumerRelationUUID)
+		}
+	}
+
+	return nil
 }
 
 func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, change offererrelations.RelationChange) error {
