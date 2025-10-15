@@ -80,6 +80,7 @@ type CrossModelService interface {
 	RelationService
 	CrossModelRelationService
 	StatusService
+	RemovalService
 }
 
 // RelationService is an interface that defines the methods for
@@ -112,10 +113,6 @@ type CrossModelRelationService interface {
 	// application consumers in the local model.
 	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
 
-	// SuspendRelation suspends the specified relation in the local model
-	// with the given reason.
-	SuspendRelation(ctx context.Context, appUUID application.UUID, relUUID corerelation.UUID, reason string) error
-
 	// ConsumeRemoteSecretChanges applies secret changes received
 	// from a remote model to the local model.
 	ConsumeRemoteSecretChanges(context.Context) error
@@ -128,6 +125,14 @@ type CrossModelRelationService interface {
 	// offerer side of the relation. This ensures that we have a mirror image
 	// of the relation data in the consumer model.
 	ProcessRelationChange(context.Context) error
+
+	// SuspendRelation suspends the specified relation in the local model
+	// with the given reason.
+	SuspendRelation(ctx context.Context, appUUID application.UUID, relUUID corerelation.UUID, reason string) error
+
+	// SetRelationSuspendedState sets the suspended state of the specified
+	// relation in the local model.
+	SetRelationSuspendedState(ctx context.Context, appUUID application.UUID, relUUID corerelation.UUID, suspended bool, reason string) error
 }
 
 // StatusService is an interface that defines the methods for
@@ -136,6 +141,17 @@ type StatusService interface {
 	// SetRemoteApplicationOffererStatus sets the status of the specified remote
 	// application in the local model.
 	SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error
+}
+
+// RemovalService is an interface that defines the methods for
+// removing relations directly on the local model database.
+type RemovalService interface {
+	// RemoveRelation checks if a relation with the input UUID exists.
+	// If it does, the relation is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	RemoveRemoteRelation(
+		ctx context.Context, relUUID corerelation.UUID) error
 }
 
 // Config defines the operation of a Worker.

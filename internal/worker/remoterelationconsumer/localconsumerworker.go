@@ -889,7 +889,21 @@ func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Contex
 }
 
 func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, change offererrelations.RelationChange) error {
-	return w.crossModelService.ProcessRelationChange(ctx)
+	// Handle the dying/dead case of the relation. We do this **after** setting
+	// the settings, so that the removal of the relation doesn't prevent us from
+	// setting the settings.
+	if change.Life != life.Alive {
+		// If the relation is dying or dead, then we're done here. The units
+		// will have already transitioned to departed.
+		return w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID)
+	}
+
+	// Handle the case where the relation has become (un)suspended.
+	if err := w.crossModelService.SetRelationSuspendedState(ctx, w.applicationUUID, change.ConsumerRelationUUID, change.Suspended, change.SuspendedReason); err != nil {
+		return errors.Annotatef(err, "setting suspended state for relation %q", change.ConsumerRelationUUID)
+	}
+
+	return nil
 }
 
 type consumerRelationResult struct {

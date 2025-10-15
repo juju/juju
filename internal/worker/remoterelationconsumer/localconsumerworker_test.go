@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -1861,7 +1862,7 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *localConsumerWorkerSuite) TestHandleOffererRelationChange(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleOffererRelationChangeDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -1870,8 +1871,51 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationChange(c *tc.C) {
 
 	sync := make(chan struct{})
 	s.crossModelService.EXPECT().
-		ProcessRelationChange(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) error {
+		RemoveRemoteRelation(gomock.Any(), relationUUID).
+		DoAndReturn(func(ctx context.Context, rel corerelation.UUID) error {
+			close(sync)
+			return nil
+		})
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	w.offererRelationChanges <- offererrelations.RelationChange{
+		ConsumerRelationUUID:   relationUUID,
+		OffererApplicationUUID: s.applicationUUID,
+		Life:                   life.Dying,
+		Suspended:              false,
+	}
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for ProcessRelationChange to be called")
+	}
+
+	// We don't want to test the full loop, just that we handle the change.
+	// The rest of the logic is covered in other tests.
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleOffererRelationChangeAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	done := s.expectWorkerStartup(c)
+
+	sync := make(chan struct{})
+	s.crossModelService.EXPECT().
+		SetRelationSuspendedState(gomock.Any(), s.applicationUUID, relationUUID, true, "front fell off").
+		DoAndReturn(func(context.Context, application.UUID, corerelation.UUID, bool, string) error {
 			close(sync)
 			return nil
 		})
@@ -1889,7 +1933,8 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationChange(c *tc.C) {
 		ConsumerRelationUUID:   relationUUID,
 		OffererApplicationUUID: s.applicationUUID,
 		Life:                   life.Alive,
-		Suspended:              false,
+		Suspended:              true,
+		SuspendedReason:        "front fell off",
 	}
 
 	select {
