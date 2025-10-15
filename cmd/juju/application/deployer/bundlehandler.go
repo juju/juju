@@ -64,7 +64,7 @@ type bundleDeploySpec struct {
 
 	deployAPI            DeployerAPI
 	bundleResolver       Resolver
-	getConsumeDetailsAPI func(*crossmodel.OfferURL) (ConsumeDetails, error)
+	getConsumeDetailsAPI func(crossmodel.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 	charmReader          CharmReader
 
@@ -143,7 +143,7 @@ type bundleHandler struct {
 	// deployAPI is used to interact with the environment.
 	deployAPI            DeployerAPI
 	bundleResolver       Resolver
-	getConsumeDetailsAPI func(*crossmodel.OfferURL) (ConsumeDetails, error)
+	getConsumeDetailsAPI func(crossmodel.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 	charmReader          CharmReader
 

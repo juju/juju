@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
 
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -82,6 +83,118 @@ func (st *ModelState) GetRemoteApplicationOffererUUIDByName(
 	}
 
 	return uuid, nil
+}
+
+// GetRemoteApplicationOffererStatuses returns the statuses of all remote
+// application offerers in the model, indexed by application name.
+func (st *ModelState) GetRemoteApplicationOffererStatuses(ctx context.Context) (map[string]status.RemoteApplicationOfferer, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT
+  a.name           AS &fullRemoteApplicationStatus.name,
+  aro.life_id      AS &fullRemoteApplicationStatus.life_id,
+  aros.status_id   AS &fullRemoteApplicationStatus.status_id,
+  aros.message     AS &fullRemoteApplicationStatus.message,
+  aros.data        AS &fullRemoteApplicationStatus.data,
+  aros.updated_at  AS &fullRemoteApplicationStatus.updated_at,
+  aro.offer_url    AS &fullRemoteApplicationStatus.offer_url,
+  cr."name"        AS &fullRemoteApplicationStatus.endpoint_name,
+  cr.interface     AS &fullRemoteApplicationStatus.endpoint_interface,
+  crr."name"       AS &fullRemoteApplicationStatus.endpoint_role,
+  cr.capacity      AS &fullRemoteApplicationStatus.endpoint_limit,
+  re.relation_uuid AS &fullRemoteApplicationStatus.relation_uuid
+FROM      application AS a
+JOIN      application_remote_offerer        AS aro  ON a.uuid = aro.application_uuid
+JOIN      application_remote_offerer_status AS aros ON aro.uuid = aros.application_remote_offerer_uuid
+-- No need to left join, since a remote app needs at least one endpoint to make sense.
+JOIN      application_endpoint              AS ae   ON a.uuid = ae.application_uuid
+JOIN      charm_relation                    AS cr   ON ae.charm_relation_uuid = cr.uuid
+JOIN      charm_relation_role               AS crr  ON cr.role_id = crr.id
+-- Left join, since we don't know if any relations exist
+LEFT JOIN v_relation_endpoint               AS re   ON re.application_uuid = a.uuid
+`, fullRemoteApplicationStatus{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var statuses []fullRemoteApplicationStatus
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&statuses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return decodeFullRemoteApplicationStatuses(statuses)
+}
+
+func decodeFullRemoteApplicationStatuses(statuses []fullRemoteApplicationStatus) (map[string]status.RemoteApplicationOfferer, error) {
+	result := make(map[string]status.RemoteApplicationOfferer)
+	seenRelationsByApp := make(map[string]set.Strings)
+	seenEndpointsByApp := make(map[string]set.Strings)
+
+	for _, s := range statuses {
+		if app, ok := result[s.Name]; !ok {
+			statusType, err := status.DecodeWorkloadStatus(s.StatusID)
+			if err != nil {
+				return nil, errors.Errorf("decoding workload status ID for application %q: %w", s.Name, err)
+			}
+
+			var relations []string
+			if s.RelationUUID.Valid {
+				relations = append(relations, s.RelationUUID.V)
+				seenRelationsByApp[s.Name] = set.NewStrings(s.RelationUUID.V)
+			}
+			seenEndpointsByApp[s.Name] = set.NewStrings(s.EndpointName)
+
+			result[s.Name] = status.RemoteApplicationOfferer{
+				Status: status.StatusInfo[status.WorkloadStatusType]{
+					Status:  statusType,
+					Message: s.Message,
+					Data:    s.Data,
+					Since:   s.UpdatedAt,
+				},
+				OfferURL: s.OfferURL,
+				Life:     s.LifeID,
+				Endpoints: []status.Endpoint{{
+					Name:      s.EndpointName,
+					Role:      s.EndpointRole,
+					Interface: s.EndpointInterface,
+					Limit:     s.EndpointLimit,
+				}},
+				Relations: relations,
+			}
+		} else {
+			if s.RelationUUID.Valid {
+				seenRelations := seenRelationsByApp[s.Name]
+				if !seenRelations.Contains(s.RelationUUID.V) {
+					app.Relations = append(app.Relations, s.RelationUUID.V)
+					seenRelations.Add(s.RelationUUID.V)
+				}
+			}
+			seenEndpoints := seenEndpointsByApp[s.Name]
+			if !seenEndpoints.Contains(s.EndpointName) {
+				app.Endpoints = append(app.Endpoints, status.Endpoint{
+					Name:      s.EndpointName,
+					Role:      s.EndpointRole,
+					Interface: s.EndpointInterface,
+					Limit:     s.EndpointLimit,
+				})
+				seenEndpoints.Add(s.EndpointName)
+			}
+			result[s.Name] = app
+		}
+	}
+
+	return result, nil
 }
 
 // GetRemoteApplicationOffererStatus returns the status of the specified remote

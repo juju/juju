@@ -418,6 +418,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferers(c *tc.C) 
 			Charm:                 charm,
 		},
 		OffererModelUUID: offererModelUUID,
+		OfferURL:         "controller:qualifier/model.offername",
 		EncodedMacaroon:  macBytes,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -429,6 +430,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferers(c *tc.C) 
 		ApplicationName:  "foo",
 		Life:             life.Alive,
 		OfferUUID:        offerUUID,
+		OfferURL:         "controller:qualifier/model.offername",
 		ConsumeVersion:   0,
 		OffererModelUUID: offererModelUUID,
 		Macaroon:         mac,

@@ -403,7 +403,7 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 			return s.deployResourceIDs, nil
 		},
 		Model: s.modelCommand,
-		NewConsumeDetailsAPI: func(ctx context.Context, url *crossmodel.OfferURL) (ConsumeDetails, error) {
+		NewConsumeDetailsAPI: func(ctx context.Context, url crossmodel.OfferURL) (ConsumeDetails, error) {
 			return s.consumeDetails, nil
 		},
 		FileSystem:  s.filesystem,

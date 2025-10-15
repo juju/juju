@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"sort"
 	"testing"
 	"time"
 
@@ -13,8 +14,8 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/offer"
-	remoteapplicationtesting "github.com/juju/juju/core/remoteapplication/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
@@ -34,14 +35,14 @@ func TestCrossModelRelationSuite(t *testing.T) {
 }
 
 func (s *crossModelRelationSuite) SetUpTest(c *tc.C) {
-	s.ModelSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 
 	s.state = NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
 func (s *crossModelRelationSuite) TestApplicationUUIDForOffer(c *tc.C) {
 	// Arrange
-	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
+	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
 	offerUUID := s.insertOffer(c, "test-offer", appUUID, "endpoint")
 
 	// Act
@@ -61,9 +62,7 @@ func (s *crossModelRelationSuite) TestGetOfferUUIDForUnknownOffer(c *tc.C) {
 }
 
 func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererUUIDByName(c *tc.C) {
-	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
-	remoteAppUUID := remoteapplicationtesting.GenRemoteApplicationUUID(c)
-	s.insertRemoteApplication(c, appUUID.String(), remoteAppUUID.String())
+	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
 
 	gotUUID, err := s.state.GetRemoteApplicationOffererUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
@@ -71,7 +70,7 @@ func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererUUIDByName(c *t
 }
 
 func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererUUIDByNameNotRemote(c *tc.C) {
-	s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
+	s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
 
 	_, err := s.state.GetRemoteApplicationOffererUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.ApplicationNotRemote)
@@ -83,9 +82,7 @@ func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererUUIDByNameNotFo
 }
 
 func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatus(c *tc.C) {
-	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
-	remoteAppUUID := remoteapplicationtesting.GenRemoteApplicationUUID(c)
-	s.insertRemoteApplication(c, appUUID.String(), remoteAppUUID.String())
+	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.WorkloadStatusType]{
@@ -107,9 +104,7 @@ func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatus(c *tc.C)
 }
 
 func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatusMultipleTimes(c *tc.C) {
-	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
-	remoteAppUUID := remoteapplicationtesting.GenRemoteApplicationUUID(c)
-	s.insertRemoteApplication(c, appUUID.String(), remoteAppUUID.String())
+	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
 
 	err := s.state.SetRemoteApplicationOffererStatus(c.Context(), remoteAppUUID.String(), status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusBlocked,
@@ -145,9 +140,7 @@ func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatusNotFound(
 }
 
 func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatusInvalidStatus(c *tc.C) {
-	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
-	remoteAppUUID := remoteapplicationtesting.GenRemoteApplicationUUID(c)
-	s.insertRemoteApplication(c, appUUID.String(), remoteAppUUID.String())
+	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
 
 	expected := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusType(99),
@@ -163,12 +156,104 @@ func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatusNotFound(
 }
 
 func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatusNotSet(c *tc.C) {
-	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.workloadStatus(time.Now()))
-	remoteAppUUID := remoteapplicationtesting.GenRemoteApplicationUUID(c)
-	s.insertRemoteApplication(c, appUUID.String(), remoteAppUUID.String())
+	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+
+	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM application_remote_offerer_status`)
+		return err
+	})
 
 	_, err := s.state.GetRemoteApplicationOffererStatus(c.Context(), remoteAppUUID.String())
 	c.Assert(err, tc.ErrorIs, statuserrors.RemoteApplicationStatusNotFound)
+}
+
+func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatusesNoRemoteApplications(c *tc.C) {
+	statuses, err := s.state.GetRemoteApplicationOffererStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.DeepEquals, map[string]status.RemoteApplicationOfferer{})
+}
+
+func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatusesNoRemoteApplicationsButAnApplication(c *tc.C) {
+	s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
+
+	statuses, err := s.state.GetRemoteApplicationOffererStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.DeepEquals, map[string]status.RemoteApplicationOfferer{})
+}
+
+func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatuses(c *tc.C) {
+	s.createIAASRemoteApplicationOfferer(c, "foo")
+	s.createIAASRemoteApplicationOfferer(c, "bar")
+
+	statuses, err := s.state.GetRemoteApplicationOffererStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Sort the endpoints
+	for _, app := range statuses {
+		sort.Slice(app.Endpoints, func(i, j int) bool {
+			return app.Endpoints[i].Name < app.Endpoints[j].Name
+		})
+	}
+
+	c.Assert(statuses, tc.HasLen, 2)
+	c.Check(statuses, tc.DeepEquals, map[string]status.RemoteApplicationOfferer{
+		"foo": {
+			Status: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusUnknown,
+				Message: "waiting for first status update",
+				Since:   &s.now,
+			},
+			OfferURL: "controller:qualifier/model.foo",
+			Life:     life.Alive,
+			Endpoints: []status.Endpoint{{
+				Name:      "endpoint",
+				Interface: "interf",
+				Role:      "provider",
+			}, {
+				Name:      "juju-info",
+				Interface: "juju-info",
+				Role:      "provider",
+			}, {
+				Name:      "misc",
+				Interface: "interf",
+				Role:      "provider",
+			}},
+		},
+		"bar": {
+			Status: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusUnknown,
+				Message: "waiting for first status update",
+				Since:   &s.now,
+			},
+			OfferURL: "controller:qualifier/model.bar",
+			Life:     life.Alive,
+			Endpoints: []status.Endpoint{{
+				Name:      "endpoint",
+				Interface: "interf",
+				Role:      "provider",
+			}, {
+				Name:      "juju-info",
+				Interface: "juju-info",
+				Role:      "provider",
+			}, {
+				Name:      "misc",
+				Interface: "interf",
+				Role:      "provider",
+			}},
+		},
+	})
+}
+
+func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatusesWithRelations(c *tc.C) {
+	appUUID, _ := s.createIAASRemoteApplicationOfferer(c, "foo")
+	relationUUID1 := s.addRelationWithLifeAndID(c, corelife.Alive, 1)
+	relationUUID2 := s.addRelationWithLifeAndID(c, corelife.Alive, 2)
+	s.addRelationToApplication(c, appUUID, relationUUID1)
+	s.addRelationToApplication(c, appUUID, relationUUID2)
+
+	statuses, err := s.state.GetRemoteApplicationOffererStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].Relations, tc.SameContents, []string{relationUUID1.String(), relationUUID2.String()})
 }
 
 func (s *crossModelRelationSuite) insertOffer(c *tc.C, name string, appUUID coreapplication.UUID, endpointName string) offer.UUID {

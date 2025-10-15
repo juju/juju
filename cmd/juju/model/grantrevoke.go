@@ -114,7 +114,7 @@ type accessCommand struct {
 
 	User       string
 	ModelNames []string
-	OfferURLs  []*crossmodel.OfferURL
+	OfferURLs  []crossmodel.OfferURL
 	Access     string
 }
 
@@ -406,9 +406,9 @@ type accountDetailsGetter interface {
 
 // setUnsetQualifiers sets any empty qualifier entries in the given offer URLs
 // to the currently logged in user.
-func setUnsetQualifiers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL) error {
+func setUnsetQualifiers(c accountDetailsGetter, offerURLs []crossmodel.OfferURL) error {
 	var currentAccountDetails *jujuclient.AccountDetails
-	for _, url := range offerURLs {
+	for i, url := range offerURLs {
 		if url.ModelQualifier != "" {
 			continue
 		}
@@ -421,6 +421,7 @@ func setUnsetQualifiers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL
 		}
 		// The qualifier is derived from the username.
 		url.ModelQualifier = model.QualifierFromUserTag(names.NewUserTag(currentAccountDetails.User)).String()
+		offerURLs[i] = url
 	}
 	return nil
 }

@@ -2252,8 +2252,8 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 				},
 			},
 		},
-		RemoteApplications: nil,
-		Offers:             nil,
+		RemoteApplicationOfferers: nil,
+		Offers:                    nil,
 		Relations: []params.RelationStatus{
 			{
 				Endpoints: []params.EndpointStatus{
@@ -2283,10 +2283,10 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoBundle() {
 				},
 			},
 		},
-		RemoteApplications:  nil,
-		Offers:              nil,
-		Relations:           nil,
-		ControllerTimestamp: nil,
+		RemoteApplicationOfferers: nil,
+		Offers:                    nil,
+		Relations:                 nil,
+		ControllerTimestamp:       nil,
 	}
 	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
 }
@@ -2318,10 +2318,10 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoMemBundle() {
 				},
 			},
 		},
-		RemoteApplications:  nil,
-		Offers:              nil,
-		Relations:           nil,
-		ControllerTimestamp: nil,
+		RemoteApplicationOfferers: nil,
+		Offers:                    nil,
+		Relations:                 nil,
+		ControllerTimestamp:       nil,
 	}
 	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
 }
@@ -2345,10 +2345,10 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
 				},
 			},
 		},
-		RemoteApplications:  nil,
-		Offers:              nil,
-		Relations:           nil,
-		ControllerTimestamp: nil,
+		RemoteApplicationOfferers: nil,
+		Offers:                    nil,
+		Relations:                 nil,
+		ControllerTimestamp:       nil,
 	}
 	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
 }
@@ -2798,8 +2798,8 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 				},
 			},
 		},
-		RemoteApplications: nil,
-		Offers:             nil,
+		RemoteApplicationOfferers: nil,
+		Offers:                    nil,
 		Relations: []params.RelationStatus{
 			{
 				Endpoints: []params.EndpointStatus{

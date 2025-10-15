@@ -179,6 +179,10 @@ type RemoteApplicationOfferer struct {
 	// consuming.
 	OfferUUID string
 
+	// OfferURL is the URL of this offer, used to located an offered appliction
+	// and it's exported endpoints
+	OfferURL string
+
 	// ConsumeVersion is the version of the offer that the remote application is
 	// consuming.
 	ConsumeVersion int
@@ -196,6 +200,10 @@ type RemoteApplicationOfferer struct {
 // remote application offerer.
 type AddRemoteApplicationOffererArgs struct {
 	AddRemoteApplicationArgs
+
+	// OfferURL is the URL of this offer, the natural key for the offer to
+	// identify the in offer in the offering model.
+	OfferURL string
 
 	// OffererControllerUUID is the UUID of the controller that the remote
 	// application is in.

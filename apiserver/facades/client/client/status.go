@@ -181,6 +181,9 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 			return noStatus, internalerrors.Errorf("could not fetch offers: %w", err)
 		}
 	}
+	if context.remoteAppOfferers, err = c.statusService.GetRemoteApplicationOffererStatuses(ctx); err != nil {
+		return noStatus, internalerrors.Errorf("could not fetch remote application offerers: %w", err)
+	}
 	if err = context.fetchMachines(ctx); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch machines: %w", err)
 	}
@@ -239,50 +242,17 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 
 	now := c.clock.Now()
 	return params.FullStatus{
-		Model:               modelStatus,
-		Machines:            context.processMachines(ctx),
-		Applications:        context.processApplications(ctx),
-		Offers:              context.processOffers(),
-		Relations:           context.processRelations(ctx),
-		Storage:             allStorage,
-		Filesystems:         filesystems,
-		Volumes:             volumes,
-		ControllerTimestamp: &now,
+		Model:                     modelStatus,
+		Machines:                  context.processMachines(ctx),
+		Applications:              context.processApplications(ctx),
+		Offers:                    context.processOffers(),
+		Relations:                 context.processRelations(ctx),
+		RemoteApplicationOfferers: context.processRemoteApplicationOfferers(ctx),
+		Storage:                   allStorage,
+		Filesystems:               filesystems,
+		Volumes:                   volumes,
+		ControllerTimestamp:       &now,
 	}, nil
-}
-
-func fetchOffers(ctx context.Context, service CrossModelRelationService) (map[string]offerStatus, error) {
-	modelOffers, err := service.GetOffers(ctx, []crossmodelrelation.OfferFilter{{}})
-	if err != nil {
-		return nil, err
-	}
-
-	return transform.SliceToMap(modelOffers, func(in *crossmodelrelation.OfferDetail) (string, offerStatus) {
-		charmURL, err := charms.CharmURLFromLocator(in.CharmLocator.Name, in.CharmLocator)
-
-		endpoints := transform.SliceToMap(in.Endpoints, func(in crossmodelrelation.OfferEndpoint) (string, charm.Relation) {
-			return in.Name, charm.Relation{
-				Name:      in.Name,
-				Role:      charm.RelationRole(in.Role),
-				Interface: in.Interface,
-				Limit:     in.Limit,
-			}
-		})
-		out := offerStatus{
-			ApplicationOffer: crossmodel.ApplicationOffer{
-				OfferUUID:              in.OfferUUID,
-				OfferName:              in.OfferName,
-				ApplicationName:        in.ApplicationName,
-				ApplicationDescription: in.ApplicationDescription,
-				Endpoints:              endpoints,
-			},
-			err:                  err,
-			charmURL:             charmURL,
-			activeConnectedCount: in.TotalActiveConnections,
-			totalConnectedCount:  in.TotalConnections,
-		}
-		return in.OfferName, out
-	}), nil
 }
 
 type applicationStatusInfo struct {
@@ -386,6 +356,9 @@ type statusContext struct {
 
 	// offers: offer name -> offer
 	offers map[string]offerStatus
+
+	// remoteAppOfferers: remote application name -> remote application offerer
+	remoteAppOfferers map[string]statusservice.RemoteApplicationOfferer
 
 	allAppsUnitsCharmBindings applicationStatusInfo
 	units                     map[coreunit.Name]statusservice.Unit
@@ -644,6 +617,40 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 	return out, outById, nil
 }
 
+func fetchOffers(ctx context.Context, service CrossModelRelationService) (map[string]offerStatus, error) {
+	modelOffers, err := service.GetOffers(ctx, []crossmodelrelation.OfferFilter{{}})
+	if err != nil {
+		return nil, err
+	}
+
+	return transform.SliceToMap(modelOffers, func(in *crossmodelrelation.OfferDetail) (string, offerStatus) {
+		charmURL, err := charms.CharmURLFromLocator(in.CharmLocator.Name, in.CharmLocator)
+
+		endpoints := transform.SliceToMap(in.Endpoints, func(in crossmodelrelation.OfferEndpoint) (string, charm.Relation) {
+			return in.Name, charm.Relation{
+				Name:      in.Name,
+				Role:      charm.RelationRole(in.Role),
+				Interface: in.Interface,
+				Limit:     in.Limit,
+			}
+		})
+		out := offerStatus{
+			ApplicationOffer: crossmodel.ApplicationOffer{
+				OfferUUID:              in.OfferUUID,
+				OfferName:              in.OfferName,
+				ApplicationName:        in.ApplicationName,
+				ApplicationDescription: in.ApplicationDescription,
+				Endpoints:              endpoints,
+			},
+			err:                  err,
+			charmURL:             charmURL,
+			activeConnectedCount: in.TotalActiveConnections,
+			totalConnectedCount:  in.TotalConnections,
+		}
+		return in.OfferName, out
+	}), nil
+}
+
 func (s *statusContext) processModel(ctx context.Context) (params.ModelStatusInfo, error) {
 	var info params.ModelStatusInfo
 
@@ -822,8 +829,13 @@ func (c *statusContext) processRelations(ctx context.Context) []params.RelationS
 			Interface: relationInterface,
 			Scope:     string(scope),
 			Endpoints: eps,
+			Status: params.DetailedStatus{
+				Status: current.Status.Status.String(),
+				Info:   current.Status.Message,
+				Data:   filterStatusData(current.Status.Data),
+				Since:  current.Status.Since,
+			},
 		}
-		populateStatusFromStatusInfoAndErr(&relStatus.Status, current.Status, nil)
 		out = append(out, relStatus)
 	}
 	return out
@@ -1165,15 +1177,62 @@ func (c *statusContext) processUnitAndAgentStatus(unit statusservice.Unit, unitN
 	return detailedAgentStatus, detailedWorkloadStatus
 }
 
-// populateStatusFromStatusInfoAndErr creates AgentStatus from the typical output
-// of a status getter.
-// TODO: make this a function that just returns a type.
-func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo status.StatusInfo, err error) {
-	agent.Err = apiservererrors.ServerError(err)
-	agent.Status = statusInfo.Status.String()
-	agent.Info = statusInfo.Message
-	agent.Data = filterStatusData(statusInfo.Data)
-	agent.Since = statusInfo.Since
+func (c *statusContext) processRemoteApplicationOfferers(ctx context.Context) map[string]params.RemoteApplicationStatus {
+	remoteApps := make(map[string]params.RemoteApplicationStatus)
+	for name, app := range c.remoteAppOfferers {
+		rels, err := c.processRemoteApplicationOffererRelations(ctx, name)
+		if err != nil {
+			remoteApps[name] = params.RemoteApplicationStatus{
+				Err: apiservererrors.ServerError(err),
+			}
+			continue
+		}
+		remoteApps[name] = params.RemoteApplicationStatus{
+			// We use the remote app name as the offer name
+			OfferName: name,
+			OfferURL:  app.OfferURL.String(),
+			Life:      app.Life,
+			Status: params.DetailedStatus{
+				Status: app.Status.Status.String(),
+				Info:   app.Status.Message,
+				Data:   filterStatusData(app.Status.Data),
+				Since:  app.Status.Since,
+			},
+			Endpoints: transform.Slice(app.Endpoints, func(ep statusservice.Endpoint) params.RemoteEndpoint {
+				return params.RemoteEndpoint{
+					Name:      ep.Name,
+					Role:      ep.Role,
+					Interface: ep.Interface,
+					Limit:     ep.Limit,
+				}
+			}),
+			Relations: rels,
+		}
+	}
+	return remoteApps
+}
+
+func (c *statusContext) processRemoteApplicationOffererRelations(ctx context.Context, name string) (map[string][]string, error) {
+	related := make(map[string][]string)
+	relations := c.relations[name]
+	for _, relation := range relations {
+		ep, err := relation.Endpoint(name)
+		if err != nil {
+			return nil, err
+		}
+		relationName := ep.Name
+		eps, err := relation.RelatedEndpoints(name)
+		if err != nil {
+			return nil, err
+		}
+		for _, ep := range eps {
+			related[relationName] = append(related[relationName], ep.ApplicationName)
+		}
+	}
+	for _, applicationNames := range related {
+		sort.Strings(applicationNames)
+	}
+	return related, nil
 }
 
 // processMachine retrieves version and status information for the given machine.

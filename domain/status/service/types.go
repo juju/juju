@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
@@ -152,4 +153,19 @@ type VolumeAttachment struct {
 type VolumeAttachmentPlan struct {
 	DeviceType       storageprovisioning.PlanDeviceType
 	DeviceAttributes map[string]string
+}
+
+type RemoteApplicationOfferer struct {
+	Status    status.StatusInfo
+	OfferURL  crossmodel.OfferURL
+	Life      life.Value
+	Endpoints []Endpoint
+	Relations []relation.UUID
+}
+
+type Endpoint struct {
+	Name      string
+	Role      internalcharm.RelationRole
+	Interface string
+	Limit     int
 }

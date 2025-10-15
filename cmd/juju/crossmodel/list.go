@@ -268,7 +268,7 @@ func formatApplicationOfferDetails(store string, all []*crossmodel.ApplicationOf
 	return result, nil
 }
 
-func convertOfferToListItem(url *crossmodel.OfferURL, offer *crossmodel.ApplicationOfferDetails) ListOfferItem {
+func convertOfferToListItem(url crossmodel.OfferURL, offer *crossmodel.ApplicationOfferDetails) ListOfferItem {
 	item := ListOfferItem{
 		OfferName:       offer.OfferName,
 		ApplicationName: offer.ApplicationName,

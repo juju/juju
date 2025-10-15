@@ -63,6 +63,10 @@ type StatusService interface {
 	// applications in the model, indexed by application name.
 	GetApplicationAndUnitStatuses(context.Context) (map[string]statusservice.Application, error)
 
+	// GetRemoteApplicationOffererStatuses returns the statuses of all remote
+	// application offerers in the model, indexed by application name.
+	GetRemoteApplicationOffererStatuses(ctx context.Context) (map[string]statusservice.RemoteApplicationOfferer, error)
+
 	// GetStatusHistory returns the status history based on the request.
 	GetStatusHistory(context.Context, statusservice.StatusHistoryRequest) ([]status.DetailedStatus, error)
 

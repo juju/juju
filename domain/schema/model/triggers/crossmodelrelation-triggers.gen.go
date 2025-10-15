@@ -74,6 +74,7 @@ WHEN
 	NEW.life_id != OLD.life_id OR
 	NEW.application_uuid != OLD.application_uuid OR
 	NEW.offer_uuid != OLD.offer_uuid OR
+	NEW.offer_url != OLD.offer_url OR
 	NEW.version != OLD.version OR
 	(NEW.offerer_controller_uuid != OLD.offerer_controller_uuid OR (NEW.offerer_controller_uuid IS NOT NULL AND OLD.offerer_controller_uuid IS NULL) OR (NEW.offerer_controller_uuid IS NULL AND OLD.offerer_controller_uuid IS NOT NULL)) OR
 	NEW.offerer_model_uuid != OLD.offerer_model_uuid OR

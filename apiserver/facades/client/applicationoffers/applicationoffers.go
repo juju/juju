@@ -565,7 +565,7 @@ func (api *OffersAPI) ModifyOfferAccess(ctx context.Context, args params.ModifyO
 func (api *OffersAPI) modifyOneOfferAccess(
 	ctx context.Context,
 	apiUserTag names.UserTag,
-	offerURL *corecrossmodel.OfferURL,
+	offerURL corecrossmodel.OfferURL,
 	modelUUID string,
 	arg params.ModifyOfferAccess,
 ) error {
@@ -636,7 +636,7 @@ func (api *OffersAPI) changeOfferAccess(
 }
 
 type offerModel struct {
-	url   *corecrossmodel.OfferURL
+	url   corecrossmodel.OfferURL
 	model model.Model
 	err   error
 }
@@ -646,10 +646,10 @@ type offerModel struct {
 func (api *OffersAPI) getModelsFromOffers(ctx context.Context, user names.UserTag, offerURLs ...string) ([]offerModel, error) {
 	// Cache the models found so far so we don't look them up more than once.
 	modelsCache := make(map[string]model.Model)
-	oneModel := func(offerURL string) (*corecrossmodel.OfferURL, model.Model, error) {
+	oneModel := func(offerURL string) (corecrossmodel.OfferURL, model.Model, error) {
 		url, err := corecrossmodel.ParseOfferURL(offerURL)
 		if err != nil {
-			return nil, model.Model{}, errors.Capture(err)
+			return corecrossmodel.OfferURL{}, model.Model{}, errors.Capture(err)
 		}
 
 		url.ModelQualifier = constructModelQualifier(url.ModelQualifier, user).String()
@@ -660,7 +660,7 @@ func (api *OffersAPI) getModelsFromOffers(ctx context.Context, user names.UserTa
 
 		m, err := api.modelForName(ctx, url.ModelName, url.ModelQualifier)
 		if err != nil {
-			return nil, model.Model{}, errors.Capture(err)
+			return corecrossmodel.OfferURL{}, model.Model{}, errors.Capture(err)
 		}
 		return url, m, nil
 	}
@@ -792,7 +792,7 @@ func applicationOfferURLAndFilter(in string, apiUserTag names.UserTag) (string, 
 	return url.String(), filterFromURL(url), nil
 }
 
-func filterFromURL(url *corecrossmodel.OfferURL) params.OfferFilter {
+func filterFromURL(url corecrossmodel.OfferURL) params.OfferFilter {
 	f := params.OfferFilter{
 		ModelQualifier: url.ModelQualifier,
 		ModelName:      url.ModelName,

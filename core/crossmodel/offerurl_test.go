@@ -23,33 +23,33 @@ func TestOfferURLSuite(t *testing.T) {
 var urlTests = []struct {
 	s, err string
 	exact  string
-	url    *crossmodel.OfferURL
+	url    crossmodel.OfferURL
 }{{
 	s:   "controller:qualifier/modelname.offername",
-	url: &crossmodel.OfferURL{"controller", "qualifier", "modelname", "offername"},
+	url: crossmodel.OfferURL{"controller", "qualifier", "modelname", "offername"},
 }, {
 	s:   "controller:qualifier/modelname.offername:rel",
-	url: &crossmodel.OfferURL{"controller", "qualifier", "modelname", "offername:rel"},
+	url: crossmodel.OfferURL{"controller", "qualifier", "modelname", "offername:rel"},
 }, {
 	s:   "modelname.offername",
-	url: &crossmodel.OfferURL{"", "", "modelname", "offername"},
+	url: crossmodel.OfferURL{"", "", "modelname", "offername"},
 }, {
 	s:   "modelname.offername:rel",
-	url: &crossmodel.OfferURL{"", "", "modelname", "offername:rel"},
+	url: crossmodel.OfferURL{"", "", "modelname", "offername:rel"},
 }, {
 	s:   "qualifier/modelname.offername:rel",
-	url: &crossmodel.OfferURL{"", "qualifier", "modelname", "offername:rel"},
+	url: crossmodel.OfferURL{"", "qualifier", "modelname", "offername:rel"},
 }, {
 	s:     "/modelname.offername",
-	url:   &crossmodel.OfferURL{"", "", "modelname", "offername"},
+	url:   crossmodel.OfferURL{"", "", "modelname", "offername"},
 	exact: "modelname.offername",
 }, {
 	s:     "/modelname.offername:rel",
-	url:   &crossmodel.OfferURL{"", "", "modelname", "offername:rel"},
+	url:   crossmodel.OfferURL{"", "", "modelname", "offername:rel"},
 	exact: "modelname.offername:rel",
 }, {
 	s:   "qualifier/modelname.offername",
-	url: &crossmodel.OfferURL{"", "qualifier", "modelname", "offername"},
+	url: crossmodel.OfferURL{"", "qualifier", "modelname", "offername"},
 }, {
 	s:   "controller:modelname",
 	err: `offer URL is missing the name`,
@@ -79,15 +79,13 @@ func (s *OfferURLSuite) TestParseURL(c *tc.C) {
 		if t.exact != "" {
 			match = t.exact
 		}
-		if t.url != nil {
-			c.Assert(err, tc.IsNil)
-			c.Check(url, tc.DeepEquals, t.url)
-			c.Check(url.String(), tc.Equals, match)
-		}
 		if t.err != "" {
 			t.err = strings.Replace(t.err, "$URL", regexp.QuoteMeta(fmt.Sprintf("%q", t.s)), -1)
 			c.Check(err, tc.ErrorMatches, t.err)
-			c.Check(url, tc.IsNil)
+		} else {
+			c.Assert(err, tc.IsNil)
+			c.Check(url, tc.DeepEquals, t.url)
+			c.Check(url.String(), tc.Equals, match)
 		}
 	}
 }
@@ -171,7 +169,7 @@ func (s *OfferURLSuite) TestAsLocal(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	expected, err := crossmodel.ParseOfferURL("model.application:endpoint")
 	c.Assert(err, tc.ErrorIsNil)
-	original := *url
+	original := url
 	c.Assert(url.AsLocal(), tc.DeepEquals, expected)
-	c.Assert(*url, tc.DeepEquals, original)
+	c.Assert(url, tc.DeepEquals, original)
 }

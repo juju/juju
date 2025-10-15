@@ -53,7 +53,7 @@ type ModelOfferState interface {
 
 // GetOfferUUID returns the uuid for the provided offer URL.
 // Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
-func (s *Service) GetOfferUUID(ctx context.Context, offerURL *crossmodel.OfferURL) (offer.UUID, error) {
+func (s *Service) GetOfferUUID(ctx context.Context, offerURL crossmodel.OfferURL) (offer.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

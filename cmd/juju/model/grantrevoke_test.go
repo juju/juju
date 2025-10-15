@@ -155,7 +155,7 @@ func (s *grantSuite) TestInitOffers(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	url2, err := crossmodel.ParseOfferURL("mary/model.offer2")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(grantCmd.OfferURLs, tc.DeepEquals, []*crossmodel.OfferURL{url1, url2})
+	c.Assert(grantCmd.OfferURLs, tc.DeepEquals, []crossmodel.OfferURL{url1, url2})
 	c.Assert(grantCmd.ModelNames, tc.HasLen, 0)
 }
 

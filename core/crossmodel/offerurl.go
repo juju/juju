@@ -39,7 +39,7 @@ type OfferURL struct {
 }
 
 // Path returns the path component of the URL.
-func (u *OfferURL) Path() string {
+func (u OfferURL) Path() string {
 	var parts []string
 	if u.ModelQualifier != "" {
 		parts = append(parts, u.ModelQualifier)
@@ -55,15 +55,15 @@ func (u *OfferURL) Path() string {
 	return fmt.Sprintf("%s:%s", u.Source, path)
 }
 
-func (u *OfferURL) String() string {
+func (u OfferURL) String() string {
 	return u.Path()
 }
 
 // AsLocal returns a copy of the URL with an empty (local) source.
-func (u *OfferURL) AsLocal() *OfferURL {
-	localURL := *u
+func (u OfferURL) AsLocal() OfferURL {
+	localURL := u
 	localURL.Source = ""
-	return &localURL
+	return localURL
 }
 
 // HasEndpoint returns whether this offer URL includes an
@@ -86,18 +86,18 @@ var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<qualifier>[^/]+)/)?(?P<
 //	<source>:<model-name>.<offer-name>:<relation-name>
 //	<source>:<qualifier>/<model-name>.<offer-name>
 //	<source>:<qualifier>/<model-name>.<offer-name>:<relation-name>
-func ParseOfferURL(urlStr string) (*OfferURL, error) {
+func ParseOfferURL(urlStr string) (OfferURL, error) {
 	return parseOfferURL(urlStr)
 }
 
 // parseOfferURL parses the specified URL string into an OfferURL.
-func parseOfferURL(urlStr string) (*OfferURL, error) {
+func parseOfferURL(urlStr string) (OfferURL, error) {
 	urlParts, err := parseOfferURLParts(urlStr, false)
 	if err != nil {
-		return nil, err
+		return OfferURL{}, err
 	}
 	url := OfferURL(*urlParts)
-	return &url, nil
+	return url, nil
 }
 
 // OfferURLParts contains various attributes of a URL.

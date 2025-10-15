@@ -158,6 +158,7 @@ SELECT  a.name AS &remoteApplicationOffererInfo.application_name,
         aro.offer_uuid AS &remoteApplicationOffererInfo.offer_uuid,
         aro.version AS &remoteApplicationOffererInfo.version,
         aro.offerer_model_uuid AS &remoteApplicationOffererInfo.offerer_model_uuid,
+		aro.offer_url AS &remoteApplicationOffererInfo.offer_url,
         aro.macaroon AS &remoteApplicationOffererInfo.macaroon
 FROM    application_remote_offerer AS aro
 JOIN    application AS a ON a.uuid = aro.application_uuid
@@ -189,6 +190,7 @@ WHERE   aro.life_id < 2;`
 			ApplicationUUID:  offerer.ApplicationUUID,
 			ApplicationName:  offerer.ApplicationName,
 			OfferUUID:        offerer.OfferUUID,
+			OfferURL:         offerer.OfferURL,
 			ConsumeVersion:   int(offerer.Version),
 			OffererModelUUID: offerer.OffererModelUUID,
 			Macaroon:         macaroon,
@@ -314,6 +316,7 @@ func (st *State) insertRemoteApplicationOfferer(
 		LifeID:                life.Alive,
 		ApplicationUUID:       args.ApplicationUUID,
 		OfferUUID:             args.OfferUUID,
+		OfferURL:              args.OfferURL,
 		Version:               version,
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      args.OffererModelUUID,

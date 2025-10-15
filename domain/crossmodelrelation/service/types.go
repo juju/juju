@@ -6,6 +6,7 @@ package service
 import (
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/domain/application/charm"
 )
@@ -16,6 +17,10 @@ type AddRemoteApplicationOffererArgs struct {
 	// OfferUUID is the UUID of the offer that the remote application is
 	// consuming.
 	OfferUUID offer.UUID
+
+	// OfferURL is the URL of this offer, used to located an offered appliction
+	// and it's exported endpoints
+	OfferURL crossmodel.OfferURL
 
 	// OffererControllerUUID is the UUID of the controller that the remote
 	// application is in.

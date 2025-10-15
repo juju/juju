@@ -167,13 +167,13 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(err, block.BlockRemove)
 }
 
-func (c *removeCommand) parseOfferURL(controllerName, currentModel, urlStr string) (*crossmodel.OfferURL, error) {
+func (c *removeCommand) parseOfferURL(controllerName, currentModel, urlStr string) (crossmodel.OfferURL, error) {
 	url, err := crossmodel.ParseOfferURL(urlStr)
 	if err == nil {
 		return url, nil
 	}
 	if !names.IsValidApplication(urlStr) {
-		return nil, errors.Trace(err)
+		return crossmodel.OfferURL{}, errors.Trace(err)
 	}
 	store := c.ClientStore()
 	return makeURLFromCurrentModel(store, controllerName, c.offerSource, currentModel, urlStr)
@@ -181,10 +181,10 @@ func (c *removeCommand) parseOfferURL(controllerName, currentModel, urlStr strin
 
 func makeURLFromCurrentModel(
 	store jujuclient.ClientStore, controllerName, offerSource, modelName, offerName string,
-) (*crossmodel.OfferURL, error) {
+) (crossmodel.OfferURL, error) {
 	// We may have just been given an offer name.
 	// Try again with the current model as the host model.
-	url := &crossmodel.OfferURL{
+	url := crossmodel.OfferURL{
 		Source: offerSource,
 		Name:   offerName,
 	}
@@ -192,7 +192,7 @@ func makeURLFromCurrentModel(
 		if jujuclient.IsQualifiedModelName(modelName) {
 			modelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(modelName)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return crossmodel.OfferURL{}, errors.Trace(err)
 			}
 			url.ModelQualifier = qualifier
 			url.ModelName = modelName
@@ -204,7 +204,7 @@ func makeURLFromCurrentModel(
 	if url.ModelQualifier == "" {
 		accountDetails, err := store.AccountDetails(controllerName)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return crossmodel.OfferURL{}, errors.Trace(err)
 		}
 		qualifier := model.QualifierFromUserTag(names.NewUserTag(accountDetails.User))
 		url.ModelQualifier = qualifier.String()

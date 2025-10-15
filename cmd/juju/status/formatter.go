@@ -95,7 +95,7 @@ func (sf *statusFormatter) Format() (formattedStatus, error) {
 	for name, app := range sf.status.Applications {
 		out.Applications[name] = sf.formatApplication(name, app)
 	}
-	for name, app := range sf.status.RemoteApplications {
+	for name, app := range sf.status.RemoteApplicationOfferers {
 		out.RemoteApplications[name] = sf.formatRemoteApplication(name, app)
 	}
 	for name, offer := range sf.status.Offers {

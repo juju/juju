@@ -128,6 +128,7 @@ func (s *fullStatusSuite) TestFullStatusNetworkInterfaces(c *tc.C) {
 
 	s.applicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(nil, nil)
 	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetRemoteApplicationOffererStatuses(gomock.Any()).Return(nil, nil)
 	s.portService.EXPECT().GetAllOpenedPorts(gomock.Any()).Return(nil, nil)
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
@@ -330,6 +331,7 @@ func (s *fullStatusSuite) expectCheckIsAdmin(client *Client, read bool) {
 
 func (s *fullStatusSuite) expectEmptyModelModuloOffers(c *tc.C) {
 	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetRemoteApplicationOffererStatuses(gomock.Any()).Return(nil, nil)
 	s.applicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(nil, nil)
 
 	s.portService.EXPECT().GetAllOpenedPorts(gomock.Any()).Return(nil, nil)

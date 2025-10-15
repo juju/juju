@@ -360,8 +360,9 @@ AND    ae.application_uuid = $relationAndApplicationUUID.application_uuid
 }
 
 // GetAllRelationDetails retrieves the details of all relations from the
-// database. It returns the list of endpoints, the life status and
-// identification data (UUID and ID) for each relation.
+// database. This includes relations with synthetic applications (i.e. CMRs).
+// It returns the list of endpoints, the life status and identification data
+// (UUID and ID) for each relation.
 func (st *State) GetAllRelationDetails(ctx context.Context) ([]domainrelation.RelationDetailsResult, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -370,6 +371,7 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]domainrelation.Re
 
 	var relationsDetails []domainrelation.RelationDetailsResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// TODO: Do this all in one query
 		relations, err := st.getAllRelations(ctx, tx)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting all relations: %w", err)

@@ -865,6 +865,45 @@ func (c *MockModelStateGetRelationUUIDByIDCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetRemoteApplicationOffererStatuses mocks base method.
+func (m *MockModelState) GetRemoteApplicationOffererStatuses(ctx context.Context) (map[string]status.RemoteApplicationOfferer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteApplicationOffererStatuses", ctx)
+	ret0, _ := ret[0].(map[string]status.RemoteApplicationOfferer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteApplicationOffererStatuses indicates an expected call of GetRemoteApplicationOffererStatuses.
+func (mr *MockModelStateMockRecorder) GetRemoteApplicationOffererStatuses(ctx any) *MockModelStateGetRemoteApplicationOffererStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteApplicationOffererStatuses", reflect.TypeOf((*MockModelState)(nil).GetRemoteApplicationOffererStatuses), ctx)
+	return &MockModelStateGetRemoteApplicationOffererStatusesCall{Call: call}
+}
+
+// MockModelStateGetRemoteApplicationOffererStatusesCall wrap *gomock.Call
+type MockModelStateGetRemoteApplicationOffererStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetRemoteApplicationOffererStatusesCall) Return(arg0 map[string]status.RemoteApplicationOfferer, arg1 error) *MockModelStateGetRemoteApplicationOffererStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetRemoteApplicationOffererStatusesCall) Do(f func(context.Context) (map[string]status.RemoteApplicationOfferer, error)) *MockModelStateGetRemoteApplicationOffererStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetRemoteApplicationOffererStatusesCall) DoAndReturn(f func(context.Context) (map[string]status.RemoteApplicationOfferer, error)) *MockModelStateGetRemoteApplicationOffererStatusesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRemoteApplicationOffererUUIDByName mocks base method.
 func (m *MockModelState) GetRemoteApplicationOffererUUIDByName(ctx context.Context, name string) (remoteapplication.UUID, error) {
 	m.ctrl.T.Helper()

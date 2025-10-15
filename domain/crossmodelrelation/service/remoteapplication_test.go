@@ -11,6 +11,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
@@ -77,6 +78,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 		OfferUUID:             offerUUID,
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      offererModelUUID,
+		OfferURL:              tc.Must1(c, crossmodel.ParseOfferURL, "controller:qualifier/model.offername"),
 		Endpoints: []charm.Relation{{
 			Name:      "db",
 			Role:      charm.RoleProvider,
@@ -106,6 +108,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 			Charm:     syntheticCharm,
 			OfferUUID: offerUUID.String(),
 		},
+		OfferURL:              "controller:qualifier/model.offername",
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      offererModelUUID,
 		EncodedMacaroon:       tc.Must(c, macaroon.MarshalJSON),

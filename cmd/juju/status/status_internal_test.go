@@ -152,10 +152,10 @@ func (s *StatusSuite) newContext() *ctx {
 						Since:  &now,
 					},
 				},
-				Machines:           make(map[string]params.MachineStatus),
-				Applications:       make(map[string]params.ApplicationStatus),
-				Offers:             make(map[string]params.ApplicationOfferStatus),
-				RemoteApplications: make(map[string]params.RemoteApplicationStatus),
+				Machines:                  make(map[string]params.MachineStatus),
+				Applications:              make(map[string]params.ApplicationStatus),
+				Offers:                    make(map[string]params.ApplicationOfferStatus),
+				RemoteApplicationOfferers: make(map[string]params.RemoteApplicationStatus),
 			},
 		},
 	}
@@ -3535,7 +3535,7 @@ func (as addRemoteApplication) step(c *tc.C, ctx *ctx) {
 			Relations: make(map[string][]string),
 		}
 	} else {
-		ctx.api.result.RemoteApplications[as.name] = params.RemoteApplicationStatus{
+		ctx.api.result.RemoteApplicationOfferers[as.name] = params.RemoteApplicationStatus{
 			OfferName: as.name,
 			OfferURL:  as.url,
 			Endpoints: endpoints,
@@ -4010,7 +4010,7 @@ func canRelateTo(ep1, ep2 charm.Relation) bool {
 }
 
 func appEndpoints(c *tc.C, ctx *ctx, appName string) ([]charm.Relation, bool) {
-	remoteApp, ok := ctx.api.result.RemoteApplications[appName]
+	remoteApp, ok := ctx.api.result.RemoteApplicationOfferers[appName]
 	if !ok {
 		remoteApp, ok = ctx.remoteProxies[appName]
 	}
@@ -4129,11 +4129,11 @@ func (rs relateApplications) step(c *tc.C, ctx *ctx) {
 	if app2ok {
 		rels2 = app2.Relations
 	}
-	rapp1, rapp1ok := ctx.api.result.RemoteApplications[rs.app1]
+	rapp1, rapp1ok := ctx.api.result.RemoteApplicationOfferers[rs.app1]
 	if rapp1ok {
 		rels1 = rapp1.Relations
 	}
-	rapp2, rapp2ok := ctx.api.result.RemoteApplications[rs.app2]
+	rapp2, rapp2ok := ctx.api.result.RemoteApplicationOfferers[rs.app2]
 	if rapp2ok {
 		rels2 = rapp2.Relations
 	}

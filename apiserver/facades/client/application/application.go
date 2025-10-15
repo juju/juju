@@ -1509,8 +1509,14 @@ func (api *APIBase) saveRemoteApplicationOfferer(
 		return internalerrors.Errorf("parsing offer UUID: %w", err)
 	}
 
+	offerURL, err := crossmodel.ParseOfferURL(offer.OfferURL)
+	if err != nil {
+		return internalerrors.Errorf("parsing offer URL: %w", err)
+	}
+
 	if err := api.crossModelRelationService.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelationservice.AddRemoteApplicationOffererArgs{
 		OfferUUID:             offerUUID,
+		OfferURL:              offerURL,
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      offererModelUUID,
 		Endpoints:             remoteEps,

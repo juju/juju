@@ -1358,6 +1358,7 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 	s.externalControllerService.EXPECT().UpdateExternalController(gomock.Any(), controllerInfo).Return(nil)
 	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
 		OfferUUID:             offerUUID,
+		OfferURL:              tc.Must1(c, crossmodel.ParseOfferURL, "controller:qualifier/model.my-offer"),
 		OffererControllerUUID: ptr(controllerUUID),
 		OffererModelUUID:      modelUUID,
 		Endpoints: []applicationcharm.Relation{{
@@ -1376,6 +1377,7 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				OfferUUID:      offerUUID.String(),
 				OfferName:      "my-offer",
+				OfferURL:       "controller:qualifier/model.my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
 				Endpoints: []params.RemoteEndpoint{{
 					Name:      "db",
@@ -1408,6 +1410,7 @@ func (s *applicationSuite) TestConsumeNoExternalController(c *tc.C) {
 
 	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
 		OfferUUID:        offerUUID,
+		OfferURL:         tc.Must1(c, crossmodel.ParseOfferURL, "controller:qualifier/model.my-offer"),
 		OffererModelUUID: modelUUID,
 		Endpoints: []applicationcharm.Relation{{
 			Name:      "db",
@@ -1425,6 +1428,7 @@ func (s *applicationSuite) TestConsumeNoExternalController(c *tc.C) {
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				OfferUUID:      offerUUID.String(),
 				OfferName:      "my-offer",
+				OfferURL:       "controller:qualifier/model.my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
 				Endpoints: []params.RemoteEndpoint{{
 					Name:      "db",
@@ -1454,6 +1458,7 @@ func (s *applicationSuite) TestConsumeSameController(c *tc.C) {
 
 	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
 		OfferUUID:        offerUUID,
+		OfferURL:         tc.Must1(c, crossmodel.ParseOfferURL, "controller:qualifier/model.my-offer"),
 		OffererModelUUID: modelUUID,
 		Endpoints: []applicationcharm.Relation{{
 			Name:      "db",
@@ -1471,6 +1476,7 @@ func (s *applicationSuite) TestConsumeSameController(c *tc.C) {
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				OfferUUID:      offerUUID.String(),
 				OfferName:      "my-offer",
+				OfferURL:       "controller:qualifier/model.my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
 				Endpoints: []params.RemoteEndpoint{{
 					Name:      "db",
@@ -1497,6 +1503,7 @@ func (s *applicationSuite) TestConsumeSameControllerSameOfferUUID(c *tc.C) {
 
 	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
 		OfferUUID:        offerUUID,
+		OfferURL:         tc.Must1(c, crossmodel.ParseOfferURL, "controller:qualifier/model.my-offer"),
 		OffererModelUUID: modelUUID,
 		Endpoints: []applicationcharm.Relation{{
 			Name:      "db",
@@ -1514,6 +1521,7 @@ func (s *applicationSuite) TestConsumeSameControllerSameOfferUUID(c *tc.C) {
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				OfferUUID:      offerUUID.String(),
 				OfferName:      "my-offer",
+				OfferURL:       "controller:qualifier/model.my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
 				Endpoints: []params.RemoteEndpoint{{
 					Name:      "db",
@@ -1569,6 +1577,7 @@ func (s *applicationSuite) TestConsumeInvalidEndpointRole(c *tc.C) {
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				OfferUUID:      offerUUID.String(),
 				OfferName:      "my-offer",
+				OfferURL:       "controller:qualifier/model.my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
 				Endpoints: []params.RemoteEndpoint{{
 					Name:      "db",

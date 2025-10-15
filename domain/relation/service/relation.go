@@ -387,7 +387,9 @@ func (s *Service) EnterScope(
 	return nil
 }
 
-// GetAllRelationDetails return RelationDetailResults of all relation for the current model.
+// GetAllRelationDetails return RelationDetailResults of all relation for the
+// current model. This includes relations with synthetic applications (i.e.
+// CMRs)
 func (s *Service) GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
