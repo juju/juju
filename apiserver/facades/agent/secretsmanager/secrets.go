@@ -1238,6 +1238,8 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs
 // UnitOwnedSecretsAndRevisions is not implemented on version 3.
 func (s *SecretsManagerAPIV3) UnitOwnedSecretsAndRevisions(_ struct{}) {}
 
+// UnitOwnedSecretsAndRevisions returns all secret URIs and revision IDs for all
+// secrets owned by the given unit.
 func (s *SecretsManagerAPI) UnitOwnedSecretsAndRevisions(arg params.Entity) (params.SecretRevisionIDsResults, error) {
 	var results params.SecretRevisionIDsResults
 	if !s.authorizer.AuthUnitAgent() && !s.authorizer.AuthApplicationAgent() {
@@ -1271,6 +1273,8 @@ func (s *SecretsManagerAPI) UnitOwnedSecretsAndRevisions(arg params.Entity) (par
 // OwnedSecretRevisions is not implemented on version 3.
 func (s *SecretsManagerAPIV3) OwnedSecretRevisions(_ struct{}) {}
 
+// OwnedSecretRevisions returns all the revision IDs for the given secret that
+// is owned by either the unit or the unit's application.
 func (s *SecretsManagerAPI) OwnedSecretRevisions(args params.SecretRevisionArgs) (params.SecretRevisionIDsResults, error) {
 	if !s.authorizer.AuthUnitAgent() && !s.authorizer.AuthApplicationAgent() {
 		return params.SecretRevisionIDsResults{}, apiservererrors.ErrPerm
