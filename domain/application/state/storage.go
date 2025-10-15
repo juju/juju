@@ -165,7 +165,6 @@ FROM (
                               FROM storage_unit_owner)
     AND	     (sf.provider_id IN ($storageProviderIDs[:])
            OR sv.provider_id IN ($storageProviderIDs[:]))
-    GROUP BY  si.uuid
 )
 `
 
