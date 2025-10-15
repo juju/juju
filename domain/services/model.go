@@ -40,6 +40,8 @@ import (
 	cloudimagemetadatastate "github.com/juju/juju/domain/cloudimagemetadata/state"
 	containerimageresourcestoreservice "github.com/juju/juju/domain/containerimageresourcestore/service"
 	containerimageresourcestorestate "github.com/juju/juju/domain/containerimageresourcestore/state"
+	controllerupgraderservice "github.com/juju/juju/domain/controllerupgrader/service"
+	controllerupgraderstate "github.com/juju/juju/domain/controllerupgrader/state"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	crossmodelrelationstatecontroller "github.com/juju/juju/domain/crossmodelrelation/state/controller"
 	crossmodelrelationstatemodel "github.com/juju/juju/domain/crossmodelrelation/state/model"
@@ -90,6 +92,7 @@ import (
 	storageprovisioningstate "github.com/juju/juju/domain/storageprovisioning/state"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/resource/store"
@@ -579,5 +582,27 @@ func (s *ModelServices) ChangeStream() *changestreamservice.Service {
 			s.clock,
 			s.logger.Child("changestream"),
 		),
+	)
+}
+
+func (s *ModelServices) ControllerUpgraderService() *controllerupgraderservice.Service {
+	controllerSt := controllerupgraderstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB))
+	controllerModelSt := controllerupgraderstate.NewControllerModelState(changestream.NewTxnRunnerFactory(s.modelDB))
+	agentFinder := controllerupgraderservice.NewAgentFinder(
+		envtools.PreferredStreams,
+		envtools.FindTools,
+		providertracker.ProviderRunner[environs.BootstrapEnviron](
+			s.providerFactory, s.modelUUID.String(),
+		),
+	)
+	agentBinaryFinder := controllerupgraderservice.NewStreamAgentBinaryFinder(
+		controllerSt,
+		controllerModelSt,
+		agentFinder,
+	)
+	return controllerupgraderservice.NewService(
+		agentBinaryFinder,
+		controllerSt,
+		controllerModelSt,
 	)
 }
