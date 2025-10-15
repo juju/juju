@@ -87,7 +87,7 @@ VALUES (?, ?, ?, ?)
 `, storeUUID, sha256Hash, sha384Hash, 1234)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return objectstore.UUID(storeUUID)
+	return storeUUID
 }
 
 // addAgentBinaryStore inserts a new row to `agent_binary_store` table.

@@ -18,6 +18,8 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 )
 
+// AgentFinderControllerState defines the interface for interacting with the
+// controller state.
 type AgentFinderControllerState interface {
 	// GetControllerTargetVersion returns the target controller version in use by the
 	// cluster.
@@ -33,6 +35,8 @@ type AgentFinderControllerState interface {
 	) (map[agentbinary.Architecture]bool, error)
 }
 
+// AgentFinderControllerModelState defines the interface for interacting with the
+// underlying model that hosts the current controller(s).
 type AgentFinderControllerModelState interface {
 	// HasAgentBinariesForVersionAndArchitectures returns whether the agents
 	// are supported for the given version and architectures.
@@ -197,7 +201,7 @@ func (a *StreamAgentBinaryFinder) getBinaryAgentInStreams(
 }
 
 // getHighestPatchVersionAvailableForStream returns a version with the highest patch given a stream.
-// It grabs the current version from the controller store in which it is used to get the binaries
+// It grabs the current version from the controller state in which it is used to get the binaries
 // matching the major and minor number of that version. It sorts the versions by the patch and
 // returns the highest patch.
 func (a *StreamAgentBinaryFinder) getHighestPatchVersionAvailableForStream(
@@ -274,9 +278,9 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 	if err != nil {
 		return false, errors.Capture(err)
 	}
-	// Check the binaries in the model state if the stream in the model store is the same
-	// as the given one.
-	// If they are different, then we have to look for the binaries in the controller store.
+	// If the supplied stream matches with the one in the model state, we can consult the
+	// model state for the binaries.
+	// Otherwise, we have to look for the binaries in the controller state.
 	hasStream := streamInModel == stream
 	missingArchsInModel := architectures
 	if hasStream {
@@ -291,7 +295,7 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 		}
 	}
 
-	// The stream in the model store doesn't match the given one OR
+	// The stream in the model state doesn't match the given stream OR
 	// some binaries don't exist in model state so we check if
 	// the missing ones exist in controller state.
 	archsInController, err := a.ctrlSt.HasAgentBinariesForVersionArchitecturesAndStream(ctx, version, missingArchsInModel, stream)

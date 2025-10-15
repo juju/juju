@@ -5,14 +5,14 @@ package state
 
 import (
 	"context"
-	"github.com/juju/juju/domain/agentbinary"
-	"github.com/juju/juju/domain/modelagent"
 
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/agentbinary"
+	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/internal/errors"
 )
 

@@ -5,9 +5,11 @@ package agentbinary
 
 import (
 	"database/sql"
-	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/tc"
 	"testing"
+
+	"github.com/juju/tc"
+
+	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
 type controllerSuite struct {
@@ -31,6 +33,7 @@ func TestModelSuite(t *testing.T) {
 func testArchitectureValuesAlignedToDB(c *tc.C, db *sql.DB) {
 	rows, err := db.Query("SELECT id, name FROM architecture ORDER BY ID ASC")
 	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
 
 	type architecture struct {
 		Id   int
