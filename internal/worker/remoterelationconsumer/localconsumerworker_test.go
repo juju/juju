@@ -486,7 +486,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationChange(c *tc.C) {
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),
@@ -553,7 +553,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationChangeOneEndpoint(c *tc.C) 
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -584,7 +584,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationChangeNoMatchingEndpointApp
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -622,7 +622,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationChangePeerRelation(c *tc.C)
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -662,7 +662,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),
@@ -728,7 +728,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequest(c *
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),
@@ -781,7 +781,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationInvalidResultLeng
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),
@@ -834,7 +834,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequestErro
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),
@@ -894,7 +894,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacar
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),
@@ -958,7 +958,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),
@@ -1041,7 +1041,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),
@@ -1163,7 +1163,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDying(c 
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),
@@ -1256,7 +1256,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDis
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),
@@ -1342,7 +1342,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDis
 func (s *localConsumerWorkerSuite) TestHandleDischargeRequiredErrorWhilstDyingNonDischargeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
@@ -1362,7 +1362,7 @@ func (s *localConsumerWorkerSuite) TestHandleDischargeRequiredErrorWhilstDyingNo
 func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedDischargeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
@@ -1392,7 +1392,7 @@ func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedDischargeError
 func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
@@ -1442,9 +1442,139 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChange(c *tc.C) {
 			Life:         life.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
+			}},
+			AllUnits:     []int{0, 1, 2, 3},
+			InScopeUnits: []int{0, 1, 2},
+		},
+		Macaroon: s.macaroon,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeNonNilApplicationSettings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ApplicationSettings: map[string]any{
+			"foo": "bar",
+		},
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"foo": "bar",
+			},
+		}},
+		InScopeUnits:  []int{0, 1, 2},
+		DepartedUnits: []int{3},
+		UnitCount:     3, // This is the length of InScopeUnits.
+		Macaroons:     macaroon.Slice{s.macaroon},
+		BakeryVersion: bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), event).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	// Force the offerer relation worker to be created, so that we can
+	// test the relation dead logic.
+	err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.offererRelationWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for offerer relation worker to be started")
+	}
+
+	err = w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			Life:         life.Alive,
+			ApplicationSettings: map[string]string{
+				"foo": "bar",
+			},
+			UnitsSettings: []domainrelation.UnitSettings{{
+				UnitID: 0,
+				Settings: map[string]string{
+					"foo": "bar",
+				},
+			}},
+			AllUnits:     []int{0, 1, 2, 3},
+			InScopeUnits: []int{0, 1, 2},
+		},
+		Macaroon: s.macaroon,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeNilUnitSettings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+		}},
+		InScopeUnits:  []int{0, 1, 2},
+		DepartedUnits: []int{3},
+		UnitCount:     3, // This is the length of InScopeUnits.
+		Macaroons:     macaroon.Slice{s.macaroon},
+		BakeryVersion: bakery.LatestVersion,
+	}
+
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), event).
+		Return(nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	// Force the offerer relation worker to be created, so that we can
+	// test the relation dead logic.
+	err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.offererRelationWorkerStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for offerer relation worker to be started")
+	}
+
+	err = w.handleConsumerUnitChange(c.Context(), consumerunitrelations.RelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			Life:         life.Alive,
+			UnitsSettings: []domainrelation.UnitSettings{{
+				UnitID: 0,
 			}},
 			AllUnits:     []int{0, 1, 2, 3},
 			InScopeUnits: []int{0, 1, 2},
@@ -1457,7 +1587,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChange(c *tc.C) {
 func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithInScopeUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
@@ -1499,7 +1629,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithIn
 			Life:         life.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1514,7 +1644,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithIn
 func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNoInScopeUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 	token := tc.Must(c, application.NewID)
@@ -1623,7 +1753,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 			RelationUUID: relationUUID,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1643,7 +1773,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationChangeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
@@ -1682,7 +1812,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 			Life:         life.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1697,7 +1827,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationChangeNotFoundError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
@@ -1736,7 +1866,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 			Life:         life.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1751,7 +1881,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationChangeDispatchError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
@@ -1797,7 +1927,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 			Life:         life.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{{
 				UnitID: 0,
-				Settings: map[string]any{
+				Settings: map[string]string{
 					"foo": "bar",
 				},
 			}},
@@ -1814,7 +1944,7 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	sync := make(chan struct{})
 	s.crossModelService.EXPECT().
@@ -1861,17 +1991,60 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *localConsumerWorkerSuite) TestHandleOffererRelationChange(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestHandleOffererRelationChangeDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 
-	done := s.expectWorkerStartup(c)
+	done := s.expectWorkerStartup()
 
 	sync := make(chan struct{})
 	s.crossModelService.EXPECT().
-		ProcessRelationChange(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) error {
+		RemoveRemoteRelation(gomock.Any(), relationUUID).
+		DoAndReturn(func(ctx context.Context, rel relation.UUID) error {
+			close(sync)
+			return nil
+		})
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	w.offererRelationChanges <- offererrelations.RelationChange{
+		ConsumerRelationUUID:   relationUUID,
+		OffererApplicationUUID: s.applicationUUID,
+		Life:                   life.Dying,
+		Suspended:              false,
+	}
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for ProcessRelationChange to be called")
+	}
+
+	// We don't want to test the full loop, just that we handle the change.
+	// The rest of the logic is covered in other tests.
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleOffererRelationChangeAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	done := s.expectWorkerStartup()
+
+	sync := make(chan struct{})
+	s.crossModelService.EXPECT().
+		SetRelationSuspendedState(gomock.Any(), s.applicationUUID, relationUUID, true, "front fell off").
+		DoAndReturn(func(context.Context, application.UUID, relation.UUID, bool, string) error {
 			close(sync)
 			return nil
 		})
@@ -1889,7 +2062,8 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationChange(c *tc.C) {
 		ConsumerRelationUUID:   relationUUID,
 		OffererApplicationUUID: s.applicationUUID,
 		Life:                   life.Alive,
-		Suspended:              false,
+		Suspended:              true,
+		SuspendedReason:        "front fell off",
 	}
 
 	select {
@@ -1954,7 +2128,7 @@ func (s *localConsumerWorkerSuite) newLocalConsumerWorkerConfig(c *tc.C) LocalCo
 	}
 }
 
-func (s *localConsumerWorkerSuite) expectWorkerStartup(c *tc.C) <-chan struct{} {
+func (s *localConsumerWorkerSuite) expectWorkerStartup() <-chan struct{} {
 	done := make(chan struct{})
 
 	ch := make(chan []string)

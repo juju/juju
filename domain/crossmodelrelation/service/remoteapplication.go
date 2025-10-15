@@ -22,6 +22,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -248,17 +249,6 @@ func (s *Service) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmod
 // SetRemoteApplicationOffererStatus sets the status of the specified remote
 // application in the local model.
 func (s *Service) SetRemoteApplicationOffererStatus(context.Context, coreapplication.UUID, corestatus.StatusInfo) error {
-
-	return nil
-}
-
-// SuspendRelation suspends the specified relation in the local model
-// with the given reason. This will also update the status of the associated
-// synthetic application to Error with the given reason.
-func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.UUID, relUUID corerelation.UUID, reason string) error {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
 	return nil
 }
 
@@ -272,6 +262,43 @@ func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
 // offerer side of the relation. This ensures that we have a mirror image
 // of the relation data in the consumer model.
 func (s *Service) ProcessRelationChange(context.Context) error {
+	return nil
+}
+
+// SuspendRelation suspends the specified relation in the local model
+// with the given reason. This will also update the status of the associated
+// synthetic application to Error with the given reason.
+func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.UUID, relUUID corerelation.UUID, reason string) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+	}
+	if err := relUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
+	return nil
+}
+
+// SuspendRelation suspends the specified relation in the local model
+// with the given reason.
+func (s *Service) SetRelationSuspendedState(ctx context.Context, appUUID coreapplication.UUID, relUUID corerelation.UUID, suspended bool, reason string) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+	}
+	if err := relUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
 	return nil
 }
 
@@ -294,6 +321,12 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 	}
 
 	return s.modelState.SaveMacaroonForRelation(ctx, relationUUID.String(), bytes)
+}
+
+// GetRelationToken returns the token associated with the provided relation Key.
+// Not implemented yet in the domain service.
+func (w *Service) GetRelationToken(ctx context.Context, relationKey string) (string, error) {
+	return "", internalerrors.Errorf("crossmodelrelation.GetToken").Add(errors.NotImplemented)
 }
 
 // GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID

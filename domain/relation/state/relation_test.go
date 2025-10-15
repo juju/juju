@@ -2183,10 +2183,10 @@ func (s *relationSuite) TestGetRelationUnitsChanges(c *tc.C) {
 		UnitsSettings: []domainrelation.UnitSettings{
 			{
 				UnitID:   3,
-				Settings: map[string]any{"foo": "bar"},
+				Settings: map[string]string{"foo": "bar"},
 			},
 		},
-		ApplicationSettings: map[string]any{"baz": "simple"},
+		ApplicationSettings: map[string]string{"baz": "simple"},
 	}
 
 	// Act
@@ -2889,15 +2889,15 @@ func (s *relationSuite) TestApplicationRelationsInfo(c *tc.C) {
 		RelationID:      3,
 		Endpoint:        "relation",
 		RelatedEndpoint: "fake-provides",
-		ApplicationData: map[string]interface{}{},
+		ApplicationData: map[string]string{},
 		UnitRelationData: map[string]domainrelation.RelationData{
 			"three/0": {
 				InScope:  true,
-				UnitData: map[string]interface{}{"foo": "bar"},
+				UnitData: map[string]string{"foo": "bar"},
 			},
 			"three/1": {
 				InScope:  true,
-				UnitData: map[string]interface{}{"foo": "baz"},
+				UnitData: map[string]string{"foo": "baz"},
 			},
 		},
 	}
@@ -2912,7 +2912,7 @@ func (s *relationSuite) TestApplicationRelationsInfo(c *tc.C) {
 		RelationID:      4,
 		Endpoint:        "relation",
 		RelatedEndpoint: "fake-provides",
-		ApplicationData: map[string]interface{}{"one": "two"},
+		ApplicationData: map[string]string{"one": "two"},
 		UnitRelationData: map[string]domainrelation.RelationData{
 			"three/0": {InScope: false},
 			"three/1": {InScope: false},
@@ -2960,15 +2960,15 @@ func (s *relationSuite) TestApplicationRelationsInfoPeerRelation(c *tc.C) {
 		RelationID:      3,
 		Endpoint:        "peer-relation",
 		RelatedEndpoint: "peer-relation",
-		ApplicationData: map[string]interface{}{},
+		ApplicationData: map[string]string{},
 		UnitRelationData: map[string]domainrelation.RelationData{
 			"three/0": {
 				InScope:  true,
-				UnitData: map[string]interface{}{},
+				UnitData: map[string]string{},
 			},
 			"three/1": {
 				InScope:  true,
-				UnitData: map[string]interface{}{"foo": "baz"},
+				UnitData: map[string]string{"foo": "baz"},
 			},
 		},
 	}

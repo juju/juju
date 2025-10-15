@@ -771,12 +771,12 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           change.RelationUUID.String(),
 		ApplicationOrOfferToken: w.applicationUUID.String(),
-		ApplicationSettings:     change.ApplicationSettings,
+		ApplicationSettings:     convertSettingsMap(change.ApplicationSettings),
 
 		ChangedUnits: transform.Slice(change.UnitsSettings, func(v relation.UnitSettings) params.RemoteRelationUnitChange {
 			return params.RemoteRelationUnitChange{
 				UnitId:   v.UnitID,
-				Settings: v.Settings,
+				Settings: convertSettingsMap(v.Settings),
 			}
 		}),
 		InScopeUnits: change.InScopeUnits,
@@ -889,7 +889,21 @@ func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Contex
 }
 
 func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, change offererrelations.RelationChange) error {
-	return w.crossModelService.ProcessRelationChange(ctx)
+	// Handle the dying/dead case of the relation. We do this **after** setting
+	// the settings, so that the removal of the relation doesn't prevent us from
+	// setting the settings.
+	if change.Life != life.Alive {
+		// If the relation is dying or dead, then we're done here. The units
+		// will have already transitioned to departed.
+		return w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID)
+	}
+
+	// Handle the case where the relation has become (un)suspended.
+	if err := w.crossModelService.SetRelationSuspendedState(ctx, w.applicationUUID, change.ConsumerRelationUUID, change.Suspended, change.SuspendedReason); err != nil {
+		return errors.Annotatef(err, "setting suspended state for relation %q", change.ConsumerRelationUUID)
+	}
+
+	return nil
 }
 
 type consumerRelationResult struct {
@@ -917,4 +931,19 @@ func offererUnitRelationWorkerName(relationUUID corerelation.UUID) string {
 
 func offererRelationWorkerName(relationUUID corerelation.UUID) string {
 	return fmt.Sprintf("offerer-relation:%s", relationUUID)
+}
+
+func convertSettingsMap(in map[string]string) map[string]any {
+	// It's important that we return nil if the input is nil, as this indicates
+	// that there are no settings. An empty map indicates that there are
+	// settings, but they are all empty.
+	if in == nil {
+		return nil
+	}
+
+	// Transform map method always returns a non-nil map in the presence of
+	// a non-nil input map.
+	return transform.Map(in, func(k, v string) (string, any) {
+		return k, v
+	})
 }
