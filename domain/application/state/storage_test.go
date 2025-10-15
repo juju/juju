@@ -428,7 +428,7 @@ func (s *storageSuite) TestGetStorageInstancesForNoProviderIDs(c *tc.C) {
 // storage instance has both a filesystem and volume with the same provider id
 // only one value is returned.
 func (s *storageSuite) TestGetStorageInstancesForProviderIDsNotUsingProviderIDs(c *tc.C) {
-	instUUID, fsUUID, VUUID := s.newStorageInstanceFilesystemBackedVolumeWithProviderID(
+	instUUID, fsUUID, vUUID := s.newStorageInstanceFilesystemBackedVolumeWithProviderID(
 		c, "st1", "provider1", "provider1",
 	)
 
@@ -459,7 +459,7 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsNotUsingProviderIDs(
 				StorageName: "st1",
 				UUID:        instUUID,
 				Volume: &internal.StorageInstanceCompositionVolume{
-					UUID: VUUID,
+					UUID: vUUID,
 				},
 			},
 		},
