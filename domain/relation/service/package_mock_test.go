@@ -19,6 +19,7 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	relation0 "github.com/juju/juju/domain/relation"
+	internal "github.com/juju/juju/domain/relation/internal"
 	charm "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -826,6 +827,45 @@ func (c *MockStateGetRelationUnitUUIDCall) DoAndReturn(f func(context.Context, r
 	return c
 }
 
+// GetRelationUnitUUIDsByEndpointUUID mocks base method.
+func (m *MockState) GetRelationUnitUUIDsByEndpointUUID(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationUnitUUIDsByEndpointUUID", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationUnitUUIDsByEndpointUUID indicates an expected call of GetRelationUnitUUIDsByEndpointUUID.
+func (mr *MockStateMockRecorder) GetRelationUnitUUIDsByEndpointUUID(arg0, arg1 any) *MockStateGetRelationUnitUUIDsByEndpointUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitUUIDsByEndpointUUID", reflect.TypeOf((*MockState)(nil).GetRelationUnitUUIDsByEndpointUUID), arg0, arg1)
+	return &MockStateGetRelationUnitUUIDsByEndpointUUIDCall{Call: call}
+}
+
+// MockStateGetRelationUnitUUIDsByEndpointUUIDCall wrap *gomock.Call
+type MockStateGetRelationUnitUUIDsByEndpointUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationUnitUUIDsByEndpointUUIDCall) Return(arg0 []string, arg1 error) *MockStateGetRelationUnitUUIDsByEndpointUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationUnitUUIDsByEndpointUUIDCall) Do(f func(context.Context, string) ([]string, error)) *MockStateGetRelationUnitUUIDsByEndpointUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationUnitUUIDsByEndpointUUIDCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetRelationUnitUUIDsByEndpointUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationUnitsChanges mocks base method.
 func (m *MockState) GetRelationUnitsChanges(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (relation0.RelationUnitChange, error) {
 	m.ctrl.T.Helper()
@@ -900,6 +940,45 @@ func (c *MockStateGetRelationsStatusForUnitCall) Do(f func(context.Context, unit
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetRelationsStatusForUnitCall) DoAndReturn(f func(context.Context, unit.UUID) ([]relation0.RelationUnitStatusResult, error)) *MockStateGetRelationsStatusForUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetWatcherRelationUnitsData mocks base method.
+func (m *MockState) GetWatcherRelationUnitsData(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (internal.WatcherRelationUnitsData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWatcherRelationUnitsData", arg0, arg1, arg2)
+	ret0, _ := ret[0].(internal.WatcherRelationUnitsData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetWatcherRelationUnitsData indicates an expected call of GetWatcherRelationUnitsData.
+func (mr *MockStateMockRecorder) GetWatcherRelationUnitsData(arg0, arg1, arg2 any) *MockStateGetWatcherRelationUnitsDataCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWatcherRelationUnitsData", reflect.TypeOf((*MockState)(nil).GetWatcherRelationUnitsData), arg0, arg1, arg2)
+	return &MockStateGetWatcherRelationUnitsDataCall{Call: call}
+}
+
+// MockStateGetWatcherRelationUnitsDataCall wrap *gomock.Call
+type MockStateGetWatcherRelationUnitsDataCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetWatcherRelationUnitsDataCall) Return(arg0 internal.WatcherRelationUnitsData, arg1 error) *MockStateGetWatcherRelationUnitsDataCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetWatcherRelationUnitsDataCall) Do(f func(context.Context, relation.UUID, application.UUID) (internal.WatcherRelationUnitsData, error)) *MockStateGetWatcherRelationUnitsDataCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetWatcherRelationUnitsDataCall) DoAndReturn(f func(context.Context, relation.UUID, application.UUID) (internal.WatcherRelationUnitsData, error)) *MockStateGetWatcherRelationUnitsDataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1576,46 +1655,46 @@ func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) DoAndReturn(f func(con
 	return c
 }
 
-// NewNotifyWatcher mocks base method.
-func (m *MockWatcherFactory) NewNotifyWatcher(arg0 context.Context, arg1 string, arg2 eventsource.FilterOption, arg3 ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+// NewNotifyMapperWatcher mocks base method.
+func (m *MockWatcherFactory) NewNotifyMapperWatcher(arg0 context.Context, arg1 string, arg2 eventsource.Mapper, arg3 eventsource.FilterOption, arg4 ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []any{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "NewNotifyWatcher", varargs...)
+	ret := m.ctrl.Call(m, "NewNotifyMapperWatcher", varargs...)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewNotifyWatcher indicates an expected call of NewNotifyWatcher.
-func (mr *MockWatcherFactoryMockRecorder) NewNotifyWatcher(arg0, arg1, arg2 any, arg3 ...any) *MockWatcherFactoryNewNotifyWatcherCall {
+// NewNotifyMapperWatcher indicates an expected call of NewNotifyMapperWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewNotifyMapperWatcher(arg0, arg1, arg2, arg3 any, arg4 ...any) *MockWatcherFactoryNewNotifyMapperWatcherCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNotifyWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNotifyWatcher), varargs...)
-	return &MockWatcherFactoryNewNotifyWatcherCall{Call: call}
+	varargs := append([]any{arg0, arg1, arg2, arg3}, arg4...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNotifyMapperWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNotifyMapperWatcher), varargs...)
+	return &MockWatcherFactoryNewNotifyMapperWatcherCall{Call: call}
 }
 
-// MockWatcherFactoryNewNotifyWatcherCall wrap *gomock.Call
-type MockWatcherFactoryNewNotifyWatcherCall struct {
+// MockWatcherFactoryNewNotifyMapperWatcherCall wrap *gomock.Call
+type MockWatcherFactoryNewNotifyMapperWatcherCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockWatcherFactoryNewNotifyWatcherCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockWatcherFactoryNewNotifyWatcherCall {
+func (c *MockWatcherFactoryNewNotifyMapperWatcherCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockWatcherFactoryNewNotifyMapperWatcherCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockWatcherFactoryNewNotifyWatcherCall) Do(f func(context.Context, string, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewNotifyWatcherCall {
+func (c *MockWatcherFactoryNewNotifyMapperWatcherCall) Do(f func(context.Context, string, eventsource.Mapper, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewNotifyMapperWatcherCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatcherFactoryNewNotifyWatcherCall) DoAndReturn(f func(context.Context, string, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewNotifyWatcherCall {
+func (c *MockWatcherFactoryNewNotifyMapperWatcherCall) DoAndReturn(f func(context.Context, string, eventsource.Mapper, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewNotifyMapperWatcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

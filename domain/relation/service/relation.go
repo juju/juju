@@ -139,6 +139,10 @@ type State interface {
 	// longer in the relation scope, which gauarantee the ability to do.
 	GetRelationUnitSettingsArchive(ctx context.Context, relationUUID, unitName string) (map[string]string, error)
 
+	// GetRelationUnitUUIDsByEndpointUUID returns all unit relation uuids for the
+	// provided relation endpoint uuid.
+	GetRelationUnitUUIDsByEndpointUUID(ctx context.Context, relationEndpointUUID string) ([]string, error)
+
 	// InferRelationUUIDByEndpoints infers the relation based on two endpoints.
 	InferRelationUUIDByEndpoints(
 		ctx context.Context,
