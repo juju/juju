@@ -442,6 +442,38 @@ func (s *Service) EnterScope(
 	return nil
 }
 
+// EnterScopeForUnits indicates that the provided unit has joined the relation.
+// When the unit has already entered its relation scope, EnterScopeForUnits will
+// report success but make no changes to state. The unit's settings are created
+// or overwritten in the relation according to the supplied map.
+// This does not handle subordinate unit creation, or related checks.
+func (s *Service) EnterScopeForUnits(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationSettings map[string]string,
+	unitSettings map[unit.Name]map[string]string,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	for unitName := range unitSettings {
+		if err := unitName.Validate(); err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	// Enter the unit into the relation scope.
+	if err := s.st.EnterScopeForUnits(ctx, relationUUID, applicationSettings, unitSettings); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
 // GetAllRelationDetails return RelationDetailResults of all relation for the
 // current model. This includes relations with synthetic applications (i.e.
 // CMRs)
@@ -616,11 +648,10 @@ func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.U
 	return s.st.GetRelationUnitChanges(ctx, unitUUIDs, appUUIDs)
 }
 
-// GetRelationUnitSettings returns the relation settings for the
-// input unit in the input relation.
-// If there is no relation unit entry associated with the input,
-// check for archived settings in case we're dealing with a
-// former relation participant.
+// GetRelationUnitSettings returns the relation settings for the input unit in
+// the input relation. If there is no relation unit entry associated with the
+// input, check for archived settings in case we're dealing with a former
+// relation participant.
 func (s *Service) GetRelationUnitSettings(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
