@@ -41,6 +41,15 @@ type ModelState interface {
 	ModelOfferState
 	ModelRemoteApplicationState
 	ModelSecretsState
+
+	// InitialWatchStatementForConsumerRelations returns the namespace and the
+	// initial query function for watching relation UUIDs that are associated with
+	// remote offerer applications present in this model (i.e. consumer side).
+	InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery)
+
+	// GetConsumerRelationUUIDs filters the provided relation UUIDs and returns
+	// only those that are associated with remote offerer applications in this model.
+	GetConsumerRelationUUIDs(ctx context.Context, relationUUIDs ...string) ([]string, error)
 }
 
 // ControllerState describes retrieval and persistence methods for cross
@@ -92,6 +101,18 @@ type WatcherFactory interface {
 		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		summary string,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+	// NewNamespaceMapperWatcher returns a new watcher that receives changes from
+	// the input base watcher's db/queue. Filtering of values is done first by
+	// the filter, and then by the mapper. Based on the mapper's logic a subset
+	// of them (or none) may be emitted. A filter option is required, though
+	// additional filter options can be provided.
+	NewNamespaceMapperWatcher(
+		ctx context.Context,
+		initialQuery eventsource.NamespaceQuery,
+		summary string,
+		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 }
@@ -217,6 +238,48 @@ func (w *WatchableService) RemoteApplications(ctx context.Context, applications 
 // Not implemented yet in the domain service.
 func (w *WatchableService) WatchRemoteRelations(ctx context.Context) (watcher.StringsWatcher, error) {
 	return nil, errors.Errorf("crossmodelrelation.WatchRemoteRelations").Add(coreerrors.NotImplemented)
+}
+
+// WatchConsumerRelations watches the changes to (remote) relations on the
+// consuming model and notifies the worker of any changes.
+// NOTE(nvinuesa): This watcher is less efficient than WatchOffererRelations,
+// because it has to watch for all changes in the relation table and then filter
+// with a db query on the application_remote_offerer table. We currently cannot
+// watch both namespaces in a single watcher because the inserts in each
+// respective tables do not happen in a single transaction.
+func (w *WatchableService) WatchConsumerRelations(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	table, initialQuery := w.modelState.InitialWatchStatementForConsumerRelations()
+
+	// Filter change events using the state layer to determine which relation
+	// UUIDs are associated with remote offerer applications.
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+		if len(changes) == 0 {
+			return nil, nil
+		}
+
+		ids := make([]string, len(changes))
+		for i, change := range changes {
+			ids[i] = change.Changed()
+		}
+
+		filtered, err := w.modelState.GetConsumerRelationUUIDs(ctx, ids...)
+		if err != nil {
+			w.logger.Errorf(ctx, "filtering consumer relations: %v", err)
+			return nil, nil
+		}
+		return filtered, nil
+	}
+
+	return w.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
+		initialQuery,
+		"consumer relations watcher",
+		mapper,
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
 }
 
 func ptr[T any](v T) *T {

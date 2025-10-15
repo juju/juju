@@ -472,3 +472,194 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 
 	harness2.Run(c, []string(nil))
 }
+
+func (s *watcherSuite) TestWatchConsumerRelations(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+	svc, _ := s.setupService(c, factory)
+
+	db, err := s.GetWatchableDB(c.Context(), s.modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Set up a remote offerer app and a relation (initial changes).
+	remoteRelationUUID := s.setupRemoteOffererLocalAndRelation(c, db, svc)
+
+	// Start the watcher.
+	s.modelIdler.AssertChangeStreamIdle(c)
+	w, err := svc.WatchConsumerRelations(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s.modelIdler, watchertest.NewWatcherC(c, w))
+
+	// Seting the relation to dying should trigger an event.
+	harness.AddTest(c, func(c *tc.C) {
+		s.setRelationDying(c, db, remoteRelationUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert(remoteRelationUUID.String()))
+	})
+
+	// Now create a relation between two local applications; this should be ignored by the watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		s.createLocalToLocalRelation(c, db)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string{remoteRelationUUID.String()})
+}
+
+func (s *watcherSuite) setupRemoteOffererLocalAndRelation(c *tc.C, db database.TxnRunner, svc *service.WatchableService) uuid.UUID {
+	// Add remote offerer "foo" with an endpoint "db".
+	err := svc.AddRemoteApplicationOfferer(c.Context(), "foo", service.AddRemoteApplicationOffererArgs{
+		OfferUUID:        tc.Must(c, offer.NewUUID),
+		OffererModelUUID: tc.Must(c, uuid.NewUUID).String(),
+		Endpoints: []charm.Relation{{
+			Name:  "db",
+			Role:  charm.RoleProvider,
+			Scope: charm.ScopeGlobal,
+		}},
+		Macaroon: newMacaroon(c, "offer-macaroon"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create a local application with a "db" endpoint.
+	localOfferUUID := tc.Must(c, offer.NewUUID)
+	s.createLocalOfferForConsumer(c, db, localOfferUUID)
+
+	var relUUID uuid.UUID
+	// Create relation between remote app "foo" and "local-app" on endpoint "db".
+	err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var remoteAppUUID, localAppUUID string
+		if err := tx.QueryRowContext(ctx, `SELECT uuid FROM application WHERE name = ?`, "foo").Scan(&remoteAppUUID); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `SELECT uuid FROM application WHERE name = ?`, "local-app").Scan(&localAppUUID); err != nil {
+			return err
+		}
+
+		// Find endpoint UUIDs for "db".
+		qEP := `
+SELECT ae.uuid
+FROM   application_endpoint ae
+JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
+WHERE  ae.application_uuid = ? AND cr.name = ?`
+		var remoteEP, localEP string
+		if err := tx.QueryRowContext(ctx, qEP, remoteAppUUID, "db").Scan(&remoteEP); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, qEP, localAppUUID, "db").Scan(&localEP); err != nil {
+			return err
+		}
+
+		// Get global scope id.
+		var globalScopeID int
+		if err := tx.QueryRowContext(ctx, `SELECT id FROM charm_relation_scope WHERE name='global'`).Scan(&globalScopeID); err != nil {
+			return err
+		}
+
+		relUUID = tc.Must(c, uuid.NewUUID)
+		// Insert relation.
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+VALUES (?, 0, 1, ?)`, relUUID.String(), globalScopeID); err != nil {
+			return err
+		}
+		// Insert relation endpoints.
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, tc.Must(c, uuid.NewUUID).String(), relUUID.String(), remoteEP); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, tc.Must(c, uuid.NewUUID).String(), relUUID.String(), localEP); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return relUUID
+}
+
+func (s *watcherSuite) createLocalToLocalRelation(c *tc.C, db database.TxnRunner) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Create a second local app "local-app-2" with endpoint "db".
+		charmUUID := tc.Must(c, uuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO charm (uuid, reference_name, architecture_id, revision)
+VALUES (?, ?, 0, 1)`, charmUUID, charmUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO charm_metadata (charm_uuid, name, subordinate, description)
+VALUES (?, ?, false, 'test app')`, charmUUID, "local-app-2"); err != nil {
+			return err
+		}
+		var providerRoleID, globalScopeID int
+		if err := tx.QueryRowContext(ctx, `SELECT id FROM charm_relation_role WHERE name='provider'`).Scan(&providerRoleID); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `SELECT id FROM charm_relation_scope WHERE name='global'`).Scan(&globalScopeID); err != nil {
+			return err
+		}
+		crUUID := tc.Must(c, uuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, capacity, scope_id)
+VALUES (?, ?, 'db', ?, 'db', 0, ?)`, crUUID, charmUUID, providerRoleID, globalScopeID); err != nil {
+			return err
+		}
+		appUUID := tc.Must(c, uuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES (?, 'local-app-2', 0, ?, ?)`, appUUID, charmUUID, network.AlphaSpaceId); err != nil {
+			return err
+		}
+		epUUID := tc.Must(c, uuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid, space_uuid)
+VALUES (?, ?, ?, ?)`, epUUID, appUUID, crUUID, network.AlphaSpaceId); err != nil {
+			return err
+		}
+
+		// Get endpoint for first local app "local-app".
+		var local1AppUUID, ep1 string
+		if err := tx.QueryRowContext(ctx, `SELECT uuid FROM application WHERE name = ?`, "local-app").Scan(&local1AppUUID); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `
+SELECT ae.uuid
+FROM   application_endpoint ae
+JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
+WHERE  ae.application_uuid = ? AND cr.name = ?`, local1AppUUID, "db").Scan(&ep1); err != nil {
+			return err
+		}
+
+		// Insert relation between local apps.
+		rUUID := tc.Must(c, uuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+VALUES (?, 0, 2, ?)`, rUUID, globalScopeID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, tc.Must(c, uuid.NewUUID).String(), rUUID, ep1); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, tc.Must(c, uuid.NewUUID).String(), rUUID, epUUID); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) setRelationDying(c *tc.C, db database.TxnRunner, relationUUID uuid.UUID) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE relation SET life_id = ? WHERE uuid = ?`, life.Dying, relationUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}

@@ -417,6 +417,50 @@ func (c *MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall) DoAndReturn(f f
 	return c
 }
 
+// GetConsumerRelationUUIDs mocks base method.
+func (m *MockModelState) GetConsumerRelationUUIDs(arg0 context.Context, arg1 ...string) ([]string, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetConsumerRelationUUIDs", varargs...)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetConsumerRelationUUIDs indicates an expected call of GetConsumerRelationUUIDs.
+func (mr *MockModelStateMockRecorder) GetConsumerRelationUUIDs(arg0 any, arg1 ...any) *MockModelStateGetConsumerRelationUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumerRelationUUIDs", reflect.TypeOf((*MockModelState)(nil).GetConsumerRelationUUIDs), varargs...)
+	return &MockModelStateGetConsumerRelationUUIDsCall{Call: call}
+}
+
+// MockModelStateGetConsumerRelationUUIDsCall wrap *gomock.Call
+type MockModelStateGetConsumerRelationUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetConsumerRelationUUIDsCall) Return(arg0 []string, arg1 error) *MockModelStateGetConsumerRelationUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetConsumerRelationUUIDsCall) Do(f func(context.Context, ...string) ([]string, error)) *MockModelStateGetConsumerRelationUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetConsumerRelationUUIDsCall) DoAndReturn(f func(context.Context, ...string) ([]string, error)) *MockModelStateGetConsumerRelationUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetOfferDetails mocks base method.
 func (m *MockModelState) GetOfferDetails(arg0 context.Context, arg1 internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
 	m.ctrl.T.Helper()
@@ -657,6 +701,45 @@ func (c *MockModelStateGetSecretRemoteConsumerCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// InitialWatchStatementForConsumerRelations mocks base method.
+func (m *MockModelState) InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementForConsumerRelations")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	return ret0, ret1
+}
+
+// InitialWatchStatementForConsumerRelations indicates an expected call of InitialWatchStatementForConsumerRelations.
+func (mr *MockModelStateMockRecorder) InitialWatchStatementForConsumerRelations() *MockModelStateInitialWatchStatementForConsumerRelationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForConsumerRelations", reflect.TypeOf((*MockModelState)(nil).InitialWatchStatementForConsumerRelations))
+	return &MockModelStateInitialWatchStatementForConsumerRelationsCall{Call: call}
+}
+
+// MockModelStateInitialWatchStatementForConsumerRelationsCall wrap *gomock.Call
+type MockModelStateInitialWatchStatementForConsumerRelationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateInitialWatchStatementForConsumerRelationsCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockModelStateInitialWatchStatementForConsumerRelationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateInitialWatchStatementForConsumerRelationsCall) Do(f func() (string, eventsource.NamespaceQuery)) *MockModelStateInitialWatchStatementForConsumerRelationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateInitialWatchStatementForConsumerRelationsCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockModelStateInitialWatchStatementForConsumerRelationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide mocks base method.
 func (m *MockModelState) InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(arg0 string) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
@@ -768,6 +851,44 @@ func (c *MockModelStateNamespaceRemoteApplicationOfferersCall) Do(f func() strin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateNamespaceRemoteApplicationOfferersCall) DoAndReturn(f func() string) *MockModelStateNamespaceRemoteApplicationOfferersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceRemoteConsumerRelations mocks base method.
+func (m *MockModelState) NamespaceRemoteConsumerRelations() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceRemoteConsumerRelations")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceRemoteConsumerRelations indicates an expected call of NamespaceRemoteConsumerRelations.
+func (mr *MockModelStateMockRecorder) NamespaceRemoteConsumerRelations() *MockModelStateNamespaceRemoteConsumerRelationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceRemoteConsumerRelations", reflect.TypeOf((*MockModelState)(nil).NamespaceRemoteConsumerRelations))
+	return &MockModelStateNamespaceRemoteConsumerRelationsCall{Call: call}
+}
+
+// MockModelStateNamespaceRemoteConsumerRelationsCall wrap *gomock.Call
+type MockModelStateNamespaceRemoteConsumerRelationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateNamespaceRemoteConsumerRelationsCall) Return(arg0 string) *MockModelStateNamespaceRemoteConsumerRelationsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateNamespaceRemoteConsumerRelationsCall) Do(f func() string) *MockModelStateNamespaceRemoteConsumerRelationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateNamespaceRemoteConsumerRelationsCall) DoAndReturn(f func() string) *MockModelStateNamespaceRemoteConsumerRelationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
