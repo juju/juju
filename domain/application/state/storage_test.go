@@ -424,6 +424,48 @@ func (s *storageSuite) TestGetStorageInstancesForNoProviderIDs(c *tc.C) {
 	c.Check(res, tc.HasLen, 0)
 }
 
+// TestGetStorageInstancesForProviderIDsNotUsingProviderIDs tests that when a
+// storage instance has both a filesystem and volume with the same provider id
+// only one value is returned.
+func (s *storageSuite) TestGetStorageInstancesForProviderIDsNotUsingProviderIDs(c *tc.C) {
+	instUUID, fsUUID, VUUID := s.newStorageInstanceFilesystemBackedVolumeWithProviderID(
+		c, "st1", "provider1", "provider1",
+	)
+
+	st := NewState(
+		s.ModelSuite.TxnRunnerFactory(),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	res, err := st.GetStorageInstancesForProviderIDs(
+		c.Context(), []string{
+			"provider1",
+		},
+	)
+	c.Check(err, tc.ErrorIsNil)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.Filesystem.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Volume.ProvisionScope", tc.Ignore)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(
+		res,
+		tc.UnorderedMatch[[]internal.StorageInstanceComposition](mc),
+		[]internal.StorageInstanceComposition{
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID,
+				},
+				StorageName: "st1",
+				UUID:        instUUID,
+				Volume: &internal.StorageInstanceCompositionVolume{
+					UUID: VUUID,
+				},
+			},
+		},
+	)
+}
+
 // TestGetStorageInstancesForProviderIDs tests getting existing storage
 // instances that are utilising a provider id via either the instances volume or
 // filesystem. We expect to see that this test correctly identifies the right
