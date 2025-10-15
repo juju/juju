@@ -77,6 +77,10 @@ type ModelRemoteApplicationState interface {
 	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
 	// application is not found.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error)
+
+	// EnsureUnitsExist ensures that the given synthetic units exist in the local
+	// model.
+	EnsureUnitsExist(ctx context.Context, appUUID string, units []string) error
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -273,8 +277,12 @@ func (s *Service) ProcessRelationChange(context.Context) error {
 // EnsureUnitsExist ensures that the given synthetic units exist in the local
 // model.
 func (s *Service) EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if len(units) == 0 {
+		return nil
+	}
 
 	if err := appUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
@@ -287,7 +295,12 @@ func (s *Service) EnsureUnitsExist(ctx context.Context, appUUID coreapplication.
 		}
 	}
 
-	return nil
+	unitNames := make([]string, len(units))
+	for i, u := range units {
+		unitNames[i] = u.String()
+	}
+
+	return s.modelState.EnsureUnitsExist(ctx, appUUID.String(), unitNames)
 }
 
 // SuspendRelation suspends the specified relation in the local model

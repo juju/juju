@@ -15,11 +15,13 @@ import (
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -673,4 +675,69 @@ func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationConsumersError(c
 
 	_, err := service.GetRemoteApplicationConsumers(c.Context())
 	c.Assert(err, tc.ErrorMatches, "front fell off")
+}
+
+func (s *remoteApplicationServiceSuite) TestEnsureUnitsExist(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	units := []unit.Name{
+		unit.Name("remote-app/0"),
+		unit.Name("remote-app/1"),
+		unit.Name("remote-app/2"),
+	}
+
+	s.modelState.EXPECT().EnsureUnitsExist(gomock.Any(), appUUID.String(), []string{
+		"remote-app/0",
+		"remote-app/1",
+		"remote-app/2",
+	}).Return(nil)
+
+	service := s.service(c)
+
+	err := service.EnsureUnitsExist(c.Context(), appUUID, units)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistNoUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	units := []unit.Name{}
+
+	service := s.service(c)
+
+	err := service.EnsureUnitsExist(c.Context(), appUUID, units)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidAppUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	units := []unit.Name{
+		unit.Name("remote-app/0"),
+		unit.Name("remote-app/1"),
+		unit.Name("remote-app/2"),
+	}
+
+	service := s.service(c)
+
+	err := service.EnsureUnitsExist(c.Context(), coreapplication.UUID("!!!"), units)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidUnitNames(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	units := []unit.Name{
+		unit.Name("remote-app/0"),
+		unit.Name("remote-app/1"),
+		unit.Name("!!"),
+	}
+
+	service := s.service(c)
+
+	err := service.EnsureUnitsExist(c.Context(), appUUID, units)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNameNotValid)
 }
