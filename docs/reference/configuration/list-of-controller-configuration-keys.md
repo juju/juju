@@ -462,6 +462,14 @@ controller on behalf of workers running for a model.
 
 **Can be changed after bootstrap:** yes
 
+(controller-config-object-store-type)=
+## `object-store-type`
+
+`object-store-type` is the type of object store to use.
+
+**Type:** string.
+
+**Can be changed after bootstrap:** TBA
 
 (controller-config-object-store-s3-endpoint)=
 ## `object-store-s3-endpoint`
