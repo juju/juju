@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/rpc/params"
 )
 
 const (
@@ -262,7 +263,7 @@ func (rbr RetryingBundleReader) Read(ctx context.Context, bi BundleInfo) (Bundle
 			return nil
 		},
 		IsFatalError: func(err error) bool {
-			return err != nil && !errors.Is(err, errors.NotYetAvailable)
+			return err != nil && !errors.Is(err, errors.NotYetAvailable) && !params.IsCodeNotYetAvailable(err)
 		},
 		Stop: ctx.Done(),
 	})
@@ -270,7 +271,10 @@ func (rbr RetryingBundleReader) Read(ctx context.Context, bi BundleInfo) (Bundle
 	if fetchErr != nil {
 		// If the charm is still not available something went wrong.
 		// Report a NotFound error instead
-		if errors.Is(fetchErr, errors.NotYetAvailable) {
+		// We need to unwrap to check the code, because retry.Call wraps the error
+		// in a attemptsExceeded error.
+		unwrapErr := errors.Unwrap(fetchErr)
+		if errors.Is(unwrapErr, errors.NotYetAvailable) || params.IsCodeNotYetAvailable(unwrapErr) {
 			rbr.Logger.Errorf(ctx, "exceeded max retry attempts while waiting for blob data for %q to become available", bi.URL())
 			fetchErr = fmt.Errorf("blob data for %q %w", bi.URL(), errors.NotFound)
 		}
