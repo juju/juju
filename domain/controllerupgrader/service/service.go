@@ -144,9 +144,6 @@ func (s *Service) UpgradeController(
 	}
 
 	err = s.UpgradeControllerToVersion(ctx, desiredVersion)
-	if err != nil {
-		return semversion.Zero, errors.Capture(err)
-	}
 
 	// NOTE (tlm): Because this func uses
 	// [Service.UpgradeControllerToVersion] to compose its implementation. This
@@ -156,6 +153,10 @@ func (s *Service) UpgradeController(
 	// very unlikely error that has occurred. These exists to point a developer
 	// at the problem and not to offer any actionable item for a caller.
 	switch {
+	// Keep the err type for [controllerupgradererrors.ControllerUpgradeBlocker]
+	// to respect this function's contract.
+	case errors.HasType[controllerupgradererrors.ControllerUpgradeBlocker](err):
+		return semversion.Zero, err
 	case errors.Is(err, controllerupgradererrors.DowngradeNotSupported):
 		return semversion.Zero, errors.Errorf(
 			"upgrading controller to recommended version %q is considered a downgrade",
@@ -214,9 +215,6 @@ func (s *Service) UpgradeControllerWithStream(
 	}
 
 	err = s.UpgradeControllerToVersionAndStream(ctx, desiredVersion, stream)
-	if err != nil {
-		return semversion.Zero, errors.Capture(err)
-	}
 
 	// NOTE (tlm): Because this func uses
 	// [Service.UpgradeControllerToVersionAndStream] to compose its
@@ -227,6 +225,13 @@ func (s *Service) UpgradeControllerWithStream(
 	// very unlikely error that has occurred. These exists to point a developer
 	// at the problem and not to offer any actionable item for a caller.
 	switch {
+	// Keep the err type for both [controllerupgradererrors.ControllerUpgradeBlocker]
+	// and [modelagenterrors.AgentStreamNotValid] to respect this function's
+	// contract.
+	case errors.HasType[controllerupgradererrors.ControllerUpgradeBlocker](err):
+		return semversion.Zero, err
+	case errors.Is(err, modelagenterrors.AgentStreamNotValid):
+		return semversion.Zero, err
 	case errors.Is(err, controllerupgradererrors.DowngradeNotSupported):
 		return semversion.Zero, errors.Errorf(
 			"upgrading controller to recommended version %q is considered a downgrade",
