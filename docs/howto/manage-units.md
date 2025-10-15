@@ -105,18 +105,6 @@ postgresql-k8s/0*  active    idle   10.1.179.149  5432/TCP  Pod configured
 See more: {ref}`command-juju-status`, {ref}`unit-status`
 ```
 
-## Set the meter status on a unit
-
-To set the meter status on a unit, use the `set-meter-status` command followed by the unit name. For example:
-
-```text
-juju set-meter-status myapp/0
-```
-
-```{ibnote}
-See more: {ref}`command-juju-set-meter-status`
-```
-
 (mark-unit-errors-as-resolved)=
 ## Mark unit errors as resolved
 
