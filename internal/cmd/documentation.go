@@ -28,7 +28,7 @@ This command generates a markdown formatted document with all the commands, thei
 
 var documentationExamples = `
     juju documentation
-    juju documentation --split 
+    juju documentation --split
     juju documentation --split --no-index --out /tmp/docs
 
 To render markdown documentation using a list of existing
@@ -195,6 +195,10 @@ func (c *documentationCommand) writeDocs(folder string, superCommands []string, 
 
 	for name, ref := range c.super.subcmds {
 		if !printDefaultCommands && isDefaultCommand(name) {
+			continue
+		}
+
+		if ref.alias != "" {
 			continue
 		}
 
