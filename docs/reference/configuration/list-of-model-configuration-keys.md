@@ -575,16 +575,6 @@ Whether default simplestreams sources are used for image metadata.
 
 **Type:** bool
 
-
-(model-config-image-metadata-defaults-disabled)=
-## `image-metadata-defaults-disabled`
-
-`image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata.
-
-**Type:** boolean
-
-**Default value:** false
-
 (model-config-image-metadata-url)=
 ## `image-metadata-url`
 

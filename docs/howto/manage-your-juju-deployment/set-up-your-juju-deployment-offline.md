@@ -63,6 +63,7 @@ See more: {ref}`List of supported clouds <list-of-supported-clouds>`
 - {ref}`model-config-ftp-proxy`
 - {ref}`model-config-http-proxy`
 - {ref}`model-config-https-proxy`
+- {ref}`model-config-image-metadata-defaults-disabled`
 - {ref}`model-config-image-metadata-url`
 - {ref}`model-config-juju-ftp-proxy`
 - {ref}`model-config-juju-http-proxy`
