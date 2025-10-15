@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -291,7 +290,7 @@ func (api *APIBase) addUnits(
 			})
 		}
 		if err != nil {
-			return nil, internalerrors.Errorf("adding unit to application %q: %w", appName, err)
+			return nil, errors.Errorf("adding unit to application %q: %w", appName, err)
 		}
 		units = append(units, unitNames...)
 	}
