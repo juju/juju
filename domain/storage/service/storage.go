@@ -9,7 +9,10 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -21,6 +24,21 @@ type StorageState interface {
 	// with a new storage instance (and storage pool) in a model.
 	ImportFilesystem(ctx context.Context, name corestorage.Name,
 		filesystem storage.FilesystemInfo) (corestorage.ID, error)
+
+	// GetAllStorageInstances returns a list of storage instances in the model.
+	GetAllStorageInstances(ctx context.Context) ([]internal.StorageInstanceDetails, error)
+
+	// GetVolumeWithAttachments returns a map of volume storage IDs to their
+	// information including attachments.
+	GetVolumeWithAttachments(
+		ctx context.Context, storageInstanceIDs ...string,
+	) (map[string]internal.VolumeDetails, error)
+
+	// GetFilesystemWithAttachments returns a map of filesystem storage IDs to their
+	// information including attachments.
+	GetFilesystemWithAttachments(
+		ctx context.Context, storageInstanceIDs ...string,
+	) (map[string]internal.FilesystemDetails, error)
 }
 
 // StorageService defines a service for storage related behaviour.
@@ -173,3 +191,118 @@ func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorage
 // 	}
 // 	return filesystemInfo, nil
 // }
+
+// GetAllStorageInstances returns a list of storage instances in the model.
+func (s *StorageService) GetAllStorageInstances(ctx context.Context) ([]storage.StorageInstanceDetails, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	sInstances, err := s.st.GetAllStorageInstances(ctx)
+	if err != nil {
+		return nil, errors.Errorf("listing storage instances: %w", err)
+	}
+	result := make([]storage.StorageInstanceDetails, 0, len(sInstances))
+	for _, si := range sInstances {
+		result = append(result, storage.StorageInstanceDetails{
+			UUID:       storage.StorageInstanceUUID(si.UUID),
+			ID:         si.ID,
+			Owner:      si.Owner,
+			Kind:       si.Kind,
+			Life:       si.Life,
+			Persistent: si.Persistent,
+		})
+	}
+	return result, nil
+}
+
+// GetVolumeWithAttachments returns a map of volume storage IDs to their
+// information including attachments.
+func (s *StorageService) GetVolumeWithAttachments(
+	ctx context.Context, uuids ...storage.StorageInstanceUUID,
+) (map[string]storage.VolumeDetails, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	var siUUIDs []string
+	for _, uuid := range uuids {
+		if err := uuid.Validate(); err != nil {
+			return nil, errors.Errorf("invalid storage instance UUID %q: %w", uuid, err)
+		}
+		siUUIDs = append(siUUIDs, uuid.String())
+	}
+
+	vols, err := s.st.GetVolumeWithAttachments(ctx, siUUIDs...)
+	if err != nil {
+		return nil, errors.Errorf("listing volume attachments: %w", err)
+	}
+
+	result := make(map[string]storage.VolumeDetails, len(vols))
+	for id, v := range vols {
+		vd := storage.VolumeDetails{
+			StorageID: v.StorageID,
+		}
+		vd.Status, err = status.DecodeVolumeStatus(v.Status)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		for _, att := range v.Attachments {
+			va := storage.VolumeAttachmentDetails{
+				AttachmentDetails: storage.AttachmentDetails{
+					Life:    att.Life,
+					Unit:    att.Unit,
+					Machine: att.Machine,
+				},
+				BlockDeviceUUID: att.BlockDeviceUUID,
+			}
+			vd.Attachments = append(vd.Attachments, va)
+		}
+		result[id] = vd
+	}
+	return result, nil
+}
+
+// GetFilesystemWithAttachments returns a map of filesystem storage IDs to their
+// information including attachments.
+func (s *StorageService) GetFilesystemWithAttachments(
+	ctx context.Context, uuids ...storage.StorageInstanceUUID,
+) (map[string]storage.FilesystemDetails, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	var siUUIDs []string
+	for _, uuid := range uuids {
+		if err := uuid.Validate(); err != nil {
+			return nil, errors.Errorf("invalid storage instance UUID %q: %w", uuid, err)
+		}
+		siUUIDs = append(siUUIDs, uuid.String())
+	}
+
+	fss, err := s.st.GetFilesystemWithAttachments(ctx, siUUIDs...)
+	if err != nil {
+		return nil, errors.Errorf("listing filesystem attachments: %w", err)
+	}
+
+	result := make(map[string]storage.FilesystemDetails, len(fss))
+	for id, fs := range fss {
+		fd := storage.FilesystemDetails{
+			StorageID: fs.StorageID,
+		}
+		fd.Status, err = status.DecodeFilesystemStatus(fs.Status)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		for _, att := range fs.Attachments {
+			fa := storage.FilesystemAttachmentDetails{
+				AttachmentDetails: storage.AttachmentDetails{
+					Life:    att.Life,
+					Unit:    att.Unit,
+					Machine: att.Machine,
+				},
+				MountPoint: att.MountPoint,
+			}
+			fd.Attachments = append(fd.Attachments, fa)
+		}
+		result[id] = fd
+	}
+	return result, nil
+}

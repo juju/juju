@@ -4,6 +4,9 @@
 package status
 
 import (
+	"encoding/json"
+
+	corestatus "github.com/juju/juju/core/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -190,4 +193,188 @@ func VolumeStatusTransitionValid(
 		)
 	}
 	return nil
+}
+
+// encodeFilesystemStatusType maps a core status to corresponding db filesystem
+// status.
+func encodeFilesystemStatusType(s corestatus.Status) (StorageFilesystemStatusType, error) {
+	switch s {
+	case corestatus.Pending:
+		return StorageFilesystemStatusTypePending, nil
+	case corestatus.Error:
+		return StorageFilesystemStatusTypeError, nil
+	case corestatus.Attaching:
+		return StorageFilesystemStatusTypeAttaching, nil
+	case corestatus.Attached:
+		return StorageFilesystemStatusTypeAttached, nil
+	case corestatus.Detaching:
+		return StorageFilesystemStatusTypeDetaching, nil
+	case corestatus.Detached:
+		return StorageFilesystemStatusTypeDetached, nil
+	case corestatus.Destroying:
+		return StorageFilesystemStatusTypeDestroying, nil
+	default:
+		return -1, errors.Errorf("unknown filesystem status %q", s)
+	}
+}
+
+// decodeFilesystemStatusType maps a domain status to corresponding core status.
+func decodeFilesystemStatusType(s StorageFilesystemStatusType) (corestatus.Status, error) {
+	switch s {
+	case StorageFilesystemStatusTypePending:
+		return corestatus.Pending, nil
+	case StorageFilesystemStatusTypeError:
+		return corestatus.Error, nil
+	case StorageFilesystemStatusTypeAttaching:
+		return corestatus.Attaching, nil
+	case StorageFilesystemStatusTypeAttached:
+		return corestatus.Attached, nil
+	case StorageFilesystemStatusTypeDetaching:
+		return corestatus.Detaching, nil
+	case StorageFilesystemStatusTypeDetached:
+		return corestatus.Detached, nil
+	case StorageFilesystemStatusTypeDestroying:
+		return corestatus.Destroying, nil
+	default:
+		return corestatus.Unknown, nil
+	}
+}
+
+// EncodeFilesystemStatus converts a core status info to a db status info.
+func EncodeFilesystemStatus(s corestatus.StatusInfo) (StatusInfo[StorageFilesystemStatusType], error) {
+	encodedStatus, err := encodeFilesystemStatusType(s.Status)
+	if err != nil {
+		return StatusInfo[StorageFilesystemStatusType]{}, err
+	}
+
+	var bytes []byte
+	if len(s.Data) > 0 {
+		var err error
+		bytes, err = json.Marshal(s.Data)
+		if err != nil {
+			return StatusInfo[StorageFilesystemStatusType]{}, errors.Errorf("marshalling status data: %w", err)
+		}
+	}
+
+	return StatusInfo[StorageFilesystemStatusType]{
+		Status:  encodedStatus,
+		Message: s.Message,
+		Data:    bytes,
+		Since:   s.Since,
+	}, nil
+}
+
+// DecodeFilesystemStatus converts a db status info to a core status info.
+func DecodeFilesystemStatus(s StatusInfo[StorageFilesystemStatusType]) (corestatus.StatusInfo, error) {
+	decodedStatus, err := decodeFilesystemStatusType(s.Status)
+	if err != nil {
+		return corestatus.StatusInfo{}, err
+	}
+
+	var data map[string]any
+	if len(s.Data) > 0 {
+		err := json.Unmarshal(s.Data, &data)
+		if err != nil {
+			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
+		}
+	}
+
+	return corestatus.StatusInfo{
+		Status:  decodedStatus,
+		Message: s.Message,
+		Data:    data,
+		Since:   s.Since,
+	}, nil
+}
+
+// encodeVolumeStatusType maps a core status to corresponding db volume
+// status.
+func encodeVolumeStatusType(s corestatus.Status) (StorageVolumeStatusType, error) {
+	switch s {
+	case corestatus.Pending:
+		return StorageVolumeStatusTypePending, nil
+	case corestatus.Error:
+		return StorageVolumeStatusTypeError, nil
+	case corestatus.Attaching:
+		return StorageVolumeStatusTypeAttaching, nil
+	case corestatus.Attached:
+		return StorageVolumeStatusTypeAttached, nil
+	case corestatus.Detaching:
+		return StorageVolumeStatusTypeDetaching, nil
+	case corestatus.Detached:
+		return StorageVolumeStatusTypeDetached, nil
+	case corestatus.Destroying:
+		return StorageVolumeStatusTypeDestroying, nil
+	default:
+		return -1, errors.Errorf("unknown volume status %q", s)
+	}
+}
+
+// decodeVolumeStatusType maps a db status to corresponding core status.
+func decodeVolumeStatusType(s StorageVolumeStatusType) (corestatus.Status, error) {
+	switch s {
+	case StorageVolumeStatusTypePending:
+		return corestatus.Pending, nil
+	case StorageVolumeStatusTypeError:
+		return corestatus.Error, nil
+	case StorageVolumeStatusTypeAttaching:
+		return corestatus.Attaching, nil
+	case StorageVolumeStatusTypeAttached:
+		return corestatus.Attached, nil
+	case StorageVolumeStatusTypeDetaching:
+		return corestatus.Detaching, nil
+	case StorageVolumeStatusTypeDetached:
+		return corestatus.Detached, nil
+	case StorageVolumeStatusTypeDestroying:
+		return corestatus.Destroying, nil
+	default:
+		return corestatus.Unknown, nil
+	}
+}
+
+// EncodeVolumeStatus converts a core status info to a db status info.
+func EncodeVolumeStatus(s corestatus.StatusInfo) (StatusInfo[StorageVolumeStatusType], error) {
+	encodedStatus, err := encodeVolumeStatusType(s.Status)
+	if err != nil {
+		return StatusInfo[StorageVolumeStatusType]{}, err
+	}
+
+	var bytes []byte
+	if len(s.Data) > 0 {
+		var err error
+		bytes, err = json.Marshal(s.Data)
+		if err != nil {
+			return StatusInfo[StorageVolumeStatusType]{}, errors.Errorf("marshalling status data: %w", err)
+		}
+	}
+
+	return StatusInfo[StorageVolumeStatusType]{
+		Status:  encodedStatus,
+		Message: s.Message,
+		Data:    bytes,
+		Since:   s.Since,
+	}, nil
+}
+
+// DecodeVolumeStatus converts a db status info to a core status info.
+func DecodeVolumeStatus(s StatusInfo[StorageVolumeStatusType]) (corestatus.StatusInfo, error) {
+	decodedStatus, err := decodeVolumeStatusType(s.Status)
+	if err != nil {
+		return corestatus.StatusInfo{}, err
+	}
+
+	var data map[string]any
+	if len(s.Data) > 0 {
+		err := json.Unmarshal(s.Data, &data)
+		if err != nil {
+			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
+		}
+	}
+
+	return corestatus.StatusInfo{
+		Status:  decodedStatus,
+		Message: s.Message,
+		Data:    data,
+		Since:   s.Since,
+	}, nil
 }

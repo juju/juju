@@ -6,6 +6,10 @@ package storage
 import (
 	"github.com/juju/collections/set"
 
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -90,4 +94,47 @@ type FilesystemInfo struct {
 	storage.FilesystemInfo
 	Pool          string
 	BackingVolume *storage.VolumeInfo
+}
+
+// StorageInstanceDetails describes information about a storage instance.
+type StorageInstanceDetails struct {
+	UUID       StorageInstanceUUID
+	ID         string
+	Owner      *unit.Name
+	Kind       StorageKind
+	Life       life.Life
+	Persistent bool
+}
+
+// VolumeDetails describes information about a volume with its attachments.
+type VolumeDetails struct {
+	StorageID   string
+	Status      status.StatusInfo
+	Attachments []VolumeAttachmentDetails
+}
+
+// FilesystemDetails describes information about a filesystem with its attachments.
+type FilesystemDetails struct {
+	StorageID   string
+	Status      status.StatusInfo
+	Attachments []FilesystemAttachmentDetails
+}
+
+// VolumeAttachmentDetails describes information about a volume attachment.
+type VolumeAttachmentDetails struct {
+	AttachmentDetails
+	BlockDeviceUUID string
+}
+
+// FilesystemAttachmentDetails describes information about a filesystem attachment.
+type FilesystemAttachmentDetails struct {
+	AttachmentDetails
+	MountPoint string
+}
+
+// AttachmentDetails describes information about a storage attachment.
+type AttachmentDetails struct {
+	Life    life.Life
+	Unit    unit.Name
+	Machine *machine.Name
 }
