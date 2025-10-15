@@ -67,7 +67,7 @@ juju model-config storage-default-block-source
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-model-config`, {ref}`storage-default-block-source`, {ref}`storage-default-filesystem-source`
+See more: {ref}`command-juju-model-config`, {ref}`model-config-storage-default-block-source`, {ref}`model-config-storage-default-filesystem-source`
 ```
 
 ## Update a storage pool
