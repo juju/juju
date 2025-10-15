@@ -291,6 +291,8 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"relation_unit_setting_archive",
 		"relation_unit",
 		"relation",
+		"relation_network_ingress",
+		"relation_network_egress",
 
 		// Cleanup
 		"removal_type",
