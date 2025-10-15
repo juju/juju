@@ -305,14 +305,11 @@ See more: {ref}`command-juju-unregister`
 ```{ibnote}
 See also: {ref}`high-availability`
 ```
-
-To make a controller highly available, use the `juju add-unit` command:
-
 ```{important}
 Currently only supported for controllers on a machine cloud.
 ```
 
-To make a controller highly available, use the `enable-ha` command:
+To make a controller highly available,  add a unit using the `juju add-unit` command:
 
 ```text
 juju add-unit -m controller controller -n 2
@@ -327,23 +324,14 @@ adding machines: 1, 2
 
 Optionally, you can also mention a specific controller and also the number of controller machines you want to use for HA, among other things (e.g., constraints). Note: The number of controllers must be an odd number in order for a master to be "voted in" amongst its peers. (A cluster with an even number of members will cause a random member to become inactive, though that member will remain on "hot standby" and automatically become active should some other member fail.) Furthermore, due to limitations of the underlying database in an HA context, that number cannot exceed seven. (Any member in excess of seven will become inactive.Thus, a cluster can only have three, five, or seven **active** members.)
 
-If a controller is misbehaving, or if you've decided that you don't need as many controllers for HA after all, you can remove them. To remove a controller, remove its  machine from the controller model via the `remove-machine` command. For example, below we remove controller 1 by removing machine 1 from the controller model:
-```text
-juju remove-machine -m controller 1
-```
-
-```{important}
-The `enable-ha` command cannot be used to remove machines from the cluster.
-```
-
-For example, below we remove controller 1 by removing machine 1 from the controller model:
+If a controller is misbehaving, or if you've decided that you don't need as many controllers for HA after all, you can remove it either by removing a unit or its host machine. For example, below we remove controller 1 by removing machine 1 from the controller model:
 
 ```text
 juju remove-machine -m controller 1
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-enable-ha`
+See more: {ref}`manage-units`, {ref}`manage-machines`
 ```
 
 (collect-metrics-about-a-controller)=
