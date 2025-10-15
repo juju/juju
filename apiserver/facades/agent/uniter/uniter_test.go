@@ -1632,6 +1632,98 @@ func (s *uniterRelationSuite) TestRelation(c *tc.C) {
 	})
 }
 
+func (s *uniterRelationSuite) TestPeerRelation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("wordpress:self")
+	relKey := relationtesting.GenNewKey(c, relTag.Id())
+
+	relUUID := relationtesting.GenRelationUUID(c)
+	relID := 42
+
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
+		Life: life.Alive,
+		UUID: relUUID,
+		ID:   relID,
+		Key:  relationtesting.GenNewKey(c, relTag.Id()),
+		Endpoints: []relation.Endpoint{
+			{
+				ApplicationName: "wordpress",
+				Relation: charm.Relation{
+					Name:      "self",
+					Role:      charm.RolePeer,
+					Interface: "me",
+					Scope:     charm.ScopeContainer,
+				},
+			},
+		},
+	}, nil)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: relTag.String(), Unit: "unit-wordpress-0"},
+	}}
+	result, err := s.uniter.Relation(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.RelationResultsV2{
+		Results: []params.RelationResultV2{
+			{
+				Id:   relID,
+				Key:  relTag.Id(),
+				Life: life.Alive,
+				Endpoint: params.Endpoint{
+					ApplicationName: "wordpress",
+					Relation: params.CharmRelation{
+						Name:      "self",
+						Role:      string(charm.RolePeer),
+						Interface: "me",
+						Scope:     string(charm.ScopeContainer),
+					},
+				},
+				OtherApplication: params.RelatedApplicationDetails{
+					ApplicationName: "wordpress",
+					ModelUUID:       coretesting.ModelTag.Id(),
+				},
+			},
+		},
+	})
+}
+
+func (s *uniterRelationSuite) TestInvalidPeerRelation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("wordpress:self")
+	relKey := relationtesting.GenNewKey(c, relTag.Id())
+
+	relUUID := relationtesting.GenRelationUUID(c)
+	relID := 42
+
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
+		Life: life.Alive,
+		UUID: relUUID,
+		ID:   relID,
+		Key:  relationtesting.GenNewKey(c, relTag.Id()),
+		Endpoints: []relation.Endpoint{
+			{
+				ApplicationName: "wordpress",
+				Relation: charm.Relation{
+					Name:      "self",
+					Role:      charm.RoleRequirer, // invalid role for peer relation
+					Interface: "me",
+					Scope:     charm.ScopeContainer,
+				},
+			},
+		},
+	}, nil)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: relTag.String(), Unit: "unit-wordpress-0"},
+	}}
+	result, err := s.uniter.Relation(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*no other application found.*")
+}
+
 // TestRelationUnauthorized tests the different scenarios where
 // ErrUnauthorized will be returned. It also tests the bulk
 // functionality of the Relation facade method.
