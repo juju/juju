@@ -47,7 +47,8 @@ user/explanation explanation
 user/explanation/juju-security explanation/juju-security
 user/explanation/performance-with-juju explanation/performance-with-juju
 user/howto/define-resource-tags-in-a-cloud howto/define-resource-tags-in-a-cloud
-user/howto/fan-container-networking howto/fan-container-networking
+user/howto/fan-container-networking howto/
+howto/fan-container-networking howto/
 user/howto howto
 user/howto/manage-actions howto/manage-actions
 user/howto/manage-applications howto/manage-applications
