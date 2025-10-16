@@ -287,11 +287,9 @@ func (s *Service) UpgradeControllerToVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// We should not continue any further if the version is a zero value.
-	if desiredVersion == semversion.Zero {
-		return errors.New(
-			"controller version cannot be zero",
-		).Add(coreerrors.NotValid)
+	err := s.CanUpgradeControllerToVersion(ctx, desiredVersion)
+	if err != nil {
+		return err
 	}
 
 	modelTargetAgentVersion, err := s.modelSt.GetModelTargetAgentVersion(ctx)
@@ -299,28 +297,6 @@ func (s *Service) UpgradeControllerToVersion(
 		return errors.Errorf(
 			"getting controller model agent version: %w", err,
 		)
-	}
-
-	err = s.validateControllerCanBeUpgradedTo(ctx, desiredVersion)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
-	// controller and model state. We hardcode this for now.
-	architectures := []agentbinary.Architecture{agentbinary.AMD64}
-	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionAndArchitectures(
-		ctx, desiredVersion, architectures,
-	)
-	if err != nil {
-		return errors.Errorf(
-			"checking if binaries exist for version %q: %w", desiredVersion, err,
-		)
-	}
-	if !hasBinaries {
-		return errors.Errorf(
-			"no controller binaries exist for version %q", desiredVersion,
-		).Add(controllerupgradererrors.MissingControllerBinaries)
 	}
 
 	// Both controller and model upgrading is always driven off of the target
@@ -380,17 +356,9 @@ func (s *Service) UpgradeControllerToVersionAndStream(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// We should not continue any further if the version is a zero value.
-	if desiredVersion == semversion.Zero {
-		return errors.New(
-			"controller version cannot be zero",
-		).Add(coreerrors.NotValid)
-	}
-
-	if !stream.IsValid() {
-		return errors.New(
-			"agent stream is not valid",
-		).Add(modelagenterrors.AgentStreamNotValid)
+	err := s.CanUpgradeControllerToVersionWithStream(ctx, desiredVersion, stream)
+	if err != nil {
+		return err
 	}
 
 	modelTargetAgentVersion, err := s.modelSt.GetModelTargetAgentVersion(ctx)
@@ -398,28 +366,6 @@ func (s *Service) UpgradeControllerToVersionAndStream(
 		return errors.Errorf(
 			"getting controller model agent version: %w", err,
 		)
-	}
-
-	err = s.validateControllerCanBeUpgradedTo(ctx, desiredVersion)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
-	// controller and model state. We hardcode this for now.
-	architectures := []agentbinary.Architecture{agentbinary.AMD64}
-	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionStreamAndArchitectures(
-		ctx, desiredVersion, stream, architectures,
-	)
-	if err != nil {
-		return errors.Errorf(
-			"checking if binaries exist for version %q: %w", desiredVersion, err,
-		)
-	}
-	if !hasBinaries {
-		return errors.Errorf(
-			"no controller binaries exist for version %q", desiredVersion,
-		).Add(controllerupgradererrors.MissingControllerBinaries)
 	}
 
 	// Both controller and model upgrading is always driven off of the target
@@ -536,6 +482,146 @@ func (s *Service) validateControllerCanBeUpgradedTo(
 	err = s.validateControllerCanBeUpgraded(ctx, currentVersion)
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// CanUpgradeController determines whether the controller can be upgraded
+// to the latest available patch version. It returns the desired version
+// that the controller can upgrade to if all validation checks pass. The
+// method ensures that the desired version can be retrieved and is valid,
+// that the upgrade does not attempt a downgrade or a cross-minor or major
+// version change, that all controller nodes are synchronized and not
+// blocking the upgrade, and that controller binaries exist for the desired
+// version and architecture.
+func (s *Service) CanUpgradeController(ctx context.Context) (semversion.Number, error) {
+	desiredVersion, err := s.agentBinaryFinder.GetHighestPatchVersionAvailable(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Errorf(
+			"getting desired controller version to upgrade to: %w", err,
+		)
+	}
+	err = s.CanUpgradeControllerToVersion(ctx, desiredVersion)
+	if err != nil {
+		return semversion.Zero, err
+	}
+
+	return desiredVersion, nil
+}
+
+// CanUpgradeControllerToVersion determines whether the controller can be safely
+// upgraded to the specified version. It performs validation checks to ensure that
+// the target version is valid and that the upgrade can proceed. The method ensures
+// that the desired version is not the zero value, that the upgrade does not attempt
+// a downgrade or a non-patch version change, that all controller nodes are in a
+// consistent state and not blocking the upgrade, and that controller binaries exist
+// for the specified version and required architectures.
+func (s *Service) CanUpgradeControllerToVersion(ctx context.Context, desiredVersion semversion.Number) error {
+	// We should not continue any further if the version is a zero value.
+	if desiredVersion == semversion.Zero {
+		return errors.New(
+			"controller version cannot be zero",
+		).Add(coreerrors.NotValid)
+	}
+
+	err := s.validateControllerCanBeUpgradedTo(ctx, desiredVersion)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
+	// controller and model state. We hardcode this for now.
+	architectures := []agentbinary.Architecture{agentbinary.AMD64}
+	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionAndArchitectures(
+		ctx, desiredVersion, architectures,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"checking if binaries exist for version %q: %w", desiredVersion, err,
+		)
+	}
+	if !hasBinaries {
+		return errors.Errorf(
+			"no controller binaries exist for version %q", desiredVersion,
+		).Add(controllerupgradererrors.MissingControllerBinaries)
+	}
+
+	return nil
+}
+
+// CanUpgradeControllerWithStream determines whether the controller can be upgraded
+// to the latest available patch version within the specified agent stream. It returns
+// the desired version that the controller can upgrade to if all validation checks pass.
+//
+// The method first ensures that the provided agent stream is valid, then retrieves the
+// highest available patch version for that stream. It validates that upgrading to the
+// retrieved version is supported and safe, and confirms that the required controller
+// binaries exist for the version, stream, and architectures.
+func (s *Service) CanUpgradeControllerWithStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error) {
+	if !stream.IsValid() {
+		return semversion.Zero, errors.New(
+			"agent stream is not valid",
+		).Add(modelagenterrors.AgentStreamNotValid)
+	}
+
+	desiredVersion, err := s.agentBinaryFinder.GetHighestPatchVersionAvailableForStream(
+		ctx, stream,
+	)
+	if err != nil {
+		return semversion.Zero, errors.Errorf(
+			"getting desired controller version to upgrade to: %w", err,
+		)
+	}
+
+	err = s.CanUpgradeControllerToVersionWithStream(ctx, desiredVersion, stream)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+
+	return desiredVersion, nil
+}
+
+// CanUpgradeControllerToVersionWithStream determines whether the controller can be
+// safely upgraded to the specified version within the given agent stream. It verifies
+// that the desired version and stream are valid, ensures the upgrade does not attempt
+// a downgrade or a non-patch upgrade, checks that all controller nodes are in a
+// consistent state, and confirms that the necessary controller binaries exist for the
+// specified version, stream, and architectures.
+func (s *Service) CanUpgradeControllerToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream modelagent.AgentStream) error {
+	// We should not continue any further if the version is a zero value.
+	if desiredVersion == semversion.Zero {
+		return errors.New(
+			"controller version cannot be zero",
+		).Add(coreerrors.NotValid)
+	}
+
+	if !stream.IsValid() {
+		return errors.New(
+			"agent stream is not valid",
+		).Add(modelagenterrors.AgentStreamNotValid)
+	}
+
+	err := s.validateControllerCanBeUpgradedTo(ctx, desiredVersion)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
+	// controller and model state. We hardcode this for now.
+	architectures := []agentbinary.Architecture{agentbinary.AMD64}
+	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionStreamAndArchitectures(
+		ctx, desiredVersion, stream, architectures,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"checking if binaries exist for version %q: %w", desiredVersion, err,
+		)
+	}
+	if !hasBinaries {
+		return errors.Errorf(
+			"no controller binaries exist for version %q", desiredVersion,
+		).Add(controllerupgradererrors.MissingControllerBinaries)
 	}
 
 	return nil

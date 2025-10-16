@@ -48,6 +48,24 @@ type ControllerUpgraderService interface {
 		desiredVersion semversion.Number,
 		stream modelagent.AgentStream,
 	) error
+
+	// CanUpgradeController determines whether the controller can be upgraded
+	// to the latest available patch version.
+	CanUpgradeController(ctx context.Context) (semversion.Number, error)
+
+	// CanUpgradeControllerToVersion determines whether the controller can be safely
+	// upgraded to the specified version. It performs validation checks to ensure that
+	// the target version is valid and that the upgrade can proceed.
+	CanUpgradeControllerToVersion(ctx context.Context, desiredVersion semversion.Number) error
+
+	// CanUpgradeControllerWithStream determines whether the controller can be upgraded
+	// to the latest available patch version within the specified agent stream. It returns
+	// the desired version that the controller can upgrade to if all validation checks pass.
+	CanUpgradeControllerWithStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error)
+
+	// CanUpgradeControllerToVersionWithStream determines whether the controller can be
+	// safely upgraded to the specified version within the given agent stream.
+	CanUpgradeControllerToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream modelagent.AgentStream) error
 }
 
 // ControllerUpgraderAPI upgrades a controller and a model hosting the controller.
@@ -116,67 +134,8 @@ func (c *ControllerUpgraderAPI) canUpgrade(ctx context.Context, model names.Mode
 	return true, nil
 }
 
-// doUpgrade has the responsibility of delegating the upgrade to the service. It determines which func to invoke
-// by interrogating the values set in [params.UpgradeModelParams].
-// A post-processing step is performed to map the errors returned from the service to ones the existing API
-// conforms to.
-func (c *ControllerUpgraderAPI) doUpgrade(ctx context.Context, arg params.UpgradeModelParams) (params.UpgradeModelResult, error) {
-	var (
-		hasStreamChange  = arg.AgentStream != ""
-		hasTargetVersion = arg.TargetVersion != semversion.Zero
-		targetStream     modelagent.AgentStream
-		targetVersion    = arg.TargetVersion
-		upgrader         func(context.Context) error
-		result           params.UpgradeModelResult
-		err              error
-	)
-
-	// Parse the agent stream.
-	if arg.AgentStream != "" {
-		targetStream, err = modelagent.AgentStreamFromCoreAgentStream(agentbinary.AgentStream(arg.AgentStream))
-		if err != nil {
-			if errors.Is(err, coreerrors.NotValid) {
-				return result, errors.Capture(errors.Errorf(
-					"agent stream %q is not recognised as a valid value", arg.AgentStream,
-				).Add(coreerrors.NotValid))
-			}
-			return result, errors.Capture(err)
-		}
-	}
-
-	// Delegate it to the service depending on what arguments
-	// are supplied.
-	switch {
-	case hasTargetVersion && hasStreamChange:
-		upgrader = func(ctx context.Context) error {
-			return c.upgraderService.UpgradeControllerToVersionAndStream(ctx, targetVersion, targetStream)
-		}
-	case hasTargetVersion && !hasStreamChange:
-		upgrader = func(ctx context.Context) error {
-			return c.upgraderService.UpgradeControllerToVersion(ctx, targetVersion)
-		}
-	case !hasTargetVersion && hasStreamChange:
-		upgrader = func(ctx context.Context) error {
-			version, err := c.upgraderService.UpgradeControllerWithStream(ctx, targetStream)
-			targetVersion = version
-			return err
-		}
-	case !hasTargetVersion && !hasStreamChange:
-		upgrader = func(ctx context.Context) error {
-			version, err := c.upgraderService.UpgradeController(ctx)
-			targetVersion = version
-			return err
-		}
-	}
-
-	// TODO(adisazhar123): support arg.dryRun.
-	if arg.DryRun {
-		return result, nil
-	}
-
-	// Invoke the upgrade here.
-	err = upgrader(ctx)
-
+func (c *ControllerUpgraderAPI) mapResponse(err error, targetVersion semversion.Number, arg params.UpgradeModelParams) (params.UpgradeModelResult, error) {
+	var result params.UpgradeModelResult
 	// Map the errors to respect what the existing API returns.
 	// We mirror as closely as possible to [UpgradeModel] func in [modelupgrader.ModelUpgraderAPI].
 	switch {
@@ -213,6 +172,84 @@ func (c *ControllerUpgraderAPI) doUpgrade(ctx context.Context, arg params.Upgrad
 
 	result.ChosenVersion = targetVersion
 	return result, nil
+}
+
+// doUpgrade has the responsibility of delegating the upgrade to the service. It determines which func to invoke
+// by interrogating the values set in [params.UpgradeModelParams].
+// A post-processing step is performed to map the errors returned from the service to ones the existing API
+// conforms to.
+func (c *ControllerUpgraderAPI) doUpgrade(ctx context.Context, arg params.UpgradeModelParams) (params.UpgradeModelResult, error) {
+	var (
+		hasStreamChange  = arg.AgentStream != ""
+		hasTargetVersion = arg.TargetVersion != semversion.Zero
+		targetStream     modelagent.AgentStream
+		targetVersion    = arg.TargetVersion
+		upgrader         func(context.Context) error
+		dryRunValidate   func(context.Context) (semversion.Number, error)
+		result           params.UpgradeModelResult
+		err              error
+	)
+
+	// Parse the agent stream.
+	if arg.AgentStream != "" {
+		targetStream, err = modelagent.AgentStreamFromCoreAgentStream(agentbinary.AgentStream(arg.AgentStream))
+		if err != nil {
+			if errors.Is(err, coreerrors.NotValid) {
+				return result, errors.Capture(errors.Errorf(
+					"agent stream %q is not recognised as a valid value", arg.AgentStream,
+				).Add(coreerrors.NotValid))
+			}
+			return result, errors.Capture(err)
+		}
+	}
+
+	// Delegate it to the service depending on what arguments
+	// are supplied.
+	switch {
+	case hasTargetVersion && hasStreamChange:
+		upgrader = func(ctx context.Context) error {
+			return c.upgraderService.UpgradeControllerToVersionAndStream(ctx, targetVersion, targetStream)
+		}
+		dryRunValidate = func(ctx context.Context) (semversion.Number, error) {
+			return targetVersion, c.upgraderService.CanUpgradeControllerToVersionWithStream(ctx, targetVersion, targetStream)
+		}
+	case hasTargetVersion && !hasStreamChange:
+		upgrader = func(ctx context.Context) error {
+			return c.upgraderService.UpgradeControllerToVersion(ctx, targetVersion)
+		}
+		dryRunValidate = func(ctx context.Context) (semversion.Number, error) {
+			return targetVersion, c.upgraderService.CanUpgradeControllerToVersion(ctx, targetVersion)
+		}
+	case !hasTargetVersion && hasStreamChange:
+		upgrader = func(ctx context.Context) error {
+			version, err := c.upgraderService.UpgradeControllerWithStream(ctx, targetStream)
+			targetVersion = version
+			return err
+		}
+		dryRunValidate = func(ctx context.Context) (semversion.Number, error) {
+			return c.upgraderService.CanUpgradeControllerWithStream(ctx, targetStream)
+		}
+	case !hasTargetVersion && !hasStreamChange:
+		upgrader = func(ctx context.Context) error {
+			version, err := c.upgraderService.UpgradeController(ctx)
+			targetVersion = version
+			return err
+		}
+		dryRunValidate = func(ctx context.Context) (semversion.Number, error) {
+			return c.upgraderService.CanUpgradeController(ctx)
+		}
+	}
+
+	// Return early and don't perform an actual upgrade if it's a dry run.
+	if arg.DryRun {
+		targetVersion, err := dryRunValidate(ctx)
+		return c.mapResponse(err, targetVersion, arg)
+	}
+
+	// Invoke the upgrade here.
+	err = upgrader(ctx)
+	// Map the corresponding result and errors.
+	return c.mapResponse(err, targetVersion, arg)
 }
 
 // UpgradeModel upgrades a controller and the model hosting the controller.
