@@ -139,7 +139,7 @@ type ApplicationState interface {
 
 	// SetApplicationCharm sets a new charm for the specified application using
 	// the provided parameters and validates changes.
-	SetApplicationCharm(ctx context.Context, appID coreapplication.UUID, charmID corecharm.ID, params application.SetCharmParams) error
+	SetApplicationCharm(ctx context.Context, appID coreapplication.UUID, charmID corecharm.ID, params application.SetCharmStateParams) error
 
 	// GetApplicationUUIDByUnitName returns the application UUID for the named unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
@@ -762,7 +762,13 @@ func (s *Service) SetApplicationCharm(ctx context.Context, appName string, charm
 	if err != nil {
 		return errors.Errorf("getting charm ID: %w", err)
 	}
-	err = s.st.SetApplicationCharm(ctx, appID, charmID, params)
+
+	paramsState, err := makeSetCharmStateArg(params)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = s.st.SetApplicationCharm(ctx, appID, charmID, paramsState)
 	if err != nil {
 		return errors.Errorf("setting application %q charm: %w", appName, err)
 	}
@@ -1835,4 +1841,16 @@ func coerceValue(t charm.OptionType, value string) (interface{}, error) {
 		return nil, errors.Errorf("unknown config type %q", t)
 	}
 
+}
+
+func makeSetCharmStateArg(setCharmParams application.SetCharmParams) (application.SetCharmStateParams, error) {
+	channel, err := encodeChannel(setCharmParams.CharmOrigin.Channel)
+	if err != nil {
+		return application.SetCharmStateParams{}, errors.Errorf("encoding charm channel: %w", err)
+	}
+
+	return application.SetCharmStateParams{
+		Channel:          channel,
+		EndpointBindings: setCharmParams.EndpointBindings,
+	}, nil
 }

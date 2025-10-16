@@ -4865,7 +4865,7 @@ func (c *MockStateResolveMigratingUploadedCharmCall) DoAndReturn(f func(context.
 }
 
 // SetApplicationCharm mocks base method.
-func (m *MockState) SetApplicationCharm(arg0 context.Context, arg1 application.UUID, arg2 charm.ID, arg3 application0.SetCharmParams) error {
+func (m *MockState) SetApplicationCharm(arg0 context.Context, arg1 application.UUID, arg2 charm.ID, arg3 application0.SetCharmStateParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -4891,13 +4891,13 @@ func (c *MockStateSetApplicationCharmCall) Return(arg0 error) *MockStateSetAppli
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetApplicationCharmCall) Do(f func(context.Context, application.UUID, charm.ID, application0.SetCharmParams) error) *MockStateSetApplicationCharmCall {
+func (c *MockStateSetApplicationCharmCall) Do(f func(context.Context, application.UUID, charm.ID, application0.SetCharmStateParams) error) *MockStateSetApplicationCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetApplicationCharmCall) DoAndReturn(f func(context.Context, application.UUID, charm.ID, application0.SetCharmParams) error) *MockStateSetApplicationCharmCall {
+func (c *MockStateSetApplicationCharmCall) DoAndReturn(f func(context.Context, application.UUID, charm.ID, application0.SetCharmStateParams) error) *MockStateSetApplicationCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
