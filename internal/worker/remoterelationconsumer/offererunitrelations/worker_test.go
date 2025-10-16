@@ -250,7 +250,7 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 		"offerer-application-uuid": s.offererApplicationUUID.String(),
 		"consumer-relation-uuid":   s.consumerRelationUUID.String(),
 		"changed-units":            []map[string]any(nil),
-		"settings":                 map[string]any(nil),
+		"settings":                 map[string]string(nil),
 		"departed-units":           []int(nil),
 		"life":                     life.Value(""),
 		"suspended":                false,
@@ -286,11 +286,11 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 		"consumer-relation-uuid":   s.consumerRelationUUID.String(),
 		"changed-units": []map[string]any{{
 			"unit-id": 0,
-			"settings": map[string]any{
+			"settings": map[string]string{
 				"foo": "baz",
 			},
 		}},
-		"settings": map[string]any{
+		"settings": map[string]string{
 			"foo": "bar",
 		},
 		"departed-units": []int{

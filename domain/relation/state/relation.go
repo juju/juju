@@ -1145,12 +1145,12 @@ func (st *State) GetRelationUnitsChanges(
 			return errors.Capture(err)
 		}
 
-		settings, err = st.getApplicationSettingsByRelAndApp(ctx, tx, relationUUID, applicationUUID)
+		settings, err = st.getApplicationSettingsByRelAndApp(ctx, tx, relationUUID.String(), applicationUUID.String())
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		unitRelationData, err = st.getUnitsRelationData(ctx, tx, relationUUID, applicationUUID)
+		unitRelationData, err = st.getUnitsRelationData(ctx, tx, relationUUID.String(), applicationUUID.String())
 		if err != nil {
 			return errors.Errorf("getting unit relation data: %w", err)
 		}
