@@ -78,7 +78,7 @@ N/A
 
 ## Supported constraints
 
-As this cloud is all about using specific machines, constraints do not apply.
+N/A
 
 ## Supported placement directives
 

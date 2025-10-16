@@ -122,7 +122,6 @@ If set, use the specified virtual network for all model machines instead of crea
 | supported?                             |                                                |
 | - {ref}`constraint-allocate-public-ip` | &#10003;                                       |
 | - {ref}`constraint-arch`               | &#10003; <br> Valid values: `amd64`            |
-| - {ref}`constraint-container`          | &#10003;                                       |
 | - {ref}`constraint-cores`              | &#10003;                                       |
 | - {ref}`constraint-cpu-power`          | &#10005;                                       |
 | - {ref}`constraint-image-id`           | &#10005;                                       |

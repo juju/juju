@@ -26,7 +26,6 @@ Juju supports all of the following clouds. Click to find out more about using yo
 ## List of supported machine clouds
 
 - {ref}`Amazon EC2 <cloud-ec2>`
-- {ref}`Equinix Metal <cloud-equinix>`
 - {ref}`Google GCE <cloud-gce>`
 - {ref}`LXD <cloud-lxd>`
 - {ref}`MAAS <cloud-maas>`

@@ -8,7 +8,7 @@ See also:  {ref}`plugin`
 Juju can be easily extended by using plugins. There are many third-party plugins available to simplify certain tasks. However, you can easily create your own custom plugins for your specific needs. This tutorial will show you how to do this.
 
 ```{important}
-Another way to integrate Juju into your own tooling is to use the [Python](documentation.ubuntu.com/jubilant/) and [JavaScript](https://github.com/juju/js-libjuju) client libraries.
+Another way to integrate Juju into your own tooling is to use the [Python](https://documentation.ubuntu.com/jubilant/) and [JavaScript](https://github.com/juju/js-libjuju) client libraries.
 ```
 
 ## Create a plugin

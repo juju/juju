@@ -57,7 +57,7 @@ You will need to create an OpenStack machine metadata. If the metadata is availa
 
 ## Cloud-specific model configuration keys
 
-### external-network
+### `external-network`
 The network label or UUID to create floating IP addresses on when multiple external networks exist.
 
 | | |
@@ -67,7 +67,7 @@ The network label or UUID to create floating IP addresses on when multiple exter
 | immutable | false |
 | mandatory | false |
 
-### use-openstack-gbp
+### `use-openstack-gbp`
 Whether to use Neutrons Group-Based Policy
 
 | | |
@@ -77,7 +77,7 @@ Whether to use Neutrons Group-Based Policy
 | immutable | false |
 | mandatory | false |
 
-### policy-target-group
+### `policy-target-group`
 The UUID of Policy Target Group to use for Policy Targets created.
 
 | | |
@@ -87,7 +87,7 @@ The UUID of Policy Target Group to use for Policy Targets created.
 | immutable | false |
 | mandatory | false |
 
-### use-default-secgroup
+### `use-default-secgroup`
 Whether new machine instances should have the "default" Openstack security group assigned in addition to juju defined security groups.
 
 | | |
@@ -97,7 +97,7 @@ Whether new machine instances should have the "default" Openstack security group
 | immutable | false |
 | mandatory | false |
 
-### network
+### `network`
 The network label or UUID to bring machines up on when multiple networks exist.
 
 | | |

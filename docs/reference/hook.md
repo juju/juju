@@ -17,7 +17,7 @@ All hooks share a lot of common behaviour in terms of the environment in which t
 are notified that a hook event has occurred, how errors are reported, and how a user might respond to
 a unit being in an error state due to a failed hook execution etc.
 
-Some hooks can also be grouped according to the Juju subsystem they represent (relations, secrets, storage, series upgrade, workload/Pebble).
+Some hooks can also be grouped according to the Juju subsystem they represent (relations, secrets, storage, workload/Pebble).
 
 ```{ibnote}
 See more: {ref}`list-of-hooks`
@@ -124,7 +124,6 @@ Where hooks belong to a kind, we nest them under that kind; otherwise, under "ot
 * {ref}`relation-hooks`
 * {ref}`secret-hooks`
 * {ref}`storage-hooks`
-* {ref}`upgrade-series-hooks`
 * {ref}`workload-hooks`
 * {ref}`other-hooks`
 
