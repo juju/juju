@@ -44,4 +44,7 @@ const (
 
 	// MACAROON defines a common tag for dealing with macaroons.
 	MACAROON Tag = "macaroon"
+
+	// SIMPLESTREAM defines a common tag for dealing with simplestreams.
+	SIMPLESTREAM Tag = "simplestreams"
 )

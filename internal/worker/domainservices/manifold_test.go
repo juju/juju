@@ -228,11 +228,13 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *tc.C) {
 	factory := NewModelDomainServices(
 		"model",
 		s.dbGetter,
+		s.controllerObjectStoreGetter,
 		s.modelObjectStoreGetter,
 		s.modelStorageRegistryGetter,
 		s.publicKeyImporter,
 		s.modelLeaseManagerGetter,
 		c.MkDir(),
+		s.httpClient,
 		s.clock,
 		s.logger,
 	)
@@ -256,6 +258,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *tc.C) {
 		s.publicKeyImporter,
 		s.leaseManager,
 		c.MkDir(),
+		s.httpClient,
 		s.clock,
 		s.loggerContextGetter,
 	)
@@ -297,6 +300,7 @@ func noopDomainServicesGetter(
 	domainservices.PublicKeyImporter,
 	lease.Manager,
 	string,
+	corehttp.HTTPClient,
 	clock.Clock,
 	logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
@@ -317,11 +321,13 @@ func noopModelDomainServices(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
+	objectstore.NamespacedObjectStoreGetter,
 	objectstore.ModelObjectStoreGetter,
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.ModelLeaseManagerGetter,
 	string,
+	corehttp.HTTPClient,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices {
