@@ -107,7 +107,7 @@ func DeployApplication(
 			return errors.New("subordinate application must be deployed without units")
 		}
 		if !constraints.IsEmpty(&args.Constraints) {
-			return errors.New("subordinate application must be deployed without constraints")
+			return errors.Errorf("subordinate application must be deployed without constraints, not %q", args.Constraints)
 		}
 	}
 
