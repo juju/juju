@@ -255,6 +255,163 @@ VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), relUUID.String(), ep2); 
 	return relUUID
 }
 
+// TestGetRelationNetworkIngress tests that GetRelationNetworkIngress
+// successfully retrieves ingress network CIDRs for a relation.
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngress(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidrs := []string{"192.0.2.0/24", "198.51.100.0/24"}
+
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkIngress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
+}
+
+// TestGetRelationNetworkIngressSingleCIDR tests that GetRelationNetworkIngress
+// works with a single CIDR.
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSingleCIDR(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidr := "192.0.2.0/24"
+
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkIngress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.DeepEquals, []string{cidr})
+}
+
+// TestGetRelationNetworkIngressEmpty tests that GetRelationNetworkIngress
+// returns an empty slice when no CIDRs are associated with a relation.
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressEmpty(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+
+	// Act - No CIDRs added
+	obtainedCIDRs, err := s.state.GetRelationNetworkIngress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.HasLen, 0)
+}
+
+// TestGetRelationNetworkIngressInvalidRelation tests that GetRelationNetworkIngress
+// returns an error when the relation does not exist.
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressInvalidRelation(c *tc.C) {
+	// Arrange
+	nonExistentRelationUUID := internaluuid.MustNewUUID().String()
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkIngress(c.Context(), nonExistentRelationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+	c.Check(obtainedCIDRs, tc.IsNil)
+}
+
+// TestGetRelationNetworkIngressMultipleCIDRs tests that GetRelationNetworkIngress
+// retrieves all CIDRs including IPv4 and IPv6.
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressMultipleCIDRs(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidrs := []string{
+		"192.0.2.0/24",
+		"198.51.100.0/24",
+		"203.0.113.0/24",
+		"2001:db8::/32",
+	}
+
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkIngress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
+}
+
+// TestGetRelationNetworkIngressSortedOrder tests that GetRelationNetworkIngress
+// returns CIDRs in sorted order.
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSortedOrder(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidrs := []string{"203.0.113.0/24", "192.0.2.0/24", "198.51.100.0/24"}
+
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkIngress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	expectedSorted := []string{"192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24"}
+	c.Check(obtainedCIDRs, tc.DeepEquals, expectedSorted)
+}
+
+// TestGetRelationNetworkIngressMultipleRelations tests that GetRelationNetworkIngress
+// only returns CIDRs for the specified relation.
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressMultipleRelations(c *tc.C) {
+	// Arrange
+	relationUUID1 := s.createTestRelationWithNames(c, "app1", "app2")
+	relationUUID2 := s.createTestRelationWithNames(c, "app3", "app4")
+
+	cidrs1 := []string{"192.0.2.0/24"}
+	cidrs2 := []string{"198.51.100.0/24", "203.0.113.0/24"}
+
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID1.String(), cidrs1...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID2.String(), cidrs2...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	obtainedCIDRs1, err := s.state.GetRelationNetworkIngress(c.Context(), relationUUID1.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	obtainedCIDRs2, err := s.state.GetRelationNetworkIngress(c.Context(), relationUUID2.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert
+	c.Check(obtainedCIDRs1, tc.DeepEquals, cidrs1)
+	c.Check(obtainedCIDRs2, tc.SameContents, cidrs2)
+}
+
+// TestGetRelationNetworkIngressAfterMultipleAdds tests that GetRelationNetworkIngress
+// retrieves all accumulated CIDRs after multiple add operations.
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressAfterMultipleAdds(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	firstCIDRs := []string{"192.0.2.0/24"}
+	secondCIDRs := []string{"198.51.100.0/24", "203.0.113.0/24"}
+
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), firstCIDRs...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), secondCIDRs...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkIngress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	allCIDRs := append(firstCIDRs, secondCIDRs...)
+	c.Check(obtainedCIDRs, tc.SameContents, allCIDRs)
+}
+
 // readRelationNetworkIngress reads all CIDRs for a given relation from the
 // relation_network_ingress table.
 func (s *relationNetworkStateSuite) readRelationNetworkIngress(c *tc.C, relationUUID string) []string {

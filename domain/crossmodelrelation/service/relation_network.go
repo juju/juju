@@ -16,15 +16,21 @@ import (
 // ModelRelationNetworkState describes retrieval and persistence methods for
 // relation network ingress in the model database.
 type ModelRelationNetworkState interface {
-	// AddRelationNetworkIngress adds ingress network CIDRs for the specified relation.
+	// AddRelationNetworkIngress adds ingress network CIDRs for the specified
+	// relation.
 	AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs ...string) error
+
+	// GetRelationNetworkIngress retrieves all ingress network CIDRs for the
+	// specified relation.
+	GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error)
 
 	// NamespaceForRelationIngressNetworksWatcher returns the namespace of the
 	// relation_network_ingress table, used for the watcher.
 	NamespaceForRelationIngressNetworksWatcher() string
 }
 
-// AddRelationNetworkIngress adds ingress network CIDRs for the specified relation.
+// AddRelationNetworkIngress adds ingress network CIDRs for the specified
+// relation.
 // The CIDRs are added to the relation_network_ingress table.
 func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs ...string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -52,9 +58,31 @@ func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID st
 		}
 	}
 
-	if err := s.modelState.(ModelRelationNetworkState).AddRelationNetworkIngress(ctx, relationUUID, cidrs...); err != nil {
+	if err := s.modelState.AddRelationNetworkIngress(ctx, relationUUID, cidrs...); err != nil {
 		return errors.Capture(err)
 	}
 
 	return nil
+}
+
+// GetRelationNetworkIngress retrieves all ingress network CIDRs for the
+// specified relation.
+// The CIDRs are retrieved from the relation_network_ingress table.
+func (s *Service) GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if relationUUID == "" {
+		return nil, errors.Errorf("relation UUID cannot be empty")
+	}
+	if !uuid.IsValidUUIDString(relationUUID) {
+		return nil, errors.Errorf("relation UUID %q is not a valid UUID", relationUUID).Add(coreerrors.NotValid)
+	}
+
+	cidrs, err := s.modelState.GetRelationNetworkIngress(ctx, relationUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return cidrs, nil
 }

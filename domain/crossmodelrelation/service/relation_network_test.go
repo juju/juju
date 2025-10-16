@@ -209,3 +209,152 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressMixedIPv4IPv6
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	expectedCIDRs := []string{"192.0.2.0/24", "198.51.100.0/24"}
+
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+
+	// Act
+	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.DeepEquals, expectedCIDRs)
+}
+
+func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressSingleCIDR(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	expectedCIDRs := []string{"192.0.2.0/24"}
+
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+
+	// Act
+	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.DeepEquals, expectedCIDRs)
+}
+
+func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	expectedCIDRs := []string{}
+
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+
+	// Act
+	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.HasLen, 0)
+}
+
+func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressEmptyRelationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act - No mock expectations needed as validation happens before state call
+	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), "")
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "relation UUID cannot be empty")
+	c.Check(obtainedCIDRs, tc.IsNil)
+}
+
+func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	invalidUUID := "not-a-uuid"
+
+	// Act - No mock expectations needed as validation happens before state call
+	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), invalidUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `relation UUID "not-a-uuid" is not a valid UUID`)
+	c.Check(obtainedCIDRs, tc.IsNil)
+}
+
+func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	expectedErr := errors.Errorf("state error")
+
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(nil, expectedErr)
+
+	// Act
+	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "state error")
+	c.Check(obtainedCIDRs, tc.IsNil)
+}
+
+func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressMultipleCIDRs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	expectedCIDRs := []string{
+		"192.0.2.0/24",
+		"198.51.100.0/24",
+		"203.0.113.0/24",
+		"2001:db8::/32",
+	}
+
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+
+	// Act
+	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.DeepEquals, expectedCIDRs)
+}
+
+func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressIPv6CIDR(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	expectedCIDRs := []string{"2001:db8::/32", "2001:db8:1::/48"}
+
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+
+	// Act
+	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.DeepEquals, expectedCIDRs)
+}
+
+func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressMixedIPv4IPv6(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	expectedCIDRs := []string{"192.0.2.0/24", "2001:db8::/32"}
+
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+
+	// Act
+	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.DeepEquals, expectedCIDRs)
+}

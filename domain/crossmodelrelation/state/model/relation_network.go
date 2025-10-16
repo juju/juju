@@ -50,6 +50,50 @@ VALUES ($relationNetworkIngress.*)
 	return errors.Capture(err)
 }
 
+// GetRelationNetworkIngress retrieves all ingress network CIDRs for the
+// specified relation.
+// It returns a [relationerrors.RelationNotFound] if the provided relation does
+// not exist.
+func (st *State) GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	selectStmt, err := st.Prepare(`
+SELECT &cidr.*
+FROM   relation_network_ingress
+WHERE  relation_uuid = $uuid.uuid
+`, cidr{}, uuid{})
+	if err != nil {
+		return nil, errors.Errorf("preparing select relation network ingress query: %w", err)
+	}
+
+	var cidrs []string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkRelationExists(ctx, tx, relationUUID); err != nil {
+			return errors.Capture(err)
+		}
+
+		var results []cidr
+		if err := tx.Query(ctx, selectStmt, uuid{UUID: relationUUID}).GetAll(&results); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("retrieving relation network ingress for relation %q: %w", relationUUID, err)
+		}
+
+		cidrs = make([]string, len(results))
+		for i, result := range results {
+			cidrs[i] = result.CIDR
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return cidrs, nil
+}
+
 // NamespaceForRelationIngressNetworksWatcher returns the namespace of the
 // relation_network_ingress table, used for the watcher.
 func (st *State) NamespaceForRelationIngressNetworksWatcher() string {
