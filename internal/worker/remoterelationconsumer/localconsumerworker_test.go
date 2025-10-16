@@ -1963,7 +1963,7 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 		EnsureUnitsExist(gomock.Any(), s.applicationUUID, unitNames).
 		Return(nil)
 	s.crossModelService.EXPECT().
-		RemoteUnitsEnterScope(gomock.Any(), s.applicationUUID, relationUUID, applicationSettings, unitSettings).
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), s.applicationUUID, relationUUID, applicationSettings, unitSettings).
 		DoAndReturn(func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error {
 			close(sync)
 			return nil
@@ -2023,7 +2023,7 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeNoUnits(c 
 		EnsureUnitsExist(gomock.Any(), s.applicationUUID, unitNames).
 		Return(nil)
 	s.crossModelService.EXPECT().
-		RemoteUnitsEnterScope(gomock.Any(), s.applicationUUID, relationUUID, applicationSettings, unitSettings).
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), s.applicationUUID, relationUUID, applicationSettings, unitSettings).
 		DoAndReturn(func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error {
 			close(sync)
 			return nil
@@ -2080,7 +2080,7 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeLeaveScope
 		EnsureUnitsExist(gomock.Any(), s.applicationUUID, unitNames).
 		Return(nil)
 	s.crossModelService.EXPECT().
-		RemoteUnitsEnterScope(gomock.Any(), s.applicationUUID, relationUUID, applicationSettings, unitSettings).
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), s.applicationUUID, relationUUID, applicationSettings, unitSettings).
 		Return(nil)
 	s.crossModelService.EXPECT().
 		GetRelationUnitUUID(gomock.Any(), relationUUID, unit.Name("foo/3")).

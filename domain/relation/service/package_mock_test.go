@@ -1181,44 +1181,6 @@ func (c *MockStateNeedsSubordinateUnitCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
-// RemoteUnitsEnterScope mocks base method.
-func (m *MockState) RemoteUnitsEnterScope(arg0 context.Context, arg1, arg2 string, arg3 map[string]string, arg4 map[string]map[string]string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoteUnitsEnterScope", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoteUnitsEnterScope indicates an expected call of RemoteUnitsEnterScope.
-func (mr *MockStateMockRecorder) RemoteUnitsEnterScope(arg0, arg1, arg2, arg3, arg4 any) *MockStateRemoteUnitsEnterScopeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteUnitsEnterScope", reflect.TypeOf((*MockState)(nil).RemoteUnitsEnterScope), arg0, arg1, arg2, arg3, arg4)
-	return &MockStateRemoteUnitsEnterScopeCall{Call: call}
-}
-
-// MockStateRemoteUnitsEnterScopeCall wrap *gomock.Call
-type MockStateRemoteUnitsEnterScopeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateRemoteUnitsEnterScopeCall) Return(arg0 error) *MockStateRemoteUnitsEnterScopeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateRemoteUnitsEnterScopeCall) Do(f func(context.Context, string, string, map[string]string, map[string]map[string]string) error) *MockStateRemoteUnitsEnterScopeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRemoteUnitsEnterScopeCall) DoAndReturn(f func(context.Context, string, string, map[string]string, map[string]map[string]string) error) *MockStateRemoteUnitsEnterScopeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetRelationApplicationAndUnitSettings mocks base method.
 func (m *MockState) SetRelationApplicationAndUnitSettings(arg0 context.Context, arg1 relation.UnitUUID, arg2, arg3 map[string]string) error {
 	m.ctrl.T.Helper()
@@ -1253,6 +1215,44 @@ func (c *MockStateSetRelationApplicationAndUnitSettingsCall) Do(f func(context.C
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetRelationApplicationAndUnitSettingsCall) DoAndReturn(f func(context.Context, relation.UnitUUID, map[string]string, map[string]string) error) *MockStateSetRelationApplicationAndUnitSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetRelationRemoteApplicationAndUnitSettings mocks base method.
+func (m *MockState) SetRelationRemoteApplicationAndUnitSettings(arg0 context.Context, arg1, arg2 string, arg3 map[string]string, arg4 map[string]map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRelationRemoteApplicationAndUnitSettings", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRelationRemoteApplicationAndUnitSettings indicates an expected call of SetRelationRemoteApplicationAndUnitSettings.
+func (mr *MockStateMockRecorder) SetRelationRemoteApplicationAndUnitSettings(arg0, arg1, arg2, arg3, arg4 any) *MockStateSetRelationRemoteApplicationAndUnitSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationRemoteApplicationAndUnitSettings", reflect.TypeOf((*MockState)(nil).SetRelationRemoteApplicationAndUnitSettings), arg0, arg1, arg2, arg3, arg4)
+	return &MockStateSetRelationRemoteApplicationAndUnitSettingsCall{Call: call}
+}
+
+// MockStateSetRelationRemoteApplicationAndUnitSettingsCall wrap *gomock.Call
+type MockStateSetRelationRemoteApplicationAndUnitSettingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetRelationRemoteApplicationAndUnitSettingsCall) Return(arg0 error) *MockStateSetRelationRemoteApplicationAndUnitSettingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetRelationRemoteApplicationAndUnitSettingsCall) Do(f func(context.Context, string, string, map[string]string, map[string]map[string]string) error) *MockStateSetRelationRemoteApplicationAndUnitSettingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetRelationRemoteApplicationAndUnitSettingsCall) DoAndReturn(f func(context.Context, string, string, map[string]string, map[string]map[string]string) error) *MockStateSetRelationRemoteApplicationAndUnitSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
