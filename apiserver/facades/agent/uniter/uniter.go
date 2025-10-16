@@ -45,6 +45,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/domain/unitstate"
+	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -2203,6 +2204,14 @@ func (u *UniterAPI) prepareRelationResult(
 		} else {
 			otherAppName = v.ApplicationName
 		}
+	}
+	// In case of peer relation, the other application name is the current one
+	if len(rel.Endpoints) == 1 && rel.Endpoints[0].Role == charm.RolePeer {
+		otherAppName = applicationName
+	}
+	// At this point we should have a valid otherAppName
+	if otherAppName == "" {
+		return params.RelationResultV2{}, errors.New("no other application found")
 	}
 	// Only an application in the relation can request this data.
 	if unitEp.ApplicationName != applicationName {
