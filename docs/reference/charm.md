@@ -138,9 +138,9 @@ Examples:
 (podspec-charm)=
 #### Podspec charm
 
-> Superseded by {ref}`sidecar charms <sidecar-charm>`. Also deprecated in Juju 3+.
+> No longer supported starting with Juju 4.
 
-In {ref}`Kubernetes charms <kubernetes-charm>`, a **podspec** charm is a {ref}`Kubernetes charm <kubernetes-charm>` designed to create and manage Kubernetes resources that are used by other charms or applications running on the cloud. As this pattern was difficult to implement correctly and also sidestepped Juju's model (the resources created by a podspec charm were not under Juju's control), this pattern has been deprecated in favor of {ref}`sidecar charms <sidecar-charm>`.
+In {ref}`Kubernetes charms <kubernetes-charm>`, a **podspec** charm is a {ref}`Kubernetes charm <kubernetes-charm>` designed to create and manage Kubernetes resources that are used by other charms or applications running on the cloud. As this pattern was difficult to implement correctly and also sidestepped Juju's model (the resources created by a podspec charm were not under Juju's control), this pattern has been dropped in favor of {ref}`sidecar charms <sidecar-charm>`.
 
 
 (charm-taxonomy-by-generation)=
