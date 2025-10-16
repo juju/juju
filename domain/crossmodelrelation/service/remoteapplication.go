@@ -63,6 +63,10 @@ type ModelRemoteApplicationState interface {
 	// for remote application consumers.
 	NamespaceRemoteApplicationConsumers() string
 
+	// NamespaceRemoteConsumerRelations returns the remote consumer relations
+	// namespace (i.e. the relations table).
+	NamespaceRemoteConsumerRelations() string
+
 	// SaveMacaroonForRelation saves the given macaroon for the specified
 	// remote application.
 	SaveMacaroonForRelation(context.Context, string, []byte) error
