@@ -1140,7 +1140,7 @@ func (st *State) GetRelationUnitsChanges(
 	var unitRelationData map[string]domainrelation.RelationData
 	var relationLife life.Value
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		relationLife, err = st.getLife(ctx, tx, "relation", relationUUID.String())
+		relationLife, err = st.getRelationLife(ctx, tx, relationUUID.String())
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1516,7 +1516,7 @@ AND    up.principal_uuid  = $getSub.unit_uuid
 // relation.
 func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, relationUUID, unitUUID string) error {
 	// Check relation is alive.
-	relationLife, err := st.getLife(ctx, tx, "relation", relationUUID)
+	relationLife, err := st.getRelationLife(ctx, tx, relationUUID)
 	if errors.Is(err, coreerrors.NotFound) {
 		return relationerrors.RelationNotFound
 	} else if err != nil {
@@ -1527,7 +1527,7 @@ func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, rela
 	}
 
 	// Check unit is alive.
-	unitLife, err := st.getLife(ctx, tx, "unit", unitUUID)
+	unitLife, err := st.getUnitLife(ctx, tx, unitUUID)
 	if errors.Is(err, coreerrors.NotFound) {
 		return applicationerrors.UnitNotFound
 	} else if err != nil {
@@ -1584,22 +1584,39 @@ func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, rela
 	return nil
 }
 
-// getLife takes a table and a UUID, it joins the table to life on life_id. If
-// the UUID cannot be found [coreerrors.NotFound] is returned.
-func (st *State) getLife(
-	ctx context.Context,
-	tx *sqlair.TX,
-	table, uuid string,
-) (life.Value, error) {
+func (st *State) getRelationLife(ctx context.Context, tx *sqlair.TX, uuid string) (life.Value, error) {
 	args := getLife{
 		UUID: uuid,
 	}
-	stmt, err := st.Prepare(fmt.Sprintf(`
+	stmt, err := st.Prepare(`
 SELECT &getLife.*
-FROM   %s t
+FROM   relation t
 JOIN   life l ON t.life_id = l.id
 WHERE  t.uuid = $getLife.uuid
-`, table), args)
+`, args)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, args).Get(&args)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", coreerrors.NotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return args.Life, nil
+}
+
+func (st *State) getUnitLife(ctx context.Context, tx *sqlair.TX, uuid string) (life.Value, error) {
+	args := getLife{
+		UUID: uuid,
+	}
+	stmt, err := st.Prepare(`
+SELECT &getLife.*
+FROM   unit t
+JOIN   life l ON t.life_id = l.id
+WHERE  t.uuid = $getLife.uuid
+`, args)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

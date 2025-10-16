@@ -51,8 +51,8 @@ WHERE  name IN ($names[:])
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// We need to ensure that relation exists and it has entered scope
 		// before attempting to set the application settings. If however we're
-		// just setting the application settings, and no units have been provided,
-		// then we can skip the whole unit statements below.
+		// just setting the application settings, and no units have been
+		// provided, then we can skip the whole unit statements below.
 		if len(unitNames) > 0 {
 
 			// Get all the unit UUIDs for the unit names.
@@ -69,10 +69,26 @@ WHERE  name IN ($names[:])
 				return errors.Errorf("expected %d units, got %d, missing: %v", len(unitNames), len(units), missing).Add(applicationerrors.UnitNotFound)
 			}
 
+			// Check relation is alive.
+			relationLife, err := st.getRelationLife(ctx, tx, relationUUID)
+			if errors.Is(err, coreerrors.NotFound) {
+				return relationerrors.RelationNotFound
+			} else if err != nil {
+				return errors.Errorf("getting relation life: %w", err)
+			} else if relationLife != life.Alive {
+				return relationerrors.CannotEnterScopeNotAlive
+			}
+
+			// Get the IDs of the applications in the relation.
+			appIDs, err := st.getApplicationsInRelation(ctx, tx, relationUUID)
+			if err != nil {
+				return errors.Errorf("getting applications in relation: %w", err)
+			}
+
 			// Set all the unit settings that are available.
 			for _, unit := range units {
 				// Ensure the unit can enter scope in this relation.
-				if err := st.checkUnitCanEnterScopeForRemoteRelation(ctx, tx, relationUUID, unit.UUID); err != nil {
+				if err := st.checkUnitCanEnterScopeForRemoteRelation(ctx, tx, unit.UUID, appIDs); err != nil {
 					return errors.Capture(err)
 				}
 
@@ -82,12 +98,12 @@ WHERE  name IN ($names[:])
 					return errors.Capture(err)
 				}
 
-				// We guarantee that the unit settings exist here, as we've checked
-				// that all the unit names exist above.
+				// We guarantee that the unit settings exist here, as we've
+				// checked that all the unit names exist above.
 				settings := unitSettings[unit.Name]
 
-				// Blindly insert the settings for the unit, replacing any existing
-				// settings.
+				// Blindly insert the settings for the unit, replacing any
+				// existing settings.
 				if err := st.insertRelationUnitSettings(ctx, tx, relationUnitUUID, settings); err != nil {
 					return errors.Errorf("replacing relation unit settings: %w", err)
 				}
@@ -107,35 +123,17 @@ WHERE  name IN ($names[:])
 	return nil
 }
 
-// checkUnitCanEnterScopeForRemoteRelation checks that the unit can enter scope in the given
-// relation.
-func (st *State) checkUnitCanEnterScopeForRemoteRelation(ctx context.Context, tx *sqlair.TX, relationUUID, unitUUID string) error {
-	// Check relation is alive.
-	relationLife, err := st.getLife(ctx, tx, "relation", relationUUID)
-	if errors.Is(err, coreerrors.NotFound) {
-		return relationerrors.RelationNotFound
-	} else if err != nil {
-		return errors.Errorf("getting relation life: %w", err)
-	}
-	if relationLife != life.Alive {
-		return relationerrors.CannotEnterScopeNotAlive
-	}
-
+// checkUnitCanEnterScopeForRemoteRelation checks that the unit can enter scope
+// in the given relation.
+func (st *State) checkUnitCanEnterScopeForRemoteRelation(ctx context.Context, tx *sqlair.TX, unitUUID string, appIDs []string) error {
 	// Check unit is alive.
-	unitLife, err := st.getLife(ctx, tx, "unit", unitUUID)
+	unitLife, err := st.getUnitLife(ctx, tx, unitUUID)
 	if errors.Is(err, coreerrors.NotFound) {
 		return applicationerrors.UnitNotFound
 	} else if err != nil {
 		return errors.Errorf("getting unit life: %w", err)
-	}
-	if unitLife != life.Alive {
+	} else if unitLife != life.Alive {
 		return relationerrors.CannotEnterScopeNotAlive
-	}
-
-	// Get the IDs of the applications in the relation.
-	appIDs, err := st.getApplicationsInRelation(ctx, tx, relationUUID)
-	if err != nil {
-		return errors.Errorf("getting applications in relation: %w", err)
 	}
 
 	// Get the ID of the application for the unit trying to enter scope.
