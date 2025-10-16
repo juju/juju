@@ -84,7 +84,7 @@ func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials
 	}
 
 	awsLogger := &awsLogger{
-		logger: logger,
+		logger: logger.Child("aws.s3"),
 	}
 
 	cfg, err := config.LoadDefaultConfig(
