@@ -561,8 +561,6 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 	machineUUIDRec := entityUUID{UUID: mUUID}
 
 	tables := []string{
-		"DELETE FROM machine_volume WHERE machine_uuid = $entityUUID.uuid",
-		"DELETE FROM machine_filesystem WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_manual WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_agent_version WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM instance_tag WHERE machine_uuid = $entityUUID.uuid",

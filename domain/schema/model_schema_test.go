@@ -152,7 +152,6 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_cloud_instance",
 		"machine_constraint",
 		"machine_container_type",
-		"machine_filesystem",
 		"machine_lxd_profile",
 		"machine_manual",
 		"machine_parent",
@@ -164,7 +163,6 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_ssh_host_key",
 		"machine_status_value",
 		"machine_status",
-		"machine_volume",
 
 		// Charm
 		"architecture",
