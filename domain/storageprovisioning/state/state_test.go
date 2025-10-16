@@ -20,6 +20,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
@@ -390,7 +391,7 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageAttachmentNotFound(c *tc.C)
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
 func (s *stateSuite) TestInitialWatchStatementForUnitStorageAttachments(c *tc.C) {
@@ -460,7 +461,7 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDWithStorageAttachmentNotFound(c
 	_, err := st.GetStorageAttachmentUUIDForUnit(
 		c.Context(), storageID, unitUUID.String(),
 	)
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
 func (s *stateSuite) TestGetStorageAttachmentUUIDWithUnitNotFound(c *tc.C) {

@@ -10,8 +10,8 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/domain/life"
-	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 )
 
 // StorageAttachmentExists returns true if a storage attachment with the input
@@ -131,7 +131,7 @@ WHERE  uuid = $entityUUID.uuid`, saLife, saUUID)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, saUUID).Get(&saLife)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return storageprovisioningerrors.StorageAttachmentNotFound
+			return storageerrors.StorageAttachmentNotFound
 		} else if err != nil {
 			return errors.Errorf("running storage attachment life query: %w", err)
 		}

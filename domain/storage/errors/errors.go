@@ -31,6 +31,9 @@ const (
 	// ProviderTypeNotFound is used when a storage provider type is not found.
 	ProviderTypeNotFound = errors.ConstError("storage provider type not found")
 
+	// StorageAttachmentNotFound is used when a storage attachment cannot be found.
+	StorageAttachmentNotFound = errors.ConstError("storage attachment not found")
+
 	// StorageNotFound describes an error that occurs when the storage being operated
 	// on does not exist.
 	StorageNotFound = errors.ConstError("storage not found")
