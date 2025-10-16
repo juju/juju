@@ -58,15 +58,15 @@ type State interface {
 		settings map[string]string,
 	) error
 
-	// EnterScopeForUnits indicates that the provided unit has joined the
+	// RemoteUnitsEnterScope indicates that the provided units have joined the
 	// relation. When the unit has already entered its relation scope,
-	// EnterScopeForUnits will report success but make no changes to state. The
+	// RemoteEnterScope will report success but make no changes to state. The
 	// unit's settings are created or overwritten in the relation according to
 	// the supplied map. This does not handle subordinate unit creation, or
 	// related checks.
-	EnterScopeForUnits(
+	RemoteUnitsEnterScope(
 		ctx context.Context,
-		relationUUID string,
+		applicationUUID, relationUUID string,
 		applicationSettings map[string]string,
 		unitSettings map[string]map[string]string,
 	) error
@@ -455,19 +455,25 @@ func (s *Service) EnterScope(
 	return nil
 }
 
-// EnterScopeForUnits indicates that the provided unit has joined the relation.
-// When the unit has already entered its relation scope, EnterScopeForUnits will
-// report success but make no changes to state. The unit's settings are created
-// or overwritten in the relation according to the supplied map.
-// This does not handle subordinate unit creation, or related checks.
-func (s *Service) EnterScopeForUnits(
+// RemoteUnitsEnterScope indicates that the provided units have joined the
+// relation. When the unit has already entered its relation scope,
+// RemoteEnterScope will report success but make no changes to state. The unit's
+// settings are created or overwritten in the relation according to the supplied
+// map. This does not handle subordinate unit creation, or related checks.
+func (s *Service) RemoteUnitsEnterScope(
 	ctx context.Context,
+	applicationUUID application.UUID,
 	relationUUID corerelation.UUID,
 	applicationSettings map[string]string,
 	unitSettings map[unit.Name]map[string]string,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if err := applicationUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+	}
 
 	if err := relationUUID.Validate(); err != nil {
 		return errors.Errorf(
@@ -483,8 +489,8 @@ func (s *Service) EnterScopeForUnits(
 		uSettings[unitName.String()] = settings
 	}
 
-	// Enter the unit into the relation scope.
-	if err := s.st.EnterScopeForUnits(ctx, relationUUID.String(), applicationSettings, uSettings); err != nil {
+	// Enter the units into the relation scope.
+	if err := s.st.RemoteUnitsEnterScope(ctx, applicationUUID.String(), relationUUID.String(), applicationSettings, uSettings); err != nil {
 		return errors.Capture(err)
 	}
 

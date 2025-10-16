@@ -3677,53 +3677,6 @@ VALUES (?,?)
 `, relationEndpointUUID, hash)
 }
 
-// getRelationUnitSettings gets the relation application settings.
-func (s *relationSuite) getRelationUnitSettings(c *tc.C, relationUnitUUID corerelation.UnitUUID) map[string]string {
-	settings := map[string]string{}
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-SELECT key, value
-FROM relation_unit_setting 
-WHERE relation_unit_uuid = ?
-`, relationUnitUUID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		defer func() { _ = rows.Close() }()
-		var (
-			key, value string
-		)
-		for rows.Next() {
-			if err := rows.Scan(&key, &value); err != nil {
-				return errors.Capture(err)
-			}
-			settings[key] = value
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting relation settings: %s",
-		errors.ErrorStack(err)))
-	return settings
-}
-
-func (s *relationSuite) getRelationUnitSettingsHash(c *tc.C, relationUnitUUID corerelation.UnitUUID) string {
-	var hash string
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRow(`
-SELECT sha256
-FROM   relation_unit_settings_hash
-WHERE  relation_unit_uuid = ?
-`, relationUnitUUID).Scan(&hash)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return hash
-}
-
 // fetchAllRelationStatusesOrderByRelationIDs retrieves all relation statuses
 // ordered by their relation IDs.
 // It executes a database query within a transaction and returns a slice of
@@ -3787,32 +3740,6 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching inserted relation endpoint: %s", errors.ErrorStack(err)))
 	return epUUIDsByRelID
-}
-
-// getRelationUnitInScope verifies that the expected row is populated in
-// relation_unit table.
-func (s *relationSuite) getRelationUnitInScope(
-	c *tc.C,
-	relationUUID corerelation.UUID,
-	unitUUID coreunit.UUID,
-) corerelation.UnitUUID {
-	var relationUnitUUID corerelation.UnitUUID
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRow(`
-SELECT ru.uuid
-FROM   relation_unit AS ru
-JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
-WHERE  re.relation_uuid = ?
-AND    ru.unit_uuid = ?
-`, relationUUID, unitUUID).Scan(&relationUnitUUID)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return relationUnitUUID
 }
 
 // setUnitSubordinate sets unit 1 to be a subordinate of unit 2.
