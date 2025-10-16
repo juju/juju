@@ -267,13 +267,6 @@ func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
 	return nil
 }
 
-// ProcessRelationChange processes any pending relation changes from the
-// offerer side of the relation. This ensures that we have a mirror image
-// of the relation data in the consumer model.
-func (s *Service) ProcessRelationChange(context.Context) error {
-	return nil
-}
-
 // EnsureUnitsExist ensures that the given synthetic units exist in the local
 // model.
 func (s *Service) EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error {
