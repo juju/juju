@@ -71,8 +71,9 @@ VALUES (?, ?, ?, 1, ?, 0, ?, 1024)
 	_, err = s.DB().ExecContext(
 		c.Context(),
 		`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provider_id)
-VALUES (?, ?, 0, ?)
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provider_id,
+                                provision_scope_id)
+VALUES (?, ?, 0, ?, 0)
 		`,
 		storageFilesystemUUID.String(),
 		storageFilesystemUUID.String(),
@@ -126,8 +127,9 @@ VALUES (?, ?, ?, 1, ?, 0, ?, 1024)
 	_, err = s.DB().ExecContext(
 		c.Context(),
 		`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provider_id)
-VALUES (?, ?, 0, ?)
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provider_id,
+                                provision_scope_id)
+VALUES (?, ?, 0, ?, 0)
 		`,
 		storageFilesystemUUID.String(),
 		storageFilesystemUUID.String(),
@@ -145,8 +147,9 @@ VALUES (?, ?, 0, ?)
 	_, err = s.DB().ExecContext(
 		c.Context(),
 		`
-INSERT INTO storage_volume (uuid, volume_id, life_id, provider_id)
-VALUES (?, ?, 0, ?)
+INSERT INTO storage_volume (uuid, volume_id, life_id, provider_id,
+                            provision_scope_id)
+VALUES (?, ?, 0, ?, 0)
 		`,
 		storageVolumeUUID.String(),
 		storageVolumeUUID.String(),
@@ -192,8 +195,9 @@ VALUES (?, ?, ?, 1, ?, 0, ?, 1024)
 	_, err = s.DB().ExecContext(
 		c.Context(),
 		`
-INSERT INTO storage_volume (uuid, volume_id, life_id, provider_id)
-VALUES (?, ?, 0, ?)
+INSERT INTO storage_volume (uuid, volume_id, life_id, provider_id,
+                            provision_scope_id)
+VALUES (?, ?, 0, ?, 0)
 		`,
 		storageVolumeUUID.String(),
 		storageVolumeUUID.String(),
