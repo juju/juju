@@ -50,6 +50,30 @@ func (s *typeSuite) TestCredentialKeyIsNotZero(c *tc.C) {
 	}
 }
 
+// TestCredentialKeyEscape is a regression test for asserting the escaping of
+// credential data before parsing to a tag. Specifically credential values that
+// contain a '_' rune need to be escaped in accordance with url patterns.
+func (s *typeSuite) TestCredentialKeyEscape(c *tc.C) {
+	k := Key{
+		Cloud: "maas_cloud",
+		Name:  "maas_cloud_credentials",
+		Owner: user.AdminUserName,
+	}
+
+	// Test to tag
+	tag, err := k.Tag()
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(
+		tag.String(),
+		tc.Equals,
+		"cloudcred-maas%5fcloud_admin_maas%5fcloud%5fcredentials",
+	)
+
+	// Test from tag
+	gotKey := KeyFromTag(tag)
+	c.Check(gotKey, tc.Equals, k)
+}
+
 func (s *typeSuite) TestCredentialKeyValidate(c *tc.C) {
 	tests := []struct {
 		Key Key
