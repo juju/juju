@@ -110,13 +110,13 @@ type RelationService interface {
 		unitName unit.Name,
 	) (corerelation.UnitUUID, error)
 
-	// EnterScopeForUnits indicates that the provided unit has joined the
+	// RemoteUnitsEnterScope indicates that the provided unit has joined the
 	// relation. When the unit has already entered its relation scope,
-	// EnterScopeForUnits will report success but make no changes to state. The
-	// unit's settings are created or overwritten in the relation according to
-	// the supplied map. This does not handle subordinate unit creation, or
+	// RemoteUnitsEnterScope will report success but make no changes to state.
+	// The unit's settings are created or overwritten in the relation according
+	// to the supplied map. This does not handle subordinate unit creation, or
 	// related checks.
-	EnterScopeForUnits(
+	RemoteUnitsEnterScope(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		applicationSettings map[string]string,
