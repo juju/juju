@@ -94,20 +94,9 @@ func (a *app) UnitsToRemove(ctx context.Context, desiredScale int) ([]string, er
 func (a *app) EnsurePVCs(
 	filesystems []storage.KubernetesFilesystemParams,
 	filesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
+	storageUniqueID string,
 ) error {
 	applier := a.newApplier()
-
-	ss, err := a.getStatefulSet()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
-		return ss, nil
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	pvcNames, err := a.pvcNames(storageUniqueID)
 	if err != nil {

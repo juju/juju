@@ -56,6 +56,7 @@ type Application interface {
 	EnsurePVCs(
 		[]storage.KubernetesFilesystemParams,
 		map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
+		string,
 	) error
 
 	ServiceInterface
@@ -151,6 +152,9 @@ type ApplicationConfig struct {
 
 	// CharmUser controls what user the charm/unit agent runs as.
 	CharmUser RunAs
+
+	// StorageUniqueID is used to construct the PVC name for an application.
+	StorageUniqueID string
 }
 
 // ContainerConfig describes a container that is deployed alonside the uniter/charm container.

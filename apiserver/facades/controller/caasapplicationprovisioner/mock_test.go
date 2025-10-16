@@ -234,6 +234,7 @@ type mockApplication struct {
 	charmPending              bool
 	provisioningState         *state.ApplicationProvisioningState
 	unitAttachmentInfos       []state.UnitAttachmentInfo
+	storageUniqueID           string
 }
 
 func (a *mockApplication) CharmPendingToBeDownloaded() bool {
@@ -387,6 +388,11 @@ func (a *mockApplication) ProvisioningState() *state.ApplicationProvisioningStat
 func (a *mockApplication) GetUnitAttachmentInfos() ([]state.UnitAttachmentInfo, error) {
 	a.MethodCall(a, "GetUnitAttachmentInfos")
 	return a.unitAttachmentInfos, a.NextErr()
+}
+
+func (a *mockApplication) GetStorageUniqueID() string {
+	a.MethodCall(a, "GetStorageUniqueID")
+	return a.storageUniqueID
 }
 
 type mockCharm struct {
