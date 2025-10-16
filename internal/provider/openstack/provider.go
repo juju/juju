@@ -2242,7 +2242,9 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	}
 
 	client := e.neutron()
-	ports, err := client.ListPortsV2()
+	filter := neutron.NewFilter()
+	filter.Set("device_id", string(id))
+	ports, err := client.ListPortsV2(filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
