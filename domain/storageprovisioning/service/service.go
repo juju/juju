@@ -98,8 +98,9 @@ type State interface {
 	// unit UUID.
 	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
 	// instance exists for the provided storage instance UUID.
-	// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
-	// attachment does not exist for the unit and storage instance.
+	// - [github.com/juju/juju/domain/storage/errors.StorageAttachmentNotFound]
+	// when the storage attachment does not exist for the unit and storage
+	// instance.
 	GetStorageAttachmentLife(
 		ctx context.Context, unitUUID, storageInstanceUUID string,
 	) (domainlife.Life, error)
@@ -120,8 +121,8 @@ type State interface {
 	// - [applicationerrors.UnitNotFound] if the unit does not exist.
 	// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
 	// instance does not exist for the provided storage ID.
-	// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
-	// storage attachment does not exist.
+	// - [github.com/juju/juju/domain/storage/errors.StorageAttachmentNotFound]
+	// if the storage attachment does not exist.
 	GetStorageAttachmentUUIDForUnit(
 		ctx context.Context, storageID, unitUUID string,
 	) (string, error)
@@ -290,7 +291,8 @@ func (s *Service) GetStorageAttachmentIDsForUnit(
 // - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
 // instance exists for the provided ID.
 // - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
-// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage attachment does not exist for the unit.
+// - [github.com/juju/juju/domain/storage/errors.StorageAttachmentNotFound]
+// when the storage attachment does not exist for the unit.
 func (s *Service) GetStorageAttachmentLife(
 	ctx context.Context, unitUUID coreunit.UUID, storageID string,
 ) (domainlife.Life, error) {
@@ -355,8 +357,8 @@ func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
 // instance does not exist for the provided storage ID.
-// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
-// storage attachment does not exist.
+// - [github.com/juju/juju/domain/storage/errors.StorageAttachmentNotFound] if
+// the storage attachment does not exist.
 func (s *Service) GetStorageAttachmentUUIDForUnit(
 	ctx context.Context,
 	storageID string,

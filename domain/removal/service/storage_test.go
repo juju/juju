@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
-	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageprovtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
@@ -92,7 +92,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentNotFound(c *tc.C) {
 	s.modelState.EXPECT().StorageAttachmentExists(gomock.Any(), saUUID.String()).Return(false, nil)
 
 	_, err := s.newService(c).RemoveStorageAttachment(c.Context(), saUUID, false, 0)
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
 func (s *storageSuite) TestExecuteJobForStorageAttachmentNotFound(c *tc.C) {
@@ -102,7 +102,7 @@ func (s *storageSuite) TestExecuteJobForStorageAttachmentNotFound(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.GetStorageAttachmentLife(
-		gomock.Any(), j.EntityUUID).Return(-1, storageprovisioningerrors.StorageAttachmentNotFound)
+		gomock.Any(), j.EntityUUID).Return(-1, storageerrors.StorageAttachmentNotFound)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)

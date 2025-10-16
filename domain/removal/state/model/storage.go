@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
-	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -132,7 +132,7 @@ WHERE  uuid = $entityUUID.uuid`, saLife, saUUID)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, saUUID).Get(&saLife)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return storageprovisioningerrors.StorageAttachmentNotFound
+			return storageerrors.StorageAttachmentNotFound
 		} else if err != nil {
 			return errors.Errorf("running storage attachment life query: %w", err)
 		}
@@ -158,7 +158,7 @@ func (st *State) DeleteStorageAttachment(ctx context.Context, rUUID string) erro
 	saUUID := entityUUID{UUID: rUUID}
 
 	q := `
-SELECT suo.storage_instance_uuid AS &entityUUID.uuid 
+SELECT suo.storage_instance_uuid AS &entityUUID.uuid
 FROM   storage_unit_owner suo
 JOIN   storage_attachment sa
        ON  suo.storage_instance_uuid = sa.storage_instance_uuid
