@@ -4,6 +4,7 @@
 package watchertest
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/tc"
@@ -45,22 +46,28 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 	}
 }
 
-// SecretTriggerSliceAssert returns a WatcherAssert that checks that the watcher has
-// received at least the given []watcher.SecretTriggerChange changes. The changes are
-// concatenated before the assertion, order doesn't matter during assertion.
-func SecretTriggerSliceAssert[T watcher.SecretTriggerChange](expect ...T) WatcherAssert[[]T] {
-	return func(c *tc.C, changes [][]T) bool {
-		var received []T
-		for _, change := range changes {
-			received = append(received, change...)
+// TimedSliceAssert returns a WatcherAssert that checks that the watcher has
+// received at least the given []T changes. The changes are concatenated before
+// the assertion, and the time fields are checked to be within a certain
+// tolerance of the expected values. The order of the changes does not matter
+// during the assertion.
+func TimedSliceAssert[T any](timeFieldNames ...string) func(expect ...T) WatcherAssert[[]T] {
+	mc := tc.NewMultiChecker()
+	for _, field := range timeFieldNames {
+		mc.AddExpr(fmt.Sprintf(`_.%s`, field), tc.Almost, tc.ExpectedValue)
+	}
+	return func(expect ...T) WatcherAssert[[]T] {
+		return func(c *tc.C, changes [][]T) bool {
+			var received []T
+			for _, change := range changes {
+				received = append(received, change...)
+			}
+			if len(received) >= len(expect) {
+				c.Assert(received, tc.UnorderedMatch[[]T](mc), expect)
+				return true
+			}
+			return false
 		}
-		if len(received) >= len(expect) {
-			mc := tc.NewMultiChecker()
-			mc.AddExpr(`_[_].NextTriggerTime`, tc.Almost, tc.ExpectedValue)
-			c.Assert(received, mc, expect)
-			return true
-		}
-		return false
 	}
 }
 
