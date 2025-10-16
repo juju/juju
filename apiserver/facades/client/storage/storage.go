@@ -89,8 +89,6 @@ type ApplicationService interface {
 	GetUnitMachineName(ctx context.Context, unitName unit.Name) (machine.Name, error)
 }
 
-type storageRegistryGetter func(context.Context) (storage.ProviderRegistry, error)
-
 // StorageAPIv6 provides the Storage API facade for version 6.
 type StorageAPIv6 struct {
 	*StorageAPI
