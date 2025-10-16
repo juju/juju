@@ -470,13 +470,17 @@ sudo systemctl restart jujud-machine-2
 (migrate-a-model)=
 ## Migrate a model
 
-Model migration is the movement of a model from one controller to another. The same configuration of machines, units, and their relations will be replicated on the destination controller, while your applications continue uninterrupted. Migration is used to upgrade models across minor or major versions. Migration is also useful for load balancing: If a controller hosting multiple models reaches capacity, you can move the busiest models to a new controller, reducing load without affecting your applications.
-
 ```{important}
+Migrating Juju<4 models to a Juju 4 controller will not work in Juju 4.0.0 but should be possible in future Juju 4 versions.
+```
+
+Model migration is the movement of a model from one controller to another.
+
+The same configuration of machines, units, and their relations will be replicated on the destination controller, while your applications continue uninterrupted.
+
+Migration is used to upgrade models across minor or major versions. Migration is also useful for load balancing: If a controller hosting multiple models reaches capacity, you can move the busiest models to a new controller, reducing load without affecting your applications.
 
 A controller model cannot be migrated.
-
-```
 
 
 **Prepare for migration.**
