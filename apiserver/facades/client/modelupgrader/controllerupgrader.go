@@ -1,3 +1,6 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package modelupgrader
 
 import (
@@ -253,7 +256,6 @@ func (c *ControllerUpgraderAPI) doUpgrade(ctx context.Context, arg params.Upgrad
 }
 
 // UpgradeModel upgrades a controller and the model hosting the controller.
-// TODO(adisazhar123): support arg.dryRun.
 func (c *ControllerUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeModelParams) (params.UpgradeModelResult, error) {
 	var result params.UpgradeModelResult
 

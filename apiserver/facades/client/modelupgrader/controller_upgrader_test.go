@@ -4,7 +4,10 @@
 package modelupgrader
 
 import (
-	"context"
+	"testing"
+
+	"go.uber.org/mock/gomock"
+
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/facade/mocks"
 	modelupgradermocks "github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
@@ -21,8 +24,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
-	"testing"
 )
 
 type controllerUpgraderAPISuite struct {
@@ -77,7 +78,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionAndStream(c *tc.
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
 		TargetVersion: version,
 		AgentStream:   "released",
@@ -108,7 +109,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionAndStreamDryRun(
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
 		TargetVersion: version,
 		AgentStream:   "released",
@@ -139,7 +140,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersion(c *tc.C) {
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
 		TargetVersion: version,
 	})
@@ -168,7 +169,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionDryRun(c *tc.C) 
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
 		TargetVersion: version,
 		DryRun:        true,
@@ -199,7 +200,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStream(c *tc.C) {
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:    u.modelTag.String(),
 		AgentStream: "released",
 	})
@@ -231,7 +232,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:    u.modelTag.String(),
 		AgentStream: "released",
 		DryRun:      true,
@@ -261,7 +262,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStream(c *
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -289,7 +290,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStreamDryR
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 		DryRun:   true,
 	})
@@ -315,7 +316,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrMissingControllerBina
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -345,7 +346,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrControllerUpgradeBloc
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -373,7 +374,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrVersionNotSupportedTo
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -396,7 +397,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrAgentStreamNotValidTo
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -420,7 +421,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapOtherErrorsToServerError
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -443,7 +444,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelNoWriteAccess(c *tc.C) {
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -466,7 +467,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelChangeNotAllowed(c *tc.C) {
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -486,7 +487,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrorBecauseOfDifferentMode
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: names.NewModelTag(uuid.MustNewUUID().String()).String(),
 	})
 
@@ -506,7 +507,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrorModelTag(c *tc.C) {
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: names.NewModelTag("broken-uuid").String(),
 	})
 
@@ -532,7 +533,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrorCanUpgrade(c *tc.C) {
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -555,7 +556,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrUnknownStreamMapToNotVal
 		u.modelTag,
 		u.authorizer, u.check, u.upgraderService)
 
-	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:    u.modelTag.String(),
 		AgentStream: "unknownstream",
 	})

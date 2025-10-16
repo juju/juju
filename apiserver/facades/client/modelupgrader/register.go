@@ -31,7 +31,7 @@ type UpgraderAPI interface {
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegisterForMultiModel("ModelUpgrader", 1, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return newUpgraderFacadeV1(ctx)
-	}, reflect.TypeOf((UpgraderAPI)(nil)))
+	}, reflect.TypeOf((*ModelUpgraderAPI)(nil)))
 }
 
 // newUpgraderFacadeV1 returns which facade to register.
