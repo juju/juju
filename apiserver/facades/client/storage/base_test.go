@@ -16,7 +16,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
-	jujustorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -39,7 +38,6 @@ type baseStorageSuite struct {
 	blockCommandService *storage.MockBlockCommandService
 	storageService      *storage.MockStorageService
 	applicationService  *storage.MockApplicationService
-	registry            jujustorage.StaticProviderRegistry
 	poolsInUse          []string
 }
 
@@ -60,7 +58,6 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 		return machine.Name(s.machineTag.Id()), nil
 	}).AnyTimes()
 
-	s.registry = jujustorage.StaticProviderRegistry{Providers: map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.poolsInUse = []string{}
 
 	s.controllerUUID = uuid.MustNewUUID().String()
@@ -68,17 +65,13 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.api = storage.NewStorageAPI(
 		s.controllerUUID, s.modelUUID,
 		s.blockDeviceService,
-		s.storageService, s.applicationService, s.storageRegistryGetter,
+		s.storageService, s.applicationService,
 		s.authorizer, s.blockCommandService)
 	s.apiCaas = storage.NewStorageAPI(
 		s.controllerUUID, s.modelUUID,
 		s.blockDeviceService,
-		s.storageService, s.applicationService, s.storageRegistryGetter,
+		s.storageService, s.applicationService,
 		s.authorizer, s.blockCommandService)
 
 	return ctrl
-}
-
-func (s *baseStorageSuite) storageRegistryGetter(context.Context) (jujustorage.ProviderRegistry, error) {
-	return s.registry, nil
 }

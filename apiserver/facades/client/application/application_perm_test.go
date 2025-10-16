@@ -32,7 +32,7 @@ func (s *permBaseSuite) TestAPIConstruction(c *tc.C) {
 		s.authorizer,
 		nil,
 		s.controllerUUID, s.modelUUID, "",
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil,
 		clock.WallClock,
 	)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -48,7 +48,7 @@ func (s *permBaseSuite) TestAPIServiceConstruction(c *tc.C) {
 		s.authorizer,
 		nil,
 		s.controllerUUID, s.modelUUID, "",
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil,
 		clock.WallClock,
 	)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)

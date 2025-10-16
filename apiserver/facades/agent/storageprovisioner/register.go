@@ -7,8 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -41,17 +39,6 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 	domainServices := ctx.DomainServices()
 	storageService := domainServices.Storage()
 
-	registry, err := storageService.GetStorageRegistry(stdCtx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Get model UUID
-	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return NewStorageProvisionerAPIv4(
 		stdCtx,
 		ctx.WatcherRegistry(),
@@ -60,12 +47,11 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		domainServices.Machine(),
 		domainServices.Application(),
 		ctx.Auth(),
-		registry,
 		storageService,
 		domainServices.Status(),
 		domainServices.StorageProvisioning(),
 		ctx.Logger().Child("storageprovisioner"),
-		modelInfo.UUID,
+		ctx.ModelUUID(),
 		ctx.ControllerUUID(),
 	)
 }
