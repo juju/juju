@@ -650,6 +650,134 @@ VALUES (?,?,?),
 	}))
 }
 
+func (s *watcherSuite) TestWatchRelationUnits(c *tc.C) {
+	// Arrange:
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_unit_settings_hash")
+
+	config := s.setupTestWatchRelationUnits(c)
+
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchRelationUnits(c.Context(), config.relationUUID, config.watchedAppUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	relationUnitUUID := uuid.MustNewUUID().String()
+	// Arrange: insert two relation units
+	// Assert: change seen
+	harness.AddTest(c, func(c *tc.C) {
+		s.arrange(c, `
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
+VALUES (?,?,?),
+       (?,?,?)`,
+			relationUnitUUID, config.watchedRelationEndpointUUID, config.watched0UUID,
+			uuid.MustNewUUID().String(), config.watchedRelationEndpointUUID, config.watched1UUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Act: set relation unit departing
+	// Assert: no change seen, per custom trigger
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "UPDATE relation_unit SET departing = true WHERE uuid = ?",
+			relationUnitUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Act: update the unit settings hash.
+	// Assert: change seen
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
+			relationUnitUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Act: add relation unit for not watch endpoint
+	// Assert: no change
+	ignoredRelationUnitUUID := uuid.MustNewUUID().String()
+	harness.AddTest(c, func(c *tc.C) {
+		s.arrange(c, `
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
+VALUES (?,?,?)`,
+			ignoredRelationUnitUUID, config.otherRelationEndpointUUID, config.other0UUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Act: update the unit settings hash of unwatched endpoint.
+	// Assert: change seen
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
+			ignoredRelationUnitUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Act: update the application settings hash.
+	// Assert: change seen
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, 'hash')",
+			config.watchedRelationEndpointUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Act: run test harness.
+	// Assert: initial events are related units
+	harness.Run(c, struct{}{})
+}
+
+type testWatchRelationUnits struct {
+	relationUUID                relation.UUID
+	watchedAppUUID              coreapplication.UUID
+	watchedRelationEndpointUUID string
+	watched0UUID, watched1UUID  string
+	otherRelationEndpointUUID   string
+	other0UUID                  string
+}
+
+func (s *watcherSuite) setupTestWatchRelationUnits(c *tc.C) testWatchRelationUnits {
+	watchedUnit1 := "watched/0"
+	relationUUID := relationtesting.GenRelationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+	watchedAppUUID := applicationtesting.GenApplicationUUID(c)
+	otherAppUUID := applicationtesting.GenApplicationUUID(c)
+	watched0UUID := unittesting.GenUnitUUID(c)
+	watched1UUID := unittesting.GenUnitUUID(c)
+	other0UUID := unittesting.GenUnitUUID(c)
+	charmRelationProviderUUID := uuid.MustNewUUID()
+	charmRelationRequiresUUID := uuid.MustNewUUID()
+	watchedEndpointUUID := uuid.MustNewUUID()
+	otherEndpointUUID := uuid.MustNewUUID()
+	watchedRelationEndpointUUID := relationtesting.GenEndpointUUID(c)
+	otherRelationEndpointUUID := relationtesting.GenEndpointUUID(c)
+	s.addCharm(c, charmUUID, "whatever")
+	s.addCharmRelation(c, charmUUID, charmRelationProviderUUID, 0)
+	s.addCharmRelation(c, charmUUID, charmRelationRequiresUUID, 1)
+	s.addApplication(c, charmUUID, watchedAppUUID, "watched")
+	s.addApplication(c, charmUUID, otherAppUUID, "other")
+	s.addUnit(c, watched0UUID, coreunit.Name(watchedUnit1), watchedAppUUID, charmUUID)
+	s.addUnit(c, watched1UUID, "watched/1", watchedAppUUID, charmUUID)
+	s.addUnit(c, other0UUID, "other/0", otherAppUUID, charmUUID)
+	s.addApplicationEndpoint(c, watchedEndpointUUID, watchedAppUUID, charmRelationProviderUUID)
+	s.addApplicationEndpoint(c, otherEndpointUUID, otherAppUUID, charmRelationRequiresUUID)
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, watchedRelationEndpointUUID, relationUUID, watchedEndpointUUID)
+	s.addRelationEndpoint(c, otherRelationEndpointUUID, relationUUID, otherEndpointUUID)
+
+	return testWatchRelationUnits{
+		relationUUID:                relationUUID,
+		watchedAppUUID:              watchedAppUUID,
+		watchedRelationEndpointUUID: watchedRelationEndpointUUID.String(),
+		watched0UUID:                watched0UUID.String(),
+		watched1UUID:                watched1UUID.String(),
+		otherRelationEndpointUUID:   otherRelationEndpointUUID.String(),
+		other0UUID:                  other0UUID.String(),
+	}
+}
+
 type testWatchRelationUnit struct {
 	watchedUnit1                           coreunit.Name
 	relationUUID                           relation.UUID

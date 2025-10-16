@@ -83,18 +83,18 @@ func (c *MockServiceGetRelationUnitsCall) DoAndReturn(f func(context.Context, re
 }
 
 // WatchRelationUnits mocks base method.
-func (m *MockService) WatchRelationUnits(arg0 context.Context, arg1 application.UUID) (watcher.NotifyWatcher, error) {
+func (m *MockService) WatchRelationUnits(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchRelationUnits", arg0, arg1)
+	ret := m.ctrl.Call(m, "WatchRelationUnits", arg0, arg1, arg2)
 	ret0, _ := ret[0].(watcher.NotifyWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchRelationUnits indicates an expected call of WatchRelationUnits.
-func (mr *MockServiceMockRecorder) WatchRelationUnits(arg0, arg1 any) *MockServiceWatchRelationUnitsCall {
+func (mr *MockServiceMockRecorder) WatchRelationUnits(arg0, arg1, arg2 any) *MockServiceWatchRelationUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationUnits", reflect.TypeOf((*MockService)(nil).WatchRelationUnits), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationUnits", reflect.TypeOf((*MockService)(nil).WatchRelationUnits), arg0, arg1, arg2)
 	return &MockServiceWatchRelationUnitsCall{Call: call}
 }
 
@@ -110,13 +110,13 @@ func (c *MockServiceWatchRelationUnitsCall) Return(arg0 watcher.NotifyWatcher, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceWatchRelationUnitsCall) Do(f func(context.Context, application.UUID) (watcher.NotifyWatcher, error)) *MockServiceWatchRelationUnitsCall {
+func (c *MockServiceWatchRelationUnitsCall) Do(f func(context.Context, relation.UUID, application.UUID) (watcher.NotifyWatcher, error)) *MockServiceWatchRelationUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, application.UUID) (watcher.NotifyWatcher, error)) *MockServiceWatchRelationUnitsCall {
+func (c *MockServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, relation.UUID, application.UUID) (watcher.NotifyWatcher, error)) *MockServiceWatchRelationUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

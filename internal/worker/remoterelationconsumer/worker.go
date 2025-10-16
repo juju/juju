@@ -96,7 +96,7 @@ type RelationService interface {
 
 	// WatchRelationUnits returns a watcher for changes to the units
 	// in the given relation in the local model.
-	WatchRelationUnits(context.Context, application.UUID) (watcher.NotifyWatcher, error)
+	WatchRelationUnits(context.Context, corerelation.UUID, application.UUID) (watcher.NotifyWatcher, error)
 
 	// GetRelationUnits returns the current state of the relation units.
 	GetRelationUnits(context.Context, corerelation.UUID, application.UUID) (relation.RelationUnitChange, error)

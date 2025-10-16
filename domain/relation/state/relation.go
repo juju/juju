@@ -33,6 +33,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/relation/internal"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -2645,6 +2646,63 @@ WHERE   ae.application_uuid = $entityUUID.uuid
 // tracking application settings in the database.
 func (st *State) WatcherApplicationSettingsNamespace() string {
 	return "relation_application_settings_hash"
+}
+
+// GetWatcherRelationUnitsData returns the data used to the RelationsUnits
+// watcher: relation endpoint UUID and namespaces.
+func (st *State) GetWatcherRelationUnitsData(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationUUID application.UUID,
+) (internal.WatcherRelationUnitsData, error) {
+	relationEndpointUUID, err := st.GetRelationEndpointUUID(ctx, domainrelation.GetRelationEndpointUUIDArgs{
+		ApplicationUUID: applicationUUID,
+		RelationUUID:    relationUUID,
+	})
+	if err != nil {
+		return internal.WatcherRelationUnitsData{}, errors.Capture(err)
+	}
+
+	return internal.WatcherRelationUnitsData{
+		RelationEndpointUUID:      relationEndpointUUID.String(),
+		RelationUnitNS:            "custom_relation_unit_by_endpoint_uuid",
+		ApplicationSettingsHashNS: "relation_application_settings_hash",
+		UnitSettingsHashNS:        "relation_unit_settings_hash",
+	}, nil
+}
+
+// GetRelationUnitUUIDsByEndpointUUID returns all unit relation uuids for the
+// provided relation endpoint uuid.
+func (st *State) GetRelationUnitUUIDsByEndpointUUID(ctx context.Context, relationEndpointUUID string) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	input := entityUUID{UUID: relationEndpointUUID}
+	stmt, err := st.Prepare(`
+SELECT uuid AS &entityUUID.uuid
+FROM   relation_unit
+WHERE  relation_endpoint_uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var output []entityUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, input).GetAll(&output)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(output, func(in entityUUID) string {
+		return in.UUID
+	}), nil
 }
 
 // GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a relation

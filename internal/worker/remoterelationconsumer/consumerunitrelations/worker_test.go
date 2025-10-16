@@ -95,10 +95,11 @@ func (s *localUnitRelationsWorker) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerApplicationUUID).DoAndReturn(func(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error) {
-		defer close(done)
-		return watchertest.NewMockNotifyWatcher(make(<-chan struct{})), nil
-	})
+	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerRelationUUID, s.consumerApplicationUUID).DoAndReturn(
+		func(context.Context, corerelation.UUID, coreapplication.UUID) (watcher.NotifyWatcher, error) {
+			defer close(done)
+			return watchertest.NewMockNotifyWatcher(make(<-chan struct{})), nil
+		})
 
 	w := s.newWorker(c, s.newConfig(c))
 	defer workertest.DirtyKill(c, w)
@@ -118,8 +119,8 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 	ch := make(chan struct{})
 
 	sync := make(chan struct{})
-	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerApplicationUUID).
-		DoAndReturn(func(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error) {
+	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerRelationUUID, s.consumerApplicationUUID).
+		DoAndReturn(func(context.Context, corerelation.UUID, coreapplication.UUID) (watcher.NotifyWatcher, error) {
 			defer close(sync)
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
@@ -190,8 +191,8 @@ func (s *localUnitRelationsWorker) TestChangeEventIsEmpty(c *tc.C) {
 	ch := make(chan struct{})
 
 	sync := make(chan struct{})
-	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerApplicationUUID).
-		DoAndReturn(func(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error) {
+	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerRelationUUID, s.consumerApplicationUUID).
+		DoAndReturn(func(context.Context, corerelation.UUID, coreapplication.UUID) (watcher.NotifyWatcher, error) {
 			defer close(sync)
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
@@ -229,8 +230,8 @@ func (s *localUnitRelationsWorker) TestGetRelationUnitsError(c *tc.C) {
 
 	done := make(chan struct{})
 	sync := make(chan struct{})
-	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerApplicationUUID).
-		DoAndReturn(func(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error) {
+	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerRelationUUID, s.consumerApplicationUUID).
+		DoAndReturn(func(context.Context, corerelation.UUID, coreapplication.UUID) (watcher.NotifyWatcher, error) {
 			defer close(sync)
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
@@ -271,8 +272,8 @@ func (s *localUnitRelationsWorker) TestReport(c *tc.C) {
 	ch := make(chan struct{})
 
 	sync := make(chan struct{})
-	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerApplicationUUID).
-		DoAndReturn(func(context.Context, coreapplication.UUID) (watcher.NotifyWatcher, error) {
+	s.service.EXPECT().WatchRelationUnits(gomock.Any(), s.consumerRelationUUID, s.consumerApplicationUUID).
+		DoAndReturn(func(context.Context, corerelation.UUID, coreapplication.UUID) (watcher.NotifyWatcher, error) {
 			defer close(sync)
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})

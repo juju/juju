@@ -55,6 +55,7 @@ const (
 	customNamespaceStorageAttachmentLifecycle
 	customNamespaceOperatingTaskStatusPending
 	customNamespaceOperatingTaskStatusPendingOrAborting
+	customNamespaceRelationUnitByEndpointUUID
 )
 
 const (

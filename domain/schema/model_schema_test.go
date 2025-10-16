@@ -733,6 +733,9 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_insert_machine_task_if_not_unit_task",
 		"trg_insert_unit_task_if_not_machine_task",
 		"trg_insert_unit_for_cmr_app",
+
+		"trg_log_custom_relation_unit_insert",
+		"trg_log_custom_relation_unit_delete",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")

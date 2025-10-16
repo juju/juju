@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
@@ -65,30 +65,39 @@ type WatcherState interface {
 		applicationID application.UUID,
 	) (relation.OtherApplicationForWatcher, error)
 
+	// GetWatcherRelationUnitsData returns the data used to the RelationsUnits
+	// watcher: relation endpoint UUID and namespaces.
+	GetWatcherRelationUnitsData(
+		context.Context,
+		corerelation.UUID,
+		application.UUID,
+	) (internal.WatcherRelationUnitsData, error)
+
 	// InitialWatchLifeSuspendedStatus returns the two tables to watch for
 	// a relation's Life and Suspended status when the relation contains
 	// the provided application and the initial namespace query.
 	InitialWatchLifeSuspendedStatus(id application.UUID) (string, string, eventsource.NamespaceQuery)
-
-	// WatcherApplicationSettingsNamespace provides the table name to set up
-	// watchers for relation application settings.
-	WatcherApplicationSettingsNamespace() string
 
 	// InitialWatchRelatedUnits initializes a watch for changes related to the
 	// specified unit in the given relation.
 	InitialWatchRelatedUnits(
 		ctx context.Context, unitUUID, relUUID string,
 	) ([]string, eventsource.NamespaceQuery, eventsource.Mapper, error)
+
+	// WatcherApplicationSettingsNamespace provides the table name to set up
+	// watchers for relation application settings.
+	WatcherApplicationSettingsNamespace() string
 }
 
 // WatcherFactory describes methods for creating watchers that are used by the
 // WatchableService.
 type WatcherFactory interface {
-	// NewNotifyWatcher returns a new watcher that receives changes from the
+	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
 	// input base watcher's db/queue.
-	NewNotifyWatcher(
+	NewNotifyMapperWatcher(
 		ctx context.Context,
 		summary string,
+		mapper eventsource.Mapper,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
@@ -234,8 +243,73 @@ func (s *WatchableService) WatchRelatedUnits(
 
 // WatchRelationUnits returns a watcher for changes to the units
 // in the given relation in the local model.
-func (s *WatchableService) WatchRelationUnits(context.Context, application.UUID) (watcher.NotifyWatcher, error) {
-	return nil, errors.Errorf("WatchRelationUnits").Add(coreerrors.NotImplemented)
+func (s *WatchableService) WatchRelationUnits(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationUUID application.UUID,
+) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := applicationUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	watcherRelationUnitsData, err := s.st.GetWatcherRelationUnitsData(ctx, relationUUID, applicationUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	relationUnitUUIDs := set.NewStrings()
+	mapper := func(ctx context.Context, events []changestream.ChangeEvent) ([]string, error) {
+		var out []string
+		for _, e := range events {
+			var wantEvent bool
+			switch e.Namespace() {
+			case watcherRelationUnitsData.UnitSettingsHashNS:
+				if relationUnitUUIDs.Contains(e.Changed()) {
+					wantEvent = true
+				}
+			case watcherRelationUnitsData.ApplicationSettingsHashNS:
+				wantEvent = true
+			case watcherRelationUnitsData.RelationUnitNS:
+				relUnitUUIDs, err := s.st.GetRelationUnitUUIDsByEndpointUUID(ctx, watcherRelationUnitsData.RelationEndpointUUID)
+				if err != nil {
+					return nil, errors.Capture(err)
+				}
+				relationUnitUUIDs = set.NewStrings(relUnitUUIDs...)
+
+				wantEvent = true
+			}
+			if wantEvent {
+				out = append(out, e.Changed())
+			}
+		}
+		return out, nil
+	}
+
+	return s.watcherFactory.NewNotifyMapperWatcher(
+		ctx,
+		"WatchRelationUnits",
+		mapper,
+		eventsource.PredicateFilter(
+			watcherRelationUnitsData.RelationUnitNS,
+			changestream.All,
+			eventsource.EqualsPredicate(watcherRelationUnitsData.RelationEndpointUUID),
+		),
+		eventsource.PredicateFilter(
+			watcherRelationUnitsData.ApplicationSettingsHashNS,
+			changestream.All,
+			eventsource.EqualsPredicate(watcherRelationUnitsData.RelationEndpointUUID),
+		),
+		eventsource.NamespaceFilter(
+			watcherRelationUnitsData.UnitSettingsHashNS,
+			changestream.All,
+		),
+	)
 }
 
 // namespaceMapper represents methods required to be satisfy the arguments of
