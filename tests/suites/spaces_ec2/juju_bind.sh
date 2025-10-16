@@ -19,7 +19,6 @@ run_juju_bind() {
 	ifaces=$(juju ssh ${juju_machine_id} 'ip -j link' | jq -r '.[].ifname | select(. | startswith("en") or startswith("eth"))')
 	primary_iface=$(echo $ifaces | cut -d " " -f1)
 	hotplug_iface=$(echo $ifaces | cut -d " " -f2)
-	expect_multi_nic_machine "$juju_machine_id"
 
 	# Deploy test charm to dual-nic machine
 	# shellcheck disable=SC2046

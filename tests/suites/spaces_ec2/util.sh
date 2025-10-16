@@ -2,6 +2,13 @@
 #
 # Create a new machine, wait for it to boot and hotplug a pre-allocated
 # network interface which has been tagged: "nic-type: hotpluggable".
+# Then restart the machine agent and wait for juju to detect 2 network
+# interfaces before returning.
+#
+# NICs are automatically setup on Ubuntu 24.04+ by cloud-init's hotplug module.
+# See https://repost.aws/knowledge-center/ec2-ubuntu-secondary-network-interface
+# as a reference. If provisioning older Ubuntu releases, additional steps
+# with netplan are required.
 add_multi_nic_machine() {
 	local hotplug_nic_id
 	hotplug_nic_id=$1
@@ -38,19 +45,6 @@ add_multi_nic_machine() {
 
 		sleep 1
 	done
-}
-
-# expect_multi_nic_machine()
-#
-# Restart the machine agent and wait for juju to detect 2
-# network interfaces before returning.
-# NICs are automatically setup on Ubuntu 24.04+ by cloud-init's hotplug module.
-# See https://repost.aws/knowledge-center/ec2-ubuntu-secondary-network-interface
-# as a reference. If provisioning older Ubuntu releases, additional steps
-# with netplan are required.
-expect_multi_nic_machine() {
-	local juju_machine_id
-	juju_machine_id=$1
 
 	echo "[+] restarting machine agent on ${juju_machine_id}..."
 	juju ssh "${juju_machine_id}" 'sudo systemctl restart jujud-machine-*'
