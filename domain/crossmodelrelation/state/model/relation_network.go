@@ -50,6 +50,12 @@ VALUES ($relationNetworkIngress.*)
 	return errors.Capture(err)
 }
 
+// NamespaceForRelationIngressNetworksWatcher returns the namespace of the
+// relation_network_ingress table, used for the watcher.
+func (st *State) NamespaceForRelationIngressNetworksWatcher() string {
+	return "relation_network_ingress"
+}
+
 // checkRelationExists checks if a relation with the given UUID exists in the
 // relation table.
 // It returns a [relationerrors.RelationNotFound] if the relation does not

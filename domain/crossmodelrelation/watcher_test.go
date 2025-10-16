@@ -848,3 +848,116 @@ func (s *watcherSuite) setRelationDying(c *tc.C, db database.TxnRunner, relation
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *watcherSuite) TestWatchRelationIngressNetworks(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+	svc, _ := s.setupService(c, factory)
+
+	db, err := s.GetWatchableDB(c.Context(), s.modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Set up a remote offerer app and a relation.
+	remoteRelationUUID := s.setupRemoteOffererLocalAndRelation(c, db, svc)
+	// Initial event.
+	err = svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID.String(), "203.0.113.0/24")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Start the watcher.
+	s.modelIdler.AssertChangeStreamIdle(c)
+	w, err := svc.WatchRelationIngressNetworks(c.Context(), remoteRelationUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s.modelIdler, watchertest.NewWatcherC(c, w))
+
+	// Adding an ingress network should trigger an event.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID.String(), "192.0.2.0/24")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Adding another ingress network to the same relation should trigger
+	// another event.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID.String(), "198.51.100.0/24")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Deleting an ingress network should trigger an event.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteIngressNetwork(c, db, remoteRelationUUID, "192.0.2.0/24")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Deleting the last ingress network should trigger an event.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteIngressNetwork(c, db, remoteRelationUUID, "198.51.100.0/24")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Now create a different relation and add ingress networks to it; this should be ignored.
+	harness.AddTest(c, func(c *tc.C) {
+		otherRelationUUID := s.createRelation(c, db, svc)
+		err := svc.AddRelationNetworkIngress(c.Context(), otherRelationUUID.String(), "203.0.113.0/24")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchRelationIngressNetworksEmptyRelationUUID(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+	svc, _ := s.setupService(c, factory)
+
+	_, err := svc.WatchRelationIngressNetworks(c.Context(), "")
+	c.Assert(err, tc.ErrorMatches, "relation UUID cannot be empty")
+}
+
+func (s *watcherSuite) TestWatchRelationIngressNetworksInvalidUUID(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+	svc, _ := s.setupService(c, factory)
+
+	_, err := svc.WatchRelationIngressNetworks(c.Context(), "foo")
+	c.Assert(err, tc.ErrorMatches, "relation UUID \"foo\" is not a valid UUID")
+}
+
+func (s *watcherSuite) deleteIngressNetwork(c *tc.C, db database.TxnRunner, relationUUID uuid.UUID, cidr string) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+DELETE FROM relation_network_ingress
+WHERE relation_uuid = ? AND cidr = ?`, relationUUID.String(), cidr)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) createRelation(c *tc.C, db database.TxnRunner, svc *service.WatchableService) uuid.UUID {
+	var relUUID uuid.UUID
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Get global scope id.
+		var globalScopeID int
+		if err := tx.QueryRowContext(ctx, `SELECT id FROM charm_relation_scope WHERE name='global'`).Scan(&globalScopeID); err != nil {
+			return err
+		}
+
+		relUUID = tc.Must(c, uuid.NewUUID)
+		// Insert relation.
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+VALUES (?, 0, 2, ?)`, relUUID.String(), globalScopeID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return relUUID
+}

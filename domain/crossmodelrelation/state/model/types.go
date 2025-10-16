@@ -391,3 +391,12 @@ type endpointIdentifier struct {
 	// EndpointName is the name of the endpoint.
 	EndpointName string `db:"endpoint_name"`
 }
+
+type relationNetworkIngress struct {
+	RelationUUID string `db:"relation_uuid"`
+	CIDR         string `db:"cidr"`
+}
+
+type cidr struct {
+	CIDR string `db:"cidr"`
+}

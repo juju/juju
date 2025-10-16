@@ -18,6 +18,10 @@ import (
 type ModelRelationNetworkState interface {
 	// AddRelationNetworkIngress adds ingress network CIDRs for the specified relation.
 	AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs ...string) error
+
+	// NamespaceForRelationIngressNetworksWatcher returns the namespace of the
+	// relation_network_ingress table, used for the watcher.
+	NamespaceForRelationIngressNetworksWatcher() string
 }
 
 // AddRelationNetworkIngress adds ingress network CIDRs for the specified relation.
