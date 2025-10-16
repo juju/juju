@@ -118,6 +118,19 @@ func (opc *operationCallbacks) FailAction(ctx stdcontext.Context, actionId, mess
 	return err
 }
 
+// ErrorAction is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) ErrorAction(ctx stdcontext.Context, actionId, message string) error {
+	if !names.IsValidAction(actionId) {
+		return errors.Errorf("invalid action id %q", actionId)
+	}
+	tag := names.NewActionTag(actionId)
+	err := opc.u.client.ActionFinish(ctx, tag, params.ActionError, nil, message)
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) || params.IsCodeAlreadyExists(err) {
+		err = nil
+	}
+	return err
+}
+
 func (opc *operationCallbacks) ActionStatus(ctx stdcontext.Context, actionId string) (string, error) {
 	if !names.IsValidAction(actionId) {
 		return "", errors.NotValidf("invalid action id %q", actionId)

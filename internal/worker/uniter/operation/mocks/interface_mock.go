@@ -902,6 +902,44 @@ func (c *MockCallbacksCommitHookCall) DoAndReturn(f func(context.Context, hook.I
 	return c
 }
 
+// ErrorAction mocks base method.
+func (m *MockCallbacks) ErrorAction(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ErrorAction", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ErrorAction indicates an expected call of ErrorAction.
+func (mr *MockCallbacksMockRecorder) ErrorAction(arg0, arg1, arg2 any) *MockCallbacksErrorActionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ErrorAction", reflect.TypeOf((*MockCallbacks)(nil).ErrorAction), arg0, arg1, arg2)
+	return &MockCallbacksErrorActionCall{Call: call}
+}
+
+// MockCallbacksErrorActionCall wrap *gomock.Call
+type MockCallbacksErrorActionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCallbacksErrorActionCall) Return(arg0 error) *MockCallbacksErrorActionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCallbacksErrorActionCall) Do(f func(context.Context, string, string) error) *MockCallbacksErrorActionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCallbacksErrorActionCall) DoAndReturn(f func(context.Context, string, string) error) *MockCallbacksErrorActionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // FailAction mocks base method.
 func (m *MockCallbacks) FailAction(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()

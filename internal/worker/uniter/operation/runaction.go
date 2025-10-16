@@ -56,7 +56,7 @@ func (ra *runAction) Prepare(ctx context.Context, state State) (*State, error) {
 	actionID := ra.action.ID()
 	rnr, err := ra.runnerFactory.NewActionRunner(ctx, ra.action, ra.cancel)
 	if cause := errors.Cause(err); charmrunner.IsBadActionError(cause) {
-		if err := ra.callbacks.FailAction(ctx, actionID, err.Error()); err != nil {
+		if err := ra.callbacks.ErrorAction(ctx, actionID, err.Error()); err != nil {
 			return nil, err
 		}
 		return nil, ErrSkipExecute

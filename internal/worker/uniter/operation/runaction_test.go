@@ -75,6 +75,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *tc.C) {
 	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, tc.NotNil)
 	c.Assert(*callbacks.MockFailAction.gotActionId, tc.Equals, someActionId)
 	c.Assert(*callbacks.MockFailAction.gotMessage, tc.Equals, errBadAction.Error())
+	c.Assert(callbacks.MockFailAction.status, tc.Equals, "error")
 }
 
 func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *tc.C) {
@@ -96,6 +97,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *tc.C) {
 	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, tc.NotNil)
 	c.Assert(*callbacks.MockFailAction.gotActionId, tc.Equals, someActionId)
 	c.Assert(*callbacks.MockFailAction.gotMessage, tc.Equals, errBadAction.Error())
+	c.Assert(callbacks.MockFailAction.status, tc.Equals, "error")
 }
 
 func (s *RunActionSuite) TestPrepareErrorActionNotAvailable(c *tc.C) {

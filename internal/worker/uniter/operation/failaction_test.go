@@ -76,6 +76,7 @@ func (s *FailActionSuite) TestExecuteSuccess(c *tc.C) {
 		c.Assert(newState, tc.DeepEquals, &test.after)
 		c.Assert(*callbacks.MockFailAction.gotMessage, tc.Equals, "action terminated")
 		c.Assert(*callbacks.MockFailAction.gotActionId, tc.Equals, someActionId)
+		c.Assert(callbacks.MockFailAction.status, tc.Equals, "failed")
 	}
 }
 
