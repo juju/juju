@@ -50,6 +50,23 @@ type ModelState interface {
 	// GetConsumerRelationUUIDs filters the provided relation UUIDs and returns
 	// only those that are associated with remote offerer applications in this model.
 	GetConsumerRelationUUIDs(ctx context.Context, relationUUIDs ...string) ([]string, error)
+
+	// InitialWatchStatementForOffererRelations returns the namespace and the
+	// initial query function for watching relation UUIDs that are associated with
+	// remote consumer applications present in this model (i.e. offerer side).
+	InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery)
+
+	// GetOffererRelationUUIDsForConsumers returns the relation UUIDs associated
+	// with the provided remote consumer UUIDs.
+	GetOffererRelationUUIDsForConsumers(ctx context.Context, consumerUUIDs ...string) ([]string, error)
+
+	// GetAllOffererRelationUUIDs returns all relation UUIDs that are associated
+	// with remote consumers in this model (i.e. offerer side relations).
+	GetAllOffererRelationUUIDs(ctx context.Context) ([]string, error)
+
+	// NamespaceRemoteApplicationConsumers returns the namespace for remote
+	// application consumers.
+	NamespaceRemoteApplicationConsumers() string
 }
 
 // ControllerState describes retrieval and persistence methods for cross
@@ -92,6 +109,7 @@ type WatcherFactory interface {
 		filterOption eventsource.FilterOption,
 		filterOptions ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
+
 	// NewNamespaceWatcher returns a new watcher that filters changes from the
 	// input base watcher's db/queue. Change-log events will be emitted only if
 	// the filter accepts them, and dispatching the notifications via the
@@ -279,6 +297,122 @@ func (w *WatchableService) WatchConsumerRelations(ctx context.Context) (watcher.
 		"consumer relations watcher",
 		mapper,
 		eventsource.NamespaceFilter(table, changestream.All),
+	)
+}
+
+// WatchOffererRelations watches the changes to (remote) relations on the
+// offering model and notifies the worker of any changes.
+// This watcher watches both the relation and application_remote_consumer
+// namespaces and maintains an internal cache to filter relation changes without
+// hitting the database for each change event.
+func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	relationTable, initialQuery := w.modelState.InitialWatchStatementForOffererRelations()
+	applicationRemoteConsumer := w.modelState.NamespaceRemoteApplicationConsumers()
+
+	// Create a stateful mapper that maintains a cache of remote relation UUIDs.
+	// The cache is rebuilt when consumer deletions occur since we cannot query
+	// deleted consumers to determine their relation UUIDs.
+	cache := make(map[string]bool)
+	initialized := false
+
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+		if len(changes) == 0 {
+			return nil, nil
+		}
+
+		// On first call, initialize the cache from the initial query results.
+		// The initial query returns all relation UUIDs that are remote.
+		if !initialized {
+			for _, change := range changes {
+				if change.Namespace() == relationTable {
+					cache[change.Changed()] = true
+				}
+			}
+			initialized = true
+
+			// Return all initial remote relation UUIDs.
+			result := make([]string, 0, len(cache))
+			for uuid := range cache {
+				result = append(result, uuid)
+			}
+			return result, nil
+		}
+
+		// Separate changes by namespace.
+		var consumerDeleted bool
+		var consumerCreatedOrUpdated []string
+		var relationChanges []string
+
+		for _, change := range changes {
+			switch change.Namespace() {
+			case applicationRemoteConsumer:
+				// Track consumer changes to update cache.
+				if change.Type() == changestream.Deleted {
+					// Consumer was deleted - we need to rebuild the cache since we
+					// can't query the deleted consumer to find its relation.
+					consumerDeleted = true
+				} else {
+					// Consumer was created or updated.
+					consumerCreatedOrUpdated = append(consumerCreatedOrUpdated, change.Changed())
+				}
+			case relationTable:
+				// Track relation changes to filter against cache.
+				relationChanges = append(relationChanges, change.Changed())
+			}
+		}
+
+		// Rebuild cache if any consumer was deleted, since we can't determine
+		// which relation belonged to the deleted consumer without querying it
+		// (which we can't do after deletion).
+		if consumerDeleted {
+			// Re-query all current offerer relations to rebuild the cache.
+			relationUUIDs, err := w.modelState.GetAllOffererRelationUUIDs(ctx)
+			if err != nil {
+				w.logger.Errorf(ctx, "rebuilding cache after consumer deletion: %v", err)
+				// Continue with old cache on error.
+			} else {
+				// Rebuild cache from scratch.
+				cache = make(map[string]bool)
+				for _, uuid := range relationUUIDs {
+					cache[uuid] = true
+				}
+			}
+		}
+
+		// Update cache with new remote relation UUIDs from created/updated consumers.
+		if len(consumerCreatedOrUpdated) > 0 {
+			newRelationUUIDs, err := w.modelState.GetOffererRelationUUIDsForConsumers(ctx, consumerCreatedOrUpdated...)
+			if err != nil {
+				w.logger.Errorf(ctx, "getting relation UUIDs for consumers: %v", err)
+				// Continue processing relation changes even if cache update fails.
+			} else {
+				for _, uuid := range newRelationUUIDs {
+					cache[uuid] = true
+				}
+			}
+		}
+
+		// Filter relation changes based on cache.
+		var result []string
+		for _, uuid := range relationChanges {
+			if cache[uuid] {
+				result = append(result, uuid)
+			}
+		}
+
+		return result, nil
+	}
+
+	return w.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
+		initialQuery,
+		"offerer relations watcher",
+		mapper,
+		eventsource.NamespaceFilter(relationTable, changestream.All),
+		eventsource.NamespaceFilter(applicationRemoteConsumer, changestream.All),
 	)
 }
 
