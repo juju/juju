@@ -58,13 +58,17 @@ type State interface {
 		settings map[string]string,
 	) error
 
-	// RemoteUnitsEnterScope indicates that the provided units have joined the
-	// relation. When the unit has already entered its relation scope,
-	// RemoteEnterScope will report success but make no changes to state. The
-	// unit's settings are created or overwritten in the relation according to
-	// the supplied map. This does not handle subordinate unit creation, or
-	// related checks.
-	RemoteUnitsEnterScope(
+	// SetRelationRemoteApplicationAndUnitSettings will set the application and
+	// unit settings for a remote relation. If the unit has not yet entered
+	// scope, it will force the unit to enter scope. All settings will be
+	// replaced with the provided settings.
+	// This will ensure that the application, relation and units exist and that
+	// they are alive.
+	//
+	// Additionally, it will prevent a unit from entering scope if:
+	// - the relation is a peer relation
+	// - the unit's application is a subordinate
+	SetRelationRemoteApplicationAndUnitSettings(
 		ctx context.Context,
 		applicationUUID, relationUUID string,
 		applicationSettings map[string]string,
@@ -455,12 +459,17 @@ func (s *Service) EnterScope(
 	return nil
 }
 
-// RemoteUnitsEnterScope indicates that the provided units have joined the
-// relation. When the unit has already entered its relation scope,
-// RemoteEnterScope will report success but make no changes to state. The unit's
-// settings are created or overwritten in the relation according to the supplied
-// map. This does not handle subordinate unit creation, or related checks.
-func (s *Service) RemoteUnitsEnterScope(
+// SetRelationRemoteApplicationAndUnitSettings will set the application and
+// unit settings for a remote relation. If the unit has not yet entered
+// scope, it will force the unit to enter scope. All settings will be
+// replaced with the provided settings.
+// This will ensure that the application, relation and units exist and that
+// they are alive.
+//
+// Additionally, it will prevent a unit from entering scope if:
+// - the relation is a peer relation
+// - the unit's application is a subordinate
+func (s *Service) SetRelationRemoteApplicationAndUnitSettings(
 	ctx context.Context,
 	applicationUUID application.UUID,
 	relationUUID corerelation.UUID,
@@ -490,7 +499,11 @@ func (s *Service) RemoteUnitsEnterScope(
 	}
 
 	// Enter the units into the relation scope.
-	if err := s.st.RemoteUnitsEnterScope(ctx, applicationUUID.String(), relationUUID.String(), applicationSettings, uSettings); err != nil {
+	if err := s.st.SetRelationRemoteApplicationAndUnitSettings(
+		ctx,
+		applicationUUID.String(), relationUUID.String(),
+		applicationSettings, uSettings,
+	); err != nil {
 		return errors.Capture(err)
 	}
 

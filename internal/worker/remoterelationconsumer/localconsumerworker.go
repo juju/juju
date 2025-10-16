@@ -912,8 +912,14 @@ func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Contex
 	}
 
 	// Process the relation application and unit settings changes.
-	if err := w.crossModelService.RemoteUnitsEnterScope(ctx, w.applicationUUID, change.ConsumerRelationUUID, change.ApplicationSettings, unitSettings); err != nil {
-		return errors.Annotatef(err, "processing relation change for relation %q", change.ConsumerRelationUUID)
+	if err := w.crossModelService.SetRelationRemoteApplicationAndUnitSettings(
+		ctx,
+		w.applicationUUID,
+		change.ConsumerRelationUUID,
+		change.ApplicationSettings,
+		unitSettings,
+	); err != nil {
+		return errors.Annotatef(err, "setting application and unit settings %q", change.ConsumerRelationUUID)
 	}
 
 	// We've got departed units, these need to leave scope.

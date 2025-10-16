@@ -49,7 +49,7 @@ func (s *remoteRelationSuite) SetUpTest(c *tc.C) {
 	s.fakeApplicationUUID2 = s.addApplication(c, s.fakeCharmUUID2, s.fakeApplicationName2)
 }
 
-func (s *remoteRelationSuite) TestRemoteUnitsEnterScope(c *tc.C) {
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettings(c *tc.C) {
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
 
@@ -90,7 +90,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScope(c *tc.C) {
 		"baz": "qux",
 	}
 
-	err := s.state.RemoteUnitsEnterScope(c.Context(),
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -113,7 +113,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScope(c *tc.C) {
 	c.Assert(foundAppSettings, tc.DeepEquals, appSettings)
 }
 
-func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeIdempotent(c *tc.C) {
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsIdempotent(c *tc.C) {
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
 
@@ -154,7 +154,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeIdempotent(c *tc.C) {
 		"baz": "qux",
 	}
 
-	err := s.state.RemoteUnitsEnterScope(c.Context(),
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -164,7 +164,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeIdempotent(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.RemoteUnitsEnterScope(c.Context(),
+	err = s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -187,7 +187,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeIdempotent(c *tc.C) {
 	c.Assert(foundAppSettings, tc.DeepEquals, appSettings)
 }
 
-func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUpdatesSettings(c *tc.C) {
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsUpdatesSettings(c *tc.C) {
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
 
@@ -228,7 +228,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUpdatesSettings(c *tc.C) 
 		"baz": "qux",
 	}
 
-	err := s.state.RemoteUnitsEnterScope(c.Context(),
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -248,7 +248,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUpdatesSettings(c *tc.C) 
 		"new": "setting",
 	}
 
-	err = s.state.RemoteUnitsEnterScope(c.Context(),
+	err = s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -271,7 +271,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUpdatesSettings(c *tc.C) 
 	c.Assert(foundAppSettings, tc.DeepEquals, appSettings)
 }
 
-func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeMultiple(c *tc.C) {
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsMultiple(c *tc.C) {
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
 
@@ -320,7 +320,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeMultiple(c *tc.C) {
 		"baz": "qux",
 	}
 
-	err := s.state.RemoteUnitsEnterScope(c.Context(),
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -347,7 +347,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeMultiple(c *tc.C) {
 	c.Assert(foundAppSettings, tc.DeepEquals, appSettings)
 }
 
-func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeMultipleMissingUnit(c *tc.C) {
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsMultipleMissingUnit(c *tc.C) {
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
 
@@ -396,7 +396,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeMultipleMissingUnit(c *tc
 		"baz": "qux",
 	}
 
-	err := s.state.RemoteUnitsEnterScope(c.Context(),
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -410,7 +410,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeMultipleMissingUnit(c *tc
 	c.Check(err, tc.ErrorMatches, `.*missing: \[app1\/4\]`)
 }
 
-func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeSubordinate(c *tc.C) {
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsSubordinate(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, true)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
@@ -463,7 +463,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeSubordinate(c *tc.C) {
 		"baz": "qux",
 	}
 
-	err := s.state.RemoteUnitsEnterScope(c.Context(),
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -474,7 +474,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeSubordinate(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeForSubordinate)
 }
 
-func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeRelationNotAlive(c *tc.C) {
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsRelationNotAlive(c *tc.C) {
 	// Arrange: Add two endpoints and a relation
 	endpoint1 := domainrelation.Endpoint{
 		Relation: charm.Relation{
@@ -513,7 +513,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeRelationNotAlive(c *tc.C)
 		"baz": "qux",
 	}
 
-	err := s.state.RemoteUnitsEnterScope(c.Context(),
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -526,7 +526,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeRelationNotAlive(c *tc.C)
 	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
 }
 
-func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUnitNotAlive(c *tc.C) {
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsUnitNotAlive(c *tc.C) {
 	// Arrange: Add two endpoints and a relation on them.
 	endpoint1 := domainrelation.Endpoint{
 		Relation: charm.Relation{
@@ -565,7 +565,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUnitNotAlive(c *tc.C) {
 		"baz": "qux",
 	}
 
-	err := s.state.RemoteUnitsEnterScope(c.Context(),
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -578,7 +578,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUnitNotAlive(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
-func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeRelationNotFound(c *tc.C) {
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsRelationNotFound(c *tc.C) {
 	// Arrange: Add unit to application in the relation.
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := coreunittesting.GenNewName(c, "app1/0")
@@ -594,7 +594,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeRelationNotFound(c *tc.C)
 		"baz": "qux",
 	}
 
-	err := s.state.RemoteUnitsEnterScope(c.Context(),
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,
@@ -607,7 +607,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeRelationNotFound(c *tc.C)
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUnitNotFound(c *tc.C) {
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsUnitNotFound(c *tc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	// Act: Try and enter scope.
 	settings := map[string]string{
@@ -619,7 +619,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUnitNotFound(c *tc.C) {
 		"baz": "qux",
 	}
 
-	err := s.state.RemoteUnitsEnterScope(c.Context(),
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(c.Context(),
 		s.fakeApplicationUUID1.String(),
 		relationUUID.String(),
 		appSettings,

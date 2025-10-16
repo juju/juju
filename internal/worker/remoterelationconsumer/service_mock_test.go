@@ -776,44 +776,6 @@ func (c *MockCrossModelServiceLeaveScopeCall) DoAndReturn(f func(context.Context
 	return c
 }
 
-// RemoteUnitsEnterScope mocks base method.
-func (m *MockCrossModelService) RemoteUnitsEnterScope(ctx context.Context, applicationUUID application.UUID, relationUUID relation.UUID, applicationSettings map[string]string, unitSettings map[unit.Name]map[string]string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoteUnitsEnterScope", ctx, applicationUUID, relationUUID, applicationSettings, unitSettings)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoteUnitsEnterScope indicates an expected call of RemoteUnitsEnterScope.
-func (mr *MockCrossModelServiceMockRecorder) RemoteUnitsEnterScope(ctx, applicationUUID, relationUUID, applicationSettings, unitSettings any) *MockCrossModelServiceRemoteUnitsEnterScopeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteUnitsEnterScope", reflect.TypeOf((*MockCrossModelService)(nil).RemoteUnitsEnterScope), ctx, applicationUUID, relationUUID, applicationSettings, unitSettings)
-	return &MockCrossModelServiceRemoteUnitsEnterScopeCall{Call: call}
-}
-
-// MockCrossModelServiceRemoteUnitsEnterScopeCall wrap *gomock.Call
-type MockCrossModelServiceRemoteUnitsEnterScopeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelServiceRemoteUnitsEnterScopeCall) Return(arg0 error) *MockCrossModelServiceRemoteUnitsEnterScopeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceRemoteUnitsEnterScopeCall) Do(f func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockCrossModelServiceRemoteUnitsEnterScopeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceRemoteUnitsEnterScopeCall) DoAndReturn(f func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockCrossModelServiceRemoteUnitsEnterScopeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // RemoveRemoteRelation mocks base method.
 func (m *MockCrossModelService) RemoveRemoteRelation(ctx context.Context, relUUID relation.UUID) error {
 	m.ctrl.T.Helper()
@@ -886,6 +848,44 @@ func (c *MockCrossModelServiceSaveMacaroonForRelationCall) Do(f func(context.Con
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelServiceSaveMacaroonForRelationCall) DoAndReturn(f func(context.Context, relation.UUID, *macaroon.Macaroon) error) *MockCrossModelServiceSaveMacaroonForRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetRelationRemoteApplicationAndUnitSettings mocks base method.
+func (m *MockCrossModelService) SetRelationRemoteApplicationAndUnitSettings(ctx context.Context, applicationUUID application.UUID, relationUUID relation.UUID, applicationSettings map[string]string, unitSettings map[unit.Name]map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRelationRemoteApplicationAndUnitSettings", ctx, applicationUUID, relationUUID, applicationSettings, unitSettings)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRelationRemoteApplicationAndUnitSettings indicates an expected call of SetRelationRemoteApplicationAndUnitSettings.
+func (mr *MockCrossModelServiceMockRecorder) SetRelationRemoteApplicationAndUnitSettings(ctx, applicationUUID, relationUUID, applicationSettings, unitSettings any) *MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationRemoteApplicationAndUnitSettings", reflect.TypeOf((*MockCrossModelService)(nil).SetRelationRemoteApplicationAndUnitSettings), ctx, applicationUUID, relationUUID, applicationSettings, unitSettings)
+	return &MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall{Call: call}
+}
+
+// MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall wrap *gomock.Call
+type MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall) Return(arg0 error) *MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall) Do(f func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall) DoAndReturn(f func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1261,40 +1261,40 @@ func (c *MockRelationServiceGetRelationUnitsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// RemoteUnitsEnterScope mocks base method.
-func (m *MockRelationService) RemoteUnitsEnterScope(ctx context.Context, applicationUUID application.UUID, relationUUID relation.UUID, applicationSettings map[string]string, unitSettings map[unit.Name]map[string]string) error {
+// SetRelationRemoteApplicationAndUnitSettings mocks base method.
+func (m *MockRelationService) SetRelationRemoteApplicationAndUnitSettings(ctx context.Context, applicationUUID application.UUID, relationUUID relation.UUID, applicationSettings map[string]string, unitSettings map[unit.Name]map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoteUnitsEnterScope", ctx, applicationUUID, relationUUID, applicationSettings, unitSettings)
+	ret := m.ctrl.Call(m, "SetRelationRemoteApplicationAndUnitSettings", ctx, applicationUUID, relationUUID, applicationSettings, unitSettings)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RemoteUnitsEnterScope indicates an expected call of RemoteUnitsEnterScope.
-func (mr *MockRelationServiceMockRecorder) RemoteUnitsEnterScope(ctx, applicationUUID, relationUUID, applicationSettings, unitSettings any) *MockRelationServiceRemoteUnitsEnterScopeCall {
+// SetRelationRemoteApplicationAndUnitSettings indicates an expected call of SetRelationRemoteApplicationAndUnitSettings.
+func (mr *MockRelationServiceMockRecorder) SetRelationRemoteApplicationAndUnitSettings(ctx, applicationUUID, relationUUID, applicationSettings, unitSettings any) *MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteUnitsEnterScope", reflect.TypeOf((*MockRelationService)(nil).RemoteUnitsEnterScope), ctx, applicationUUID, relationUUID, applicationSettings, unitSettings)
-	return &MockRelationServiceRemoteUnitsEnterScopeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationRemoteApplicationAndUnitSettings", reflect.TypeOf((*MockRelationService)(nil).SetRelationRemoteApplicationAndUnitSettings), ctx, applicationUUID, relationUUID, applicationSettings, unitSettings)
+	return &MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall{Call: call}
 }
 
-// MockRelationServiceRemoteUnitsEnterScopeCall wrap *gomock.Call
-type MockRelationServiceRemoteUnitsEnterScopeCall struct {
+// MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall wrap *gomock.Call
+type MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRelationServiceRemoteUnitsEnterScopeCall) Return(arg0 error) *MockRelationServiceRemoteUnitsEnterScopeCall {
+func (c *MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall) Return(arg0 error) *MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceRemoteUnitsEnterScopeCall) Do(f func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockRelationServiceRemoteUnitsEnterScopeCall {
+func (c *MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall) Do(f func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceRemoteUnitsEnterScopeCall) DoAndReturn(f func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockRelationServiceRemoteUnitsEnterScopeCall {
+func (c *MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall) DoAndReturn(f func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error) *MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
