@@ -59,7 +59,7 @@ WHERE  name IN ($names[:])
 		// Ensure that all the units are correctly found up front.
 		if len(units) != len(unitNames) {
 			missing := findMissingNames(units, unitNames)
-			return errors.Errorf("expected %d units, got %d, missing: %v", len(unitNames), len(units), missing)
+			return errors.Errorf("expected %d units, got %d, missing: %v", len(unitNames), len(units), missing).Add(relationerrors.UnitNotFound)
 		}
 
 		// Set all the unit settings that are available.
@@ -79,10 +79,10 @@ WHERE  name IN ($names[:])
 			// that all the unit names exist above.
 			settings := unitSettings[unit.Name]
 
-			// Set the relation unit settings.
-			err = st.setRelationUnitSettings(ctx, tx, relationUnitUUID, settings)
-			if err != nil {
-				return errors.Errorf("setting relation unit settings: %w", err)
+			// Blindly insert the settings for the unit, replacing any existing
+			// settings.
+			if err := st.insertRelationUnitSettings(ctx, tx, relationUnitUUID, settings); err != nil {
+				return errors.Errorf("replacing relation unit settings: %w", err)
 			}
 		}
 
@@ -151,6 +151,97 @@ func (st *State) checkUnitCanEnterScopeForRemoteRelation(ctx context.Context, tx
 	default:
 		return errors.Errorf("unexpected number of applications in relation: %d", len(appIDs))
 	}
+}
+
+func (st *State) insertRelationUnitSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUnitUUID string,
+	settings map[string]string,
+) error {
+	// Get the relation endpoint UUID.
+	exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID)
+	if err != nil {
+		return errors.Errorf("checking relation unit exists: %w", err)
+	} else if !exists {
+		return relationerrors.RelationUnitNotFound
+	}
+
+	// Update the unit settings specified in the settings argument.
+	err = st.replaceUnitSettings(ctx, tx, relationUnitUUID, settings)
+	if err != nil {
+		return errors.Errorf("updating relation unit settings: %w", err)
+	}
+
+	// Fetch all the new settings in the relation for this unit.
+	newSettings, err := st.getRelationUnitSettings(ctx, tx, relationUnitUUID)
+	if err != nil {
+		return errors.Errorf("getting new relation unit settings: %w", err)
+	}
+
+	// Hash the new settings.
+	hash, err := hashSettings(newSettings)
+	if err != nil {
+		return errors.Errorf("generating hash of relation unit settings: %w", err)
+	}
+
+	// Update the hash in the database.
+	err = st.updateUnitSettingsHash(ctx, tx, relationUnitUUID, hash)
+	if err != nil {
+		return errors.Errorf("updating relation unit settings hash: %w", err)
+	}
+
+	return nil
+}
+
+// replaceUnitSettings replaces all the settings for a relation unit according
+// to the provided settings map.
+func (st *State) replaceUnitSettings(
+	ctx context.Context, tx *sqlair.TX, relUnitUUID string, settings map[string]string,
+) error {
+	id := entityUUID{UUID: relUnitUUID}
+	deleteStmt, err := st.Prepare(`
+DELETE FROM relation_unit_setting
+WHERE       relation_unit_uuid = $entityUUID.uuid
+`, id)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteStmt, id).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Determine the keys to set and unset.
+	var set []relationUnitSetting
+	for k, v := range settings {
+		if v == "" {
+			continue
+		}
+
+		set = append(set, relationUnitSetting{
+			UUID:  relUnitUUID,
+			Key:   k,
+			Value: v,
+		})
+	}
+
+	// Insert the keys to set.
+	if len(set) > 0 {
+		updateStmt, err := st.Prepare(`
+INSERT INTO relation_unit_setting (*) 
+VALUES ($relationUnitSetting.*) 
+`, relationUnitSetting{})
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, updateStmt, set).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	return nil
 }
 
 func findMissingNames(found []unitUUIDName, expected []string) []string {
