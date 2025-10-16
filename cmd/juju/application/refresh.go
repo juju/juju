@@ -521,11 +521,15 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	// 2. There is a resource change to process.
 	if errors.Is(runErr, refresher.ErrAlreadyUpToDate) {
 		ctx.Infof("%s", runErr.Error())
-		if len(resourceIDs) == 0 && c.Channel.String() == oldOrigin.CoreCharmOrigin().Channel.String() {
+		oldCoreCharmOriginChannel := oldOrigin.CoreCharmOrigin().Channel
+		if oldCoreCharmOriginChannel == nil {
 			return nil
 		}
-		if c.Channel.String() != oldOrigin.CoreCharmOrigin().Channel.String() {
-			ctx.Infof("Note: all future refreshes will now use channel %q", charmID.Origin.Channel.String())
+		if len(resourceIDs) == 0 && c.Channel.String() == oldCoreCharmOriginChannel.String() {
+			return nil
+		}
+		if c.Channel.String() != oldCoreCharmOriginChannel.String() {
+			ctx.Infof("Note: all future refreshes will now use channel %q", oldCoreCharmOriginChannel.String())
 		}
 		if len(resourceIDs) > 0 {
 			ctx.Infof("resources to be upgraded")

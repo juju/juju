@@ -65,12 +65,14 @@ func (s *socketListenerSuite) TestStartStopWorker(c *tc.C) {
 	cl := client(socket)
 	resp, err := cl.Get("http://localhost:8080/foo")
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 
 	// Check server is serving.
 	cl = client(socket)
 	resp, err = cl.Get("http://localhost:8080/test-endpoint")
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 
 	sl.Kill()
@@ -78,7 +80,7 @@ func (s *socketListenerSuite) TestStartStopWorker(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check server has stopped.
-	_, err = cl.Get("http://localhost:8080/foo")
+	_, err = cl.Get("http://localhost:8080/foo") //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, ".*(connection refused|no such file or directory)")
 }
 
@@ -111,7 +113,11 @@ func (s *socketListenerSuite) TestEnsureShutdown(c *tc.C) {
 		cl := client(socket)
 		// Ignore error, as we're only interested in the fact that the request
 		// was made.
-		_, _ = cl.Get("http://localhost:8080/slow-handler")
+		resp, err := cl.Get("http://localhost:8080/slow-handler")
+		if err == nil {
+			_ = resp.Body.Close()
+		}
+
 	}()
 
 	// Kill socket listener once handler has started.

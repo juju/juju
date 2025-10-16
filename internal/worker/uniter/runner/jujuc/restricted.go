@@ -207,24 +207,24 @@ func (ctx *RestrictedContext) CreateSecret(_ context.Context, args *SecretCreate
 }
 
 // UpdateSecret implements runner.Context.
-func (ctx *RestrictedContext) UpdateSecret(*secrets.URI, *SecretUpdateArgs) error {
+func (ctx *RestrictedContext) UpdateSecret(context.Context, *secrets.URI, *SecretUpdateArgs) error {
 	return ErrRestrictedContext
 }
 
-func (ctx *RestrictedContext) RemoveSecret(*secrets.URI, *int) error {
+func (ctx *RestrictedContext) RemoveSecret(context.Context, *secrets.URI, *int) error {
 	return ErrRestrictedContext
 }
 
-func (ctx *RestrictedContext) SecretMetadata() (map[string]SecretMetadata, error) {
+func (ctx *RestrictedContext) SecretMetadata(context.Context) (map[string]SecretMetadata, error) {
 	return nil, ErrRestrictedContext
 }
 
 // GrantSecret implements runner.Context.
-func (c *RestrictedContext) GrantSecret(*secrets.URI, *SecretGrantRevokeArgs) error {
+func (c *RestrictedContext) GrantSecret(context.Context, *secrets.URI, *SecretGrantRevokeArgs) error {
 	return ErrRestrictedContext
 }
 
 // RevokeSecret implements runner.Context.
-func (c *RestrictedContext) RevokeSecret(*secrets.URI, *SecretGrantRevokeArgs) error {
+func (c *RestrictedContext) RevokeSecret(context.Context, *secrets.URI, *SecretGrantRevokeArgs) error {
 	return ErrRestrictedContext
 }

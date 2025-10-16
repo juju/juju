@@ -105,7 +105,7 @@ func roleAssignmentSender() *azuretesting.MockSender {
 func roleAssignmentAlreadyExistsSender() *azuretesting.MockSender {
 	sender := &azuretesting.MockSender{}
 	body := azuretesting.NewBody(`{"error":{"code":"RoleAssignmentExists", "message":"Odata v4 compliant message"}}`)
-	sender.AppendResponse(azuretesting.NewResponseWithBodyAndStatus(body, http.StatusConflict, ""))
+	sender.AppendResponse(azuretesting.NewResponseWithBodyAndStatus(body, http.StatusConflict, "")) //nolint:bodyclose
 	return sender
 }
 
@@ -113,7 +113,7 @@ func roleAssignmentPrincipalNotExistSender() *azuretesting.MockSender {
 	sender := &azuretesting.MockSender{}
 	// Based on https://github.com/Azure/azure-powershell/issues/655#issuecomment-186332230
 	body := azuretesting.NewBody(`{"error":{"code":"PrincipalNotFound","message":"Principal foo does not exist in the directory bar"}}`)
-	sender.AppendResponse(azuretesting.NewResponseWithBodyAndStatus(body, http.StatusNotFound, ""))
+	sender.AppendResponse(azuretesting.NewResponseWithBodyAndStatus(body, http.StatusNotFound, "")) //nolint:bodyclose
 	return sender
 }
 

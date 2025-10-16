@@ -12,7 +12,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -62,6 +62,7 @@ func (s *objectsHandlerSuite) TestServeMethodNotSupported(c *tc.C) {
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Post(url, "application/octet-stream", strings.NewReader("charm-content"))
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Check(resp.StatusCode, tc.Equals, http.StatusNotImplemented)
 }
 
@@ -86,6 +87,7 @@ func (s *objectsHandlerSuite) TestServeGet(c *tc.C) {
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Get(url)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	body, err := io.ReadAll(resp.Body)
@@ -114,6 +116,7 @@ func (s *objectsHandlerSuite) TestServeGetInvalidSize(c *tc.C) {
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Get(url)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	_, err = io.ReadAll(resp.Body)
@@ -140,6 +143,7 @@ func (s *objectsHandlerSuite) TestServeGetNotFound(c *tc.C) {
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Get(url)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Check(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
 

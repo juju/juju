@@ -231,6 +231,46 @@ func (l *LabelSuite) TestLabelsForApp(c *tc.C) {
 	}
 }
 
+func (l *LabelSuite) TestLabelsForAppCreated(c *tc.C) {
+	tests := []struct {
+		AppName        string
+		ModelName      string
+		ModelUUID      string
+		ControllerUUID string
+		ExpectedLabels labels.Set
+		LabelVersion   constants.LabelVersion
+	}{
+		{
+			AppName:        "tlm-boom",
+			ModelName:      "tlm-model",
+			ModelUUID:      "d0gf00d",
+			ControllerUUID: "badf00d",
+			ExpectedLabels: labels.Set{
+				"app.juju.is/created-by": "tlm-boom",
+			},
+			LabelVersion: constants.LabelVersion1,
+		},
+		{
+			AppName:        "tlm-boom",
+			ModelName:      "tlm-model",
+			ModelUUID:      "d0gf00d",
+			ControllerUUID: "badf00d",
+			ExpectedLabels: labels.Set{
+				"app.juju.is/created-by":       "tlm-boom",
+				"app.kubernetes.io/managed-by": "juju",
+				"model.juju.is/id":             "d0gf00d",
+				"model.juju.is/name":           "tlm-model",
+			},
+			LabelVersion: constants.LabelVersion2,
+		},
+	}
+
+	for _, test := range tests {
+		rval := utils.LabelsForAppCreated(test.AppName, test.ModelName, test.ModelUUID, test.ControllerUUID, test.LabelVersion)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
+	}
+}
+
 func (l *LabelSuite) TestLabelsForStorage(c *tc.C) {
 	tests := []struct {
 		AppName        string

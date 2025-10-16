@@ -65,6 +65,7 @@ func (s *objectsCharmHandlerSuite) TestServeMethodNotSupported(c *tc.C) {
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	resp, err := http.Post(url, "application/octet-stream", strings.NewReader("charm-content"))
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotImplemented)
 }
@@ -89,6 +90,7 @@ func (s *objectsCharmHandlerSuite) TestServeGet(c *tc.C) {
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	resp, err := http.Get(url)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	body, err := io.ReadAll(resp.Body)
@@ -116,6 +118,7 @@ func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *tc.C) {
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	resp, err := http.Get(url)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
@@ -141,6 +144,7 @@ func (s *objectsCharmHandlerSuite) TestServePutIncorrectEncoding(c *tc.C) {
 
 	resp, err := http.DefaultClient.Do(req)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
@@ -169,6 +173,7 @@ func (s *objectsCharmHandlerSuite) TestServePutNoJujuCharmURL(c *tc.C) {
 
 	resp, err := http.DefaultClient.Do(req)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 
 	c.Check(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
@@ -198,6 +203,7 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidSHA256Prefix(c *tc.C) {
 
 	resp, err := http.DefaultClient.Do(req)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 
 	c.Check(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
@@ -227,6 +233,7 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidCharmURL(c *tc.C) {
 
 	resp, err := http.DefaultClient.Do(req)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 
 	c.Check(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
@@ -270,6 +277,7 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *tc.C) {
 
 	resp, err := http.DefaultClient.Do(req)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 
 	c.Check(resp.StatusCode, tc.Equals, http.StatusOK)
 	c.Check(resp.Header.Get(params.JujuCharmURLHeader), tc.Equals, "ch:amd64/testcharm-2")

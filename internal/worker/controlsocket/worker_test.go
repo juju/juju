@@ -85,8 +85,10 @@ func (s *workerSuite) runHandlerTest(c *tc.C, test handlerTest) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Check server is up
 	resp, err := client(socket).Do(req)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, tc.Equals, test.statusCode)
 
 	if test.ignoreBody {

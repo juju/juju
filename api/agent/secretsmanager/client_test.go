@@ -391,9 +391,9 @@ func (s *SecretsSuite) TestSecretMetadata(c *tc.C) {
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetSecretMetadata")
 		c.Check(arg, tc.IsNil)
-		c.Assert(result, tc.FitsTypeOf, &params.ListSecretResults{})
-		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
-			Results: []params.ListSecretResult{{
+		c.Assert(result, tc.FitsTypeOf, &params.ListSecretMetadataResults{})
+		*(result.(*params.ListSecretMetadataResults)) = params.ListSecretMetadataResults{
+			Results: []params.ListSecretMetadataResult{{
 				URI:                    uri.String(),
 				OwnerTag:               coretesting.ModelTag.String(),
 				Label:                  "label",
@@ -401,15 +401,6 @@ func (s *SecretsSuite) TestSecretMetadata(c *tc.C) {
 				LatestRevisionChecksum: "checksum",
 				NextRotateTime:         &now,
 				LatestExpireTime:       &now,
-				Revisions: []params.SecretRevision{{
-					Revision: 666,
-					ValueRef: &params.SecretValueRef{
-						BackendID:  "backend-id",
-						RevisionID: "rev-id",
-					},
-				}, {
-					Revision: 667,
-				}},
 				Access: []params.AccessInfo{
 					{
 						TargetTag: "application-gitlab",
@@ -426,15 +417,15 @@ func (s *SecretsSuite) TestSecretMetadata(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	for _, info := range result {
-		c.Assert(info.Metadata.URI.String(), tc.Equals, uri.String())
-		c.Assert(info.Metadata.Owner, tc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()})
-		c.Assert(info.Metadata.Label, tc.Equals, "label")
-		c.Assert(info.Metadata.LatestRevision, tc.Equals, 667)
-		c.Assert(info.Metadata.LatestRevisionChecksum, tc.Equals, "checksum")
-		c.Assert(info.Metadata.LatestExpireTime, tc.Equals, &now)
-		c.Assert(info.Metadata.NextRotateTime, tc.Equals, &now)
-		c.Assert(info.Revisions, tc.DeepEquals, []int{666, 667})
-		c.Assert(info.Metadata.Access, tc.DeepEquals, []coresecrets.AccessInfo{
+		c.Assert(info.URI.String(), tc.Equals, uri.String())
+		c.Assert(info.Owner, tc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()})
+		c.Assert(info.Label, tc.Equals, "label")
+		c.Assert(info.LatestRevision, tc.Equals, 667)
+		c.Assert(info.LatestRevisionChecksum, tc.Equals, "checksum")
+		c.Assert(info.LatestExpireTime, tc.Equals, &now)
+		c.Assert(info.NextRotateTime, tc.Equals, &now)
+		c.Assert(info.NextRotateTime, tc.Equals, &now)
+		c.Assert(info.Access, tc.DeepEquals, []coresecrets.AccessInfo{
 			{
 				Target: "application-gitlab",
 				Scope:  coretesting.ModelTag.Id(),
@@ -517,6 +508,26 @@ func (s *SecretsSuite) TestWatchObsolete(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	_, err := client.WatchObsolete(c.Context(), names.NewUnitTag("foo/0"))
+	c.Assert(err, tc.ErrorMatches, "FAIL")
+}
+
+func (s *SecretsSuite) TestWatchDeleted(c *tc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchDeleted")
+		c.Check(arg, tc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "unit-foo-0"}},
+		})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResult{})
+		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
+			Error: &params.Error{Message: "FAIL"},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	_, err := client.WatchDeleted(c.Context(), names.NewUnitTag("foo/0"))
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -647,4 +658,64 @@ func (s *SecretsSuite) TestRevoke(c *tc.C) {
 		Role:            coresecrets.RoleView,
 	})
 	c.Assert(err, tc.ErrorMatches, "FAIL")
+}
+
+func (s *SecretsSuite) TestUnitOwnedSecretsAndRevisions(c *tc.C) {
+	uri := coresecrets.NewURI()
+	unit := names.NewUnitTag("foo/0")
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "UnitOwnedSecretsAndRevisions")
+		c.Check(arg, tc.DeepEquals, params.Entity{
+			Tag: unit.String(),
+		})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretRevisionIDsResults{})
+		*(result.(*params.SecretRevisionIDsResults)) = params.SecretRevisionIDsResults{
+			Results: []params.SecretRevisionIDsResult{{
+				URI:       uri.String(),
+				Revisions: []int{1, 2, 3, 4, 5},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	secrets, err := client.UnitOwnedSecretsAndRevisions(c.Context(), unit)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secrets, tc.DeepEquals, []coresecrets.SecretURIWithRevisions{{
+		URI:       uri,
+		Revisions: []int{1, 2, 3, 4, 5},
+	}})
+}
+
+func (s *SecretsSuite) TestOwnedSecretRevisions(c *tc.C) {
+	uri := coresecrets.NewURI()
+	unit := names.NewUnitTag("foo/0")
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, tc.Equals, "SecretsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "OwnedSecretRevisions")
+		c.Check(arg, tc.DeepEquals, params.SecretRevisionArgs{
+			Unit: params.Entity{
+				Tag: unit.String(),
+			},
+			SecretURIs: []string{
+				uri.String(),
+			},
+		})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretRevisionIDsResults{})
+		*(result.(*params.SecretRevisionIDsResults)) = params.SecretRevisionIDsResults{
+			Results: []params.SecretRevisionIDsResult{{
+				URI:       uri.String(),
+				Revisions: []int{1, 2, 3, 4, 5},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	revs, err := client.OwnedSecretRevisions(c.Context(), unit, uri)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revs, tc.DeepEquals, []int{1, 2, 3, 4, 5})
 }

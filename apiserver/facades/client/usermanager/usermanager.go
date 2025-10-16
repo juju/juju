@@ -20,6 +20,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/securitylog"
 	coreuser "github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
@@ -134,6 +135,15 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 	result.Results = make([]params.AddUserResult, len(args.Users))
 	for i, arg := range args.Users {
 		result.Results[i] = api.addOneUser(ctx, arg)
+		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+		securitylog.LogUser(
+			securitylog.UserSecurityEvent{
+				Actor:  api.apiUser.Name.String(),
+				Target: arg.Username,
+				Action: securitylog.UserActionCreated,
+				Access: string(permission.LoginAccess),
+			},
+		)
 	}
 	return result, nil
 }
@@ -214,7 +224,8 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 			continue
 		}
 
-		err = api.accessService.RemoveUser(ctx, coreuser.NameFromTag(userTag))
+		user := coreuser.NameFromTag(userTag)
+		err = api.accessService.RemoveUser(ctx, user)
 		if err != nil {
 			deletions.Results[i].Error = apiservererrors.ServerError(
 				errors.Annotatef(err, "failed to delete user %q", userTag.Name()))
@@ -222,6 +233,15 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 		}
 		deletions.Results[i].Error = nil
 
+		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+		securitylog.LogUser(
+			securitylog.UserSecurityEvent{
+				Actor:  api.apiUser.Name.String(),
+				Target: user.String(),
+				Action: securitylog.UserActionDeleted,
+				Access: string(permission.NoAccess),
+			},
+		)
 	}
 	return deletions, nil
 }
@@ -462,6 +482,12 @@ func (api *UserManagerAPI) SetPassword(ctx context.Context, args params.EntityPa
 		if err := api.setPassword(ctx, arg); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
+		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+		securitylog.LogPasswordChange(
+			securitylog.PasswordChangeSecurityEvent{
+				User: api.apiUser.Name.String(),
+			},
+		)
 	}
 	return result, nil
 }
@@ -536,6 +562,12 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		} else {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		}
+		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+		securitylog.LogPasswordChange(
+			securitylog.PasswordChangeSecurityEvent{
+				User: api.apiUser.Name.String(),
+			},
+		)
 	}
 	return result, nil
 }

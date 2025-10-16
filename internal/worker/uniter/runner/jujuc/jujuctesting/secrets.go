@@ -32,19 +32,19 @@ func (c *ContextSecrets) CreateSecret(_ context.Context, args *jujuc.SecretCreat
 }
 
 // UpdateSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) UpdateSecret(uri *secrets.URI, args *jujuc.SecretUpdateArgs) error {
+func (c *ContextSecrets) UpdateSecret(ctx context.Context, uri *secrets.URI, args *jujuc.SecretUpdateArgs) error {
 	c.stub.AddCall("UpdateSecret", uri.String(), args)
 	return nil
 }
 
 // RemoveSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) RemoveSecret(uri *secrets.URI, revision *int) error {
+func (c *ContextSecrets) RemoveSecret(ctx context.Context, uri *secrets.URI, revision *int) error {
 	c.stub.AddCall("RemoveSecret", uri.String(), revision)
 	return nil
 }
 
 // SecretMetadata gets the metadata for secrets created by the charm.
-func (c *ContextSecrets) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+func (c *ContextSecrets) SecretMetadata(context.Context) (map[string]jujuc.SecretMetadata, error) {
 	c.stub.AddCall("SecretMetadata")
 	return map[string]jujuc.SecretMetadata{
 		"9m4e2mr0ui3e8a215n4g": {
@@ -60,13 +60,13 @@ func (c *ContextSecrets) SecretMetadata() (map[string]jujuc.SecretMetadata, erro
 }
 
 // GrantSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) GrantSecret(uri *secrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
+func (c *ContextSecrets) GrantSecret(ctx context.Context, uri *secrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
 	c.stub.AddCall("GrantSecret", uri.String(), args)
 	return nil
 }
 
 // RevokeSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) RevokeSecret(uri *secrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
+func (c *ContextSecrets) RevokeSecret(ctx context.Context, uri *secrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
 	c.stub.AddCall("RevokeSecret", uri.String(), args)
 	return nil
 }

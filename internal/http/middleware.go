@@ -221,7 +221,7 @@ func (m retryMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 
 			var retryable bool
 			var err error
-			res, retryable, err = m.roundTrip(req)
+			res, retryable, err = m.roundTrip(req) //nolint:bodyclose // Body closed by caller.
 			if err != nil {
 				return err
 			}

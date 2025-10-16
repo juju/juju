@@ -800,6 +800,22 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 		w := watchertest.NewMockStringsWatcher(ch)
 		return w, nil
 	}).AnyTimes()
+
+	ctx.secretsClient.EXPECT().WatchDeleted(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, owners ...names.Tag) (watcher.StringsWatcher, error) {
+		ownerNames := set.NewStrings()
+		for _, o := range owners {
+			ownerNames.Add(o.Id())
+		}
+		ownerNames.Remove(ctx.unit.Name())
+		ownerNames.Remove(ctx.app.Tag().Id())
+		if !ownerNames.IsEmpty() {
+			c.Fatalf("unexpected watch deleted secret owner(s): %q", ownerNames.Values())
+		}
+		ch := make(chan []string, 1)
+		ch <- []string(nil)
+		w := watchertest.NewMockStringsWatcher(ch)
+		return w, nil
+	}).AnyTimes()
 }
 
 func (s startUniter) setupUniter(c tc.LikeC, ctx *testContext) {
@@ -889,6 +905,9 @@ func (s startUniter) setupUniter(c tc.LikeC, ctx *testContext) {
 	c.Assert(err, tc.ErrorIsNil)
 	st = string(data)
 	ctx.unit.EXPECT().SetState(gomock.Any(), unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1)
+
+	// Termination.
+	ctx.secretsClient.EXPECT().UnitOwnedSecretsAndRevisions(gomock.Any(), ctx.unit.Tag()).Return(nil, nil).AnyTimes()
 }
 
 func (s startUniter) setupUniterHookExec(c tc.LikeC, ctx *testContext) {

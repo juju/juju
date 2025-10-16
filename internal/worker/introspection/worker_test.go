@@ -63,7 +63,7 @@ func (s *suite) TestStartStop(c *tc.C) {
 		PrometheusGatherer: prometheus.NewRegistry(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	workertest.CheckKill(c, w)
+	_ = workertest.CheckKill(c, w)
 }
 
 type introspectionSuite struct {
@@ -138,28 +138,33 @@ func (s *introspectionSuite) assertBodyContains(c *tc.C, response *http.Response
 
 func (s *introspectionSuite) TestCmdLine(c *tc.C) {
 	response := s.call(c, "/debug/pprof/cmdline")
+	defer response.Body.Close()
 	s.assertBodyContains(c, response, "/introspection.test")
 }
 
 func (s *introspectionSuite) TestGoroutineProfile(c *tc.C) {
 	response := s.call(c, "/debug/pprof/goroutine?debug=1")
+	defer response.Body.Close()
 	body := s.body(c, response)
 	c.Check(body, tc.Matches, `(?s)^goroutine profile: total \d+.*`)
 }
 
 func (s *introspectionSuite) TestTrace(c *tc.C) {
 	response := s.call(c, "/debug/pprof/trace?seconds=1")
+	defer response.Body.Close()
 	c.Assert(response.Header.Get("Content-Type"), tc.Equals, "application/octet-stream")
 }
 
 func (s *introspectionSuite) TestMissingDepEngineReporter(c *tc.C) {
 	response := s.call(c, "/depengine")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, "missing dependency engine reporter")
 }
 
 func (s *introspectionSuite) TestMissingMachineLock(c *tc.C) {
 	response := s.call(c, "/machinelock")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, "missing machine lock reporter")
 }
@@ -167,7 +172,7 @@ func (s *introspectionSuite) TestMissingMachineLock(c *tc.C) {
 func (s *introspectionSuite) TestEngineReporter(c *tc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.
-	workertest.CheckKill(c, s.worker)
+	workertest.CleanKill(c, s.worker)
 	s.reporter = &reporter{
 		values: map[string]interface{}{
 			"working": true,
@@ -175,6 +180,7 @@ func (s *introspectionSuite) TestEngineReporter(c *tc.C) {
 	}
 	s.startWorker(c)
 	response := s.call(c, "/depengine")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, tc.Equals, http.StatusOK)
 	// TODO: perhaps make the output of the dependency engine YAML parseable.
 	// This could be done by having the first line start with a '#'.
@@ -186,6 +192,7 @@ working: true`[1:])
 
 func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 	response := s.call(c, "/metrics")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, tc.Equals, http.StatusOK)
 	body := s.body(c, response)
 	s.assertContains(c, body, "# HELP tau Tau")

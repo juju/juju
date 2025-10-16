@@ -667,7 +667,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *tc.C) {
 		},
 	}
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
-	md, err := ctx.SecretMetadata()
+	md, err := ctx.SecretMetadata(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(md, tc.DeepEquals, map[string]jujuc.SecretMetadata{
 		uri.ID: {
@@ -696,19 +696,19 @@ func (s *InterfaceSuite) TestSecretMetadata(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = ctx.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
+	err = ctx.UpdateSecret(c.Context(), uri, &jujuc.SecretUpdateArgs{
 		Description: ptr("another"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	ctx.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	ctx.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		UnitName:    ptr("gitlab/1"),
 		RelationKey: ptr("mariadb:db gitlab:db"),
 		Role:        ptr(coresecrets.RoleView),
 	})
 
-	err = ctx.RemoveSecret(uri2, nil)
+	err = ctx.RemoveSecret(nil, uri2, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	md, err = ctx.SecretMetadata()
+	md, err = ctx.SecretMetadata(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(md, tc.DeepEquals, map[string]jujuc.SecretMetadata{
 		uri.ID: {
@@ -1339,7 +1339,7 @@ func (s *HookContextSuite) assertSecretGetOwnedSecretURILookup(
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
 	secretsBackend, err := secrets.NewClient(jujuSecretsAPI)
 	c.Assert(err, tc.ErrorIsNil)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsBackend)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{}, jujuSecretsAPI, secretsBackend)
 
 	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsBackend)
 
@@ -1647,7 +1647,7 @@ func (s *HookContextSuite) TestSecretUpdate(c *tc.C) {
 
 	data := map[string]string{"foo": "bar"}
 	value := coresecrets.NewSecretValue(data)
-	err := hookContext.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
+	err := hookContext.UpdateSecret(c.Context(), uri, &jujuc.SecretUpdateArgs{
 		Value:        value,                        // will be overwritten by the new value.
 		RotatePolicy: ptr(coresecrets.RotateDaily), // will be kept.
 		Description:  ptr("my secret"),             // will be overwritten by the new value.
@@ -1659,7 +1659,7 @@ func (s *HookContextSuite) TestSecretUpdate(c *tc.C) {
 	newData := map[string]string{"bar": "baz"}
 	newValue := coresecrets.NewSecretValue(newData)
 	expiry := time.Now()
-	err = hookContext.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
+	err = hookContext.UpdateSecret(c.Context(), uri, &jujuc.SecretUpdateArgs{
 		ExpireTime:  ptr(expiry),          // will be merged.
 		Value:       newValue,             // will be the new value.
 		Description: ptr("my new secret"), // will be the new value.
@@ -1698,7 +1698,7 @@ func (s *HookContextSuite) TestSecretUpdateSameContent(c *tc.C) {
 			Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 		},
 	}, nil, nil)
-	err := hookContext.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
+	err := hookContext.UpdateSecret(c.Context(), uri, &jujuc.SecretUpdateArgs{
 		Value:        value,
 		RotatePolicy: ptr(coresecrets.RotateDaily),
 		ExpireTime:   ptr(expiry),
@@ -1731,13 +1731,49 @@ func (s *HookContextSuite) TestSecretRemove(c *tc.C) {
 		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"}},
 		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mariadb/666"}},
 	}, nil, nil)
-	err := hookContext.RemoveSecret(uri, nil)
+	err := hookContext.RemoveSecret(nil, uri, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = hookContext.RemoveSecret(uri2, ptr(666))
+	err = hookContext.RemoveSecret(nil, uri2, ptr(666))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretRemoves(), tc.DeepEquals, map[string]uniter.SecretDeleteArg{
 		uri.ID:  {URI: uri},
-		uri2.ID: {URI: uri2, Revision: ptr(666)}})
+		uri2.ID: {URI: uri2, Revisions: []int{666}}})
+}
+
+func (s *HookContextSuite) TestSecretRemoveMulti(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil).Times(2)
+	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
+
+	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	uri3 := coresecrets.NewURI()
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"}},
+		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mariadb/666"}},
+		uri3.ID: {Description: "third secret", LatestRevision: 669, Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mariadb/669"}},
+	}, nil, nil)
+	err := hookContext.RemoveSecret(nil, uri, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	// It isn't an error, but the revision won't be tracked, because we're already deleting all revisions
+	err = hookContext.RemoveSecret(nil, uri, ptr(555))
+	c.Assert(err, tc.ErrorIsNil)
+	err = hookContext.RemoveSecret(nil, uri2, ptr(666))
+	c.Assert(err, tc.ErrorIsNil)
+	// We then remove all secrets after removing just one, so we also just remove all secrets
+	err = hookContext.RemoveSecret(nil, uri2, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	// In the third case, we just remove to exact revisions
+	err = hookContext.RemoveSecret(nil, uri3, ptr(555))
+	c.Assert(err, tc.ErrorIsNil)
+	err = hookContext.RemoveSecret(nil, uri3, ptr(666))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRemoves(), tc.DeepEquals, map[string]uniter.SecretDeleteArg{
+		uri.ID:  {URI: uri, Revisions: nil},
+		uri2.ID: {URI: uri2, Revisions: nil},
+		uri3.ID: {URI: uri3, Revisions: []int{555, 666}},
+	})
 }
 
 func (s *HookContextSuite) TestSecretGrant(c *tc.C) {
@@ -1755,12 +1791,12 @@ func (s *HookContextSuite) TestSecretGrant(c *tc.C) {
 
 	app := "mariadb"
 	relationKey := "wordpress:db mysql:server"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = hookContext.GrantSecret(uri2, &jujuc.SecretGrantRevokeArgs{
+	err = hookContext.GrantSecret(nil, uri2, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
@@ -1792,7 +1828,7 @@ func (s *HookContextSuite) TestSecretGrantSecretNotFound(c *tc.C) {
 	uri := coresecrets.NewURI()
 	app := "mariadb"
 	relationKey := "wordpress:db mysql:server"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
@@ -1811,7 +1847,7 @@ func (s *HookContextSuite) TestSecretGrantNotLeader(c *tc.C) {
 
 	app := "mariadb"
 	relationKey := "wordpress:db mysql:server"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
@@ -1841,7 +1877,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *tc.C) {
 	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	app := "gitlab"
 	relationKey := "mariadb:db gitlab:db"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 		Role:            ptr(coresecrets.RoleView),
@@ -1873,7 +1909,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *tc.C) {
 	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	unit := "gitlab/0"
 	relationKey := "mariadb:db gitlab:db"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		UnitName:    &unit,
 		RelationKey: &relationKey,
 		Role:        ptr(coresecrets.RoleView),
@@ -1905,7 +1941,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrantedAlr
 	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	unit := "gitlab/0"
 	relationKey := "mariadb:db gitlab:db"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		UnitName:    &unit,
 		RelationKey: &relationKey,
 		Role:        ptr(coresecrets.RoleView),
@@ -1937,7 +1973,7 @@ func (s *HookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired(c *
 	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	app := "gitlab"
 	relationKey := "mariadb:db gitlab:db"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 		Role:            ptr(coresecrets.RoleView),
@@ -1959,12 +1995,12 @@ func (s *HookContextSuite) TestSecretRevoke(c *tc.C) {
 	app := "mariadb"
 	unit0 := "mariadb/0"
 	relationKey := "wordpress:db mysql:server"
-	err := hookContext.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.RevokeSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = hookContext.RevokeSecret(uri2, &jujuc.SecretGrantRevokeArgs{
+	err = hookContext.RevokeSecret(nil, uri2, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
@@ -1989,7 +2025,7 @@ func (s *HookContextSuite) TestSecretRevoke(c *tc.C) {
 	)
 
 	// No OPS for duplicated revoke.
-	err = hookContext.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err = hookContext.RevokeSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
@@ -2014,7 +2050,7 @@ func (s *HookContextSuite) TestSecretRevoke(c *tc.C) {
 	)
 
 	// No OPS for unit level revoke because application level revoke exists already.
-	err = hookContext.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err = hookContext.RevokeSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		UnitName:    &unit0,
 		RelationKey: &relationKey,
 	})
@@ -2070,7 +2106,7 @@ func (s *HookContextSuite) TestHookCloudSpecMachine(c *tc.C) {
 	}, nil)
 
 	ctx := context.NewMockUnitHookContextWithUniter(c, model.IAAS, s.mockUnit, client)
-	spec, err := ctx.CloudSpec(stdcontext.Background())
+	spec, err := ctx.CloudSpec(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(spec.Type, tc.Equals, "lxd")
 	c.Assert(spec.Credential.AuthType, tc.Equals, "authtype")
@@ -2107,7 +2143,7 @@ func (s *HookContextSuite) TestHookCloudSpecK8s(c *tc.C) {
 		}, nil
 	})
 
-	spec, err := ctx.CloudSpec(stdcontext.Background())
+	spec, err := ctx.CloudSpec(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(spec, tc.DeepEquals, &params.CloudSpec{
 		Type:     "kubernetes",
@@ -2121,4 +2157,64 @@ func (s *HookContextSuite) TestHookCloudSpecK8s(c *tc.C) {
 		CACertificates:    []string{"start\ncadata\nend\n"},
 		IsControllerCloud: true,
 	})
+}
+
+func (s *HookContextSuite) TestSecretsMetadataLazyLoaded(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	called := false
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(called, tc.IsFalse)
+		called = true
+		c.Assert(objType, tc.Equals, "SecretsManager")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "GetSecretMetadata")
+		c.Check(arg, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.ListSecretMetadataResults{})
+		*(result.(*params.ListSecretMetadataResults)) = params.ListSecretMetadataResults{
+			[]params.ListSecretMetadataResult{{
+				URI:      "secret:9m4e2mr0ui3e8a215n4g",
+				OwnerTag: names.NewUnitTag("wordpress/0").String(),
+			}},
+		}
+		return nil
+	})
+
+	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
+	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
+	context.SetEnvironmentHookContextSecret(hookContext, "", nil, jujuSecretsAPI, nil)
+
+	value, err := hookContext.SecretMetadata(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value, tc.DeepEquals, map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "wordpress/0"},
+		},
+	})
+
+	// Second time, it should not call the api.
+	value, err = hookContext.SecretMetadata(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value, tc.DeepEquals, map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "wordpress/0"},
+		},
+	})
+}
+
+func (s *HookContextSuite) TestSecretsMetadataLazyLoadedAlreadyLoaded(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	metadata := map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mariadb/0"},
+		},
+	}
+	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, "", metadata, nil, nil)
+
+	value, err := hookContext.SecretMetadata(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value, tc.DeepEquals, metadata)
 }

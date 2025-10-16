@@ -124,8 +124,9 @@ func (s *WatcherSuite) SetUpTest(c *tc.C) {
 
 	s.rotateSecretWatcherEvent = make(chan string)
 	s.secretsClient = &mockSecretsClient{
-		secretsWatcher:          newMockStringsWatcher(),
-		secretsRevisionsWatcher: newMockStringsWatcher(),
+		secretsWatcher:           newMockStringsWatcher(),
+		obsoleteRevisionsWatcher: newMockStringsWatcher(),
+		deletedRevisionsWatcher:  newMockStringsWatcher(),
 	}
 
 	s.clock = testclock.NewClock(time.Now())
@@ -225,6 +226,7 @@ func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *tc.C) {
 		ActionChanged:           map[string]int{},
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
+		DeletedSecretRevisions:  map[string][]int{},
 	})
 }
 
@@ -236,6 +238,7 @@ func (s *WatcherSuiteSidecar) TestInitialSnapshot(c *tc.C) {
 		ActionChanged:           map[string]int{},
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
+		DeletedSecretRevisions:  map[string][]int{},
 	})
 }
 
@@ -260,7 +263,8 @@ func (s *WatcherSuite) TestInitialSignal(c *tc.C) {
 	s.uniterClient.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
 	s.secretsClient.secretsWatcher.changes <- []string{}
-	s.secretsClient.secretsRevisionsWatcher.changes <- []string{}
+	s.secretsClient.obsoleteRevisionsWatcher.changes <- []string{}
+	s.secretsClient.deletedRevisionsWatcher.changes <- []string{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 }
 
@@ -302,6 +306,7 @@ func (s *WatcherSuite) TestSnapshot(c *tc.C) {
 		Leader:                  true,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
+		DeletedSecretRevisions:  map[string][]int{},
 	})
 }
 
@@ -325,6 +330,7 @@ func (s *WatcherSuiteSidecar) TestSnapshot(c *tc.C) {
 		Leader:                  true,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
+		DeletedSecretRevisions:  map[string][]int{},
 	})
 }
 
@@ -378,14 +384,21 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *tc.C) {
 			Label:          "label-secret:8b4e2mr1wi3e8a215n5h",
 		},
 	})
-	c.Assert(s.watcher.Snapshot().DeletedSecrets, tc.DeepEquals, []string{"secret:999e2mr0ui3e8a215n4g"})
+	c.Assert(s.watcher.Snapshot().DeletedSecretRevisions, tc.DeepEquals, map[string][]int{"secret:999e2mr0ui3e8a215n4g": {}})
 
-	s.secretsClient.secretsRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668", "secret:666e2mr0ui3e8a215n4g"}
+	s.secretsClient.obsoleteRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ObsoleteSecretRevisions, tc.DeepEquals, map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	})
-	c.Assert(s.watcher.Snapshot().DeletedSecrets, tc.DeepEquals, []string{"secret:666e2mr0ui3e8a215n4g", "secret:999e2mr0ui3e8a215n4g"})
+
+	s.secretsClient.deletedRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668", "secret:666e2mr0ui3e8a215n4g/777", "secret:666e2mr0ui3e8a215n4g"}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().DeletedSecretRevisions, tc.DeepEquals, map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+		"secret:666e2mr0ui3e8a215n4g": {},
+		"secret:999e2mr0ui3e8a215n4g": {},
+	})
 
 	s.uniterClient.unit.configSettingsWatcher.changes <- []string{"confighash2"}
 	assertOneChange()
@@ -958,14 +971,21 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *tc.C) {
 			Label:          "label-secret:8b4e2mr1wi3e8a215n5h",
 		},
 	})
-	c.Assert(s.watcher.Snapshot().DeletedSecrets, tc.DeepEquals, []string{"secret:999e2mr0ui3e8a215n4g"})
+	c.Assert(s.watcher.Snapshot().DeletedSecretRevisions, tc.DeepEquals, map[string][]int{"secret:999e2mr0ui3e8a215n4g": {}})
 
-	s.secretsClient.secretsRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668", "secret:666e2mr0ui3e8a215n4g"}
+	s.secretsClient.obsoleteRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ObsoleteSecretRevisions, tc.DeepEquals, map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	})
-	c.Assert(s.watcher.Snapshot().DeletedSecrets, tc.DeepEquals, []string{"secret:666e2mr0ui3e8a215n4g", "secret:999e2mr0ui3e8a215n4g"})
+
+	s.secretsClient.deletedRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668", "secret:666e2mr0ui3e8a215n4g"}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().DeletedSecretRevisions, tc.DeepEquals, map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+		"secret:666e2mr0ui3e8a215n4g": {},
+		"secret:999e2mr0ui3e8a215n4g": {},
+	})
 
 	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
 	assertOneChange()
@@ -1012,6 +1032,7 @@ func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *tc.C) {
 		Leader:                  true,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
+		DeletedSecretRevisions:  map[string][]int{},
 	})
 }
 
@@ -1176,11 +1197,11 @@ func (s *WatcherSuite) TestDeleteSecretSignal(c *tc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	snap = s.watcher.Snapshot()
-	c.Assert(snap.DeletedSecrets, tc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
+	c.Assert(snap.DeletedSecretRevisions, tc.DeepEquals, map[string][]int{"secret:9m4e2mr0ui3e8a215n4g": {}})
 
-	s.watcher.RemoveSecretsCompleted([]string{"secret:9m4e2mr0ui3e8a215n4g"})
+	s.watcher.RemoveSecretsCompleted(map[string][]int{"secret:9m4e2mr0ui3e8a215n4g": {}})
 	snap = s.watcher.Snapshot()
-	c.Assert(snap.DeletedSecrets, tc.HasLen, 0)
+	c.Assert(snap.DeletedSecretRevisions, tc.HasLen, 0)
 }
 
 func (s *WatcherSuite) TestLeaderRunsSecretTriggerWatchers(c *tc.C) {

@@ -268,23 +268,25 @@ func secretOwnersFromAuthTag(authTag names.Tag, leadershipChecker leadership.Che
 }
 
 // GetSecretMetadata returns metadata for the caller's secrets.
-func (s *SecretsManagerAPI) GetSecretMetadata(ctx context.Context) (params.ListSecretResults, error) {
-	var result params.ListSecretResults
+func (s *SecretsManagerAPI) GetSecretMetadata(ctx context.Context) (params.ListSecretMetadataResults, error) {
+	var result params.ListSecretMetadataResults
 	owners, err := secretOwnersFromAuthTag(s.authTag, s.leadershipChecker)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	metadata, revisionMetadata, err := s.secretService.ListCharmSecrets(ctx, owners...)
+	// TODO - use new service method to get metadata without revisions
+	//  The facade API now returns params.ListSecretMetadataResults
+	metadata, _, err := s.secretService.ListCharmSecrets(ctx, owners...)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	for i, md := range metadata {
+	for _, md := range metadata {
 		ownerTag, err := commonsecrets.OwnerTagFromOwner(md.Owner)
 		if err != nil {
 			// This should never happen.
-			return params.ListSecretResults{}, errors.Trace(err)
+			return params.ListSecretMetadataResults{}, errors.Trace(err)
 		}
-		secretResult := params.ListSecretResult{
+		secretResult := params.ListSecretMetadataResult{
 			URI:                    md.URI.String(),
 			Version:                md.Version,
 			OwnerTag:               ownerTag.String(),
@@ -314,23 +316,6 @@ func (s *SecretsManagerAPI) GetSecretMetadata(ctx context.Context) (params.ListS
 			secretResult.Access = append(secretResult.Access, params.AccessInfo{
 				TargetTag: accessorTag.String(), ScopeTag: scopeTag.String(), Role: g.Role,
 			})
-		}
-
-		for _, r := range revisionMetadata[i] {
-			var valueRef *params.SecretValueRef
-			if r.ValueRef != nil {
-				valueRef = &params.SecretValueRef{
-					BackendID:  r.ValueRef.BackendID,
-					RevisionID: r.ValueRef.RevisionID,
-				}
-			}
-			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
-				Revision: r.Revision,
-				ValueRef: valueRef,
-			})
-		}
-		if len(secretResult.Revisions) == 0 {
-			continue
 		}
 		result.Results = append(result.Results, secretResult)
 	}
@@ -601,12 +586,10 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(ctx context.Context, arg
 }
 
 // WatchObsolete returns a watcher for notifying when:
-//   - a secret owned by the entity is deleted
 //   - a secret revision owed by the entity no longer
 //     has any consumers
 //
-// Obsolete revisions results are "uri/revno" and deleted
-// secret results are "uri".
+// Obsolete revisions results are "uri/revno".
 func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entities) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 
@@ -619,6 +602,38 @@ func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entit
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+	id, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, s.watcherRegistry, w)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	result.StringsWatcherId = id
+	result.Changes = changes
+	return result, nil
+}
+
+// WatchDeleted returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity is deleted
+//
+// Deleted revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (s *SecretsManagerAPI) WatchDeleted(ctx context.Context, args params.Entities) (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+
+	owners, err := s.charmSecretOwnersFromArgs(s.authTag, args)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	// TODO - implement me.
+	_ = owners
+	w := corewatcher.TODO[[]string]()
+	//w, err := s.secretsTriggers.WatchDeleted(ctx, owners...)
+	//if err != nil {
+	//	return result, errors.Trace(err)
+	//}
 	id, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, s.watcherRegistry, w)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
@@ -719,4 +734,58 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(ctx context.Contex
 	result.WatcherId = id
 	result.Changes = changes
 	return result, nil
+}
+
+// UnitOwnedSecretsAndRevisions returns all secret URIs and revision IDs for all
+// secrets owned by the given unit.
+func (s *SecretsManagerAPI) UnitOwnedSecretsAndRevisions(arg params.Entity) (params.SecretRevisionIDsResults, error) {
+	var results params.SecretRevisionIDsResults
+	unitTag, err := names.ParseUnitTag(arg.Tag)
+	if err != nil {
+		return results, apiservererrors.ErrPerm
+	}
+
+	// TOOO - implement me.
+	_ = unitTag
+
+	var info map[coresecrets.URI][]int
+	results.Results = make([]params.SecretRevisionIDsResult, 0, len(info))
+	for id, revs := range info {
+		result := params.SecretRevisionIDsResult{
+			URI:       id.String(),
+			Revisions: revs,
+		}
+		results.Results = append(results.Results, result)
+	}
+
+	return results, nil
+}
+
+// OwnedSecretRevisions returns all the revision IDs for the given secret that
+// is owned by either the unit or the unit's application.
+func (s *SecretsManagerAPI) OwnedSecretRevisions(args params.SecretRevisionArgs) (params.SecretRevisionIDsResults, error) {
+	unitTag, err := names.ParseUnitTag(args.Unit.Tag)
+	if err != nil {
+		return params.SecretRevisionIDsResults{}, apiservererrors.ErrPerm
+	}
+	results := params.SecretRevisionIDsResults{
+		Results: make([]params.SecretRevisionIDsResult, len(args.SecretURIs)),
+	}
+	for i, secretID := range args.SecretURIs {
+		uri, err := coresecrets.ParseURI(secretID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		// TODO - implement me.
+		_ = unitTag
+		_ = uri
+		var revs []int
+		results.Results[i] = params.SecretRevisionIDsResult{
+			URI:       secretID,
+			Revisions: revs,
+		}
+	}
+
+	return results, nil
 }

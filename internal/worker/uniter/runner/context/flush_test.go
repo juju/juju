@@ -300,18 +300,18 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *tc.C) {
 
 	ctx := s.context(c, ctrl)
 
-	err := ctx.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
+	err := ctx.UpdateSecret(c.Context(), uri, &jujuc.SecretUpdateArgs{
 		RotatePolicy: ptr(secrets.RotateDaily),
 		Description:  ptr("a secret"),
 		Label:        ptr("foobar"),
 		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = ctx.RemoveSecret(uri2, ptr(1))
+	err = ctx.RemoveSecret(nil, uri2, ptr(1))
 	c.Assert(err, tc.ErrorIsNil)
 
 	app, _ := names.UnitApplication(s.unit.Name())
-	err = ctx.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err = ctx.RevokeSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: ptr(app),
 	})
 	c.Assert(err, tc.ErrorIsNil)

@@ -97,7 +97,6 @@ func SendHTTPRequest(c *tc.C, p HTTPRequestParams) *http.Response {
 
 func AssertResponse(c *tc.C, resp *http.Response, expHTTPStatus int, expContentType string) []byte {
 	body, err := io.ReadAll(resp.Body)
-	_ = resp.Body.Close()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resp.StatusCode, tc.Equals, expHTTPStatus, tc.Commentf("body: %s", body))
 	ctype := resp.Header.Get("Content-Type")

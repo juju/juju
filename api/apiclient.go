@@ -1177,6 +1177,13 @@ func (c *conn) APICall(ctx context.Context, facade string, vers int, id, method 
 }
 
 func (c *conn) Close() error {
+	// The bakery client for Macaroons uses a round-tripper, so it is not a
+	// connection in its own right, but we can get it to close any connections
+	// from completed requests that are still open.
+	// Note that this does nothing for connections in use, including those
+	// held open because someone failed to close a HTTP response body.
+	c.bakeryClient.Client.CloseIdleConnections()
+
 	err := c.client.Close()
 	select {
 	case <-c.closed:

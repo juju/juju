@@ -407,17 +407,19 @@ func (s *workerSuite) ensureReload(c *tc.C, states chan string) {
 func (s *workerSuite) requestReload(c *tc.C, socket string) {
 	resp, err := newRequest(c, socket, "/reload", http.MethodPost)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNoContent)
 }
 
 func (s *workerSuite) ensureReloadRequestRefused(c *tc.C, socket string) {
-	_, err := newRequest(c, socket, "/reload", http.MethodPost)
+	_, err := newRequest(c, socket, "/reload", http.MethodPost) //nolint:bodyclose
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *workerSuite) ensureEndpointNotFound(c *tc.C, socket, method string) {
 	resp, err := newRequest(c, socket, method, http.MethodPost)
 	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
 

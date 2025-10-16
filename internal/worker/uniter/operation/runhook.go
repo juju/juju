@@ -76,7 +76,7 @@ func (rh *runHook) Prepare(ctx stdcontext.Context, state State) (*State, error) 
 	kind := hooks.Kind(name)
 	leaderNeeded := kind == hooks.LeaderElected
 	if kind == hooks.SecretRotate || kind == hooks.SecretExpired || kind == hooks.SecretRemove {
-		secretMetadata, err := rnr.Context().SecretMetadata()
+		secretMetadata, err := rnr.Context().SecretMetadata(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -313,7 +313,7 @@ func (rh *runHook) Commit(ctx stdcontext.Context, state State) (*State, error) {
 		}
 	case hooks.SecretRotate:
 		var info map[string]jujuc.SecretMetadata
-		info, err = rh.runner.Context().SecretMetadata()
+		info, err = rh.runner.Context().SecretMetadata(ctx)
 		if err != nil {
 			break
 		}

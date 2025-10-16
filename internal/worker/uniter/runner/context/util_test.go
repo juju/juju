@@ -242,7 +242,7 @@ func (s *BaseHookContextSuite) AssertCoreContext(c *tc.C, ctx *runnercontext.Hoo
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(az, tc.Equals, "a-zone")
 
-	info, err := ctx.SecretMetadata()
+	info, err := ctx.SecretMetadata(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.HasLen, 1)
 	for id, v := range info {

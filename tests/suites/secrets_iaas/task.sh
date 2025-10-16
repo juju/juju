@@ -19,6 +19,7 @@ test_secrets_iaas() {
 	test_secrets_k8s
 	test_secret_drain
 	test_user_secret_drain
+	test_obsolete_revisions
 
 	# Takes too long to tear down, so forcibly destroy it
 	export KILL_CONTROLLER=true

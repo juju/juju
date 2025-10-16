@@ -130,19 +130,16 @@ func (s SecretsContextAccessor) CreateSecretURIs(context.Context, int) ([]*secre
 	}}, nil
 }
 
-func (s SecretsContextAccessor) SecretMetadata(context.Context) ([]secrets.SecretOwnerMetadata, error) {
+func (s SecretsContextAccessor) SecretMetadata(context.Context) ([]secrets.SecretMetadata, error) {
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
-	return []secrets.SecretOwnerMetadata{{
-		Metadata: secrets.SecretMetadata{
-			URI:                    uri,
-			LatestRevision:         666,
-			LatestRevisionChecksum: "deadbeef",
-			Owner:                  secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"},
-			Description:            "description",
-			RotatePolicy:           secrets.RotateHourly,
-			Label:                  "label",
-		},
-		Revisions: []int{666},
+	return []secrets.SecretMetadata{{
+		URI:                    uri,
+		LatestRevision:         666,
+		LatestRevisionChecksum: "deadbeef",
+		Owner:                  secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"},
+		Description:            "description",
+		RotatePolicy:           secrets.RotateHourly,
+		Label:                  "label",
 	}}, nil
 }
 

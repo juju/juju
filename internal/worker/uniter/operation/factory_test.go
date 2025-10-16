@@ -259,7 +259,7 @@ func (s *FactorySuite) TestNewActionUnauthorised(c *tc.C) {
 }
 
 func (s *FactorySuite) TestNewNoOpSecretsRemoved(c *tc.C) {
-	op, err := s.factory.NewNoOpSecretsRemoved([]string{"secreturi"})
+	op, err := s.factory.NewNoOpSecretsRemoved(map[string][]int{"secreturi": {666}}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(op.String(), tc.Equals, "process removed secrets: [secreturi]")
+	c.Assert(op.String(), tc.Contains, "secreturi: [666]")
 }

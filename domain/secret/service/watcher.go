@@ -143,8 +143,8 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 //   - a secret revision owned by the entity no longer
 //     has any consumers
 //
-// Obsolete revisions results are "uri/revno" and deleted
-// secret results are "uri".
+// Obsolete revisions results are "uri/revno".
+// TODO - this needs to be tweaked to not emit deleted secrets
 func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

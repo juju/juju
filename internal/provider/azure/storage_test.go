@@ -223,7 +223,7 @@ func (s *storageSuite) TestCreateVolumes(c *tc.C) {
 
 func (s *storageSuite) createSenderWithUnauthorisedStatusCode() {
 	unauthSender := &azuretesting.MockSender{}
-	unauthSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
+	unauthSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3) //nolint:bodyclose
 	s.sender = azuretesting.Senders{unauthSender, unauthSender, unauthSender}
 }
 
@@ -384,6 +384,7 @@ func (s *storageSuite) TestDescribeVolumesNotFound(c *tc.C) {
 		http.StatusNotFound,
 		"disk not found",
 	)
+	defer response.Body.Close()
 	volumeSender.AppendResponse(response)
 	s.sender = azuretesting.Senders{volumeSender}
 	results, err := volumeSource.DescribeVolumes(c.Context(), []string{"volume-42"})
@@ -422,7 +423,7 @@ func (s *storageSuite) TestDestroyVolumesNotFound(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 
 	volume42Sender := &azuretesting.MockSender{}
-	volume42Sender.AppendResponse(azuretesting.NewResponseWithStatus(
+	volume42Sender.AppendResponse(azuretesting.NewResponseWithStatus( //nolint:bodyclose
 		"disk not found", http.StatusNotFound,
 	))
 	s.sender = azuretesting.Senders{volume42Sender}

@@ -107,6 +107,7 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestWithNoBasicAuthReturnsDischarge
 	})
 
 	charmResponse := assertResponse(c, resp, http.StatusUnauthorized)
+	defer resp.Body.Close()
 	c.Assert(charmResponse.Error, tc.NotNil)
 	c.Assert(charmResponse.Error.Message, tc.Equals, "macaroon discharge required: authentication required")
 	c.Assert(charmResponse.Error.Code, tc.Equals, params.CodeDischargeRequired)
@@ -121,11 +122,12 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithDischargedMacaroon(c
 		return s.userName.Name()
 	}
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-		Do:     s.doer(),
+		Do:     s.doer(), //nolint:bodyclose // Closed below.
 		Method: "POST",
 		URL:    s.toolsURI(""),
 	})
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
+	defer resp.Body.Close()
 	c.Assert(checkCount, tc.Equals, 1)
 }
 
@@ -196,13 +198,14 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *tc.C) 
 		Do:       bakeryDo,
 	})
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
+	defer resp.Body.Close()
 	c.Assert(prompted, tc.IsTrue)
 }
 
 // doer returns a Do function that can make a bakery request
 // appropriate for a charms endpoint.
 func (s *toolsWithMacaroonsIntegrationSuite) doer() func(*http.Request) (*http.Response, error) {
-	return bakeryDo(nil, bakeryGetError)
+	return bakeryDo(nil, bakeryGetError) //nolint:bodyclose // Closed by caller.
 }
 
 // bakeryDo provides a function suitable for using in HTTPRequestParams.Do

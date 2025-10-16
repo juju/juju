@@ -369,8 +369,8 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *tc.C) {
 
 	results, err := s.facade.GetSecretMetadata(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.ListSecretResults{
-		Results: []params.ListSecretResult{{
+	c.Assert(results, tc.DeepEquals, params.ListSecretMetadataResults{
+		Results: []params.ListSecretMetadataResult{{
 			URI:                    uri.String(),
 			OwnerTag:               "application-mariadb",
 			Description:            "description",
@@ -380,15 +380,6 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *tc.C) {
 			LatestRevisionChecksum: "deadbeef",
 			LatestExpireTime:       &now,
 			NextRotateTime:         &now,
-			Revisions: []params.SecretRevision{{
-				Revision: 666,
-				ValueRef: &params.SecretValueRef{
-					BackendID:  "backend-id",
-					RevisionID: "rev-id",
-				},
-			}, {
-				Revision: 667,
-			}},
 			Access: []params.AccessInfo{
 				{TargetTag: "application-gitlab", ScopeTag: "relation-gitlab.server#mysql.db", Role: "view"},
 			},
@@ -501,7 +492,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabel(c *tc.
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentForUnitAccessApplicationOwnedSecret(c *tc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentForUnitAccessApplicationOwnedSecretByLabel(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}

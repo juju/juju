@@ -28,7 +28,7 @@ type dummySecretsAccessor struct {
 	api.SecretsClient
 }
 
-func (a *dummySecretsAccessor) SecretMetadata(context.Context) ([]secrets.SecretOwnerMetadata, error) {
+func (a *dummySecretsAccessor) SecretMetadata(context.Context) ([]secrets.SecretMetadata, error) {
 	return nil, nil
 }
 

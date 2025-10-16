@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
 	jujucharm "github.com/juju/juju/internal/charm"
@@ -683,7 +682,7 @@ func (u *Uniter) terminate(ctx stdcontext.Context) error {
 			// can only be deleted when the app itself is removed. This is
 			// done in the api server.
 			u.logger.Debugf(ctx, "deleting secret content")
-			secrets, err := u.secretsClient.SecretMetadata(ctx)
+			secrets, err := u.secretsClient.UnitOwnedSecretsAndRevisions(ctx, u.unit.Tag())
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -692,13 +691,10 @@ func (u *Uniter) terminate(ctx stdcontext.Context) error {
 				return errors.Trace(err)
 			}
 			for _, s := range secrets {
-				if s.Metadata.Owner.Kind == coresecrets.ApplicationOwner {
-					continue
-				}
 				for _, rev := range s.Revisions {
-					err = backend.DeleteContent(ctx, s.Metadata.URI, rev)
+					err = backend.DeleteContent(ctx, s.URI, rev)
 					if err != nil {
-						return errors.Annotatef(err, "deleting secret content for %s/%d", s.Metadata.URI.ID, rev)
+						return errors.Annotatef(err, "deleting secret content for %s/%d", s.URI.ID, rev)
 					}
 				}
 			}

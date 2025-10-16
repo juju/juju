@@ -174,3 +174,123 @@ test_secrets_juju() {
 		run "run_secrets_juju"
 	)
 }
+
+obsolete_secret_revisions() {
+	local secret_short_uri
+	secret_short_uri=${1}
+
+	out=$(
+		juju ssh ubuntu-lite/0 sh <<EOF
+. /etc/profile.d/juju-introspection.sh
+juju_engine_report | sed 1d | yq '..style="flow" | .manifolds.deployer.report.units.workers.ubuntu-lite/0.report.manifolds.uniter.report.secrets.obsolete-revisions."'"${secret_short_uri}"'"'
+EOF
+	)
+	echo "${out}"
+}
+
+run_obsolete_revisions() {
+	echo
+
+	model_name=${1}
+
+	juju --show-log deploy jameinel-ubuntu-lite
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	juju ssh ubuntu-lite/0 "sudo snap install yq"
+
+	secret_uri=$(juju --show-log exec -u ubuntu-lite/0 -- secret-add foo=bar)
+	secret_short_uri="secret:${secret_uri##*/}"
+
+	# Create 10 new revisions, so we'll have 11 in total. 1-10 will be obsolete.
+	for i in $(seq 10); do juju --show-log exec --unit ubuntu-lite/0 -- secret-set "$secret_uri" foo="$i"; done
+
+	# Check that the secret-remove hook is run for the 10 obsolete revisions.
+	attempt=0
+	while true; do
+		num_hooks=$(juju show-status-log ubuntu-lite/0 --format yaml -n 100 | yq -o json | jq -r '[.[] | select(.message != null) | select(.message | contains("running secret-remove hook for '"${secret_short_uri}"'"))] | length')
+		if [ "$num_hooks" -eq 10 ]; then
+			break
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "expected 10 secret-remove hooks, got $num_hooks")
+			exit 1
+		fi
+		sleep 2
+	done
+
+	# Check that the unit state contains the 10 obsolete revisions.
+	echo "Checking initial obsolete revisions 1..10"
+	attempt=0
+	while true; do
+		obsolete=$(obsolete_secret_revisions "${secret_short_uri}")
+		if [ "$obsolete" == "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" ]; then
+			break
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "expected [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] initial obsolete revisions, got $obsolete")
+			exit 1
+		fi
+		sleep 2
+	done
+
+	# Remove a single revision.
+	juju --show-log exec --unit ubuntu-lite/0 -- secret-remove "$secret_uri" --revision 6
+
+	# Check that the unit state has the deleted revision removed.
+	echo "Checking revision 6 has been removed from the obsolete revisions"
+	attempt=0
+	while true; do
+		obsolete=$(obsolete_secret_revisions "${secret_short_uri}")
+		if [ "$obsolete" == "[1, 2, 3, 4, 5, 7, 8, 9, 10]" ]; then
+			break
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "expected [1, 2, 3, 4, 5, 7, 8, 9, 10] obsolete revisions, got $obsolete")
+			exit 1
+		fi
+		sleep 2
+	done
+
+	# Delete the entire secret.
+	juju --show-log exec --unit ubuntu-lite/0 -- secret-remove "$secret_uri"
+
+	# Check that all the obsolete revisions are removed from unit state.
+	echo "Checking all obsolete revision are removed when the secret is deleted"
+	attempt=0
+	while true; do
+		obsolete=$(obsolete_secret_revisions "${secret_short_uri}")
+		if [ $obsolete == null ]; then
+			break
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "expected no obsolete revisions, got $obsolete")
+			exit 1
+		fi
+		sleep 2
+	done
+}
+
+test_obsolete_revisions() {
+	if [ "$(skip 'test_obsolete_revisions')" ]; then
+		echo "==> TEST SKIPPED: test_obsolete_revisions"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		model_name='model-secrets-obsolete'
+		add_model "$model_name"
+		run_obsolete_revisions "$model_name"
+		destroy_model "$model_name"
+	)
+}
