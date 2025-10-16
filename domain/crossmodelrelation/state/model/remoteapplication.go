@@ -1175,9 +1175,11 @@ func (st *State) getCharmUUIDByApplicationUUID(ctx context.Context, tx *sqlair.T
 	input := uuid{UUID: appUUID}
 
 	query := `
-SELECT charm_uuid AS &uuid.uuid
-FROM application
-WHERE uuid = $uuid.uuid AND life_id < 2;
+SELECT  a.charm_uuid AS &uuid.uuid
+FROM    application AS a
+JOIN    life AS l ON l.id = a.life_id AND l.value != 'dead'
+WHERE   a.uuid = $uuid.uuid 
+AND     a.life_id = l.id;
 `
 	queryStmt, err := st.Prepare(query, input)
 	if err != nil {
