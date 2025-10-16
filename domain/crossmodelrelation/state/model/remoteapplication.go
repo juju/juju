@@ -902,6 +902,125 @@ WHERE  re.relation_uuid IN ($ids[:])`, uuid{}, ident)
 	return res, nil
 }
 
+// InitialWatchStatementForOffererRelations returns the namespace and the
+// initial query function for watching relation UUIDs that are associated with
+// remote consumer applications present in this model (i.e. offerer side).
+func (st *State) InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		stmt, err := st.Prepare(`
+SELECT DISTINCT arr.relation_uuid AS &uuid.uuid
+FROM   application_remote_consumer AS arc
+JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+`, uuid{})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		var rows []uuid
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt).GetAll(&rows)
+
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		res := make([]string, len(rows))
+		for i, r := range rows {
+			res[i] = r.UUID
+		}
+		return res, nil
+	}
+
+	return "relation", queryFunc
+}
+
+// GetOffererRelationUUIDsForConsumers returns the relation UUIDs associated
+// with the provided application remote consumer UUIDs.
+func (st *State) GetOffererRelationUUIDsForConsumers(ctx context.Context, applicationRemoteConsumerUUIDs ...string) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type ids []string
+	ident := ids(applicationRemoteConsumerUUIDs)
+
+	stmt, err := st.Prepare(`
+SELECT DISTINCT arr.relation_uuid AS &uuid.uuid
+FROM   application_remote_consumer AS arc
+JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+WHERE  arc.uuid IN ($ids[:])`, uuid{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []uuid
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).GetAll(&rows)
+
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	res := make([]string, len(rows))
+	for i, r := range rows {
+		res[i] = r.UUID
+	}
+	return res, nil
+}
+
+// GetAllOffererRelationUUIDs returns all relation UUIDs that are associated
+// with remote consumers in this model (i.e. offerer side relations).
+// This method is needed for the `WatchOffererRelations` watcher, more
+// specifically for the cache population.
+func (st *State) GetAllOffererRelationUUIDs(ctx context.Context) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT DISTINCT arr.relation_uuid AS &uuid.uuid
+FROM   application_remote_consumer AS arc
+JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+`, uuid{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []uuid
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&rows)
+
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	res := make([]string, len(rows))
+	for i, r := range rows {
+		res[i] = r.UUID
+	}
+	return res, nil
+}
+
 func (st *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid string, ch charm.Charm) error {
 	if err := st.addCharmState(ctx, tx, uuid, ch); err != nil {
 		return errors.Capture(err)
