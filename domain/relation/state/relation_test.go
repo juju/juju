@@ -3742,14 +3742,6 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 	return epUUIDsByRelID
 }
 
-// setUnitSubordinate sets unit 1 to be a subordinate of unit 2.
-func (s *relationSuite) setUnitSubordinate(c *tc.C, unitUUID1, unitUUID2 coreunit.UUID) {
-	s.query(c, `
-INSERT INTO unit_principal (unit_uuid, principal_uuid)
-VALUES (?,?)
-`, unitUUID1, unitUUID2)
-}
-
 func (s *relationSuite) doesRelationUnitExist(c *tc.C, relationUnitUUID string) bool {
 	return s.doesUUIDExist(c, "relation_unit", relationUnitUUID)
 }

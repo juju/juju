@@ -492,3 +492,11 @@ WHERE  relation_unit_uuid = ?
 	c.Assert(err, tc.ErrorIsNil)
 	return hash
 }
+
+// setUnitSubordinate sets unit 1 to be a subordinate of unit 2.
+func (s *baseRelationSuite) setUnitSubordinate(c *tc.C, unitUUID1, unitUUID2 coreunit.UUID) {
+	s.query(c, `
+INSERT INTO unit_principal (unit_uuid, principal_uuid)
+VALUES (?,?)
+`, unitUUID1, unitUUID2)
+}
