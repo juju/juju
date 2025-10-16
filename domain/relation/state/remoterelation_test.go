@@ -406,3 +406,67 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeMultipleMissingUnit(c *tc
 	c.Assert(err, tc.ErrorIs, relationerrors.UnitNotFound)
 	c.Check(err, tc.ErrorMatches, `.*missing: \[app1\/4\]`)
 }
+
+func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeSubordinate(c *tc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.addCharmMetadata(c, s.fakeCharmUUID1, true)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
+
+	// Arrange: Add container scoped endpoints on charm 1 and charm 2.
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleRequirer,
+			Interface: "ntp",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "ntp",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+
+	// Arrange: Add a unit to application 1 and application 2, and make the unit
+	// of application 1 a subordinate to the unit of application 2.
+	unitName1 := coreunittesting.GenNewName(c, "app1/0")
+	unitUUID1 := s.addUnit(c, unitName1, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	unitName2 := coreunittesting.GenNewName(c, "app2/0")
+	unitUUID2 := s.addUnit(c, unitName2, s.fakeApplicationUUID2, s.fakeCharmUUID2)
+	s.setUnitSubordinate(c, unitUUID1, unitUUID2)
+
+	// Add a relation between application 1 and application 2.
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	// Act: Try and enter scope with the unit 1, which is a subordinate to an
+	// application not in the relation.
+	settings := map[string]string{
+		"ingress-address": "x.x.x.x",
+		"another-key":     "another-value",
+	}
+	appSettings := map[string]string{
+		"foo": "bar",
+		"baz": "qux",
+	}
+
+	err := s.state.RemoteUnitsEnterScope(c.Context(),
+		s.fakeApplicationUUID1.String(),
+		relationUUID.String(),
+		appSettings,
+		map[string]map[string]string{
+			"app1/0": settings,
+		},
+	)
+	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeForSubordinate)
+}
