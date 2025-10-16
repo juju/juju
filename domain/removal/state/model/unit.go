@@ -489,7 +489,7 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 				Add(removalerrors.EntityStillAlive)
 		} else if uLife == life.Dying {
 			// The unit is dying, we cannot delete it yet.
-			return errors.Errorf("waiting for unit %q to be removed before deletion", unitUUID).
+			return errors.Errorf("waiting for unit %q to be dead before deletion", unitUUID).
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 
