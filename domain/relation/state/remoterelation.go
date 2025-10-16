@@ -48,44 +48,52 @@ WHERE  name IN ($names[:])
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Get all the unit UUIDs for the unit names.
-		var units []unitUUIDName
-		if err := tx.Query(ctx, getUnitsStmt, names(unitNames)).GetAll(&units); errors.Is(err, sqlair.ErrNoRows) {
-			return relationerrors.UnitNotFound
-		} else if err != nil {
-			return errors.Capture(err)
-		}
+		// We need to ensure that relation exists and it has entered scope
+		// before attempting to set the application settings. If however we're
+		// just setting the application settings, and no units have been provided,
+		// then we can skip the whole unit statements below.
+		if len(unitNames) > 0 {
 
-		// Ensure that all the units are correctly found up front.
-		if len(units) != len(unitNames) {
-			missing := findMissingNames(units, unitNames)
-			return errors.Errorf("expected %d units, got %d, missing: %v", len(unitNames), len(units), missing).Add(relationerrors.UnitNotFound)
-		}
-
-		// Set all the unit settings that are available.
-		for _, unit := range units {
-			// Ensure the unit can enter scope in this relation.
-			if err := st.checkUnitCanEnterScopeForRemoteRelation(ctx, tx, relationUUID, unit.UUID); err != nil {
+			// Get all the unit UUIDs for the unit names.
+			var units []unitUUIDName
+			if err := tx.Query(ctx, getUnitsStmt, names(unitNames)).GetAll(&units); errors.Is(err, sqlair.ErrNoRows) {
+				return relationerrors.UnitNotFound
+			} else if err != nil {
 				return errors.Capture(err)
 			}
 
-			// Upsert the row recording that the unit has entered scope.
-			relationUnitUUID, err := st.insertRelationUnit(ctx, tx, relationUUID, unit.UUID)
-			if err != nil {
-				return errors.Capture(err)
+			// Ensure that all the units are correctly found up front.
+			if len(units) != len(unitNames) {
+				missing := findMissingNames(units, unitNames)
+				return errors.Errorf("expected %d units, got %d, missing: %v", len(unitNames), len(units), missing).Add(relationerrors.UnitNotFound)
 			}
 
-			// We guarantee that the unit settings exist here, as we've checked
-			// that all the unit names exist above.
-			settings := unitSettings[unit.Name]
+			// Set all the unit settings that are available.
+			for _, unit := range units {
+				// Ensure the unit can enter scope in this relation.
+				if err := st.checkUnitCanEnterScopeForRemoteRelation(ctx, tx, relationUUID, unit.UUID); err != nil {
+					return errors.Capture(err)
+				}
 
-			// Blindly insert the settings for the unit, replacing any existing
-			// settings.
-			if err := st.insertRelationUnitSettings(ctx, tx, relationUnitUUID, settings); err != nil {
-				return errors.Errorf("replacing relation unit settings: %w", err)
+				// Upsert the row recording that the unit has entered scope.
+				relationUnitUUID, err := st.insertRelationUnit(ctx, tx, relationUUID, unit.UUID)
+				if err != nil {
+					return errors.Capture(err)
+				}
+
+				// We guarantee that the unit settings exist here, as we've checked
+				// that all the unit names exist above.
+				settings := unitSettings[unit.Name]
+
+				// Blindly insert the settings for the unit, replacing any existing
+				// settings.
+				if err := st.insertRelationUnitSettings(ctx, tx, relationUnitUUID, settings); err != nil {
+					return errors.Errorf("replacing relation unit settings: %w", err)
+				}
 			}
 		}
 
+		// Set the application settings for the relation.
 		if err := st.setRelationApplicationSettings(ctx, tx, relationUUID, applicationUUID, applicationSettings); err != nil {
 			return errors.Errorf("setting relation unit settings: %w", err)
 		}
