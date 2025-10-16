@@ -255,14 +255,12 @@ CREATE TABLE storage_volume (
     uuid TEXT NOT NULL PRIMARY KEY,
     volume_id TEXT NOT NULL,
     life_id INT NOT NULL,
+    provision_scope_id INT NOT NULL,
     provider_id TEXT,
     size_mib INT,
     hardware_id TEXT,
     wwn TEXT,
     persistent BOOLEAN,
-    -- TODO: we may change provision_scope_id to NOT NULL in the future.
-    -- We leave it nullable for now to avoid too much code churn.
-    provision_scope_id INT,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -300,11 +298,9 @@ CREATE TABLE storage_volume_attachment (
     storage_volume_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
+    provision_scope_id INT NOT NULL,
     block_device_uuid TEXT,
     read_only BOOLEAN,
-    -- TODO: we may change provision_scope_id to NOT NULL in the future.
-    -- We leave it nullable for now to avoid too much code churn.
-    provision_scope_id INT,
     CONSTRAINT fk_storage_volume_attachment_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
@@ -367,11 +363,9 @@ CREATE TABLE storage_filesystem (
     uuid TEXT NOT NULL PRIMARY KEY,
     filesystem_id TEXT NOT NULL,
     life_id INT NOT NULL,
+    provision_scope_id INT NOT NULL,
     provider_id TEXT,
     size_mib INT,
-    -- TODO: we may change provision_scope_id to NOT NULL in the future.
-    -- We leave it nullable for now to avoid too much code churn.
-    provision_scope_id INT,
     CONSTRAINT fk_storage_filesystem_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -408,12 +402,10 @@ CREATE TABLE storage_filesystem_attachment (
     uuid TEXT NOT NULL PRIMARY KEY,
     storage_filesystem_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
+    provision_scope_id INT NOT NULL,
     life_id INT NOT NULL,
     mount_point TEXT,
     read_only BOOLEAN,
-    -- TODO: we may change provision_scope_id to NOT NULL in the future.
-    -- We leave it nullable for now to avoid too much code churn.
-    provision_scope_id INT,
     CONSTRAINT fk_storage_filesystem_attachment_fs
     FOREIGN KEY (storage_filesystem_uuid)
     REFERENCES storage_filesystem (uuid),
@@ -449,8 +441,8 @@ CREATE TABLE storage_volume_attachment_plan (
     storage_volume_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
-    device_type_id INT,
     provision_scope_id INT NOT NULL,
+    device_type_id INT,
     CONSTRAINT fk_storage_volume_attachment_plan_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
