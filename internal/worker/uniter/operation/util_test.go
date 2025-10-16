@@ -106,12 +106,14 @@ func (d *MockDeployer) Deploy() error {
 type MockFailAction struct {
 	gotActionId *string
 	gotMessage  *string
+	status      string
 	err         error
 }
 
-func (mock *MockFailAction) Call(actionId, message string) error {
+func (mock *MockFailAction) Call(actionId, status, message string) error {
 	mock.gotActionId = &actionId
 	mock.gotMessage = &message
+	mock.status = status
 	return mock.err
 }
 
@@ -125,7 +127,11 @@ type RunActionCallbacks struct {
 }
 
 func (cb *RunActionCallbacks) FailAction(_ context.Context, actionId, message string) error {
-	return cb.MockFailAction.Call(actionId, message)
+	return cb.MockFailAction.Call(actionId, "failed", message)
+}
+
+func (cb *RunActionCallbacks) ErrorAction(_ context.Context, actionId, message string) error {
+	return cb.MockFailAction.Call(actionId, "error", message)
 }
 
 func (cb *RunActionCallbacks) SetExecutingStatus(_ context.Context, message string) error {

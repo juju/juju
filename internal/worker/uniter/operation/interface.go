@@ -195,9 +195,13 @@ type Callbacks interface {
 	// The following methods exist primarily to allow us to test operation code
 	// without using a live api connection.
 
-	// FailAction marks the supplied action failed. It's only used by
-	// RunActions operations.
+	// FailAction marks the supplied action status as "failed". It's only used
+	// by RunActions operations.
 	FailAction(ctx stdcontext.Context, actionId, message string) error
+
+	// ErrorAction marks the supplied action status as "error". It's only used
+	// by RunActions operations.
+	ErrorAction(ctx stdcontext.Context, actionId, message string) error
 
 	// ActionStatus returns the status of the action required by the action operation for
 	// cancelation.
