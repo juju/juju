@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -46,10 +47,11 @@ func newUpgraderFacadeV1(ctx facade.MultiModelContext) (UpgraderAPI, error) {
 		}
 		domainServices := ctx.DomainServices()
 		return NewControllerUpgraderAPI(
+			names.NewControllerTag(ctx.ControllerUUID()),
+			names.NewModelTag(ctx.ModelUUID().String()),
 			auth,
 			common.NewBlockChecker(domainServices.BlockCommand()),
 			domainServices.ControllerUpgraderService(),
-			ctx.Logger().Child("modelupgrader"),
 		), nil
 	}
 	return newFacadeV1(ctx)
