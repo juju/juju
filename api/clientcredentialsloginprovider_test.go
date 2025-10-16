@@ -6,6 +6,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/juju/errors"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/api/base"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
+	jujuparams "github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -116,8 +118,9 @@ func (s *clientCredentialsLoginProviderBasicSuite) TestNewClientCredentialsLogin
 		os.Unsetenv("JUJU_CLIENT_ID")
 		os.Unsetenv("JUJU_CLIENT_SECRET")
 	}()
-	_, err := api.NewClientCredentialsLoginProviderFromEnvironment(func() {}).Login(ctx, callStub{})
-	c.Assert(err, gc.Not(gc.ErrorMatches), "both client id and client secret must be set")
+	res, err := api.NewClientCredentialsLoginProviderFromEnvironment(func() {}).Login(ctx, callStub{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(res, gc.NotNil)
 }
 
 type callStub struct {
@@ -125,5 +128,10 @@ type callStub struct {
 }
 
 func (c callStub) APICall(objType string, version int, id string, request string, params interface{}, response interface{}) error {
+	if r, ok := response.(*jujuparams.LoginResult); ok {
+		r.ServerVersion = "3.6.9"
+	} else {
+		return fmt.Errorf("unexpected response type %T", response)
+	}
 	return nil
 }

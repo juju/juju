@@ -30,7 +30,7 @@ const (
 	clientSecretEnvVar = "JUJU_CLIENT_SECRET"
 )
 
-// NewClientCredentialsLoginProvider returns a LoginProvider implementation that
+// NewClientCredentialsLoginProviderFromEnvironment returns a LoginProvider implementation that
 // authenticates the entity with the client credentials retrieved from the environment.
 func NewClientCredentialsLoginProviderFromEnvironment(f func()) *clientCredentialsLoginProvider {
 	clientID := os.Getenv(clientIDEnvVar)
