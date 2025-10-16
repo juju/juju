@@ -200,10 +200,7 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitError(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
-	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(errors.Errorf("the front fell off"))
-
-	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
@@ -216,6 +213,7 @@ func (s *unitSuite) TestExecuteJobForUnitRevokingUnitError(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(errors.Errorf("the front fell off"))
