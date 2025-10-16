@@ -124,7 +124,7 @@ func (st *State) SetRelationApplicationSettings(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.setRelationApplicationSettings(ctx, tx, relationUUID, applicationID, settings)
+		return st.setRelationApplicationSettings(ctx, tx, relationUUID.String(), applicationID.String(), settings)
 	})
 	if err != nil {
 		return errors.Capture(err)
@@ -206,7 +206,7 @@ FROM   relation r
 				ID: rel.ID,
 			}
 
-			eps, err := st.exportRelationEndpoints(ctx, tx, rel.UUID)
+			eps, err := st.exportRelationEndpoints(ctx, tx, rel.UUID.String())
 			if err != nil {
 				return errors.Errorf("getting relation endpoints: %w", err)
 			}
