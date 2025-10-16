@@ -24,7 +24,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService,ExternalControllerService,CrossModelRelationService
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application CaasBrokerInterface
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm,CharmMeta
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository,RepositoryFactory
@@ -85,8 +84,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.blockChecker = NewMockBlockChecker(ctrl)
 	s.leadershipReader = NewMockLeadership(ctrl)
 	s.deployFromRepo = NewMockDeployFromRepository(ctrl)
-
-	s.providerRegistry = NewMockProviderRegistry(ctrl)
 
 	s.charmRepository = NewMockRepository(ctrl)
 	s.charmRepositoryFactory = NewMockRepositoryFactory(ctrl)
@@ -161,7 +158,6 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 		s.leadershipReader,
 		s.deployFromRepo,
 		s.deployApplication,
-		s.providerRegistry,
 		s.caasBroker,
 		s.objectStore,
 		loggertesting.WrapCheckLog(c),
