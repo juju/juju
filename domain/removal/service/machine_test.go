@@ -39,9 +39,11 @@ func (s *machineSuite) TestRemoveMachineNoForceSuccess(c *tc.C) {
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(internal.CascadedMachineLives{
-		MachineUUIDs:           []string{"some-container-id"},
-		UnitUUIDs:              []string{"some-unit-id"},
-		StorageAttachmentUUIDs: []string{"some-attachment-id"},
+		MachineUUIDs: []string{"some-container-id"},
+		UnitUUIDs:    []string{"some-unit-id"},
+		CascadedStorageLives: internal.CascadedStorageLives{
+			StorageAttachmentUUIDs: []string{"some-attachment-id"},
+		},
 	}, nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-container-id", false, when.UTC()).Return(nil)

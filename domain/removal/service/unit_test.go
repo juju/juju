@@ -42,8 +42,10 @@ func (s *unitSuite) TestRemoveUnitNoForceMachineAndStorageSuccess(c *tc.C) {
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(internal.CascadedUnitLives{
-		MachineUUID:            &mUUID,
-		StorageAttachmentUUIDs: []string{saUUID},
+		MachineUUID: &mUUID,
+		CascadedStorageLives: internal.CascadedStorageLives{
+			StorageAttachmentUUIDs: []string{saUUID},
+		},
 	}, nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID, false, when.UTC()).Return(nil)
