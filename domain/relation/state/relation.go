@@ -1276,7 +1276,7 @@ WHERE  relation_uuid = $entityUUID.uuid`, rows{}, entityUUID{})
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] if the relation cannot be found.
-//   - [relationerrors.UnitNotFound] if no unit by the given name can be found
+//   - [applicationerrors.UnitNotFound] if no unit by the given name can be found
 //   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering scope
 //     is a subordinate and its endpoint has scope charm.ScopeContainer, but the
 //     principal application of the unit is not the application in the relation.
@@ -1309,7 +1309,7 @@ WHERE  name = $getUnit.name
 		// Get the UUID of the unit entering scope.
 		err = tx.Query(ctx, getUnitStmt, unitArgs).Get(&unitArgs)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return relationerrors.UnitNotFound
+			return applicationerrors.UnitNotFound
 		} else if err != nil {
 			return errors.Capture(err)
 		}
@@ -1529,7 +1529,7 @@ func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, rela
 	// Check unit is alive.
 	unitLife, err := st.getLife(ctx, tx, "unit", unitUUID)
 	if errors.Is(err, coreerrors.NotFound) {
-		return relationerrors.UnitNotFound
+		return applicationerrors.UnitNotFound
 	} else if err != nil {
 		return errors.Errorf("getting unit life: %w", err)
 	}
@@ -1629,7 +1629,7 @@ WHERE  uuid = $getUnitApp.uuid
 	}
 	err = tx.Query(ctx, stmt, args).Get(&args)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", relationerrors.UnitNotFound
+		return "", applicationerrors.UnitNotFound
 	} else if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -3362,7 +3362,7 @@ WHERE  u.uuid = $getPrincipal.unit_uuid
 
 	err = tx.Query(ctx, stmt, getApplication).Get(&getApplication)
 	if errors.Is(sql.ErrNoRows, err) {
-		return "", relationerrors.UnitNotFound
+		return "", applicationerrors.UnitNotFound
 	} else if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -3390,7 +3390,7 @@ WHERE  ru.uuid = $getUnitRelAndApp.uuid
 	}
 	err = tx.Query(ctx, stmt, args).Get(&args)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", "", relationerrors.UnitNotFound
+		return "", "", applicationerrors.UnitNotFound
 	} else if err != nil {
 		return "", "", errors.Capture(err)
 	}

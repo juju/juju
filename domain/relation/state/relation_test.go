@@ -1881,7 +1881,7 @@ func (s *relationSuite) TestEnterScopeUnitNotFound(c *tc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, tc.ErrorIs, relationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *relationSuite) TestGetRelationUnitSettingsArchiveSuccess(c *tc.C) {
