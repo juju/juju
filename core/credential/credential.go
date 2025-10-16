@@ -5,6 +5,7 @@ package credential
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/names/v6"
 
@@ -59,9 +60,20 @@ func (k Key) Tag() (names.CloudCredentialTag, error) {
 	if k.IsZero() {
 		return names.CloudCredentialTag{}, nil
 	}
-	return names.ParseCloudCredentialTag(
-		fmt.Sprintf("%s-%s_%s_%s", names.CloudCredentialTagKind, k.Cloud, k.Owner, k.Name),
+
+	// sepEscape is taken from the names package.
+	sepEscape := func(in string) string {
+		return strings.Replace(in, "_", `%5f`, -1)
+	}
+	strTag := fmt.Sprintf(
+		"%s-%s_%s_%s",
+		names.CloudCredentialTagKind,
+		sepEscape(k.Cloud),
+		sepEscape(k.Owner.String()),
+		sepEscape(k.Name),
 	)
+
+	return names.ParseCloudCredentialTag(strTag)
 }
 
 // Validate is responsible for checking all of the fields of Key are in a set
