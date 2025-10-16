@@ -398,8 +398,8 @@ The final charm/machine base is determined using an order of precedence (most
 preferred to least):
 
 - the ` + "`--base`" + ` command option
-- for a bundle, the series stated in each charm URL (in the bundle file)
-- for a bundle, the series given at the top level (in the bundle file)
+- for a bundle, the base stated in each charm URL (in the bundle file)
+- for a bundle, the base given at the top level (in the bundle file)
 - the ` + "`default-base`" + ` model configuration key
 - the first base specified in the charm's manifest file
 

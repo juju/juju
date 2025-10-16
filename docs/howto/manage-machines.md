@@ -23,7 +23,7 @@ To add a new machine to a model, run the `add-machine` command, as below. `juju`
 juju add-machine
 ```
 
-The command also provides many options. By using them you can customize many things. For example, you can provision multiple machines, specify the Ubuntu series to be installed on them, choose to deploy on a lxd container *inside* a machine, apply various constraints to the machine (e.g., storage, spaces, ...) to override more general defaults (e.g., at the model level), etc.
+The command also provides many options. By using them you can customize many things. For example, you can provision multiple machines, specify their, choose to deploy on a LXD container *inside* a machine, apply various constraints to the machine (e.g., storage, spaces, ...) to override more general defaults (e.g., at the model level), etc.
 
 Machines provisioned via `add-machine` can be used for an initial deployment (`deploy`) or a scale-out deployment (`add-unit`).
 
@@ -409,45 +409,3 @@ By using various options, you can also customize various other things, for examp
 ```{ibnote}
 See more: {ref}`command-juju-remove-machine`
 ```
-
-<!--
-By default, when a machine is removed, the backing system, typically a cloud instance, is also destroyed. The for example, `--keep-instance` option overrides this; it allows the instance to be left running.
--->
-
-<!--DETAILS FOR ADD-MACHINE, originally from https://discourse.charmhub.io/t/how-to-set-constraints-for-a-machine/5884
-Constraints at the machine level can be set when adding a machine with the `add-machine` command. Doing so provides a way to override defaults at the all-units, application, model, and all-models levels.
-
-Once such a machine has been provisioned, it can be used for an initial deployment (`deploy`) or a scale-out deployment (`add-unit`). See {ref}`Deploying to specific machines <5886md` for the command syntax to use.
-
-A machine with a constraint can be added in this way:
-
-``` text
-juju add-machine --constraints arch=arm
-```
-
-To add a machine that is connected to a space, for example `storage`, run:
-
-``` text
-juju add-machine --constraints spaces=storage
-```
-
-If a space constraint is prefixed by '^', then the machine will **not** be connected to that space. For example, the command below will result in an instance that is connected to both the `db-space` and `internal` spaces but not connected to either the `storage` or `dmz` spaces.
-
-``` text
---constraints spaces=db-space,^storage,^dmz,internal
-```
-
-See the {ref}`network spaces <space` page for details on spaces.
-
-For a LXD cloud, to create a machine limited to two CPUs:
-
-``` text
-juju add-machine --constraints cores=2
-```
-
-To add eight Xenial machines such that they are evenly distributed among four availability zones:
-
-``` text
-juju add-machine -n 8 --series xenial --constraints zones=us-east-1a,us-east-1b,us-east-1c,us-east-1d
-```
--->

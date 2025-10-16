@@ -20,7 +20,7 @@ Manage secret backends <manage-secret-backends>
 Manage logs <manage-logs>
 Manage SSH keys <manage-ssh-keys>
 Manage users <manage-users>
-Manage charms or bundles <manage-charms>
+Manage charms <manage-charms>
 Manage applications <manage-applications>
 Manage resources <manage-charm-resources>
 Manage actions <manage-actions>
