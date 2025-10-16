@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -258,7 +257,6 @@ type validatorConfig struct {
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
 	machineService     MachineService
-	registry           storage.ProviderRegistry
 	storageService     StorageService
 	logger             corelogger.Logger
 }
@@ -279,7 +277,6 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 	if cfg.modelInfo.Type == model.CAAS {
 		return &caasDeployFromRepositoryValidator{
 			caasBroker:     cfg.caasBroker,
-			registry:       cfg.registry,
 			storageService: cfg.storageService,
 			validator:      v,
 			caasPrecheckFunc: func(dt deployTemplate) error {
@@ -293,7 +290,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 					charm:           dt.charm,
 					placement:       dt.placement,
 				}
-				return cdp.precheck(ctx, v.modelConfigService, cfg.storageService, cfg.registry, cfg.caasBroker)
+				return cdp.precheck(ctx, v.modelConfigService, cfg.storageService, cfg.caasBroker)
 			},
 		}
 	}
@@ -508,7 +505,6 @@ type caasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
 
 	caasBroker     CaasBrokerInterface
-	registry       storage.ProviderRegistry
 	storageService StorageService
 
 	// Needed for testing. caasDeployTemplate precheck functionality tested

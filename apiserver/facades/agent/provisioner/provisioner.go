@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/ssh"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -65,7 +64,6 @@ type ProvisionerAPI struct {
 	applicationService        ApplicationService
 	removalService            RemovalService
 	authorizer                facade.Authorizer
-	storageProviderRegistry   storage.ProviderRegistry
 	storagePoolGetter         StoragePoolGetter
 	configGetter              environs.EnvironConfigGetter
 	getAuthFunc               common.GetAuthFunc
@@ -143,11 +141,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	statusService := domainServices.Status()
 	storageService := domainServices.Storage()
 
-	storageRegisty, err := storageService.GetStorageRegistry(stdCtx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	configGetter := environConfigGetter{
 		modelInfoService:   modelInfoService,
 		cloudService:       cloudService,
@@ -192,7 +185,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		removalService:            removalService,
 		authorizer:                authorizer,
 		configGetter:              configGetter,
-		storageProviderRegistry:   storageRegisty,
 		storagePoolGetter:         storageService,
 		getAuthFunc:               getAuthFunc,
 		getCanModify:              getCanModify,

@@ -57,7 +57,6 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/configschema"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
@@ -109,7 +108,6 @@ type APIBase struct {
 
 	leadershipReader leadership.Reader
 
-	registry              storage.ProviderRegistry
 	caasBroker            CaasBrokerInterface
 	deployApplicationFunc DeployApplicationFunc
 
@@ -126,11 +124,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
 
 	storageService := domainServices.Storage()
-
-	registry, err := storageService.GetStorageRegistry(stdCtx)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting storage registry")
-	}
 
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
@@ -161,7 +154,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		modelConfigService: domainServices.Config(),
 		machineService:     domainServices.Machine(),
 		applicationService: applicationService,
-		registry:           registry,
 		storageService:     storageService,
 		logger:             repoLogger,
 	}
@@ -198,7 +190,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		leadershipReader,
 		repoDeploy,
 		DeployApplication,
-		registry,
 		nil,
 		ctx.ObjectStore(),
 		ctx.Logger().Child("application"),
@@ -229,7 +220,6 @@ func NewAPIBase(
 	leadershipReader Leadership,
 	repoDeploy DeployFromRepository,
 	deployApplication DeployApplicationFunc,
-	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
 	logger corelogger.Logger,
@@ -252,7 +242,6 @@ func NewAPIBase(
 		modelType:             modelType,
 		leadershipReader:      leadershipReader,
 		deployApplicationFunc: deployApplication,
-		registry:              registry,
 		caasBroker:            caasBroker,
 		store:                 store,
 
@@ -440,7 +429,6 @@ func (c caasDeployParams) precheck(
 	ctx context.Context,
 	modelConfigService ModelConfigService,
 	storageService StorageService,
-	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
 	if len(c.placement) > 1 {
@@ -525,7 +513,7 @@ func (api *APIBase) deployApplication(
 			charm:           ch,
 			placement:       args.Placement,
 		}
-		if err := caas.precheck(ctx, api.modelConfigService, api.storageService, api.registry, api.caasBroker); err != nil {
+		if err := caas.precheck(ctx, api.modelConfigService, api.storageService, api.caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}

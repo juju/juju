@@ -98,12 +98,11 @@ type StorageAPIv6 struct {
 
 // StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
-	blockDeviceService    BlockDeviceService
-	storageService        StorageService
-	applicationService    ApplicationService
-	storageRegistryGetter storageRegistryGetter
-	authorizer            facade.Authorizer
-	blockCommandService   common.BlockCommandService
+	blockDeviceService  BlockDeviceService
+	storageService      StorageService
+	applicationService  ApplicationService
+	authorizer          facade.Authorizer
+	blockCommandService common.BlockCommandService
 
 	controllerUUID string
 	modelUUID      coremodel.UUID
@@ -115,19 +114,17 @@ func NewStorageAPI(
 	blockDeviceService BlockDeviceService,
 	storageService StorageService,
 	applicationService ApplicationService,
-	storageRegistryGetter storageRegistryGetter,
 	authorizer facade.Authorizer,
 	blockCommandService common.BlockCommandService,
 ) *StorageAPI {
 	return &StorageAPI{
-		controllerUUID:        controllerUUID,
-		modelUUID:             modelUUID,
-		blockDeviceService:    blockDeviceService,
-		storageService:        storageService,
-		applicationService:    applicationService,
-		storageRegistryGetter: storageRegistryGetter,
-		authorizer:            authorizer,
-		blockCommandService:   blockCommandService,
+		controllerUUID:      controllerUUID,
+		modelUUID:           modelUUID,
+		blockDeviceService:  blockDeviceService,
+		storageService:      storageService,
+		applicationService:  applicationService,
+		authorizer:          authorizer,
+		blockCommandService: blockCommandService,
 	}
 }
 
@@ -284,8 +281,13 @@ func (a *StorageAPI) Remove(ctx context.Context, args params.RemoveStorage) (par
 // DetachStorage sets the specified storage attachments to Dying, unless they are
 // already Dying or Dead. Any associated, persistent storage will remain
 // alive. This call can be forced.
-func (a *StorageAPI) DetachStorage(ctx context.Context, args params.StorageDetachmentParams) (params.ErrorResults, error) {
+func (a *StorageAPI) DetachStorage(
+	ctx context.Context,
+	args params.StorageDetachmentParams,
+) (params.ErrorResults, error) {
+
 	result := make([]params.ErrorResult, len(args.StorageIds.Ids))
+
 	return params.ErrorResults{Results: result}, nil
 }
 
