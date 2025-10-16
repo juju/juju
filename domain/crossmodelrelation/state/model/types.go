@@ -326,3 +326,24 @@ type secretRevisionObsolete struct {
 	Obsolete      bool   `db:"obsolete"`
 	PendingDelete bool   `db:"pending_delete"`
 }
+
+type unitName struct {
+	Name string `db:"name"`
+}
+type unitNames []string
+
+type unitRow struct {
+	ApplicationID string    `db:"application_uuid"`
+	UnitUUID      string    `db:"uuid"`
+	CharmUUID     string    `db:"charm_uuid"`
+	Name          string    `db:"name"`
+	NetNodeID     string    `db:"net_node_uuid"`
+	LifeID        life.Life `db:"life_id"`
+}
+
+type remoteApplicationConsumerInfo struct {
+	ApplicationName string    `db:"application_name"`
+	LifeID          life.Life `db:"life_id"`
+	OfferUUID       string    `db:"offer_uuid"`
+	Version         uint64    `db:"version"`
+}

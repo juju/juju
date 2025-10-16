@@ -216,13 +216,6 @@ func (st *State) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmode
 		return nil, errors.Capture(err)
 	}
 
-	type remoteApplicationConsumerInfo struct {
-		ApplicationName string    `db:"application_name"`
-		LifeID          life.Life `db:"life_id"`
-		OfferUUID       string    `db:"offer_uuid"`
-		Version         uint64    `db:"version"`
-	}
-
 	query := `
 SELECT  a.name AS &remoteApplicationConsumerInfo.application_name,
         arc.life_id AS &remoteApplicationConsumerInfo.life_id,
@@ -1192,7 +1185,6 @@ WHERE uuid = $uuid.uuid AND life_id < 2;
 	}
 
 	var charmUUID uuid
-
 	if err := tx.Query(ctx, queryStmt, input).Get(&charmUUID); errors.Is(err, sqlair.ErrNoRows) {
 		return "", applicationerrors.ApplicationNotFound
 	} else if err != nil {
@@ -1232,10 +1224,6 @@ func (st *State) getMissingApplicationUnits(
 		return nil, nil
 	}
 
-	type unitName struct {
-		Name string `db:"name"`
-	}
-	type unitNames []string
 	names := unitNames(units)
 	appUUIDRec := uuid{UUID: appUUID}
 
@@ -1282,15 +1270,6 @@ func (st *State) insertUnit(
 	unitUUID, err := internaluuid.NewUUID()
 	if err != nil {
 		return errors.Capture(err)
-	}
-
-	type unitRow struct {
-		ApplicationID string    `db:"application_uuid"`
-		UnitUUID      string    `db:"uuid"`
-		CharmUUID     string    `db:"charm_uuid"`
-		Name          string    `db:"name"`
-		NetNodeID     string    `db:"net_node_uuid"`
-		LifeID        life.Life `db:"life_id"`
 	}
 
 	createParams := unitRow{
