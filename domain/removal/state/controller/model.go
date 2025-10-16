@@ -179,7 +179,7 @@ WHERE grant_on = $entityUUID.uuid;
 			return errors.Errorf("cannot delete model %q, model is still alive", modelUUIDParam.UUID).
 				Add(removalerrors.EntityStillAlive)
 		} else if mLife == life.Dying {
-			return errors.Errorf("waiting for model to be removed before deletion").
+			return errors.Errorf("waiting for model to be dead before deletion").
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 

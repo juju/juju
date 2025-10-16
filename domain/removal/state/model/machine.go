@@ -458,7 +458,7 @@ WHERE uuid = $machine.uuid;
 			return errors.Errorf("cannot delete machine %q, machine is still alive", machineUUIDParam.UUID).
 				Add(removalerrors.EntityStillAlive)
 		} else if mLife == life.Dying {
-			return errors.Errorf("waiting for machine to be removed before deletion").
+			return errors.Errorf("waiting for machine to be dead before deletion").
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 
@@ -478,7 +478,7 @@ WHERE uuid = $machine.uuid;
 		} else if iLife == life.Alive {
 			return errors.Errorf("cannot delete machine %q, instance is still alive", machineUUIDParam.UUID)
 		} else if iLife == life.Dying {
-			return errors.Errorf("waiting for instance to be removed before deletion").Add(removalerrors.RemovalJobIncomplete)
+			return errors.Errorf("waiting for instance to be dead before deletion").Add(removalerrors.RemovalJobIncomplete)
 		}
 
 		err = st.checkNoMachineDependents(ctx, tx, machineUUIDParam)
