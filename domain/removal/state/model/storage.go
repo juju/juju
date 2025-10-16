@@ -236,7 +236,6 @@ SELECT &entityUUID.uuid
 FROM   storage_instance_filesystem f
        JOIN storage_filesystem_attachment a ON f.storage_filesystem_uuid = a.storage_filesystem_uuid
 WHERE  f.storage_instance_uuid = $entityUUID.uuid
-AND    a.provision_scope_id = 1
 AND    a.life_id = 0`
 
 	del := "UPDATE storage_filesystem_attachment SET life_id = 1 WHERE uuid = $entityUUID.uuid"
@@ -252,7 +251,6 @@ SELECT &entityUUID.uuid
 FROM   storage_instance_volume v
        JOIN storage_volume_attachment a ON v.storage_volume_uuid = a.storage_volume_uuid
 WHERE  v.storage_instance_uuid = $entityUUID.uuid
-AND    a.provision_scope_id = 1
 AND    a.life_id = 0`
 
 	del = "UPDATE storage_volume_attachment SET life_id = 1 WHERE uuid = $entityUUID.uuid"
@@ -268,22 +266,27 @@ SELECT &entityUUID.uuid
 FROM   storage_instance_volume v
        JOIN storage_volume_attachment_plan a ON v.storage_volume_uuid = a.storage_volume_uuid
 WHERE  v.storage_instance_uuid = $entityUUID.uuid
-AND    a.provision_scope_id = 1
 AND    a.life_id = 0`
 
 	del = "UPDATE storage_volume_attachment_plan SET life_id = 1 WHERE uuid = $entityUUID.uuid"
 
-	if cascaded.VolumeAttachmentUUID, err = st.ensureStorageEntityNotAlive(
+	if cascaded.VolumeAttachmentPlanUUID, err = st.ensureStorageEntityNotAlive(
 		ctx, tx, siUUID, "volume attachment plan", qry, del,
 	); err != nil {
 		return cascaded, errors.Capture(err)
 	}
 
+	// File-systems are set to "dying" if they were provisioned with
+	// "machine" scope *unless* they are volume-backed and the volume
+	// was not provisioned with "machine" scope.
 	qry = `
-SELECT &entityUUID.uuid
+SELECT f.uuid AS &entityUUID.uuid
 FROM   storage_instance_filesystem i
        JOIN storage_filesystem f ON i.storage_filesystem_uuid = f.uuid
+	   LEFT JOIN storage_instance_volume iv ON i.storage_instance_uuid = iv.storage_instance_uuid
+	   LEFT JOIN storage_volume v ON iv.storage_volume_uuid = v.uuid AND v.provision_scope_id = 0
 WHERE  i.storage_instance_uuid = $entityUUID.uuid
+AND    v.uuid IS NULL
 AND    f.provision_scope_id = 1
 AND    f.life_id = 0`
 

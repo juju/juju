@@ -583,25 +583,9 @@ func (s *baseSuite) advanceApplicationLife(c *tc.C, appUUID coreapplication.UUID
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) checkApplicationLife(c *tc.C, appUUID string, expectedLife life.Life) {
-	row := s.DB().QueryRow("SELECT life_id FROM application WHERE uuid = ?", appUUID)
-	var lifeID int
-	err := row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, int(expectedLife))
-}
-
 func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE unit SET life_id = ? WHERE uuid = ?", newLife, unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *baseSuite) checkUnitLife(c *tc.C, unitUUID string, expectedLife life.Life) {
-	row := s.DB().QueryRow("SELECT life_id FROM unit WHERE uuid = ?", unitUUID)
-	var lifeID int
-	err := row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 func (s *baseSuite) advanceRelationLife(c *tc.C, relationUUID relation.UUID, newLife life.Life) {
@@ -614,25 +598,9 @@ func (s *baseSuite) advanceMachineLife(c *tc.C, machineUUID machine.UUID, newLif
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) checkMachineLife(c *tc.C, machineUUID string, expectedLife life.Life) {
-	row := s.DB().QueryRow("SELECT life_id FROM machine WHERE uuid = ?", machineUUID)
-	var lifeID int
-	err := row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, int(expectedLife))
-}
-
 func (s *baseSuite) advanceInstanceLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE machine_cloud_instance SET life_id = ? WHERE machine_uuid = ?", newLife, machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *baseSuite) checkInstanceLife(c *tc.C, machineUUID string, expectedLife life.Life) {
-	row := s.DB().QueryRow("SELECT life_id FROM machine_cloud_instance WHERE machine_uuid = ?", machineUUID)
-	var lifeID int
-	err := row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 func (s *baseSuite) advanceModelLife(c *tc.C, modelUUID string, newLife life.Life) {
@@ -640,8 +608,56 @@ func (s *baseSuite) advanceModelLife(c *tc.C, modelUUID string, newLife life.Lif
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *baseSuite) checkApplicationLife(c *tc.C, appUUID string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM application WHERE uuid = ?", appUUID, expectedLife)
+}
+
+func (s *baseSuite) checkUnitLife(c *tc.C, unitUUID string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM unit WHERE uuid = ?", unitUUID, expectedLife)
+}
+
+func (s *baseSuite) checkMachineLife(c *tc.C, machineUUID string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM machine WHERE uuid = ?", machineUUID, expectedLife)
+}
+
+func (s *baseSuite) checkInstanceLife(c *tc.C, machineUUID string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM machine_cloud_instance WHERE machine_uuid = ?", machineUUID, expectedLife)
+}
+
 func (s *baseSuite) checkModelLife(c *tc.C, modelUUID string, expectedLife life.Life) {
-	row := s.DB().QueryRow("SELECT life_id FROM model_life WHERE model_uuid = ?", modelUUID)
+	s.checkLife(c, "SELECT life_id FROM model_life WHERE model_uuid = ?", modelUUID, expectedLife)
+}
+
+func (s *baseSuite) checkStorageInstanceLife(c *tc.C, uuid string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM storage_instance WHERE uuid = ?", uuid, expectedLife)
+}
+
+func (s *baseSuite) checkStorageAttachmentLife(c *tc.C, uuid string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM storage_attachment WHERE uuid = ?", uuid, expectedLife)
+}
+
+func (s *baseSuite) checkFileSystemLife(c *tc.C, uuid string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM storage_filesystem WHERE uuid = ?", uuid, expectedLife)
+}
+
+func (s *baseSuite) checkFileSystemAttachmentLife(c *tc.C, uuid string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM storage_filesystem_attachment WHERE uuid = ?", uuid, expectedLife)
+}
+
+func (s *baseSuite) checkVolumeLife(c *tc.C, uuid string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM storage_volume WHERE uuid = ?", uuid, expectedLife)
+}
+
+func (s *baseSuite) checkVolumeAttachmentLife(c *tc.C, uuid string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM storage_volume_attachment WHERE uuid = ?", uuid, expectedLife)
+}
+
+func (s *baseSuite) checkVolumeAttachmentPlanLife(c *tc.C, uuid string, expectedLife life.Life) {
+	s.checkLife(c, "SELECT life_id FROM storage_volume_attachment_plan WHERE uuid = ?", uuid, expectedLife)
+}
+
+func (s *baseSuite) checkLife(c *tc.C, qry, uuid string, expectedLife life.Life) {
+	row := s.DB().QueryRow(qry, uuid)
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
