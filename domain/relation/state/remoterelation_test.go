@@ -10,6 +10,8 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	corelife "github.com/juju/juju/core/life"
+	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -469,4 +471,162 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeSubordinate(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeForSubordinate)
+}
+
+func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeRelationNotAlive(c *tc.C) {
+	// Arrange: Add two endpoints and a relation
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Dying, 17)
+
+	// Arrange: Add unit to application in the relation.
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	// Act: Enter scope.
+	settings := map[string]string{
+		"ingress-address": "x.x.x.x",
+		"another-key":     "another-value",
+	}
+	appSettings := map[string]string{
+		"foo": "bar",
+		"baz": "qux",
+	}
+
+	err := s.state.RemoteUnitsEnterScope(c.Context(),
+		s.fakeApplicationUUID1.String(),
+		relationUUID.String(),
+		appSettings,
+		map[string]map[string]string{
+			"app1/0": settings,
+		},
+	)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
+}
+
+func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUnitNotAlive(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+
+	// Arrange: Add unit to application in the relation.
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnitWithLife(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1, corelife.Dead)
+
+	// Act: Enter scope.
+	settings := map[string]string{
+		"ingress-address": "x.x.x.x",
+		"another-key":     "another-value",
+	}
+	appSettings := map[string]string{
+		"foo": "bar",
+		"baz": "qux",
+	}
+
+	err := s.state.RemoteUnitsEnterScope(c.Context(),
+		s.fakeApplicationUUID1.String(),
+		relationUUID.String(),
+		appSettings,
+		map[string]map[string]string{
+			"app1/0": settings,
+		},
+	)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
+}
+
+func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeRelationNotFound(c *tc.C) {
+	// Arrange: Add unit to application in the relation.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	// Act: Try and enter scope.
+	settings := map[string]string{
+		"ingress-address": "x.x.x.x",
+		"another-key":     "another-value",
+	}
+	appSettings := map[string]string{
+		"foo": "bar",
+		"baz": "qux",
+	}
+
+	err := s.state.RemoteUnitsEnterScope(c.Context(),
+		s.fakeApplicationUUID1.String(),
+		relationUUID.String(),
+		appSettings,
+		map[string]map[string]string{
+			"app1/0": settings,
+		},
+	)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUnitNotFound(c *tc.C) {
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	// Act: Try and enter scope.
+	settings := map[string]string{
+		"ingress-address": "x.x.x.x",
+		"another-key":     "another-value",
+	}
+	appSettings := map[string]string{
+		"foo": "bar",
+		"baz": "qux",
+	}
+
+	err := s.state.RemoteUnitsEnterScope(c.Context(),
+		s.fakeApplicationUUID1.String(),
+		relationUUID.String(),
+		appSettings,
+		map[string]map[string]string{
+			"app1/0": settings,
+		},
+	)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, relationerrors.UnitNotFound)
 }
