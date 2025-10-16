@@ -96,9 +96,6 @@ const (
 	// unit that is dead.
 	UnitDead = errors.ConstError("unit is dead")
 
-	// UnitNotFound describes an error when the unit cannot be found.
-	UnitNotFound = errors.ConstError("unit not found")
-
 	// UnitPrincipalNotFound describes an error when the principal application
 	// of a unit cannot be found.
 	UnitPrincipalNotFound = errors.ConstError("unit principal not found")

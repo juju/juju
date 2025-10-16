@@ -13,6 +13,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
@@ -405,7 +406,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeMultipleMissingUnit(c *tc
 			"app1/4": {}, // Missing unit.
 		},
 	)
-	c.Assert(err, tc.ErrorIs, relationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 	c.Check(err, tc.ErrorMatches, `.*missing: \[app1\/4\]`)
 }
 
@@ -628,5 +629,5 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUnitNotFound(c *tc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, tc.ErrorIs, relationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
