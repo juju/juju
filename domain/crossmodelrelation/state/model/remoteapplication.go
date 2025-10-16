@@ -103,7 +103,7 @@ func (st *State) AddRemoteApplicationConsumer(
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		//Get the application UUID for which the offer UUID was created.
+		// Get the application UUID for which the offer UUID was created.
 		_, localApplicationUUID, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, args.OfferUUID)
 		if err != nil {
 			return errors.Capture(err)
@@ -206,6 +206,39 @@ WHERE   aro.life_id < 2;`
 	}
 
 	return result, nil
+}
+
+// GetRemoteApplicationOffererByApplicationName returns the UUID of the remote
+// application offerer for the given application name.
+func (st *State) GetRemoteApplicationOffererByApplicationName(ctx context.Context, appName string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT aro.uuid AS &uuid.uuid
+FROM application_remote_offerer AS aro
+JOIN application AS a ON aro.application_uuid = a.uuid
+WHERE a.name = $name.name`, uuid{}, name{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result uuid
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, name{Name: appName}).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return crossmodelrelationerrors.RemoteApplicationNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return result.UUID, nil
 }
 
 // GetRemoteApplicationConsumers returns all the current non-dead remote

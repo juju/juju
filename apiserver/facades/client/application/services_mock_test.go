@@ -26,6 +26,7 @@ import (
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
 	relation "github.com/juju/juju/core/relation"
+	remoteapplication "github.com/juju/juju/core/remoteapplication"
 	resource "github.com/juju/juju/core/resource"
 	unit "github.com/juju/juju/core/unit"
 	application0 "github.com/juju/juju/domain/application"
@@ -2615,6 +2616,45 @@ func (c *MockRemovalServiceRemoveRelationCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// RemoveRemoteApplicationOfferer mocks base method.
+func (m *MockRemovalService) RemoveRemoteApplicationOfferer(arg0 context.Context, arg1 remoteapplication.UUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveRemoteApplicationOfferer", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(removal.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RemoveRemoteApplicationOfferer indicates an expected call of RemoveRemoteApplicationOfferer.
+func (mr *MockRemovalServiceMockRecorder) RemoveRemoteApplicationOfferer(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveRemoteApplicationOffererCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRemoteApplicationOfferer", reflect.TypeOf((*MockRemovalService)(nil).RemoveRemoteApplicationOfferer), arg0, arg1, arg2, arg3)
+	return &MockRemovalServiceRemoveRemoteApplicationOffererCall{Call: call}
+}
+
+// MockRemovalServiceRemoveRemoteApplicationOffererCall wrap *gomock.Call
+type MockRemovalServiceRemoveRemoteApplicationOffererCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemovalServiceRemoveRemoteApplicationOffererCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveRemoteApplicationOffererCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemovalServiceRemoveRemoteApplicationOffererCall) Do(f func(context.Context, remoteapplication.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRemoteApplicationOffererCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemovalServiceRemoveRemoteApplicationOffererCall) DoAndReturn(f func(context.Context, remoteapplication.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRemoteApplicationOffererCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RemoveUnit mocks base method.
 func (m *MockRemovalService) RemoveUnit(arg0 context.Context, arg1 unit.UUID, arg2, arg3 bool, arg4 time.Duration) (removal.UUID, error) {
 	m.ctrl.T.Helper()
@@ -2772,6 +2812,45 @@ func (c *MockCrossModelRelationServiceAddRemoteApplicationOffererCall) Do(f func
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelRelationServiceAddRemoteApplicationOffererCall) DoAndReturn(f func(context.Context, string, service0.AddRemoteApplicationOffererArgs) error) *MockCrossModelRelationServiceAddRemoteApplicationOffererCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRemoteApplicationOffererByApplicationName mocks base method.
+func (m *MockCrossModelRelationService) GetRemoteApplicationOffererByApplicationName(arg0 context.Context, arg1 string) (remoteapplication.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteApplicationOffererByApplicationName", arg0, arg1)
+	ret0, _ := ret[0].(remoteapplication.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteApplicationOffererByApplicationName indicates an expected call of GetRemoteApplicationOffererByApplicationName.
+func (mr *MockCrossModelRelationServiceMockRecorder) GetRemoteApplicationOffererByApplicationName(arg0, arg1 any) *MockCrossModelRelationServiceGetRemoteApplicationOffererByApplicationNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteApplicationOffererByApplicationName", reflect.TypeOf((*MockCrossModelRelationService)(nil).GetRemoteApplicationOffererByApplicationName), arg0, arg1)
+	return &MockCrossModelRelationServiceGetRemoteApplicationOffererByApplicationNameCall{Call: call}
+}
+
+// MockCrossModelRelationServiceGetRemoteApplicationOffererByApplicationNameCall wrap *gomock.Call
+type MockCrossModelRelationServiceGetRemoteApplicationOffererByApplicationNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceGetRemoteApplicationOffererByApplicationNameCall) Return(arg0 remoteapplication.UUID, arg1 error) *MockCrossModelRelationServiceGetRemoteApplicationOffererByApplicationNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceGetRemoteApplicationOffererByApplicationNameCall) Do(f func(context.Context, string) (remoteapplication.UUID, error)) *MockCrossModelRelationServiceGetRemoteApplicationOffererByApplicationNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceGetRemoteApplicationOffererByApplicationNameCall) DoAndReturn(f func(context.Context, string) (remoteapplication.UUID, error)) *MockCrossModelRelationServiceGetRemoteApplicationOffererByApplicationNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

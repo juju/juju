@@ -18,7 +18,8 @@ INSERT INTO removal_type VALUES
 (8, 'storage filesystem'),
 (9, 'storage volume attachment'),
 (10, 'storage volume attachment plan'),
-(11, 'storage filesystem attachment');
+(11, 'storage filesystem attachment'),
+(12, 'remote application offerer');
 
 CREATE TABLE removal (
     uuid TEXT NOT NULL PRIMARY KEY,

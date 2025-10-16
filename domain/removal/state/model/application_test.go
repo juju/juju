@@ -407,9 +407,7 @@ func (s *applicationSuite) TestGetApplicationLifeSuccess(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
-	// Set the application to "dying" manually.
-	_, err := s.DB().Exec("UPDATE application SET life_id = 1 WHERE uuid = ?", appUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
+	s.advanceApplicationLife(c, appUUID, life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 

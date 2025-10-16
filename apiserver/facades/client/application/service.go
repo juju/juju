@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
+	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -112,6 +113,10 @@ type CrossModelRelationService interface {
 		applicationName string,
 		args crossmodelrelationservice.AddRemoteApplicationOffererArgs,
 	) error
+
+	// GetRemoteApplicationOffererByApplicationName returns the UUID of the remote
+	// application offerer for the given application name.
+	GetRemoteApplicationOffererByApplicationName(context.Context, string) (coreremoteapplication.UUID, error)
 }
 
 // CredentialService provides access to credentials.
@@ -504,6 +509,22 @@ type RemovalService interface {
 	RemoveRelation(
 		ctx context.Context,
 		relUUID corerelation.UUID,
+		force bool,
+		wait time.Duration,
+	) (removal.UUID, error)
+
+	// RemoveRemoteApplicationOfferer checks if a remote application with the input
+	// UUID exists. If it does, the remote application is guaranteed after this
+	// call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// remote application. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveRemoteApplicationOfferer(
+		ctx context.Context,
+		remoteAppOffererUUID coreremoteapplication.UUID,
 		force bool,
 		wait time.Duration,
 	) (removal.UUID, error)

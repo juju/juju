@@ -12,26 +12,33 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/relation"
+	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	"github.com/juju/juju/domain/life"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
@@ -137,6 +144,7 @@ type baseSuite struct {
 	schematesting.ModelSuite
 
 	nextOperationID func() string
+	now             time.Time
 }
 
 // sequenceGenerator returns a function that generates unique string values in
@@ -153,6 +161,7 @@ func sequenceGenerator() func() string {
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 	s.nextOperationID = sequenceGenerator()
+	s.now = time.Now().UTC()
 
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -330,6 +339,73 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Provi
 	s.setCharmObjectStoreMetadata(c, appID)
 
 	return appID
+}
+
+func (s *baseSuite) createIAASRemoteApplicationOfferer(
+	c *tc.C,
+	name string,
+) (coreapplication.UUID, coreremoteapplication.UUID) {
+	cmrState := crossmodelrelationstate.NewState(
+		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	)
+
+	ch := charm.Charm{
+		Metadata: charm.Metadata{
+			Name: name,
+			Provides: map[string]charm.Relation{
+				"foo": {
+					Name:      "foo",
+					Interface: "rel",
+					Role:      charm.RoleProvider,
+					Scope:     charm.ScopeGlobal,
+				},
+				"bar": {
+					Name:      "bar",
+					Interface: "rel",
+					Role:      charm.RoleProvider,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+		},
+		Manifest:      s.minimalManifest(c),
+		ReferenceName: name,
+		Source:        charm.CMRSource,
+		Revision:      42,
+		Hash:          "hash",
+		Architecture:  architecture.ARM64,
+	}
+
+	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
+	appUUID := tc.Must(c, coreapplication.NewID)
+	err := cmrState.AddRemoteApplicationOfferer(c.Context(), name, crossmodelrelation.AddRemoteApplicationOffererArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			RemoteApplicationUUID: remoteAppUUID.String(),
+			ApplicationUUID:       appUUID.String(),
+			CharmUUID:             tc.Must(c, uuid.NewUUID).String(),
+			Charm:                 ch,
+			OfferUUID:             tc.Must(c, uuid.NewUUID).String(),
+		},
+		OfferURL:         tc.Must1(c, crossmodel.ParseOfferURL, fmt.Sprintf("controller:qualifier/model.%s", name)).String(),
+		OffererModelUUID: tc.Must(c, uuid.NewUUID).String(),
+		EncodedMacaroon:  []byte("macaroon"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return appUUID, remoteAppUUID
+}
+
+func (s *baseSuite) minimalManifest(c *tc.C) charm.Manifest {
+	return charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.RiskStable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}
 }
 
 func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
@@ -566,6 +642,19 @@ func (s *baseSuite) advanceModelLife(c *tc.C, modelUUID string, newLife life.Lif
 
 func (s *baseSuite) checkModelLife(c *tc.C, modelUUID string, expectedLife life.Life) {
 	row := s.DB().QueryRow("SELECT life_id FROM model_life WHERE model_uuid = ?", modelUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
+}
+
+func (s *baseSuite) advanceRemoteApplicationOffererLife(c *tc.C, remoteAppUUID string, newLife life.Life) {
+	_, err := s.DB().Exec(`UPDATE application_remote_offerer SET life_id = ? WHERE uuid = ?`, newLife, remoteAppUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) checkRemoteApplicationOffererLife(c *tc.C, remoteAppUUID string, expectedLife life.Life) {
+	row := s.DB().QueryRow("SELECT life_id FROM application_remote_offerer WHERE uuid = ?", remoteAppUUID)
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)

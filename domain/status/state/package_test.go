@@ -20,7 +20,6 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
-	remoteapplicationtesting "github.com/juju/juju/core/remoteapplication/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -195,7 +194,7 @@ func (s *baseSuite) createIAASRemoteApplicationOfferer(
 		Architecture:  architecture.ARM64,
 	}
 
-	remoteAppUUID := remoteapplicationtesting.GenRemoteApplicationUUID(c)
+	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
 	appUUID := tc.Must(c, coreapplication.NewID)
 	err := cmrState.AddRemoteApplicationOfferer(c.Context(), name, crossmodelrelation.AddRemoteApplicationOffererArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{

@@ -14,6 +14,11 @@ const (
 	// application being operated on is dead.
 	RemoteApplicationIsDead = errors.ConstError("remote application is dead")
 
+	// RemoteApplicationHasRelations describes an error that occurs when an
+	// operation on a remote application can't be performed because the remote
+	// application has relations established.
+	RemoteApplicationHasRelations = errors.ConstError("remote application has relations")
+
 	// ApplicationNotRemote describes an error that occurs when the application
 	// being operated on is not a remote application.
 	ApplicationNotRemote = errors.ConstError("application not remote")

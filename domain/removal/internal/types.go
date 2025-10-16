@@ -28,8 +28,8 @@ func (c CascadedUnitLives) IsEmpty() bool {
 		len(c.StorageInstanceUUIDs) == 0
 }
 
-// CascadedUnitLives contains identifiers for entities that were ensured to be
-// "dying" along with a machine. It is intended to inform the service layer
+// CascadedMachineLives contains identifiers for entities that were ensured to
+// be "dying" along with a machine. It is intended to inform the service layer
 // which entities should have removal jobs scheduled for them.
 type CascadedMachineLives struct {
 	// MachineUUIDs identify containers on the machine,
@@ -88,4 +88,18 @@ func (c CascadedApplicationLives) IsEmpty() bool {
 		len(c.UnitUUIDs) == 0 &&
 		len(c.RelationUUIDs) == 0 &&
 		len(c.StorageAttachmentUUIDs) == 0
+}
+
+// CascadedRemoteApplicationOffererLives contains identifiers for entities that
+// were ensured to be "dying" along with a remote application offerer. It is
+// intended to inform the service layer which entities should have removal jobs
+// scheduled for them
+type CascadedRemoteApplicationOffererLives struct {
+	// RelationUUIDs identify relations that this application was participating
+	// in that advanced to dying along with it.
+	RelationUUIDs []string
+}
+
+func (c CascadedRemoteApplicationOffererLives) IsEmpty() bool {
+	return len(c.RelationUUIDs) == 0
 }

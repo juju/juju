@@ -52,6 +52,10 @@ type ModelRemoteApplicationState interface {
 	// application offerers in the local model.
 	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
 
+	// GetRemoteApplicationOffererByApplicationName returns the UUID of the remote
+	// application offerer for the given application name.
+	GetRemoteApplicationOffererByApplicationName(context.Context, string) (string, error)
+
 	// GetRemoteApplicationConsumers returns all the current non-dead remote
 	// application consumers in the local model.
 	GetRemoteApplicationConsumers(context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error)
@@ -244,6 +248,25 @@ func (s *Service) GetRemoteApplicationOfferers(ctx context.Context) ([]crossmode
 	defer span.End()
 
 	return s.modelState.GetRemoteApplicationOfferers(ctx)
+}
+
+// GetRemoteApplicationOffererByApplicationName returns the UUID of the remote
+// application offerer for the given application name.
+func (s *Service) GetRemoteApplicationOffererByApplicationName(ctx context.Context, appName string) (coreremoteapplication.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	uuid, err := s.modelState.GetRemoteApplicationOffererByApplicationName(ctx, appName)
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	ret, err := coreremoteapplication.ParseUUID(uuid)
+	if err != nil {
+		return "", internalerrors.Errorf("parsing remote application offerer UUID: %w", err)
+	}
+
+	return ret, nil
 }
 
 // GetRemoteApplicationConsumers returns the current state of all remote

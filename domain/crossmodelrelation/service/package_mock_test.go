@@ -738,6 +738,45 @@ func (c *MockModelStateGetRemoteApplicationConsumersCall) DoAndReturn(f func(con
 	return c
 }
 
+// GetRemoteApplicationOffererByApplicationName mocks base method.
+func (m *MockModelState) GetRemoteApplicationOffererByApplicationName(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteApplicationOffererByApplicationName", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteApplicationOffererByApplicationName indicates an expected call of GetRemoteApplicationOffererByApplicationName.
+func (mr *MockModelStateMockRecorder) GetRemoteApplicationOffererByApplicationName(arg0, arg1 any) *MockModelStateGetRemoteApplicationOffererByApplicationNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteApplicationOffererByApplicationName", reflect.TypeOf((*MockModelState)(nil).GetRemoteApplicationOffererByApplicationName), arg0, arg1)
+	return &MockModelStateGetRemoteApplicationOffererByApplicationNameCall{Call: call}
+}
+
+// MockModelStateGetRemoteApplicationOffererByApplicationNameCall wrap *gomock.Call
+type MockModelStateGetRemoteApplicationOffererByApplicationNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetRemoteApplicationOffererByApplicationNameCall) Return(arg0 string, arg1 error) *MockModelStateGetRemoteApplicationOffererByApplicationNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetRemoteApplicationOffererByApplicationNameCall) Do(f func(context.Context, string) (string, error)) *MockModelStateGetRemoteApplicationOffererByApplicationNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetRemoteApplicationOffererByApplicationNameCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelStateGetRemoteApplicationOffererByApplicationNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRemoteApplicationOfferers mocks base method.
 func (m *MockModelState) GetRemoteApplicationOfferers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
 	m.ctrl.T.Helper()

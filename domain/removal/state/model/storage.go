@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/removal"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -89,7 +90,7 @@ func (st *State) StorageAttachmentScheduleRemoval(
 
 	removalRec := removalJob{
 		UUID:          removalUUID,
-		RemovalTypeID: 6,
+		RemovalTypeID: uint64(removal.StorageAttachmentJob),
 		EntityUUID:    saUUID,
 		Force:         force,
 		ScheduledFor:  when,
