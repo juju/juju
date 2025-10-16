@@ -41,15 +41,7 @@ type ModelState interface {
 	ModelOfferState
 	ModelRemoteApplicationState
 	ModelSecretsState
-
-	// InitialWatchStatementForConsumerRelations returns the namespace and the
-	// initial query function for watching relation UUIDs that are associated with
-	// remote offerer applications present in this model (i.e. consumer side).
-	InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery)
-
-	// GetConsumerRelationUUIDs filters the provided relation UUIDs and returns
-	// only those that are associated with remote offerer applications in this model.
-	GetConsumerRelationUUIDs(ctx context.Context, relationUUIDs ...string) ([]string, error)
+	ModelRelationNetworkState
 }
 
 // ControllerState describes retrieval and persistence methods for cross
@@ -92,6 +84,7 @@ type WatcherFactory interface {
 		filterOption eventsource.FilterOption,
 		filterOptions ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
+
 	// NewNamespaceWatcher returns a new watcher that filters changes from the
 	// input base watcher's db/queue. Change-log events will be emitted only if
 	// the filter accepts them, and dispatching the notifications via the
@@ -103,6 +96,7 @@ type WatcherFactory interface {
 		summary string,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
+
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes from
 	// the input base watcher's db/queue. Filtering of values is done first by
 	// the filter, and then by the mapper. Based on the mapper's logic a subset
@@ -279,6 +273,30 @@ func (w *WatchableService) WatchConsumerRelations(ctx context.Context) (watcher.
 		"consumer relations watcher",
 		mapper,
 		eventsource.NamespaceFilter(table, changestream.All),
+	)
+}
+
+// WatchRelationIngressNetworks watches for changes to the ingress networks
+// for the specified relation UUID. It returns a NotifyWatcher that emits
+// events when there are insertions or deletions in the relation_network_ingress
+// table.
+func (w *WatchableService) WatchRelationIngressNetworks(ctx context.Context, relationUUID string) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if relationUUID == "" {
+		return nil, errors.Errorf("relation UUID cannot be empty")
+	}
+	if !uuid.IsValidUUIDString(relationUUID) {
+		return nil, errors.Errorf("relation UUID %q is not a valid UUID", relationUUID).Add(coreerrors.NotValid)
+	}
+
+	table := w.modelState.NamespaceForRelationIngressNetworksWatcher()
+
+	return w.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"relation ingress networks watcher",
+		eventsource.PredicateFilter(table, changestream.All, eventsource.EqualsPredicate(relationUUID)),
 	)
 }
 
