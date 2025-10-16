@@ -24,11 +24,10 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	internalapplication "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
-	"github.com/juju/juju/domain/ipaddress"
+	domainipaddress "github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -1193,16 +1192,16 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 			},
 			Value:       cloudContainer.Address.Value,
-			AddressType: ipaddress.MarshallAddressType(cloudContainer.Address.AddressType()),
+			AddressType: domainipaddress.MarshallAddressType(cloudContainer.Address.AddressType()),
 			// The k8s container must have the lowest scope. This is needed to
 			// ensure that these are correctly matched with respect to k8s
 			// service addresses when retrieving unit public/private addresses.
-			Scope:      ipaddress.MarshallScope(network.ScopeMachineLocal),
-			Origin:     ipaddress.MarshallOrigin(network.OriginProvider),
-			ConfigType: ipaddress.MarshallConfigType(network.ConfigDHCP),
+			Scope:      domainipaddress.MarshallScope(network.ScopeMachineLocal),
+			Origin:     domainipaddress.MarshallOrigin(network.OriginProvider),
+			ConfigType: domainipaddress.MarshallConfigType(network.ConfigDHCP),
 		}
 		if cloudContainer.AddressOrigin != nil {
-			result.Address.Origin = ipaddress.MarshallOrigin(*cloudContainer.AddressOrigin)
+			result.Address.Origin = domainipaddress.MarshallOrigin(*cloudContainer.AddressOrigin)
 		}
 	}
 	return result
@@ -2266,15 +2265,21 @@ VALUES ($unitPrincipal.*)
 // GetUnitsK8sPodInfo returns Kubernetes related information for each unit in
 // the model that is running inside of a Kubernetes pod. If no Kubernetes based
 // units are found than an empty result is returned.
+//
+// This function WILL return ip address values for each pod in a deterministic
+// order. IP addresses will be order based on how public they are, ipv6
+// addresses before ipv4 addresses and then natural sort over of value. This
+// ordering exists so that the user always get a deterministic result.
 func (st *State) GetUnitsK8sPodInfo(
 	ctx context.Context,
-) (map[string]internal.UnitK8sInformation, error) {
+) (map[string]internalapplication.UnitK8sInformation, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	lifeInput := lifeID{LifeID: life.Dead}
+	scopeSelector := ipAddressScopeID{ScopeID: int(domainipaddress.ScopeUnknown)}
 
 	k8sUnitInfoQuery := `
 SELECT &unitK8s.*
@@ -2283,13 +2288,21 @@ JOIN   k8s_pod kp ON u.uuid = kp.unit_uuid
 WHERE  u.life_id != $lifeID.life_id
 `
 
+	// This is a modeling wart. We purposely order ip addresses here as there
+	// does exist the posibility that multiple addresses exist for a unit. We
+	// know the caller will work this result down to single value. This helps us
+	// be deterministicly wrong until the Juju world becomes less singular.
 	k8sIPAddressesQuery := `
-SELECT &unitK8sIPAddress.*
-FROM   ip_address ip
-JOIN   link_layer_device lld ON ip.device_uuid = lld.uuid
-JOIN   unit u ON u.net_node_uuid = lld.net_node_uuid
-JOIN   k8s_pod kp ON u.uuid = kp.unit_uuid
-WHERE  u.life_id != $lifeID.life_id
+SELECT   &unitK8sIPAddress.*
+FROM     ip_address ip
+JOIN     link_layer_device lld ON ip.device_uuid = lld.uuid
+JOIN     unit u ON u.net_node_uuid = lld.net_node_uuid
+JOIN     k8s_pod kp ON u.uuid = kp.unit_uuid
+WHERE    u.life_id != $lifeID.life_id
+AND      ip.scope_id != $scopeSelector.scope_id
+ORDER BY ip.scope_id ASC,
+         ip.type_id DESC,
+         ip.address_value ASC
 `
 
 	k8sPortsQuery := `
@@ -2303,7 +2316,9 @@ WHERE  u.life_id != $lifeID.life_id
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	ipAddressesStmt, err := st.Prepare(k8sIPAddressesQuery, unitK8sIPAddress{}, lifeInput)
+	ipAddressesStmt, err := st.Prepare(
+		k8sIPAddressesQuery, unitK8sIPAddress{}, lifeInput, scopeSelector,
+	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2323,7 +2338,7 @@ WHERE  u.life_id != $lifeID.life_id
 			return errors.Capture(err)
 		}
 
-		err = tx.Query(ctx, ipAddressesStmt, lifeInput).GetAll(&ipDBVals)
+		err = tx.Query(ctx, ipAddressesStmt, lifeInput, scopeSelector).GetAll(&ipDBVals)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
@@ -2339,9 +2354,9 @@ WHERE  u.life_id != $lifeID.life_id
 		return nil, errors.Capture(err)
 	}
 
-	result := make(map[string]internal.UnitK8sInformation, len(unitInfoDBVals))
+	result := make(map[string]internalapplication.UnitK8sInformation, len(unitInfoDBVals))
 	for _, dbVal := range unitInfoDBVals {
-		result[dbVal.UnitUUID] = internal.UnitK8sInformation{
+		result[dbVal.UnitUUID] = internalapplication.UnitK8sInformation{
 			ProviderID: dbVal.ProviderID,
 			UnitName:   dbVal.Name,
 		}
@@ -2596,7 +2611,7 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	subnetUUID, ok := subnetUUIDs[ipaddress.UnMarshallAddressType(address.AddressType)]
+	subnetUUID, ok := subnetUUIDs[domainipaddress.UnMarshallAddressType(address.AddressType)]
 	if !ok {
 		// Note: This is a programming error. Today the K8S subnets are
 		// placeholders which should always be created when a model is
@@ -2833,9 +2848,8 @@ func encodeResolveMode(mode sql.NullInt16) (string, error) {
 }
 
 func encodeK8sPodInfo(info unitK8sPodInfo, ports []k8sPodPort) application.K8sPodInfo {
-	ret := application.K8sPodInfo{}
-	if info.ProviderID.Valid {
-		ret.ProviderID = info.ProviderID.V
+	ret := application.K8sPodInfo{
+		ProviderID: info.ProviderID,
 	}
 	if info.Address.Valid {
 		ret.Address = info.Address.V

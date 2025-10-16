@@ -211,8 +211,8 @@ type unitK8sPodPort struct {
 }
 
 type unitK8sPodInfo struct {
-	ProviderID sql.Null[network.Id] `db:"provider_id"`
-	Address    sql.Null[string]     `db:"address"`
+	ProviderID string           `db:"provider_id"`
+	Address    sql.Null[string] `db:"address"`
 }
 
 type ipAddress struct {
@@ -1296,4 +1296,9 @@ type unitK8sPort struct {
 
 type charmModifiedVersion struct {
 	Version uint64 `db:"charm_modified_version"`
+}
+
+// ipAddressScopeID represents the scope_id column for the ip_address table.
+type ipAddressScopeID struct {
+	ScopeID int `db:"scope_id"`
 }

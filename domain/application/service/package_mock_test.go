@@ -33,6 +33,7 @@ import (
 	architecture "github.com/juju/juju/domain/application/architecture"
 	charm0 "github.com/juju/juju/domain/application/charm"
 	store "github.com/juju/juju/domain/application/charm/store"
+	internal "github.com/juju/juju/domain/application/internal"
 	constraints0 "github.com/juju/juju/domain/constraints"
 	life "github.com/juju/juju/domain/life"
 	network0 "github.com/juju/juju/domain/network"
@@ -3578,10 +3579,10 @@ func (c *MockStateGetUnitWorkloadVersionCall) DoAndReturn(f func(context.Context
 }
 
 // GetUnitsK8sPodInfo mocks base method.
-func (m *MockState) GetUnitsK8sPodInfo(arg0 context.Context) (map[unit.Name]application0.K8sPodInfo, error) {
+func (m *MockState) GetUnitsK8sPodInfo(arg0 context.Context) (map[string]internal.UnitK8sInformation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitsK8sPodInfo", arg0)
-	ret0, _ := ret[0].(map[unit.Name]application0.K8sPodInfo)
+	ret0, _ := ret[0].(map[string]internal.UnitK8sInformation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3599,19 +3600,19 @@ type MockStateGetUnitsK8sPodInfoCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitsK8sPodInfoCall) Return(arg0 map[unit.Name]application0.K8sPodInfo, arg1 error) *MockStateGetUnitsK8sPodInfoCall {
+func (c *MockStateGetUnitsK8sPodInfoCall) Return(arg0 map[string]internal.UnitK8sInformation, arg1 error) *MockStateGetUnitsK8sPodInfoCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitsK8sPodInfoCall) Do(f func(context.Context) (map[unit.Name]application0.K8sPodInfo, error)) *MockStateGetUnitsK8sPodInfoCall {
+func (c *MockStateGetUnitsK8sPodInfoCall) Do(f func(context.Context) (map[string]internal.UnitK8sInformation, error)) *MockStateGetUnitsK8sPodInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitsK8sPodInfoCall) DoAndReturn(f func(context.Context) (map[unit.Name]application0.K8sPodInfo, error)) *MockStateGetUnitsK8sPodInfoCall {
+func (c *MockStateGetUnitsK8sPodInfoCall) DoAndReturn(f func(context.Context) (map[string]internal.UnitK8sInformation, error)) *MockStateGetUnitsK8sPodInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

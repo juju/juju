@@ -18,13 +18,11 @@ import (
 	"github.com/juju/juju/core/application/testing"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
-	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	internalapplication "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
@@ -1227,7 +1225,7 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 
 	// Assert: only the 2 alive units are returned.
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(k8sPodInfo, tc.DeepEquals, map[string]internal.UnitK8sInformation{
+	c.Check(k8sPodInfo, tc.DeepEquals, map[string]internalapplication.UnitK8sInformation{
 		app1Unit1UUID.String(): {
 			Addresses: []string{
 				"10.6.6.6/24",
@@ -1277,7 +1275,7 @@ func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info.ProviderID, tc.Equals, network.Id("some-id"))
+	c.Check(info.ProviderID, tc.Equals, "some-id")
 	c.Check(info.Address, tc.Equals, "10.6.6.6/24")
 	c.Check(info.Ports, tc.DeepEquals, []string{"666", "668"})
 }
@@ -1291,7 +1289,7 @@ func (s *unitStateSuite) TestGetUnitK8sPodInfoNoInfo(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info.ProviderID, tc.Equals, network.Id(""))
+	c.Check(info.ProviderID, tc.Equals, "")
 	c.Check(info.Address, tc.Equals, "")
 	c.Check(info.Ports, tc.DeepEquals, []string{})
 }
