@@ -1,0 +1,276 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package state
+
+import (
+	"context"
+	"database/sql"
+	"testing"
+
+	"github.com/juju/tc"
+
+	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/internal/charm"
+	internaluuid "github.com/juju/juju/internal/uuid"
+)
+
+type relationNetworkStateSuite struct {
+	baseSuite
+}
+
+func TestRelationNetworkStateSuite(t *testing.T) {
+	tc.Run(t, &relationNetworkStateSuite{})
+}
+
+// TestAddRelationNetworkIngress tests that AddRelationNetworkIngress
+// successfully adds ingress network CIDRs for a relation.
+func (s *relationNetworkStateSuite) TestAddRelationNetworkIngress(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidrs := []string{"192.0.2.0/24", "198.51.100.0/24"}
+
+	// Act
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtainedCIDRs := s.readRelationNetworkIngress(c, relationUUID.String())
+	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
+}
+
+// TestAddRelationNetworkIngressSingleCIDR tests that AddRelationNetworkIngress
+// works with a single CIDR.
+func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressSingleCIDR(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidr := "192.0.2.0/24"
+
+	// Act
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtainedCIDRs := s.readRelationNetworkIngress(c, relationUUID.String())
+	c.Check(obtainedCIDRs, tc.DeepEquals, []string{cidr})
+}
+
+// TestAddRelationNetworkIngressMultipleCalls tests that multiple calls
+// to AddRelationNetworkIngress accumulate CIDRs.
+func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleCalls(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	firstCIDRs := []string{"192.0.2.0/24"}
+	secondCIDRs := []string{"198.51.100.0/24", "203.0.113.0/24"}
+
+	// Act - First call
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), firstCIDRs...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act - Second call
+	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), secondCIDRs...)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert
+	obtainedCIDRs := s.readRelationNetworkIngress(c, relationUUID.String())
+	expectedCIDRs := append(firstCIDRs, secondCIDRs...)
+	c.Check(obtainedCIDRs, tc.SameContents, expectedCIDRs)
+}
+
+// TestAddRelationNetworkIngressDuplicateCIDR tests that adding a duplicate
+// CIDR for the same relation fails (due to primary key constraint).
+func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressDuplicateCIDR(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidr := "192.0.2.0/24"
+
+	// Act - First insertion
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act - Second insertion of same CIDR
+	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
+
+	// Assert - Should fail due to primary key constraint
+	c.Assert(err, tc.ErrorMatches, `.*inserting relation network ingress for relation.*`)
+}
+
+// TestAddRelationNetworkIngressMultipleRelations tests that different relations
+// can have the same CIDR.
+func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleRelations(c *tc.C) {
+	// Arrange
+	relationUUID1 := s.createTestRelationWithNames(c, "app1", "app2")
+	relationUUID2 := s.createTestRelationWithNames(c, "app3", "app4")
+	cidr := "192.0.2.0/24"
+
+	// Act
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID1.String(), cidr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID2.String(), cidr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert
+	obtainedCIDRs1 := s.readRelationNetworkIngress(c, relationUUID1.String())
+	c.Check(obtainedCIDRs1, tc.DeepEquals, []string{cidr})
+
+	obtainedCIDRs2 := s.readRelationNetworkIngress(c, relationUUID2.String())
+	c.Check(obtainedCIDRs2, tc.DeepEquals, []string{cidr})
+}
+
+// TestAddRelationNetworkIngressInvalidRelation tests that adding ingress
+// networks for a non-existent relation fails due to foreign key constraint.
+func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressInvalidRelation(c *tc.C) {
+	// Arrange
+	nonExistentRelationUUID := internaluuid.MustNewUUID().String()
+	cidr := "192.0.2.0/24"
+
+	// Act
+	err := s.state.AddRelationNetworkIngress(c.Context(), nonExistentRelationUUID, cidr)
+
+	// Assert - Should return RelationNotFound
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+// TestAddRelationNetworkIngressMultipleCIDRsInSingleCall tests that
+// multiple CIDRs can be added in a single call.
+func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleCIDRsInSingleCall(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidrs := []string{
+		"192.0.2.0/24",
+		"198.51.100.0/24",
+		"203.0.113.0/24",
+		"2001:db8::/32",
+	}
+
+	// Act
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtainedCIDRs := s.readRelationNetworkIngress(c, relationUUID.String())
+	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
+}
+
+// TestAddRelationNetworkIngressTransactional tests that if one CIDR insertion
+// fails, the entire transaction is rolled back.
+func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressTransactional(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	existingCIDR := "192.0.2.0/24"
+
+	// Add an existing CIDR
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), existingCIDR)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Try to add multiple CIDRs where one is a duplicate
+	cidrs := []string{"198.51.100.0/24", existingCIDR, "203.0.113.0/24"}
+
+	// Act
+	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+
+	// Assert - Should fail
+	c.Assert(err, tc.ErrorMatches, `.*inserting relation network ingress for relation.*`)
+
+	// Verify that the transaction was rolled back and no new CIDRs were added
+	obtainedCIDRs := s.readRelationNetworkIngress(c, relationUUID.String())
+	c.Check(obtainedCIDRs, tc.DeepEquals, []string{existingCIDR})
+}
+
+// createTestRelation creates a test relation with two applications and returns
+// the relation UUID.
+func (s *relationNetworkStateSuite) createTestRelation(c *tc.C) internaluuid.UUID {
+	return s.createTestRelationWithNames(c, "app1", "app2")
+}
+
+// createTestRelationWithNames creates a test relation with two applications with
+// the specified names and returns the relation UUID.
+func (s *relationNetworkStateSuite) createTestRelationWithNames(c *tc.C, appName1, appName2 string) internaluuid.UUID {
+	// Create a charm
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+
+	// Add a relation to the charm
+	relation := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+
+	// Create two applications
+	appUUID1 := s.addApplication(c, charmUUID, appName1)
+	s.addApplicationEndpoint(c, appUUID1, relationUUID)
+
+	appUUID2 := s.addApplication(c, charmUUID, appName2)
+	s.addApplicationEndpoint(c, appUUID2, relationUUID)
+
+	// Create a relation between the two applications
+	s.relationCount++
+	relUUID := internaluuid.MustNewUUID()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var globalScopeID int
+		if err := tx.QueryRowContext(ctx, `SELECT id FROM charm_relation_scope WHERE name='global'`).Scan(&globalScopeID); err != nil {
+			return err
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+VALUES (?, 0, ?, ?)`, relUUID.String(), s.relationCount, globalScopeID); err != nil {
+			return err
+		}
+
+		// Get endpoint UUIDs for both apps
+		var ep1, ep2 string
+		qEP := `
+SELECT ae.uuid
+FROM   application_endpoint ae
+JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
+WHERE  ae.application_uuid = ? AND cr.name = ?`
+
+		if err := tx.QueryRowContext(ctx, qEP, appUUID1.String(), "db").Scan(&ep1); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, qEP, appUUID2.String(), "db").Scan(&ep2); err != nil {
+			return err
+		}
+
+		// Insert relation endpoints
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), relUUID.String(), ep1); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), relUUID.String(), ep2); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return relUUID
+}
+
+// readRelationNetworkIngress reads all CIDRs for a given relation from the
+// relation_network_ingress table.
+func (s *relationNetworkStateSuite) readRelationNetworkIngress(c *tc.C, relationUUID string) []string {
+	rows, err := s.DB().QueryContext(c.Context(), `
+SELECT cidr FROM relation_network_ingress
+WHERE relation_uuid = ?
+ORDER BY cidr`, relationUUID)
+	c.Assert(err, tc.IsNil)
+	defer func() { _ = rows.Close() }()
+
+	var cidrs []string
+	for rows.Next() {
+		var cidr string
+		err = rows.Scan(&cidr)
+		c.Assert(err, tc.IsNil)
+		cidrs = append(cidrs, cidr)
+	}
+	return cidrs
+}
