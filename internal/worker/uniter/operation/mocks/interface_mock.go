@@ -530,18 +530,18 @@ func (c *MockFactoryNewInstallCall) DoAndReturn(f func(string) (operation.Operat
 }
 
 // NewNoOpSecretsRemoved mocks base method.
-func (m *MockFactory) NewNoOpSecretsRemoved(arg0 []string) (operation.Operation, error) {
+func (m *MockFactory) NewNoOpSecretsRemoved(arg0, arg1 map[string][]int) (operation.Operation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewNoOpSecretsRemoved", arg0)
+	ret := m.ctrl.Call(m, "NewNoOpSecretsRemoved", arg0, arg1)
 	ret0, _ := ret[0].(operation.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewNoOpSecretsRemoved indicates an expected call of NewNoOpSecretsRemoved.
-func (mr *MockFactoryMockRecorder) NewNoOpSecretsRemoved(arg0 any) *MockFactoryNewNoOpSecretsRemovedCall {
+func (mr *MockFactoryMockRecorder) NewNoOpSecretsRemoved(arg0, arg1 any) *MockFactoryNewNoOpSecretsRemovedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNoOpSecretsRemoved", reflect.TypeOf((*MockFactory)(nil).NewNoOpSecretsRemoved), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNoOpSecretsRemoved", reflect.TypeOf((*MockFactory)(nil).NewNoOpSecretsRemoved), arg0, arg1)
 	return &MockFactoryNewNoOpSecretsRemovedCall{Call: call}
 }
 
@@ -557,13 +557,13 @@ func (c *MockFactoryNewNoOpSecretsRemovedCall) Return(arg0 operation.Operation, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFactoryNewNoOpSecretsRemovedCall) Do(f func([]string) (operation.Operation, error)) *MockFactoryNewNoOpSecretsRemovedCall {
+func (c *MockFactoryNewNoOpSecretsRemovedCall) Do(f func(map[string][]int, map[string][]int) (operation.Operation, error)) *MockFactoryNewNoOpSecretsRemovedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFactoryNewNoOpSecretsRemovedCall) DoAndReturn(f func([]string) (operation.Operation, error)) *MockFactoryNewNoOpSecretsRemovedCall {
+func (c *MockFactoryNewNoOpSecretsRemovedCall) DoAndReturn(f func(map[string][]int, map[string][]int) (operation.Operation, error)) *MockFactoryNewNoOpSecretsRemovedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1091,17 +1091,17 @@ func (c *MockCallbacksPrepareHookCall) DoAndReturn(f func(context.Context, hook.
 }
 
 // SecretsRemoved mocks base method.
-func (m *MockCallbacks) SecretsRemoved(arg0 context.Context, arg1 []string) error {
+func (m *MockCallbacks) SecretsRemoved(arg0 context.Context, arg1, arg2 map[string][]int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretsRemoved", arg0, arg1)
+	ret := m.ctrl.Call(m, "SecretsRemoved", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SecretsRemoved indicates an expected call of SecretsRemoved.
-func (mr *MockCallbacksMockRecorder) SecretsRemoved(arg0, arg1 any) *MockCallbacksSecretsRemovedCall {
+func (mr *MockCallbacksMockRecorder) SecretsRemoved(arg0, arg1, arg2 any) *MockCallbacksSecretsRemovedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockCallbacks)(nil).SecretsRemoved), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockCallbacks)(nil).SecretsRemoved), arg0, arg1, arg2)
 	return &MockCallbacksSecretsRemovedCall{Call: call}
 }
 
@@ -1117,13 +1117,13 @@ func (c *MockCallbacksSecretsRemovedCall) Return(arg0 error) *MockCallbacksSecre
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCallbacksSecretsRemovedCall) Do(f func(context.Context, []string) error) *MockCallbacksSecretsRemovedCall {
+func (c *MockCallbacksSecretsRemovedCall) Do(f func(context.Context, map[string][]int, map[string][]int) error) *MockCallbacksSecretsRemovedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCallbacksSecretsRemovedCall) DoAndReturn(f func(context.Context, []string) error) *MockCallbacksSecretsRemovedCall {
+func (c *MockCallbacksSecretsRemovedCall) DoAndReturn(f func(context.Context, map[string][]int, map[string][]int) error) *MockCallbacksSecretsRemovedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

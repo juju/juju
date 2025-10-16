@@ -111,6 +111,7 @@ func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while building request. method: %s", method))
 		response, err := http.DefaultClient.Do(request)
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request. method: %s", method))
+		defer response.Body.Close()
 
 		// Assert
 		c.Check(response.StatusCode, tc.Equals, http.StatusMethodNotAllowed,
@@ -137,6 +138,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationResourceNotFound(c *tc.
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", nil)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusNotFound,
@@ -174,6 +176,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *t
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", nil)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusInternalServerError,
@@ -205,6 +208,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *tc.
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", nil)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusInternalServerError,
@@ -225,6 +229,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationWithPlaceholder(c *tc.C
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
@@ -271,6 +276,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *tc.C) {
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
 
 	// Assert
 	var obtained params.ResourceUploadResult
@@ -324,8 +330,9 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *tc.C
 	}, nil).Times(2)
 
 	// Act
-	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
 }
 
 // TestServeUploadApplicationRetrievedByApplication tests that the RetrievedBy
@@ -368,8 +375,9 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(
 	}, nil).Times(2)
 
 	// Act
-	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
 }
 
 // TestServeUploadApplicationRetrievedByUnit tests that the RetrievedBy and
@@ -411,8 +419,9 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *tc.C
 	}, nil).Times(2)
 
 	// Act
-	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
 }
 
 // TestServeUploadUnitWithPlaceholder tests the upload functionality for a unit
@@ -429,6 +438,7 @@ func (s *resourcesUploadSuite) TestServeUploadUnitWithPlaceholder(c *tc.C) {
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
@@ -450,6 +460,7 @@ func (s *resourcesUploadSuite) TestServeUploadUnit(c *tc.C) {
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
 
 	// Assert
 	c.Check(response.StatusCode, tc.Equals, http.StatusOK,

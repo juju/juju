@@ -140,8 +140,10 @@ type Charm interface {
 // SecretsAccessor is used by the hook context to access the secrets backend.
 type SecretsAccessor interface {
 	CreateSecretURIs(context.Context, int) ([]*secrets.URI, error)
-	SecretMetadata(context.Context) ([]secrets.SecretOwnerMetadata, error)
+	SecretMetadata(context.Context) ([]secrets.SecretMetadata, error)
 	SecretRotated(ctx context.Context, uri string, oldRevision int) error
+	OwnedSecretRevisions(ctx context.Context, unit names.UnitTag, uri *secrets.URI) ([]int, error)
+	UnitOwnedSecretsAndRevisions(ctx context.Context, unit names.UnitTag) ([]secrets.SecretURIWithRevisions, error)
 }
 
 // SecretsWatcher is used by the remote state watcher.
@@ -149,6 +151,7 @@ type SecretsWatcher interface {
 	WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error)
 	GetConsumerSecretsRevisionInfo(context.Context, string, []string) (map[string]secrets.SecretRevisionInfo, error)
 	WatchObsolete(ctx context.Context, ownerTags ...names.Tag) (watcher.StringsWatcher, error)
+	WatchDeleted(ctx context.Context, ownerTags ...names.Tag) (watcher.StringsWatcher, error)
 }
 
 // SecretsBackend provides access to a secrets backend.

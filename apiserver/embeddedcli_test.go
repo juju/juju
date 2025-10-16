@@ -110,7 +110,7 @@ func (s *embeddedCliSuite) TestEmbeddedCommandInvalidMacaroon(c *tc.C) {
 func (s *embeddedCliSuite) assertEmbeddedCommand(c *tc.C, cmdArgs params.CLICommands, expected string, resultErr *params.Error) {
 	commandURL := s.URL(fmt.Sprintf("/model/%s/commands", s.ControllerModelUUID()), url.Values{})
 	commandURL.Scheme = "wss"
-	conn, _, err := dialWebsocketFromURL(c, commandURL.String(), http.Header{})
+	conn, _, err := dialWebsocketFromURL(c, commandURL.String(), http.Header{}) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, tc.ErrorIsNil)
 	defer conn.Close()
 

@@ -118,5 +118,5 @@ func (c *secretRevokeCommand) Run(_ *cmd.Context) error {
 		args.UnitName = &c.unit
 	}
 
-	return c.ctx.RevokeSecret(c.secretURL, args)
+	return c.ctx.RevokeSecret(nil, c.secretURL, args)
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -785,8 +786,8 @@ func (c *HookContext) getSecretsBackend() (api.SecretsBackend, error) {
 	return c.secretsBackend, nil
 }
 
-func (c *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.URI, error) {
-	mds, err := c.SecretMetadata()
+func (c *HookContext) lookupOwnedSecretURIByLabel(ctx context.Context, label string) (*coresecrets.URI, error) {
+	mds, err := c.SecretMetadata(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -833,7 +834,7 @@ func (c *HookContext) GetSecret(ctx context.Context, uri *coresecrets.URI, label
 	}
 	if uri == nil && label != "" {
 		// try to resolve label to URI by looking up owned secrets.
-		ownedSecretURI, err := c.lookupOwnedSecretURIByLabel(label)
+		ownedSecretURI, err := c.lookupOwnedSecretURIByLabel(ctx, label)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, err
 		}
@@ -941,8 +942,37 @@ func (c *HookContext) CreateSecret(ctx context.Context, args *jujuc.SecretCreate
 	return uris[0], nil
 }
 
+func (c *HookContext) lazyLoadSecretMetadata(ctx context.Context) error {
+	if c.secretMetadata != nil {
+		return nil
+	}
+	info, err := c.secretsClient.SecretMetadata(ctx)
+	if err != nil {
+		return err
+	}
+	c.secretMetadata = make(map[string]jujuc.SecretMetadata)
+	for _, md := range info {
+		c.secretMetadata[md.URI.ID] = jujuc.SecretMetadata{
+			Description:      md.Description,
+			Label:            md.Label,
+			Owner:            md.Owner,
+			RotatePolicy:     md.RotatePolicy,
+			LatestRevision:   md.LatestRevision,
+			LatestChecksum:   md.LatestRevisionChecksum,
+			LatestExpireTime: md.LatestExpireTime,
+			NextRotateTime:   md.NextRotateTime,
+			Access:           md.Access,
+		}
+	}
+	return nil
+}
+
 // UpdateSecret creates a secret with the specified data.
-func (c *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpdateArgs) error {
+func (c *HookContext) UpdateSecret(ctx context.Context, uri *coresecrets.URI, args *jujuc.SecretUpdateArgs) error {
+	err := c.lazyLoadSecretMetadata(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	md, knowSecret := c.secretMetadata[uri.ID]
 	if knowSecret && md.Owner.Kind == coresecrets.ApplicationOwner {
 		isLeader, err := c.IsLeader()
@@ -983,7 +1013,11 @@ func (c *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpdat
 }
 
 // RemoveSecret removes a secret with the specified uri.
-func (c *HookContext) RemoveSecret(uri *coresecrets.URI, revision *int) error {
+func (c *HookContext) RemoveSecret(ctx context.Context, uri *coresecrets.URI, revision *int) error {
+	err := c.lazyLoadSecretMetadata(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	md, ok := c.secretMetadata[uri.ID]
 	if ok && md.Owner.Kind == coresecrets.ApplicationOwner {
 		isLeader, err := c.IsLeader()
@@ -1000,7 +1034,11 @@ func (c *HookContext) RemoveSecret(uri *coresecrets.URI, revision *int) error {
 
 // SecretMetadata gets the secret ids and their labels and latest revisions created by the charm.
 // The result includes any pending updates.
-func (c *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+func (c *HookContext) SecretMetadata(ctx context.Context) (map[string]jujuc.SecretMetadata, error) {
+	err := c.lazyLoadSecretMetadata(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	result := make(map[string]jujuc.SecretMetadata)
 	for _, c := range c.secretChanges.pendingCreates {
 		md := jujuc.SecretMetadata{
@@ -1054,8 +1092,8 @@ func (c *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) 
 }
 
 // GrantSecret grants access to a specified secret.
-func (c *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrantRevokeArgs) error {
-	secretMetadata, err := c.SecretMetadata()
+func (c *HookContext) GrantSecret(ctx context.Context, uri *coresecrets.URI, arg *jujuc.SecretGrantRevokeArgs) error {
+	secretMetadata, err := c.SecretMetadata(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1112,7 +1150,11 @@ func (c *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrantRe
 }
 
 // RevokeSecret revokes access to a specified secret.
-func (c *HookContext) RevokeSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
+func (c *HookContext) RevokeSecret(ctx context.Context, uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
+	err := c.lazyLoadSecretMetadata(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	md, ok := c.secretMetadata[uri.ID]
 	if ok && md.Owner.Kind == coresecrets.ApplicationOwner {
 		isLeader, err := c.IsLeader()
@@ -1604,11 +1646,28 @@ func (c *HookContext) doFlush(ctx context.Context, process string) error {
 			continue
 		}
 		var toDelete []int
-		if d.Revision == nil {
-			toDelete = md.Revisions
+		if d.Revisions == nil {
+			// Delete all known revisions, this avoids a race condition where a
+			// new revision is being created concurrently with us asking to
+			// delete existing revisions
+			allRevs, err := c.secretsClient.OwnedSecretRevisions(
+				ctx,
+				c.unit.Tag(), d.URI)
+			if err != nil {
+				return errors.Annotatef(
+					err, "getting revisions for %q", d.URI.ID,
+				)
+			}
+			// Do not delete revisions this hook was unaware of.
+			toDelete = slices.DeleteFunc(allRevs, func(rev int) bool {
+				return rev > md.LatestRevision
+			})
 		} else {
-			toDelete = []int{*d.Revision}
+			// Delete only the requested revisions
+			toDelete = d.Revisions
 		}
+		// TODO: let the controller know that these secret revisions likely
+		// don't exist anymore before attempting to delete their content.
 		c.logger.Debugf(ctx, "deleting secret %q provider ids: %v", d.URI.ID, toDelete)
 		for _, rev := range toDelete {
 			if err := secretsBackend.DeleteContent(ctx, d.URI, rev); err != nil {

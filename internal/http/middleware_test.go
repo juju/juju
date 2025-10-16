@@ -53,7 +53,7 @@ func (s *DialContextMiddlewareSuite) TestInsecureClientNoAccess(c *tc.C) {
 		),
 		WithSkipHostnameVerification(true),
 	)
-	_, err := client.Get(c.Context(), "http://0.1.2.3:1234")
+	_, err := client.Get(c.Context(), "http://0.1.2.3:1234") //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
 }
 
@@ -63,7 +63,7 @@ func (s *DialContextMiddlewareSuite) TestSecureClientNoAccess(c *tc.C) {
 			DialContextMiddleware(NewLocalDialBreaker(false)),
 		),
 	)
-	_, err := client.Get(c.Context(), "http://0.1.2.3:1234")
+	_, err := client.Get(c.Context(), "http://0.1.2.3:1234") //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
 }
 
@@ -139,7 +139,7 @@ func (s *RetrySuite) TestRetryNotRequired(c *tc.C) {
 		MaxDelay: time.Minute,
 	}, clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	resp, err := middleware.RoundTrip(req)
+	resp, err := middleware.RoundTrip(req) //nolint:bodyclose
 	c.Assert(err, tc.IsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
@@ -178,7 +178,7 @@ func (s *RetrySuite) TestRetryRequired(c *tc.C) {
 		MaxDelay: time.Minute,
 	}, clock, loggertesting.WrapCheckLog(c))
 
-	resp, err := middleware.RoundTrip(req)
+	resp, err := middleware.RoundTrip(req) //nolint:bodyclose
 	c.Assert(err, tc.IsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
@@ -221,7 +221,7 @@ func (s *RetrySuite) TestRetryRequiredUsingBackoff(c *tc.C) {
 		MaxDelay: time.Minute,
 	}, clock, loggertesting.WrapCheckLog(c))
 
-	resp, err := middleware.RoundTrip(req)
+	resp, err := middleware.RoundTrip(req) //nolint:bodyclose
 	c.Assert(err, tc.IsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
@@ -259,7 +259,7 @@ func (s *RetrySuite) TestRetryRequiredUsingBackoffFailure(c *tc.C) {
 		MaxDelay: time.Second,
 	}, clock, loggertesting.WrapCheckLog(c))
 
-	_, err = middleware.RoundTrip(req)
+	_, err = middleware.RoundTrip(req) //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, `API request retry is not accepting further requests until .*`)
 }
 
@@ -296,7 +296,7 @@ func (s *RetrySuite) TestRetryRequiredUsingBackoffError(c *tc.C) {
 		MaxDelay: time.Second,
 	}, clock, loggertesting.WrapCheckLog(c))
 
-	_, err = middleware.RoundTrip(req)
+	_, err = middleware.RoundTrip(req) //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, `API request retry is not accepting further requests until .*`)
 }
 
@@ -331,7 +331,7 @@ func (s *RetrySuite) TestRetryRequiredAndExceeded(c *tc.C) {
 		MaxDelay: time.Minute,
 	}, clock, loggertesting.WrapCheckLog(c))
 
-	_, err = middleware.RoundTrip(req)
+	_, err = middleware.RoundTrip(req) //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, `attempt count exceeded: retryable error`)
 }
 
@@ -357,6 +357,6 @@ func (s *RetrySuite) TestRetryRequiredContextKilled(c *tc.C) {
 	// Nothing should run, the context has been cancelled.
 	cancel()
 
-	_, err = middleware.RoundTrip(req)
+	_, err = middleware.RoundTrip(req) //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, `context canceled`)
 }

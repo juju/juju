@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
+	"github.com/juju/juju/core/securitylog"
 	"github.com/juju/juju/core/trace"
 	jujuversion "github.com/juju/juju/core/version"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -183,6 +184,12 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 		a.apiObserver, auditRecorder, auditConfig.CaptureAPIArgs,
 	)
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
+
+	// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+	securitylog.LogLoginSuccess(securitylog.LoginSuccessSecurityEvent{
+		User: req.AuthTag,
+	})
+
 	return params.LoginResult{
 		Servers:       params.FromHostsPorts(pServers),
 		ControllerTag: names.NewControllerTag(a.srv.shared.controllerUUID).String(),

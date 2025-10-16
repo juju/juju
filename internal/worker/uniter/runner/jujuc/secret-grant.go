@@ -109,5 +109,5 @@ func (c *secretGrantCommand) Run(_ *cmd.Context) error {
 		args.ApplicationName = &c.app
 	}
 
-	return c.ctx.GrantSecret(c.secretURI, args)
+	return c.ctx.GrantSecret(nil, c.secretURI, args)
 }

@@ -93,7 +93,7 @@ func NewRequestWithContent(c string) *http.Request {
 
 // NewResponse instantiates a new response.
 func NewResponse() *http.Response {
-	return NewResponseWithContent("")
+	return NewResponseWithContent("") //nolint:bodyclose
 }
 
 // NewResponseWithContent instantiates a new response with the passed string as the body content.
@@ -260,7 +260,7 @@ func NewSenderWithValue(v interface{}) *MockSender {
 		panic(err)
 	}
 	sender := &MockSender{}
-	resp := NewResponseWithContent(string(content))
+	resp := NewResponseWithContent(string(content)) //nolint:bodyclose // body is just a string for testing
 	SetResponseHeaderValues(resp, "WWW-Authenticate", []string{
 		fmt.Sprintf(
 			`authorization="https://testing.invalid/%s" scope="scope" resource="resource"`,
@@ -288,7 +288,7 @@ type Senders []policy.Transporter
 func (s *Senders) Do(req *http.Request) (*http.Response, error) {
 	logger.Debugf(req.Context(), "Senders.Do(%s)", req.URL)
 	if len(*s) == 0 {
-		response := NewResponseWithStatus("", http.StatusInternalServerError)
+		response := NewResponseWithStatus("", http.StatusInternalServerError) //nolint:bodyclose
 		return response, fmt.Errorf("no sender for %q", req.URL)
 	}
 	sender := (*s)[0]

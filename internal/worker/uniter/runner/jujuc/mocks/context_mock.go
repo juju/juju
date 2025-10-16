@@ -629,17 +629,17 @@ func (c *MockContextGoalStateCall) DoAndReturn(f func(context.Context) (*applica
 }
 
 // GrantSecret mocks base method.
-func (m *MockContext) GrantSecret(arg0 *secrets.URI, arg1 *jujuc.SecretGrantRevokeArgs) error {
+func (m *MockContext) GrantSecret(arg0 context.Context, arg1 *secrets.URI, arg2 *jujuc.SecretGrantRevokeArgs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GrantSecret", arg0, arg1)
+	ret := m.ctrl.Call(m, "GrantSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // GrantSecret indicates an expected call of GrantSecret.
-func (mr *MockContextMockRecorder) GrantSecret(arg0, arg1 any) *MockContextGrantSecretCall {
+func (mr *MockContextMockRecorder) GrantSecret(arg0, arg1, arg2 any) *MockContextGrantSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecret", reflect.TypeOf((*MockContext)(nil).GrantSecret), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecret", reflect.TypeOf((*MockContext)(nil).GrantSecret), arg0, arg1, arg2)
 	return &MockContextGrantSecretCall{Call: call}
 }
 
@@ -655,13 +655,13 @@ func (c *MockContextGrantSecretCall) Return(arg0 error) *MockContextGrantSecretC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextGrantSecretCall) Do(f func(*secrets.URI, *jujuc.SecretGrantRevokeArgs) error) *MockContextGrantSecretCall {
+func (c *MockContextGrantSecretCall) Do(f func(context.Context, *secrets.URI, *jujuc.SecretGrantRevokeArgs) error) *MockContextGrantSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextGrantSecretCall) DoAndReturn(f func(*secrets.URI, *jujuc.SecretGrantRevokeArgs) error) *MockContextGrantSecretCall {
+func (c *MockContextGrantSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, *jujuc.SecretGrantRevokeArgs) error) *MockContextGrantSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1171,17 +1171,17 @@ func (c *MockContextRemoteUnitNameCall) DoAndReturn(f func() (string, error)) *M
 }
 
 // RemoveSecret mocks base method.
-func (m *MockContext) RemoveSecret(arg0 *secrets.URI, arg1 *int) error {
+func (m *MockContext) RemoveSecret(arg0 context.Context, arg1 *secrets.URI, arg2 *int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveSecret", arg0, arg1)
+	ret := m.ctrl.Call(m, "RemoveSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveSecret indicates an expected call of RemoveSecret.
-func (mr *MockContextMockRecorder) RemoveSecret(arg0, arg1 any) *MockContextRemoveSecretCall {
+func (mr *MockContextMockRecorder) RemoveSecret(arg0, arg1, arg2 any) *MockContextRemoveSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecret", reflect.TypeOf((*MockContext)(nil).RemoveSecret), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecret", reflect.TypeOf((*MockContext)(nil).RemoveSecret), arg0, arg1, arg2)
 	return &MockContextRemoveSecretCall{Call: call}
 }
 
@@ -1197,13 +1197,13 @@ func (c *MockContextRemoveSecretCall) Return(arg0 error) *MockContextRemoveSecre
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextRemoveSecretCall) Do(f func(*secrets.URI, *int) error) *MockContextRemoveSecretCall {
+func (c *MockContextRemoveSecretCall) Do(f func(context.Context, *secrets.URI, *int) error) *MockContextRemoveSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextRemoveSecretCall) DoAndReturn(f func(*secrets.URI, *int) error) *MockContextRemoveSecretCall {
+func (c *MockContextRemoveSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, *int) error) *MockContextRemoveSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1247,17 +1247,17 @@ func (c *MockContextRequestRebootCall) DoAndReturn(f func(jujuc.RebootPriority) 
 }
 
 // RevokeSecret mocks base method.
-func (m *MockContext) RevokeSecret(arg0 *secrets.URI, arg1 *jujuc.SecretGrantRevokeArgs) error {
+func (m *MockContext) RevokeSecret(arg0 context.Context, arg1 *secrets.URI, arg2 *jujuc.SecretGrantRevokeArgs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RevokeSecret", arg0, arg1)
+	ret := m.ctrl.Call(m, "RevokeSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RevokeSecret indicates an expected call of RevokeSecret.
-func (mr *MockContextMockRecorder) RevokeSecret(arg0, arg1 any) *MockContextRevokeSecretCall {
+func (mr *MockContextMockRecorder) RevokeSecret(arg0, arg1, arg2 any) *MockContextRevokeSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecret", reflect.TypeOf((*MockContext)(nil).RevokeSecret), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecret", reflect.TypeOf((*MockContext)(nil).RevokeSecret), arg0, arg1, arg2)
 	return &MockContextRevokeSecretCall{Call: call}
 }
 
@@ -1273,30 +1273,30 @@ func (c *MockContextRevokeSecretCall) Return(arg0 error) *MockContextRevokeSecre
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextRevokeSecretCall) Do(f func(*secrets.URI, *jujuc.SecretGrantRevokeArgs) error) *MockContextRevokeSecretCall {
+func (c *MockContextRevokeSecretCall) Do(f func(context.Context, *secrets.URI, *jujuc.SecretGrantRevokeArgs) error) *MockContextRevokeSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextRevokeSecretCall) DoAndReturn(f func(*secrets.URI, *jujuc.SecretGrantRevokeArgs) error) *MockContextRevokeSecretCall {
+func (c *MockContextRevokeSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, *jujuc.SecretGrantRevokeArgs) error) *MockContextRevokeSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SecretMetadata mocks base method.
-func (m *MockContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+func (m *MockContext) SecretMetadata(arg0 context.Context) (map[string]jujuc.SecretMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretMetadata")
+	ret := m.ctrl.Call(m, "SecretMetadata", arg0)
 	ret0, _ := ret[0].(map[string]jujuc.SecretMetadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SecretMetadata indicates an expected call of SecretMetadata.
-func (mr *MockContextMockRecorder) SecretMetadata() *MockContextSecretMetadataCall {
+func (mr *MockContextMockRecorder) SecretMetadata(arg0 any) *MockContextSecretMetadataCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretMetadata", reflect.TypeOf((*MockContext)(nil).SecretMetadata))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretMetadata", reflect.TypeOf((*MockContext)(nil).SecretMetadata), arg0)
 	return &MockContextSecretMetadataCall{Call: call}
 }
 
@@ -1312,13 +1312,13 @@ func (c *MockContextSecretMetadataCall) Return(arg0 map[string]jujuc.SecretMetad
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextSecretMetadataCall) Do(f func() (map[string]jujuc.SecretMetadata, error)) *MockContextSecretMetadataCall {
+func (c *MockContextSecretMetadataCall) Do(f func(context.Context) (map[string]jujuc.SecretMetadata, error)) *MockContextSecretMetadataCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextSecretMetadataCall) DoAndReturn(f func() (map[string]jujuc.SecretMetadata, error)) *MockContextSecretMetadataCall {
+func (c *MockContextSecretMetadataCall) DoAndReturn(f func(context.Context) (map[string]jujuc.SecretMetadata, error)) *MockContextSecretMetadataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1784,17 +1784,17 @@ func (c *MockContextUpdateActionResultsCall) DoAndReturn(f func([]string, any) e
 }
 
 // UpdateSecret mocks base method.
-func (m *MockContext) UpdateSecret(arg0 *secrets.URI, arg1 *jujuc.SecretUpdateArgs) error {
+func (m *MockContext) UpdateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 *jujuc.SecretUpdateArgs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateSecret indicates an expected call of UpdateSecret.
-func (mr *MockContextMockRecorder) UpdateSecret(arg0, arg1 any) *MockContextUpdateSecretCall {
+func (mr *MockContextMockRecorder) UpdateSecret(arg0, arg1, arg2 any) *MockContextUpdateSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockContext)(nil).UpdateSecret), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockContext)(nil).UpdateSecret), arg0, arg1, arg2)
 	return &MockContextUpdateSecretCall{Call: call}
 }
 
@@ -1810,13 +1810,13 @@ func (c *MockContextUpdateSecretCall) Return(arg0 error) *MockContextUpdateSecre
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextUpdateSecretCall) Do(f func(*secrets.URI, *jujuc.SecretUpdateArgs) error) *MockContextUpdateSecretCall {
+func (c *MockContextUpdateSecretCall) Do(f func(context.Context, *secrets.URI, *jujuc.SecretUpdateArgs) error) *MockContextUpdateSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextUpdateSecretCall) DoAndReturn(f func(*secrets.URI, *jujuc.SecretUpdateArgs) error) *MockContextUpdateSecretCall {
+func (c *MockContextUpdateSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, *jujuc.SecretUpdateArgs) error) *MockContextUpdateSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

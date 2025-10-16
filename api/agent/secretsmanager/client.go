@@ -93,12 +93,10 @@ func (c *Client) WatchConsumedSecretsChanges(ctx context.Context, unitName strin
 }
 
 // WatchObsolete returns a watcher for notifying when:
-//   - a secret owned by the entity is deleted
 //   - a secret revision owed by the entity no longer
 //     has any consumers
 //
-// Obsolete revisions results are "uri/revno" and deleted
-// secret results are "uri".
+// Obsolete revisions results are "uri/revno".
 func (c *Client) WatchObsolete(ctx context.Context, ownerTags ...names.Tag) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
 	args := params.Entities{Entities: make([]params.Entity, len(ownerTags))}
@@ -106,6 +104,29 @@ func (c *Client) WatchObsolete(ctx context.Context, ownerTags ...names.Tag) (wat
 		args.Entities[i] = params.Entity{Tag: tag.String()}
 	}
 	err := c.facade.FacadeCall(ctx, "WatchObsolete", args, &result)
+	if err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, apiservererrors.RestoreError(result.Error)
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchDeleted returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity is deleted
+//
+// Deleted revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (c *Client) WatchDeleted(ctx context.Context, ownerTags ...names.Tag) (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	args := params.Entities{Entities: make([]params.Entity, len(ownerTags))}
+	for i, tag := range ownerTags {
+		args.Entities[i] = params.Entity{Tag: tag.String()}
+	}
+	err := c.facade.FacadeCall(ctx, "WatchDeleted", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -150,13 +171,13 @@ func (c *Client) GetConsumerSecretsRevisionInfo(ctx context.Context, unitName st
 }
 
 // SecretMetadata returns metadata for the specified secrets.
-func (c *Client) SecretMetadata(ctx context.Context) ([]coresecrets.SecretOwnerMetadata, error) {
-	var results params.ListSecretResults
+func (c *Client) SecretMetadata(ctx context.Context) ([]coresecrets.SecretMetadata, error) {
+	var results params.ListSecretMetadataResults
 	err := c.facade.FacadeCall(ctx, "GetSecretMetadata", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var result []coresecrets.SecretOwnerMetadata
+	var result []coresecrets.SecretMetadata
 	for _, info := range results.Results {
 		uri, err := coresecrets.ParseURI(info.URI)
 		if err != nil {
@@ -182,14 +203,7 @@ func (c *Client) SecretMetadata(ctx context.Context) ([]coresecrets.SecretOwnerM
 				Target: g.TargetTag, Scope: g.ScopeTag, Role: g.Role,
 			})
 		}
-		revisions := make([]int, len(info.Revisions))
-		for i, r := range info.Revisions {
-			revisions[i] = r.Revision
-		}
-		result = append(result, coresecrets.SecretOwnerMetadata{
-			Metadata:  md,
-			Revisions: revisions,
-		})
+		result = append(result, md)
 	}
 	return result, nil
 }
@@ -328,4 +342,54 @@ func (c *Client) Revoke(ctx context.Context, uri *coresecrets.URI, p *SecretRevo
 		return result.Error
 	}
 	return nil
+}
+
+// UnitOwnedSecretsAndRevisions returns all secret URIs and revision IDs for all
+// secrets owned by the given unit.
+func (c *Client) UnitOwnedSecretsAndRevisions(ctx context.Context, unit names.UnitTag) ([]coresecrets.SecretURIWithRevisions, error) {
+	arg := params.Entity{
+		Tag: unit.String(),
+	}
+	var results params.SecretRevisionIDsResults
+	if err := c.facade.FacadeCall(ctx, "UnitOwnedSecretsAndRevisions", arg, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	ret := make([]coresecrets.SecretURIWithRevisions, len(results.Results))
+	for i, v := range results.Results {
+		if err := v.Error; err != nil {
+			return nil, errors.Trace(err)
+		}
+		uri, err := coresecrets.ParseURI(v.URI)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ret[i] = coresecrets.SecretURIWithRevisions{
+			URI:       uri,
+			Revisions: v.Revisions,
+		}
+	}
+	return ret, nil
+}
+
+// OwnedSecretRevisions returns all the revision IDs for the given secret that
+// is owned by either the unit or the unit's application.
+func (c *Client) OwnedSecretRevisions(ctx context.Context, unit names.UnitTag, uri *coresecrets.URI) ([]int, error) {
+	args := params.SecretRevisionArgs{
+		Unit: params.Entity{
+			Tag: unit.String(),
+		},
+		SecretURIs: []string{uri.String()},
+	}
+	var results params.SecretRevisionIDsResults
+	if err := c.facade.FacadeCall(ctx, "OwnedSecretRevisions", args, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	return result.Revisions, nil
 }

@@ -40,6 +40,44 @@ func (m *MockSecretStateTracker) EXPECT() *MockSecretStateTrackerMockRecorder {
 	return m.recorder
 }
 
+// CollectRemovedSecretObsoleteRevisions mocks base method.
+func (m *MockSecretStateTracker) CollectRemovedSecretObsoleteRevisions(arg0 map[string][]int) map[string][]int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CollectRemovedSecretObsoleteRevisions", arg0)
+	ret0, _ := ret[0].(map[string][]int)
+	return ret0
+}
+
+// CollectRemovedSecretObsoleteRevisions indicates an expected call of CollectRemovedSecretObsoleteRevisions.
+func (mr *MockSecretStateTrackerMockRecorder) CollectRemovedSecretObsoleteRevisions(arg0 any) *MockSecretStateTrackerCollectRemovedSecretObsoleteRevisionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectRemovedSecretObsoleteRevisions", reflect.TypeOf((*MockSecretStateTracker)(nil).CollectRemovedSecretObsoleteRevisions), arg0)
+	return &MockSecretStateTrackerCollectRemovedSecretObsoleteRevisionsCall{Call: call}
+}
+
+// MockSecretStateTrackerCollectRemovedSecretObsoleteRevisionsCall wrap *gomock.Call
+type MockSecretStateTrackerCollectRemovedSecretObsoleteRevisionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretStateTrackerCollectRemovedSecretObsoleteRevisionsCall) Return(arg0 map[string][]int) *MockSecretStateTrackerCollectRemovedSecretObsoleteRevisionsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretStateTrackerCollectRemovedSecretObsoleteRevisionsCall) Do(f func(map[string][]int) map[string][]int) *MockSecretStateTrackerCollectRemovedSecretObsoleteRevisionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretStateTrackerCollectRemovedSecretObsoleteRevisionsCall) DoAndReturn(f func(map[string][]int) map[string][]int) *MockSecretStateTrackerCollectRemovedSecretObsoleteRevisionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CommitHook mocks base method.
 func (m *MockSecretStateTracker) CommitHook(arg0 context.Context, arg1 hook.Info) error {
 	m.ctrl.T.Helper()
@@ -231,17 +269,17 @@ func (c *MockSecretStateTrackerSecretObsoleteRevisionsCall) DoAndReturn(f func(s
 }
 
 // SecretsRemoved mocks base method.
-func (m *MockSecretStateTracker) SecretsRemoved(arg0 context.Context, arg1 []string) error {
+func (m *MockSecretStateTracker) SecretsRemoved(arg0 context.Context, arg1, arg2 map[string][]int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretsRemoved", arg0, arg1)
+	ret := m.ctrl.Call(m, "SecretsRemoved", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SecretsRemoved indicates an expected call of SecretsRemoved.
-func (mr *MockSecretStateTrackerMockRecorder) SecretsRemoved(arg0, arg1 any) *MockSecretStateTrackerSecretsRemovedCall {
+func (mr *MockSecretStateTrackerMockRecorder) SecretsRemoved(arg0, arg1, arg2 any) *MockSecretStateTrackerSecretsRemovedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockSecretStateTracker)(nil).SecretsRemoved), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockSecretStateTracker)(nil).SecretsRemoved), arg0, arg1, arg2)
 	return &MockSecretStateTrackerSecretsRemovedCall{Call: call}
 }
 
@@ -257,13 +295,13 @@ func (c *MockSecretStateTrackerSecretsRemovedCall) Return(arg0 error) *MockSecre
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretStateTrackerSecretsRemovedCall) Do(f func(context.Context, []string) error) *MockSecretStateTrackerSecretsRemovedCall {
+func (c *MockSecretStateTrackerSecretsRemovedCall) Do(f func(context.Context, map[string][]int, map[string][]int) error) *MockSecretStateTrackerSecretsRemovedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretStateTrackerSecretsRemovedCall) DoAndReturn(f func(context.Context, []string) error) *MockSecretStateTrackerSecretsRemovedCall {
+func (c *MockSecretStateTrackerSecretsRemovedCall) DoAndReturn(f func(context.Context, map[string][]int, map[string][]int) error) *MockSecretStateTrackerSecretsRemovedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

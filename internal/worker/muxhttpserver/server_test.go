@@ -59,6 +59,7 @@ func (s *ServerSuite) TestNoRouteHTTPServer(c *tc.C) {
 
 	resp, err := s.client.Get("https://localhost:" + server.Port())
 	c.Assert(err, tc.ErrorIsNil)
+	resp.Body.Close()
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 
 	server.Kill()
@@ -75,13 +76,15 @@ func (s *ServerSuite) TestRouteHandlerCalled(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	handlerCalled := false
-	server.Mux.AddHandler(http.MethodGet, "/test",
+	err = server.Mux.AddHandler(http.MethodGet, "/test",
 		http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 			handlerCalled = true
 		}))
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := s.client.Get("https://localhost:" + server.Port() + "/test")
 	c.Assert(err, tc.ErrorIsNil)
+	resp.Body.Close()
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	c.Assert(handlerCalled, tc.Equals, true)
 

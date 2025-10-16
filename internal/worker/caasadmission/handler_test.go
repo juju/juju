@@ -212,7 +212,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *tc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion2, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, tc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, tc.NotNil)
 
@@ -300,7 +300,7 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *tc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion2, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, tc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, tc.NotNil)
 

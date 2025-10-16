@@ -76,5 +76,5 @@ func (c *secretUpdateCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *secretUpdateCommand) Run(ctx *cmd.Context) error {
-	return c.ctx.UpdateSecret(c.secretURI, c.marshallArg())
+	return c.ctx.UpdateSecret(ctx, c.secretURI, c.marshallArg())
 }

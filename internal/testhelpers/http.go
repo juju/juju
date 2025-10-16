@@ -74,8 +74,11 @@ func (s *HTTPServer) Start() {
 	for {
 		// Wait for it to be up.
 		resp, err := http.Get(s.URL)
-		if err == nil && resp.StatusCode == 203 {
-			break
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode == 203 {
+				break
+			}
 		}
 		time.Sleep(1e8)
 	}

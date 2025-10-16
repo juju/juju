@@ -583,3 +583,17 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *tc.C) {
 		"staging/test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  all, destroy-model\n")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
+
+func (s *DestroySuite) TestGetControllerEnvironWithCaaS(c *tc.C) {
+	s.controllerModelConfigAPI.env = createBootstrapInfo(c, "test3")
+	// The dummy provider isn't CaaS, so we pretend k8s is a dummy provider for now
+	s.api.cloud.Type = "kubernetes"
+
+	_, err := s.runDestroyCommand(c, "test3", "--no-prompt")
+	// Make sure we're *not* getting an error during `getControllerEnviron`
+	// We'll still get an error from the k8s provider since nothing is set up, but that is expected
+	c.Assert(err, tc.Not(tc.ErrorMatches),
+		"getting controller environ: cloud environ provider kubernetes.kubernetesEnvironProvider not valid",
+	)
+	checkControllerExistsInStore(c, "test3", s.store)
+}

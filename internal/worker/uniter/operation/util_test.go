@@ -326,7 +326,7 @@ type MockContext struct {
 	relation        *MockRelation
 }
 
-func (mock *MockContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+func (mock *MockContext) SecretMetadata(context.Context) (map[string]jujuc.SecretMetadata, error) {
 	return map[string]jujuc.SecretMetadata{
 		"9m4e2mr0ui3e8a215n4g": {
 			Description:    "description",

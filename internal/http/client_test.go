@@ -47,14 +47,16 @@ func (s *httpSuite) SetUpTest(c *tc.C) {
 
 func (s *httpSuite) TestInsecureClientAllowAccess(c *tc.C) {
 	client := NewClient(WithSkipHostnameVerification(true))
-	_, err := client.Get(c.Context(), s.server.URL)
+	resp, err := client.Get(c.Context(), s.server.URL)
 	c.Assert(err, tc.ErrorIsNil)
+	_ = resp.Body.Close()
 }
 
 func (s *httpSuite) TestSecureClientAllowAccess(c *tc.C) {
 	client := NewClient()
-	_, err := client.Get(c.Context(), s.server.URL)
+	resp, err := client.Get(c.Context(), s.server.URL)
 	c.Assert(err, tc.ErrorIsNil)
+	_ = resp.Body.Close()
 }
 
 // NewClient with a default config used to overwrite http.DefaultClient.Jar
@@ -103,7 +105,7 @@ func (s *httpSuite) TestRequestRecorder(c *tc.C) {
 
 	req, err := http.NewRequestWithContext(c.Context(), "PUT", invalidTarget, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = client.Do(req)
+	_, err = client.Do(req) //nolint:bodyclose
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
@@ -174,7 +176,7 @@ func (s *httpSuite) TestRetryExceeded(c *tc.C) {
 			MaxDelay: time.Minute,
 		}),
 	)
-	_, err = client.Get(c.Context(), validTarget)
+	_, err = client.Get(c.Context(), validTarget) //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, `.*attempt count exceeded: retryable error`)
 }
 
@@ -205,7 +207,7 @@ func (s *httpTLSServerSuite) TearDownTest(c *tc.C) {
 
 func (s *httpTLSServerSuite) TestValidatingClientGetter(c *tc.C) {
 	client := NewClient()
-	_, err := client.Get(c.Context(), s.server.URL)
+	_, err := client.Get(c.Context(), s.server.URL) //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 }
 

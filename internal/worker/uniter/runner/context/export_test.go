@@ -124,6 +124,7 @@ func NewMockUnitHookContext(c *tc.C, mockUnit *api.MockUnit, modelType model.Mod
 		),
 		secretChanges:          newSecretsChangeRecorder(logger),
 		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
+		secretMetadata:         make(map[string]jujuc.SecretMetadata),
 	}
 }
 

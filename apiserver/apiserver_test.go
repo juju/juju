@@ -39,6 +39,7 @@ func (s *apiserverSuite) TestCleanStop(c *tc.C) {
 func (s *apiserverSuite) getHealth(c *tc.C) (string, int) {
 	uri := s.URL("/health", url.Values{}).String()
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	c.Assert(err, tc.ErrorIsNil)
 	result := string(body)

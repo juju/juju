@@ -177,7 +177,11 @@ func (u *UniterAPI) removeSecrets(ctx context.Context, args params.DeleteSecretA
 		}
 		err = u.secretService.DeleteSecret(ctx, uri, p)
 		if err != nil {
-			result.Results[i].Error = apiServerErrors.ServerError(err)
+			if errors.Is(err, secreterrors.SecretRevisionNotFound) {
+				result.Results[i].Error = apiServerErrors.ParamsErrorf(params.CodeNotFound, "secret %q not found", uri)
+			} else {
+				result.Results[i].Error = apiServerErrors.ServerError(err)
+			}
 			continue
 		}
 	}

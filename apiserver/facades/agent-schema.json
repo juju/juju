@@ -7711,7 +7711,7 @@
     {
         "Name": "SecretsManager",
         "Description": "",
-        "Version": 3,
+        "Version": 4,
         "Schema": {
             "type": "object",
             "properties": {
@@ -7763,7 +7763,7 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/ListSecretResults"
+                            "$ref": "#/definitions/ListSecretMetadataResults"
                         }
                     }
                 },
@@ -7778,6 +7778,17 @@
                         }
                     }
                 },
+                "OwnedSecretRevisions": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretRevisionArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretRevisionIDsResults"
+                        }
+                    }
+                },
                 "SecretsRotated": {
                     "type": "object",
                     "properties": {
@@ -7789,6 +7800,17 @@
                         }
                     }
                 },
+                "UnitOwnedSecretsAndRevisions": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretRevisionIDsResults"
+                        }
+                    }
+                },
                 "WatchConsumedSecretsChanges": {
                     "type": "object",
                     "properties": {
@@ -7797,6 +7819,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    }
+                },
+                "WatchDeleted": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
                         }
                     }
                 },
@@ -7998,7 +8031,7 @@
                         "args"
                     ]
                 },
-                "ListSecretResult": {
+                "ListSecretMetadataResult": {
                     "type": "object",
                     "properties": {
                         "access": {
@@ -8034,12 +8067,6 @@
                         "owner-tag": {
                             "type": "string"
                         },
-                        "revisions": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretRevision"
-                            }
-                        },
                         "rotate-policy": {
                             "type": "string"
                         },
@@ -8065,17 +8092,16 @@
                         "latest-revision",
                         "latest-revision-checksum",
                         "create-time",
-                        "update-time",
-                        "revisions"
+                        "update-time"
                     ]
                 },
-                "ListSecretResults": {
+                "ListSecretMetadataResults": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/ListSecretResult"
+                                "$ref": "#/definitions/ListSecretMetadataResult"
                             }
                         }
                     },
@@ -8261,36 +8287,6 @@
                         "results"
                     ]
                 },
-                "SecretRevision": {
-                    "type": "object",
-                    "properties": {
-                        "backend-name": {
-                            "type": "string"
-                        },
-                        "create-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "expire-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "revision": {
-                            "type": "integer"
-                        },
-                        "update-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "value-ref": {
-                            "$ref": "#/definitions/SecretValueRef"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "revision"
-                    ]
-                },
                 "SecretRevisionArg": {
                     "type": "object",
                     "properties": {
@@ -8312,6 +8308,62 @@
                         "uri",
                         "revisions",
                         "pending-delete"
+                    ]
+                },
+                "SecretRevisionArgs": {
+                    "type": "object",
+                    "properties": {
+                        "entity": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "secret-uris": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entity",
+                        "secret-uris"
+                    ]
+                },
+                "SecretRevisionIDsResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "revisions"
+                    ]
+                },
+                "SecretRevisionIDsResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRevisionIDsResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "SecretRotatedArg": {

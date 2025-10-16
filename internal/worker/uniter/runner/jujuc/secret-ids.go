@@ -50,7 +50,7 @@ func (c *secretIdsCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *secretIdsCommand) Run(ctx *cmd.Context) error {
-	result, err := c.ctx.SecretMetadata()
+	result, err := c.ctx.SecretMetadata(ctx)
 	if err != nil {
 		return err
 	}

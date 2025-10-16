@@ -77,9 +77,18 @@ func (doer httpRequestDoer) Do(req *http.Request) (*http.Response, error) {
 		// the bakery cares about, and the CodeDischargeRequired
 		// error is the only one, and that always comes with a
 		// response code StatusUnauthorized.
+		// The caller of [Do] is now responsible for using the
+		// response and closing the body
 		if resp.StatusCode != http.StatusUnauthorized {
 			return nil
 		}
+
+		// We are returning an error on this path, so we close the body.
+		defer func() {
+			if resp.Body != nil {
+				_ = resp.Body.Close()
+			}
+		}()
 		return bakeryError(unmarshalHTTPErrorResponse(resp))
 	})
 }
@@ -117,7 +126,7 @@ func isJSONMediaType(header http.Header) bool {
 // It always returns a non-nil error.
 func unmarshalHTTPErrorResponse(resp *http.Response) error {
 	if !isJSONMediaType(resp.Header) {
-		// response body is not JSON. This is probably a response
+		// Response body is not JSON. This is probably a response
 		// from the underlying webserver
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -219,7 +228,8 @@ func bakeryError(err error) error {
 		if dcMac == nil {
 			dcMac, err = bakery.NewLegacyMacaroon(info.Macaroon)
 			if err != nil {
-				return errors.Annotate(err, "unable to create legacy macaroon details from discharge-required response error")
+				return errors.Annotate(err,
+					"unable to create legacy macaroon details from discharge-required response error")
 			}
 		}
 		bakeryErr.Info.Macaroon = dcMac

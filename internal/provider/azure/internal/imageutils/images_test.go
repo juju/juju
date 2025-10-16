@@ -50,7 +50,7 @@ func (s *imageutilsSuite) SetUpTest(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageOldStyleGen2(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent( //nolint:bodyclose
 		`[{"name": "20_04-lts-gen2"}, {"name": "20_04-lts"}, {"name": "20_04-lts-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", "", s.client, false)
@@ -66,7 +66,7 @@ func (s *imageutilsSuite) TestBaseImageOldStyleGen2(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageOldStyleARM64(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent( //nolint:bodyclose
 		`[{"name": "20_04-lts-gen2"}, {"name": "20_04-lts"}, {"name": "20_04-lts-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", "arm64", s.client, false)
@@ -82,7 +82,7 @@ func (s *imageutilsSuite) TestBaseImageOldStyleARM64(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageOldStyleFallbackToGen1(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent( //nolint:bodyclose
 		`[{"name": "20_04-lts-gen2"}, {"name": "20_04-lts"}, {"name": "20_04-lts-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", "", s.client, true)
@@ -98,7 +98,7 @@ func (s *imageutilsSuite) TestBaseImageOldStyleFallbackToGen1(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageOldStyleInvalidSKU(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent( //nolint:bodyclose
 		`[{"name": "22_04-invalid"}, {"name": "22_04-lts"}]`,
 	))
 	image, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", "", s.client, false)
@@ -114,7 +114,7 @@ func (s *imageutilsSuite) TestBaseImageOldStyleInvalidSKU(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageGen2(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent( //nolint:bodyclose
 		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "24.04"), "released", "westus", "", s.client, false)
@@ -130,7 +130,7 @@ func (s *imageutilsSuite) TestBaseImageGen2(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageFallbackToGen1(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent( //nolint:bodyclose
 		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "24.04"), "released", "westus", "", s.client, true)
@@ -146,7 +146,7 @@ func (s *imageutilsSuite) TestBaseImageFallbackToGen1(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageARM64(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent( //nolint:bodyclose
 		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "24.04"), "released", "westus", "arm64", s.client, false)
@@ -162,7 +162,7 @@ func (s *imageutilsSuite) TestBaseImageARM64(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageNonLTS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent( //nolint:bodyclose
 		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "25.04"), "released", "westus", "", s.client, false)
@@ -178,7 +178,7 @@ func (s *imageutilsSuite) TestBaseImageNonLTS(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageStreamDaily(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendAndRepeatResponse(azuretesting.NewResponseWithContent(
+	s.mockSender.AppendAndRepeatResponse(azuretesting.NewResponseWithContent( //nolint:bodyclose
 		`[{"name": "server"}, {"name": "minimal-gen1"}, {"name": "minimal-arm64"}, {"name": "minimal"}]`), 2)
 	base := corebase.MakeDefaultBase("ubuntu", "24.04")
 
@@ -190,7 +190,7 @@ func (s *imageutilsSuite) TestBaseImageStreamDaily(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageOldStyleNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[]`))
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[]`)) //nolint:bodyclose
 	image, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", "", s.client, false)
 	c.Assert(err, tc.ErrorMatches, `selecting SKU for ubuntu@22.04: legacy ubuntu "jammy" SKUs for released stream not found`)
 	c.Check(image, tc.IsNil)
@@ -199,7 +199,7 @@ func (s *imageutilsSuite) TestBaseImageOldStyleNotFound(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[]`))
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[]`)) //nolint:bodyclose
 	image, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "24.04"), "released", "westus", "", s.client, false)
 	c.Assert(err, tc.ErrorMatches, `selecting SKU for ubuntu@24.04: ubuntu "ubuntu@24.04/stable" SKUs for released stream not found`)
 	c.Check(image, tc.IsNil)
@@ -208,7 +208,7 @@ func (s *imageutilsSuite) TestBaseImageNotFound(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageStreamNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[{"name": "22_04-beta1"}]`))
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[{"name": "22_04-beta1"}]`)) //nolint:bodyclose
 	_, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", "", s.client, false)
 	c.Assert(err, tc.ErrorMatches, `selecting SKU for ubuntu@22.04: legacy ubuntu "jammy" SKUs for whatever stream not found`)
 }
@@ -216,7 +216,7 @@ func (s *imageutilsSuite) TestBaseImageStreamNotFound(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageStreamThrewCredentialError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized)) //nolint:bodyclose
 
 	s.invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
 
@@ -227,7 +227,7 @@ func (s *imageutilsSuite) TestBaseImageStreamThrewCredentialError(c *tc.C) {
 func (s *imageutilsSuite) TestBaseImageStreamThrewNonCredentialError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("308 Permanent Redirect", http.StatusPermanentRedirect))
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("308 Permanent Redirect", http.StatusPermanentRedirect)) //nolint:bodyclose
 
 	_, err := imageutils.BaseImage(c.Context(), s.invalidator, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", "", s.client, false)
 	c.Assert(err.Error(), tc.Contains, "RESPONSE 308")

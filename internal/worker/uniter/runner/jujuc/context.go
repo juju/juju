@@ -189,7 +189,6 @@ type SecretMetadata struct {
 	LatestExpireTime *time.Time
 	LatestChecksum   string
 	NextRotateTime   *time.Time
-	Revisions        []int
 	Access           []secrets.AccessInfo
 }
 
@@ -202,19 +201,19 @@ type ContextSecrets interface {
 	CreateSecret(context.Context, *SecretCreateArgs) (*secrets.URI, error)
 
 	// UpdateSecret creates a secret with the specified data.
-	UpdateSecret(*secrets.URI, *SecretUpdateArgs) error
+	UpdateSecret(context.Context, *secrets.URI, *SecretUpdateArgs) error
 
 	// RemoveSecret removes a secret with the specified uri.
-	RemoveSecret(*secrets.URI, *int) error
+	RemoveSecret(context.Context, *secrets.URI, *int) error
 
 	// GrantSecret grants access to the specified secret.
-	GrantSecret(*secrets.URI, *SecretGrantRevokeArgs) error
+	GrantSecret(context.Context, *secrets.URI, *SecretGrantRevokeArgs) error
 
 	// RevokeSecret revokes access to the specified secret.
-	RevokeSecret(*secrets.URI, *SecretGrantRevokeArgs) error
+	RevokeSecret(context.Context, *secrets.URI, *SecretGrantRevokeArgs) error
 
 	// SecretMetadata gets the secret metadata for secrets created by the charm.
-	SecretMetadata() (map[string]SecretMetadata, error)
+	SecretMetadata(context.Context) (map[string]SecretMetadata, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

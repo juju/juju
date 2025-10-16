@@ -45,7 +45,7 @@ func (s *transportSuite) TestErrorTransport(c *tc.C) {
 		return resps, nil
 	})
 	t := internal.NewErrorTransport(mockRoundTripper)
-	_, err = t.RoundTrip(&http.Request{URL: url})
+	_, err = t.RoundTrip(&http.Request{URL: url}) //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, `non-successful response status=403`)
 }
 
@@ -69,7 +69,7 @@ func (s *transportSuite) TestBasicTransport(c *tc.C) {
 		},
 	)
 	t := internal.NewBasicTransport(mockRoundTripper, "username", "pwd", "")
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
@@ -87,7 +87,7 @@ func (s *transportSuite) TestBasicTransport(c *tc.C) {
 		},
 	)
 	t = internal.NewBasicTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==")
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
@@ -105,7 +105,7 @@ func (s *transportSuite) TestBasicTransport(c *tc.C) {
 		},
 	)
 	t = internal.NewBasicTransport(mockRoundTripper, "", "", "")
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
@@ -130,7 +130,7 @@ func (s *transportSuite) TestTokenTransportOAuthTokenProvided(c *tc.C) {
 		),
 	)
 	t := internal.NewTokenTransport(mockRoundTripper, "", "", "", "OAuth-jwt-token", false)
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
@@ -185,7 +185,7 @@ func (s *transportSuite) TestTokenTransportTokenRefresh(c *tc.C) {
 		),
 	)
 	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "", false)
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
@@ -219,7 +219,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedRealmMissing(c *tc.
 		),
 	)
 	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "", false)
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
@@ -253,7 +253,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedServiceMissing(c *t
 		),
 	)
 	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "", false)
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
@@ -322,7 +322,7 @@ func (s *transportSuite) TestChallengeTransportTokenRefresh(c *tc.C) {
 		),
 	)
 	t := internal.NewChallengeTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==")
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
@@ -365,7 +365,7 @@ func (s *transportSuite) TestChallengeTransportBasic(c *tc.C) {
 		),
 	)
 	t := internal.NewChallengeTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==")
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
@@ -525,21 +525,21 @@ func (s *transportSuite) TestChallengeTransportMulti(c *tc.C) {
 		),
 	)
 	t := internal.NewChallengeTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==")
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Reuse
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Reauth
-	_, err = t.RoundTrip(&http.Request{
+	_, err = t.RoundTrip(&http.Request{ //nolint:bodyclose // nop closer in mock
 		Header: http.Header{},
 		URL:    url,
 	})

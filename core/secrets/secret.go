@@ -166,6 +166,21 @@ func (o Owner) String() string {
 	return fmt.Sprintf("%s-%s", o.Kind, strings.ReplaceAll(o.ID, "/", "-"))
 }
 
+// SecretMetadataOwnerIdent contains enough information to identify a secret for
+// an owner.
+type SecretMetadataOwnerIdent struct {
+	URI      *URI
+	OwnerTag string
+	Label    string
+}
+
+// SecretURIWithRevisions contains enough information to identify revisions that
+// exist for a secret.
+type SecretURIWithRevisions struct {
+	URI       *URI
+	Revisions []int
+}
+
 // SecretMetadata holds metadata about a secret.
 type SecretMetadata struct {
 	// Read only after creation.
@@ -248,12 +263,6 @@ type SecretRevisionMetadata struct {
 	CreateTime  time.Time
 	UpdateTime  time.Time
 	ExpireTime  *time.Time
-}
-
-// SecretOwnerMetadata holds a secret metadata and any backend references of revisions.
-type SecretOwnerMetadata struct {
-	Metadata  SecretMetadata
-	Revisions []int
 }
 
 // SecretExternalRevision holds metadata about an external secret revision.

@@ -32,6 +32,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/securitylog"
 	"github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
@@ -600,12 +601,28 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 	for i, arg := range args.Changes {
 		if !hasPermission {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+			securitylog.LogAuthz(
+				securitylog.AuthzSecurityEvent{
+					Actor:  c.apiUser.Name(),
+					Target: arg.UserTag,
+					Action: securitylog.AuthzActionFailed,
+				},
+			)
 			continue
 		}
 
 		targetUserTag, err := names.ParseUserTag(arg.UserTag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify controller access"))
+			// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+			securitylog.LogAuthz(
+				securitylog.AuthzSecurityEvent{
+					Actor:  c.apiUser.Name(),
+					Target: arg.UserTag,
+					Action: securitylog.AuthzActionFailed,
+				},
+			)
 			continue
 		}
 
@@ -622,6 +639,14 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 		}
 		err = c.accessService.UpdatePermission(ctx, updateArgs)
 		result.Results[i].Error = apiservererrors.ServerError(err)
+		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+		securitylog.LogAuthz(
+			securitylog.AuthzSecurityEvent{
+				Actor:    c.apiUser.Name(),
+				Target:   targetUserTag.Name(),
+				Action:   securitylog.ParseAuthzAction(string(arg.Action)),
+				NewLevel: strings.ToLower(arg.Access),
+			})
 	}
 	return result, nil
 }

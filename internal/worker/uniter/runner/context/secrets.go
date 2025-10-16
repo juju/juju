@@ -111,7 +111,24 @@ func (s *secretsChangeRecorder) remove(uri *secrets.URI, revision *int) {
 	delete(s.pendingGrants, uri.ID)
 	delete(s.pendingRevokes, uri.ID)
 	delete(s.pendingTrackLatest, uri.ID)
-	s.pendingDeletes[uri.ID] = uniter.SecretDeleteArg{URI: uri, Revision: revision}
+	toDelete, exists := s.pendingDeletes[uri.ID]
+	if exists {
+		if toDelete.Revisions != nil {
+			if revision != nil {
+				toDelete.Revisions = append(toDelete.Revisions, *revision)
+			} else {
+				// we didn't pass a revision, so now we are deleting all revisions
+				toDelete.Revisions = nil
+			}
+		}
+	} else {
+		if revision != nil {
+			toDelete = uniter.SecretDeleteArg{URI: uri, Revisions: []int{*revision}}
+		} else {
+			toDelete = uniter.SecretDeleteArg{URI: uri, Revisions: nil}
+		}
+	}
+	s.pendingDeletes[uri.ID] = toDelete
 }
 
 func (s *secretsChangeRecorder) grant(arg uniter.SecretGrantRevokeArgs) {

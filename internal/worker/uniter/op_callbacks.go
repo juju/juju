@@ -151,6 +151,6 @@ func (opc *operationCallbacks) SetSecretRotated(ctx stdcontext.Context, uri stri
 }
 
 // SecretsRemoved is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SecretsRemoved(ctx stdcontext.Context, uris []string) error {
-	return opc.u.secretsTracker.SecretsRemoved(ctx, uris)
+func (opc *operationCallbacks) SecretsRemoved(ctx stdcontext.Context, deletedRevisions, deletedObsoleteRevisions map[string][]int) error {
+	return opc.u.secretsTracker.SecretsRemoved(ctx, deletedRevisions, deletedObsoleteRevisions)
 }

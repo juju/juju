@@ -171,7 +171,7 @@ func (s *dispatchSuite) requestV1(c *tc.C, req string) string {
 
 func (s *dispatchSuite) request(c *tc.C, req string) *websocket.Conn {
 	url := fmt.Sprintf("ws://%s/rpc%d", s.serverAddr, atomic.LoadInt64(&s.unique))
-	ws, _, err := websocket.DefaultDialer.Dial(url, http.Header{
+	ws, _, err := websocket.DefaultDialer.Dial(url, http.Header{ //nolint:bodyclose // WebSocket library handles response body closure
 		"Origin": {"http://localhost"},
 	})
 	c.Assert(err, tc.ErrorIsNil)

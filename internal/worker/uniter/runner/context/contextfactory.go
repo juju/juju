@@ -293,7 +293,7 @@ func (f *contextFactory) HookContext(stdCtx context.Context, hookInfo hook.Info)
 			ctx.secretRevision = hookInfo.SecretRevision
 		}
 		if ctx.secretLabel == "" {
-			info, err := ctx.SecretMetadata()
+			info, err := ctx.SecretMetadata(stdCtx)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -415,26 +415,6 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), f.modelType, machPortRanges, appPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
-	info, err := ctx.secretsClient.SecretMetadata(stdCtx)
-	if err != nil {
-		return err
-	}
-	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
-	for _, v := range info {
-		md := v.Metadata
-		ctx.secretMetadata[md.URI.ID] = jujuc.SecretMetadata{
-			Description:      md.Description,
-			Label:            md.Label,
-			Owner:            md.Owner,
-			RotatePolicy:     md.RotatePolicy,
-			LatestRevision:   md.LatestRevision,
-			LatestChecksum:   md.LatestRevisionChecksum,
-			LatestExpireTime: md.LatestExpireTime,
-			NextRotateTime:   md.NextRotateTime,
-			Revisions:        v.Revisions,
-			Access:           md.Access,
-		}
-	}
 
 	return nil
 }
