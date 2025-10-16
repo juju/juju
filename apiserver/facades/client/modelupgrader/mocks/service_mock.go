@@ -41,6 +41,160 @@ func (m *MockControllerUpgraderService) EXPECT() *MockControllerUpgraderServiceM
 	return m.recorder
 }
 
+// CanUpgradeController mocks base method.
+func (m *MockControllerUpgraderService) CanUpgradeController(arg0 context.Context) (semversion.Number, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CanUpgradeController", arg0)
+	ret0, _ := ret[0].(semversion.Number)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CanUpgradeController indicates an expected call of CanUpgradeController.
+func (mr *MockControllerUpgraderServiceMockRecorder) CanUpgradeController(arg0 any) *MockControllerUpgraderServiceCanUpgradeControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanUpgradeController", reflect.TypeOf((*MockControllerUpgraderService)(nil).CanUpgradeController), arg0)
+	return &MockControllerUpgraderServiceCanUpgradeControllerCall{Call: call}
+}
+
+// MockControllerUpgraderServiceCanUpgradeControllerCall wrap *gomock.Call
+type MockControllerUpgraderServiceCanUpgradeControllerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerUpgraderServiceCanUpgradeControllerCall) Return(arg0 semversion.Number, arg1 error) *MockControllerUpgraderServiceCanUpgradeControllerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerUpgraderServiceCanUpgradeControllerCall) Do(f func(context.Context) (semversion.Number, error)) *MockControllerUpgraderServiceCanUpgradeControllerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerUpgraderServiceCanUpgradeControllerCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockControllerUpgraderServiceCanUpgradeControllerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CanUpgradeControllerToVersion mocks base method.
+func (m *MockControllerUpgraderService) CanUpgradeControllerToVersion(arg0 context.Context, arg1 semversion.Number) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CanUpgradeControllerToVersion", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CanUpgradeControllerToVersion indicates an expected call of CanUpgradeControllerToVersion.
+func (mr *MockControllerUpgraderServiceMockRecorder) CanUpgradeControllerToVersion(arg0, arg1 any) *MockControllerUpgraderServiceCanUpgradeControllerToVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanUpgradeControllerToVersion", reflect.TypeOf((*MockControllerUpgraderService)(nil).CanUpgradeControllerToVersion), arg0, arg1)
+	return &MockControllerUpgraderServiceCanUpgradeControllerToVersionCall{Call: call}
+}
+
+// MockControllerUpgraderServiceCanUpgradeControllerToVersionCall wrap *gomock.Call
+type MockControllerUpgraderServiceCanUpgradeControllerToVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerUpgraderServiceCanUpgradeControllerToVersionCall) Return(arg0 error) *MockControllerUpgraderServiceCanUpgradeControllerToVersionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerUpgraderServiceCanUpgradeControllerToVersionCall) Do(f func(context.Context, semversion.Number) error) *MockControllerUpgraderServiceCanUpgradeControllerToVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerUpgraderServiceCanUpgradeControllerToVersionCall) DoAndReturn(f func(context.Context, semversion.Number) error) *MockControllerUpgraderServiceCanUpgradeControllerToVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CanUpgradeControllerToVersionWithStream mocks base method.
+func (m *MockControllerUpgraderService) CanUpgradeControllerToVersionWithStream(arg0 context.Context, arg1 semversion.Number, arg2 modelagent.AgentStream) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CanUpgradeControllerToVersionWithStream", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CanUpgradeControllerToVersionWithStream indicates an expected call of CanUpgradeControllerToVersionWithStream.
+func (mr *MockControllerUpgraderServiceMockRecorder) CanUpgradeControllerToVersionWithStream(arg0, arg1, arg2 any) *MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanUpgradeControllerToVersionWithStream", reflect.TypeOf((*MockControllerUpgraderService)(nil).CanUpgradeControllerToVersionWithStream), arg0, arg1, arg2)
+	return &MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall{Call: call}
+}
+
+// MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall wrap *gomock.Call
+type MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall) Return(arg0 error) *MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall) Do(f func(context.Context, semversion.Number, modelagent.AgentStream) error) *MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall) DoAndReturn(f func(context.Context, semversion.Number, modelagent.AgentStream) error) *MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CanUpgradeControllerWithStream mocks base method.
+func (m *MockControllerUpgraderService) CanUpgradeControllerWithStream(arg0 context.Context, arg1 modelagent.AgentStream) (semversion.Number, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CanUpgradeControllerWithStream", arg0, arg1)
+	ret0, _ := ret[0].(semversion.Number)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CanUpgradeControllerWithStream indicates an expected call of CanUpgradeControllerWithStream.
+func (mr *MockControllerUpgraderServiceMockRecorder) CanUpgradeControllerWithStream(arg0, arg1 any) *MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanUpgradeControllerWithStream", reflect.TypeOf((*MockControllerUpgraderService)(nil).CanUpgradeControllerWithStream), arg0, arg1)
+	return &MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall{Call: call}
+}
+
+// MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall wrap *gomock.Call
+type MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall) Return(arg0 semversion.Number, arg1 error) *MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall) Do(f func(context.Context, modelagent.AgentStream) (semversion.Number, error)) *MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall) DoAndReturn(f func(context.Context, modelagent.AgentStream) (semversion.Number, error)) *MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpgradeController mocks base method.
 func (m *MockControllerUpgraderService) UpgradeController(arg0 context.Context) (semversion.Number, error) {
 	m.ctrl.T.Helper()
