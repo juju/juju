@@ -318,7 +318,8 @@ type rows struct {
 	Count int `db:"count"`
 }
 
-type unitUUIDName struct {
-	UUID string `db:"uuid"`
-	Name string `db:"name"`
+type unitUUIDNameLife struct {
+	UUID string          `db:"uuid"`
+	Name string          `db:"name"`
+	Life domainlife.Life `db:"life_id"`
 }

@@ -1523,6 +1523,50 @@ func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistMissing(c *tc.C) {
 	s.assertUnitNames(c, applicationUUID, []string{"app/0", "app/1", "app/2", "app/4"})
 }
 
+func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistDying(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, charmUUID)
+	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, e := tx.ExecContext(ctx, `
+UPDATE application
+SET life_id = 1
+WHERE uuid = ?`, applicationUUID)
+		return e
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistDead(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, charmUUID)
+	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, e := tx.ExecContext(ctx, `
+UPDATE application
+SET life_id = 2
+WHERE uuid = ?`, applicationUUID)
+		return e
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *modelRemoteApplicationSuite) assertUnitNames(c *tc.C, applicationUUID string, expectedNames []string) {
 	var names []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

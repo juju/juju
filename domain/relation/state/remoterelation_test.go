@@ -575,7 +575,7 @@ func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeUnitNotAlive(c *tc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
 func (s *remoteRelationSuite) TestRemoteUnitsEnterScopeRelationNotFound(c *tc.C) {

@@ -12,6 +12,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -33,6 +34,8 @@ func (st *State) RemoteUnitsEnterScope(
 		return errors.Capture(err)
 	}
 
+	appUUID := entityUUID{UUID: applicationUUID}
+
 	unitNames := make([]string, 0, len(unitSettings))
 	for name := range unitSettings {
 		unitNames = append(unitNames, name)
@@ -40,10 +43,11 @@ func (st *State) RemoteUnitsEnterScope(
 	type names []string
 
 	getUnitsStmt, err := st.Prepare(`
-SELECT &unitUUIDName.*
+SELECT &unitUUIDNameLife.*
 FROM   unit
 WHERE  name IN ($names[:])
-`, unitUUIDName{}, names{})
+AND    application_uuid = $entityUUID.uuid
+`, unitUUIDNameLife{}, names{}, appUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -54,10 +58,9 @@ WHERE  name IN ($names[:])
 		// just setting the application settings, and no units have been
 		// provided, then we can skip the whole unit statements below.
 		if len(unitNames) > 0 {
-
 			// Get all the unit UUIDs for the unit names.
-			var units []unitUUIDName
-			if err := tx.Query(ctx, getUnitsStmt, names(unitNames)).GetAll(&units); errors.Is(err, sqlair.ErrNoRows) {
+			var units []unitUUIDNameLife
+			if err := tx.Query(ctx, getUnitsStmt, names(unitNames), appUUID).GetAll(&units); errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.UnitNotFound
 			} else if err != nil {
 				return errors.Capture(err)
@@ -67,6 +70,14 @@ WHERE  name IN ($names[:])
 			if len(units) != len(unitNames) {
 				missing := findMissingNames(units, unitNames)
 				return errors.Errorf("expected %d units, got %d, missing: %v", len(unitNames), len(units), missing).Add(applicationerrors.UnitNotFound)
+			}
+
+			// Ensure all the units are alive. We're doing it outside of the
+			// SQL query, so we can provide a better error message.
+			for _, unit := range units {
+				if unit.Life == domainlife.Dead {
+					return errors.Errorf("%q %w", unit.Name, applicationerrors.UnitNotAlive)
+				}
 			}
 
 			// Check relation is alive.
@@ -85,14 +96,14 @@ WHERE  name IN ($names[:])
 				return errors.Errorf("getting applications in relation: %w", err)
 			}
 
+			// Ensure the unit can enter scope in this relation.
+			if err := st.checkUnitCanEnterScopeForRemoteRelation(ctx, tx, applicationUUID, appIDs); err != nil {
+				return errors.Capture(err)
+			}
+
 			// Set all the unit settings that are available.
 			for _, unit := range units {
-				// Ensure the unit can enter scope in this relation.
-				if err := st.checkUnitCanEnterScopeForRemoteRelation(ctx, tx, unit.UUID, appIDs); err != nil {
-					return errors.Capture(err)
-				}
-
-				// Upsert the row recording that the unit has entered scope.
+				// Insert the row recording that the unit has entered scope.
 				relationUnitUUID, err := st.insertRelationUnit(ctx, tx, relationUUID, unit.UUID)
 				if err != nil {
 					return errors.Capture(err)
@@ -125,23 +136,7 @@ WHERE  name IN ($names[:])
 
 // checkUnitCanEnterScopeForRemoteRelation checks that the unit can enter scope
 // in the given relation.
-func (st *State) checkUnitCanEnterScopeForRemoteRelation(ctx context.Context, tx *sqlair.TX, unitUUID string, appIDs []string) error {
-	// Check unit is alive.
-	unitLife, err := st.getUnitLife(ctx, tx, unitUUID)
-	if errors.Is(err, coreerrors.NotFound) {
-		return applicationerrors.UnitNotFound
-	} else if err != nil {
-		return errors.Errorf("getting unit life: %w", err)
-	} else if unitLife != life.Alive {
-		return relationerrors.CannotEnterScopeNotAlive
-	}
-
-	// Get the ID of the application for the unit trying to enter scope.
-	unitsAppID, err := st.getApplicationOfUnit(ctx, tx, unitUUID)
-	if err != nil {
-		return errors.Errorf("getting application of unit: %w", err)
-	}
-
+func (st *State) checkUnitCanEnterScopeForRemoteRelation(ctx context.Context, tx *sqlair.TX, unitsAppID string, appIDs []string) error {
 	// Check that the application of the unit is in the relation. Remote
 	// relations can not be peer relations, or for a subordinate unit.
 	switch len(appIDs) {
@@ -251,7 +246,7 @@ VALUES ($relationUnitSetting.*)
 	return nil
 }
 
-func findMissingNames(found []unitUUIDName, expected []string) []string {
+func findMissingNames(found []unitUUIDNameLife, expected []string) []string {
 	all := set.NewStrings(expected...)
 	for _, unit := range found {
 		all.Remove(unit.Name)
