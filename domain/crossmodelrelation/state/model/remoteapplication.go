@@ -300,7 +300,44 @@ func (st *State) EnsureUnitsExist(ctx context.Context, appUUID string, units []s
 	}); err != nil {
 		return errors.Capture(err)
 	}
+	return nil
+}
 
+// SetRemoteApplicationOffererStatus sets the status of the specified remote
+// application in the local model.
+func (st *State) SetRemoteApplicationOffererStatus(ctx context.Context, appUUID string, status status.StatusInfo[status.WorkloadStatusType]) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	appID := uuid{UUID: appUUID}
+
+	query := `
+SELECT  aro.uuid AS &uuid.uuid
+FROM    application_remote_offerer AS aro
+WHERE   aro.application_uuid = $uuid.uuid;
+	`
+	queryStmt, err := st.Prepare(query, appID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var result uuid
+		if err := tx.Query(ctx, queryStmt, appID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+			return crossmodelrelationerrors.RemoteApplicationNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := st.insertRemoteApplicationOffererStatus(ctx, tx, result.UUID, status); err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return errors.Capture(err)
+	}
 	return nil
 }
 
@@ -573,7 +610,12 @@ func (st *State) insertRemoteApplicationOffererStatus(
 	sts status.StatusInfo[status.WorkloadStatusType],
 ) error {
 	insertQuery := `
-INSERT INTO application_remote_offerer_status (*) VALUES ($remoteApplicationStatus.*);
+INSERT INTO application_remote_offerer_status (*) VALUES ($remoteApplicationStatus.*)
+ON CONFLICT (application_remote_offerer_uuid) DO UPDATE SET
+  status_id = EXCLUDED.status_id,
+  message = EXCLUDED.message,
+  data = EXCLUDED.data,
+  updated_at = EXCLUDED.updated_at;
 `
 
 	insertStmt, err := st.Prepare(insertQuery, remoteApplicationStatus{})
@@ -592,7 +634,9 @@ INSERT INTO application_remote_offerer_status (*) VALUES ($remoteApplicationStat
 		Message:               sts.Message,
 		Data:                  sts.Data,
 		UpdatedAt:             sts.Since,
-	}).Run(); err != nil {
+	}).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+		return crossmodelrelationerrors.RemoteApplicationNotFound
+	} else if err != nil {
 		return errors.Errorf("inserting status: %w", err)
 	}
 	return nil

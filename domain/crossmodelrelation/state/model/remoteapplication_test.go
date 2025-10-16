@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
@@ -373,6 +374,68 @@ WHERE namespace=?`, "remote-offerer-application_"+offerUUID).Scan(&sequence)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sequence, tc.Equals, 43)
+}
+
+func (s *modelRemoteApplicationSuite) TestSetRemoteApplicationOffererStatus(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote offerer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+			Charm:                 charm,
+		},
+		EncodedMacaroon: []byte("encoded macaroon"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetRemoteApplicationOffererStatus(c.Context(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusError,
+		Message: "failed successfully",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// 7 is error
+	s.assertApplicationRemoteOffererStatusValues(c, applicationUUID, 7, "failed successfully")
+}
+
+func (s *modelRemoteApplicationSuite) TestSetRemoteApplicationOffererStatusApplicationNotFound(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	err := s.state.SetRemoteApplicationOffererStatus(c.Context(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusError,
+		Message: "failed successfully",
+	})
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
 }
 
 func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferers(c *tc.C) {
@@ -1732,6 +1795,29 @@ WHERE a.uuid=?`, uuid).
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotStatusID, tc.Equals, 1)
+}
+
+func (s *modelRemoteApplicationSuite) assertApplicationRemoteOffererStatusValues(c *tc.C, uuid string, id int, message string) {
+	var (
+		gotStatusID      int
+		gotStatusMessage string
+	)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `
+SELECT aros.status_id , aros.message
+FROM application_remote_offerer_status AS aros
+JOIN application_remote_offerer AS aro ON aros.application_remote_offerer_uuid = aro.uuid
+JOIN application AS a ON aro.application_uuid = a.uuid
+WHERE a.uuid=?`, uuid).
+			Scan(&gotStatusID, &gotStatusMessage)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotStatusID, tc.Equals, id)
+	c.Check(gotStatusMessage, tc.Equals, message)
 }
 
 func (s *modelRemoteApplicationSuite) assertApplication(c *tc.C, uuid string) {

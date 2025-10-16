@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/secret"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
@@ -33,6 +34,64 @@ type StatusHistory interface {
 	// If the status data cannot be marshalled, it will not be recorded, instead
 	// the error will be logged under the data_error key.
 	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
+}
+
+// ModelRemoteApplicationState describes retrieval and persistence methods for
+// cross model relations in the model database.
+type ModelRemoteApplicationState interface {
+	// AddRemoteApplicationOfferer adds a new synthetic application representing
+	// an offer from an external model, to this, the consuming model.
+	AddRemoteApplicationOfferer(
+		context.Context,
+		string,
+		crossmodelrelation.AddRemoteApplicationOffererArgs,
+	) error
+
+	// AddRemoteApplicationConsumer adds a new synthetic application representing
+	// the remote relation on the consuming model, to this, the offering model.
+	AddRemoteApplicationConsumer(
+		context.Context,
+		string,
+		crossmodelrelation.AddRemoteApplicationConsumerArgs,
+	) error
+
+	// GetRemoteApplicationOfferers returns all the current non-dead remote
+	// application offerers in the local model.
+	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
+
+	// GetRemoteApplicationConsumers returns all the current non-dead remote
+	// application consumers in the local model.
+	GetRemoteApplicationConsumers(context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error)
+
+	// NamespaceRemoteApplicationOfferers returns the database namespace
+	// for remote application offerers.
+	NamespaceRemoteApplicationOfferers() string
+
+	// NamespaceRemoteApplicationConsumers returns the database namespace
+	// for remote application consumers.
+	NamespaceRemoteApplicationConsumers() string
+
+	// NamespaceRemoteConsumerRelations returns the remote consumer relations
+	// namespace (i.e. the relations table).
+	NamespaceRemoteConsumerRelations() string
+
+	// SaveMacaroonForRelation saves the given macaroon for the specified
+	// remote application.
+	SaveMacaroonForRelation(context.Context, string, []byte) error
+
+	// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
+	// for the given offer UUID.
+	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
+	// application is not found.
+	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error)
+
+	// SetRemoteApplicationOffererStatus sets the status of the specified remote
+	// application in the local model.
+	SetRemoteApplicationOffererStatus(context.Context, string, status.StatusInfo[status.WorkloadStatusType]) error
+
+	// EnsureUnitsExist ensures that the given synthetic units exist in the local
+	// model.
+	EnsureUnitsExist(ctx context.Context, appUUID string, units []string) error
 }
 
 // ModelState describes retrieval and persistence methods for cross model
