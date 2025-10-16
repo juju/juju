@@ -89,6 +89,38 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionAndStream(c *tc.
 	})
 }
 
+// TestUpgradeModelWithVersionAndStream tests the dry run upgrade with
+// an explicit version and stream. This is a happy case.
+func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionAndStreamDryRun(c *tc.C) {
+	ctrl := u.setup(c)
+	defer ctrl.Finish()
+
+	version, err := semversion.Parse("4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	u.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, u.controllerTag).Return(nil)
+	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+
+	u.upgraderService.EXPECT().CanUpgradeControllerToVersionWithStream(gomock.Any(), version, modelagent.AgentStreamReleased).Return(nil)
+
+	api := NewControllerUpgraderAPI(
+		u.controllerTag,
+		u.modelTag,
+		u.authorizer, u.check, u.upgraderService)
+
+	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+		ModelTag:      u.modelTag.String(),
+		TargetVersion: version,
+		AgentStream:   "released",
+		DryRun:        true,
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
+		ChosenVersion: version,
+	})
+}
+
 // TestUpgradeModelWithVersion tests the upgrade passing
 // an explicit version. This is a happy case.
 func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersion(c *tc.C) {
@@ -110,6 +142,36 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersion(c *tc.C) {
 	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
 		TargetVersion: version,
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
+		ChosenVersion: version,
+	})
+}
+
+// TestUpgradeModelWithVersion tests the dry run upgrade passing
+// an explicit version. This is a happy case.
+func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionDryRun(c *tc.C) {
+	ctrl := u.setup(c)
+	defer ctrl.Finish()
+
+	version, err := semversion.Parse("4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	u.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, u.controllerTag).Return(nil)
+	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	u.upgraderService.EXPECT().CanUpgradeControllerToVersion(gomock.Any(), version).Return(nil)
+
+	api := NewControllerUpgraderAPI(
+		u.controllerTag,
+		u.modelTag,
+		u.authorizer, u.check, u.upgraderService)
+
+	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+		ModelTag:      u.modelTag.String(),
+		TargetVersion: version,
+		DryRun:        true,
 	})
 
 	c.Assert(err, tc.ErrorIsNil)
@@ -148,6 +210,39 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStream(c *tc.C) {
 	})
 }
 
+// TestUpgradeModelWithStream tests the dry run upgrade passing
+// an explicit stream. This is a happy case.
+func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
+	ctrl := u.setup(c)
+	defer ctrl.Finish()
+
+	version, err := semversion.Parse("4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	u.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, u.controllerTag).Return(nil)
+	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+
+	u.upgraderService.EXPECT().CanUpgradeControllerWithStream(
+		gomock.Any(), modelagent.AgentStreamReleased,
+	).Return(version, nil)
+
+	api := NewControllerUpgraderAPI(
+		u.controllerTag,
+		u.modelTag,
+		u.authorizer, u.check, u.upgraderService)
+
+	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+		ModelTag:    u.modelTag.String(),
+		AgentStream: "released",
+		DryRun:      true,
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
+		ChosenVersion: version,
+	})
+}
+
 // TestUpgradeModelWithoutVersionAndStream tests the upgrade without passing
 // an explicit version and stream. This is a happy case.
 func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStream(c *tc.C) {
@@ -168,6 +263,35 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStream(c *
 
 	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
+		ChosenVersion: version,
+	})
+}
+
+// TestUpgradeModelWithoutVersionAndStream tests the dry run upgrade without passing
+// an explicit version and stream. This is a happy case.
+func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStreamDryRun(c *tc.C) {
+	ctrl := u.setup(c)
+	defer ctrl.Finish()
+
+	version, err := semversion.Parse("4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	u.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, u.controllerTag).Return(nil)
+	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	u.upgraderService.EXPECT().CanUpgradeController(gomock.Any()).Return(version, nil)
+
+	api := NewControllerUpgraderAPI(
+		u.controllerTag,
+		u.modelTag,
+		u.authorizer, u.check, u.upgraderService)
+
+	res, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{
+		ModelTag: u.modelTag.String(),
+		DryRun:   true,
 	})
 
 	c.Assert(err, tc.ErrorIsNil)
@@ -440,6 +564,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrUnknownStreamMapToNotVal
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{})
 }
 
+// AbortModelUpgrade tests that aborting a model upgrade is not supported.
 func (u *controllerUpgraderAPISuite) AbortModelUpgrade(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
