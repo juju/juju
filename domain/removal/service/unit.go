@@ -125,9 +125,8 @@ func (s *Service) RemoveUnit(
 		return unitJobUUID, nil
 	}
 
-	s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", *cascaded.MachineUUID)
-
 	if cascaded.MachineUUID != nil {
+		s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", *cascaded.MachineUUID)
 		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(*cascaded.MachineUUID), force, wait); err != nil {
 			return "", errors.Capture(err)
 		}
