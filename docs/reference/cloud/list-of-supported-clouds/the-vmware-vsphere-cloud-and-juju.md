@@ -106,6 +106,26 @@ An external network that VMs will be connected to. The resulting IP address for 
 
 ## Supported constraints
 
+| {ref}`CONSTRAINT <constraint>`         |                                                     |
+|----------------------------------------|-----------------------------------------------------|
+| conflicting:                           | `instance-type` vs. `[arch, cores, cpu-power, mem]` |
+| supported?                             |                                                     |
+| - {ref}`constraint-allocate-public-ip` | &#10003;                                            |
+| - {ref}`constraint-arch`               | &#10003;                                            |
+| - {ref}`constraint-cores`              | &#10003;                                            |
+| - {ref}`constraint-cpu-power`          | &#10003;                                            |
+| - {ref}`constraint-image-id`           | &#10005;                                            |
+| - {ref}`constraint-instance-role`      | &#10005;                                            |
+| - {ref}`constraint-instance-type`      | &#10003;                                            |
+| - {ref}`constraint-mem`                | &#10003;                                            |
+| - {ref}`constraint-root-disk`          | &#10003;                                            |
+| - {ref}`constraint-root-disk-source`   | &#10005;                                            |
+| - {ref}`constraint-spaces`             | &#10003;                                            |
+| - {ref}`constraint-tags`               | &#10005;                                            |
+| - {ref}`constraint-virt-type`          | &#10005;                                            |
+| - {ref}`constraint-zones`              | &#10003;                                            |
+
+
 | {ref}`CONSTRAINT <constraint>`         |                                                                                                                                                                                                                                                                                                                                      |
 |----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | conflicting:                           |                                                                                                                                                                                                                                                                                                                                      |

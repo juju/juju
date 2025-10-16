@@ -68,8 +68,8 @@ In Juju, many different commands have a machine argument. The shape of this argu
 |  | a new machine |
 |`0`| machine 0 |
 |`0,4`| machines 0 and 4|
-| `lxd` | a new LXD container  on a new machine |
-| `lxd:25`| a new LXD container on machine 25|
+| `lxd` | a new LXD container or (if specified with `virt-type=virtual-machine`) VM on a new machine |
+| `lxd:25`| a new LXD container or (if specified with `virt-type=virtual-machine`) VM on machine 25|
 | `0/lxd/4`| LXD container `4` on machine `0`|
 |`3,0/lxd/2,lxd:5`| machine 3, LXD container 2 on machine 0, and a new LXD container on machine 5|
 
