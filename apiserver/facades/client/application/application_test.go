@@ -71,7 +71,7 @@ func (s *applicationSuite) TestDeploy(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectCharm(c, "foo", nil)
+	s.expectCharm(c, charmParams{name: "foo"})
 	s.expectCreateApplicationForDeploy("foo", nil)
 
 	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
@@ -109,11 +109,11 @@ func (s *applicationSuite) TestDeployWithPendingResources(c *tc.C) {
 
 	s.setupAPI(c)
 	resourceUUID := testing.GenResourceUUID(c)
-	s.expectCharm(c, "foo", map[string]charmresource.Meta{
+	s.expectCharm(c, charmParams{name: "foo", resources: map[string]charmresource.Meta{
 		"bar": {
 			Name: "bar",
 		},
-	})
+	}})
 	s.expectCreateApplicationForDeploy("foo", nil)
 
 	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
@@ -146,7 +146,7 @@ func (s *applicationSuite) TestDeployWithApplicationConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectCharm(c, "foo", nil)
+	s.expectCharm(c, charmParams{name: "foo"})
 	config := map[string]interface{}{"stringOption": "hey"}
 	s.expectCreateApplicationForDeployWithConfig(c, "foo", config, nil)
 
@@ -176,15 +176,57 @@ func (s *applicationSuite) TestDeployWithApplicationConfig(c *tc.C) {
 	c.Assert(errorResults.Results[0].Error, tc.IsNil)
 }
 
+func (s *applicationSuite) TestDeploySubordinate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	s.expectCharm(c, charmParams{name: "foo", subordinate: true})
+
+	s.applicationService.EXPECT().CreateIAASApplication(gomock.Any(),
+		"foo",
+		gomock.Any(),
+		gomock.Any(),
+		gomock.AssignableToTypeOf(applicationservice.AddApplicationArgs{}),
+	).DoAndReturn(func(ctx context.Context, s string, charm internalcharm.Charm, origin corecharm.Origin, args applicationservice.AddApplicationArgs, arg ...applicationservice.AddIAASUnitArg) (application.UUID, error) {
+		c.Check(args.Constraints.String(), tc.Equals, "")
+		c.Check(origin.Platform.Architecture, tc.Equals, "amd64")
+		return application.UUID("app-" + "foo"), nil
+	})
+
+	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{
+			{
+				ApplicationName: "foo",
+				CharmURL:        "local:foo-42",
+				CharmOrigin: &params.CharmOrigin{
+					Type:   "charm",
+					Source: "local",
+					Base: params.Base{
+						Name:    "ubuntu",
+						Channel: "24.04",
+					},
+					Architecture: "", // Empty arch in args should resolve to the charm's base arch.
+					Revision:     ptr(42),
+					Track:        ptr("1.0"),
+					Risk:         "stable",
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errorResults.Results, tc.HasLen, 1)
+	c.Assert(errorResults.Results[0].Error, tc.IsNil)
+}
+
 func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectCharm(c, "foo", map[string]charmresource.Meta{
+	s.expectCharm(c, charmParams{name: "foo", resources: map[string]charmresource.Meta{
 		"bar": {
 			Name: "bar",
 		},
-	})
+	}})
 	resourceUUID := testing.GenResourceUUID(c)
 	s.expectDeletePendingResources([]resource.UUID{resourceUUID})
 	s.expectCreateApplicationForDeploy("foo", errors.Errorf("fail test"))
@@ -221,14 +263,14 @@ func (s *applicationSuite) TestDeployMismatchedResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectCharm(c, "foo", map[string]charmresource.Meta{
+	s.expectCharm(c, charmParams{name: "foo", resources: map[string]charmresource.Meta{
 		"bar": {
 			Name: "bar",
 		},
 		"foo": {
 			Name: "foo",
 		},
-	})
+	}})
 	resourceUUID := testing.GenResourceUUID(c)
 	s.expectDeletePendingResources([]resource.UUID{resourceUUID})
 
@@ -1629,9 +1671,15 @@ func (s *applicationSuite) expectDeletePendingResources(resSlice []resource.UUID
 	s.resourceService.EXPECT().DeleteResourcesAddedBeforeApplication(gomock.Any(), resSlice).Return(nil)
 }
 
-func (s *applicationSuite) expectCharm(c *tc.C, name string, resources map[string]charmresource.Meta) {
+type charmParams struct {
+	name        string
+	resources   map[string]charmresource.Meta
+	subordinate bool
+}
+
+func (s *applicationSuite) expectCharm(c *tc.C, params charmParams) {
 	locator := applicationcharm.CharmLocator{
-		Name:     name,
+		Name:     params.name,
 		Revision: 42,
 		Source:   applicationcharm.LocalSource,
 	}
@@ -1645,8 +1693,9 @@ options:
 `))
 	c.Assert(err, tc.ErrorIsNil)
 	metadata := &internalcharm.Meta{
-		Name:      "foo",
-		Resources: resources,
+		Name:        "foo",
+		Resources:   params.resources,
+		Subordinate: params.subordinate,
 	}
 	b, err := internalcharm.ParseBase("ubuntu@20.04", corearch.DefaultArchitecture)
 	c.Assert(err, tc.ErrorIsNil)

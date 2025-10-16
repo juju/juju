@@ -487,23 +487,6 @@ func (api *APIBase) deployApplication(
 		return errors.Trace(err)
 	}
 
-	// If the charm specifies a unique architecture, ensure that is set in
-	// the constraints. Charmhub handles any existing arch constraints.
-	cons := args.Constraints
-	if !cons.HasArch() {
-		arches := set.NewStrings()
-		for _, base := range ch.Manifest().Bases {
-			for _, arch := range base.Architectures {
-				arches.Add(arch)
-			}
-		}
-		if arches.Size() == 1 {
-			cons.Arch = &arches.Values()[0]
-		} else {
-			api.logger.Warningf(ctx, "charm supports multiple architectures, unable to determine which to deploy to")
-		}
-	}
-
 	if err := jujuversion.CheckJujuMinVersion(ch.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return errors.Trace(err)
 	}
@@ -553,6 +536,22 @@ func (api *APIBase) deployApplication(
 		return errors.Trace(err)
 	}
 
+	// If the charm specifies a unique architecture, ensure that is set in
+	// the origin.
+	if origin.Platform.Architecture == "" {
+		arches := set.NewStrings()
+		for _, base := range ch.Manifest().Bases {
+			for _, arch := range base.Architectures {
+				arches.Add(arch)
+			}
+		}
+		if arches.Size() == 1 {
+			origin.Platform.Architecture = arches.Values()[0]
+		} else {
+			api.logger.Warningf(ctx, "charm supports multiple architectures, unable to determine which to deploy to")
+		}
+	}
+
 	appParams := DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             ch,
@@ -560,7 +559,7 @@ func (api *APIBase) deployApplication(
 		NumUnits:          args.NumUnits,
 		Trust:             trust,
 		ApplicationConfig: applicationConfig,
-		Constraints:       cons,
+		Constraints:       args.Constraints,
 		Placement:         args.Placement,
 		Storage:           args.Storage,
 		Devices:           args.Devices,

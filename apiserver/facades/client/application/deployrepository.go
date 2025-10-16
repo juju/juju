@@ -430,7 +430,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 			numUnits = 0
 		}
 		if !constraints.IsEmpty(&arg.Cons) {
-			errs = append(errs, fmt.Errorf("subordinate application must be deployed without constraints"))
+			errs = append(errs, fmt.Errorf("subordinate application must be deployed without constraints, not %q", arg.Cons))
 		}
 	} else {
 		cons = arg.Cons
