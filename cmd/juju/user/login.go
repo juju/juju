@@ -382,8 +382,10 @@ func (c *loginCommand) publicControllerLogin(
 	}
 
 	var oidcLogin bool
-	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
-		loggo.GetLogger("juju.cmd.loginprovider"),
+	loginProviders := []api.LoginProvider{
+		api.NewClientCredentialsLoginProviderFromEnvironment(
+			func() { oidcLogin = true },
+		),
 		c.SessionTokenLoginFactory().NewLoginProvider(
 			sessionToken,
 			ctx.Stderr,
@@ -393,6 +395,11 @@ func (c *loginCommand) publicControllerLogin(
 			},
 		),
 		api.NewLegacyLoginProvider(nil, "", "", nil, bclient, cookieURL),
+	}
+
+	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+		loggo.GetLogger("juju.cmd.loginprovider"),
+		loginProviders...,
 	)
 
 	// Keep track of existing interactors as the dial callback will create
