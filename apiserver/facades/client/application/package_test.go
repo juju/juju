@@ -60,7 +60,6 @@ type baseSuite struct {
 
 	// Legacy types that we're transitioning away from.
 	deployApplication DeployApplicationFunc
-	providerRegistry  *MockProviderRegistry
 	caasBroker        *MockCaasBrokerInterface
 }
 
