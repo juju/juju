@@ -178,7 +178,7 @@ type secretUnitConsumerInfo struct {
 	LatestRevision  int    `db:"latest_revision"`
 }
 
-type remoteSecret struct {
+type lastestSecretRevision struct {
 	SecretID       string `db:"secret_id"`
 	LatestRevision int    `db:"latest_revision"`
 }

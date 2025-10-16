@@ -7,20 +7,25 @@ import (
 	"context"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/worker/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	"github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -32,6 +37,7 @@ type CrossModelRelationsAPIv3 struct {
 
 	crossModelRelationService CrossModelRelationService
 	statusService             StatusService
+	secretService             SecretService
 
 	logger logger.Logger
 }
@@ -43,6 +49,7 @@ func NewCrossModelRelationsAPI(
 	watcherRegistry facade.WatcherRegistry,
 	crossModelRelationService CrossModelRelationService,
 	statusService StatusService,
+	secretService SecretService,
 	logger logger.Logger,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
@@ -51,6 +58,7 @@ func NewCrossModelRelationsAPI(
 		watcherRegistry:           watcherRegistry,
 		crossModelRelationService: crossModelRelationService,
 		statusService:             statusService,
+		secretService:             secretService,
 		logger:                    logger,
 	}, nil
 }
@@ -259,7 +267,81 @@ func (api *CrossModelRelationsAPIv3) WatchOfferStatus(
 // WatchConsumedSecretsChanges returns a watcher which notifies of changes to any secrets
 // for the specified remote consumers.
 func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(ctx context.Context, args params.WatchRemoteSecretChangesArgs) (params.SecretRevisionWatchResults, error) {
-	return params.SecretRevisionWatchResults{}, nil
+	results := params.SecretRevisionWatchResults{
+		Results: make([]params.SecretRevisionWatchResult, len(args.Args)),
+	}
+
+	for i, arg := range args.Args {
+		var offerUUIDStr string
+		// Old clients don't pass in the relation token.
+		if arg.RelationToken == "" {
+			declared := checkers.InferDeclared(macaroon.MacaroonNamespace, arg.Macaroons)
+			offerUUIDStr = declared["offer-uuid"]
+		} else {
+			offerUUID, err := api.crossModelRelationService.GetOfferUUIDByRelationUUID(ctx, corerelation.UUID(arg.RelationToken))
+			if err != nil {
+				if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
+					err = apiservererrors.ErrPerm
+				}
+				results.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			offerUUIDStr = offerUUID.String()
+		}
+
+		// Ensure the supplied macaroon allows access.
+		_, err := api.auth.Authenticator().CheckOfferMacaroons(ctx, api.modelUUID.String(), offerUUIDStr, arg.Macaroons, arg.BakeryVersion)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		w, err := api.crossModelRelationService.WatchRemoteConsumedSecretsChanges(ctx, coreapplication.UUID(arg.ApplicationToken))
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		watcherID, uris, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, w)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		changes, err := api.getSecretChanges(ctx, uris)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			_ = worker.Stop(w)
+			continue
+		}
+		results.Results[i] = params.SecretRevisionWatchResult{
+			WatcherId: watcherID,
+			Changes:   changes,
+		}
+	}
+	return results, nil
+}
+
+func (api *CrossModelRelationsAPIv3) getSecretChanges(ctx context.Context, uriStr []string) ([]params.SecretRevisionChange, error) {
+	uris := make([]*secrets.URI, len(uriStr))
+	for i, s := range uriStr {
+		uri, err := secrets.ParseURI(s)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		uris[i] = uri
+	}
+	latest, err := api.secretService.GetLatestRevisions(ctx, uris)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	changes := make([]params.SecretRevisionChange, len(uris))
+	for i, uri := range uris {
+		changes[i] = params.SecretRevisionChange{
+			URI:            uri.String(),
+			LatestRevision: latest[uri.ID],
+		}
+	}
+	return changes, nil
 }
 
 // PublishIngressNetworkChanges publishes changes to the required
