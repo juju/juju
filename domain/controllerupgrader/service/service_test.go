@@ -4,10 +4,11 @@
 package service
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
@@ -132,6 +133,94 @@ func (s *serviceSuite) TestUpgradeControllerWithInvalidStream(c *tc.C) {
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentStreamNotValid)
 }
 
+// TestUpgradeControllerWithErrorDowngrade tests the downstream error
+// [controllerupgradererrors.DowngradeNotSupported] is mapped to an error
+// that loses the [controllerupgradererrors.DowngradeNotSupported] type.
+func (s *serviceSuite) TestUpgradeControllerWithErrorDowngrade(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	downGradeVersion, err := semversion.Parse("4.0.3")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailable(gomock.Any()).
+		Return(downGradeVersion, nil)
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	_, err = svc.UpgradeController(c.Context())
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
+		"upgrading controller to recommended version %q is considered a downgrade",
+		downGradeVersion),
+	)
+	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.DowngradeNotSupported)
+}
+
+// TestUpgradeControllerWithErrorDowngrade tests the downstream error
+// [controllerupgradererrors.VersionNotSupported] is mapped to an error
+// that loses the [controllerupgradererrors.VersionNotSupported] type.
+func (s *serviceSuite) TestUpgradeControllerWithErrorVersionNotSupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	majorVersionChange, err := semversion.Parse("5.0.3")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailable(gomock.Any()).
+		Return(majorVersionChange, nil)
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	_, err = svc.UpgradeController(c.Context())
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
+		"upgrading controller to recommended version %q is not supported",
+		majorVersionChange),
+	)
+	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.VersionNotSupported)
+}
+
+// TestUpgradeControllerWithMissingControllerBinaries tests the downstream error
+// [controllerupgradererrors.MissingControllerBinaries] is mapped to an error
+// that loses the [controllerupgradererrors.MissingControllerBinaries] type.
+func (s *serviceSuite) TestUpgradeControllerWithMissingControllerBinaries(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	highestVersion, err := semversion.Parse("4.0.7")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.4")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailable(gomock.Any()).
+		Return(highestVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
+		gomock.Any(), highestVersion, []agentbinary.Architecture{agentbinary.AMD64},
+	).Return(false, nil)
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
+		map[string]semversion.Number{
+			"1": currentControllerVersion,
+			"2": currentControllerVersion,
+			"3": currentControllerVersion,
+		}, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	_, err = svc.UpgradeController(c.Context())
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
+		"updating controller to recommended version %q is missing agent binaries",
+		highestVersion),
+	)
+	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.VersionNotSupported)
+}
+
 // TestUpgradeControllerWithStreamNodeBlocker tests the case where a controller
 // upgrade is requested but one or more controller nodes exist that are not
 // running the current controller version. In this case, the upgrade must fail
@@ -166,6 +255,99 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamNodeBlocker(c *tc.C) {
 	blocker, is := errors.AsType[controllerupgradererrors.ControllerUpgradeBlocker](err)
 	c.Check(is, tc.IsTrue)
 	c.Check(blocker.Reason, tc.Matches, "controller nodes \\[(3 1|1 3)\\] are not running controller version \"4\\.0\\.4\"")
+}
+
+// TestUpgradeControllerWithStreamErrorDowngrade tests the downstream error
+// [controllerupgradererrors.DowngradeNotSupported] is mapped to an error
+// that loses the [controllerupgradererrors.DowngradeNotSupported] type.
+func (s *serviceSuite) TestUpgradeControllerWithStreamErrorDowngrade(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	downGradeVersion, err := semversion.Parse("4.0.3")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(gomock.Any(), modelagent.AgentStreamDevel).
+		Return(downGradeVersion, nil)
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	_, err = svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStreamDevel)
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
+		"upgrading controller to recommended version %q is considered a downgrade",
+		downGradeVersion),
+	)
+	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.DowngradeNotSupported)
+}
+
+// TestUpgradeControllerWithStreamErrorVersionNotSupported tests the downstream error
+// [controllerupgradererrors.VersionNotSupported] is mapped to an error
+// that loses the [controllerupgradererrors.VersionNotSupported] type.
+func (s *serviceSuite) TestUpgradeControllerWithStreamErrorVersionNotSupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	majorVersionChange, err := semversion.Parse("5.0.3")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(gomock.Any(), modelagent.AgentStreamDevel).
+		Return(majorVersionChange, nil)
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	_, err = svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStreamDevel)
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
+		"upgrading controller to recommended version %q is not supported",
+		majorVersionChange),
+	)
+	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.VersionNotSupported)
+}
+
+// TestUpgradeControllerWithStreamMissingControllerBinaries tests the downstream error
+// [controllerupgradererrors.MissingControllerBinaries] is mapped to an error
+// that loses the [controllerupgradererrors.MissingControllerBinaries] type.
+func (s *serviceSuite) TestUpgradeControllerWithStreamMissingControllerBinaries(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	highestVersion, err := semversion.Parse("4.0.7")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.4")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(
+		gomock.Any(),
+		modelagent.AgentStreamDevel,
+	).Return(highestVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersionStreamAndArchitectures(
+		gomock.Any(),
+		highestVersion,
+		modelagent.AgentStreamDevel,
+		[]agentbinary.Architecture{agentbinary.AMD64},
+	).Return(false, nil)
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
+		map[string]semversion.Number{
+			"1": currentControllerVersion,
+			"2": currentControllerVersion,
+			"3": currentControllerVersion,
+		}, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	_, err = svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStreamDevel)
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
+		"updating controller to recommended version %q is missing agent binaries",
+		highestVersion),
+	)
+	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.VersionNotSupported)
 }
 
 // TestUpgradeControllerWithStream tests the happy path for upgrading a
