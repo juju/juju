@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	internalapplication "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -2263,69 +2263,102 @@ VALUES ($unitPrincipal.*)
 	return nil
 }
 
-// GetUnitsK8sPodInfo returns information about the k8s pods for all alive units.
-// If any of the requested pieces of data are not present yet, zero values will
-// be returned in their place.
-func (st *State) GetUnitsK8sPodInfo(ctx context.Context) (map[coreunit.Name]application.K8sPodInfo, error) {
+// GetUnitsK8sPodInfo returns Kubernetes related information for each unit in
+// the model that is running inside of a Kubernetes pod. If no Kubernetes based
+// units are found than an empty result is returned.
+func (st *State) GetUnitsK8sPodInfo(
+	ctx context.Context,
+) (map[string]internal.UnitK8sInformation, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	infoQuerydb := infoQuerydb{
-		LifeID: int(life.Dead),
-	}
+	lifeInput := lifeID{LifeID: life.Dead}
 
-	infoQuery := `
-SELECT
-	u.name AS &unitK8sPodInfoWithName.name,
-	k.provider_id AS &unitK8sPodInfoWithName.provider_id,
-	ip.address_value AS &unitK8sPodInfoWithName.address,
-	COALESCE(
-		GROUP_CONCAT(kpp.port, ','),
-		''
-	) AS &unitK8sPodInfoWithName.ports
-FROM
-	unit AS u
-LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid
-LEFT JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
-LEFT JOIN ip_address ip ON ip.device_uuid = lld.uuid
-LEFT JOIN k8s_pod_port kpp ON kpp.unit_uuid = u.uuid
-WHERE
-	u.life_id != $infoQuerydb.life_id
-GROUP BY
-	u.name
+	k8sUnitInfoQuery := `
+SELECT &unitK8s.*
+FROM   unit u
+JOIN   k8s_pod kp ON u.uuid = kp.unit_uuid
+WHERE  u.life_id != $lifeID.life_id
 `
-	stmt, err := st.Prepare(infoQuery, unitK8sPodInfoWithName{}, infoQuerydb)
+
+	k8sIPAddressesQuery := `
+SELECT &unitK8sIPAddress.*
+FROM   ip_address ip
+JOIN   link_layer_device lld ON ip.device_uuid = lld.uuid
+JOIN   unit u ON u.net_node_uuid = lld.net_node_uuid
+JOIN   k8s_pod kp ON u.uuid = kp.unit_uuid
+WHERE  u.life_id != $lifeID.life_id
+`
+
+	k8sPortsQuery := `
+SELECT &unitK8sPort.*
+FROM   k8s_pod_port kpp
+JOIN   unit u ON kpp.unit_uuid = u.uuid
+WHERE  u.life_id != $lifeID.life_id
+`
+
+	unitInfoStmt, err := st.Prepare(k8sUnitInfoQuery, unitK8s{}, lifeInput)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	ipAddressesStmt, err := st.Prepare(k8sIPAddressesQuery, unitK8sIPAddress{}, lifeInput)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	portsStmt, err := st.Prepare(k8sPortsQuery, unitK8sPort{}, lifeInput)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var infos []unitK8sPodInfoWithName
-
+	var (
+		unitInfoDBVals []unitK8s
+		ipDBVals       []unitK8sIPAddress
+		portDBVals     []unitK8sPort
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, infoQuerydb).GetAll(&infos); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		err := tx.Query(ctx, unitInfoStmt, lifeInput).GetAll(&unitInfoDBVals)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
+
+		err = tx.Query(ctx, ipAddressesStmt, lifeInput).GetAll(&ipDBVals)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, portsStmt, lifeInput).GetAll(&portDBVals)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
 		return nil
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	result := make(map[coreunit.Name]application.K8sPodInfo)
-	for _, info := range infos {
-		ports := make([]k8sPodPort, 0)
-		for _, p := range strings.Split(info.Ports, ",") {
-			ports = append(ports, k8sPodPort{Port: p})
+	result := make(map[string]internal.UnitK8sInformation, len(unitInfoDBVals))
+	for _, dbVal := range unitInfoDBVals {
+		result[dbVal.UnitUUID] = internal.UnitK8sInformation{
+			ProviderID: dbVal.ProviderID,
+			UnitName:   dbVal.Name,
 		}
-		result[coreunit.Name(info.UnitName)] = encodeK8sPodInfo(
-			unitK8sPodInfo{
-				ProviderID: info.ProviderID,
-				Address:    info.Address,
-			},
-			ports,
+	}
+	for _, dbVal := range ipDBVals {
+		info := result[dbVal.UnitUUID]
+		info.Addresses = append(
+			info.Addresses, dbVal.IPAddressValue,
 		)
+		result[dbVal.UnitUUID] = info
+	}
+	for _, dbVal := range portDBVals {
+		info := result[dbVal.UnitUUID]
+		info.Ports = append(
+			info.Ports, dbVal.Port,
+		)
+		result[dbVal.UnitUUID] = info
 	}
 	return result, nil
 }
