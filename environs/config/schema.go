@@ -470,7 +470,7 @@ potentially valuable resources.
 	SSHAllowKey: {
 		Description: `SSH allowlist is a comma-separated list of CIDRs from
 which machines in this model will accept connections to the SSH service.
-Currently only the aws & openstack providers support ssh-allow`,
+Currently only the aws, gce, and openstack providers support ssh-allow`,
 		Type:  configschema.Tstring,
 		Group: configschema.EnvironGroup,
 	},
@@ -512,7 +512,7 @@ above, as with earlier versions of Juju.
 Even with the automatic retry enabled, it is still possible to use retry
 manually using:
 
-	juju resolved unit-name/# 
+	juju resolved unit-name/#
 `,
 		Type:  configschema.Tbool,
 		Group: configschema.EnvironGroup,
