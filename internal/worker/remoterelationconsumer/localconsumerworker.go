@@ -868,7 +868,10 @@ func (w *localConsumerWorker) handleDischargeRequiredError(ctx context.Context, 
 	// aware of the relation changes anymore. In that case, we need to put the
 	// relation into a suspended state. This will hopefully prevent any further
 	// changes to the relation without mirroring them to the offerer side.
-	if err := w.crossModelService.SuspendRelation(ctx, w.applicationUUID, relationUUID, "Offer permission revoked"); err != nil {
+	if err := w.crossModelService.SetRemoteRelationStatus(ctx, relationUUID, status.StatusInfo{
+		Status:  status.Suspended,
+		Message: "Offer permission revoked",
+	}); err != nil {
 		return errors.Annotatef(err, "suspending relation %q after discharge error", relationUUID)
 	}
 
@@ -956,8 +959,22 @@ func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, c
 		return w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID)
 	}
 
+	var relationStatus status.Status
+	var relationMessage string
+
+	if change.Suspended {
+		relationStatus = status.Suspended
+		relationMessage = change.SuspendedReason
+	} else {
+		relationStatus = status.Joining
+		relationMessage = ""
+	}
+
 	// Handle the case where the relation has become (un)suspended.
-	if err := w.crossModelService.SetRelationSuspendedState(ctx, w.applicationUUID, change.ConsumerRelationUUID, change.Suspended, change.SuspendedReason); err != nil {
+	if err := w.crossModelService.SetRemoteRelationStatus(ctx, change.ConsumerRelationUUID, status.StatusInfo{
+		Status:  relationStatus,
+		Message: relationMessage,
+	}); err != nil {
 		return errors.Annotatef(err, "setting suspended state for relation %q", change.ConsumerRelationUUID)
 	}
 

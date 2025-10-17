@@ -22,6 +22,7 @@ import (
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
@@ -64,7 +65,7 @@ func (s *resourceServiceSuite) TestDeleteApplicationResourcesBadArgs(c *tc.C) {
 
 	err := s.service.DeleteApplicationResources(c.Context(),
 		"not an application UUID")
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationUUIDNotValid,
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid,
 		tc.Commentf("Application UUID should be stated as not valid"))
 }
 
@@ -102,7 +103,7 @@ func (s *resourceServiceSuite) TestDeleteUnitResourcesBadArgs(c *tc.C) {
 
 	err := s.service.DeleteUnitResources(c.Context(),
 		"not an unit UUID")
-	c.Assert(err, tc.ErrorIs, resourceerrors.UnitUUIDNotValid,
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitUUIDNotValid,
 		tc.Commentf("Unit UUID should be stated as not valid"))
 }
 
@@ -183,23 +184,23 @@ func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameAp
 	defer s.setupMocks(c).Finish()
 
 	retID := resourcetesting.GenResourceUUID(c)
-	s.state.EXPECT().GetResourceUUIDByApplicationAndResourceName(gomock.Any(), "app-id", "res-name").Return(retID, resourceerrors.ApplicationNotFound)
+	s.state.EXPECT().GetResourceUUIDByApplicationAndResourceName(gomock.Any(), "app-id", "res-name").Return(retID, applicationerrors.ApplicationNotFound)
 	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(c.Context(), "app-id", "res-name")
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameEmptyAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(c.Context(), "", "res-name")
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNameNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
 func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameBadAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(c.Context(), "9", "res-name")
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNameNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
 func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameBadName(c *tc.C) {
@@ -228,7 +229,7 @@ func (s *resourceServiceSuite) TestListResources(c *tc.C) {
 func (s *resourceServiceSuite) TestGetResourcesByApplicationUUIDBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service.GetResourcesByApplicationUUID(c.Context(), "")
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationUUIDNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *resourceServiceSuite) TestGetResourcesByApplicationUUID(c *tc.C) {
@@ -248,7 +249,7 @@ func (s *resourceServiceSuite) TestGetResourcesByApplicationUUID(c *tc.C) {
 func (s *resourceServiceSuite) TestListResourcesBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service.ListResources(c.Context(), "")
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationUUIDNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *resourceServiceSuite) TestGetResource(c *tc.C) {
@@ -953,7 +954,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationIDNotValid(c
 	})
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationUUIDNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *resourceServiceSuite) TestSetRepositoryResourcesCharmIDNotValid(c *tc.C) {
@@ -1231,7 +1232,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationAppNameNotValid(
 	}
 
 	_, err := s.service.AddResourcesBeforeApplication(c.Context(), args)
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNameNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
 // TestAddResourcesBeforeApplicationResNameNotValid tests that a
@@ -1396,19 +1397,19 @@ func (s *resourceServiceSuite) TestImportResourcesResourceNotFound(c *tc.C) {
 func (s *resourceServiceSuite) TestImportResourcesApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any()).Return(resourceerrors.ApplicationNotFound)
+	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any()).Return(applicationerrors.ApplicationNotFound)
 
 	err := s.service.ImportResources(c.Context(), nil)
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *resourceServiceSuite) TestImportResourcesUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any()).Return(resourceerrors.UnitNotFound)
+	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any()).Return(applicationerrors.UnitNotFound)
 
 	err := s.service.ImportResources(c.Context(), nil)
-	c.Assert(err, tc.ErrorIs, resourceerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *resourceServiceSuite) TestImportResourcesOriginNotValid(c *tc.C) {

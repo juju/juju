@@ -96,6 +96,10 @@ const (
 	// an application that is dead.
 	UnitIsDead = errors.ConstError("unit is dead")
 
+	// UnitUUIDNotValid describes an error when the unit UUID is
+	// not valid.
+	UnitUUIDNotValid = errors.ConstError("unit UUID not valid")
+
 	// UnitAlreadyHasSubordinate describes an error that occurs when trying to
 	// add a subordinate to a unit but one already exists.
 	UnitAlreadyHasSubordinate = errors.ConstError("unit already has subordinate")

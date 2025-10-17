@@ -1910,7 +1910,10 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 		})
 
 	s.crossModelService.EXPECT().
-		SuspendRelation(gomock.Any(), s.applicationUUID, relationUUID, "Offer permission revoked").
+		SetRemoteRelationStatus(gomock.Any(), relationUUID, status.StatusInfo{
+			Status:  status.Suspended,
+			Message: "Offer permission revoked",
+		}).
 		Return(nil)
 
 	w := s.newLocalConsumerWorker(c)
@@ -2216,8 +2219,11 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationChangeAlive(c *tc.C)
 
 	sync := make(chan struct{})
 	s.crossModelService.EXPECT().
-		SetRelationSuspendedState(gomock.Any(), s.applicationUUID, relationUUID, true, "front fell off").
-		DoAndReturn(func(context.Context, application.UUID, relation.UUID, bool, string) error {
+		SetRemoteRelationStatus(gomock.Any(), relationUUID, status.StatusInfo{
+			Status:  status.Suspended,
+			Message: "front fell off",
+		}).
+		DoAndReturn(func(context.Context, relation.UUID, status.StatusInfo) error {
 			close(sync)
 			return nil
 		})

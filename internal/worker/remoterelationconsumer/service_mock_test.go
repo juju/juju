@@ -890,44 +890,6 @@ func (c *MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall) D
 	return c
 }
 
-// SetRelationSuspendedState mocks base method.
-func (m *MockCrossModelService) SetRelationSuspendedState(ctx context.Context, appUUID application.UUID, relUUID relation.UUID, suspended bool, reason string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRelationSuspendedState", ctx, appUUID, relUUID, suspended, reason)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetRelationSuspendedState indicates an expected call of SetRelationSuspendedState.
-func (mr *MockCrossModelServiceMockRecorder) SetRelationSuspendedState(ctx, appUUID, relUUID, suspended, reason any) *MockCrossModelServiceSetRelationSuspendedStateCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationSuspendedState", reflect.TypeOf((*MockCrossModelService)(nil).SetRelationSuspendedState), ctx, appUUID, relUUID, suspended, reason)
-	return &MockCrossModelServiceSetRelationSuspendedStateCall{Call: call}
-}
-
-// MockCrossModelServiceSetRelationSuspendedStateCall wrap *gomock.Call
-type MockCrossModelServiceSetRelationSuspendedStateCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelServiceSetRelationSuspendedStateCall) Return(arg0 error) *MockCrossModelServiceSetRelationSuspendedStateCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceSetRelationSuspendedStateCall) Do(f func(context.Context, application.UUID, relation.UUID, bool, string) error) *MockCrossModelServiceSetRelationSuspendedStateCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceSetRelationSuspendedStateCall) DoAndReturn(f func(context.Context, application.UUID, relation.UUID, bool, string) error) *MockCrossModelServiceSetRelationSuspendedStateCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetRemoteApplicationOffererStatus mocks base method.
 func (m *MockCrossModelService) SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error {
 	m.ctrl.T.Helper()
@@ -966,40 +928,40 @@ func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) DoAndReturn
 	return c
 }
 
-// SuspendRelation mocks base method.
-func (m *MockCrossModelService) SuspendRelation(ctx context.Context, appUUID application.UUID, relUUID relation.UUID, reason string) error {
+// SetRemoteRelationStatus mocks base method.
+func (m *MockCrossModelService) SetRemoteRelationStatus(ctx context.Context, relationUUID relation.UUID, sts status.StatusInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SuspendRelation", ctx, appUUID, relUUID, reason)
+	ret := m.ctrl.Call(m, "SetRemoteRelationStatus", ctx, relationUUID, sts)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SuspendRelation indicates an expected call of SuspendRelation.
-func (mr *MockCrossModelServiceMockRecorder) SuspendRelation(ctx, appUUID, relUUID, reason any) *MockCrossModelServiceSuspendRelationCall {
+// SetRemoteRelationStatus indicates an expected call of SetRemoteRelationStatus.
+func (mr *MockCrossModelServiceMockRecorder) SetRemoteRelationStatus(ctx, relationUUID, sts any) *MockCrossModelServiceSetRemoteRelationStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuspendRelation", reflect.TypeOf((*MockCrossModelService)(nil).SuspendRelation), ctx, appUUID, relUUID, reason)
-	return &MockCrossModelServiceSuspendRelationCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteRelationStatus", reflect.TypeOf((*MockCrossModelService)(nil).SetRemoteRelationStatus), ctx, relationUUID, sts)
+	return &MockCrossModelServiceSetRemoteRelationStatusCall{Call: call}
 }
 
-// MockCrossModelServiceSuspendRelationCall wrap *gomock.Call
-type MockCrossModelServiceSuspendRelationCall struct {
+// MockCrossModelServiceSetRemoteRelationStatusCall wrap *gomock.Call
+type MockCrossModelServiceSetRemoteRelationStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCrossModelServiceSuspendRelationCall) Return(arg0 error) *MockCrossModelServiceSuspendRelationCall {
+func (c *MockCrossModelServiceSetRemoteRelationStatusCall) Return(arg0 error) *MockCrossModelServiceSetRemoteRelationStatusCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceSuspendRelationCall) Do(f func(context.Context, application.UUID, relation.UUID, string) error) *MockCrossModelServiceSuspendRelationCall {
+func (c *MockCrossModelServiceSetRemoteRelationStatusCall) Do(f func(context.Context, relation.UUID, status.StatusInfo) error) *MockCrossModelServiceSetRemoteRelationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceSuspendRelationCall) DoAndReturn(f func(context.Context, application.UUID, relation.UUID, string) error) *MockCrossModelServiceSuspendRelationCall {
+func (c *MockCrossModelServiceSetRemoteRelationStatusCall) DoAndReturn(f func(context.Context, relation.UUID, status.StatusInfo) error) *MockCrossModelServiceSetRemoteRelationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1553,82 +1515,6 @@ func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) DoAndReturn(f
 	return c
 }
 
-// SetRelationSuspendedState mocks base method.
-func (m *MockCrossModelRelationService) SetRelationSuspendedState(ctx context.Context, appUUID application.UUID, relUUID relation.UUID, suspended bool, reason string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRelationSuspendedState", ctx, appUUID, relUUID, suspended, reason)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetRelationSuspendedState indicates an expected call of SetRelationSuspendedState.
-func (mr *MockCrossModelRelationServiceMockRecorder) SetRelationSuspendedState(ctx, appUUID, relUUID, suspended, reason any) *MockCrossModelRelationServiceSetRelationSuspendedStateCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationSuspendedState", reflect.TypeOf((*MockCrossModelRelationService)(nil).SetRelationSuspendedState), ctx, appUUID, relUUID, suspended, reason)
-	return &MockCrossModelRelationServiceSetRelationSuspendedStateCall{Call: call}
-}
-
-// MockCrossModelRelationServiceSetRelationSuspendedStateCall wrap *gomock.Call
-type MockCrossModelRelationServiceSetRelationSuspendedStateCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceSetRelationSuspendedStateCall) Return(arg0 error) *MockCrossModelRelationServiceSetRelationSuspendedStateCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceSetRelationSuspendedStateCall) Do(f func(context.Context, application.UUID, relation.UUID, bool, string) error) *MockCrossModelRelationServiceSetRelationSuspendedStateCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceSetRelationSuspendedStateCall) DoAndReturn(f func(context.Context, application.UUID, relation.UUID, bool, string) error) *MockCrossModelRelationServiceSetRelationSuspendedStateCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SuspendRelation mocks base method.
-func (m *MockCrossModelRelationService) SuspendRelation(ctx context.Context, appUUID application.UUID, relUUID relation.UUID, reason string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SuspendRelation", ctx, appUUID, relUUID, reason)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SuspendRelation indicates an expected call of SuspendRelation.
-func (mr *MockCrossModelRelationServiceMockRecorder) SuspendRelation(ctx, appUUID, relUUID, reason any) *MockCrossModelRelationServiceSuspendRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuspendRelation", reflect.TypeOf((*MockCrossModelRelationService)(nil).SuspendRelation), ctx, appUUID, relUUID, reason)
-	return &MockCrossModelRelationServiceSuspendRelationCall{Call: call}
-}
-
-// MockCrossModelRelationServiceSuspendRelationCall wrap *gomock.Call
-type MockCrossModelRelationServiceSuspendRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceSuspendRelationCall) Return(arg0 error) *MockCrossModelRelationServiceSuspendRelationCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceSuspendRelationCall) Do(f func(context.Context, application.UUID, relation.UUID, string) error) *MockCrossModelRelationServiceSuspendRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceSuspendRelationCall) DoAndReturn(f func(context.Context, application.UUID, relation.UUID, string) error) *MockCrossModelRelationServiceSuspendRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchRemoteApplicationOfferers mocks base method.
 func (m *MockCrossModelRelationService) WatchRemoteApplicationOfferers(ctx context.Context) (watcher0.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
@@ -1725,6 +1611,44 @@ func (c *MockStatusServiceSetRemoteApplicationOffererStatusCall) Do(f func(conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStatusServiceSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, string, status.StatusInfo) error) *MockStatusServiceSetRemoteApplicationOffererStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetRemoteRelationStatus mocks base method.
+func (m *MockStatusService) SetRemoteRelationStatus(ctx context.Context, relationUUID relation.UUID, sts status.StatusInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRemoteRelationStatus", ctx, relationUUID, sts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRemoteRelationStatus indicates an expected call of SetRemoteRelationStatus.
+func (mr *MockStatusServiceMockRecorder) SetRemoteRelationStatus(ctx, relationUUID, sts any) *MockStatusServiceSetRemoteRelationStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteRelationStatus", reflect.TypeOf((*MockStatusService)(nil).SetRemoteRelationStatus), ctx, relationUUID, sts)
+	return &MockStatusServiceSetRemoteRelationStatusCall{Call: call}
+}
+
+// MockStatusServiceSetRemoteRelationStatusCall wrap *gomock.Call
+type MockStatusServiceSetRemoteRelationStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusServiceSetRemoteRelationStatusCall) Return(arg0 error) *MockStatusServiceSetRemoteRelationStatusCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusServiceSetRemoteRelationStatusCall) Do(f func(context.Context, relation.UUID, status.StatusInfo) error) *MockStatusServiceSetRemoteRelationStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusServiceSetRemoteRelationStatusCall) DoAndReturn(f func(context.Context, relation.UUID, status.StatusInfo) error) *MockStatusServiceSetRemoteRelationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -144,14 +144,6 @@ type CrossModelRelationService interface {
 	// application.
 	SaveMacaroonForRelation(context.Context, corerelation.UUID, *macaroon.Macaroon) error
 
-	// SuspendRelation suspends the specified relation in the local model
-	// with the given reason.
-	SuspendRelation(ctx context.Context, appUUID application.UUID, relUUID corerelation.UUID, reason string) error
-
-	// SetRelationSuspendedState sets the suspended state of the specified
-	// relation in the local model.
-	SetRelationSuspendedState(ctx context.Context, appUUID application.UUID, relUUID corerelation.UUID, suspended bool, reason string) error
-
 	// EnsureUnitsExist ensures that the specified units exist in the local
 	// model, creating any that are missing.
 	EnsureUnitsExist(ctx context.Context, appUUID application.UUID, units []unit.Name) error
@@ -160,6 +152,14 @@ type CrossModelRelationService interface {
 // StatusService is an interface that defines the methods for
 // managing status directly on the local model database.
 type StatusService interface {
+	// SetRemoteRelationStatus sets the given relation status and checks that
+	// the transition to the new status from the current status is valid.
+	SetRemoteRelationStatus(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		sts status.StatusInfo,
+	) error
+
 	// SetRemoteApplicationOffererStatus sets the status of the specified remote
 	// application in the local model.
 	SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error

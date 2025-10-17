@@ -10,18 +10,6 @@ const (
 	// to relate two application
 	AmbiguousRelation = errors.ConstError("ambiguous relation")
 
-	// ApplicationUUIDNotValid describes an error when the application UUID is
-	// not valid.
-	ApplicationUUIDNotValid = errors.ConstError("application UUID not valid")
-
-	// ApplicationNotAlive describes an error that occurs when a relation is
-	// added between two application where at least one is not alive
-	ApplicationNotAlive = errors.ConstError("application not alive")
-
-	// ApplicationNotFound describes an error that occurs when the application
-	// being operated on does not exist.
-	ApplicationNotFound = errors.ConstError("application not found")
-
 	// ApplicationNotFoundForRelation indicates that the application is not part of
 	// the relation.
 	ApplicationNotFoundForRelation = errors.ConstError("application not found in relation")
@@ -87,10 +75,6 @@ const (
 	// RelationUnitNotFound describes an error that occurs when the specified
 	// relation unit does not exist.
 	RelationUnitNotFound = errors.ConstError("relation unit not found")
-
-	// UnitUUIDNotValid describes an error when the unit UUID is
-	// not valid.
-	UnitUUIDNotValid = errors.ConstError("unit UUID not valid")
 
 	// UnitDead describes an error that occurs when trying to update a
 	// unit that is dead.

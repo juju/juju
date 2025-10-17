@@ -370,6 +370,70 @@ func (s *modelStateSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, statuserrors.RelationNotFound)
 }
 
+func (s *modelStateSuite) TestSetRemoteRelationStatus(c *tc.C) {
+	// Arrange: Create relation and statuses.
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	now := time.Now().UTC()
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Joining, "", now)
+
+	sts := status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeSuspended,
+		Message: "message",
+		Since:   ptr(now),
+	}
+
+	// Act:
+	err := s.state.SetRemoteRelationStatus(c.Context(), relationUUID, sts)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert:
+	foundStatus := s.getRelationStatus(c, relationUUID)
+	c.Assert(foundStatus, tc.DeepEquals, sts)
+}
+
+func (s *modelStateSuite) TestSetRemoteRelationStatusMultipleTimes(c *tc.C) {
+	// Arrange: Add relation and create statuses.
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	now := time.Now().UTC()
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Joining, "", now)
+
+	sts1 := status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeSuspended,
+		Message: "message",
+		Since:   ptr(now),
+	}
+
+	sts2 := status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeBroken,
+		Message: "message2",
+		Since:   ptr(now),
+	}
+
+	// Act: Set status twice.
+	err := s.state.SetRemoteRelationStatus(c.Context(), relationUUID, sts1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetRemoteRelationStatus(c.Context(), relationUUID, sts2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert:
+	foundStatus := s.getRelationStatus(c, relationUUID)
+	c.Assert(foundStatus, tc.DeepEquals, sts2)
+}
+
+func (s *modelStateSuite) TestSetRemoteRelationStatusRelationNotFound(c *tc.C) {
+	// Arrange: Create relation and statuses.
+	sts := status.StatusInfo[status.RelationStatusType]{
+		Since: ptr(time.Now().UTC()),
+	}
+
+	// Act:
+	err := s.state.SetRemoteRelationStatus(c.Context(), "bad-uuid", sts)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, statuserrors.RelationNotFound)
+}
+
 func (s *modelStateSuite) TestGetRelationUUIDByID(c *tc.C) {
 	relationID := 7
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, relationID)

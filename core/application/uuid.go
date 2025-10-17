@@ -39,10 +39,10 @@ func (u UUID) String() string {
 // satisfying [errors.NotValid] will be returned.
 func (u UUID) Validate() error {
 	if u == "" {
-		return errors.Errorf("id cannot be empty").Add(coreerrors.NotValid)
+		return errors.Errorf("uuid cannot be empty").Add(coreerrors.NotValid)
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return errors.Errorf("id %q %w", u, coreerrors.NotValid)
+		return errors.Errorf("uuid %q %w", u, coreerrors.NotValid)
 	}
 	return nil
 }

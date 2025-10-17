@@ -13,6 +13,7 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
@@ -201,7 +202,7 @@ func NewService(
 // units by DeleteUnitResources and their associated data removed from store.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ApplicationUUIDNotValid] is returned if the application
+//   - [applicationerrors.ApplicationUUIDNotValid] is returned if the application
 //     ID is not valid.
 //   - [resourceerrors.CleanUpStateNotValid] is returned is there is
 //     remaining units or stored resources which are still associated with
@@ -211,7 +212,7 @@ func (s *Service) DeleteApplicationResources(
 	applicationID coreapplication.UUID,
 ) error {
 	if err := applicationID.Validate(); err != nil {
-		return resourceerrors.ApplicationUUIDNotValid
+		return applicationerrors.ApplicationUUIDNotValid
 	}
 	return s.st.DeleteApplicationResources(ctx, applicationID)
 }
@@ -219,14 +220,14 @@ func (s *Service) DeleteApplicationResources(
 // DeleteUnitResources unlinks the resources associated to a unit by its UUID.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.UnitUUIDNotValid] is returned if the unit ID is not
+//   - [applicationerrors.UnitUUIDNotValid] is returned if the unit ID is not
 //     valid.
 func (s *Service) DeleteUnitResources(
 	ctx context.Context,
 	uuid coreunit.UUID,
 ) error {
 	if err := uuid.Validate(); err != nil {
-		return resourceerrors.UnitUUIDNotValid
+		return applicationerrors.UnitUUIDNotValid
 	}
 	return s.st.DeleteUnitResources(ctx, uuid)
 }
@@ -263,7 +264,7 @@ func (s *Service) GetApplicationResourceID(
 //     given application.
 //   - [resourceerrors.ResourceNameNotValid] if no resource name is provided
 //     in the args.
-//   - [resourceerrors.ApplicationNameNotValid] if the application name is
+//   - [applicationerrors.ApplicationNameNotValid] if the application name is
 //     invalid.
 func (s *Service) GetResourceUUIDByApplicationAndResourceName(
 	ctx context.Context,
@@ -273,7 +274,7 @@ func (s *Service) GetResourceUUIDByApplicationAndResourceName(
 		return "", resourceerrors.ResourceNameNotValid
 	}
 	if !isValidApplicationName(appName) {
-		return "", resourceerrors.ApplicationNameNotValid
+		return "", applicationerrors.ApplicationNameNotValid
 	}
 	return s.st.GetResourceUUIDByApplicationAndResourceName(ctx, appName, resName)
 }
@@ -283,7 +284,7 @@ func (s *Service) GetResourceUUIDByApplicationAndResourceName(
 // for machine units. Repository resource data is included if it exists.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ApplicationUUIDNotValid] is returned if the application UUID
+//   - [applicationerrors.ApplicationUUIDNotValid] is returned if the application UUID
 //     is not valid.
 //   - [resourceerrors.ApplicationNotFound] when the specified application
 //     does not exist.
@@ -294,7 +295,7 @@ func (s *Service) ListResources(
 	applicationID coreapplication.UUID,
 ) (coreresource.ApplicationResources, error) {
 	if err := applicationID.Validate(); err != nil {
-		return coreresource.ApplicationResources{}, errors.Errorf("%w: %w", err, resourceerrors.ApplicationUUIDNotValid)
+		return coreresource.ApplicationResources{}, errors.Errorf("%w: %w", err, applicationerrors.ApplicationUUIDNotValid)
 	}
 	return s.st.ListResources(ctx, applicationID)
 }
@@ -304,7 +305,7 @@ func (s *Service) ListResources(
 // Returns a slice of resources or an error if the operation fails.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ApplicationUUIDNotValid] is returned if the application UUID
+//   - [applicationerrors.ApplicationUUIDNotValid] is returned if the application UUID
 //     is not valid.
 //   - [resourceerrors.ApplicationNotFound] is returned if the application UUID
 //     is not an existing one.
@@ -314,7 +315,7 @@ func (s *Service) ListResources(
 func (s *Service) GetResourcesByApplicationUUID(ctx context.Context, applicationID coreapplication.UUID) ([]coreresource.Resource,
 	error) {
 	if err := applicationID.Validate(); err != nil {
-		return nil, errors.Errorf("%w: %w", err, resourceerrors.ApplicationUUIDNotValid)
+		return nil, errors.Errorf("%w: %w", err, applicationerrors.ApplicationUUIDNotValid)
 	}
 	return s.st.GetResourcesByApplicationUUID(ctx, applicationID)
 }
@@ -542,8 +543,10 @@ func (s *Service) SetUnitResource(
 // from charm repository for a specific application.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ApplicationUUIDNotValid] is returned if the Application UUID is not valid.
-//   - [resourceerrors.CharmIDNotValid] is returned if the charm ID is not valid.
+//   - [applicationerrors.ApplicationUUIDNotValid] is returned if the
+//     Application UUID is not valid.
+//   - [resourceerrors.CharmIDNotValid] is returned if the charm ID is not
+//     valid.
 //   - [resourceerrors.ArgumentNotValid] is returned if LastPolled is zero,
 //     if the length of Info is zero or if any info are invalid.
 //   - [resourceerrors.ApplicationNotFound] if the specified application does
@@ -553,7 +556,7 @@ func (s *Service) SetRepositoryResources(
 	args resource.SetRepositoryResourcesArgs,
 ) error {
 	if err := args.ApplicationUUID.Validate(); err != nil {
-		return errors.Errorf("%w: %w", resourceerrors.ApplicationUUIDNotValid, err)
+		return errors.Errorf("%w: %w", applicationerrors.ApplicationUUIDNotValid, err)
 	}
 	if err := args.CharmID.Validate(); err != nil {
 		return errors.Errorf("%w: %w", resourceerrors.CharmIDNotValid, err)
@@ -578,17 +581,18 @@ func (s *Service) SetRepositoryResources(
 // when the application is created using the returned Resource UUIDs.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ArgumentNotValid] is returned if the origin is store and the revision
-//     is empty; or the CharmLocator is zero.
-//   - [resourceerrors.ResourceNameNotValid] is returned if resource name is empty.
-//   - [resourceerrors.ApplicationNameNotFound] if the specified application does
-//     not exist.
+//   - [resourceerrors.ArgumentNotValid] is returned if the origin is store and
+//     the revision is empty; or the CharmLocator is zero.
+//   - [resourceerrors.ResourceNameNotValid] is returned if resource name is
+//     empty.
+//   - [applicationerrors.ApplicationNameNotFound] if the specified application
+//     does not exist.
 func (s *Service) AddResourcesBeforeApplication(ctx context.Context, arg resource.AddResourcesBeforeApplicationArgs) ([]coreresource.UUID, error) {
 	if arg.CharmLocator.IsZero() {
 		return nil, errors.Errorf("charm locator is zero: %w", resourceerrors.ArgumentNotValid)
 	}
 	if !isValidApplicationName(arg.ApplicationName) {
-		return nil, errors.Errorf("application name : %w", resourceerrors.ApplicationNameNotValid)
+		return nil, errors.Errorf("application name : %w", applicationerrors.ApplicationNameNotValid)
 	}
 	for _, res := range arg.ResourceDetails {
 		if res.Name == "" {
@@ -614,8 +618,10 @@ func (s *Service) AddResourcesBeforeApplication(ctx context.Context, arg resourc
 // a resource upgrade, the current resource blob is removed.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceUUIDNotValid] is returned if the Resource ID is not valid.
-//   - [resourceerrors.ArgumentNotValid] is returned if the Revision is less than 0.
+//   - [resourceerrors.ResourceUUIDNotValid] is returned if the Resource ID is
+//     not valid.
+//   - [resourceerrors.ArgumentNotValid] is returned if the Revision is less
+//     than 0.
 func (s *Service) UpdateResourceRevision(
 	ctx context.Context,
 	arg resource.UpdateResourceRevisionArgs,

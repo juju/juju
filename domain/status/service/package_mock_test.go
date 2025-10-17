@@ -1719,6 +1719,44 @@ func (c *MockModelStateSetRemoteApplicationOffererStatusCall) DoAndReturn(f func
 	return c
 }
 
+// SetRemoteRelationStatus mocks base method.
+func (m *MockModelState) SetRemoteRelationStatus(ctx context.Context, relationUUID relation.UUID, sts status.StatusInfo[status.RelationStatusType]) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRemoteRelationStatus", ctx, relationUUID, sts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRemoteRelationStatus indicates an expected call of SetRemoteRelationStatus.
+func (mr *MockModelStateMockRecorder) SetRemoteRelationStatus(ctx, relationUUID, sts any) *MockModelStateSetRemoteRelationStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteRelationStatus", reflect.TypeOf((*MockModelState)(nil).SetRemoteRelationStatus), ctx, relationUUID, sts)
+	return &MockModelStateSetRemoteRelationStatusCall{Call: call}
+}
+
+// MockModelStateSetRemoteRelationStatusCall wrap *gomock.Call
+type MockModelStateSetRemoteRelationStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateSetRemoteRelationStatusCall) Return(arg0 error) *MockModelStateSetRemoteRelationStatusCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateSetRemoteRelationStatusCall) Do(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockModelStateSetRemoteRelationStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateSetRemoteRelationStatusCall) DoAndReturn(f func(context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType]) error) *MockModelStateSetRemoteRelationStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetUnitAgentStatus mocks base method.
 func (m *MockModelState) SetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID, arg2 status.StatusInfo[status.UnitAgentStatusType]) error {
 	m.ctrl.T.Helper()
