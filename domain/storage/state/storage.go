@@ -11,11 +11,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-func (s State) GetModelDetails() (domainstorage.ModelDetails, error) {
-	//TODO implement me
-	return domainstorage.ModelDetails{}, errors.New("not implemented")
-}
-
 func (s State) ImportFilesystem(ctx context.Context, name storage.Name, filesystem domainstorage.FilesystemInfo) (storage.ID, error) {
 	//TODO implement me
 	return "", errors.New("not implemented")

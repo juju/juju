@@ -117,45 +117,6 @@ func (c *MockStateDeleteStoragePoolCall) DoAndReturn(f func(context.Context, str
 	return c
 }
 
-// GetModelDetails mocks base method.
-func (m *MockState) GetModelDetails() (storage0.ModelDetails, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelDetails")
-	ret0, _ := ret[0].(storage0.ModelDetails)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetModelDetails indicates an expected call of GetModelDetails.
-func (mr *MockStateMockRecorder) GetModelDetails() *MockStateGetModelDetailsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelDetails", reflect.TypeOf((*MockState)(nil).GetModelDetails))
-	return &MockStateGetModelDetailsCall{Call: call}
-}
-
-// MockStateGetModelDetailsCall wrap *gomock.Call
-type MockStateGetModelDetailsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelDetailsCall) Return(arg0 storage0.ModelDetails, arg1 error) *MockStateGetModelDetailsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelDetailsCall) Do(f func() (storage0.ModelDetails, error)) *MockStateGetModelDetailsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelDetailsCall) DoAndReturn(f func() (storage0.ModelDetails, error)) *MockStateGetModelDetailsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetStoragePool mocks base method.
 func (m *MockState) GetStoragePool(arg0 context.Context, arg1 storage0.StoragePoolUUID) (storage0.StoragePool, error) {
 	m.ctrl.T.Helper()
