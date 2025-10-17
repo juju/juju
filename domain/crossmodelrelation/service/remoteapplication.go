@@ -210,7 +210,7 @@ func (s *Service) SetRemoteApplicationOffererStatus(ctx context.Context, appUUID
 
 	if err := appUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
+			"validating application: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
 	}
 
 	encoded, err := encodeWorkloadStatus(status)
