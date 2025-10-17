@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -30,7 +31,7 @@ func TestApplicationSuite(t *testing.T) {
 func (s *applicationSuite) TestRemoveApplicationDestroyStorageNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewID)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -66,7 +67,7 @@ func (s *applicationSuite) TestRemoveApplicationForceNoWaitSuccess(c *tc.C) {
 func (s *applicationSuite) TestRemoveApplicationForceWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewID)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
@@ -89,7 +90,7 @@ func (s *applicationSuite) TestRemoveApplicationForceWaitSuccess(c *tc.C) {
 func (s *applicationSuite) TestRemoveApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewID)
 
 	s.modelState.EXPECT().ApplicationExists(gomock.Any(), appUUID.String()).Return(false, nil)
 
@@ -100,7 +101,7 @@ func (s *applicationSuite) TestRemoveApplicationNotFound(c *tc.C) {
 func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithUnitsAndStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewID)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
@@ -126,7 +127,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithUnitsAndStorag
 func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithMachines(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewID)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
@@ -149,7 +150,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithMachines(c *tc
 func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithRelations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewID)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
@@ -251,6 +252,6 @@ func newApplicationJob(c *tc.C) removal.Job {
 	return removal.Job{
 		UUID:        jUUID,
 		RemovalType: removal.ApplicationJob,
-		EntityUUID:  applicationtesting.GenApplicationUUID(c).String(),
+		EntityUUID:  tc.Must(c, coreapplication.NewID).String(),
 	}
 }

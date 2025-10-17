@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/database"
@@ -233,7 +234,7 @@ func (st *State) MachineScheduleRemoval(
 
 	removalRec := removalJob{
 		UUID:          removalUUID,
-		RemovalTypeID: 3,
+		RemovalTypeID: uint64(removal.MachineJob),
 		EntityUUID:    machineUUID,
 		Force:         force,
 		ScheduledFor:  when,

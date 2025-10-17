@@ -12,6 +12,7 @@ import (
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
@@ -338,7 +339,7 @@ func (st *State) UnitScheduleRemoval(
 
 	removalRec := removalJob{
 		UUID:          removalUUID,
-		RemovalTypeID: 1,
+		RemovalTypeID: uint64(removal.UnitJob),
 		EntityUUID:    unitUUID,
 		Force:         force,
 		ScheduledFor:  when,

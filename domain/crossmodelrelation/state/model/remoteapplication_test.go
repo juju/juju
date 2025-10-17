@@ -444,6 +444,67 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferersEmpty(c *t
 	c.Check(results, tc.HasLen, 0)
 }
 
+func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOffererByApplicationName(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offererModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	mac := newMacaroon(c, "encoded macaroon")
+	macBytes := tc.Must(c, mac.MarshalJSON)
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote offerer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+		},
+	}
+	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       applicationUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: remoteApplicationUUID,
+			OfferUUID:             offerUUID,
+			Charm:                 charm,
+		},
+		OffererModelUUID: offererModelUUID,
+		OfferURL:         "controller:qualifier/model.offername",
+		EncodedMacaroon:  macBytes,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.state.GetRemoteApplicationOffererByApplicationName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, remoteApplicationUUID)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOffererByApplicationNameNotFound(c *tc.C) {
+	// Initially there are no remote application offerers.
+	result, err := s.state.GetRemoteApplicationOffererByApplicationName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
+	c.Check(result, tc.Equals, "")
+}
+
 func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumer(c *tc.C) {
 	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()

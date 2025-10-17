@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
+	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -241,6 +242,49 @@ func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOfferersError(c 
 
 	_, err := service.GetRemoteApplicationOfferers(c.Context())
 	c.Assert(err, tc.ErrorMatches, "front fell off")
+}
+
+func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOffererByApplicationName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "test-app"
+	uuid := tc.Must(c, coreremoteapplication.NewUUID)
+
+	s.modelState.EXPECT().GetRemoteApplicationOffererByApplicationName(gomock.Any(), appName).Return(uuid.String(), nil)
+
+	service := s.service(c)
+
+	result, err := service.GetRemoteApplicationOffererByApplicationName(c.Context(), appName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, uuid)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOffererByApplicationNameInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "test-app"
+	uuid := "invalid-uuid"
+
+	service := s.service(c)
+
+	s.modelState.EXPECT().GetRemoteApplicationOffererByApplicationName(gomock.Any(), appName).Return(uuid, nil)
+
+	_, err := service.GetRemoteApplicationOffererByApplicationName(c.Context(), appName)
+	c.Assert(err, tc.ErrorMatches, `.*id "invalid-uuid" not valid`)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOffererByApplicationNameStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "test-app"
+
+	s.modelState.EXPECT().GetRemoteApplicationOffererByApplicationName(gomock.Any(), appName).Return("", internalerrors.Errorf("boom"))
+
+	service := s.service(c)
+
+	_, err := service.GetRemoteApplicationOffererByApplicationName(c.Context(), appName)
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *remoteApplicationServiceSuite) TestSaveMacaroonForRelation(c *tc.C) {

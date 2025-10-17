@@ -209,7 +209,7 @@ func (st *State) ModelScheduleRemoval(
 
 	removalDoc := removalJob{
 		UUID:          removalUUID,
-		RemovalTypeID: 4,
+		RemovalTypeID: uint64(removal.ModelJob),
 		EntityUUID:    modelUUID,
 		Force:         force,
 		ScheduledFor:  when,

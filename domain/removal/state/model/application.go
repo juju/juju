@@ -12,6 +12,7 @@ import (
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
@@ -178,7 +179,7 @@ func (st *State) ApplicationScheduleRemoval(
 
 	removalRec := removalJob{
 		UUID:          removalUUID,
-		RemovalTypeID: 2,
+		RemovalTypeID: uint64(removal.ApplicationJob),
 		EntityUUID:    applicationUUID,
 		Force:         force,
 		ScheduledFor:  when,
@@ -205,32 +206,17 @@ func (st *State) GetApplicationLife(ctx context.Context, aUUID string) (life.Lif
 		return -1, errors.Capture(err)
 	}
 
-	var applicationLife entityLife
-	applicationUUID := entityUUID{UUID: aUUID}
-
-	stmt, err := st.Prepare(`
-SELECT &entityLife.life_id
-FROM   application
-WHERE  uuid = $entityUUID.uuid;`, applicationLife, applicationUUID)
-	if err != nil {
-		return -1, errors.Errorf("preparing application life query: %w", err)
-	}
-
+	var l life.Life
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, applicationUUID).Get(&applicationLife)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.ApplicationNotFound
-		} else if err != nil {
-			return errors.Errorf("running application life query: %w", err)
-		}
-
-		return nil
+		var err error
+		l, err = st.getApplicationLife(ctx, tx, aUUID)
+		return err
 	})
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
 
-	return life.Life(applicationLife.Life), nil
+	return l, nil
 }
 
 // DeleteApplication removes a application from the database completely.

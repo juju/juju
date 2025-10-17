@@ -1144,9 +1144,35 @@ func (api *APIBase) DestroyConsumedApplications(ctx context.Context, args params
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	results := make([]params.ErrorResult, len(args.Applications))
-	for i := range args.Applications {
-		results[i].Error = apiservererrors.ServerError(errors.NotImplementedf("cross model relations are disabled until " +
-			"backend functionality is moved to domain"))
+	for i, arg := range args.Applications {
+		force := false
+		if arg.Force != nil {
+			force = *arg.Force
+		}
+		maxWait := time.Duration(0)
+		if arg.MaxWait != nil {
+			maxWait = *arg.MaxWait
+		}
+
+		appTag, err := names.ParseApplicationTag(arg.ApplicationTag)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		remoteAppUUID, err := api.crossModelRelationService.GetRemoteApplicationOffererByApplicationName(ctx, appTag.Name)
+		if errors.Is(err, crossmodelrelationerrors.RemoteApplicationNotFound) {
+			continue
+		} else if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		_, err = api.removalService.RemoveRemoteApplicationOfferer(ctx, remoteAppUUID, force, maxWait)
+		if err != nil && !errors.Is(err, crossmodelrelationerrors.RemoteApplicationNotFound) {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return params.ErrorResults{
 		Results: results,

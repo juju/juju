@@ -27,6 +27,22 @@ const (
 	// StorageAttachmentJob indicates a job to remove a unit's
 	// attachment to a storage instance.
 	StorageAttachmentJob
+	// StorageVolumeJob indicates a job to remove a storage volume.
+	StorageVolumeJob
+	// StorageFilesystemJob indicates a job to remove a storage filesystem.
+	StorageFilesystemJob
+	// StorageVolumeAttachmentJob indicates a job to remove a storage volume
+	// attachment.
+	StorageVolumeAttachmentJob
+	// StorageVolumeAttachmentPlanJob indicates a job to remove a storage volume
+	// attachment plan.
+	StorageVolumeAttachmentPlanJob
+	// StorageFilesystemAttachmentJob indicates a job to remove a storage
+	// filesystem attachment.
+	StorageFilesystemAttachmentJob
+	// RemoteApplicationOffererJob indicates a job to remove a remote
+	// application offerer.
+	RemoteApplicationOffererJob
 )
 
 // String is used in logging output make job type identifiers readable.
@@ -47,6 +63,8 @@ func (t JobType) String() string {
 		return "storage instance"
 	case StorageAttachmentJob:
 		return "storage attachment"
+	case RemoteApplicationOffererJob:
+		return "remote application offerer"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}

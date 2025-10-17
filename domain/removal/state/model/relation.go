@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -91,7 +92,7 @@ func (st *State) RelationScheduleRemoval(
 
 	removalRec := removalJob{
 		UUID:          removalUUID,
-		RemovalTypeID: 0,
+		RemovalTypeID: uint64(removal.RelationJob),
 		EntityUUID:    relUUID,
 		Force:         force,
 		ScheduledFor:  when,
