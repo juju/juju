@@ -16,33 +16,36 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
-type stateSuite struct {
-	schematesting.ControllerSuite
+type modelStateSuite struct {
+	schematesting.ModelSuite
 
-	state *State
+	state *ModelState
 }
 
-func TestStateSuite(t *testing.T) {
-	tc.Run(t, &stateSuite{})
+func TestModelStateSuite(t *testing.T) {
+	tc.Run(t, &modelStateSuite{})
 }
 
-func (s *stateSuite) SetUpTest(c *tc.C) {
-	s.ControllerSuite.SetUpTest(c)
-	s.state = NewState(s.TxnRunnerFactory())
+func (s *modelStateSuite) SetUpTest(c *tc.C) {
+	s.ModelSuite.SetUpTest(c)
+	s.state = NewModelState(s.TxnRunnerFactory())
 }
 
 // TestAddSuccess asserts the happy path of adding agent binary metadata.
-func (s *stateSuite) TestAddSuccess(c *tc.C) {
+func (s *modelStateSuite) TestAddSuccess(c *tc.C) {
 	archID := s.addArchitecture(c, "amd64")
-	objStoreUUID, _ := s.addObjectStore(c)
+	objStoreUUID, _ := addObjectStore(c, s.TxnRunner())
 
 	err := s.state.RegisterAgentBinary(c.Context(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
@@ -59,9 +62,9 @@ func (s *stateSuite) TestAddSuccess(c *tc.C) {
 
 // TestAddAlreadyExists asserts that an error is returned when the agent binary
 // already exists. The error will satisfy [agentbinaryerrors.AlreadyExists].
-func (s *stateSuite) TestAddAlreadyExists(c *tc.C) {
+func (s *modelStateSuite) TestAddAlreadyExists(c *tc.C) {
 	archID := s.addArchitecture(c, "amd64")
-	objStoreUUID1, _ := s.addObjectStore(c)
+	objStoreUUID1, _ := addObjectStore(c, s.TxnRunner())
 
 	err := s.state.RegisterAgentBinary(c.Context(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
@@ -86,10 +89,10 @@ func (s *stateSuite) TestAddAlreadyExists(c *tc.C) {
 // TestAddFailedUpdateExistingWithDifferentSHA asserts that an error is returned
 // when the agent binary already exists with a different SHA. The error will
 // satisfy [agentbinaryerrors.AgentBinaryImmutable].
-func (s *stateSuite) TestAddFailedUpdateExistingWithDifferentSHA(c *tc.C) {
+func (s *modelStateSuite) TestAddFailedUpdateExistingWithDifferentSHA(c *tc.C) {
 	archID := s.addArchitecture(c, "amd64")
-	objStoreUUID1, _ := s.addObjectStore(c)
-	objStoreUUID2, _ := s.addObjectStore(c)
+	objStoreUUID1, _ := addObjectStore(c, s.TxnRunner())
+	objStoreUUID2, _ := addObjectStore(c, s.TxnRunner())
 
 	err := s.state.RegisterAgentBinary(c.Context(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
@@ -113,8 +116,8 @@ func (s *stateSuite) TestAddFailedUpdateExistingWithDifferentSHA(c *tc.C) {
 
 // TestAddErrorArchitectureNotFound asserts that a [coreerrors.NotSupported]
 // error is returned when the architecture is not found.
-func (s *stateSuite) TestAddErrorArchitectureNotFound(c *tc.C) {
-	objStoreUUID, _ := s.addObjectStore(c)
+func (s *modelStateSuite) TestAddErrorArchitectureNotFound(c *tc.C) {
+	objStoreUUID, _ := addObjectStore(c, s.TxnRunner())
 
 	err := s.state.RegisterAgentBinary(c.Context(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
@@ -127,7 +130,7 @@ func (s *stateSuite) TestAddErrorArchitectureNotFound(c *tc.C) {
 // TestAddErrorObjectStoreUUIDNotFound asserts that a
 // [agentbinaryerrors.ObjectNotFound] error is returned when the object store
 // UUID is not found.
-func (s *stateSuite) TestAddErrorObjectStoreUUIDNotFound(c *tc.C) {
+func (s *modelStateSuite) TestAddErrorObjectStoreUUIDNotFound(c *tc.C) {
 	s.addArchitecture(c, "amd64")
 
 	err := s.state.RegisterAgentBinary(c.Context(), agentbinary.RegisterAgentBinaryArg{
@@ -138,7 +141,7 @@ func (s *stateSuite) TestAddErrorObjectStoreUUIDNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, agentbinaryerrors.ObjectNotFound)
 }
 
-func (s *stateSuite) addArchitecture(c *tc.C, name string) int {
+func (s *modelStateSuite) addArchitecture(c *tc.C, name string) int {
 	runner := s.TxnRunner()
 
 	// First check if the architecture already exists
@@ -174,9 +177,7 @@ RETURNING id AS &architectureRecord.id
 	return record.ID
 }
 
-func (s *stateSuite) addObjectStore(c *tc.C) (objectstore.UUID, string) {
-	runner := s.TxnRunner()
-
+func addObjectStore(c *tc.C, runner database.TxnRunner) (objectstore.UUID, string) {
 	type objectStoreMeta struct {
 		UUID   string `db:"uuid"`
 		SHA256 string `db:"sha_256"`
@@ -231,7 +232,7 @@ VALUES ($dbMetadataPath.*)`, pathRecord)
 	return objectstore.UUID(storeUUID), path
 }
 
-func (s *stateSuite) getAgentBinaryRecord(c *tc.C, version string, archID int) agentBinaryRecord {
+func (s *modelStateSuite) getAgentBinaryRecord(c *tc.C, version string, archID int) agentBinaryRecord {
 	runner := s.TxnRunner()
 
 	stmt, err := sqlair.Prepare(`
@@ -255,14 +256,14 @@ WHERE version = $agentBinaryRecord.version AND architecture_id = $agentBinaryRec
 	return record
 }
 
-func (s *stateSuite) TestGetObjectUUID(c *tc.C) {
-	objStoreUUID, path := s.addObjectStore(c)
+func (s *modelStateSuite) TestGetObjectUUID(c *tc.C) {
+	objStoreUUID, path := addObjectStore(c, s.TxnRunner())
 	gotUUID, err := s.state.GetObjectUUID(c.Context(), path)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotUUID.String(), tc.Equals, objStoreUUID.String())
 }
 
-func (s *stateSuite) TestGetObjectUUIDFailedObjectNotFound(c *tc.C) {
+func (s *modelStateSuite) TestGetObjectUUIDFailedObjectNotFound(c *tc.C) {
 	_, err := s.state.GetObjectUUID(c.Context(), "non-existent-path")
 	c.Check(err, tc.ErrorIs, agentbinaryerrors.ObjectNotFound)
 }
@@ -287,10 +288,10 @@ WHERE  uuid = ?`, objStoreUUID).Scan(&sha)
 	return sha
 }
 
-func (s *stateSuite) TestListAgentBinaries(c *tc.C) {
+func (s *modelStateSuite) TestListAgentBinaries(c *tc.C) {
 	_ = s.addArchitecture(c, "amd64")
 
-	objStoreUUID, _ := s.addObjectStore(c)
+	objStoreUUID, _ := addObjectStore(c, s.TxnRunner())
 	err := s.state.RegisterAgentBinary(c.Context(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
 		Arch:            "amd64",
@@ -299,7 +300,7 @@ func (s *stateSuite) TestListAgentBinaries(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	binary1 := getMetadata(c, s.DB(), objStoreUUID)
 
-	objStoreUUID, _ = s.addObjectStore(c)
+	objStoreUUID, _ = addObjectStore(c, s.TxnRunner())
 	err = s.state.RegisterAgentBinary(c.Context(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.1",
 		Arch:            "amd64",
@@ -316,14 +317,14 @@ func (s *stateSuite) TestListAgentBinaries(c *tc.C) {
 	})
 }
 
-func (s *stateSuite) TestListAgentBinariesEmpty(c *tc.C) {
+func (s *modelStateSuite) TestListAgentBinariesEmpty(c *tc.C) {
 	binaries, err := s.state.ListAgentBinaries(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(binaries, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestCheckAgentBinarySHA256Exists(c *tc.C) {
-	objStoreUUID, _ := s.addObjectStore(c)
+func (s *modelStateSuite) TestCheckAgentBinarySHA256Exists(c *tc.C) {
+	objStoreUUID, _ := addObjectStore(c, s.TxnRunner())
 
 	err := s.state.RegisterAgentBinary(c.Context(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
@@ -338,10 +339,41 @@ func (s *stateSuite) TestCheckAgentBinarySHA256Exists(c *tc.C) {
 	c.Check(exists, tc.Equals, true)
 }
 
-func (s *stateSuite) TestCheckAgentBinarySHA256NoExists(c *tc.C) {
-	objStoreUUID, _ := s.addObjectStore(c)
+func (s *modelStateSuite) TestCheckAgentBinarySHA256NoExists(c *tc.C) {
+	objStoreUUID, _ := addObjectStore(c, s.TxnRunner())
 	sha := getObjectSHA256(c, s.DB(), objStoreUUID)
 	exists, err := s.state.CheckAgentBinarySHA256Exists(c.Context(), sha)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+}
+
+func (s *modelStateSuite) TestGetAgentBinarySHA256Exists(c *tc.C) {
+	objStoreUUID, _ := addObjectStore(c, s.TxnRunner())
+	sha := getObjectSHA256(c, s.DB(), objStoreUUID)
+	err := s.state.RegisterAgentBinary(c.Context(), agentbinary.RegisterAgentBinaryArg{
+		Version:         "4.0.0",
+		Arch:            "amd64",
+		ObjectStoreUUID: objStoreUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	num, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	ver := coreagentbinary.Version{Number: num, Arch: "amd64"}
+	exists, shaRes, err := s.state.GetAgentBinarySHA256(c.Context(), ver)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.Equals, true)
+	c.Check(shaRes, tc.Equals, sha)
+}
+
+func (s *modelStateSuite) TestGetAgentBinarySHA256NoExists(c *tc.C) {
+	num, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	ver := coreagentbinary.Version{Number: num, Arch: "amd64"}
+	exists, shaRes, err := s.state.GetAgentBinarySHA256(c.Context(), ver)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.Equals, false)
+	c.Check(shaRes, tc.Equals, "")
 }

@@ -19,18 +19,18 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/agentbinary"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
-	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
-	intobjectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
+	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
 
-// State describes the interface that the cache state must implement.
-type State interface {
+// ModelStoreState describes the interface that the cache state must implement.
+type ModelStoreState interface {
 	// CheckAgentBinarySHA256Exists that the given sha256 sum exists as an agent
 	// binary in the object store. This sha256 sum could exist as an object in
 	// the object store but unless the association has been made this will
 	// always return false.
-	CheckAgentBinarySHA256Exists(context.Context, string) (bool, error)
+	CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum string) (bool, error)
 
 	// GetObjectUUID returns the object store UUID for the given object path.
 	// The following errors can be returned:
@@ -45,22 +45,26 @@ type State interface {
 	// [coreerrors.NotSupported] if the architecture is not supported by the
 	// state layer.
 	RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error
+
+	// GetAgentBinarySHA256 retrieves the SHA256 value for the specified agent binary version.
+	// It returns false and an empty string if no matching record exists.
+	GetAgentBinarySHA256(ctx context.Context, version coreagentbinary.Version) (bool, string, error)
 }
 
-// AgentBinaryStore provides the API for working with agent binaries.
-type AgentBinaryStore struct {
-	st                State
+// ModelAgentBinaryStore provides the API for working with agent binaries.
+type ModelAgentBinaryStore struct {
+	st                ModelStoreState
 	logger            logger.Logger
 	objectStoreGetter objectstore.ModelObjectStoreGetter
 }
 
-// NewAgentBinaryStore returns a new instance of AgentBinaryStore.
-func NewAgentBinaryStore(
-	st State,
+// NewModelAgentBinaryStore returns a new instance of ModelAgentBinaryStore.
+func NewModelAgentBinaryStore(
+	st ModelStoreState,
 	logger logger.Logger,
 	objectStoreGetter objectstore.ModelObjectStoreGetter,
-) *AgentBinaryStore {
-	return &AgentBinaryStore{
+) *ModelAgentBinaryStore {
+	return &ModelAgentBinaryStore{
 		st:                st,
 		logger:            logger,
 		objectStoreGetter: objectStoreGetter,
@@ -95,7 +99,7 @@ func generatePath(version coreagentbinary.Version, sha384 string) string {
 // - [coreerrors.NotValid] when the agent version is not considered valid.
 // - [agentbinaryerrors.HashMismatch] when the expected sha does not match that
 // which was computed against the binary data.
-func (s *AgentBinaryStore) AddAgentBinary(
+func (s *ModelAgentBinaryStore) AddAgentBinary(
 	ctx context.Context,
 	r io.Reader,
 	version coreagentbinary.Version,
@@ -111,7 +115,7 @@ func (s *AgentBinaryStore) AddAgentBinary(
 	return s.add(ctx, r, version, size, sha384)
 }
 
-func (s *AgentBinaryStore) add(
+func (s *ModelAgentBinaryStore) add(
 	ctx context.Context, r io.Reader,
 	version coreagentbinary.Version,
 	size int64, sha384 string,
@@ -125,7 +129,7 @@ func (s *AgentBinaryStore) add(
 	uuid, err := objectStore.PutAndCheckHash(ctx, path, r, size, sha384)
 	switch {
 	// Happens when the agent binary data already exists in the object store.
-	case errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists):
+	case errors.Is(err, domainobjectstoreerrors.ErrHashAndSizeAlreadyExists):
 		existingObjectUUID, err := s.st.GetObjectUUID(ctx, path)
 		if err != nil {
 			return errors.Errorf("getting object store UUID for %q: %w", path, err)
@@ -143,7 +147,7 @@ func (s *AgentBinaryStore) add(
 
 	s.logger.Debugf(
 		ctx,
-		"adding agent binary %q with arch %q to agent binary store",
+		"adding agent binary %q with arch %q to model agent binary store",
 		version.Number,
 		version.Arch,
 	)
@@ -161,7 +165,7 @@ func (s *AgentBinaryStore) add(
 		// But we don't want to accidentally remove an existing binary if any unexpected errors occur.
 		// The best we can do is to cleanup the binary for certain unknown errors.
 		// If there is a retry, the uploaded binary will be picked up again and recorded in the database.
-		if err := objectStore.Remove(ctx, path); err != nil && !errors.Is(err, objectstoreerrors.ErrNotFound) {
+		if err := objectStore.Remove(ctx, path); err != nil && !errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 			s.logger.Errorf(ctx,
 				"saving agent binary metadata %q failed, removing the binary from object store: %v",
 				path, err,
@@ -186,7 +190,7 @@ func (s *AgentBinaryStore) add(
 // - [coreerrors.NotValid] if the agent version is not valid.
 // - [agentbinaryerrors.HashMismatch] when the expected sha does not match that
 // which was computed against the binary data.
-func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
+func (s *ModelAgentBinaryStore) AddAgentBinaryWithSHA256(
 	ctx context.Context, r io.Reader,
 	version coreagentbinary.Version,
 	size int64, sha256 string,
@@ -219,7 +223,7 @@ func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
 // SHA256 sum. The following errors can be expected:
 // - [agentbinaryerrors.NotFound] when no agent binaries exist for the provided
 // sha.
-func (s *AgentBinaryStore) GetAgentBinaryForSHA256(
+func (s *ModelAgentBinaryStore) GetAgentBinaryForSHA256(
 	ctx context.Context,
 	sha256Sum string,
 ) (io.ReadCloser, int64, error) {
@@ -250,7 +254,7 @@ func (s *AgentBinaryStore) GetAgentBinaryForSHA256(
 	}
 
 	reader, size, err := objectStore.GetBySHA256(ctx, sha256Sum)
-	if errors.Is(err, intobjectstoreerrors.ObjectNotFound) {
+	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
 		return nil, 0, errors.Errorf(
 			"no agent binaries exist for sha256 %q", sha256Sum,
 		).Add(agentbinaryerrors.NotFound)
@@ -260,6 +264,41 @@ func (s *AgentBinaryStore) GetAgentBinaryForSHA256(
 		)
 	}
 
+	return reader, size, nil
+}
+
+// GetAgentBinary retrieves the agent binary corresponding to the given version
+// and stream from the model's object store.
+//
+// The function first queries model state to check whether a SHA256 record
+// exists for the requested version and stream. If no such record is found,
+// agentbinaryerrors.NotFound is returned.
+//
+// If a valid SHA256 is recorded, the corresponding binary blob is fetched from
+// the model's object store and returned as an io.ReadCloser together with
+// its size.
+//
+// The caller is responsible for closing the returned reader.
+func (s *ModelAgentBinaryStore) GetAgentBinary(ctx context.Context, ver coreagentbinary.Version) (io.ReadCloser, int64, error) {
+	hasAgentBinary, sha256Str, err := s.st.GetAgentBinarySHA256(ctx, ver)
+	if err != nil {
+		return nil, 0, errors.Errorf("checking availability of agent binary in model store: %w", err)
+	}
+	if !hasAgentBinary {
+		return nil, 0, errors.New("agent binary not found in model store").Add(agentbinaryerrors.NotFound)
+	}
+
+	store, err := s.objectStoreGetter.GetObjectStore(ctx)
+	if err != nil {
+		return nil, 0, errors.Errorf("getting model object store: %w", err)
+	}
+	reader, size, err := store.GetBySHA256(ctx, sha256Str)
+	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
+		return nil, 0, errors.New("agent binary not found in model store").Add(agentbinaryerrors.NotFound)
+	} else if err != nil {
+		return nil, 0, errors.Errorf("getting agent binary with sha %q from model object store: %w", sha256Str, err)
+
+	}
 	return reader, size, nil
 }
 

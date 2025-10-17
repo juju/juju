@@ -197,10 +197,10 @@ func (c *MockDomainServicesAgentBinaryCall) DoAndReturn(f func() *service0.Agent
 }
 
 // AgentBinaryStore mocks base method.
-func (m *MockDomainServices) AgentBinaryStore() *service0.AgentBinaryStore {
+func (m *MockDomainServices) AgentBinaryStore() *service0.ModelAgentBinaryStore {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentBinaryStore")
-	ret0, _ := ret[0].(*service0.AgentBinaryStore)
+	ret0, _ := ret[0].(*service0.ModelAgentBinaryStore)
 	return ret0
 }
 
@@ -217,19 +217,19 @@ type MockDomainServicesAgentBinaryStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDomainServicesAgentBinaryStoreCall) Return(arg0 *service0.AgentBinaryStore) *MockDomainServicesAgentBinaryStoreCall {
+func (c *MockDomainServicesAgentBinaryStoreCall) Return(arg0 *service0.ModelAgentBinaryStore) *MockDomainServicesAgentBinaryStoreCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDomainServicesAgentBinaryStoreCall) Do(f func() *service0.AgentBinaryStore) *MockDomainServicesAgentBinaryStoreCall {
+func (c *MockDomainServicesAgentBinaryStoreCall) Do(f func() *service0.ModelAgentBinaryStore) *MockDomainServicesAgentBinaryStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDomainServicesAgentBinaryStoreCall) DoAndReturn(f func() *service0.AgentBinaryStore) *MockDomainServicesAgentBinaryStoreCall {
+func (c *MockDomainServicesAgentBinaryStoreCall) DoAndReturn(f func() *service0.ModelAgentBinaryStore) *MockDomainServicesAgentBinaryStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -691,10 +691,10 @@ func (c *MockDomainServicesControllerCall) DoAndReturn(f func() *service11.Servi
 }
 
 // ControllerAgentBinaryStore mocks base method.
-func (m *MockDomainServices) ControllerAgentBinaryStore() *service0.AgentBinaryStore {
+func (m *MockDomainServices) ControllerAgentBinaryStore() *service0.ControllerAgentBinaryStore {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerAgentBinaryStore")
-	ret0, _ := ret[0].(*service0.AgentBinaryStore)
+	ret0, _ := ret[0].(*service0.ControllerAgentBinaryStore)
 	return ret0
 }
 
@@ -711,19 +711,19 @@ type MockDomainServicesControllerAgentBinaryStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDomainServicesControllerAgentBinaryStoreCall) Return(arg0 *service0.AgentBinaryStore) *MockDomainServicesControllerAgentBinaryStoreCall {
+func (c *MockDomainServicesControllerAgentBinaryStoreCall) Return(arg0 *service0.ControllerAgentBinaryStore) *MockDomainServicesControllerAgentBinaryStoreCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDomainServicesControllerAgentBinaryStoreCall) Do(f func() *service0.AgentBinaryStore) *MockDomainServicesControllerAgentBinaryStoreCall {
+func (c *MockDomainServicesControllerAgentBinaryStoreCall) Do(f func() *service0.ControllerAgentBinaryStore) *MockDomainServicesControllerAgentBinaryStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDomainServicesControllerAgentBinaryStoreCall) DoAndReturn(f func() *service0.AgentBinaryStore) *MockDomainServicesControllerAgentBinaryStoreCall {
+func (c *MockDomainServicesControllerAgentBinaryStoreCall) DoAndReturn(f func() *service0.ControllerAgentBinaryStore) *MockDomainServicesControllerAgentBinaryStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

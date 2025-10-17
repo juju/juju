@@ -298,6 +298,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 				return leaseManager
 			}),
 			c.MkDir(),
+			&http.Client{},
 			clock,
 			logger,
 		)

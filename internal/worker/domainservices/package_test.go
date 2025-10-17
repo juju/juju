@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -58,8 +59,9 @@ type baseSuite struct {
 	storageRegistryGetter      *MockStorageRegistryGetter
 	modelStorageRegistryGetter *MockModelStorageRegistryGetter
 
-	httpClientGetter *MockHTTPClientGetter
-	httpClient       *MockHTTPClient
+	httpClientGetter   *MockHTTPClientGetter
+	httpClient         *MockHTTPClient
+	simpleStreamClient *MockHTTPClient
 
 	leaseManager            *MockManager
 	leaseManagerGetter      *MockLeaseManagerGetter
@@ -95,6 +97,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.httpClientGetter = NewMockHTTPClientGetter(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
+	s.simpleStreamClient = NewMockHTTPClient(ctrl)
 
 	s.leaseManager = NewMockManager(ctrl)
 	s.leaseManagerGetter = NewMockLeaseManagerGetter(ctrl)
@@ -149,6 +152,7 @@ func NewModelDomainServices(
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
 	logDir string,
+	simplestreamsClient corehttp.HTTPClient,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -162,6 +166,7 @@ func NewModelDomainServices(
 		publicKeyImporter,
 		leaseManager,
 		logDir,
+		simplestreamsClient,
 		clock,
 		logger,
 	)
