@@ -10,8 +10,8 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/internal/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // StorageAttachmentExists returns true if a storage attachment with the input
