@@ -232,6 +232,34 @@ var configTests = []configTest{
 			"policy-target-group": "groundcontroltomajortom",
 		}),
 		err: "policy-target-group has invalid UUID: .*",
+	}, {
+		summary: "use gbp set through a string, ptg set",
+		config: requiredConfig.Merge(testing.Attrs{
+			"use-openstack-gbp":   "true",
+			"policy-target-group": "fb19cd79-a25c-4357-9271-b071c5cb726c",
+		}),
+	}, {
+		summary: "use gbp set through a string, ptg set, network is set",
+		config: requiredConfig.Merge(testing.Attrs{
+			"use-openstack-gbp":   "true",
+			NetworkKey:            "a-network-label",
+			"policy-target-group": "fb19cd79-a25c-4357-9271-b071c5cb726c",
+		}),
+		err: "cannot use 'network' config setting when use-openstack-gbp is set",
+	}, {
+		summary: "use gbp set through a string, ptg not set",
+		config: requiredConfig.Merge(testing.Attrs{
+			"use-openstack-gbp": "false",
+			NetworkKey:          "a-network-label",
+		}),
+		network: "a-network-label",
+	}, {
+		summary: "use gbp set through a string, ptg not set, network is set",
+		config: requiredConfig.Merge(testing.Attrs{
+			"use-openstack-gbp": "false",
+			NetworkKey:          "a-network-label",
+		}),
+		network: "a-network-label",
 	},
 }
 
