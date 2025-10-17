@@ -32,6 +32,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
@@ -137,7 +138,7 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 
 	// Ensure that the application is still alive.
 	appDetails, err := api.applicationService.GetApplicationDetails(ctx, applicationUUID)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) || appDetails == life.Dead {
+	if errors.Is(err, applicationerrors.ApplicationNotFound) || appDetails.Life == domainlife.Dead {
 		return errors.NotFoundf("application %q not found or dead when publishing relation changes for relation %q", applicationUUID, relationUUID)
 	} else if err != nil {
 		return err
