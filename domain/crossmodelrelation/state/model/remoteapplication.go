@@ -253,8 +253,8 @@ WHERE   arc.life_id < 2;`
 	return result, nil
 }
 
-// EnsureUnitsExist creates units are created for the given synthetic
-// application if they do not already exist.
+// EnsureUnitsExist creates units for the given synthetic application if they do
+// not already exist.
 func (st *State) EnsureUnitsExist(ctx context.Context, appUUID string, units []string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1178,8 +1178,7 @@ func (st *State) getCharmUUIDByApplicationUUID(ctx context.Context, tx *sqlair.T
 SELECT  a.charm_uuid AS &uuid.uuid
 FROM    application AS a
 JOIN    life AS l ON l.id = a.life_id AND l.value != 'dead'
-WHERE   a.uuid = $uuid.uuid 
-AND     a.life_id = l.id;
+WHERE   a.uuid = $uuid.uuid;
 `
 	queryStmt, err := st.Prepare(query, input)
 	if err != nil {

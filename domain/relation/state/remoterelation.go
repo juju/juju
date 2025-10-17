@@ -12,7 +12,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	domainlife "github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -48,9 +47,10 @@ func (st *State) SetRelationRemoteApplicationAndUnitSettings(
 
 	getUnitsStmt, err := st.Prepare(`
 SELECT &unitUUIDNameLife.*
-FROM   unit
-WHERE  name IN ($names[:])
-AND    application_uuid = $entityUUID.uuid
+FROM   unit u
+LEFT   JOIN life AS l ON l.id = u.life_id AND l.value != 'dead'
+WHERE  u.name IN ($names[:])
+AND    u.application_uuid = $entityUUID.uuid
 `, unitUUIDNameLife{}, names{}, appUUID)
 	if err != nil {
 		return errors.Capture(err)
@@ -74,14 +74,6 @@ AND    application_uuid = $entityUUID.uuid
 			if len(units) != len(unitNames) {
 				missing := findMissingNames(units, unitNames)
 				return errors.Errorf("expected %d units, got %d, missing: %v", len(unitNames), len(units), missing).Add(applicationerrors.UnitNotFound)
-			}
-
-			// Ensure all the units are alive. We're doing it outside of the
-			// SQL query, so we can provide a better error message.
-			for _, unit := range units {
-				if unit.Life == domainlife.Dead {
-					return errors.Errorf("%q %w", unit.Name, applicationerrors.UnitNotAlive)
-				}
 			}
 
 			// Check relation is alive.

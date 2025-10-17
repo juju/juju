@@ -1499,6 +1499,24 @@ func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistIdempotent(c *tc.C) {
 	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
 	c.Assert(err, tc.ErrorIsNil)
 
+	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertUnitNames(c, applicationUUID, []string{"app/0", "app/1", "app/2"})
+}
+
+func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistIdempotentPartial(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, charmUUID)
+	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
+
+	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	c.Assert(err, tc.ErrorIsNil)
+
 	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/1", "app/2"})
 	c.Assert(err, tc.ErrorIsNil)
 
