@@ -81,6 +81,15 @@ type ModelRemoteApplicationState interface {
 	// EnsureUnitsExist ensures that the given synthetic units exist in the local
 	// model.
 	EnsureUnitsExist(ctx context.Context, appUUID string, units []string) error
+
+	// SuspendRelation suspends the specified relation in the local model
+	// with the given reason. This will also update the status of the associated
+	// synthetic application to Error with the given reason.
+	SuspendRelation(ctx context.Context, appUUID, relUUID string, reason string) error
+
+	// SuspendRelation suspends the specified relation in the local model
+	// with the given reason.
+	SetRelationSuspendedState(ctx context.Context, appUUID, relUUID string, suspended bool, reason string) error
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -305,7 +314,7 @@ func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.U
 			"suspending relation: %w", err).Add(relationerrors.RelationUUIDNotValid)
 	}
 
-	return nil
+	return s.modelState.SuspendRelation(ctx, appUUID.String(), relUUID.String(), reason)
 }
 
 // SuspendRelation suspends the specified relation in the local model
@@ -323,7 +332,7 @@ func (s *Service) SetRelationSuspendedState(ctx context.Context, appUUID coreapp
 			"setting relation suspended state: %w", err).Add(relationerrors.RelationUUIDNotValid)
 	}
 
-	return nil
+	return s.modelState.SetRelationSuspendedState(ctx, appUUID.String(), relUUID.String(), suspended, reason)
 }
 
 // SaveMacaroonForRelation saves the given macaroon for the specified remote

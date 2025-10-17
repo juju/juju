@@ -1168,6 +1168,82 @@ func (c *MockModelStateSaveSecretRemoteConsumerCall) DoAndReturn(f func(context.
 	return c
 }
 
+// SetRelationSuspendedState mocks base method.
+func (m *MockModelState) SetRelationSuspendedState(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRelationSuspendedState", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRelationSuspendedState indicates an expected call of SetRelationSuspendedState.
+func (mr *MockModelStateMockRecorder) SetRelationSuspendedState(arg0, arg1, arg2, arg3, arg4 any) *MockModelStateSetRelationSuspendedStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationSuspendedState", reflect.TypeOf((*MockModelState)(nil).SetRelationSuspendedState), arg0, arg1, arg2, arg3, arg4)
+	return &MockModelStateSetRelationSuspendedStateCall{Call: call}
+}
+
+// MockModelStateSetRelationSuspendedStateCall wrap *gomock.Call
+type MockModelStateSetRelationSuspendedStateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateSetRelationSuspendedStateCall) Return(arg0 error) *MockModelStateSetRelationSuspendedStateCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateSetRelationSuspendedStateCall) Do(f func(context.Context, string, string, bool, string) error) *MockModelStateSetRelationSuspendedStateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateSetRelationSuspendedStateCall) DoAndReturn(f func(context.Context, string, string, bool, string) error) *MockModelStateSetRelationSuspendedStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SuspendRelation mocks base method.
+func (m *MockModelState) SuspendRelation(arg0 context.Context, arg1, arg2, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SuspendRelation", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SuspendRelation indicates an expected call of SuspendRelation.
+func (mr *MockModelStateMockRecorder) SuspendRelation(arg0, arg1, arg2, arg3 any) *MockModelStateSuspendRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuspendRelation", reflect.TypeOf((*MockModelState)(nil).SuspendRelation), arg0, arg1, arg2, arg3)
+	return &MockModelStateSuspendRelationCall{Call: call}
+}
+
+// MockModelStateSuspendRelationCall wrap *gomock.Call
+type MockModelStateSuspendRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateSuspendRelationCall) Return(arg0 error) *MockModelStateSuspendRelationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateSuspendRelationCall) Do(f func(context.Context, string, string, string) error) *MockModelStateSuspendRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateSuspendRelationCall) DoAndReturn(f func(context.Context, string, string, string) error) *MockModelStateSuspendRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateOffer mocks base method.
 func (m *MockModelState) UpdateOffer(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
