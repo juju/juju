@@ -22,7 +22,6 @@ import (
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
 	internal "github.com/juju/juju/domain/crossmodelrelation/internal"
-	status0 "github.com/juju/juju/domain/status"
 	statushistory "github.com/juju/juju/internal/statushistory"
 	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
@@ -492,44 +491,6 @@ func (c *MockModelRemoteApplicationStateSaveMacaroonForRelationCall) Do(f func(c
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelRemoteApplicationStateSaveMacaroonForRelationCall) DoAndReturn(f func(context.Context, string, []byte) error) *MockModelRemoteApplicationStateSaveMacaroonForRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetRemoteApplicationOffererStatus mocks base method.
-func (m *MockModelRemoteApplicationState) SetRemoteApplicationOffererStatus(arg0 context.Context, arg1 string, arg2 status0.StatusInfo[status0.WorkloadStatusType]) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRemoteApplicationOffererStatus", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetRemoteApplicationOffererStatus indicates an expected call of SetRemoteApplicationOffererStatus.
-func (mr *MockModelRemoteApplicationStateMockRecorder) SetRemoteApplicationOffererStatus(arg0, arg1, arg2 any) *MockModelRemoteApplicationStateSetRemoteApplicationOffererStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteApplicationOffererStatus", reflect.TypeOf((*MockModelRemoteApplicationState)(nil).SetRemoteApplicationOffererStatus), arg0, arg1, arg2)
-	return &MockModelRemoteApplicationStateSetRemoteApplicationOffererStatusCall{Call: call}
-}
-
-// MockModelRemoteApplicationStateSetRemoteApplicationOffererStatusCall wrap *gomock.Call
-type MockModelRemoteApplicationStateSetRemoteApplicationOffererStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelRemoteApplicationStateSetRemoteApplicationOffererStatusCall) Return(arg0 error) *MockModelRemoteApplicationStateSetRemoteApplicationOffererStatusCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelRemoteApplicationStateSetRemoteApplicationOffererStatusCall) Do(f func(context.Context, string, status0.StatusInfo[status0.WorkloadStatusType]) error) *MockModelRemoteApplicationStateSetRemoteApplicationOffererStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelRemoteApplicationStateSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, string, status0.StatusInfo[status0.WorkloadStatusType]) error) *MockModelRemoteApplicationStateSetRemoteApplicationOffererStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1496,44 +1457,6 @@ func (c *MockModelStateSaveSecretRemoteConsumerCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateSaveSecretRemoteConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata) error) *MockModelStateSaveSecretRemoteConsumerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetRemoteApplicationOffererStatus mocks base method.
-func (m *MockModelState) SetRemoteApplicationOffererStatus(arg0 context.Context, arg1 string, arg2 status0.StatusInfo[status0.WorkloadStatusType]) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRemoteApplicationOffererStatus", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetRemoteApplicationOffererStatus indicates an expected call of SetRemoteApplicationOffererStatus.
-func (mr *MockModelStateMockRecorder) SetRemoteApplicationOffererStatus(arg0, arg1, arg2 any) *MockModelStateSetRemoteApplicationOffererStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteApplicationOffererStatus", reflect.TypeOf((*MockModelState)(nil).SetRemoteApplicationOffererStatus), arg0, arg1, arg2)
-	return &MockModelStateSetRemoteApplicationOffererStatusCall{Call: call}
-}
-
-// MockModelStateSetRemoteApplicationOffererStatusCall wrap *gomock.Call
-type MockModelStateSetRemoteApplicationOffererStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelStateSetRemoteApplicationOffererStatusCall) Return(arg0 error) *MockModelStateSetRemoteApplicationOffererStatusCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelStateSetRemoteApplicationOffererStatusCall) Do(f func(context.Context, string, status0.StatusInfo[status0.WorkloadStatusType]) error) *MockModelStateSetRemoteApplicationOffererStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, string, status0.StatusInfo[status0.WorkloadStatusType]) error) *MockModelStateSetRemoteApplicationOffererStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

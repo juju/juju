@@ -303,44 +303,6 @@ func (st *State) EnsureUnitsExist(ctx context.Context, appUUID string, units []s
 	return nil
 }
 
-// SetRemoteApplicationOffererStatus sets the status of the specified remote
-// application in the local model.
-func (st *State) SetRemoteApplicationOffererStatus(ctx context.Context, appUUID string, status status.StatusInfo[status.WorkloadStatusType]) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	aUUID := uuid{UUID: appUUID}
-
-	query := `
-SELECT  aro.uuid AS &uuid.uuid
-FROM    application_remote_offerer AS aro
-WHERE   aro.application_uuid = $uuid.uuid;
-	`
-	queryStmt, err := st.Prepare(query, aUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var offererUUID uuid
-		if err := tx.Query(ctx, queryStmt, aUUID).Get(&offererUUID); errors.Is(err, sqlair.ErrNoRows) {
-			return crossmodelrelationerrors.RemoteApplicationNotFound
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		if err := st.upsertRemoteApplicationOffererStatus(ctx, tx, offererUUID.UUID, status); err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	}); err != nil {
-		return errors.Capture(err)
-	}
-	return nil
-}
-
 func (st *State) insertApplication(
 	ctx context.Context,
 	tx *sqlair.TX,

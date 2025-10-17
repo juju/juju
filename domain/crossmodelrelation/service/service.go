@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/secret"
-	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
@@ -84,10 +83,6 @@ type ModelRemoteApplicationState interface {
 	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
 	// application is not found.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error)
-
-	// SetRemoteApplicationOffererStatus sets the status of the specified remote
-	// application in the local model.
-	SetRemoteApplicationOffererStatus(context.Context, string, status.StatusInfo[status.WorkloadStatusType]) error
 
 	// EnsureUnitsExist ensures that the given synthetic units exist in the local
 	// model.

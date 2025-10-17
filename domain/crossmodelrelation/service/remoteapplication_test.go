@@ -5,7 +5,6 @@ package service
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -16,14 +15,12 @@ import (
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
-	status "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
-	domainstatus "github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -742,95 +739,4 @@ func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidUnitNames(c *
 
 	err := service.EnsureUnitsExist(c.Context(), appUUID, units)
 	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
-}
-
-func (s *remoteApplicationServiceSuite) TestSetRemoteApplicationOffererStatus(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	now := time.Now()
-	appUUID := tc.Must(c, coreapplication.NewID)
-
-	s.modelState.EXPECT().
-		SetRemoteApplicationOffererStatus(gomock.Any(), appUUID.String(), domainstatus.StatusInfo[domainstatus.WorkloadStatusType]{
-			Status:  domainstatus.WorkloadStatusError,
-			Message: "failed successfully",
-			Data:    []byte(`{"foo":"bar"}`),
-			Since:   ptr(now),
-		}).Return(nil)
-
-	service := s.service(c)
-
-	err := service.SetRemoteApplicationOffererStatus(c.Context(), appUUID, status.StatusInfo{
-		Status:  status.Error,
-		Message: "failed successfully",
-		Data: map[string]any{
-			"foo": "bar",
-		},
-		Since: ptr(now),
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *remoteApplicationServiceSuite) TestSetRemoteApplicationOffererStatusInvalidAppUUID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	now := time.Now()
-
-	service := s.service(c)
-
-	err := service.SetRemoteApplicationOffererStatus(c.Context(), "!!!", status.StatusInfo{
-		Status:  status.Error,
-		Message: "failed successfully",
-		Data: map[string]any{
-			"foo": "bar",
-		},
-		Since: ptr(now),
-	})
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
-}
-
-func (s *remoteApplicationServiceSuite) TestSetRemoteApplicationOffererStatusNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	now := time.Now()
-	appUUID := tc.Must(c, coreapplication.NewID)
-
-	s.modelState.EXPECT().
-		SetRemoteApplicationOffererStatus(gomock.Any(), appUUID.String(), domainstatus.StatusInfo[domainstatus.WorkloadStatusType]{
-			Status:  domainstatus.WorkloadStatusError,
-			Message: "failed successfully",
-			Data:    []byte(`{"foo":"bar"}`),
-			Since:   ptr(now),
-		}).Return(crossmodelrelationerrors.RemoteApplicationNotFound)
-
-	service := s.service(c)
-
-	err := service.SetRemoteApplicationOffererStatus(c.Context(), appUUID, status.StatusInfo{
-		Status:  status.Error,
-		Message: "failed successfully",
-		Data: map[string]any{
-			"foo": "bar",
-		},
-		Since: ptr(now),
-	})
-	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
-}
-
-func (s *remoteApplicationServiceSuite) TestSetRemoteApplicationOffererStatusInvalidStatus(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	now := time.Now()
-	appUUID := tc.Must(c, coreapplication.NewID)
-
-	service := s.service(c)
-
-	err := service.SetRemoteApplicationOffererStatus(c.Context(), appUUID, status.StatusInfo{
-		Status:  status.Aborted,
-		Message: "failed successfully",
-		Data: map[string]any{
-			"foo": "bar",
-		},
-		Since: ptr(now),
-	})
-	c.Assert(err, tc.ErrorMatches, `.*unknown workload status "aborted"`)
 }

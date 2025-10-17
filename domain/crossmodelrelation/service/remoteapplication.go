@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 
 	"gopkg.in/macaroon.v2"
@@ -202,33 +201,6 @@ func (s *Service) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmod
 	return s.modelState.GetRemoteApplicationConsumers(ctx)
 }
 
-// SetRemoteApplicationOffererStatus sets the status of the specified remote
-// application in the local model.
-//
-// Returns the following errors:
-//
-//   - [applicationerrors.ApplicationUUIDNotValid]
-//     If the provided application UUID is not valid.
-//   - [crossmodelrelationerrors.RemoteApplicationNotFound]
-//     If the remote application with the specified UUID does not exist.
-func (s *Service) SetRemoteApplicationOffererStatus(ctx context.Context, appUUID coreapplication.UUID, status corestatus.StatusInfo) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := appUUID.Validate(); err != nil {
-		return internalerrors.Errorf(
-			"validating application: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
-	}
-
-	encoded, err := encodeWorkloadStatus(status)
-	if err != nil {
-		return internalerrors.Errorf("encoding workload status: %w", err)
-	}
-
-	return s.modelState.SetRemoteApplicationOffererStatus(ctx, appUUID.String(), encoded)
-
-}
-
 // ConsumeRemoteSecretChanges applies secret changes received
 // from a remote model to the local model.
 func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
@@ -398,56 +370,4 @@ func splitRelationsByType(relations []charm.Relation) (map[string]charm.Relation
 	}
 
 	return provides, requires, nil
-}
-
-// encodeWorkloadStatus converts a core status info to a db status info.
-//
-// TODO(jack-w-shaw): This function should be imported from the status domain instead
-// of implemented here.
-func encodeWorkloadStatus(s corestatus.StatusInfo) (status.StatusInfo[status.WorkloadStatusType], error) {
-	encodedStatus, err := encodeWorkloadStatusType(s.Status)
-	if err != nil {
-		return status.StatusInfo[status.WorkloadStatusType]{}, err
-	}
-
-	var bytes []byte
-	if len(s.Data) > 0 {
-		var err error
-		bytes, err = json.Marshal(s.Data)
-		if err != nil {
-			return status.StatusInfo[status.WorkloadStatusType]{}, internalerrors.Errorf("marshalling status data: %w", err)
-		}
-	}
-
-	return status.StatusInfo[status.WorkloadStatusType]{
-		Status:  encodedStatus,
-		Message: s.Message,
-		Data:    bytes,
-		Since:   s.Since,
-	}, nil
-}
-
-// encodeWorkloadStatusType converts a core status to a db unit workload and
-// application status id.
-func encodeWorkloadStatusType(s corestatus.Status) (status.WorkloadStatusType, error) {
-	switch s {
-	case corestatus.Unset:
-		return status.WorkloadStatusUnset, nil
-	case corestatus.Unknown:
-		return status.WorkloadStatusUnknown, nil
-	case corestatus.Maintenance:
-		return status.WorkloadStatusMaintenance, nil
-	case corestatus.Waiting:
-		return status.WorkloadStatusWaiting, nil
-	case corestatus.Blocked:
-		return status.WorkloadStatusBlocked, nil
-	case corestatus.Active:
-		return status.WorkloadStatusActive, nil
-	case corestatus.Terminated:
-		return status.WorkloadStatusTerminated, nil
-	case corestatus.Error:
-		return status.WorkloadStatusError, nil
-	default:
-		return -1, internalerrors.Errorf("unknown workload status %q", s)
-	}
 }
