@@ -311,27 +311,27 @@ func (st *State) SetRemoteApplicationOffererStatus(ctx context.Context, appUUID 
 		return errors.Capture(err)
 	}
 
-	appID := uuid{UUID: appUUID}
+	aUUID := uuid{UUID: appUUID}
 
 	query := `
 SELECT  aro.uuid AS &uuid.uuid
 FROM    application_remote_offerer AS aro
 WHERE   aro.application_uuid = $uuid.uuid;
 	`
-	queryStmt, err := st.Prepare(query, appID)
+	queryStmt, err := st.Prepare(query, aUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var result uuid
-		if err := tx.Query(ctx, queryStmt, appID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+		var offererUUID uuid
+		if err := tx.Query(ctx, queryStmt, aUUID).Get(&offererUUID); errors.Is(err, sqlair.ErrNoRows) {
 			return crossmodelrelationerrors.RemoteApplicationNotFound
 		} else if err != nil {
 			return errors.Capture(err)
 		}
 
-		if err := st.upsertRemoteApplicationOffererStatus(ctx, tx, result.UUID, status); err != nil {
+		if err := st.upsertRemoteApplicationOffererStatus(ctx, tx, offererUUID.UUID, status); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -606,7 +606,7 @@ func (st *State) nextRemoteApplicationConsumerVersion(
 func (st *State) upsertRemoteApplicationOffererStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID string,
+	remoteAppUUID string,
 	sts status.StatusInfo[status.WorkloadStatusType],
 ) error {
 	insertQuery := `
@@ -629,15 +629,13 @@ ON CONFLICT (application_remote_offerer_uuid) DO UPDATE SET
 	}
 
 	if err := tx.Query(ctx, insertStmt, remoteApplicationStatus{
-		RemoteApplicationUUID: appID,
+		RemoteApplicationUUID: remoteAppUUID,
 		StatusID:              statusID,
 		Message:               sts.Message,
 		Data:                  sts.Data,
 		UpdatedAt:             sts.Since,
-	}).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-		return crossmodelrelationerrors.RemoteApplicationNotFound
-	} else if err != nil {
-		return errors.Errorf("inserting status: %w", err)
+	}).Run(); err != nil {
+		return errors.Errorf("setting status: %w", err)
 	}
 	return nil
 }
