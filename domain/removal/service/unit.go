@@ -224,17 +224,6 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("unit %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	// If the unit is the leader of an application, we need to revoke
-	// leadership before we can delete it.
-	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, job.EntityUUID)
-	if err != nil {
-		return errors.Errorf("getting application name and unit name: %w", err)
-	}
-
-	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-		return errors.Errorf("revoking leadership: %w", err)
-	}
-
 	// If we are forcing this removal because the uniter is not running though
 	// its usual workflow, we need to ensure that it is not participating in
 	// any relations. Otherwise the deletion below will fail due to violated
@@ -252,6 +241,20 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return nil
 	} else if err != nil {
 		return errors.Errorf("deleting unit: %w", err)
+	}
+
+	// If the unit was the leader of an application, we revoke leadership.
+	// We do this last to expedite new leadership acquisition if the unit died
+	// sooner that the expiry of its last lease.
+	// For all other scenarios preventing lease renewal, the lease will be
+	// relinquished naturally by expiry.
+	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, job.EntityUUID)
+	if err != nil {
+		return errors.Errorf("getting application name and unit name: %w", err)
+	}
+
+	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
+		return errors.Errorf("revoking leadership: %w", err)
 	}
 
 	return nil
