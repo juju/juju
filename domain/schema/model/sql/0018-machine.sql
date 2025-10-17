@@ -148,30 +148,6 @@ CREATE TABLE machine_constraint (
     REFERENCES "constraint" (uuid)
 );
 
-CREATE TABLE machine_volume (
-    machine_uuid TEXT NOT NULL,
-    volume_uuid TEXT NOT NULL,
-    CONSTRAINT fk_machine_volume_machine
-    FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid),
-    CONSTRAINT fk_machine_volume_volume
-    FOREIGN KEY (volume_uuid)
-    REFERENCES storage_volume (uuid),
-    PRIMARY KEY (machine_uuid, volume_uuid)
-);
-
-CREATE TABLE machine_filesystem (
-    machine_uuid TEXT NOT NULL,
-    filesystem_uuid TEXT NOT NULL,
-    CONSTRAINT fk_machine_filesystem_machine
-    FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid),
-    CONSTRAINT fk_machine_filesystem_filesystem
-    FOREIGN KEY (filesystem_uuid)
-    REFERENCES storage_filesystem (uuid),
-    PRIMARY KEY (machine_uuid, filesystem_uuid)
-);
-
 CREATE TABLE machine_requires_reboot (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     created_at DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
