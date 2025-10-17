@@ -273,7 +273,7 @@ func (r baseRefresher) ResolveCharm(ctx context.Context) (*charm.URL, commonchar
 			bases = transform.Slice(supportedBases, func(in corebase.Base) string { return in.DisplayString() })
 		}
 		return nil, commoncharm.Origin{}, errors.Errorf(
-			"cannot upgrade from single base %q charm to a charm supporting %q. Use --force-series to override.",
+			"cannot upgrade from single base %q charm to a charm supporting %q. Use --force-base to override.",
 			deployedBase.DisplayString(), bases,
 		)
 	}
