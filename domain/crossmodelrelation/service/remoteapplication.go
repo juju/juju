@@ -255,12 +255,6 @@ func (s *Service) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmod
 	return s.modelState.GetRemoteApplicationConsumers(ctx)
 }
 
-// SetRemoteApplicationOffererStatus sets the status of the specified remote
-// application in the local model.
-func (s *Service) SetRemoteApplicationOffererStatus(context.Context, coreapplication.UUID, corestatus.StatusInfo) error {
-	return nil
-}
-
 // ConsumeRemoteSecretChanges applies secret changes received
 // from a remote model to the local model.
 func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
@@ -304,11 +298,11 @@ func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.U
 
 	if err := appUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+			"suspending relation: %w", err).Add(relationerrors.ApplicationUUIDNotValid)
 	}
 	if err := relUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+			"suspending relation: %w", err).Add(relationerrors.RelationUUIDNotValid)
 	}
 
 	return nil
@@ -322,11 +316,11 @@ func (s *Service) SetRelationSuspendedState(ctx context.Context, appUUID coreapp
 
 	if err := appUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+			"setting relation suspended state: %w", err).Add(relationerrors.ApplicationUUIDNotValid)
 	}
 	if err := relUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+			"setting relation suspended state: %w", err).Add(relationerrors.RelationUUIDNotValid)
 	}
 
 	return nil
