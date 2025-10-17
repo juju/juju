@@ -1734,29 +1734,6 @@ WHERE a.uuid=?`, uuid).
 	c.Check(gotStatusID, tc.Equals, 1)
 }
 
-func (s *modelRemoteApplicationSuite) assertApplicationRemoteOffererStatusValues(c *tc.C, uuid string, id int, message string) {
-	var (
-		gotStatusID      int
-		gotStatusMessage string
-	)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT aros.status_id , aros.message
-FROM application_remote_offerer_status AS aros
-JOIN application_remote_offerer AS aro ON aros.application_remote_offerer_uuid = aro.uuid
-JOIN application AS a ON aro.application_uuid = a.uuid
-WHERE a.uuid=?`, uuid).
-			Scan(&gotStatusID, &gotStatusMessage)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotStatusID, tc.Equals, id)
-	c.Check(gotStatusMessage, tc.Equals, message)
-}
-
 func (s *modelRemoteApplicationSuite) assertApplication(c *tc.C, uuid string) {
 	var (
 		gotName      string

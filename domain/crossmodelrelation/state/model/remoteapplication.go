@@ -390,7 +390,7 @@ func (st *State) insertRemoteApplicationOfferer(
 		Message: "waiting for first status update",
 		Since:   ptr(st.clock.Now().UTC()),
 	}
-	if err := st.upsertRemoteApplicationOffererStatus(ctx, tx, args.RemoteApplicationUUID, statusInfo); err != nil {
+	if err := st.insertRemoteApplicationOffererStatus(ctx, tx, args.RemoteApplicationUUID, statusInfo); err != nil {
 		return errors.Errorf("inserting remote application offerer status: %w", err)
 	}
 
@@ -565,19 +565,14 @@ func (st *State) nextRemoteApplicationConsumerVersion(
 	return nextVersion, nil
 }
 
-func (st *State) upsertRemoteApplicationOffererStatus(
+func (st *State) insertRemoteApplicationOffererStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	remoteAppUUID string,
 	sts status.StatusInfo[status.WorkloadStatusType],
 ) error {
 	insertQuery := `
-INSERT INTO application_remote_offerer_status (*) VALUES ($remoteApplicationStatus.*)
-ON CONFLICT (application_remote_offerer_uuid) DO UPDATE SET
-  status_id = EXCLUDED.status_id,
-  message = EXCLUDED.message,
-  data = EXCLUDED.data,
-  updated_at = EXCLUDED.updated_at;
+INSERT INTO application_remote_offerer_status (*) VALUES ($remoteApplicationStatus.*);
 `
 
 	insertStmt, err := st.Prepare(insertQuery, remoteApplicationStatus{})
