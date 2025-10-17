@@ -20,6 +20,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
@@ -277,12 +278,12 @@ func (s *serviceSuite) TestGetAttachmentLifeWithAttachmentNotFound(c *tc.C) {
 		storageInstanceUUID.String(), nil,
 	)
 	s.state.EXPECT().GetStorageAttachmentLife(gomock.Any(), unitUUID.String(), storageInstanceUUID.String()).Return(
-		-1, storageprovisioningerrors.StorageAttachmentNotFound,
+		-1, storageerrors.StorageAttachmentNotFound,
 	)
 
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	_, err := svc.GetStorageAttachmentLife(c.Context(), unitUUID, "foo/1")
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
 func (s *serviceSuite) TestGetStorageAttachmentUUIDForUnit(c *tc.C) {
@@ -343,12 +344,12 @@ func (s *serviceSuite) TestGetStorageAttachmentUUIDForUnitWithStorageAttachmentN
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.state.EXPECT().GetStorageAttachmentUUIDForUnit(gomock.Any(), "foo/1", unitUUID.String()).Return(
-		"", storageprovisioningerrors.StorageAttachmentNotFound,
+		"", storageerrors.StorageAttachmentNotFound,
 	)
 
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	_, err := svc.GetStorageAttachmentUUIDForUnit(c.Context(), "foo/1", unitUUID)
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
 func (s *serviceSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {

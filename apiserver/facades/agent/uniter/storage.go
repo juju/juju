@@ -19,6 +19,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -207,7 +208,7 @@ func (s *StorageAPI) StorageAttachmentLife(ctx context.Context, args params.Stor
 			return "", internalerrors.Errorf(
 				"storage instance %q not found for unit %q", storageID, unitTag.Id(),
 			).Add(errors.NotFound)
-		case errors.Is(err, storageprovisioningerrors.StorageAttachmentNotFound):
+		case errors.Is(err, domainstorageerrors.StorageAttachmentNotFound):
 			return "", internalerrors.Errorf(
 				"storage attachment %q for unit %q not found", arg.StorageTag, unitTag.Id(),
 			).Add(errors.NotFound)
@@ -315,7 +316,7 @@ func (s *StorageAPI) WatchStorageAttachments(ctx context.Context, args params.St
 			return nil, internalerrors.Errorf(
 				"storage instance not found for %q %q", storageTag.Id(), unitTag.Id(),
 			).Add(coreerrors.NotFound)
-		case errors.Is(err, storageprovisioningerrors.StorageAttachmentNotFound):
+		case errors.Is(err, domainstorageerrors.StorageAttachmentNotFound):
 			return nil, internalerrors.Errorf(
 				"storage attachment not found for %q %q", storageTag.Id(), unitTag.Id(),
 			).Add(coreerrors.NotFound)
