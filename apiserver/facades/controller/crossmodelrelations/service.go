@@ -7,11 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/application"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/relation"
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
@@ -23,10 +25,6 @@ type CrossModelRelationService interface {
 	// GetApplicationNameAndUUIDByOfferUUID returns the application name and
 	// UUID for the given offer UUID.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, application.UUID, error)
-
-	// GetOfferUUIDFromRelationUUID returns the offer UUID that created
-	// the cross-model relation identified by the given relation UUID.
-	GetOfferUUIDFromRelationUUID(ctx context.Context, relationUUID relation.UUID) (offer.UUID, error)
 
 	// AddRemoteApplicationConsumer adds a new synthetic application
 	// representing a remote relation on the consuming model, to this, the
@@ -41,6 +39,10 @@ type CrossModelRelationService interface {
 	// unit of the specified app and returns a watcher which notifies of secret URIs
 	// that have had a new revision added.
 	WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID application.UUID) (watcher.StringsWatcher, error)
+
+	// EnsureUnitsExist ensures that the given synthetic units exist in the local
+	// model.
+	EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error
 }
 
 // SecretService provides access to secrets.
@@ -70,6 +72,28 @@ type StatusService interface {
 type RelationService interface {
 	// GetRelationDetails returns relation details for the given relationUUID.
 	GetRelationDetails(ctx context.Context, relationUUID relation.UUID) (domainrelation.RelationDetails, error)
+
+	// SetRelationRemoteApplicationAndUnitSettings will set the application and
+	// unit settings for a remote relation. If the unit has not yet entered
+	// scope, it will force the unit to enter scope. All settings will be
+	// replaced with the provided settings.
+	// This will ensure that the application, relation and units exist and that
+	// they are alive.
+	SetRelationRemoteApplicationAndUnitSettings(
+		ctx context.Context,
+		applicationUUID application.UUID,
+		relationUUID corerelation.UUID,
+		applicationSettings map[string]string,
+		unitSettings map[unit.Name]map[string]string,
+	) error
+
+	// GetRelationUnitUUID returns the relation unit UUID for the given unit for
+	// the given relation.
+	GetRelationUnitUUID(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		unitName unit.Name,
+	) (corerelation.UnitUUID, error)
 }
 
 // ApplicationService provides access to applications.
@@ -87,4 +111,8 @@ type RemovalService interface {
 	// - Removed or scheduled to be removed with the input force qualification.
 	RemoveRemoteRelation(
 		ctx context.Context, relUUID corerelation.UUID) error
+
+	// LeaveScope updates the relation to indicate that the unit represented by
+	// the input relation unit UUID is not in the implied relation scope.
+	LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error
 }

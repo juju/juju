@@ -238,12 +238,22 @@ func (api *CrossModelRelationsAPIv3) handleUnitSettings(
 		unitSettings[unitName] = settings
 	}
 
+	applicationSettings := make(map[string]string, len(change.ApplicationSettings))
+	for k, v := range change.ApplicationSettings {
+		switch v := v.(type) {
+		case string:
+			applicationSettings[k] = v
+		default:
+			return errors.NotValidf("application setting value for key %q for relation %q", k, relationUUID)
+		}
+	}
+
 	// Process the relation application and unit settings changes.
 	if err := api.relationService.SetRelationRemoteApplicationAndUnitSettings(
 		ctx,
 		applicationUUID,
 		relationUUID,
-		change.ApplicationSettings,
+		applicationSettings,
 		unitSettings,
 	); err != nil {
 		return errors.Annotatef(err, "setting application and unit settings %q", relationUUID)
@@ -567,7 +577,7 @@ func (api *CrossModelRelationsAPIv3) checkMacaroonsForRelation(
 	mac macaroon.Slice,
 	version bakery.Version,
 ) error {
-	offerUUID, err := api.crossModelRelationService.GetOfferUUIDFromRelationUUID(ctx, relationUUID)
+	offerUUID, err := api.crossModelRelationService.GetOfferUUIDByRelationUUID(ctx, relationUUID)
 	if err != nil {
 		return err
 	}
