@@ -23,7 +23,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
-	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -81,15 +80,6 @@ type ModelRemoteApplicationState interface {
 	// EnsureUnitsExist ensures that the given synthetic units exist in the local
 	// model.
 	EnsureUnitsExist(ctx context.Context, appUUID string, units []string) error
-
-	// SuspendRelation suspends the specified relation in the local model
-	// with the given reason. This will also update the status of the associated
-	// synthetic application to Error with the given reason.
-	SuspendRelation(ctx context.Context, appUUID, relUUID string, reason string) error
-
-	// SuspendRelation suspends the specified relation in the local model
-	// with the given reason.
-	SetRelationSuspendedState(ctx context.Context, appUUID, relUUID string, suspended bool, reason string) error
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -296,43 +286,6 @@ func (s *Service) EnsureUnitsExist(ctx context.Context, appUUID coreapplication.
 	}
 
 	return s.modelState.EnsureUnitsExist(ctx, appUUID.String(), unitNames)
-}
-
-// SuspendRelation suspends the specified relation in the local model
-// with the given reason. This will also update the status of the associated
-// synthetic application to Error with the given reason.
-func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.UUID, relUUID corerelation.UUID, reason string) error {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := appUUID.Validate(); err != nil {
-		return internalerrors.Errorf(
-			"suspending relation: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
-	}
-	if err := relUUID.Validate(); err != nil {
-		return internalerrors.Errorf(
-			"suspending relation: %w", err).Add(relationerrors.RelationUUIDNotValid)
-	}
-
-	return s.modelState.SuspendRelation(ctx, appUUID.String(), relUUID.String(), reason)
-}
-
-// SuspendRelation suspends the specified relation in the local model
-// with the given reason.
-func (s *Service) SetRelationSuspendedState(ctx context.Context, appUUID coreapplication.UUID, relUUID corerelation.UUID, suspended bool, reason string) error {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := appUUID.Validate(); err != nil {
-		return internalerrors.Errorf(
-			"setting relation suspended state: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
-	}
-	if err := relUUID.Validate(); err != nil {
-		return internalerrors.Errorf(
-			"setting relation suspended state: %w", err).Add(relationerrors.RelationUUIDNotValid)
-	}
-
-	return s.modelState.SetRelationSuspendedState(ctx, appUUID.String(), relUUID.String(), suspended, reason)
 }
 
 // SaveMacaroonForRelation saves the given macaroon for the specified remote

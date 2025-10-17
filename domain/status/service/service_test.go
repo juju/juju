@@ -2216,6 +2216,7 @@ func (s *serviceSuite) TestGetStatusAvailable(c *tc.C) {
 	c.Assert(modelStatus.Message, tc.Equals, "")
 	c.Assert(modelStatus.Data, tc.IsNil)
 }
+
 func (s *serviceSuite) TestGetStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -2223,6 +2224,27 @@ func (s *serviceSuite) TestGetStatusNotFound(c *tc.C) {
 
 	_, err := s.modelService.GetModelStatus(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *serviceSuite) TestSetRemoteRelationStatus(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Suspended}
+	s.modelState.EXPECT().SetRelationStatus(gomock.Any(), corerelation.UUID("relation-uuid"), status.StatusInfo[status.RelationStatusType]{
+		Status: status.RelationStatusTypeSuspended,
+	}).Return(nil)
+
+	err := s.modelService.SetRemoteRelationStatus(c.Context(), corerelation.UUID("relation-uuid"), newStatus)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetRemoteRelationStatusInvalidStatus(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Applied}
+
+	err := s.modelService.SetRemoteRelationStatus(c.Context(), corerelation.UUID("relation-uuid"), newStatus)
+	c.Check(err, tc.ErrorMatches, ".*unknown relation status.*")
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

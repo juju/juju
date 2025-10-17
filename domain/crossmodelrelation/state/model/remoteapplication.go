@@ -304,19 +304,6 @@ func (st *State) EnsureUnitsExist(ctx context.Context, appUUID string, units []s
 	return nil
 }
 
-// SuspendRelation suspends the specified relation in the local model
-// with the given reason. This will also update the status of the associated
-// synthetic application to Error with the given reason.
-func (st *State) SuspendRelation(ctx context.Context, appUUID, relUUID string, reason string) error {
-	return nil
-}
-
-// SuspendRelation suspends the specified relation in the local model with the
-// given reason.
-func (st *State) SetRelationSuspendedState(ctx context.Context, appUUID, relUUID string, suspended bool, reason string) error {
-	return nil
-}
-
 func (st *State) insertApplication(
 	ctx context.Context,
 	tx *sqlair.TX,

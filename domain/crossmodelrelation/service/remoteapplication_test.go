@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
-	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -740,73 +739,4 @@ func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidUnitNames(c *
 
 	err := service.EnsureUnitsExist(c.Context(), appUUID, units)
 	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
-}
-
-func (s *remoteApplicationServiceSuite) TestSuspendRelation(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := coreapplicationtesting.GenApplicationUUID(c)
-	relUUID := tc.Must(c, corerelation.NewUUID)
-	reason := "testing suspension"
-
-	s.modelState.EXPECT().SuspendRelation(gomock.Any(), appUUID.String(), relUUID.String(), reason).Return(nil)
-
-	err := s.service(c).SuspendRelation(c.Context(), appUUID, relUUID, reason)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *remoteApplicationServiceSuite) TestSuspendRelationInvalidApplicationUUID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	relUUID := tc.Must(c, corerelation.NewUUID)
-	reason := "testing suspension"
-
-	err := s.service(c).SuspendRelation(c.Context(), "!!!", relUUID, reason)
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
-}
-
-func (s *remoteApplicationServiceSuite) TestSuspendRelationInvalidRelationUUID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := coreapplicationtesting.GenApplicationUUID(c)
-	reason := "testing suspension"
-
-	err := s.service(c).SuspendRelation(c.Context(), appUUID, "!!!", reason)
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
-}
-
-func (s *remoteApplicationServiceSuite) TestSetRelationSuspendedState(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := coreapplicationtesting.GenApplicationUUID(c)
-	relUUID := tc.Must(c, corerelation.NewUUID)
-	suspended := true
-	reason := "testing suspension"
-
-	s.modelState.EXPECT().SetRelationSuspendedState(gomock.Any(), appUUID.String(), relUUID.String(), suspended, reason).Return(nil)
-
-	err := s.service(c).SetRelationSuspendedState(c.Context(), appUUID, relUUID, suspended, reason)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *remoteApplicationServiceSuite) TestSetRelationSuspendedStateInvalidApplicationUUID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	relUUID := tc.Must(c, corerelation.NewUUID)
-	suspended := true
-	reason := "testing suspension"
-
-	err := s.service(c).SetRelationSuspendedState(c.Context(), "!!!", relUUID, suspended, reason)
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
-}
-
-func (s *remoteApplicationServiceSuite) TestSetRelationSuspendedStateInvalidRelationUUID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := coreapplicationtesting.GenApplicationUUID(c)
-	suspended := true
-	reason := "testing suspension"
-
-	err := s.service(c).SetRelationSuspendedState(c.Context(), appUUID, "!!!", suspended, reason)
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
