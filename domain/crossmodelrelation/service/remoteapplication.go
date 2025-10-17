@@ -204,6 +204,13 @@ func (s *Service) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmod
 
 // SetRemoteApplicationOffererStatus sets the status of the specified remote
 // application in the local model.
+//
+// Returns the following errors:
+//
+//   - [applicationerrors.ApplicationUUIDNotValid]
+//     If the provided application UUID is not valid.
+//   - [crossmodelrelationerrors.RemoteApplicationNotFound]
+//     If the remote application with the specified UUID does not exist.
 func (s *Service) SetRemoteApplicationOffererStatus(ctx context.Context, appUUID coreapplication.UUID, status corestatus.StatusInfo) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

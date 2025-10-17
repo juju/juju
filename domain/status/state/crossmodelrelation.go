@@ -252,6 +252,11 @@ WHERE application_remote_offerer_uuid = $remoteApplicationUUID.uuid
 
 // SetRemoteApplicationOffererStatus sets the status of the specified remote
 // application in the local model.
+//
+// Returns the following errors:
+//
+//   - [crossmodelrelationerrors.RemoteApplicationNotFound]
+//     If the remote application with the specified UUID does not exist.
 func (st *ModelState) SetRemoteApplicationOffererStatus(
 	ctx context.Context,
 	remoteApplicationUUID string,

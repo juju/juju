@@ -789,6 +789,33 @@ func (s *remoteApplicationServiceSuite) TestSetRemoteApplicationOffererStatusInv
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
+func (s *remoteApplicationServiceSuite) TestSetRemoteApplicationOffererStatusNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+	appUUID := tc.Must(c, coreapplication.NewID)
+
+	s.modelState.EXPECT().
+		SetRemoteApplicationOffererStatus(gomock.Any(), appUUID.String(), domainstatus.StatusInfo[domainstatus.WorkloadStatusType]{
+			Status:  domainstatus.WorkloadStatusError,
+			Message: "failed successfully",
+			Data:    []byte(`{"foo":"bar"}`),
+			Since:   ptr(now),
+		}).Return(crossmodelrelationerrors.RemoteApplicationNotFound)
+
+	service := s.service(c)
+
+	err := service.SetRemoteApplicationOffererStatus(c.Context(), appUUID, status.StatusInfo{
+		Status:  status.Error,
+		Message: "failed successfully",
+		Data: map[string]any{
+			"foo": "bar",
+		},
+		Since: ptr(now),
+	})
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
+}
+
 func (s *remoteApplicationServiceSuite) TestSetRemoteApplicationOffererStatusInvalidStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
