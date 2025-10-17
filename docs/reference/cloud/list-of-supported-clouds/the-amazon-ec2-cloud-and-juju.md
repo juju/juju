@@ -77,7 +77,7 @@ Example: `vpc-a1b2c3d4`
 | - {ref}`constraint-cpu-power`          | &#10003;                                            |
 | - {ref}`constraint-image-id`           | &#10003; <br> An AMI.                               |
 | - {ref}`constraint-instance-role`      | &#10005; <br> Value: `auto` or an [instance profile](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) name.|
-| - {ref}`constraint-instance-type`      | &#10003; <br> Valid values: See cloud provider. <br> Default value: `m3.medium`.|
+| - {ref}`constraint-instance-type`      | &#10003; <br> Valid values: See cloud provider.     |
 | - {ref}`constraint-mem`                | &#10003;                                            |
 | - {ref}`constraint-root-disk`          | &#10003;                                            |
 | - {ref}`constraint-root-disk-source`   | &#10003;                                            |

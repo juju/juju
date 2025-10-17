@@ -148,18 +148,18 @@ See more: {ref}`command-juju-attach-storage`
 ## Reuse storage
 
 ```{important}
-This feature is out-of-order in Juju 4.0.0 but should be back in future versions.
+This feature is not implemented in Juju 4.0.0 but should be back in future versions.
 ```
 
-If you've destroyed a model but kept the storage, you'll likely want to reuse it. You can do this by running the `juju import-filesystem` command followed by the storage provider, the provider id, and the storage name. For example, given a LXD model (with the storage provider `lxd`), a provider ID of `juju:juju-7a544c-filesystem-0`, and a storage name of `pgdata`, this is as below:
+If you've destroyed a model but kept the storage, you'll likely want to reuse it. You can do this by running the `juju import-filesystem` command followed by the storage provider, the provider ID, and the storage name. For example, given an AWS model (with the storage provider `ebs`), a provider ID `vol-123456`, and a storage name `pgdata`, this is as below:
 
 ```text
 juju add-model default
-juju import-filesystem lxd juju:juju-7a544c-filesystem-0 pgdata
+juju import-filesystem aws vol-123456 pgdata
 ```
 
 
-Note: The determination of the provider ID  is dependent upon the cloud type. Above, it is given by the backing LXD pool and the volume name (obtained with `lxc storage volume list <lxd-pool`), all separated by a `:`. A provider ID from another cloud may look entirely different.
+Note: The determination of the provider ID  is dependent upon the cloud type. A provider ID from another cloud may look entirely different.
 
 <!--
 It is not possible to add new storage to a model without also attaching it to a unit. However, with the `juju import-filesystem` command, you can add storage to a model that has been previously released from a removed model.

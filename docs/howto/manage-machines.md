@@ -23,7 +23,7 @@ To add a new machine to a model, run the `add-machine` command, as below. `juju`
 juju add-machine
 ```
 
-The command also provides many options. By using them you can customize many things. For example, you can provision multiple machines, specify their, choose to deploy on a LXD container *inside* a machine, apply various constraints to the machine (e.g., storage, spaces, ...) to override more general defaults (e.g., at the model level), etc.
+The command also provides many options. By using them you can customize many things. For example, you can provision multiple machines, specify a base, choose to deploy on a LXD container *inside* a machine, apply various constraints to the machine (e.g., storage, spaces, ...) to override more general defaults (e.g., at the model level), etc.
 
 Machines provisioned via `add-machine` can be used for an initial deployment (`deploy`) or a scale-out deployment (`add-unit`).
 
