@@ -243,7 +243,8 @@ func (w *dbReplWorker) loop() (err error) {
 			w.execShowDDL(ctx, args[1:])
 		case ".query-models":
 			w.execQueryForModels(ctx, args[1:])
-
+		case ".fk_list":
+			w.execForeignKeysList(ctx, args[1:])
 		case ".describe-cluster":
 			w.describeCluster(ctx)
 
@@ -369,6 +370,44 @@ func (w *dbReplWorker) execTables(ctx context.Context) {
 	}
 }
 
+// execForeignKeysList lists all foreign key relationships that reference a specific table and column.
+// This command helps identify dependencies by showing which child tables have foreign keys
+// pointing to the specified parent table/column.
+//
+// The query returns:
+//   - child_table: Name of the table containing the foreign key
+//   - child_column: Name of the column in the child table that references the parent
+//   - parent_column: Name of the referenced column in the parent table
+//   - fk_id: Foreign key constraint identifier (0, 1, 2...) - each FK constraint gets a unique ID
+//   - fk_seq: Sequence number within a composite foreign key (0, 1, 2...) - for multi-column FKs
+func (w *dbReplWorker) execForeignKeysList(ctx context.Context, args []string) {
+	if len(args) != 2 {
+		_, _ = fmt.Fprintln(w.cfg.Stderr, "usage: .fk_list <table_name> <column_name>")
+		return
+	}
+
+	tableName := args[0]
+	columnName := args[1]
+
+	const fkListQuery = `
+WITH tbls(name) AS ( 
+	SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' 
+) 
+SELECT t.name AS child_table, 
+	fk."from" AS child_column, 
+	fk."to" AS parent_column, 
+	fk.id AS fk_id, 
+	fk.seq AS fk_seq 
+FROM tbls t, pragma_foreign_key_list(t.name) AS fk 
+WHERE fk."table" = ? AND fk."to" = ?
+ORDER BY child_table, fk_id, fk_seq;
+`
+	if err := w.executeQuery(ctx, w.currentDB, fkListQuery, tableName, columnName); err != nil {
+		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
+	}
+
+}
+
 func (w *dbReplWorker) execShowDDL(ctx context.Context, args []string) {
 	if len(args) != 1 {
 		_, _ = fmt.Fprintln(w.cfg.Stderr, "usage: .ddl <name>")
@@ -455,9 +494,9 @@ func (w *dbReplWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return w.tomb.Context(ctx), cancel
 }
 
-func (w *dbReplWorker) executeQuery(ctx context.Context, db database.TxnRunner, query string) error {
+func (w *dbReplWorker) executeQuery(ctx context.Context, db database.TxnRunner, query string, args ...any) error {
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, query)
+		rows, err := tx.QueryContext(ctx, query, args...)
 		if err != nil {
 			return err
 		}
@@ -532,18 +571,22 @@ The following commands are available:
 
 Database commands:
 
-  .models                  Show all models.
-  .switch model-<model>    Switch to a different model.
-  .switch controller       Switch to the controller global database.
-  .open <model-uuid>       Open a specific model database by UUID.
-  .tables                  Show all standard tables in the current database.
-  .triggers                Show all trigger tables in the current database.
-  .views                   Show all views in the current database.
-  .ddl <name>              Show the DDL for the specified table, trigger, or view.
-  .query-models <query>    Execute a query on all models and print the results.
+  .models                  	  Show all models.
+  .switch model-<model>       Switch to a different model.
+  .switch controller          Switch to the controller global database.
+  .open <model-uuid>          Open a specific model database by UUID.
+  .tables                     Show all standard tables in the current database.
+  .triggers                   Show all trigger tables in the current database.
+  .fk_list <table> <column>   List foreign keys referencing the specified table and column.
+                              Shows child tables that have foreign keys pointing to the given
+                              parent table/column. Returns fk_id (constraint identifier) and
+                              fk_seq (column position within composite foreign keys).
+  .views                      Show all views in the current database.
+  .ddl <name>                 Show the DDL for the specified table, trigger, or view.
+  .query-models <query>       Execute a query on all models and print the results.
 
 DQlite cluster commands:
 
-  .describe-cluster        Describe the current cluster, showing node IDs, addresses, and roles.
+  .describe-cluster           Describe the current cluster, showing node IDs, addresses, and roles.
 
 `
