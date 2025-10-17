@@ -739,5 +739,5 @@ func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidUnitNames(c *
 	service := s.service(c)
 
 	err := service.EnsureUnitsExist(c.Context(), appUUID, units)
-	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNameNotValid)
+	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
 }
