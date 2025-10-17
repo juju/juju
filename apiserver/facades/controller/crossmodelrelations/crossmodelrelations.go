@@ -7,15 +7,18 @@ import (
 	"context"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
+	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
@@ -23,8 +26,11 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	"github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/rpc/params"
 )
@@ -35,6 +41,8 @@ type CrossModelRelationsAPIv3 struct {
 	auth            facade.CrossModelAuthContext
 	watcherRegistry facade.WatcherRegistry
 
+	applicationService        ApplicationService
+	relationService           RelationService
 	crossModelRelationService CrossModelRelationService
 	statusService             StatusService
 	secretService             SecretService
@@ -47,6 +55,8 @@ func NewCrossModelRelationsAPI(
 	modelUUID model.UUID,
 	auth facade.CrossModelAuthContext,
 	watcherRegistry facade.WatcherRegistry,
+	applicationService ApplicationService,
+	relationService RelationService,
 	crossModelRelationService CrossModelRelationService,
 	statusService StatusService,
 	secretService SecretService,
@@ -69,7 +79,65 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 	ctx context.Context,
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
-	return params.ErrorResults{}, nil
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(changes.Changes)),
+	}
+
+	for i, change := range changes.Changes {
+		relationUUID, err := corerelation.ParseUUID(change.RelationToken)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// Ensure that we have a relation and that it isn't dead.
+		// If the relation is not found or dead, we simply skip publishing
+		// for that relation. This shouldn't bring down the whole operation.
+		relationDetails, err := api.relationService.GetRelationDetails(ctx, relationUUID)
+		if errors.Is(err, relationerrors.RelationNotFound) {
+			api.logger.Debugf(ctx, "relation %q not found when publishing relation changes", change.RelationToken)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		} else if relationDetails.Life == life.Dead {
+			api.logger.Debugf(ctx, "relation %q is dead when publishing relation changes", change.RelationToken)
+			continue
+		}
+
+		relationTag, err := constructRelationTag(relationDetails)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, change.Macaroons, change.BakeryVersion); err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// TODO (stickupkid): Work out if we get a offer UUID and get the
+		// application UUID from that instead.
+		applicationUUID, err := coreapplication.ParseID(change.ApplicationOrOfferToken)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// Ensure that the application is still alive.
+		appLife, err := api.applicationService.GetApplicationLife(ctx, applicationUUID)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) || appLife == life.Dead {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %q not found", change.ApplicationOrOfferToken)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// Handle the
+	}
+
+	return results, nil
 }
 
 // RegisterRemoteRelations sets up the model to participate
@@ -358,4 +426,28 @@ func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 // Each event contains the entire set of addresses which are required for ingress for the relation.
 func (api *CrossModelRelationsAPIv3) WatchEgressAddressesForRelations(ctx context.Context, remoteRelationArgs params.RemoteEntityArgs) (params.StringsWatchResults, error) {
 	return params.StringsWatchResults{}, nil
+}
+
+func (api *CrossModelRelationsAPIv3) checkMacaroonsForRelation(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	relationTag names.RelationTag,
+	mac macaroon.Slice,
+	version bakery.Version,
+) error {
+	offerUUID, err := api.crossModelRelationService.GetOfferUUIDFromRelationUUID(ctx, relationUUID)
+	if err != nil {
+		return err
+	}
+
+	auth := api.auth.Authenticator()
+	return auth.CheckRelationMacaroons(ctx, api.modelUUID.String(), offerUUID.String(), relationTag, mac, version)
+}
+
+func constructRelationTag(relationDetails relation.RelationDetails) (names.RelationTag, error) {
+	relationKey := relationDetails.Key.String()
+	if !names.IsValidRelation(relationKey) {
+		return names.RelationTag{}, errors.NotValidf("relation key %q", relationDetails.Key)
+	}
+	return names.NewRelationTag(relationKey), nil
 }

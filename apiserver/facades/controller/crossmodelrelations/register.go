@@ -30,6 +30,8 @@ func newCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelationsAPI
 		ctx.ModelUUID(),
 		ctx.CrossModelAuthContext(),
 		ctx.WatcherRegistry(),
+		domainServices.Application(),
+		domainServices.Relation(),
 		domainServices.CrossModelRelation(),
 		domainServices.Status(),
 		domainServices.Secret(),

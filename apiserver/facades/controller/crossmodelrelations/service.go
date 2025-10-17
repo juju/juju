@@ -7,24 +7,30 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/offer"
+	"github.com/juju/juju/core/relation"
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	domainrelation "github.com/juju/juju/domain/relation"
 )
 
 // CrossModelRelationService provides access to cross-model relations.
 type CrossModelRelationService interface {
-	// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
-	// for the given offer UUID.
-	// Returns crossmodelrelationerrors.OfferNotFound if the offer or associated
-	// application is not found.
+	// GetApplicationNameAndUUIDByOfferUUID returns the application name and
+	// UUID for the given offer UUID.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, application.UUID, error)
 
-	// AddRemoteApplicationConsumer adds a new synthetic application representing
-	// a remote relation on the consuming model, to this, the offering model.
+	// GetOfferUUIDFromRelationUUID returns the offer UUID that created
+	// the cross-model relation identified by the given relation UUID.
+	GetOfferUUIDFromRelationUUID(ctx context.Context, relationUUID relation.UUID) (offer.UUID, error)
+
+	// AddRemoteApplicationConsumer adds a new synthetic application
+	// representing a remote relation on the consuming model, to this, the
+	// offering model.
 	AddRemoteApplicationConsumer(ctx context.Context, args crossmodelrelationservice.AddRemoteApplicationConsumerArgs) error
 
 	// GetOfferUUIDByRelationUUID returns the offer UUID corresponding to
@@ -45,13 +51,25 @@ type SecretService interface {
 
 // StatusService provides access to the status service.
 type StatusService interface {
-	// GetOfferStatus returns the status of the specified offer. This status shadows
-	// the status of the application that the offer belongs to, except in the case
-	// where the application or offer has been removed. Then a Terminated status is
-	// returned.
+	// GetOfferStatus returns the status of the specified offer. This status
+	// shadows the status of the application that the offer belongs to, except
+	// in the case where the application or offer has been removed. Then a
+	// Terminated status is returned.
 	GetOfferStatus(context.Context, offer.UUID) (status.StatusInfo, error)
 
 	// WatchOfferStatus watches the changes to the derived display status of
 	// the specified application.
 	WatchOfferStatus(context.Context, offer.UUID) (watcher.NotifyWatcher, error)
+}
+
+// RelationService provides access to relations.
+type RelationService interface {
+	// GetRelationDetails returns relation details for the given relationUUID.
+	GetRelationDetails(ctx context.Context, relationUUID relation.UUID) (domainrelation.RelationDetails, error)
+}
+
+// ApplicationService provides access to applications.
+type ApplicationService interface {
+	// GetApplicationLifelooks up the life of the specified application.
+	GetApplicationLife(ctx context.Context, appID application.UUID) (life.Value, error)
 }
