@@ -572,7 +572,7 @@ func (s *Service) RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersi
 // being upgraded to is more then a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
-func (s *Service) RunPreUpgradeChecksWithStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error) {
+func (s *Service) RunPreUpgradeChecksWithStream(ctx context.Context, stream agentbinary.Stream) (semversion.Number, error) {
 	if !stream.IsValid() {
 		return semversion.Zero, errors.New(
 			"agent stream is not valid",
@@ -610,7 +610,7 @@ func (s *Service) RunPreUpgradeChecksWithStream(ctx context.Context, stream mode
 // being upgraded to is more then a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
-func (s *Service) RunPreUpgradeChecksToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream modelagent.AgentStream) error {
+func (s *Service) RunPreUpgradeChecksToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream agentbinary.Stream) error {
 	// We should not continue any further if the version is a zero value.
 	if desiredVersion == semversion.Zero {
 		return errors.New(

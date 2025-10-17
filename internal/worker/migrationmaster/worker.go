@@ -133,7 +133,7 @@ type AgentBinaryStore interface {
 	// given SHA256 sum. The following errors can be expected:
 	// - [github.com/juju/juju/domain/agentbinary/errors.NotFound] when no agent
 	// binaries exist for the provided sha.
-	GetAgentBinaryForSHA256(context.Context, string) (io.ReadCloser, int64, error)
+	GetAgentBinaryUsingSHA256(context.Context, string) (io.ReadCloser, int64, error)
 }
 
 // Config defines the operation of a Worker.

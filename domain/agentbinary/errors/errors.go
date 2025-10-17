@@ -29,4 +29,8 @@ const (
 	// ObjectNotFound defines an error that indicates the binary object
 	// associated with the agent binary does not exist.
 	ObjectNotFound = errors.ConstError("agent binary object not found")
+
+	// StreamNotFound defines an error that indicates the agent binary stream
+	// used by the current model cannot be found. This should not happen.
+	StreamNotFound = errors.ConstError("agent binary stream not found")
 )

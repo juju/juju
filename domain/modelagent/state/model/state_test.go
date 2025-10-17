@@ -194,7 +194,7 @@ VALUES ($dbMetadataPath.*)`, pathRecord)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = agentbinarystate.NewState(s.TxnRunnerFactory()).RegisterAgentBinary(
+	err = agentbinarystate.NewModelState(s.TxnRunnerFactory()).RegisterAgentBinary(
 		c.Context(),
 		domainagentbinary.RegisterAgentBinaryArg{
 			Arch:            version.Arch,
@@ -363,7 +363,7 @@ func (s *modelStateSuite) createTestingApplicationWithName(
 	return appID
 }
 
-// TestGetModelAgentVersionSuccess tests that State.GetModelAgentVersion is
+// TestGetModelAgentVersionSuccess tests that ControllerState.GetModelAgentVersion is
 // correct in the expected case when the model exists.
 func (s *modelStateSuite) TestGetModelAgentVersionSuccess(c *tc.C) {
 	expectedVersion, err := semversion.Parse("4.21.54")
@@ -377,7 +377,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionSuccess(c *tc.C) {
 	c.Check(obtainedVersion, tc.DeepEquals, expectedVersion)
 }
 
-// TestGetModelAgentVersionModelNotFound tests that State.GetModelAgentVersion
+// TestGetModelAgentVersionModelNotFound tests that ControllerState.GetModelAgentVersion
 // returns modelerrors.NotFound when the model does not exist in the DB.
 func (s *modelStateSuite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
@@ -386,7 +386,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
-// TestGetModelAgentVersionCantParseVersion tests that State.GetModelAgentVersion
+// TestGetModelAgentVersionCantParseVersion tests that ControllerState.GetModelAgentVersion
 // returns an appropriate error when the agent version in the DB is invalid.
 func (s *modelStateSuite) TestGetModelAgentVersionCantParseVersion(c *tc.C) {
 	s.setModelTargetAgentVersion(c, "invalid-version")

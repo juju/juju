@@ -553,22 +553,20 @@ func (s *Service) SetMachineReportedAgentVersion(
 // value an error satisfying [coreerrors.NotValid] is returned.
 func (s *Service) SetModelAgentStream(
 	ctx context.Context,
-	agentStream agentbinary.AgentStream,
+	agentStream domainagentbinary.Stream,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-
-	domainAgentStream, err := domainagentbinary.StreamFromCoreAgentBinaryStream(agentStream)
-	if errors.Is(err, coreerrors.NotValid) {
+	if !agentStream.IsValid() {
 		return errors.Errorf(
 			"agent stream %q is not valid or understood", agentStream,
 		).Add(coreerrors.NotValid)
 	}
 
-	if err := s.modelSt.SetModelAgentStream(ctx, domainAgentStream); err != nil {
+	if err := s.modelSt.SetModelAgentStream(ctx, agentStream); err != nil {
 		return errors.Errorf(
 			"setting model agent stream %q to value %d in state: %w",
-			agentStream, domainAgentStream, err,
+			agentStream, agentStream, err,
 		)
 	}
 

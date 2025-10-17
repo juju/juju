@@ -249,12 +249,11 @@ func (s *modelconfigSuite) TestSetModelConfigAgentStreamInvalid(c *tc.C) {
 	s.expectNoControllerAdminAccess()
 	s.expectNoBlocks()
 
-	s.mockModelAgentService.EXPECT().SetModelAgentStream(
-		gomock.Any(),
-		coreagentbinary.AgentStream("invalid"),
-	).Return(coreerrors.NotValid)
+	invalidStream := coreagentbinary.AgentStream("invalid")
+	_, err := domainagentbinary.StreamFromCoreAgentBinaryStream(invalidStream)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 
-	err := api.ModelSet(c.Context(), params.ModelSet{
+	err = api.ModelSet(c.Context(), params.ModelSet{
 		Config: map[string]any{
 			"agent-stream": "invalid",
 		},

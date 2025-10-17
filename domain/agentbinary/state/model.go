@@ -326,15 +326,14 @@ FROM   v_agent_binary_store`, metadataRecord{})
 
 // GetAgentBinarySHA256 retrieves the SHA256 value for the specified agent binary version.
 // It returns false and an empty string if no matching record exists.
-func (s *ModelState) GetAgentBinarySHA256(ctx context.Context, version coreagentbinary.Version) (bool, string, error) {
+func (s *ModelState) GetAgentBinarySHA256(ctx context.Context, version coreagentbinary.Version, stream agentbinary.Stream) (bool, string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return false, "", errors.Capture(err)
 	}
 
-	// TODO(Alvin): Change this back to version number
 	record := metadataRecord{
-		Version: version.String(),
+		Version: version.Number.String(),
 	}
 
 	stmt, err := s.Prepare(`

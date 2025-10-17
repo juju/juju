@@ -47,6 +47,8 @@ const (
 	SSHImporterPurpose Purpose = "ssh-importer"
 	// MacaroonPurpose is the namespace for the macaroon http client.
 	MacaroonPurpose Purpose = "macaroon"
+	// SimpleStreamPurpose is the namespace for the simplestream http client.
+	SimpleStreamPurpose Purpose = "simplestream"
 )
 
 func (n Purpose) String() string {

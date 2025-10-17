@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/changestream"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -100,6 +101,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 		LeaseManager:          s.leaseManager,
 		LogDir:                c.MkDir(),
 		Clock:                 s.clock,
+		SimpleStreamsClient:   s.simpleStreamClient,
 		Logger:                s.logger,
 		LoggerContextGetter:   s.loggerContextGetter,
 		NewDomainServicesGetter: func(
@@ -112,6 +114,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 			domainservices.PublicKeyImporter,
 			lease.Manager,
 			string,
+			corehttp.HTTPClient,
 			clock.Clock,
 			logger.LoggerContextGetter,
 		) services.DomainServicesGetter {
@@ -130,11 +133,13 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 			coremodel.UUID,
 			changestream.WatchableDBGetter,
 			providertracker.ProviderFactory,
+			objectstore.NamespacedObjectStoreGetter,
 			objectstore.ModelObjectStoreGetter,
 			storage.ModelStorageRegistryGetter,
 			domainservices.PublicKeyImporter,
 			lease.ModelLeaseManagerGetter,
 			string,
+			corehttp.HTTPClient,
 			clock.Clock,
 			logger.Logger,
 		) services.ModelDomainServices {

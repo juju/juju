@@ -287,6 +287,11 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 			databasetesting.ConstFactory(s.TxnRunner()),
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
 			providerFactory,
+			// controller
+			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
+				return objectStore, nil
+			}),
+			// model
 			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
 				return objectStore, nil
 			}),
@@ -298,6 +303,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 				return leaseManager
 			}),
 			c.MkDir(),
+			&http.Client{},
 			clock,
 			logger,
 		)

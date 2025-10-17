@@ -21,7 +21,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
-
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -724,12 +723,12 @@ func (s *serviceSuite) TestSetAgentStreamNotValidAgentStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// This is a fake stream that doesn't exist.
-	agentStream := coreagentbinary.AgentStream("bad value")
+	domainAgentStream := domainagentbinary.Stream(-1)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
 	err := svc.SetModelAgentStream(
 		c.Context(),
-		agentStream,
+		domainAgentStream,
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -747,7 +746,7 @@ func (s *serviceSuite) TestSetAgentStream(c *tc.C) {
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
 	err := svc.SetModelAgentStream(
 		c.Context(),
-		coreagentbinary.AgentStreamTesting,
+		domainagentbinary.AgentStreamTesting,
 	)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -883,17 +882,14 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamControllerMo
 func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	agentStream := coreagentbinary.AgentStream(-1)
-	domainAgentStream, err := domainagentbinary.StreamFromCoreAgentBinaryStream(agentStream)
-
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	domainAgentStream := domainagentbinary.Stream(-1)
 	desiredVersion := semversion.MustParse("4.0.1")
 	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
 	).Return([]semversion.Number{desiredVersion}, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	_, err = svc.UpgradeModelTargetAgentVersionStream(c.Context(), domainAgentStream)
+	_, err := svc.UpgradeModelTargetAgentVersionStream(c.Context(), domainAgentStream)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -1171,12 +1167,10 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToInvalidStr
 	defer s.setupMocks(c).Finish()
 
 	desiredVersion := semversion.MustParse("4.0.1")
-	agentStream := coreagentbinary.AgentStream(-1)
-	domainAgentStream, err := domainagentbinary.StreamFromCoreAgentBinaryStream(agentStream)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	domainAgentStream := domainagentbinary.Stream(-1)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	err = svc.UpgradeModelTargetAgentVersionStreamTo(
+	err := svc.UpgradeModelTargetAgentVersionStreamTo(
 		c.Context(), desiredVersion, domainAgentStream,
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
