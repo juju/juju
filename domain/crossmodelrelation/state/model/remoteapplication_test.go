@@ -975,6 +975,503 @@ WHERE consumer_application_uuid = ?`, appUUID)
 	c.Check(results, tc.HasLen, 0)
 }
 
+func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersSingleConsumer(c *tc.C) {
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, localCharmUUID)
+	s.createApplication(c, localAppUUID, localCharmUUID, offerUUID)
+
+	ch := charm.Charm{
+		ReferenceName: "test-charm",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "test-app",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {Name: "db", Role: charm.RoleProvider, Interface: "db", Limit: 1, Scope: charm.ScopeGlobal},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "test-app", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 ch,
+		},
+		RelationUUID: relationUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Get the application_remote_consumer UUID
+	var consumerUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?`, appUUID).Scan(&consumerUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Get the offerer relation UUID (synthetic relation created for the consumer)
+	var offererRelationUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT arr.relation_uuid
+FROM   application_remote_consumer AS arc
+JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+WHERE  arc.uuid = ?`, consumerUUID).Scan(&offererRelationUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Test the method
+	results, err := s.state.GetOffererRelationUUIDsForConsumers(c.Context(), consumerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0], tc.Equals, offererRelationUUID)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMultipleConsumers(c *tc.C) {
+	offerUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Setup shared local charm and two offers with unique applications
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localAppUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	localAppUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Create charm
+		if _, err := tx.Exec(`INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, 'local-charm', 1)`, localCharmUUID); err != nil {
+			return err
+		}
+		// Create offer 1
+		if _, err := tx.Exec(`INSERT INTO offer (uuid, name) VALUES (?, 'offer-1')`, offerUUID1); err != nil {
+			return err
+		}
+		// Create offer 2
+		if _, err := tx.Exec(`INSERT INTO offer (uuid, name) VALUES (?, 'offer-2')`, offerUUID2); err != nil {
+			return err
+		}
+		// Create application 1
+		if _, err := tx.Exec(`INSERT INTO application (uuid, name, charm_uuid, life_id, space_uuid) VALUES (?, 'local-app-1', ?, 0, ?)`,
+			localAppUUID1, localCharmUUID, network.AlphaSpaceId); err != nil {
+			return err
+		}
+		// Create charm_relation and application_endpoint for app 1
+		charmRelUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, 0, 0, 'endpoint1')`,
+			charmRelUUID1, localCharmUUID); err != nil {
+			return err
+		}
+		appEndpointUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`,
+			appEndpointUUID1, localAppUUID1, network.AlphaSpaceId, charmRelUUID1); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`, offerUUID1, appEndpointUUID1); err != nil {
+			return err
+		}
+		// Create application 2
+		if _, err := tx.Exec(`INSERT INTO application (uuid, name, charm_uuid, life_id, space_uuid) VALUES (?, 'local-app-2', ?, 0, ?)`,
+			localAppUUID2, localCharmUUID, network.AlphaSpaceId); err != nil {
+			return err
+		}
+		// Create charm_relation and application_endpoint for app 2
+		charmRelUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, 0, 0, 'endpoint2')`,
+			charmRelUUID2, localCharmUUID); err != nil {
+			return err
+		}
+		appEndpointUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`,
+			appEndpointUUID2, localAppUUID2, network.AlphaSpaceId, charmRelUUID2); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`, offerUUID2, appEndpointUUID2); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	ch1 := charm.Charm{
+		ReferenceName: "test-charm-1",
+		Source:        charm.CMRSource,
+		Revision:      1,
+		Metadata: charm.Metadata{
+			Name:        "test-app-1",
+			Description: "remote consumer application 1",
+			Provides: map[string]charm.Relation{
+				"db": {Name: "db", Role: charm.RoleProvider, Interface: "db", Limit: 1, Scope: charm.ScopeGlobal},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+
+	ch2 := charm.Charm{
+		ReferenceName: "test-charm-2",
+		Source:        charm.CMRSource,
+		Revision:      2,
+		Metadata: charm.Metadata{
+			Name:        "test-app-2",
+			Description: "remote consumer application 2",
+			Provides: map[string]charm.Relation{
+				"cache": {Name: "cache", Role: charm.RoleProvider, Interface: "cache", Limit: 1, Scope: charm.ScopeGlobal},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+
+	// Add first consumer
+	err = s.state.AddRemoteApplicationConsumer(c.Context(), "test-app-1", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID1,
+			CharmUUID:             charmUUID1,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID1,
+			Charm:                 ch1,
+		},
+		RelationUUID: relationUUID1,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add second consumer
+	err = s.state.AddRemoteApplicationConsumer(c.Context(), "test-app-2", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID2,
+			CharmUUID:             charmUUID2,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID2,
+			Charm:                 ch2,
+		},
+		RelationUUID: relationUUID2,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Get consumer UUIDs and expected relation UUIDs
+	var consumerUUID1, consumerUUID2, offererRelationUUID1, offererRelationUUID2 string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?`, appUUID1).Scan(&consumerUUID1); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `
+SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?`, appUUID2).Scan(&consumerUUID2); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `
+SELECT arr.relation_uuid
+FROM   application_remote_consumer AS arc
+JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+WHERE  arc.uuid = ?`, consumerUUID1).Scan(&offererRelationUUID1); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT arr.relation_uuid
+FROM   application_remote_consumer AS arc
+JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+WHERE  arc.uuid = ?`, consumerUUID2).Scan(&offererRelationUUID2)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Test with multiple consumer UUIDs
+	results, err := s.state.GetOffererRelationUUIDsForConsumers(c.Context(), consumerUUID1, consumerUUID2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 2)
+	// Verify both relation UUIDs are in the results
+	resultSet := make(map[string]bool)
+	for _, r := range results {
+		resultSet[r] = true
+	}
+	c.Check(resultSet[offererRelationUUID1], tc.Equals, true)
+	c.Check(resultSet[offererRelationUUID2], tc.Equals, true)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersEmpty(c *tc.C) {
+	// Test with no consumer UUIDs provided
+	results, err := s.state.GetOffererRelationUUIDsForConsumers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 0)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersNonExistentUUID(c *tc.C) {
+	// Test with a UUID that doesn't exist in the database
+	nonExistentUUID := tc.Must(c, internaluuid.NewUUID).String()
+	results, err := s.state.GetOffererRelationUUIDsForConsumers(c.Context(), nonExistentUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 0)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersSameOfferMultipleConsumers(c *tc.C) {
+	// Test that multiple consumers connecting to the same offer return distinct relation UUIDs
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+
+	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, localCharmUUID)
+	s.createApplication(c, localAppUUID, localCharmUUID, offerUUID)
+
+	ch1 := charm.Charm{
+		ReferenceName: "consumer-1",
+		Source:        charm.CMRSource,
+		Revision:      1,
+		Metadata: charm.Metadata{
+			Name:        "consumer-app-1",
+			Description: "first consumer",
+			Provides: map[string]charm.Relation{
+				"db": {Name: "db", Role: charm.RoleProvider, Interface: "db", Limit: 1, Scope: charm.ScopeGlobal},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+
+	ch2 := charm.Charm{
+		ReferenceName: "consumer-2",
+		Source:        charm.CMRSource,
+		Revision:      2,
+		Metadata: charm.Metadata{
+			Name:        "consumer-app-2",
+			Description: "second consumer",
+			Provides: map[string]charm.Relation{
+				"db": {Name: "db", Role: charm.RoleProvider, Interface: "db", Limit: 1, Scope: charm.ScopeGlobal},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+
+	// Add first consumer
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "consumer-app-1", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID1,
+			CharmUUID:             charmUUID1,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 ch1,
+		},
+		RelationUUID: relationUUID1,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add second consumer to the same offer
+	err = s.state.AddRemoteApplicationConsumer(c.Context(), "consumer-app-2", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID2,
+			CharmUUID:             charmUUID2,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 ch2,
+		},
+		RelationUUID: relationUUID2,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Get consumer UUIDs and expected relation UUIDs
+	var consumerUUID1, consumerUUID2, offererRelationUUID1, offererRelationUUID2 string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?`, appUUID1).Scan(&consumerUUID1); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `
+SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?`, appUUID2).Scan(&consumerUUID2); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `
+SELECT arr.relation_uuid
+FROM   application_remote_consumer AS arc
+JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+WHERE  arc.uuid = ?`, consumerUUID1).Scan(&offererRelationUUID1); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT arr.relation_uuid
+FROM   application_remote_consumer AS arc
+JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+WHERE  arc.uuid = ?`, consumerUUID2).Scan(&offererRelationUUID2)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify that they have different relation UUIDs
+	c.Assert(offererRelationUUID1, tc.Not(tc.Equals), offererRelationUUID2)
+
+	// Test querying for both consumers
+	results, err := s.state.GetOffererRelationUUIDsForConsumers(c.Context(), consumerUUID1, consumerUUID2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 2)
+	// Verify both relation UUIDs are in the results
+	resultSet := make(map[string]bool)
+	for _, r := range results {
+		resultSet[r] = true
+	}
+	c.Check(resultSet[offererRelationUUID1], tc.Equals, true)
+	c.Check(resultSet[offererRelationUUID2], tc.Equals, true)
+
+	// Test querying for individual consumers
+	results, err = s.state.GetOffererRelationUUIDsForConsumers(c.Context(), consumerUUID1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0], tc.Equals, offererRelationUUID1)
+
+	results, err = s.state.GetOffererRelationUUIDsForConsumers(c.Context(), consumerUUID2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0], tc.Equals, offererRelationUUID2)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMixedValidAndInvalid(c *tc.C) {
+	// Test with a mix of valid and invalid consumer UUIDs
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, localCharmUUID)
+	s.createApplication(c, localAppUUID, localCharmUUID, offerUUID)
+
+	ch := charm.Charm{
+		ReferenceName: "test-charm",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "test-app",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {Name: "db", Role: charm.RoleProvider, Interface: "db", Limit: 1, Scope: charm.ScopeGlobal},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "test-app", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 ch,
+		},
+		RelationUUID: relationUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var consumerUUID, offererRelationUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?`, appUUID).Scan(&consumerUUID); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT arr.relation_uuid
+FROM   application_remote_consumer AS arc
+JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+WHERE  arc.uuid = ?`, consumerUUID).Scan(&offererRelationUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Test with mix of valid and invalid UUIDs
+	invalidUUID := tc.Must(c, internaluuid.NewUUID).String()
+	results, err := s.state.GetOffererRelationUUIDsForConsumers(c.Context(), consumerUUID, invalidUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0], tc.Equals, offererRelationUUID)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersDuplicateInput(c *tc.C) {
+	// Test that duplicate consumer UUIDs in input result in DISTINCT relation UUIDs (no duplicates in output)
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	appUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, localCharmUUID)
+	s.createApplication(c, localAppUUID, localCharmUUID, offerUUID)
+
+	ch := charm.Charm{
+		ReferenceName: "test-charm",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "test-app",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {Name: "db", Role: charm.RoleProvider, Interface: "db", Limit: 1, Scope: charm.ScopeGlobal},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+
+	err := s.state.AddRemoteApplicationConsumer(c.Context(), "test-app", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			ApplicationUUID:       appUUID,
+			CharmUUID:             charmUUID,
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             offerUUID,
+			Charm:                 ch,
+		},
+		RelationUUID: relationUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var consumerUUID, offererRelationUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?`, appUUID).Scan(&consumerUUID); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT arr.relation_uuid
+FROM   application_remote_consumer AS arc
+JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
+JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+WHERE  arc.uuid = ?`, consumerUUID).Scan(&offererRelationUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Test with duplicate consumer UUIDs - should still only return one relation UUID due to DISTINCT
+	results, err := s.state.GetOffererRelationUUIDsForConsumers(c.Context(), consumerUUID, consumerUUID, consumerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0], tc.Equals, offererRelationUUID)
+}
+
 func (s *modelRemoteApplicationSuite) assertApplicationRemoteConsumer(c *tc.C, applicationUUID string) {
 	var count int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

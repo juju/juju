@@ -377,6 +377,45 @@ func (c *MockModelStateDeleteFailedOfferCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetAllOffererRelationUUIDs mocks base method.
+func (m *MockModelState) GetAllOffererRelationUUIDs(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllOffererRelationUUIDs", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllOffererRelationUUIDs indicates an expected call of GetAllOffererRelationUUIDs.
+func (mr *MockModelStateMockRecorder) GetAllOffererRelationUUIDs(arg0 any) *MockModelStateGetAllOffererRelationUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllOffererRelationUUIDs", reflect.TypeOf((*MockModelState)(nil).GetAllOffererRelationUUIDs), arg0)
+	return &MockModelStateGetAllOffererRelationUUIDsCall{Call: call}
+}
+
+// MockModelStateGetAllOffererRelationUUIDsCall wrap *gomock.Call
+type MockModelStateGetAllOffererRelationUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetAllOffererRelationUUIDsCall) Return(arg0 []string, arg1 error) *MockModelStateGetAllOffererRelationUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetAllOffererRelationUUIDsCall) Do(f func(context.Context) ([]string, error)) *MockModelStateGetAllOffererRelationUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetAllOffererRelationUUIDsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockModelStateGetAllOffererRelationUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationNameAndUUIDByOfferUUID mocks base method.
 func (m *MockModelState) GetApplicationNameAndUUIDByOfferUUID(arg0 context.Context, arg1 string) (string, application.UUID, error) {
 	m.ctrl.T.Helper()
@@ -578,6 +617,50 @@ func (c *MockModelStateGetOfferUUIDByRelationUUIDCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetOffererRelationUUIDsForConsumers mocks base method.
+func (m *MockModelState) GetOffererRelationUUIDsForConsumers(arg0 context.Context, arg1 ...string) ([]string, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetOffererRelationUUIDsForConsumers", varargs...)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOffererRelationUUIDsForConsumers indicates an expected call of GetOffererRelationUUIDsForConsumers.
+func (mr *MockModelStateMockRecorder) GetOffererRelationUUIDsForConsumers(arg0 any, arg1 ...any) *MockModelStateGetOffererRelationUUIDsForConsumersCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOffererRelationUUIDsForConsumers", reflect.TypeOf((*MockModelState)(nil).GetOffererRelationUUIDsForConsumers), varargs...)
+	return &MockModelStateGetOffererRelationUUIDsForConsumersCall{Call: call}
+}
+
+// MockModelStateGetOffererRelationUUIDsForConsumersCall wrap *gomock.Call
+type MockModelStateGetOffererRelationUUIDsForConsumersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetOffererRelationUUIDsForConsumersCall) Return(arg0 []string, arg1 error) *MockModelStateGetOffererRelationUUIDsForConsumersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetOffererRelationUUIDsForConsumersCall) Do(f func(context.Context, ...string) ([]string, error)) *MockModelStateGetOffererRelationUUIDsForConsumersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetOffererRelationUUIDsForConsumersCall) DoAndReturn(f func(context.Context, ...string) ([]string, error)) *MockModelStateGetOffererRelationUUIDsForConsumersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRemoteApplicationConsumers mocks base method.
 func (m *MockModelState) GetRemoteApplicationConsumers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
 	m.ctrl.T.Helper()
@@ -775,6 +858,45 @@ func (c *MockModelStateInitialWatchStatementForConsumerRelationsCall) Do(f func(
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateInitialWatchStatementForConsumerRelationsCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockModelStateInitialWatchStatementForConsumerRelationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementForOffererRelations mocks base method.
+func (m *MockModelState) InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementForOffererRelations")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	return ret0, ret1
+}
+
+// InitialWatchStatementForOffererRelations indicates an expected call of InitialWatchStatementForOffererRelations.
+func (mr *MockModelStateMockRecorder) InitialWatchStatementForOffererRelations() *MockModelStateInitialWatchStatementForOffererRelationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForOffererRelations", reflect.TypeOf((*MockModelState)(nil).InitialWatchStatementForOffererRelations))
+	return &MockModelStateInitialWatchStatementForOffererRelationsCall{Call: call}
+}
+
+// MockModelStateInitialWatchStatementForOffererRelationsCall wrap *gomock.Call
+type MockModelStateInitialWatchStatementForOffererRelationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateInitialWatchStatementForOffererRelationsCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockModelStateInitialWatchStatementForOffererRelationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateInitialWatchStatementForOffererRelationsCall) Do(f func() (string, eventsource.NamespaceQuery)) *MockModelStateInitialWatchStatementForOffererRelationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateInitialWatchStatementForOffererRelationsCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockModelStateInitialWatchStatementForOffererRelationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
