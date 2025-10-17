@@ -95,27 +95,27 @@ AND    life_id = 0`, unitUUID)
 	if err != nil {
 		return cascaded, errors.Errorf("setting unit storage attachment lives to dying: %w", err)
 	}
+	cascaded.StorageAttachmentUUIDs = sAttachments
 
-	var sInstances []string
 	if destroyStorage {
-		sInstances, err = st.ensureUnitOwnedStorageInstancesNotAlive(ctx, tx, uUUID)
+		sInstances, err := st.ensureUnitOwnedStorageInstancesNotAlive(ctx, tx, uUUID)
 		if err != nil {
 			return cascaded, errors.Errorf("setting unit storage instance lives to dying: %w", err)
 		}
+		cascaded.StorageInstanceUUIDs = sInstances
 	}
 
 	if checkMachine {
-		mUUID, err := st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, uUUID)
+		mUUID, machineStorageCascaded, err := st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, uUUID)
 		if err != nil {
 			return cascaded, errors.Errorf("setting unit machine life to dying: %w", err)
 		}
 		if mUUID != "" {
 			cascaded.MachineUUID = &mUUID
+			cascaded.CascadedStorageLives = cascaded.CascadedStorageLives.Merge(machineStorageCascaded)
 		}
 	}
 
-	cascaded.StorageAttachmentUUIDs = sAttachments
-	cascaded.StorageInstanceUUIDs = sInstances
 	return cascaded, nil
 }
 
@@ -201,7 +201,8 @@ AND    life_id = 0`, instanceUUIDs)
 // machine are not alive. If this is the case, it marks the machine as dying.
 func (st *State) markMachineAsDyingIfAllUnitsAreNotAlive(
 	ctx context.Context, tx *sqlair.TX, uUUID string,
-) (machineUUID string, err error) {
+) (string, internal.CascadedStorageLives, error) {
+	var cascaded internal.CascadedStorageLives
 	unitUUID := entityUUID{UUID: uUUID}
 
 	lastUnitStmt, err := st.Prepare(`
@@ -235,25 +236,25 @@ LEFT JOIN unit AS u ON u.net_node_uuid = machines.net_node_uuid
 WHERE  u.uuid = $entityUUID.uuid;
     `, unitUUID, unitMachineLifeSummary{})
 	if err != nil {
-		return "", errors.Errorf("preparing unit count query: %w", err)
+		return "", cascaded, errors.Errorf("preparing unit count query: %w", err)
 	}
 
 	var result unitMachineLifeSummary
 	if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
-		return "", nil
+		return "", cascaded, nil
 	} else if err != nil {
-		return "", errors.Errorf("getting unit count: %w", err)
+		return "", cascaded, errors.Errorf("getting unit count: %w", err)
 	} else if result.AliveCount > 0 {
 		// Nothing to do.
-		return "", nil
+		return "", cascaded, nil
 	} else if result.NotAliveCount == 0 {
 		// No units on the machine are marked as dead or dying. If this is the
 		// case then we can assume that the machine is still alive.
-		return "", nil
+		return "", cascaded, nil
 	} else if result.MachineParentCount > 0 {
 		// There are child machines associated with this machine.
 		// We cannot mark the machine as dying if it has child machines.
-		return "", nil
+		return "", cascaded, nil
 	}
 
 	updateMachineStmt, err := st.Prepare(`
@@ -262,21 +263,21 @@ SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
 AND    life_id = 0`, entityUUID{})
 	if err != nil {
-		return "", errors.Errorf("preparing machine life update: %w", err)
+		return "", cascaded, errors.Errorf("preparing machine life update: %w", err)
 	}
 
 	// We can use the outcome of the update to determine if the machine
 	// was already dying or dead, or if it was successfully advanced to dying.
 	var outcome sqlair.Outcome
 	if err := tx.Query(ctx, updateMachineStmt, entityUUID{UUID: result.UUID}).Get(&outcome); err != nil {
-		return "", errors.Errorf("advancing machine life: %w", err)
+		return "", cascaded, errors.Errorf("advancing machine life: %w", err)
 	}
 
 	if affected, err := outcome.Result().RowsAffected(); err != nil {
-		return "", errors.Errorf("getting affected rows: %w", err)
+		return "", cascaded, errors.Errorf("getting affected rows: %w", err)
 	} else if affected == 0 {
 		// The machine was already dying or dead.
-		return "", nil
+		return "", cascaded, nil
 	}
 
 	updateInstanceStmt, err := st.Prepare(`
@@ -285,14 +286,19 @@ SET    life_id = 1
 WHERE  machine_uuid = $entityUUID.uuid
 AND    life_id = 0`, entityUUID{})
 	if err != nil {
-		return "", errors.Errorf("preparing machine cloud instance life update: %w", err)
+		return "", cascaded, errors.Errorf("preparing machine cloud instance life update: %w", err)
 	}
 
 	if err := tx.Query(ctx, updateInstanceStmt, entityUUID{UUID: result.UUID}).Run(); err != nil {
-		return "", errors.Errorf("advancing machine cloud instance life: %w", err)
+		return "", cascaded, errors.Errorf("advancing machine cloud instance life: %w", err)
 	}
 
-	return result.UUID, nil
+	cascaded, err = st.ensureMachineStorageInstancesNotAliveCascade(ctx, tx, result.UUID)
+	if err != nil {
+		return "", cascaded, errors.Errorf("advancing machine storage entity lives: %w", err)
+	}
+
+	return result.UUID, cascaded, nil
 }
 
 // GetRelationUnitsForUnit returns all relation-unit UUIDs for the input unit

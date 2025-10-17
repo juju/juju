@@ -70,6 +70,20 @@ type CascadedStorageLives struct {
 	VolumeAttachmentPlanUUIDs []string
 }
 
+// Merge appends all EntityUUIDs from one CascadedStorageLives into another
+// and returns the result
+func (c CascadedStorageLives) Merge(i CascadedStorageLives) CascadedStorageLives {
+	c.StorageInstanceUUIDs = append(c.StorageInstanceUUIDs, i.StorageInstanceUUIDs...)
+	c.StorageAttachmentUUIDs = append(c.StorageAttachmentUUIDs, i.StorageAttachmentUUIDs...)
+	c.FileSystemUUIDs = append(c.FileSystemUUIDs, i.FileSystemUUIDs...)
+	c.FileSystemAttachmentUUIDs = append(c.FileSystemAttachmentUUIDs, i.FileSystemAttachmentUUIDs...)
+	c.VolumeUUIDs = append(c.VolumeUUIDs, i.VolumeUUIDs...)
+	c.VolumeAttachmentUUIDs = append(c.VolumeAttachmentUUIDs, i.VolumeAttachmentUUIDs...)
+	c.VolumeAttachmentPlanUUIDs = append(c.VolumeAttachmentPlanUUIDs, i.VolumeAttachmentPlanUUIDs...)
+
+	return c
+}
+
 // MergeInstance merges the result of cascading the destruction of a single
 // storage instance into this value and returns the result.
 func (c CascadedStorageLives) MergeInstance(i CascadedStorageInstanceLives) CascadedStorageLives {
@@ -188,4 +202,3 @@ type CascadedRemoteApplicationOffererLives struct {
 func (c CascadedRemoteApplicationOffererLives) IsEmpty() bool {
 	return len(c.RelationUUIDs) == 0
 }
-
