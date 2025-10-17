@@ -237,7 +237,7 @@ func (s *LeadershipService) GetRelationApplicationSettingsWithLeader(
 	}
 	if err := applicationID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
 	}
 	settings := make(map[string]string)
 	if err := s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(),
@@ -379,7 +379,7 @@ func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.En
 // ApplicationRelationsInfo returns all EndpointRelationData for an application.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationUUIDNotValid] if the application UUID is not valid.
+//   - [applicationerrors.ApplicationUUIDNotValid] if the application UUID is not valid.
 //   - [relationerrors.ApplicationNotFound] is returned if the application is
 //     not found.
 func (s *Service) ApplicationRelationsInfo(
@@ -390,7 +390,7 @@ func (s *Service) ApplicationRelationsInfo(
 	defer span.End()
 
 	if err := applicationID.Validate(); err != nil {
-		return nil, relationerrors.ApplicationUUIDNotValid
+		return nil, applicationerrors.ApplicationUUIDNotValid
 	}
 	return s.st.ApplicationRelationsInfo(ctx, applicationID)
 }
@@ -525,7 +525,7 @@ func (s *Service) GetAllRelationDetails(ctx context.Context) ([]relation.Relatio
 // if the application is not in any relations.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationUUIDNotValid] is returned if the application
+//   - [applicationerrors.ApplicationUUIDNotValid] is returned if the application
 //     UUID is not valid.
 func (s *Service) GetGoalStateRelationDataForApplication(
 	ctx context.Context,
@@ -535,7 +535,7 @@ func (s *Service) GetGoalStateRelationDataForApplication(
 	defer span.End()
 	if err := applicationID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"%w: %w", relationerrors.ApplicationUUIDNotValid, err)
+			"%w: %w", applicationerrors.ApplicationUUIDNotValid, err)
 	}
 	return s.st.GetGoalStateRelationDataForApplication(ctx, applicationID)
 }
@@ -598,7 +598,7 @@ func (s *Service) GetRelationsStatusForUnit(
 
 	if err := unitUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"%w:%w", relationerrors.UnitUUIDNotValid, err)
+			"%w:%w", applicationerrors.UnitUUIDNotValid, err)
 	}
 
 	results, err := s.st.GetRelationsStatusForUnit(ctx, unitUUID)
@@ -672,12 +672,12 @@ func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.U
 
 	for _, uuid := range unitUUIDs {
 		if err := uuid.Validate(); err != nil {
-			return relation.RelationUnitsChange{}, relationerrors.UnitUUIDNotValid
+			return relation.RelationUnitsChange{}, applicationerrors.UnitUUIDNotValid
 		}
 	}
 	for _, uuid := range appUUIDs {
 		if err := uuid.Validate(); err != nil {
-			return relation.RelationUnitsChange{}, relationerrors.ApplicationUUIDNotValid
+			return relation.RelationUnitsChange{}, applicationerrors.ApplicationUUIDNotValid
 		}
 	}
 
@@ -869,7 +869,7 @@ func (s *Service) GetRelationApplicationSettings(
 	}
 	if err := applicationID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
 	}
 
 	settings, err := s.st.GetRelationApplicationSettings(ctx, relationUUID, applicationID)

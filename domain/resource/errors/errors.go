@@ -6,14 +6,6 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
-	// ApplicationUUIDNotValid describes an error when the application UUID is
-	// not valid.
-	ApplicationUUIDNotValid = errors.ConstError("application UUID not valid")
-
-	// ApplicationNotFound describes an error that occurs when the application
-	// being operated on does not exist.
-	ApplicationNotFound = errors.ConstError("application not found")
-
 	// CharmIDNotValid describes an error when the charm ID is
 	// not valid.
 	CharmIDNotValid = errors.ConstError("charm ID not valid")
@@ -37,14 +29,6 @@ const (
 	// ResourceNameNotValid describes an error where the resource name is not
 	// valid, usually because it's empty.
 	ResourceNameNotValid = errors.ConstError("resource name not valid")
-
-	// UnitNotFound describes an error that occurs when the unit being operated on
-	// does not exist.
-	UnitNotFound = errors.ConstError("unit not found")
-
-	// UnitUUIDNotValid describes an error when the unit UUID is
-	// not valid.
-	UnitUUIDNotValid = errors.ConstError("unit UUID not valid")
 
 	// ResourceStateNotValid describes an error where the resource state is not
 	// valid.
@@ -71,10 +55,6 @@ const (
 	// ResourceAlreadyStored describes an errors where the resource has already
 	// been stored.
 	ResourceAlreadyStored = errors.ConstError("resource already found in storage")
-
-	// ApplicationNameNotValid describes an error when the application is
-	// not valid.
-	ApplicationNameNotValid = errors.ConstError("application name not valid")
 
 	// ResourceUUIDNotValid describes an error when the resource UUID is
 	// not valid.

@@ -311,7 +311,7 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *tc.C) {
 	s.serveHTTP(req)
 
 	// Assert:
-	expected := mustMarshalJSON(&params.ErrorResult{apiservererrors.ServerError(expectedError)})
+	expected := mustMarshalJSON(&params.ErrorResult{Error: apiservererrors.ServerError(expectedError)})
 	s.checkResp(c, http.StatusBadRequest, "application/json", string(expected))
 }
 

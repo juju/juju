@@ -210,7 +210,7 @@ func (s *Service) SetRemoteApplicationOffererStatus(ctx context.Context, appUUID
 
 	if err := appUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
 	}
 
 	encoded, err := encodeWorkloadStatus(status)
@@ -265,7 +265,7 @@ func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.U
 
 	if err := appUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
 	}
 	if err := relUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
@@ -283,7 +283,7 @@ func (s *Service) SetRelationSuspendedState(ctx context.Context, appUUID coreapp
 
 	if err := appUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
 	}
 	if err := relUUID.Validate(); err != nil {
 		return internalerrors.Errorf(

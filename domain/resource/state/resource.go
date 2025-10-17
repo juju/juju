@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	domainsequence "github.com/juju/juju/domain/sequence"
@@ -229,7 +230,7 @@ func (st *State) DeleteImportedResources(
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, appName := range appNames {
 			err := st.deleteImportedApplicationResources(ctx, tx, appName)
-			if errors.Is(err, resourceerrors.ApplicationNotFound) {
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
 				// We are rolling back, so if the application does not exist we
 				// go on.
 				st.logger.Debugf(ctx, "rolling back migration: deleting resources: could not find application %s", appName)
@@ -350,7 +351,7 @@ AND    state = 'available'
 // resources with state available will be returned, not state potential.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ApplicationNotFound] is returned if the application is
+//   - [applicationerrors.ApplicationNotFound] is returned if the application is
 //     not found.
 //   - [resourceerrors.ResourceNotFound] if no resource with name exists for
 //     given application.
@@ -393,7 +394,7 @@ AND    r.state_id = 0 -- Only check available resources, not potential.
 			if exists, err := st.checkApplicationNameExists(ctx, tx, appName); err != nil {
 				return errors.Errorf("checking application with name %s exists: %w", appName, err)
 			} else if !exists {
-				return resourceerrors.ApplicationNotFound
+				return applicationerrors.ApplicationNotFound
 			}
 			return resourceerrors.ResourceNotFound
 		}
@@ -580,7 +581,7 @@ func (st *State) listUnitResources(
 // Returns an error if the operation fails at any point in the process.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ApplicationNotFound] if the application UUID is not an
+//   - [applicationerrors.ApplicationNotFound] if the application UUID is not an
 //     existing one.
 //
 // If the application exists but doesn't have any resources, no error are
@@ -618,7 +619,7 @@ AND state = 'available'`
 			if exists, err := st.checkApplicationUUIDExists(ctx, tx, applicationID); err != nil {
 				return errors.Errorf("checking if application with id %q exists: %w", applicationID, err)
 			} else if !exists {
-				return errors.Errorf("no application with id %q: %w", applicationID, resourceerrors.ApplicationNotFound)
+				return errors.Errorf("no application with id %q: %w", applicationID, applicationerrors.ApplicationNotFound)
 			}
 			return nil // nothing found
 		}
@@ -1034,7 +1035,7 @@ WHERE  uuid = $applicationUUID.application_uuid
 	var appUUID applicationUUID
 	err = tx.Query(ctx, getApplicationUUIDsStmt, resID).Get(&appUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("no application found for resource %q: %w", resID, resourceerrors.ApplicationNotFound)
+		return errors.Errorf("no application found for resource %q: %w", resID, applicationerrors.ApplicationNotFound)
 	} else if err != nil {
 		return errors.Errorf("updating charm modified version: %w", err)
 	}
@@ -1124,7 +1125,7 @@ VALUES      ($unitResource.*)`
 		if err == nil {
 			// If the unit to resource link is already there, return.
 			return nil
-		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		} else if !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 
@@ -1139,7 +1140,7 @@ VALUES      ($unitResource.*)`
 		// Check unit exists.
 		err = tx.Query(ctx, checkValidUnitStmt, unitResourceInput).Get(&unitResourceInput)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("unit %s: %w", unitUUID, resourceerrors.UnitNotFound)
+			return errors.Errorf("unit %s: %w", unitUUID, applicationerrors.UnitNotFound)
 		} else if err != nil {
 			return errors.Capture(err)
 		}
@@ -1237,7 +1238,7 @@ AND           unit_uuid = $unitResource.unit_uuid
 // for repository charm, with undefined `revision` and `last_polled` fields.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ApplicationNotFound] if the application UUID doesn't belong
+//   - [applicationerrors.ApplicationNotFound] if the application UUID doesn't belong
 //     to a valid application.
 func (st *State) SetRepositoryResources(
 	ctx context.Context,
@@ -1307,7 +1308,7 @@ WHERE uuid = $updatePotentialResource.uuid
 		// Check application exists.
 		err := tx.Query(ctx, getAppNameStmt, appNameAndID).Get(&appNameAndID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return resourceerrors.ApplicationNotFound
+			return applicationerrors.ApplicationNotFound
 		}
 		if err != nil {
 			return errors.Capture(err)
@@ -1912,7 +1913,7 @@ func (st *State) safeDeleteResourceUUIDs(ctx context.Context, tx *sqlair.TX, stm
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if the resource metadata cannot be
 //     found on the charm.
-//   - [resourceerrors.ApplicationNotFound] if the application name of an
+//   - [applicationerrors.ApplicationNotFound] if the application name of an
 //     application resource cannot be found in the database.
 //   - [resourceerrors.UnitNotFound] if the unit name of a unit resource cannot
 //     be found in the database.
@@ -2438,7 +2439,7 @@ WHERE  name = $getApplicationAndCharmID.name
 
 	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", "", errors.Errorf("%w: %s", resourceerrors.ApplicationNotFound, applicationName)
+		return "", "", errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, applicationName)
 	} else if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -2516,7 +2517,7 @@ WHERE  name = $unitUUIDAndName.name
 	}
 	err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("unit %q: %w", name, resourceerrors.UnitNotFound)
+		return "", errors.Errorf("unit %q: %w", name, applicationerrors.UnitNotFound)
 	} else if err != nil {
 		return "", errors.Errorf("querying unit %q: %w", name, err)
 	}
@@ -2568,7 +2569,7 @@ WHERE  name = $applicationNameAndID.name
 }
 
 // getApplicationUUID gets the application UUID from the name. It returns
-// [resourceerrors.ApplicationNotFound] if the application cannot be found.
+// [applicationerrors.ApplicationNotFound] if the application cannot be found.
 func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, appName string) (application.UUID, error) {
 	appID := applicationNameAndID{
 		Name: appName,
@@ -2587,7 +2588,7 @@ WHERE  name = $applicationNameAndID.name
 	// Execute the SQL transaction.
 	err = tx.Query(ctx, stmt, appID).Get(&appID)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", resourceerrors.ApplicationNotFound
+		return "", applicationerrors.ApplicationNotFound
 	} else if err != nil {
 		return "", errors.Capture(err)
 	}

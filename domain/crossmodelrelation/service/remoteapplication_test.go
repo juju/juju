@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
-	relationerrors "github.com/juju/juju/domain/relation/errors"
 	domainstatus "github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -787,7 +786,7 @@ func (s *remoteApplicationServiceSuite) TestSetRemoteApplicationOffererStatusInv
 		},
 		Since: ptr(now),
 	})
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *remoteApplicationServiceSuite) TestSetRemoteApplicationOffererStatusInvalidStatus(c *tc.C) {

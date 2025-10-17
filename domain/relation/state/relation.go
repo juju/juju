@@ -62,7 +62,7 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 // The following error types can be expected to be returned:
 //   - [relationerrors.AmbiguousRelation] is returned if the endpoint
 //     identifiers can refer to several possible relations.
-//   - [relationerrors.ApplicationNotAlive] is returned if one of the application
+//   - [applicationerrors.ApplicationNotAlive] is returned if one of the application
 //     is not alive.
 //   - [relationerrors.CompatibleEndpointsNotFound] is returned if the endpoint
 //     identifiers relates to correct endpoints yet not compatible (ex provider
@@ -197,13 +197,13 @@ func (st *State) addRelation(
 		return relUUID, errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
 	} else if !alive {
 		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep1.ApplicationName).
-			Add(relationerrors.ApplicationNotAlive)
+			Add(applicationerrors.ApplicationNotAlive)
 	}
 	if alive, err := st.checkLife(ctx, tx, "application", ep2.ApplicationUUID.String(), life.IsAlive); err != nil {
 		return relUUID, errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
 	} else if !alive {
 		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep2.ApplicationName).
-			Add(relationerrors.ApplicationNotAlive)
+			Add(applicationerrors.ApplicationNotAlive)
 	}
 
 	// Check the application bases are compatible, if required
@@ -255,7 +255,7 @@ func (st *State) addRelation(
 // If the application is not in any relations, no error is returned.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationNotFound] is returned if application does not
+//   - [applicationerrors.ApplicationNotFound] is returned if application does not
 //     exist.
 func (st *State) ApplicationRelationsInfo(
 	ctx context.Context,
@@ -272,7 +272,7 @@ func (st *State) ApplicationRelationsInfo(
 		if err != nil {
 			return errors.Capture(err)
 		} else if !found {
-			return relationerrors.ApplicationNotFound
+			return applicationerrors.ApplicationNotFound
 		}
 
 		// Find every relation the application is part of.
@@ -393,7 +393,7 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]domainrelation.Re
 // relations the given application is in, modulo peer relations.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationNotFound] is returned if application UUID
+//   - [applicationerrors.ApplicationNotFound] is returned if application UUID
 //     doesn't refer an existing application.
 func (st *State) GetGoalStateRelationDataForApplication(
 	ctx context.Context,
@@ -446,7 +446,7 @@ AND    ep1.application_uuid != ep2.application_uuid
 // for the other Endpoint in a relation with the given application UUID.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationNotFound] is returned if application UUID
+//   - [applicationerrors.ApplicationNotFound] is returned if application UUID
 //     is not used in any relations or if the other relation applications
 //     are not found.
 func (st *State) GetOtherRelatedEndpointApplicationData(
@@ -641,7 +641,7 @@ AND     application_uuid = $entityUUID.uuid
 // arguments.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationNotFound] is returned if the application
+//   - [applicationerrors.ApplicationNotFound] is returned if the application
 //     is not found.
 //   - [relationerrors.RelationEndpointNotFound] is returned if the relation
 //     Endpoint is not found.
@@ -688,7 +688,7 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 			}
 			var errs []error
 			if !appFound {
-				errs = append(errs, errors.Errorf("%w: %s", relationerrors.ApplicationNotFound, args.ApplicationUUID))
+				errs = append(errs, errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, args.ApplicationUUID))
 			}
 			if !relationFound {
 				errs = append(errs, errors.Errorf("%w: %s", relationerrors.RelationNotFound, args.RelationUUID))
@@ -2038,7 +2038,7 @@ WHERE uuid = $entityUUID.uuid`, id)
 // for the given application and relation identifier combination.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+//   - [applicationerrors.ApplicationNotFoundForRelation] is returned if the
 //     application is not part of the relation.
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID
 //     is not found.
@@ -2723,7 +2723,7 @@ WHERE  relation_endpoint_uuid = $entityUUID.uuid
 // uuid as part of WatchLifeSuspendedStatus eventmapper.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+//   - [applicationerrors.ApplicationNotFoundForRelation] is returned if the
 //     application is not part of the relation.
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID
 //     is not found.
