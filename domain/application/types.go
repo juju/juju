@@ -499,3 +499,9 @@ type SetCharmStateParams struct {
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]network.SpaceName
 }
+
+// ApplicationDetails contains details about an application.
+type ApplicationDetails struct {
+	Life life.Life
+	Name string
+}

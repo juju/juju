@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/relation"
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	domainapplication "github.com/juju/juju/domain/application"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	domainrelation "github.com/juju/juju/domain/relation"
 )
@@ -74,8 +74,9 @@ type RelationService interface {
 
 // ApplicationService provides access to applications.
 type ApplicationService interface {
-	// GetApplicationLifelooks up the life of the specified application.
-	GetApplicationLife(ctx context.Context, appID application.UUID) (life.Value, error)
+	// GetApplicationDetails returns application details for the given appID.
+	// This includes the life status and the name of the application.
+	GetApplicationDetails(ctx context.Context, appID application.UUID) (domainapplication.ApplicationDetails, error)
 }
 
 // RemovalService provides the ability to remove remote relations.
