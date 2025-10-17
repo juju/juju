@@ -110,7 +110,7 @@ func (e *manualEnviron) Create(context.ProviderCallContext, environs.CreateParam
 
 // Bootstrap is part of the Environ interface.
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	provisioned, err := sshprovisioner.CheckProvisioned(e.host)
+	provisioned, err := sshprovisioner.CheckProvisioned(e.host, "")
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to check provisioned status")
 	}
@@ -358,7 +358,7 @@ func (e *manualEnviron) baseAndHardwareCharacteristics() (*instance.HardwareChar
 	if e.hw != nil {
 		return e.hw, e.base, nil
 	}
-	hw, base, err := sshprovisioner.DetectBaseAndHardwareCharacteristics(e.host)
+	hw, base, err := sshprovisioner.DetectBaseAndHardwareCharacteristics(e.host, "")
 	if err != nil {
 		return nil, corebase.Base{}, errors.Trace(err)
 	}
