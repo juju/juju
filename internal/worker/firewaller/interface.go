@@ -65,10 +65,17 @@ type CrossModelFirewallerFacadeCloser interface {
 type CrossModelRelationService interface {
 	// GetRelationToken returns the token associated with the provided relation Key.
 	GetRelationToken(ctx context.Context, relationKey string) (string, error)
+
 	// RemoteApplications returns the current state for the named remote applications.
 	RemoteApplications(ctx context.Context, applications []string) ([]params.RemoteApplicationResult, error)
-	// WatchRemoteRelations returns a disabled watcher for remote relations for now.
-	WatchRemoteRelations(context.Context) (watcher.StringsWatcher, error)
+
+	// WatchConsumerRelations watches the changes to (remote) relations on the
+	// consuming model and notifies the worker of any changes.
+	WatchConsumerRelations(ctx context.Context) (watcher.StringsWatcher, error)
+
+	// WatchOffererRelations watches the changes to (remote) relations on the
+	// offering model and notifies the worker of any changes.
+	WatchOffererRelations(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // RelationService provides access to relations.
