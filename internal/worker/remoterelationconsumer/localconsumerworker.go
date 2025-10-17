@@ -889,6 +889,8 @@ func (w *localConsumerWorker) isRelationWorkerDead(ctx context.Context, relation
 }
 
 func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Context, change offererunitrelations.RelationUnitChange) error {
+	// TODO (stickupkid): Handle the dying/dead case, along with suspended.
+
 	// Ensure all units exist in the local model.
 	units, err := transform.SliceOrErr(change.ChangedUnits, func(u offererunitrelations.UnitChange) (unit.Name, error) {
 		return unit.NewNameFromParts(w.applicationName, u.UnitID)

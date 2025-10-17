@@ -35,6 +35,7 @@ func newCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelationsAPI
 		domainServices.CrossModelRelation(),
 		domainServices.Status(),
 		domainServices.Secret(),
+		domainServices.Removal(),
 		ctx.Logger().Child("caasapplication"),
 	)
 }
