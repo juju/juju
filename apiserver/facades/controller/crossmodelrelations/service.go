@@ -60,6 +60,10 @@ type StatusService interface {
 	// WatchOfferStatus watches the changes to the derived display status of
 	// the specified application.
 	WatchOfferStatus(context.Context, offer.UUID) (watcher.NotifyWatcher, error)
+
+	// SetRemoteRelationStatus sets the status of the relation to the status
+	// provided.
+	SetRemoteRelationStatus(ctx context.Context, relationUUID relation.UUID, statusInfo status.StatusInfo) error
 }
 
 // RelationService provides access to relations.
@@ -72,4 +76,14 @@ type RelationService interface {
 type ApplicationService interface {
 	// GetApplicationLifelooks up the life of the specified application.
 	GetApplicationLife(ctx context.Context, appID application.UUID) (life.Value, error)
+}
+
+// RemovalService provides the ability to remove remote relations.
+type RemovalService interface {
+	// RemoveRelation checks if a relation with the input UUID exists.
+	// If it does, the relation is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	RemoveRemoteRelation(
+		ctx context.Context, relUUID corerelation.UUID) error
 }
