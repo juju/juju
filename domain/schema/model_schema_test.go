@@ -673,6 +673,13 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_unit_workload_status_delete",
 		"trg_log_unit_workload_status_insert",
 		"trg_log_unit_workload_status_update",
+
+		"trg_relation_network_egress_immutable_update",
+		"trg_relation_network_ingress_immutable_update",
+
+		"trg_log_relation_network_ingress_delete",
+		"trg_log_relation_network_ingress_insert",
+		"trg_log_relation_network_ingress_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but
