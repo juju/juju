@@ -224,17 +224,19 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("unit %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	// If we are forcing this removal because the uniter is not running though
-	// its usual workflow, we need to ensure that it is not participating in
-	// any relations. Otherwise the deletion below will fail due to violated
-	// referential integrity constraints.
-	if job.Force {
-		if err := s.leaveAllRelationScopes(ctx, unit.UUID(job.EntityUUID)); err != nil {
-			return errors.Capture(err)
-		}
+	if l == life.Dying && !job.Force {
+		return errors.Errorf("unit %q is not dead", job.EntityUUID).Add(removalerrors.EntityNotDead)
 	}
 
-	// Once we've removed leadership, we can delete the unit.
+	// If we made it here, the unit is either dead, or we are processing a
+	// forced removal. We cannot delete the unit record if the unit is still
+	// in relation scopes. If the unit is dead, it transitioned to that
+	// state itself without departing relations, and can not act in that
+	// capacity again, so we depart all remaining scopes here.
+	if err := s.leaveAllRelationScopes(ctx, unit.UUID(job.EntityUUID)); err != nil {
+		return errors.Capture(err)
+	}
+
 	if err := s.modelState.DeleteUnit(ctx, job.EntityUUID); errors.Is(err, applicationerrors.UnitNotFound) {
 		// The unit has already been removed.
 		// Indicate success so that this job will be deleted.

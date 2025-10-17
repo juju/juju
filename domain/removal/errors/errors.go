@@ -23,6 +23,10 @@ const (
 	// we are processing a removal job is still alive.
 	EntityStillAlive = errors.ConstError("entity still alive")
 
+	// EntityNotDead indicates that an entity for which
+	// we are processing a removal job is not dead.
+	EntityNotDead = errors.ConstError("entity not dead")
+
 	// RemovalJobIncomplete indicates that the job execution completed without
 	// errors, but that it is not complete and expected to be scheduled again
 	// later. It is not to be deleted from the removal table.
