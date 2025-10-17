@@ -12,6 +12,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelease "github.com/juju/juju/core/lease"
 	corelife "github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
@@ -569,6 +570,49 @@ func (s *relationServiceSuite) TestGetRelationDetailsRelationUUIDNotValid(c *tc.
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid, tc.Commentf("(Assert) unexpected error: %v", err))
+}
+
+func (s *relationServiceSuite) TestGetRelationKeyByUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	endpoint1 := relation.Endpoint{
+		ApplicationName: "app-1",
+		Relation: internalcharm.Relation{
+			Name: "fake-endpoint-name-1",
+			Role: internalcharm.RolePeer,
+		},
+	}
+
+	relationDetailsResult := relation.RelationDetailsResult{
+		Endpoints: []relation.Endpoint{endpoint1},
+	}
+
+	s.state.EXPECT().GetRelationDetails(gomock.Any(), relationUUID).Return(relationDetailsResult, nil)
+
+	expectedKey := corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1")
+
+	// Act:
+	obtainedKey, err := s.service.GetRelationKeyByUUID(c.Context(), relationUUID.String())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedKey, tc.DeepEquals, expectedKey)
+}
+
+// TestGetRelationEndpointUUIDRelationUUIDNotValid tests the failure scenario
+// where the provided RelationUUID is not valid.
+func (s *relationServiceSuite) TestGetRelationKeyByUUIDNotValid(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	// Act
+	_, err := s.service.GetRelationKeyByUUID(c.Context(), "bad-relation-uuid")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *relationServiceSuite) TestEnterScope(c *tc.C) {

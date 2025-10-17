@@ -699,6 +699,45 @@ func (c *MockModelStateGetOffererRelationUUIDsForConsumersCall) DoAndReturn(f fu
 	return c
 }
 
+// GetOfferingApplicationToken mocks base method.
+func (m *MockModelState) GetOfferingApplicationToken(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOfferingApplicationToken", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOfferingApplicationToken indicates an expected call of GetOfferingApplicationToken.
+func (mr *MockModelStateMockRecorder) GetOfferingApplicationToken(arg0, arg1 any) *MockModelStateGetOfferingApplicationTokenCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferingApplicationToken", reflect.TypeOf((*MockModelState)(nil).GetOfferingApplicationToken), arg0, arg1)
+	return &MockModelStateGetOfferingApplicationTokenCall{Call: call}
+}
+
+// MockModelStateGetOfferingApplicationTokenCall wrap *gomock.Call
+type MockModelStateGetOfferingApplicationTokenCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetOfferingApplicationTokenCall) Return(arg0 string, arg1 error) *MockModelStateGetOfferingApplicationTokenCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetOfferingApplicationTokenCall) Do(f func(context.Context, string) (string, error)) *MockModelStateGetOfferingApplicationTokenCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetOfferingApplicationTokenCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelStateGetOfferingApplicationTokenCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRemoteApplicationConsumers mocks base method.
 func (m *MockModelState) GetRemoteApplicationConsumers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
 	m.ctrl.T.Helper()

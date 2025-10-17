@@ -42,19 +42,13 @@ type ModelState interface {
 	ModelRemoteApplicationState
 	ModelSecretsState
 
-	// InitialWatchStatementForConsumerRelations returns the namespace and the
-	// initial query function for watching relation UUIDs that are associated with
-	// remote offerer applications present in this model (i.e. consumer side).
-	InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery)
-
 	// GetConsumerRelationUUIDs filters the provided relation UUIDs and returns
 	// only those that are associated with remote offerer applications in this model.
 	GetConsumerRelationUUIDs(ctx context.Context, relationUUIDs ...string) ([]string, error)
 
-	// InitialWatchStatementForOffererRelations returns the namespace and the
-	// initial query function for watching relation UUIDs that are associated with
-	// remote consumer applications present in this model (i.e. offerer side).
-	InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery)
+	// GetOfferingApplicationToken returns the offering application token (uuid)
+	// for the given offer UUID.
+	GetOfferingApplicationToken(ctx context.Context, offerUUID string) (string, error)
 
 	// GetOffererRelationUUIDsForConsumers returns the relation UUIDs associated
 	// with the provided remote consumer UUIDs.
@@ -63,6 +57,16 @@ type ModelState interface {
 	// GetAllOffererRelationUUIDs returns all relation UUIDs that are associated
 	// with remote consumers in this model (i.e. offerer side relations).
 	GetAllOffererRelationUUIDs(ctx context.Context) ([]string, error)
+
+	// InitialWatchStatementForConsumerRelations returns the namespace and the
+	// initial query function for watching relation UUIDs that are associated with
+	// remote offerer applications present in this model (i.e. consumer side).
+	InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery)
+
+	// InitialWatchStatementForOffererRelations returns the namespace and the
+	// initial query function for watching relation UUIDs that are associated with
+	// remote consumer applications present in this model (i.e. offerer side).
+	InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery)
 
 	// NamespaceRemoteApplicationConsumers returns the namespace for remote
 	// application consumers.
