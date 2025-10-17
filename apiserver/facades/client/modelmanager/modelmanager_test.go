@@ -285,8 +285,8 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 }
 
 func (s *modelManagerSuite) TestCreateModelQualifierMismatch(c *tc.C) {
-	ctrl := s.setUpAPI(c)
-	defer ctrl.Finish()
+	charlie := names.NewUserTag("add-model-charlie")
+	defer s.setUpAPIWithUser(c, charlie).Finish()
 
 	s.modelService.EXPECT().DefaultModelCloudInfo(
 		gomock.Any()).Return("dummy", "dummy-region", nil)

@@ -33,21 +33,12 @@ func TestModelmanagerSuite(t *testing.T) {
 	tc.Run(t, &modelmanagerSuite{})
 }
 
-func (s *modelmanagerSuite) TestCreateModelBadUser(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.CreateModel(c.Context(), "mymodel", "not a qualifier", "", "", names.CloudCredentialTag{}, nil)
-	c.Assert(err, tc.ErrorMatches, `invalid qualifier "not a qualifier"`)
-}
-
 func (s *modelmanagerSuite) TestCreateModelBadCloud(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.CreateModel(c.Context(), "mymodel", "bob", "123!", "", names.CloudCredentialTag{}, nil)
+	_, err := client.CreateModel(c.Context(), "mymodel", names.NewUserTag("bob"), "123!", "", names.CloudCredentialTag{}, nil)
 	c.Assert(err, tc.ErrorMatches, `invalid cloud name "123!"`)
 }
 
@@ -82,7 +73,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 	newModel, err := client.CreateModel(
 		c.Context(),
 		"new-model",
-		"prod",
+		names.NewUserTag("prod"),
 		"nimbus",
 		"catbus",
 		names.CloudCredentialTag{},
@@ -99,6 +90,66 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 		Cloud:          "nimbus",
 		CloudRegion:    "catbus",
 		Qualifier:      "prod",
+		Life:           "alive",
+		Status: base.Status{
+			Data: make(map[string]interface{}),
+		},
+		Users:    []base.UserInfo{},
+		Machines: []base.Machine{},
+	})
+}
+
+func (s *modelmanagerSuite) TestCreateModelLegacy(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	owner := names.NewUserTag("alice@domain.com")
+
+	args := params.ModelCreateArgsLegacy{
+		Name:        "new-model",
+		OwnerTag:    owner.String(),
+		Config:      map[string]interface{}{"abc": 123},
+		CloudTag:    "cloud-nimbus",
+		CloudRegion: "catbus",
+	}
+
+	result := new(params.ModelInfoLegacy)
+	ress := params.ModelInfoLegacy{}
+	ress.Name = "dowhatimean"
+	ress.Type = "iaas"
+	ress.UUID = "youyoueyedee"
+	ress.ControllerUUID = "youyoueyedeetoo"
+	ress.ProviderType = "C-123"
+	ress.CloudTag = "cloud-nimbus"
+	ress.CloudRegion = "catbus"
+	ress.OwnerTag = owner.String()
+	ress.Life = "alive"
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CreateModel", args, result).SetArg(3, ress).Return(nil)
+
+	client := modelmanager.NewLegacyClientFromCaller(mockFacadeCaller)
+
+	newModel, err := client.CreateModel(
+		c.Context(),
+		"new-model",
+		names.NewUserTag("alice@domain.com"),
+		"nimbus",
+		"catbus",
+		names.CloudCredentialTag{},
+		map[string]interface{}{"abc": 123},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(newModel, tc.DeepEquals, base.ModelInfo{
+		Name:           "dowhatimean",
+		Type:           model.IAAS,
+		UUID:           "youyoueyedee",
+		ControllerUUID: "youyoueyedeetoo",
+		ProviderType:   "C-123",
+		Cloud:          "nimbus",
+		CloudRegion:    "catbus",
+		Qualifier:      model.Qualifier("alice@domain.com"),
 		Life:           "alive",
 		Status: base.Status{
 			Data: make(map[string]interface{}),
