@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/juju/clock"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -144,11 +145,13 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 func NewModelDomainServices(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
+	controllerObjectStoreGetter objectstore.ModelObjectStoreGetter,
 	modelObjectStoreGetter objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
 	logDir string,
+	simplestreamsClient corehttp.HTTPClient,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -157,11 +160,13 @@ func NewModelDomainServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		NoopProviderFactory{},
+		controllerObjectStoreGetter,
 		modelObjectStoreGetter,
 		storageRegistry,
 		publicKeyImporter,
 		leaseManager,
 		logDir,
+		simplestreamsClient,
 		clock,
 		logger,
 	)

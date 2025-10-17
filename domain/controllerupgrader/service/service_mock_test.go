@@ -744,7 +744,7 @@ func (m *MockAgentFinderControllerModelState) EXPECT() *MockAgentFinderControlle
 // GetModelAgentStream mocks base method.
 func (m *MockAgentFinderControllerModelState) GetModelAgentStream(arg0 context.Context) (modelagent.AgentStream, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelAgentStream", arg0)
+	ret := m.ctrl.Call(m, "GetAgentStream", arg0)
 	ret0, _ := ret[0].(modelagent.AgentStream)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -753,7 +753,7 @@ func (m *MockAgentFinderControllerModelState) GetModelAgentStream(arg0 context.C
 // GetModelAgentStream indicates an expected call of GetModelAgentStream.
 func (mr *MockAgentFinderControllerModelStateMockRecorder) GetModelAgentStream(arg0 any) *MockAgentFinderControllerModelStateGetModelAgentStreamCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelAgentStream", reflect.TypeOf((*MockAgentFinderControllerModelState)(nil).GetModelAgentStream), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgentStream", reflect.TypeOf((*MockAgentFinderControllerModelState)(nil).GetModelAgentStream), arg0)
 	return &MockAgentFinderControllerModelStateGetModelAgentStreamCall{Call: call}
 }
 

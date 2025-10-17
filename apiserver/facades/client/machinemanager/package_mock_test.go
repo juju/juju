@@ -10,11 +10,12 @@
 package machinemanager
 
 import (
-	context "context"
+	"context"
 	reflect "reflect"
 	time "time"
 
 	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/agentbinary"
 	base "github.com/juju/juju/core/base"
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
@@ -26,6 +27,7 @@ import (
 	blockcommand "github.com/juju/juju/domain/blockcommand"
 	machine0 "github.com/juju/juju/domain/machine"
 	service0 "github.com/juju/juju/domain/machine/service"
+	"github.com/juju/juju/domain/modelagent"
 	removal "github.com/juju/juju/domain/removal"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
@@ -1021,6 +1023,11 @@ func (c *MockBlockCommandServiceGetBlocksCall) DoAndReturn(f func(context.Contex
 type MockAgentBinaryService struct {
 	ctrl     *gomock.Controller
 	recorder *MockAgentBinaryServiceMockRecorder
+}
+
+func (m *MockAgentBinaryService) GetAgentBinary(ctx context.context.Context, ver agentbinary.coreagentbinary.Version, stream modelagent.modelagent.AgentStream)  (io.ReadCloser, int64, string, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 // MockAgentBinaryServiceMockRecorder is the mock recorder for MockAgentBinaryService.
