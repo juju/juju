@@ -2101,7 +2101,7 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unitName coreunit.Nam
 		} else if err != nil {
 			return nil, err
 		}
-		result.ProviderId = podInfo.ProviderID.String()
+		result.ProviderId = podInfo.ProviderID
 		result.Address = podInfo.Address
 		result.OpenedPorts = podInfo.Ports
 

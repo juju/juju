@@ -17,13 +17,13 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
@@ -568,7 +568,7 @@ func (s *unitServiceSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 
 	info, err := s.service.GetUnitK8sPodInfo(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info.ProviderID, tc.Equals, network.Id("some-id"))
+	c.Check(info.ProviderID, tc.Equals, "some-id")
 	c.Check(info.Address, tc.Equals, "10.6.6.6")
 	c.Check(info.Ports, tc.DeepEquals, ports)
 }
@@ -576,22 +576,29 @@ func (s *unitServiceSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 func (s *unitServiceSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitInfos := map[coreunit.Name]application.K8sPodInfo{
-		"foo/666": {
-			ProviderID: "some-id",
-			Address:    "10.0.0.1",
+	stateResponse := map[string]internal.UnitK8sInformation{
+		"some-uuid": {
+			Addresses: []string{
+				"203.0.113.3/24",
+				"3fff::DEAD:BEEF/128",
+			},
+			UnitName:   "unit-0",
 			Ports:      []string{"666", "668"},
+			ProviderID: "some-id",
 		},
 	}
 
-	s.state.EXPECT().GetUnitsK8sPodInfo(gomock.Any()).Return(unitInfos, nil)
+	s.state.EXPECT().GetUnitsK8sPodInfo(gomock.Any()).Return(stateResponse, nil)
 
 	infos, err := s.service.GetUnitsK8sPodInfo(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(infos, tc.HasLen, 1)
-	c.Check(infos["foo/666"].ProviderID, tc.Equals, network.Id("some-id"))
-	c.Check(infos["foo/666"].Address, tc.Equals, "10.0.0.1")
-	c.Check(infos["foo/666"].Ports, tc.DeepEquals, []string{"666", "668"})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(infos, tc.DeepEquals, map[coreunit.Name]application.K8sPodInfo{
+		"unit-0": {
+			Address:    "203.0.113.3/24",
+			Ports:      []string{"666", "668"},
+			ProviderID: "some-id",
+		},
+	})
 }
 
 func (s *unitServiceSuite) TestGetUnitK8sPodInfoUnitNotFound(c *tc.C) {
