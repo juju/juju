@@ -22,6 +22,7 @@ import (
 	controllerservice "github.com/juju/juju/domain/controller/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
+	controllerupgraderservice "github.com/juju/juju/domain/controllerupgrader/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
@@ -108,6 +109,8 @@ type ModelDomainServices interface {
 	Annotation() *annotationService.Service
 	// Config returns the model config service.
 	Config() *modelconfigservice.WatchableService
+	// ControllerUpgraderService returns a service for upgrading controllers.
+	ControllerUpgraderService() *controllerupgraderservice.Service
 	// CrossModelRelation returns a service for managing cross model relations.
 	CrossModelRelation() *crossmodelrelationservice.WatchableService
 	// Machine returns the machine service.
