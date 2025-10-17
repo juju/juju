@@ -42,4 +42,7 @@ const (
 	// RemoteRelationNotFound describes an error that occurs when looking up a
 	// remote relation by consumer relation UUID and it does not exist.
 	RemoteRelationNotFound = errors.ConstError("remote relation not found")
+
+	// RelationNotRemote indicates that the relation is not remote.
+	RelationNotRemote = errors.ConstError("relation not remote")
 )

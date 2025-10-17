@@ -720,6 +720,37 @@ func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationConsumersError(c
 	c.Assert(err, tc.ErrorMatches, "front fell off")
 }
 
+func (s *remoteApplicationServiceSuite) TestGetOfferingApplicationToken(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	relationUUID := tc.Must(c, uuid.NewUUID)
+
+	s.modelState.EXPECT().GetOfferingApplicationToken(gomock.Any(), relationUUID.String()).Return("appToken", nil)
+	service := s.service(c)
+
+	obtainedToken, err := service.GetOfferingApplicationToken(c.Context(), relationUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedToken, tc.Equals, "appToken")
+}
+
+func (s *remoteApplicationServiceSuite) TestGetOfferingApplicationTokenInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service(c).GetOfferingApplicationToken(c.Context(), "bad-uuid")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetOfferingApplicationTokenError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	relationUUID := tc.Must(c, uuid.NewUUID)
+
+	s.modelState.EXPECT().GetOfferingApplicationToken(gomock.Any(), relationUUID.String()).Return("", internalerrors.Errorf("front fell off"))
+
+	service := s.service(c)
+
+	_, err := service.GetOfferingApplicationToken(c.Context(), relationUUID.String())
+	c.Assert(err, tc.ErrorMatches, "front fell off")
+}
+
 func (s *remoteApplicationServiceSuite) TestEnsureUnitsExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
