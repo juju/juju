@@ -148,3 +148,24 @@ CREATE TABLE offer_connection (
     FOREIGN KEY (application_remote_relation_uuid)
     REFERENCES application_remote_relation (relation_uuid)
 );
+
+-- relation_network_ingress holds information about ingress CIDRs for a 
+-- relation.
+CREATE TABLE relation_network_ingress (
+    relation_uuid TEXT NOT NULL,
+    cidr TEXT NOT NULL,
+    CONSTRAINT fk_relation_uuid
+    FOREIGN KEY (relation_uuid)
+    REFERENCES relation (uuid),
+    PRIMARY KEY (relation_uuid, cidr)
+);
+
+-- relation_network_egress holds information about egress CIDRs for a relation.
+CREATE TABLE relation_network_egress (
+    relation_uuid TEXT NOT NULL,
+    cidr TEXT NOT NULL,
+    CONSTRAINT fk_relation_uuid
+    FOREIGN KEY (relation_uuid)
+    REFERENCES relation (uuid),
+    PRIMARY KEY (relation_uuid, cidr)
+);

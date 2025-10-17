@@ -25,7 +25,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/operation-triggers.gen.go -package=triggers -tables=operation_task_log
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer,application_remote_consumer
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer,application_remote_consumer,relation_network_ingress
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/offer-triggers.gen.go -package=triggers -tables=offer
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/status-triggers.gen.go -package=triggers -tables=application_status,unit_agent_status,unit_workload_status,k8s_pod_status
 
@@ -102,6 +102,7 @@ const (
 	tableUnitAgentStatus
 	tableUnitWorkloadStatus
 	tableK8sPodStatus
+	tableRelationNetworkIngress
 )
 
 // ModelDDL is used to create model databases.
@@ -189,6 +190,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForUnitAgentStatus("unit_uuid", tableUnitAgentStatus),
 		triggers.ChangeLogTriggersForUnitWorkloadStatus("unit_uuid", tableUnitWorkloadStatus),
 		triggers.ChangeLogTriggersForK8sPodStatus("unit_uuid", tableK8sPodStatus),
+		triggers.ChangeLogTriggersForRelationNetworkIngress("relation_uuid", tableRelationNetworkIngress),
 	)
 
 	// Generic triggers.
@@ -218,6 +220,12 @@ func ModelDDL() *schema.Schema {
 
 		// Offer endpoints are unmodifiable.
 		triggersForUnmodifiableTable("offer_endpoint", "offer_endpoint table is unmodifiable, only insertions and deletions are allowed"),
+
+		// Relation network ingress is unmodifiable.
+		triggersForUnmodifiableTable("relation_network_ingress", "relation_network_ingress table is unmodifiable, only insertions and deletions are allowed"),
+
+		// Relation network egress is unmodifiable.
+		triggersForUnmodifiableTable("relation_network_egress", "relation_network_egress table is unmodifiable, only insertions and deletions are allowed"),
 
 		// Secret permissions do not allow subject or scope to be updated.
 		triggerGuardForTable("secret_permission",

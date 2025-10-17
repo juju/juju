@@ -93,3 +93,39 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForRelationNetworkIngress generates the triggers for the
+// relation_network_ingress table.
+func ChangeLogTriggersForRelationNetworkIngress(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for RelationNetworkIngress
+INSERT INTO change_log_namespace VALUES (%[2]d, 'relation_network_ingress', 'RelationNetworkIngress changes based on %[1]s');
+
+-- insert trigger for RelationNetworkIngress
+CREATE TRIGGER trg_log_relation_network_ingress_insert
+AFTER INSERT ON relation_network_ingress FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for RelationNetworkIngress
+CREATE TRIGGER trg_log_relation_network_ingress_update
+AFTER UPDATE ON relation_network_ingress FOR EACH ROW
+WHEN 
+	NEW.relation_uuid != OLD.relation_uuid OR
+	NEW.cidr != OLD.cidr 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for RelationNetworkIngress
+CREATE TRIGGER trg_log_relation_network_ingress_delete
+AFTER DELETE ON relation_network_ingress FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+

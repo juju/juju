@@ -17,6 +17,7 @@ import (
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -76,6 +77,15 @@ type ModelRemoteApplicationState interface {
 	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
 	// application is not found.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error)
+
+	// InitialWatchStatementForConsumerRelations returns the namespace and the
+	// initial query function for watching relation UUIDs that are associated with
+	// remote offerer applications present in this model (i.e. consumer side).
+	InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery)
+
+	// GetConsumerRelationUUIDs filters the provided relation UUIDs and returns
+	// only those that are associated with remote offerer applications in this model.
+	GetConsumerRelationUUIDs(ctx context.Context, relationUUIDs ...string) ([]string, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing

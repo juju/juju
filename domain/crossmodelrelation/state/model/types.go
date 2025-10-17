@@ -326,3 +326,12 @@ type secretRevisionObsolete struct {
 	Obsolete      bool   `db:"obsolete"`
 	PendingDelete bool   `db:"pending_delete"`
 }
+
+type relationNetworkIngress struct {
+	RelationUUID string `db:"relation_uuid"`
+	CIDR         string `db:"cidr"`
+}
+
+type cidr struct {
+	CIDR string `db:"cidr"`
+}
