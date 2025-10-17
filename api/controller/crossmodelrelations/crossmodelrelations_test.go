@@ -307,7 +307,6 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChanges(c *tc.C) {
 	_, err = client.WatchRelationChanges(
 		c.Context(),
 		remoteRelationToken,
-		"app-token",
 		macaroon.Slice{mac},
 	)
 	c.Check(err, tc.ErrorMatches, "FAIL")
@@ -319,7 +318,6 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChanges(c *tc.C) {
 	_, err = client.WatchRelationChanges(
 		c.Context(),
 		remoteRelationToken,
-		"app-token",
 		macaroon.Slice{different},
 	)
 	c.Check(err, tc.ErrorMatches, "FAIL")
@@ -361,7 +359,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeRequired(c *
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	w, err := client.WatchRelationChanges(c.Context(), "token", "app-token", nil)
+	w, err := client.WatchRelationChanges(c.Context(), "token", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

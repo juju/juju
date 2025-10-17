@@ -257,7 +257,7 @@ func (c *Client) RegisterRemoteRelations(ctx context.Context, relations ...param
 // WatchRelationChanges returns a watcher that notifies of changes to
 // the units or application settings in the remote model for the
 // relation with the given remote token.
-func (c *Client) WatchRelationChanges(ctx context.Context, relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
+func (c *Client) WatchRelationChanges(ctx context.Context, relationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
 		Token:         relationToken,
 		Macaroons:     macs,

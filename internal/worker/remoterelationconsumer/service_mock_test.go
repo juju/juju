@@ -406,18 +406,18 @@ func (c *MockRemoteModelRelationsClientWatchOfferStatusCall) DoAndReturn(f func(
 }
 
 // WatchRelationChanges mocks base method.
-func (m *MockRemoteModelRelationsClient) WatchRelationChanges(arg0 context.Context, relationToken, applicationToken string, macs macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
+func (m *MockRemoteModelRelationsClient) WatchRelationChanges(arg0 context.Context, relationToken string, macs macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchRelationChanges", arg0, relationToken, applicationToken, macs)
+	ret := m.ctrl.Call(m, "WatchRelationChanges", arg0, relationToken, macs)
 	ret0, _ := ret[0].(watcher.RemoteRelationWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchRelationChanges indicates an expected call of WatchRelationChanges.
-func (mr *MockRemoteModelRelationsClientMockRecorder) WatchRelationChanges(arg0, relationToken, applicationToken, macs any) *MockRemoteModelRelationsClientWatchRelationChangesCall {
+func (mr *MockRemoteModelRelationsClientMockRecorder) WatchRelationChanges(arg0, relationToken, macs any) *MockRemoteModelRelationsClientWatchRelationChangesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationChanges", reflect.TypeOf((*MockRemoteModelRelationsClient)(nil).WatchRelationChanges), arg0, relationToken, applicationToken, macs)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationChanges", reflect.TypeOf((*MockRemoteModelRelationsClient)(nil).WatchRelationChanges), arg0, relationToken, macs)
 	return &MockRemoteModelRelationsClientWatchRelationChangesCall{Call: call}
 }
 
@@ -433,13 +433,13 @@ func (c *MockRemoteModelRelationsClientWatchRelationChangesCall) Return(arg0 wat
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoteModelRelationsClientWatchRelationChangesCall) Do(f func(context.Context, string, string, macaroon.Slice) (watcher.RemoteRelationWatcher, error)) *MockRemoteModelRelationsClientWatchRelationChangesCall {
+func (c *MockRemoteModelRelationsClientWatchRelationChangesCall) Do(f func(context.Context, string, macaroon.Slice) (watcher.RemoteRelationWatcher, error)) *MockRemoteModelRelationsClientWatchRelationChangesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteModelRelationsClientWatchRelationChangesCall) DoAndReturn(f func(context.Context, string, string, macaroon.Slice) (watcher.RemoteRelationWatcher, error)) *MockRemoteModelRelationsClientWatchRelationChangesCall {
+func (c *MockRemoteModelRelationsClientWatchRelationChangesCall) DoAndReturn(f func(context.Context, string, macaroon.Slice) (watcher.RemoteRelationWatcher, error)) *MockRemoteModelRelationsClientWatchRelationChangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

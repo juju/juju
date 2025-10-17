@@ -70,11 +70,8 @@ type UnitChange struct {
 type RemoteModelRelationsClient interface {
 	// WatchRelationChanges returns a watcher that notifies of changes
 	// to the units in the remote model for the relation with the
-	// given remote token. We need to pass the application token for
-	// the case where we're talking to a v1 API and the client needs
-	// to convert RelationUnitsChanges into RemoteRelationChangeEvents
-	// as they come in.
-	WatchRelationChanges(ctx context.Context, relationToken, applicationToken string, macs macaroon.Slice) (watcher.RemoteRelationWatcher, error)
+	// given remote token.
+	WatchRelationChanges(ctx context.Context, relationToken string, macs macaroon.Slice) (watcher.RemoteRelationWatcher, error)
 }
 
 // ReportableWorker is an interface that allows a worker to be reported
@@ -193,7 +190,7 @@ func (w *remoteWorker) loop() error {
 	// Start a watcher to track changes to the units in the relation in the
 	// remote model.
 	watcher, err := w.client.WatchRelationChanges(
-		ctx, w.consumerRelationUUID.String(), w.offererApplicationUUID.String(), macaroon.Slice{w.macaroon},
+		ctx, w.consumerRelationUUID.String(), macaroon.Slice{w.macaroon},
 	)
 	if err != nil {
 		return errors.Annotatef(err, "watching remote relation %v", w.consumerRelationUUID)
