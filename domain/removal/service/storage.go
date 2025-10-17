@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -51,7 +51,7 @@ type StorageState interface {
 // life-cycle advancement and removal to finish before forcefully removing the
 // attachment. This duration is ignored if the force argument is false.
 // The UUID for the scheduled removal job is returned.
-// [storageprovisioningerrors.StorageAttachmentNotFound] is returned if no such
+// [storageerrors.StorageAttachmentNotFound] is returned if no such
 // relation exists.
 func (s *Service) RemoveStorageAttachment(
 	ctx context.Context, saUUID storageprovisioning.StorageAttachmentUUID, force bool, wait time.Duration,
@@ -66,7 +66,7 @@ func (s *Service) RemoveStorageAttachment(
 	if !exists {
 		return "", errors.Errorf(
 			"storage attachment %q does not exist", saUUID,
-		).Add(storageprovisioningerrors.StorageAttachmentNotFound)
+		).Add(storageerrors.StorageAttachmentNotFound)
 	}
 
 	if err := s.modelState.EnsureStorageAttachmentNotAlive(ctx, saUUID.String()); err != nil {
@@ -129,7 +129,7 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 	}
 
 	l, err := s.modelState.GetStorageAttachmentLife(ctx, job.EntityUUID)
-	if errors.Is(err, storageprovisioningerrors.StorageAttachmentNotFound) {
+	if errors.Is(err, storageerrors.StorageAttachmentNotFound) {
 		// The storage attachment has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil
