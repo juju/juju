@@ -14,8 +14,6 @@ import (
 )
 
 const (
-	// TODO (stickupkid): Make these configurable, so we're not wasting
-	// resources.
 	defaultMinAge   = time.Second * 5
 	defaultMaxBytes = 1 << 23 // 8 MiB
 
@@ -24,9 +22,9 @@ const (
 
 // Recorder is a simple wrapper around trace.Recorder.
 type Recorder struct {
-	recorder *trace.FlightRecorder
-	clock    clock.Clock
-	endTime  time.Time
+	recorder       *trace.FlightRecorder
+	clock          clock.Clock
+	captureEndTime time.Time
 }
 
 // NewRecorder creates a new Recorder.
@@ -40,12 +38,14 @@ func NewRecorder(clock clock.Clock) *Recorder {
 	}
 }
 
-// Start starts the flight recorder.
+// Start starts the flight recorder for at least the supplied duration with the
+// recorder only being stopped by a direct call to [Recorder.Stop] or a
+// [Recorder.Capture] call that finishes after this duration.
 func (w *Recorder) Start(duration time.Duration) error {
 	if duration <= 0 {
-		w.endTime = w.clock.Now()
+		w.captureEndTime = w.clock.Now()
 	} else {
-		w.endTime = w.clock.Now().Add(duration)
+		w.captureEndTime = w.clock.Now().Add(duration)
 	}
 
 	// Don't start if already started, so allow the end time to be changed, but
@@ -59,7 +59,7 @@ func (w *Recorder) Start(duration time.Duration) error {
 // Stop stops the flight recorder.
 func (w *Recorder) Stop() error {
 	if !w.recorder.Enabled() {
-		return errors.Errorf("recorder is not started")
+		return errors.New("recorder is not started")
 	}
 	w.recorder.Stop()
 	return nil
@@ -72,7 +72,7 @@ func (w *Recorder) Capture(path string) (string, error) {
 	}
 
 	defer func() {
-		if w.clock.Now().After(w.endTime) {
+		if w.clock.Now().After(w.captureEndTime) {
 			w.recorder.Stop()
 		}
 	}()
@@ -81,7 +81,7 @@ func (w *Recorder) Capture(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	_, err = w.recorder.WriteTo(f)
 	return f.Name(), err
