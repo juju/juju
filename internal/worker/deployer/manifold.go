@@ -16,15 +16,17 @@ import (
 	"github.com/juju/juju/agent/engine"
 	apideployer "github.com/juju/juju/api/agent/deployer"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/logger"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
-	AgentName     string
-	APICallerName string
-	Clock         clock.Clock
-	Logger        logger.Logger
+	AgentName      string
+	APICallerName  string
+	FlightRecorder flightrecorder.FlightRecorder
+	Clock          clock.Clock
+	Logger         logger.Logger
 
 	UnitEngineConfig func() dependency.EngineConfig
 	SetupLogging     func(logger.LoggerContext, agent.Config)
@@ -54,9 +56,11 @@ func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCall
 	if cfg.Tag().Kind() != names.MachineTagKind {
 		return nil, errors.New("agent's tag is not a machine tag")
 	}
+
 	deployerFacade := apideployer.NewClient(apiCaller)
 	contextConfig := ContextConfig{
 		Agent:            a,
+		FlightRecorder:   config.FlightRecorder,
 		Clock:            config.Clock,
 		Logger:           config.Logger,
 		UnitEngineConfig: config.UnitEngineConfig,

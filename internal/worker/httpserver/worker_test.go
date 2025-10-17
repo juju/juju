@@ -28,12 +28,12 @@ import (
 
 type workerFixture struct {
 	testhelpers.IsolationSuite
-	prometheusRegisterer stubPrometheusRegisterer
-	agentName            string
-	mux                  *apiserverhttp.Mux
-	clock                *testclock.Clock
-	config               httpserver.Config
-	logDir               string
+
+	agentName string
+	mux       *apiserverhttp.Mux
+	clock     *testclock.Clock
+	config    httpserver.Config
+	logDir    string
 }
 
 func (s *workerFixture) SetUpTest(c *tc.C) {
@@ -46,8 +46,6 @@ func (s *workerFixture) SetUpTest(c *tc.C) {
 	tlsConfig.ServerName = "juju-apiserver"
 	tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
 
-	s.prometheusRegisterer = stubPrometheusRegisterer{}
-
 	s.mux = apiserverhttp.NewMux()
 	s.clock = testclock.NewClock(time.Now())
 
@@ -55,15 +53,14 @@ func (s *workerFixture) SetUpTest(c *tc.C) {
 	s.logDir = c.MkDir()
 
 	s.config = httpserver.Config{
-		AgentName:            s.agentName,
-		Clock:                s.clock,
-		TLSConfig:            tlsConfig,
-		Mux:                  s.mux,
-		PrometheusRegisterer: &s.prometheusRegisterer,
-		LogDir:               s.logDir,
-		MuxShutdownWait:      1 * time.Minute,
-		APIPort:              0,
-		Logger:               loggertesting.WrapCheckLog(c),
+		AgentName:       s.agentName,
+		Clock:           s.clock,
+		TLSConfig:       tlsConfig,
+		Mux:             s.mux,
+		LogDir:          s.logDir,
+		MuxShutdownWait: 1 * time.Minute,
+		APIPort:         0,
+		Logger:          loggertesting.WrapCheckLog(c),
 	}
 }
 
@@ -89,9 +86,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 	}, {
 		f:      func(cfg *httpserver.Config) { cfg.Mux = nil },
 		expect: "nil Mux not valid",
-	}, {
-		f:      func(cfg *httpserver.Config) { cfg.PrometheusRegisterer = nil },
-		expect: "nil PrometheusRegisterer not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -200,6 +201,11 @@ func (r *apiHandler) Tracer() trace.Tracer {
 	return r.tracer
 }
 
+// FlightRecorder returns the flight recorder.
+func (r *apiHandler) FlightRecorder() flightrecorder.FlightRecorder {
+	return r.shared.flightRecorder
+}
+
 // ObjectStore returns the object store.
 func (r *apiHandler) ObjectStore() objectstore.ObjectStore {
 	return r.objectStore
@@ -374,6 +380,8 @@ type apiRootHandler interface {
 	DomainServicesGetter() services.DomainServicesGetter
 	// Tracer returns the tracer for opentelemetry.
 	Tracer() trace.Tracer
+	// FlightRecorder returns the flight recorder.
+	FlightRecorder() flightrecorder.FlightRecorder
 	// ObjectStore returns the object store.
 	ObjectStore() objectstore.ObjectStore
 	// ObjectStoreGetter returns the object store getter.
@@ -524,6 +532,10 @@ func restrictAPIRootDuringMaintenance(
 func (r *apiRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
 	ctx = trace.WithTracer(ctx, r.tracer)
 	return trace.Start(ctx, trace.NameFromFunc())
+}
+
+func (r *apiRoot) FlightRecorder() flightrecorder.FlightRecorder {
+	return r.shared.flightRecorder
 }
 
 // FindMethod looks up the given rootName and version in our facade registry

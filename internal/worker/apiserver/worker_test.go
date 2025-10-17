@@ -18,6 +18,7 @@ import (
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -55,6 +56,7 @@ type workerFixture struct {
 	controllerUUID          string
 	controllerModelUUID     model.UUID
 	jwtParser               *jwtparser.Parser
+	flightRecorder          flightrecorder.FlightRecorder
 }
 
 func (s *workerFixture) SetUpTest(c *tc.C) {
@@ -81,6 +83,7 @@ func (s *workerFixture) SetUpTest(c *tc.C) {
 	s.stub.ResetCalls()
 	s.jwtParser = &jwtparser.Parser{}
 	s.watcherRegistryGetter = &stubWatcherRegistryGetter{}
+	s.flightRecorder = flightrecorder.NoopRecorder{}
 
 	s.config = apiserver.Config{
 		AgentConfig:                       &s.agentConfig,
@@ -104,6 +107,7 @@ func (s *workerFixture) SetUpTest(c *tc.C) {
 		ObjectStoreGetter:                 s.objectStoreGetter,
 		JWTParser:                         s.jwtParser,
 		WatcherRegistryGetter:             s.watcherRegistryGetter,
+		FlightRecorder:                    s.flightRecorder,
 	}
 }
 
@@ -189,6 +193,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 	}, {
 		f:      func(cfg *apiserver.Config) { cfg.WatcherRegistryGetter = nil },
 		expect: "nil WatcherRegistryGetter not valid",
+	}, {
+		f:      func(cfg *apiserver.Config) { cfg.FlightRecorder = nil },
+		expect: "nil FlightRecorder not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
