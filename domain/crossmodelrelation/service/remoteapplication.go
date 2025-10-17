@@ -283,8 +283,7 @@ func (s *Service) EnsureUnitsExist(ctx context.Context, appUUID coreapplication.
 	}
 	for _, u := range units {
 		if err := u.Validate(); err != nil {
-			return internalerrors.Errorf(
-				"%w:%w", applicationerrors.UnitNameNotValid, err)
+			return internalerrors.Capture(err)
 		}
 	}
 

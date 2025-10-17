@@ -64,10 +64,6 @@ const (
 	// on does not exist.
 	UnitNotFound = errors.ConstError("unit not found")
 
-	// UnitNameNotValid describes an error that occurs when the unit name is
-	// not valid.
-	UnitNameNotValid = errors.ConstError("unit name not valid")
-
 	// UnitStatusNotFound describes an error that occurs when the unit being
 	// operated on does not have a status.
 	UnitStatusNotFound = errors.ConstError("unit status not found")
