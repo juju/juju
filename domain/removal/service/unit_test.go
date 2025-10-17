@@ -154,13 +154,14 @@ func (s *unitSuite) TestExecuteJobForUnitStillAlive(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 }
 
-func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnit(c *tc.C) {
+func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newUnitJob(c)
 
 	exp := s.modelState.EXPECT()
-	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
@@ -193,17 +194,30 @@ func (s *unitSuite) TestExecuteJobWithForceForUnitDyingDeleteUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitError(c *tc.C) {
+func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnitError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newUnitJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
+	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(errors.Errorf("the front fell off"))
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
+}
+
+func (s *unitSuite) TestExecuteJobForUnitNotDeadError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newUnitJob(c)
 
 	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
-	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(errors.Errorf("the front fell off"))
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
-	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)
 }
 
 func (s *unitSuite) TestExecuteJobForUnitRevokingUnitError(c *tc.C) {
@@ -212,7 +226,8 @@ func (s *unitSuite) TestExecuteJobForUnitRevokingUnitError(c *tc.C) {
 	j := newUnitJob(c)
 
 	exp := s.modelState.EXPECT()
-	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 
@@ -222,13 +237,14 @@ func (s *unitSuite) TestExecuteJobForUnitRevokingUnitError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
 }
 
-func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitClaimNotHeldError(c *tc.C) {
+func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnitClaimNotHeld(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newUnitJob(c)
 
 	exp := s.modelState.EXPECT()
-	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
