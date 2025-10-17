@@ -692,7 +692,7 @@ func (s *relationServiceSuite) TestSetRelationRemoteApplicationAndUnitSettingsIn
 		unitSettings,
 	)
 	// Assert.
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *relationServiceSuite) TestSetRelationRemoteApplicationAndUnitSettingsInvalidRelationUUID(c *tc.C) {

@@ -725,7 +725,7 @@ func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidAppUUID(c *tc
 	service := s.service(c)
 
 	err := service.EnsureUnitsExist(c.Context(), coreapplication.UUID("!!!"), units)
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidUnitNames(c *tc.C) {

@@ -481,7 +481,7 @@ func (s *Service) SetRelationRemoteApplicationAndUnitSettings(
 
 	if err := applicationUUID.Validate(); err != nil {
 		return errors.Errorf(
-			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+			"setting remote relation application and unit settings: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
 	}
 
 	if err := relationUUID.Validate(); err != nil {
