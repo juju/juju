@@ -56,11 +56,8 @@ type RemoteModelRelationsClient interface {
 
 	// WatchRelationChanges returns a watcher that notifies of changes
 	// to the units in the remote model for the relation with the
-	// given remote token. We need to pass the application token for
-	// the case where we're talking to a v1 API and the client needs
-	// to convert RelationUnitsChanges into RemoteRelationChangeEvents
-	// as they come in.
-	WatchRelationChanges(_ context.Context, relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error)
+	// given remote token.
+	WatchRelationChanges(_ context.Context, relationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error)
 
 	// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the
 	// relations of each specified application in the remote model.
