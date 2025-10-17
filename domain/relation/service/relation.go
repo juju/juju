@@ -915,6 +915,34 @@ func (s *Service) GetRelationUnits(
 	return s.st.GetRelationUnitsChanges(ctx, relationUUID, applicationUUID)
 }
 
+// GetRelationKeyByUUID returns the relation Key for the given UUID.
+func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUIDStr string) (corerelation.Key, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	relationUUID, err := corerelation.ParseUUID(relationUUIDStr)
+	if err != nil {
+		return corerelation.Key{}, errors.Capture(err)
+	}
+
+	relationDetails, err := s.st.GetRelationDetails(ctx, relationUUID)
+	if err != nil {
+		return corerelation.Key{}, errors.Capture(err)
+	}
+
+	var identifiers []corerelation.EndpointIdentifier
+	for _, e := range relationDetails.Endpoints {
+		identifiers = append(identifiers, e.EndpointIdentifier())
+	}
+
+	key, err := corerelation.NewKey(identifiers)
+	if err != nil {
+		return corerelation.Key{}, errors.Errorf("generating relation key: %w", err)
+	}
+
+	return key, nil
+}
+
 func settingsMap(in map[string]interface{}) (map[string]string, error) {
 	var errs error
 	return transform.Map(in, func(k string, v interface{}) (string, string) {
