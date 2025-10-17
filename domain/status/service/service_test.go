@@ -2230,7 +2230,7 @@ func (s *serviceSuite) TestSetRemoteRelationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newStatus := corestatus.StatusInfo{Status: corestatus.Suspended}
-	s.modelState.EXPECT().SetRelationStatus(gomock.Any(), corerelation.UUID("relation-uuid"), status.StatusInfo[status.RelationStatusType]{
+	s.modelState.EXPECT().SetRemoteRelationStatus(gomock.Any(), corerelation.UUID("relation-uuid"), status.StatusInfo[status.RelationStatusType]{
 		Status: status.RelationStatusTypeSuspended,
 	}).Return(nil)
 

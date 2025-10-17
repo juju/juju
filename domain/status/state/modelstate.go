@@ -321,7 +321,7 @@ WHERE  relation_uuid = $relationUUID.relation_uuid
 	err = tx.Query(ctx, stmt, id).Get(&sts)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return empty, statuserrors.RelationNotFound
-	} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	} else if err != nil {
 		return empty, errors.Capture(err)
 	}
 
@@ -374,6 +374,28 @@ func (st *ModelState) SetRelationStatus(
 			sts.Status == status.RelationStatusTypeSuspended {
 			sts.Message = currentStatus.Message
 		}
+		return st.updateRelationStatus(ctx, tx, relationUUID, sts)
+	})
+	if err != nil {
+		return errors.Errorf("updating relation status for %q: %w", relationUUID, err)
+	}
+	return nil
+}
+
+// SetRelationStatus sets the given relation status. It can
+// return the following errors:
+//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+func (st *ModelState) SetRemoteRelationStatus(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	sts status.StatusInfo[status.RelationStatusType],
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.updateRelationStatus(ctx, tx, relationUUID, sts)
 	})
 	if err != nil {

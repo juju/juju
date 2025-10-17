@@ -72,6 +72,15 @@ type ModelState interface {
 		sts status.StatusInfo[status.RelationStatusType],
 	) error
 
+	// SetRemoteRelationStatus sets the given relation status. It can
+	// return the following errors:
+	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+	SetRemoteRelationStatus(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		sts status.StatusInfo[status.RelationStatusType],
+	) error
+
 	// GetRelationUUIDByID returns the UUID for the given relation ID.
 	// It can return the following errors:
 	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
@@ -1034,9 +1043,6 @@ func (s *Service) ExportRelationStatuses(ctx context.Context) (map[int]corestatu
 // provided. It can return the
 // following errors:
 //   - [statuserrors.RelationNotFound] if the relation doesn't exist.
-//   - [statuserrors.RelationStatusTransitionNotValid] if the current relation
-//     status cannot transition to the new relation status. the relation does
-//     not exist.
 func (s *Service) SetRemoteRelationStatus(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
@@ -1051,7 +1057,7 @@ func (s *Service) SetRemoteRelationStatus(
 		return errors.Errorf("encoding relation status: %w", err)
 	}
 
-	return s.modelState.SetRelationStatus(ctx, relationUUID, relationStatus)
+	return s.modelState.SetRemoteRelationStatus(ctx, relationUUID, relationStatus)
 }
 
 func (s *Service) decodeApplicationStatusDetails(app status.Application) (Application, error) {
