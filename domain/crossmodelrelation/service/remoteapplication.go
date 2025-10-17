@@ -273,7 +273,7 @@ func (s *Service) EnsureUnitsExist(ctx context.Context, appUUID coreapplication.
 
 	if err := appUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+			"ensuring units exist: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
 	}
 	for _, u := range units {
 		if err := u.Validate(); err != nil {
@@ -298,7 +298,7 @@ func (s *Service) SuspendRelation(ctx context.Context, appUUID coreapplication.U
 
 	if err := appUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"suspending relation: %w", err).Add(relationerrors.ApplicationUUIDNotValid)
+			"suspending relation: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
 	}
 	if err := relUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
@@ -316,7 +316,7 @@ func (s *Service) SetRelationSuspendedState(ctx context.Context, appUUID coreapp
 
 	if err := appUUID.Validate(); err != nil {
 		return internalerrors.Errorf(
-			"setting relation suspended state: %w", err).Add(relationerrors.ApplicationUUIDNotValid)
+			"setting relation suspended state: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
 	}
 	if err := relUUID.Validate(); err != nil {
 		return internalerrors.Errorf(

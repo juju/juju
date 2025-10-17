@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
@@ -569,7 +570,7 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameApplicati
 		"bad-app-name",
 		"resource-name-found",
 	)
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound, tc.Commentf("(Act) unexpected error"))
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound, tc.Commentf("(Act) unexpected error"))
 }
 
 // TestGetResourceUUIDByApplicationAndResourceNameCannotGetPotentialResource verifies that
@@ -970,7 +971,7 @@ func (s *resourceSuite) TestSetRepositoryResourceApplicationNotFound(c *tc.C) {
 	})
 
 	// Assert: check expected error
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound, tc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound, tc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
 }
 
 // TestRecordStoredResourceWithContainerImage tests recording that a container
@@ -1659,7 +1660,7 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *tc.C) {
 	)
 
 	// Assert: an error is returned, nothing is updated in the db
-	c.Check(err, tc.ErrorIs, resourceerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 	err = s.runQuery(c, `SELECT * FROM unit_resource`)
 	c.Check(err, tc.ErrorIs, sql.ErrNoRows, tc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
 	err = s.runQuery(c, `SELECT * FROM resource_retrieved_by`)
@@ -1890,7 +1891,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationUUIDWrongApplicationUUID(c 
 	// Act
 	_, err := s.state.GetResourcesByApplicationUUID(c.Context(), "not-an-application-id")
 	// Assert
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound,
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound,
 		tc.Commentf("(Assert) should fails with specific error: %v",
 			errors.ErrorStack(err)))
 }
@@ -2744,7 +2745,7 @@ func (s *resourceSuite) TestImportResourcesApplicationNotFound(c *tc.C) {
 	err := s.state.ImportResources(c.Context(), args)
 
 	// Assert:
-	c.Check(err, tc.ErrorIs, resourceerrors.ApplicationNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 // TestImportResourcesOnLocalCharm checks that repository resources are not set for
@@ -2799,7 +2800,7 @@ func (s *resourceSuite) TestImportResourcesUnitNotFound(c *tc.C) {
 	err := s.state.ImportResources(c.Context(), args)
 
 	// Assert:
-	c.Check(err, tc.ErrorIs, resourceerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *resourceSuite) TestImportResourcesOriginNotValid(c *tc.C) {
@@ -2959,7 +2960,7 @@ func (s *resourceSuite) TestExportResourcesApplicationNotFound(c *tc.C) {
 	// Act
 	_, err := s.state.ExportResources(c.Context(), "bad-app-name")
 	// Assert
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 // TestDeleteImportedApplicationResources checks the importing and then deleting

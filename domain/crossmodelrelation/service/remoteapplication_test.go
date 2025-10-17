@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
-	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -723,7 +722,7 @@ func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidAppUUID(c *tc
 	service := s.service(c)
 
 	err := service.EnsureUnitsExist(c.Context(), coreapplication.UUID("!!!"), units)
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidUnitNames(c *tc.C) {

@@ -319,7 +319,7 @@ func (s *addRelationSuite) TestAddRelationErrorNotAliveFirstApp(c *tc.C) {
 	})
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotAlive, tc.Commentf("(Assert) %s",
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive, tc.Commentf("(Assert) %s",
 		errors.ErrorStack(err)))
 }
 
@@ -351,7 +351,7 @@ func (s *addRelationSuite) TestAddRelationErrorNotAliveSecond(c *tc.C) {
 	})
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotAlive, tc.Commentf("(Assert) %s",
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive, tc.Commentf("(Assert) %s",
 		errors.ErrorStack(err)))
 }
 
@@ -847,7 +847,7 @@ func (s *relationSuite) TestGetRelationEndpointUUIDApplicationNotFound(c *tc.C) 
 	})
 
 	// Assert: check that ApplicationNotFound is returned.
-	c.Check(err, tc.ErrorIs, relationerrors.ApplicationNotFound, tc.Commentf("(Assert) wrong error: %v", errors.ErrorStack(err)))
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationNotFound, tc.Commentf("(Assert) wrong error: %v", errors.ErrorStack(err)))
 }
 
 // TestGetRelationEndpointUUIDRelationEndPointNotFound verifies that attempting
@@ -2993,7 +2993,7 @@ func (s *relationSuite) TestApplicationRelationsInfoNoApp(c *tc.C) {
 	_, err := s.state.ApplicationRelationsInfo(c.Context(), appID)
 
 	// Assert: fail if the application does not exist.
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *relationSuite) TestApplicationRelationsInfoNoRelations(c *tc.C) {

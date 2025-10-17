@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
@@ -146,7 +147,7 @@ func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 
 	if err := unitUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"%w:%w", relationerrors.UnitUUIDNotValid, err)
+			"%w:%w", applicationerrors.UnitUUIDNotValid, err)
 	}
 
 	principalID, subordinateID, err := s.st.GetPrincipalSubordinateApplicationUUIDs(ctx, unitUUID)
@@ -182,7 +183,7 @@ func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 
 	if err := applicationUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
 	}
 
 	// Check if the application exists before starting the watcher.

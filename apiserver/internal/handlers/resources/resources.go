@@ -20,6 +20,7 @@ import (
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -135,7 +136,7 @@ func (h *ResourceHandler) download(service ResourceService, req *http.Request) (
 	uuid, err := service.GetResourceUUIDByApplicationAndResourceName(req.Context(), application, name)
 	if errors.Is(err, resourceerrors.ResourceNotFound) {
 		return nil, 0, jujuerrors.NotFoundf("resource %s of application %s", name, application)
-	} else if errors.Is(err, resourceerrors.ApplicationNotFound) {
+	} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, 0, jujuerrors.NotFoundf("application %s", application)
 	} else if err != nil {
 		return nil, 0, fmt.Errorf("getting resource uuid: %w", err)
@@ -244,7 +245,7 @@ func (h *ResourceHandler) getUploadedResource(
 	res, err := resourceService.GetResource(req.Context(), resUUID)
 	if errors.Is(err, resourceerrors.ResourceNotFound) {
 		return nil, nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
-	} else if errors.Is(err, resourceerrors.ApplicationNotFound) {
+	} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, nil, jujuerrors.NotFoundf("application %s", uReq.Application)
 	} else if err != nil {
 		return nil, nil, errors.Errorf("getting resource details: %w", err)
@@ -297,7 +298,7 @@ func (h *ResourceHandler) getResourceUUIDAndPendingStatus(
 	// The client is attempting to upload the resource, hasn't setup to match
 	// a resource to a new uploaded blob. Do that for them here.
 	oldResourceUUID, err := resourceService.GetResourceUUIDByApplicationAndResourceName(ctx, uReq.Application, uReq.Name)
-	if errors.Is(err, resourceerrors.ResourceNotFound) || errors.Is(err, resourceerrors.ApplicationNotFound) {
+	if errors.Is(err, resourceerrors.ResourceNotFound) || errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return "", false, jujuerrors.NotFoundf("application %q, resource %q", uReq.Application, uReq.Name)
 	} else if err != nil {
 		return "", false, errors.Errorf("getting resource uuid: %w", err)
