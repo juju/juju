@@ -331,7 +331,7 @@ WHERE   aro.application_uuid = $uuid.uuid;
 			return errors.Capture(err)
 		}
 
-		if err := st.insertRemoteApplicationOffererStatus(ctx, tx, result.UUID, status); err != nil {
+		if err := st.upsertRemoteApplicationOffererStatus(ctx, tx, result.UUID, status); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -428,7 +428,7 @@ func (st *State) insertRemoteApplicationOfferer(
 		Message: "waiting for first status update",
 		Since:   ptr(st.clock.Now().UTC()),
 	}
-	if err := st.insertRemoteApplicationOffererStatus(ctx, tx, args.RemoteApplicationUUID, statusInfo); err != nil {
+	if err := st.upsertRemoteApplicationOffererStatus(ctx, tx, args.RemoteApplicationUUID, statusInfo); err != nil {
 		return errors.Errorf("inserting remote application offerer status: %w", err)
 	}
 
@@ -603,7 +603,7 @@ func (st *State) nextRemoteApplicationConsumerVersion(
 	return nextVersion, nil
 }
 
-func (st *State) insertRemoteApplicationOffererStatus(
+func (st *State) upsertRemoteApplicationOffererStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appID string,
