@@ -92,83 +92,79 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 	}
 
 	for i, change := range changes.Changes {
-		relationUUID, err := corerelation.ParseUUID(change.RelationToken)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// Ensure that we have a relation and that it isn't dead.
-		// If the relation is not found or dead, we simply skip publishing
-		// for that relation. This shouldn't bring down the whole operation.
-		relationDetails, err := api.relationService.GetRelationDetails(ctx, relationUUID)
-		if errors.Is(err, relationerrors.RelationNotFound) {
-			api.logger.Debugf(ctx, "relation %q not found when publishing relation changes", change.RelationToken)
-			continue
-		} else if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		} else if relationDetails.Life == life.Dead {
-			api.logger.Debugf(ctx, "relation %q is dead when publishing relation changes", change.RelationToken)
-			continue
-		}
-
-		relationTag, err := constructRelationTag(relationDetails)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, change.Macaroons, change.BakeryVersion); err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// TODO (stickupkid): Work out if we get a offer UUID and get the
-		// application UUID from that instead.
-		applicationUUID, err := coreapplication.ParseID(change.ApplicationOrOfferToken)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// Ensure that the application is still alive.
-		appDetails, err := api.applicationService.GetApplicationDetails(ctx, applicationUUID)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) || appDetails == life.Dead {
-			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %q not found", change.ApplicationOrOfferToken)
-			continue
-		} else if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		switch {
-		case change.Life != life.Alive:
-			// We're dying or dead, either way we shouldn't continue onwards.
-			if err := api.removalService.RemoveRemoteRelation(ctx, relationUUID); err != nil {
-				results.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			if change.Life == life.Dead {
-				// No further processing for dead relations.
-				continue
-			}
-
-		case change.Suspended != nil && *change.Suspended != relationDetails.Suspended:
-			if err := api.handleSuspendedRelationChange(ctx, relationUUID, *change.Suspended, change.SuspendedReason); err != nil {
-				results.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-		}
-
-		if err := api.handleUnitSettings(ctx, relationUUID, applicationUUID, appDetails.Name, change); err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
+		err := api.publishOneRelationChange(ctx, change)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 
 	return results, nil
+}
+
+func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Context, change params.RemoteRelationChangeEvent) error {
+	relationUUID, err := corerelation.ParseUUID(change.RelationToken)
+	if err != nil {
+		return err
+	}
+
+	// Ensure that we have a relation and that it isn't dead.
+	// If the relation is not found or dead, we simply skip publishing
+	// for that relation. This shouldn't bring down the whole operation.
+	relationDetails, err := api.relationService.GetRelationDetails(ctx, relationUUID)
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		api.logger.Debugf(ctx, "relation %q not found when publishing relation changes", change.RelationToken)
+		return nil
+	} else if err != nil {
+		return err
+	} else if relationDetails.Life == life.Dead {
+		api.logger.Debugf(ctx, "relation %q is dead when publishing relation changes", change.RelationToken)
+		return nil
+	}
+
+	relationTag, err := constructRelationTag(relationDetails)
+	if err != nil {
+		return errors.Annotatef(err, "constructing relation tag for relation %q", relationUUID)
+	}
+
+	if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, change.Macaroons, change.BakeryVersion); err != nil {
+		return errors.Annotatef(err, "checking macaroons for relation %q", relationUUID)
+	}
+
+	// TODO (stickupkid): Work out if we get a offer UUID and get the
+	// application UUID from that instead.
+	applicationUUID, err := coreapplication.ParseID(change.ApplicationOrOfferToken)
+	if err != nil {
+		return err
+	}
+
+	// Ensure that the application is still alive.
+	appDetails, err := api.applicationService.GetApplicationDetails(ctx, applicationUUID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) || appDetails == life.Dead {
+		return errors.NotFoundf("application %q not found or dead when publishing relation changes for relation %q", applicationUUID, relationUUID)
+	} else if err != nil {
+		return err
+	}
+
+	switch {
+	case change.Life != life.Alive:
+		// We're dying or dead, either way we shouldn't continue onwards.
+		if err := api.removalService.RemoveRemoteRelation(ctx, relationUUID); err != nil {
+			return errors.Annotatef(err, "removing remote relation %q", relationUUID)
+		}
+		if change.Life == life.Dead {
+			// No further processing for dead relations.
+			return nil
+		}
+
+	case change.Suspended != nil && *change.Suspended != relationDetails.Suspended:
+		if err := api.handleSuspendedRelationChange(ctx, relationUUID, *change.Suspended, change.SuspendedReason); err != nil {
+			return err
+		}
+	}
+
+	if err := api.handleUnitSettings(ctx, relationUUID, applicationUUID, appDetails.Name, change); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (api *CrossModelRelationsAPIv3) handleSuspendedRelationChange(
