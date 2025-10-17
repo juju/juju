@@ -212,7 +212,7 @@ func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *tc.C) {
 		logger:          fakeLogger{},
 	}
 	_, _, err := refresher.ResolveCharm(c.Context())
-	c.Assert(err, tc.ErrorMatches, `cannot upgrade from single base "ubuntu@22.04" charm to a charm supporting \["ubuntu@20.04"\]. Use --force-series to override.`)
+	c.Assert(err, tc.ErrorMatches, `cannot upgrade from single base "ubuntu@22.04" charm to a charm supporting \["ubuntu@20.04"\]. Use --force-base to override.`)
 }
 
 func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *tc.C) {

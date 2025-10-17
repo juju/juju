@@ -82,68 +82,22 @@ The command also has options that allow you to filter by a specific controller o
 See more: {ref}`command-juju-secret-backends`
 ```
 
-## View all the secret backends active in a model
+## Set or get the secret backend for a model
 
-To see all the secret backends in use on a model, use the `show-model` command. Beginning with Juju `3.1`, this command also shows the secret backends (though you might have to scroll down to the end).
-
-```text
-juju show-model
-```
-
-````{dropdown} Example output
+**Set.** To set the secret backend to be used by a model, run the `model-secret-backend` command followed by the name of the desired secret backend. For example:
 
 ```text
-mymodel:
-  name: admin/mymodel
-  short-name: mymodel
-  model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
-  model-type: iaas
-  controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
-  controller-name: kontroll
-  owner: admin
-  cloud: aws
-  region: us-east-1
-  type: ec2
-  life: alive
-  status:
-	current: available
-  users:
-	admin:
-  	display-name: admin
-  	access: admin
-  	last-connection: just now
-  machines:
-	"0":
-  	  cores: 0
-	"1":
-  	  cores: 2
-  secret-backends:
-	myothersecrets:
-  	  status: active
-	  secrets: 6
-	mysecrets:
-  	  status:draining
-	  secrets: 5
+juju model-secret-backend myVault
 ```
 
-````
+**Get.** To get the secret backend currently in use by a model, run the `model-secret-backend` command:
+
+```text
+juju model-secret-backend
+```
 
 ```{ibnote}
-See more: {ref}`command-juju-show-model`
-```
-
-## Change the secret backend to be used by a model
-
-To change the secret backend to be used by a model, use the `model-config` command with the `secret-backend` key configured to the name of the secret backend that you want to use, for example, `myothersecrets`:
-
-```text
-juju model-config secret-backend=myothersecrets
-```
-
-After the switch, any new secret revisions are stored in the new backend. Existing revisions continue to be read from the old backend.
-
-```{ibnote}
-See more: {ref}`configure-a-model`, {ref}`model-config-secret-backend`
+See more: {ref}`command-juju-model-secret-backend`
 ```
 
 ## View details about a secret backend

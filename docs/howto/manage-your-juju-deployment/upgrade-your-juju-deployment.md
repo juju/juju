@@ -80,44 +80,17 @@ See more: {ref}`upgrade-juju`
 ```
 
 
-2. It is not possible to upgrade a controller's minor or major version in place. Use the upgraded client to bootstrap a new controller of the target version, then clone your old controller's users, permissions, configurations, etc., into the new controller (for machine controllers, using our backup and restore tooling). For example:
-
-```text
-# Use the new client to bootstrap a controller:
-juju bootstrap <cloud> newcontroller
-
-# Create a backup of the old controller's controller model
-# and make note of the path to the backup file:
-juju create-backup -m oldcontroller:controller
-# Sample output:
-# >>> ...
-# >>>  Downloaded to juju-backup-20221109-090646.tar.gz
-
-# Download the stand-alone juju-restore tool:
-wget https://github.com/juju/juju-restore/releases/latest/download/juju-restore
-chmod +x juju-restore
-
-# Switch to the new controller's controller model:
-juju switch newcontroller:controller
-
-# Copy the juju-restore tool to the primary controller machine:
-juju scp juju-restore 0:
-
-# Copy the backup file to the primary controller machine:
-juju scp <path to backup> 0:
-
-# SSH into the primary controller machine:
-juju ssh 0
-
-# Start the restore with the '--copy-controller' flag:
-./juju-restore --copy-controller <path to backup>
-# Congratulations, your <old version> controller config has been cloned into your <new version> controller.
-
-```
+2. It is not possible to upgrade a controller's minor or major version in place. Use the upgraded client to bootstrap a new controller of the target version, then clone your old controller's users, permissions, configurations, etc., into the new controller.
 
 ```{ibnote}
 See more: {ref}`upgrade-a-controllers-minor-or-major-version`
 ```
+
+If you care about a specific base:
+
+- at bootstrap, use:  `juju bootstrap aws aws-new --bootstrap-base=<base>`.
+- for new machines on migrated models, use: `juju model-config -m <model name> default-base=<base>`.
+- for new machines on new models, use: `juju model-defaults default-base=<base>`.
 
 3. Migrate your old controller's models to the new controller and upgrade them to match the version of the new controller. Optionally, for each application on the model: Upgrade the application's charm. For example:
 

@@ -67,34 +67,32 @@ Example: `vpc-a1b2c3d4`
 
 ## Supported constraints
 
-| {ref}`CONSTRAINT <constraint>`         |                                                                                                                                                                   |
-|----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| conflicting:                           | `instance-type` vs. `[cores, cpu-power, mem]`                                                                                                                     |
-| supported?                             |                                                                                                                                                                   |
-| - {ref}`constraint-allocate-public-ip` | &#10003;                                                                                                                                                          |
-| - {ref}`constraint-arch`               | &#10003;                                                                                                                                                          |
-| - {ref}`constraint-container`          | &#10003;                                                                                                                                                          |
-| - {ref}`constraint-cores`              | &#10003;                                                                                                                                                          |
-| - {ref}`constraint-cpu-power`          | &#10003;                                                                                                                                                          |
-| - {ref}`constraint-image-id`           | &#10003;  (Starting with Juju 3.3) <br> Type: String. <br> Valid values: An AMI.                                                                                  |
-| - {ref}`constraint-instance-role`      | &#10003;  <br> Value: `auto` or an [instance profile](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) name. |
-| - {ref}`constraint-instance-type`      | &#10003;  <br> Valid values: See cloud provider. <br> Default value: `m3.medium`.                                                                                 |
-| - {ref}`constraint-mem`                | &#10003;                                                                                                                                                          |
-| - {ref}`constraint-root-disk`          | &#10003;                                                                                                                                                          |
-| - {ref}`constraint-root-disk-source`   | &#10003;                                                                                                                                                          |
-| - {ref}`constraint-spaces`             | &#10003;                                                                                                                                                          |
-| - {ref}`constraint-tags`               | &#10005;                                                                                                                                                          |
-| - {ref}`constraint-virt-type`          | &#10005;                                                                                                                                                          |
-| - {ref}`constraint-zones`              | &#10003;                                                                                                                                                          |
-
+| {ref}`CONSTRAINT <constraint>`         |                                                     |
+|----------------------------------------|-----------------------------------------------------|
+| conflicting:                           | `instance-type` vs. `[cores, cpu-power, mem]` |
+| supported?                             |                                                     |
+| - {ref}`constraint-allocate-public-ip` | &#10003;                                            |
+| - {ref}`constraint-arch`               | &#10003;                                            |
+| - {ref}`constraint-cores`              | &#10003;                                            |
+| - {ref}`constraint-cpu-power`          | &#10003;                                            |
+| - {ref}`constraint-image-id`           | &#10003; <br> An AMI.                               |
+| - {ref}`constraint-instance-role`      | &#10005; <br> Value: `auto` or an [instance profile](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) name.|
+| - {ref}`constraint-instance-type`      | &#10003; <br> Valid values: See cloud provider.     |
+| - {ref}`constraint-mem`                | &#10003;                                            |
+| - {ref}`constraint-root-disk`          | &#10003;                                            |
+| - {ref}`constraint-root-disk-source`   | &#10003;                                            |
+| - {ref}`constraint-spaces`             | &#10003;                                            |
+| - {ref}`constraint-tags`               | &#10005;                                            |
+| - {ref}`constraint-virt-type`          | &#10005;                                            |
+| - {ref}`constraint-zones`              | &#10003;                                            |
 
 ## Supported placement directives
 
-| {ref}`PLACEMENT DIRECTIVE <placement-directive>` |                                                                                                                                                                                                                        |
-|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| {ref}`placement-directive-machine`               | &#10003;                                                                                                                                                                                                               |
-| {ref}`placement-directive-subnet`                | &#10003;                                                                                                                                                                                                               |
-| {ref}`placement-directive-system-id`             | &#10005;                                                                                                                                                                                                               |
+| {ref}`PLACEMENT DIRECTIVE <placement-directive>` ||
+|-|-|
+| {ref}`placement-directive-machine`               | &#10003; |
+| {ref}`placement-directive-subnet`                | &#10003; |
+| {ref}`placement-directive-system-id`             | &#10005;   |
 | {ref}`placement-directive-zone`                  | &#10003;  <br> If the query looks like a CIDR, then this will match subnets with the same CIDR. If it follows the syntax of a "subnet-XXXX", this will match the Subnet ID. Everything else is just matched as a Name. |
 
 ## Cloud-specific storage providers

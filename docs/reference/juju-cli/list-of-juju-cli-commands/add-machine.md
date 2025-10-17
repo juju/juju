@@ -6,7 +6,7 @@
 Provision a new machine or assign one to the model.
 
 ## Usage
-```juju add-machine [options] [<container-type>[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>```
+```juju add-machine [options] [lxd[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>```
 
 ### Options
 | Flag | Default | Usage |
@@ -83,9 +83,9 @@ The command operates in three modes, depending on the options provided:
 
   - provision a new machine from the cloud (default, see "Provisioning
     a new machine")
-  - create an operating system container (see "Container creation")
   - connect to a live computer and allocate it as a machine (see "Manual
     provisioning")
+  - create an operating system container (see "Container creation")
 
 The `add-machine` command is unavailable in Kubernetes clouds. Provisioning
 a new machine is unavailable on the manual cloud provider.
@@ -93,7 +93,6 @@ a new machine is unavailable on the manual cloud provider.
 Once the` add-machine` command has finished, the machine's ID can be
 used as a placement directive for deploying applications. Machine IDs
 are also accessible via `juju status` and `juju machines`.
-
 
 ### Provisioning a new machine
 
@@ -122,13 +121,11 @@ Manual provisioning is the process of installing Juju on an existing machine
 and bringing it under Juju's management. The Juju controller must be able to
 access the new machine over the network.
 
-
 ### Container creation
 
-If a operating system container type is specified (e.g., `lxd` or `kvm`),
-then `add-machine` will allocate a container of that type on a new machine
-instance. Both the new instance, and the new container will be available
-as machines in the model.
+If `lxd` is specified, `add-machine` will allocate a container of that type on a new machine
+instance. If this is used in conjunction with `--constraints virt-type=virtual-machine`,
+a virtual machine will be allocated.
 
 It is also possible to add containers to existing machines using the format
-`<container-type>:<machine-id>`. Constraints cannot be combined this mode.
+`lxd:<machine-id>`. Constraints cannot be combined in this mode.

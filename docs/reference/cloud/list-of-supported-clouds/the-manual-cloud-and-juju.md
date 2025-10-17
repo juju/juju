@@ -78,26 +78,7 @@ N/A
 
 ## Supported constraints
 
-| {ref}`CONSTRAINT <constraint>`         |                                                                                                                  |
-|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| conflicting:                           |                                                                                                                  |
-| supported?                             |                                                                                                                  |
-| - {ref}`constraint-allocate-public-ip` | &#10005;                                                                                                         |
-| - {ref}`constraint-arch`               | &#10003;  <br> Valid values: For controller: the host architecture. For other machines: the architecture from the machine hardware. |
-| - {ref}`constraint-container`          | &#10003;                                                                                                         |
-| - {ref}`constraint-cores`              | &#10003;                                                                                                         |
-| - {ref}`constraint-cpu-power`          | &#10005;                                                                                                         |
-| - {ref}`constraint-image-id`           | &#10005;                                                                                                         |
-| - {ref}`constraint-instance-role`      | &#10005;                                                                                                         |
-| - {ref}`constraint-instance-type`      | &#10005;                                                                                                         |
-| - {ref}`constraint-mem`                | &#10003;                                                                                                         |
-| - {ref}`constraint-root-disk`          | &#10003;                                                                                                         |
-| - {ref}`constraint-root-disk-source`   | &#10005;                                                                                                         |
-| - {ref}`constraint-spaces`             | &#10005;                                                                                                         |
-| - {ref}`constraint-tags`               | &#10005;                                                                                                         |
-| - {ref}`constraint-virt-type`          | &#10005;                                                                                                         |
-| - {ref}`constraint-zones`              | &#10003;                                                                                                         |
-
+N/A
 
 ## Supported placement directives
 

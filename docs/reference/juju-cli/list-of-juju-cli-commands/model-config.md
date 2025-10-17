@@ -307,7 +307,7 @@ The following keys are available:
       description: |-
         SSH allowlist is a comma-separated list of CIDRs from
         which machines in this model will accept connections to the SSH service.
-        Currently only the aws, gce, openstack providers support ssh-allow
+        Currently only the aws, gce, and openstack providers support ssh-allow
     ssl-hostname-verification:
       type: bool
       description: Whether SSL hostname verification is enabled (default true)

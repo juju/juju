@@ -57,7 +57,7 @@ You will need to create an OpenStack machine metadata. If the metadata is availa
 
 ## Cloud-specific model configuration keys
 
-### external-network
+### `external-network`
 The network label or UUID to create floating IP addresses on when multiple external networks exist.
 
 | | |
@@ -67,7 +67,7 @@ The network label or UUID to create floating IP addresses on when multiple exter
 | immutable | false |
 | mandatory | false |
 
-### use-openstack-gbp
+### `use-openstack-gbp`
 Whether to use Neutrons Group-Based Policy
 
 | | |
@@ -77,7 +77,7 @@ Whether to use Neutrons Group-Based Policy
 | immutable | false |
 | mandatory | false |
 
-### policy-target-group
+### `policy-target-group`
 The UUID of Policy Target Group to use for Policy Targets created.
 
 | | |
@@ -87,7 +87,7 @@ The UUID of Policy Target Group to use for Policy Targets created.
 | immutable | false |
 | mandatory | false |
 
-### use-default-secgroup
+### `use-default-secgroup`
 Whether new machine instances should have the "default" Openstack security group assigned in addition to juju defined security groups.
 
 | | |
@@ -97,7 +97,7 @@ Whether new machine instances should have the "default" Openstack security group
 | immutable | false |
 | mandatory | false |
 
-### network
+### `network`
 The network label or UUID to bring machines up on when multiple networks exist.
 
 | | |
@@ -109,25 +109,24 @@ The network label or UUID to bring machines up on when multiple networks exist.
 
 ## Supported constraints
 
-| {ref}`CONSTRAINT <constraint>`         |                                                                                                |
-|----------------------------------------|------------------------------------------------------------------------------------------------|
-| conflicting:                           | `{ref}`instance-type]` vs. `[mem, root-disk, cores]`                                           |
-| supported?                             |                                                                                                |
-| - {ref}`constraint-allocate-public-ip` | &#10003;                                                                                       |
-| - {ref}`constraint-arch`               | &#10003;                                                                                       |
-| - {ref}`constraint-container`          | &#10003;                                                                                       |
-| - {ref}`constraint-cores`              | &#10003;                                                                                       |
-| - {ref}`constraint-cpu-power`          | &#10005;                                                                                       |
-| - {ref}`constraint-image-id`           | &#10003; (Starting with Juju 3.3) <br> Type: String. <br> Valid values: An OpenStack image ID. |
-| - {ref}`constraint-instance-role`      | &#10005;                                                                                       |
-| - {ref}`constraint-instance-type`      | &#10003; <br> Valid values: Any (cloud admin) user defined OpenStack flavor.                   |
-| - {ref}`constraint-mem`                | &#10003;                                                                                       |
-| - {ref}`constraint-root-disk`          | &#10003;                                                                                       |
-| - {ref}`constraint-root-disk-source`   | &#10003; <br> `root-disk-source` is either `local` or `volume`.                                |
-| - {ref}`constraint-spaces`             | &#10005;                                                                                       |
-| - {ref}`constraint-tags`               | &#10005;                                                                                       |
-| - {ref}`constraint-virt-type`          | &#10003; <br> Valid values: `[kvm, lxd]`.                                                      |
-| - {ref}`constraint-zones`                         | &#10003;                                                                                       |
+| {ref}`CONSTRAINT <constraint>`         |                                                     |
+|----------------------------------------|-----------------------------------------------------|
+| conflicting:                           | `instance-type` vs. `[mem, root-disk, cores]` |
+| supported?                             |                                                     |
+| - {ref}`constraint-allocate-public-ip` | &#10003;                                            |
+| - {ref}`constraint-arch`               | &#10003;                                            |
+| - {ref}`constraint-cores`              | &#10003;                                            |
+| - {ref}`constraint-cpu-power`          | &#10005;                                            |
+| - {ref}`constraint-image-id`           | &#10005; <br> An OpenStack image ID.                |
+| - {ref}`constraint-instance-role`      | &#10005;                                            |
+| - {ref}`constraint-instance-type`      | &#10003; <br> Any OpenStack flavor defined by an OpenStack cloud admin. |
+| - {ref}`constraint-mem`                | &#10003;                                            |
+| - {ref}`constraint-root-disk`          | &#10003;                                            |
+| - {ref}`constraint-root-disk-source`   | &#10003; <br> Valid values: `[local, volume]`.      |
+| - {ref}`constraint-spaces`             | &#10005;                                            |
+| - {ref}`constraint-tags`               | &#10005;                                            |
+| - {ref}`constraint-virt-type`          | &#10003;                                            |
+| - {ref}`constraint-zones`              | &#10003;                                            |
 
 ## Supported placement directives
 

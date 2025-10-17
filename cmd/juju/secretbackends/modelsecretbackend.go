@@ -54,11 +54,11 @@ Sets or displays the secret backend for the current model.
 	modelSecretBackendExamples = `
 Display the secret backend for the current model:
 
-   juju model-secret-backend
+    juju model-secret-backend
 
 Set the secret backend to myVault for the current model:
 
-   juju model-secret-backend myVault
+    juju model-secret-backend myVault
 `
 )
 

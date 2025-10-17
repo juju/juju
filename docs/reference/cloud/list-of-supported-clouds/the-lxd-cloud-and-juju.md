@@ -92,26 +92,24 @@ The LXD project name to use for Juju's resources.
 With LXD system containers, constraints are interpreted as resource *maximums* (as opposed to *minimums*). <p> There is a 1:1 correspondence between a Juju machine and a LXD container. Compare `juju machines` and `lxc list`.
 ```
 
-| {ref}`CONSTRAINT <constraint>`         |                                                                                                                                                         |
-|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| conflicting:                           |                                                                                                                                                         |
-| supported?                             |                                                                                                                                                         |
-| - {ref}`constraint-allocate-public-ip` | &#10005;                                                                                                                                                |
-| - {ref}`constraint-arch`               | &#10003;  <br> Valid values: `[host arch]`.                                                                                                             |
-| - {ref}`constraint-container`          | &#10005;                                                                                                                                                |
-| - {ref}`constraint-cores`              | &#10003;                                                                                                                                                |
-| - {ref}`constraint-cpu-power`          | &#10005;                                                                                                                                                |
-| - {ref}`constraint-image-id`           | &#10005;                                                                                                                                                |
-| - {ref}`constraint-instance-role`      | &#10005;                                                                                                                                                |
-| - {ref}`constraint-instance-type`      |                                                                                                                                                         |
-| - {ref}`constraint-mem`                | The maximum amount of memory that a machine/container will have.                                                                                        |
-| - {ref}`constraint-root-disk`          |                                                                                                                                                         |
-| - {ref}`constraint-root-disk-source`   | &#10003;  <br> `root-disk-source` is the LXD storage pool for the root disk. The default LXD storage pool is used if root-disk-source is not specified. |
-| - {ref}`constraint-spaces`             | &#10005;                                                                                                                                                |
-| - {ref}`constraint-tags`               | &#10005;                                                                                                                                                |
-| - {ref}`constraint-virt-type`          | &#10003;                                                                                                                                                |
-| - {ref}`constraint-zones`              | &#10003;  <br> `zones` are the LXD node name(s).                                                                                                        |
-
+| {ref}`CONSTRAINT <constraint>`         |                                                     |
+|----------------------------------------|-----------------------------------------------------|
+| conflicting:                           | `instance-type` vs. `[arch, cores, cpu-power, mem]` |
+| supported?                             |                                                     |
+| - {ref}`constraint-allocate-public-ip` | &#10005;                                            |
+| - {ref}`constraint-arch`               | &#10003;  <br> Valid values: `[host arch]`          |
+| - {ref}`constraint-cores`              | &#10003;                                            |
+| - {ref}`constraint-cpu-power`          | &#10005;                                            |
+| - {ref}`constraint-image-id`           | &#10005;                                            |
+| - {ref}`constraint-instance-role`      | &#10005;                                            |
+| - {ref}`constraint-instance-type`      | TBA                                                 |
+| - {ref}`constraint-mem`                | &#10003; <br> The maximum amount of memory that a machine/container will have.|
+| - {ref}`constraint-root-disk`          | &#10003;                                            |
+| - {ref}`constraint-root-disk-source`   | &#10003; <br> The LXD storage pool for the root disk. The default LXD storage pool is used if `root-disk-source` is not specified. |
+| - {ref}`constraint-spaces`             | &#10005;                                            |
+| - {ref}`constraint-tags`               | &#10005;                                            |
+| - {ref}`constraint-virt-type`          | &#10005;                                            |
+| - {ref}`constraint-zones`              | &#10003; <br> The LXD node name(s).                 |
 
 ## Supported placement directives
 

@@ -724,10 +724,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *tc.C) {
 		c.Fatal(errors.Annotate(err, "cannot write to metadata.yaml"))
 	}
 
-	// TODO (jam) 2024-11-15: this test is kept for backward compatibility,
-	//  in 3.x the --force-series argument exists, though it is being
-	//  replaced by --force-base
-	_, err = s.runRefresh(c, "multi-series", "--path", s.archivePath(c, repoPath), "--force-series")
+	_, err = s.runRefresh(c, "multi-series", "--path", s.archivePath(c, repoPath), "--force-base")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")

@@ -18,7 +18,7 @@ Generate the documentation for all commands
 ## Examples
 
     juju documentation
-    juju documentation --split 
+    juju documentation --split
     juju documentation --split --no-index --out /tmp/docs
 
 To render markdown documentation using a list of existing

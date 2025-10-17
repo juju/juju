@@ -82,6 +82,7 @@ The preferred storage class used to provision workload storage.
 
 ## Supported constraints
 
+Only `cpu-power`, `mem`, and `tags` are supported. They apply to the containers provisioned through the Kubernetes cloud.
 
 | {ref}`CONSTRAINT <constraint>`         |                                               |
 |----------------------------------------|-----------------------------------------------|
@@ -89,13 +90,12 @@ The preferred storage class used to provision workload storage.
 | supported?                             |                                               |
 | - {ref}`constraint-allocate-public-ip` | &#10005;                                      |
 | - {ref}`constraint-arch`               | &#10005;                                      |
-| - {ref}`constraint-container`          | &#10005;                                      |
 | - {ref}`constraint-cores`              | &#10005;                                      |
-| - {ref}`constraint-cpu-power`          | &#10003;                                      |
+| - {ref}`constraint-cpu-power`          | &#10003; <br> The maximum CPU for a provisioned container.|
 | - {ref}`constraint-image-id`           | &#10005;                                      |
 | - {ref}`constraint-instance-role`      | &#10005;                                      |
 | - {ref}`constraint-instance-type`      | &#10005;                                      |
-| - {ref}`constraint-mem`                | &#10003;                                      |
+| - {ref}`constraint-mem`                | &#10003; <br> The maximum memory for a provisioned container.|
 | - {ref}`constraint-root-disk`          | &#10005;                                      |
 | - {ref}`constraint-root-disk-source`   | &#10005;                                      |
 | - {ref}`constraint-spaces`             | &#10005;                                      |

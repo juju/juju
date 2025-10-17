@@ -32,7 +32,8 @@ contributor/unsorted/what-we-run-and-why contributor
 contributor/unsorted/simplestreams-metadata reference/metadata
 contributor/unsorted/architectural-overview contributor/reference/architectural-overview
 contributor/unsorted/high-availability contributor/reference/high-availability
-contributor/unsorted/observing-mongodb-performance contributor/howto/manage-mongodb
+contributor/unsorted/observing-mongodb-performance contributor/howto/
+contributor/howto/manage-mongodb contributor/howto/
 contributor/unsorted/writing-workers contributor/reference/writing-workers/
 contributor/unsorted contributor
 contributor/tutorial contributor
@@ -46,7 +47,8 @@ user/explanation explanation
 user/explanation/juju-security explanation/juju-security
 user/explanation/performance-with-juju explanation/performance-with-juju
 user/howto/define-resource-tags-in-a-cloud howto/define-resource-tags-in-a-cloud
-user/howto/fan-container-networking howto/fan-container-networking
+user/howto/fan-container-networking howto/
+howto/fan-container-networking howto/
 user/howto howto
 user/howto/manage-actions howto/manage-actions
 user/howto/manage-applications howto/manage-applications

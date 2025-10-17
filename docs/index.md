@@ -81,6 +81,6 @@ Juju is an open source project that warmly welcomes community projects, contribu
 * [Join our forum ](https://discourse.charmhub.io/)
 * [Report a bug](https://github.com/juju/juju/issues)
 * [Contribute](https://github.com/juju/juju/blob/main/CONTRIBUTING.md)
-* [Visit our careers page](https://juju.is/careers)
+* [Visit our careers page](https://canonical.com/careers/engineering)
 
 Thinking about using Juju for your next project? [Get in touch](https://canonical.com/contact-us)!

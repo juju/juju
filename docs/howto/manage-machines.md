@@ -23,7 +23,7 @@ To add a new machine to a model, run the `add-machine` command, as below. `juju`
 juju add-machine
 ```
 
-The command also provides many options. By using them you can customize many things. For example, you can provision multiple machines, specify the Ubuntu series to be installed on them, choose to deploy on a lxd container *inside* a machine, apply various constraints to the machine (e.g., storage, spaces, ...) to override more general defaults (e.g., at the model level), etc.
+The command also provides many options. By using them you can customize many things. For example, you can provision multiple machines, specify a base, choose to deploy on a LXD container *inside* a machine, apply various constraints to the machine (e.g., storage, spaces, ...) to override more general defaults (e.g., at the model level), etc.
 
 Machines provisioned via `add-machine` can be used for an initial deployment (`deploy`) or a scale-out deployment (`add-unit`).
 
@@ -384,94 +384,6 @@ Juju cannot transfer files between two remote units because it uses public key a
 See more: {ref}`command-juju-scp`
 ```
 
-(upgrade-a-machine)=
-## Upgrade a machine
-
-```{ibnote}
-See also: `upgrading-things`
-```
-
-The process for how to upgrade a machine depends on whether the machine is a controller machine or a workload machine.
-
-### Upgrade a controller machine
-
-It is not possible to upgrade a controller machine. Instead, you must bootstrap a new controller with the intended base, migrate your old models to it, configure the models to the new base, and then remove the old controller, as shown below.
-
-**1. Create a new controller with the intended base.** To create a new controller with a base of your choice, run the `bootstrap` command with the `bootstrap-base` flag. For example:
-
-
-```text
-juju bootstrap aws aws-new --bootstrap-base=<base>
-```
-
-```{ibnote}
-See more: {ref}`bootstrap-a-controller`, {ref}`command-juju-bootstrap` > `--bootstrap-base`
-```
-
-**2. Migrate your existing models to the new controller.**
-
-```{ibnote}
-See more: {ref}`migrate-a-model`
-```
-
-**3. Configure the migrated models such that all new machines have the new base.**
-
-``` text
-juju model-config -m <model name> default-base=<base>
-```
-
-**4. Destroy the old controller.**
-
-``` text
-juju destroy-controller aws-old
-```
-
-### Upgrade a workload machine
-
-```{caution}
-Support for upgrading the base for an individual machine after it has been provisioned will be removed starting with Juju 4. See more: [Discourse | Juju 4.0 to remove `upgrade-machine`...](https://discourse.charmhub.io/t/juju-4-0-to-remove-upgrade-machine-and-set-application-base/14758).
-```
-
-**1. Tell Juju to take the machine out of circulation, in preparation for an upgrade.** To achieve this, run the `upgrade-machine` command followed by the machine ID, the subcommand `prepare`, and the base to upgrade to. For example, the code below tells `juju` to prepare machine 3 for an upgrade to `ubuntu@22.04`.
-
-```{caution}
-Once the `prepare` command has been issued, there is no way to cancel or abort the process. Once you commit to prepare you must complete the process or you will end up with an unusable machine!
-```
-
-```{caution}
-**If you're using Juju <3.1:** Instead of a {ref}`machine-base` you must specify the series. Thus, not `ubuntu@22.04` but rather `jammy`.
-```
-
-```text
-juju upgrade-machine 3 prepare ubuntu@22.04
-```
-
-This has multiple effects:
-
-1.  The machine is no longer available for charm deployments or for hosting new containers.
-2. Juju prepares the machine for the upcoming OS upgrade. All units on the machine are taken into account.
-
-**2. Perform the upgrade.** This is done manually. On an Ubuntu-based machine, you can do this by logging in to the machine via SSH and executing the `do-release-upgrade` command:
-
-```text
-juju ssh 3
-$ do-release-upgrade
-```
-
-Make sure to reserve some time for maintenance, in case any issues arise.
-
-**3. Tell Juju that the machine has been successfully upgraded.** To achieve this, run the `upgrade-machine` command with the `complete` subcommand.
-
-```text
-juju upgrade-machine 3 complete
-```
-
-Done! The upgraded machine is again available for charm deployments.
-
-```{ibnote}
-See more: {ref}`command-juju-upgrade-machine` (before Juju 3, `upgrade-series`)
-```
-
 ## Remove a machine
 
 ```{ibnote}
@@ -497,45 +409,3 @@ By using various options, you can also customize various other things, for examp
 ```{ibnote}
 See more: {ref}`command-juju-remove-machine`
 ```
-
-<!--
-By default, when a machine is removed, the backing system, typically a cloud instance, is also destroyed. The for example, `--keep-instance` option overrides this; it allows the instance to be left running.
--->
-
-<!--DETAILS FOR ADD-MACHINE, originally from https://discourse.charmhub.io/t/how-to-set-constraints-for-a-machine/5884
-Constraints at the machine level can be set when adding a machine with the `add-machine` command. Doing so provides a way to override defaults at the all-units, application, model, and all-models levels.
-
-Once such a machine has been provisioned, it can be used for an initial deployment (`deploy`) or a scale-out deployment (`add-unit`). See {ref}`Deploying to specific machines <5886md` for the command syntax to use.
-
-A machine with a constraint can be added in this way:
-
-``` text
-juju add-machine --constraints arch=arm
-```
-
-To add a machine that is connected to a space, for example `storage`, run:
-
-``` text
-juju add-machine --constraints spaces=storage
-```
-
-If a space constraint is prefixed by '^', then the machine will **not** be connected to that space. For example, the command below will result in an instance that is connected to both the `db-space` and `internal` spaces but not connected to either the `storage` or `dmz` spaces.
-
-``` text
---constraints spaces=db-space,^storage,^dmz,internal
-```
-
-See the {ref}`network spaces <space` page for details on spaces.
-
-For a LXD cloud, to create a machine limited to two CPUs:
-
-``` text
-juju add-machine --constraints cores=2
-```
-
-To add eight Xenial machines such that they are evenly distributed among four availability zones:
-
-``` text
-juju add-machine -n 8 --series xenial --constraints zones=us-east-1a,us-east-1b,us-east-1c,us-east-1d
-```
--->

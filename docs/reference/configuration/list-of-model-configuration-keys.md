@@ -151,17 +151,6 @@ List of domain addresses not to be proxied for APT (comma-separated).
 
 **Type:** string
 
-
-(model-config-container-image-metadata-defaults-disabled)=
-## `container-image-metadata-defaults-disabled`
-
-`container-image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata with containers.
-
-**Type:** boolean
-
-**Default value:** false
-
-
 (model-config-automatically-retry-hooks)=
 ## `automatically-retry-hooks`
 
@@ -190,7 +179,7 @@ above, as with earlier versions of Juju.
 Even with the automatic retry enabled, it is still possible to use retry
 manually using:
 
-	juju resolved unit-name/# 
+	juju resolved unit-name/#
 
 
 
@@ -301,17 +290,14 @@ been previously set.
 - custom cloudinit-userdata must be passed via file, not as options on the command
 line (like the config command)
 
-
-
 (model-config-container-image-metadata-defaults-disabled)=
 ## `container-image-metadata-defaults-disabled`
 
-Whether default simplestreams sources are used for image metadata with containers.
+`container-image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata with containers.
 
 **Default value:** `false`
 
 **Type:** bool
-
 
 (model-config-container-image-metadata-url)=
 ## `container-image-metadata-url`
@@ -322,7 +308,6 @@ The URL at which the metadata used to locate container OS image ids is located.
 
 **Type:** string
 
-
 (model-config-container-image-stream)=
 ## `container-image-stream`
 
@@ -331,7 +316,6 @@ The simplestreams stream used to identify which image ids to search when startin
 **Default value:** `released`
 
 **Type:** string
-
 
 (model-config-container-inherit-properties)=
 ## `container-inherit-properties`
@@ -343,7 +327,6 @@ List of properties to be copied from the host machine to new containers created 
 **Type:** string
 
 **Description:**
-
 
 The container-inherit-properties key allows for a limited set of parameters
 enabled on a Juju machine to be inherited by any hosted containers (KVM guests
@@ -519,7 +502,7 @@ Arbitrary user specified string data that is stored against the model.
 (model-config-firewall-mode)=
 ## `firewall-mode`
 
-*Note: This value cannot be changed after model creation.* 
+*Note: This value cannot be changed after model creation.*
 
 The mode to use for network firewalling.
 
@@ -591,16 +574,6 @@ Whether default simplestreams sources are used for image metadata.
 **Default value:** `false`
 
 **Type:** bool
-
-
-(model-config-image-metadata-defaults-disabled)=
-## `image-metadata-defaults-disabled`
-
-`image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata.
-
-**Type:** boolean
-
-**Default value:** false
 
 (model-config-image-metadata-url)=
 ## `image-metadata-url`
@@ -798,9 +771,9 @@ potentially valuable resources.
 (model-config-name)=
 ## `name`
 
-*Note: This value cannot be changed after model creation.* 
+*Note: This value cannot be changed after model creation.*
 
-*Note: This value must be set.* 
+*Note: This value must be set.*
 
 The name of the current model.
 
@@ -935,7 +908,7 @@ The URL for the defined snap store proxy.
 
 SSH allowlist is a comma-separated list of CIDRs from
 which machines in this model will accept connections to the SSH service.
-Currently only the aws & openstack providers support ssh-allow.
+Currently only the aws, gce, and openstack providers support ssh-allow.
 
 **Default value:** `0.0.0.0/0,::/0`
 
@@ -997,9 +970,9 @@ Determines whether metrics declared by charms deployed into this model are sent 
 (model-config-type)=
 ## `type`
 
-*Note: This value cannot be changed after model creation.* 
+*Note: This value cannot be changed after model creation.*
 
-*Note: This value must be set.* 
+*Note: This value must be set.*
 
 Type of model, e.g. local, ec2.
 

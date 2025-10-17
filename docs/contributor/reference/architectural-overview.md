@@ -10,7 +10,7 @@ light on detail, because the precise mechanisms of various components' operation
 expected to change much faster than the general interactions between components.
 
 
-## The view From space
+## The view from space
 
 A Juju model is a distributed system comprising:
 
@@ -120,11 +120,6 @@ state layer to deal with the database and a service layer to provide access to t
 
 Each DQLite instance is embedded in a controller instance, and this controller instance
 is the only instance which is allowed to access to its database instance.
-
-There's some documentation on how to work with the `domain` pacakge:
-and plenty more on the [state entities](lifecycles.md) and the details of their
-[creation](entity-creation.md) and [destruction](death-and-destruction.md) from various
-perspectives; but there's not a lot more to say in this context.
 
 ## API
 

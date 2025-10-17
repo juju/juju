@@ -68,8 +68,7 @@ The OCID of the compartment in which juju has access to create resources.
 | conflicting:                           |                                               |
 | supported?                             |                                               |
 | - {ref}`constraint-allocate-public-ip` | TBA                                           |
-| - {ref}`constraint-arch`               | &#x2611; <br> Valid values: `[amd64, arm64]`. |
-| - {ref}`constraint-container`          | &#10005;                                      |
+| - {ref}`constraint-arch`               | &#10003; <br> Valid values: `[amd64, arm64]`. |
 | - {ref}`constraint-cores`              | &#10003;                                      |
 | - {ref}`constraint-cpu-power`          | &#10003;                                      |
 | - {ref}`constraint-image-id`           | &#10005;                                      |

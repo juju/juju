@@ -17,7 +17,7 @@ Refresh an application's charm.
 | `--channel` |  | Channel to use when getting the charm from Charmhub |
 | `--config` |  | Either a path to yaml-formatted application config file or a key=value pair  |
 | `--force` | false | Allow a charm to be refreshed which bypasses LXD profile allow list |
-| `--force-base`, `--force-series` | false | Refresh even if the base of the deployed application is not supported by the new charm |
+| `--force-base` | false | Refresh even if the base of the deployed application is not supported by the new charm |
 | `--force-units` | false | Refresh all units immediately, even if in error state |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--path` |  | Refresh to a charm located at path |
@@ -81,9 +81,9 @@ Charm settings may be added or updated at upgrade time by specifying the
 
     juju refresh foo --config config.yaml
 
-If the new version of a charm does not explicitly support the application's series, the
-upgrade is disallowed unless the --force-series option is used. This option should be
-used with caution since using a charm on a machine running an unsupported series may
+If the new version of a charm does not explicitly support the application's base, the
+upgrade is disallowed unless the --force-base option is used. This option should be
+used with caution since using a charm on a machine running an unsupported base may
 cause unexpected behavior.
 
 The `--switch` option allows you to replace the charm with an entirely different one.
