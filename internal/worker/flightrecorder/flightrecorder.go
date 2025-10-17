@@ -30,6 +30,31 @@ type FileRecorder interface {
 	Enabled() bool
 }
 
+type requestType int
+
+const (
+	requestTypeStart requestType = iota
+	requestTypeStop
+	requestTypeEnabled
+)
+
+type request struct {
+	Type     requestType
+	Kind     flightrecorder.Kind
+	Duration time.Duration
+	Result   chan response
+}
+
+type captureRequest struct {
+	Kind   flightrecorder.Kind
+	Result chan response
+}
+
+type response struct {
+	Error   error
+	Enabled bool
+}
+
 type report struct {
 	Enabled bool
 	Kind    flightrecorder.Kind
@@ -47,12 +72,14 @@ type FlightRecorder struct {
 
 	path     string
 	recorder FileRecorder
-	logger   logger.Logger
 
-	currentKind flightrecorder.Kind
-	requests    chan request
+	currentKind    flightrecorder.Kind
+	requests       chan request
+	captureRequest chan captureRequest
 
 	reports chan chan report
+
+	logger logger.Logger
 }
 
 // New creates a new flight recorder worker.
@@ -60,11 +87,17 @@ func New(recorder FileRecorder, path string, logger logger.Logger) *FlightRecord
 	w := &FlightRecorder{
 		recorder:    recorder,
 		path:        path,
-		logger:      logger,
 		currentKind: flightrecorder.KindAll,
 
 		requests: make(chan request),
 		reports:  make(chan chan report),
+
+		// Only allow one capture request at a time, if there are multiple ones
+		// in flight, ignore it and return an error to allow the caller
+		// to decide what to do.
+		captureRequest: make(chan captureRequest, 1),
+
+		logger: logger,
 	}
 
 	w.tomb.Go(w.loop)
@@ -82,7 +115,9 @@ func (w *FlightRecorder) Wait() error {
 	return w.tomb.Wait()
 }
 
-// Start starts the flight recorder.
+// Start starts the flight recorder for at least the supplied duration with the
+// recorder only being stopped by a direct call to [Recorder.Stop] or a
+// [Recorder.Capture] call that finishes after this duration.
 func (w *FlightRecorder) Start(kind flightrecorder.Kind, duration time.Duration) error {
 	request := request{
 		Type:     requestTypeStart,
@@ -127,11 +162,13 @@ func (w *FlightRecorder) Stop() error {
 	}
 }
 
-// Capture captures a flight recording.
+// Capture instructs the flight recorder to capture a recording of the
+// specified kind. If the recorder is not currently recording, this is a no-op.
+// If the capture is already in progress, an error is returned, to prevent
+// piling up multiple requests.
 func (w *FlightRecorder) Capture(kind flightrecorder.Kind) error {
 	result := make(chan response, 1)
-	req := request{
-		Type:   requestTypeCapture,
+	req := captureRequest{
 		Kind:   kind,
 		Result: result,
 	}
@@ -139,7 +176,11 @@ func (w *FlightRecorder) Capture(kind flightrecorder.Kind) error {
 	select {
 	case <-w.tomb.Dying():
 		return errors.New("worker is stopping")
-	case w.requests <- req:
+	case w.captureRequest <- req:
+	default:
+		// If there is already a capture request in flight, return an error,
+		// so we don't pile up multiple requests.
+		return errors.New("flight recorder capture already in progress")
 	}
 
 	select {
@@ -212,8 +253,6 @@ func (w *FlightRecorder) loop() error {
 				err = w.startRecording(ctx, req.Kind, req.Duration)
 			case requestTypeStop:
 				err = w.stopRecording(ctx)
-			case requestTypeCapture:
-				err = w.captureRecording(ctx, req.Kind)
 			case requestTypeEnabled:
 				enabled = w.recorder.Enabled()
 			default:
@@ -224,6 +263,15 @@ func (w *FlightRecorder) loop() error {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
 			case req.Result <- response{Error: err, Enabled: enabled}:
+			}
+
+		case req := <-w.captureRequest:
+			err := w.captureRecording(ctx, req.Kind)
+
+			select {
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case req.Result <- response{Error: err}:
 			}
 
 		case res := <-w.reports:
@@ -278,25 +326,4 @@ func (w *FlightRecorder) captureRecording(ctx context.Context, kind flightrecord
 	w.logger.Infof(ctx, "captured flight recording for %q into %q", kind, path)
 
 	return nil
-}
-
-type requestType int
-
-const (
-	requestTypeStart requestType = iota
-	requestTypeStop
-	requestTypeCapture
-	requestTypeEnabled
-)
-
-type request struct {
-	Type     requestType
-	Kind     flightrecorder.Kind
-	Duration time.Duration
-	Result   chan response
-}
-
-type response struct {
-	Error   error
-	Enabled bool
 }
