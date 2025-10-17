@@ -241,8 +241,8 @@ type Authorizer interface {
 	// GetAuthTag, as the other methods all are.
 	AuthController() bool
 
-	// TODO(wallyworld - bug 1733759) - the following auth methods should not be on this interface
-	// eg introduce a utility func or something.
+	// TODO(wallyworld - bug 1733759) - the following auth methods should not be
+	// on this interface eg introduce a utility func or something.
 
 	// AuthMachineAgent returns true if the entity is a machine agent.
 	AuthMachineAgent() bool
@@ -266,17 +266,21 @@ type Authorizer interface {
 	// target by the authenticated entity.
 	HasPermission(ctx context.Context, operation permission.Access, target names.Tag) error
 
-	// EntityHasPermission reports whether the given access is allowed for the given
-	// target by the given entity.
+	// EntityHasPermission reports whether the given access is allowed for the
+	// given target by the given entity.
 	EntityHasPermission(ctx context.Context, entity names.Tag, operation permission.Access, target names.Tag) error
 }
 
 // MacaroonAuthenticator provides methods to authenticate macaroons for cross
 // model operations.
 type MacaroonAuthenticator interface {
-	// CheckOfferMacaroons verifies that the specified macaroons allow access to the
-	// offer.
+	// CheckOfferMacaroons verifies that the specified macaroons allow access to
+	// the offer.
 	CheckOfferMacaroons(ctx context.Context, offeringModelUUID, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error)
+
+	// CheckRelationMacaroons verifies that the specified macaroons allow access
+	// to the relation.
+	CheckRelationMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, relationTag names.RelationTag, mac macaroon.Slice, version bakery.Version) error
 }
 
 // CrossModelAuthContext provides methods to create macaroons for cross model
@@ -286,8 +290,8 @@ type CrossModelAuthContext interface {
 	// access offers.
 	Authenticator() MacaroonAuthenticator
 
-	// CreateConsumeOfferMacaroon creates a macaroon that authorizes access to the
-	// specified offer.
+	// CreateConsumeOfferMacaroon creates a macaroon that authorizes access to
+	// the specified offer.
 	CreateConsumeOfferMacaroon(
 		ctx context.Context,
 		modelUUID model.UUID,
@@ -295,8 +299,8 @@ type CrossModelAuthContext interface {
 		version bakery.Version,
 	) (*bakery.Macaroon, error)
 
-	// CreateRemoteRelationMacaroon creates a macaroon that authorizes access to the
-	// specified relation.
+	// CreateRemoteRelationMacaroon creates a macaroon that authorizes access to
+	// the specified relation.
 	CreateRemoteRelationMacaroon(
 		ctx context.Context,
 		modelUUID model.UUID,
@@ -306,15 +310,15 @@ type CrossModelAuthContext interface {
 	) (*bakery.Macaroon, error)
 
 	// CheckLocalAccessRequest checks that the user in the specified permission
-	// check details has consume access to the offer in the details.
-	// It returns an error with a *bakery.VerificationError cause if the macaroon
+	// check details has consume access to the offer in the details. It returns
+	// an error with a *bakery.VerificationError cause if the macaroon
 	// verification failed. If the macaroon is valid, CheckLocalAccessRequest
 	// returns a list of caveats to add to the discharge macaroon.
 	CheckLocalAccessRequest(ctx context.Context, details crossmodelbakery.OfferAccessDetails) ([]checkers.Caveat, error)
 
-	// CheckOfferAccessCaveat checks that the specified caveat required to be satisfied
-	// to gain access to an offer is valid, and returns the attributes return to check
-	// that the caveat is satisfied.
+	// CheckOfferAccessCaveat checks that the specified caveat required to be
+	// satisfied to gain access to an offer is valid, and returns the attributes
+	// return to check that the caveat is satisfied.
 	CheckOfferAccessCaveat(ctx context.Context, caveat string) (crossmodelbakery.OfferAccessDetails, error)
 
 	// OfferThirdPartyKey returns the key used to discharge offer macaroons.
@@ -337,21 +341,20 @@ type WatcherRegistry interface {
 	// Get returns the watcher for the given id, or nil if there is no such
 	// watcher.
 	Get(string) (worker.Worker, error)
-	// Register registers the given watcher. It returns a unique identifier for the
-	// watcher which can then be used in subsequent API requests to refer to the
-	// watcher.
+	// Register registers the given watcher. It returns a unique identifier for
+	// the watcher which can then be used in subsequent API requests to refer to
+	// the watcher.
 	Register(context.Context, worker.Worker) (string, error)
 
 	// RegisterNamed registers the given watcher. Callers must supply a unique
 	// name for the given watcher. It is an error to try to register another
-	// watcher with the same name as an already registered name.
-	// It is also an error to supply a name that is an integer string, since that
-	// collides with the auto-naming from Register.
+	// watcher with the same name as an already registered name. It is also an
+	// error to supply a name that is an integer string, since that collides
+	// with the auto-naming from Register.
 	RegisterNamed(context.Context, string, worker.Worker) error
 
-	// Stop stops the resource with the given id and unregisters it.
-	// It returns any error from the underlying Stop call.
-	// It does not return an error if the resource has already
-	// been unregistered.
+	// Stop stops the resource with the given id and unregisters it. It returns
+	// any error from the underlying Stop call. It does not return an error if
+	// the resource has already been unregistered.
 	Stop(id string) error
 }
