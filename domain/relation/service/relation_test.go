@@ -645,6 +645,101 @@ func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
+func (s *relationServiceSuite) TestSetRelationRemoteApplicationAndUnitSettings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	applicationUUID := tc.Must(c, coreapplication.NewID)
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	applicationSettings := map[string]string{"foo": "bar"}
+	unitSettings := map[coreunit.Name]map[string]string{
+		coreunit.Name("app1/0"): {"ingress": "x.x.x.x"},
+	}
+	expectedUnitSettings := map[string]map[string]string{
+		unitName.String(): unitSettings[unitName],
+	}
+	s.state.EXPECT().SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), applicationUUID.String(), relationUUID.String(), applicationSettings, expectedUnitSettings).Return(nil)
+
+	// Act.
+	err := s.service.SetRelationRemoteApplicationAndUnitSettings(
+		c.Context(),
+		applicationUUID,
+		relationUUID,
+		applicationSettings,
+		unitSettings,
+	)
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationServiceSuite) TestSetRelationRemoteApplicationAndUnitSettingsInvalidApplicationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	applicationSettings := map[string]string{"foo": "bar"}
+	unitSettings := map[coreunit.Name]map[string]string{
+		coreunit.Name("app1/0"): {"ingress": "x.x.x.x"},
+	}
+
+	// Act.
+	err := s.service.SetRelationRemoteApplicationAndUnitSettings(
+		c.Context(),
+		"bad-uuid",
+		relationUUID,
+		applicationSettings,
+		unitSettings,
+	)
+	// Assert.
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestSetRelationRemoteApplicationAndUnitSettingsInvalidRelationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	applicationUUID := tc.Must(c, coreapplication.NewID)
+	applicationSettings := map[string]string{"foo": "bar"}
+	unitSettings := map[coreunit.Name]map[string]string{
+		coreunit.Name("app1/0"): {"ingress": "x.x.x.x"},
+	}
+
+	// Act.
+	err := s.service.SetRelationRemoteApplicationAndUnitSettings(
+		c.Context(),
+		applicationUUID,
+		"bad-uuid",
+		applicationSettings,
+		unitSettings,
+	)
+	// Assert.
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestSetRelationRemoteApplicationAndUnitSettingsInvalidUnitName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	applicationUUID := tc.Must(c, coreapplication.NewID)
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	applicationSettings := map[string]string{"foo": "bar"}
+	unitSettings := map[coreunit.Name]map[string]string{
+		coreunit.Name("!!!"): {"ingress": "x.x.x.x"},
+	}
+
+	// Act.
+	err := s.service.SetRelationRemoteApplicationAndUnitSettings(
+		c.Context(),
+		applicationUUID,
+		relationUUID,
+		applicationSettings,
+		unitSettings,
+	)
+	// Assert.
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
 func (s *relationServiceSuite) TestGetRelationUnitSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

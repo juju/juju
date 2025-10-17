@@ -43,6 +43,16 @@ const (
 	// that is not Alive.
 	CannotEnterScopeSubordinateNotAlive = errors.ConstError("cannot enter scope, subordinate unit exists but is not alive")
 
+	// CannotEnterScopePeerRelation indicates that a relation unit failed to
+	// enter its scope because the relation is a peer relation. This only
+	// applies to remote relations.
+	CannotEnterScopePeerRelation = errors.ConstError("entering scope for peer relation")
+
+	// CannotEnterScopeForSubordinate indicates that a relation unit failed to
+	// enter its scope because the unit is subordinate. This only applies to
+	// remote relations.
+	CannotEnterScopeForSubordinate = errors.ConstError("entering scope, unit application is a subordinate")
+
 	// PotentialRelationUnitNotValid describes an error that occurs during
 	// EnterScope pre-checks to ensure the created relation unit will be valid.
 	//
@@ -85,9 +95,6 @@ const (
 	// UnitDead describes an error that occurs when trying to update a
 	// unit that is dead.
 	UnitDead = errors.ConstError("unit is dead")
-
-	// UnitNotFound describes an error when the unit cannot be found.
-	UnitNotFound = errors.ConstError("unit not found")
 
 	// UnitPrincipalNotFound describes an error when the principal application
 	// of a unit cannot be found.

@@ -28,11 +28,11 @@ type entityUUID struct {
 }
 
 type relationUUID struct {
-	UUID corerelation.UUID `db:"uuid"`
+	UUID string `db:"uuid"`
 }
 
 type applicationUUID struct {
-	UUID application.UUID `db:"application_uuid"`
+	UUID string `db:"application_uuid"`
 }
 
 type relation struct {
@@ -51,7 +51,7 @@ type relationIDAndUUID struct {
 
 type relationIDUUIDAppName struct {
 	// UUID is the UUID of the relation.
-	UUID corerelation.UUID `db:"uuid"`
+	UUID string `db:"uuid"`
 	// ID is the numeric ID of the relation
 	ID int `db:"relation_id"`
 	// AppName is the name of the application
@@ -110,14 +110,14 @@ type getLife struct {
 }
 
 type getUnitApp struct {
-	ApplicationUUID application.UUID `db:"application_uuid"`
-	UnitUUID        string           `db:"uuid"`
+	ApplicationUUID string `db:"application_uuid"`
+	UnitUUID        string `db:"uuid"`
 }
 
 type getUnitRelAndApp struct {
-	ApplicationUUID  application.UUID      `db:"application_uuid"`
-	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
-	RelationUUID     corerelation.UUID     `db:"relation_uuid"`
+	ApplicationUUID  string `db:"application_uuid"`
+	RelationUnitUUID string `db:"uuid"`
+	RelationUUID     string `db:"relation_uuid"`
 }
 
 type scope struct {
@@ -125,19 +125,19 @@ type scope struct {
 }
 
 type getSubordinate struct {
-	ApplicationUUID application.UUID `db:"application_uuid"`
-	Subordinate     bool             `db:"subordinate"`
+	ApplicationUUID string `db:"application_uuid"`
+	Subordinate     bool   `db:"subordinate"`
 }
 
 // getPrincipal is used to get the principal application of a unit.
 type getPrincipal struct {
-	UnitUUID        string           `db:"unit_uuid"`
-	ApplicationUUID application.UUID `db:"application_uuid"`
+	UnitUUID        string `db:"unit_uuid"`
+	ApplicationUUID string `db:"application_uuid"`
 }
 
 type relationAndApplicationUUID struct {
-	RelationUUID  corerelation.UUID `db:"relation_uuid"`
-	ApplicationID application.UUID  `db:"application_uuid"`
+	RelationUUID  string `db:"relation_uuid"`
+	ApplicationID string `db:"application_uuid"`
 }
 
 type relationSetting struct {
@@ -316,4 +316,10 @@ type applicationUUIDAndName struct {
 // rows is used to count the number of rows found.
 type rows struct {
 	Count int `db:"count"`
+}
+
+type unitUUIDNameLife struct {
+	UUID string          `db:"uuid"`
+	Name string          `db:"name"`
+	Life domainlife.Life `db:"life_id"`
 }

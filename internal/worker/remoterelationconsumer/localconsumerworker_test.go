@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -1943,13 +1944,27 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
+	unitNames := []unit.Name{"foo/0", "foo/1", "foo/2"}
+	unitSettings := map[unit.Name]map[string]string{
+		"foo/0": {
+			"foo": "bar",
+		},
+		"foo/1": map[string]string(nil),
+		"foo/2": map[string]string(nil),
+	}
+	applicationSettings := map[string]string{
+		"foo": "bar",
+	}
 
 	done := s.expectWorkerStartup()
 
 	sync := make(chan struct{})
 	s.crossModelService.EXPECT().
-		ProcessRelationChange(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) error {
+		EnsureUnitsExist(gomock.Any(), s.applicationUUID, unitNames).
+		Return(nil)
+	s.crossModelService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), s.applicationUUID, relationUUID, applicationSettings, unitSettings).
+		DoAndReturn(func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error {
 			close(sync)
 			return nil
 		})
@@ -1967,14 +1982,16 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 		ConsumerRelationUUID:   relationUUID,
 		OffererApplicationUUID: s.applicationUUID,
 		Life:                   life.Alive,
-		ApplicationSettings: map[string]any{
-			"foo": "bar",
-		},
+		ApplicationSettings:    applicationSettings,
 		ChangedUnits: []offererunitrelations.UnitChange{{
 			UnitID: 0,
-			Settings: map[string]any{
+			Settings: map[string]string{
 				"foo": "bar",
 			},
+		}, {
+			UnitID: 1,
+		}, {
+			UnitID: 2,
 		}},
 		Suspended: false,
 	}
@@ -1985,9 +2002,165 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 		c.Fatalf("timed out waiting for ProcessRelationChange to be called")
 	}
 
-	// We don't want to test the full loop, just that we handle the change.
-	// The rest of the logic is covered in other tests.
 	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeNoUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+	unitNames := []unit.Name{}
+	unitSettings := map[unit.Name]map[string]string{}
+	applicationSettings := map[string]string{
+		"foo": "bar",
+	}
+
+	done := s.expectWorkerStartup()
+
+	sync := make(chan struct{})
+	s.crossModelService.EXPECT().
+		EnsureUnitsExist(gomock.Any(), s.applicationUUID, unitNames).
+		Return(nil)
+	s.crossModelService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), s.applicationUUID, relationUUID, applicationSettings, unitSettings).
+		DoAndReturn(func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error {
+			close(sync)
+			return nil
+		})
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	w.offererRelationUnitChanges <- offererunitrelations.RelationUnitChange{
+		ConsumerRelationUUID:   relationUUID,
+		OffererApplicationUUID: s.applicationUUID,
+		Life:                   life.Alive,
+		ApplicationSettings:    applicationSettings,
+		Suspended:              false,
+	}
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for ProcessRelationChange to be called")
+	}
+
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeLeaveScope(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+	relationUnitUUID := tc.Must(c, relation.NewUnitUUID)
+	unitNames := []unit.Name{"foo/0", "foo/1", "foo/2"}
+	unitSettings := map[unit.Name]map[string]string{
+		"foo/0": {
+			"foo": "bar",
+		},
+		"foo/1": map[string]string(nil),
+		"foo/2": map[string]string(nil),
+	}
+	applicationSettings := map[string]string{
+		"foo": "bar",
+	}
+
+	done := s.expectWorkerStartup()
+
+	sync := make(chan struct{})
+	s.crossModelService.EXPECT().
+		EnsureUnitsExist(gomock.Any(), s.applicationUUID, unitNames).
+		Return(nil)
+	s.crossModelService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), s.applicationUUID, relationUUID, applicationSettings, unitSettings).
+		Return(nil)
+	s.crossModelService.EXPECT().
+		GetRelationUnitUUID(gomock.Any(), relationUUID, unit.Name("foo/3")).
+		Return(relationUnitUUID, nil)
+	s.crossModelService.EXPECT().
+		LeaveScope(gomock.Any(), relationUnitUUID).
+		DoAndReturn(func(context.Context, relation.UnitUUID) error {
+			close(sync)
+			return nil
+		})
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	w.offererRelationUnitChanges <- offererunitrelations.RelationUnitChange{
+		ConsumerRelationUUID:   relationUUID,
+		OffererApplicationUUID: s.applicationUUID,
+		Life:                   life.Alive,
+		ApplicationSettings:    applicationSettings,
+		ChangedUnits: []offererunitrelations.UnitChange{{
+			UnitID: 0,
+			Settings: map[string]string{
+				"foo": "bar",
+			},
+		}, {
+			UnitID: 1,
+		}, {
+			UnitID: 2,
+		}},
+		DeprecatedDepartedUnits: []int{3},
+		Suspended:               false,
+	}
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for ProcessRelationChange to be called")
+	}
+
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeInvalidUnitInt(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	done := s.expectWorkerStartup()
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	err := w.handleOffererRelationUnitChange(c.Context(), offererunitrelations.RelationUnitChange{
+		ConsumerRelationUUID:   relationUUID,
+		OffererApplicationUUID: s.applicationUUID,
+		Life:                   life.Alive,
+		ChangedUnits: []offererunitrelations.UnitChange{{
+			UnitID: -1,
+			Settings: map[string]string{
+				"foo": "bar",
+			},
+		}},
+		Suspended: false,
+	})
+	c.Assert(err, tc.ErrorMatches, `parsing unit names for relation.*`)
+
+	err = workertest.CheckKill(c, w)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

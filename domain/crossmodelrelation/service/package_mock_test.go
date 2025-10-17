@@ -377,6 +377,44 @@ func (c *MockModelStateDeleteFailedOfferCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// EnsureUnitsExist mocks base method.
+func (m *MockModelState) EnsureUnitsExist(arg0 context.Context, arg1 string, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureUnitsExist", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureUnitsExist indicates an expected call of EnsureUnitsExist.
+func (mr *MockModelStateMockRecorder) EnsureUnitsExist(arg0, arg1, arg2 any) *MockModelStateEnsureUnitsExistCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitsExist", reflect.TypeOf((*MockModelState)(nil).EnsureUnitsExist), arg0, arg1, arg2)
+	return &MockModelStateEnsureUnitsExistCall{Call: call}
+}
+
+// MockModelStateEnsureUnitsExistCall wrap *gomock.Call
+type MockModelStateEnsureUnitsExistCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateEnsureUnitsExistCall) Return(arg0 error) *MockModelStateEnsureUnitsExistCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateEnsureUnitsExistCall) Do(f func(context.Context, string, []string) error) *MockModelStateEnsureUnitsExistCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateEnsureUnitsExistCall) DoAndReturn(f func(context.Context, string, []string) error) *MockModelStateEnsureUnitsExistCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllOffererRelationUUIDs mocks base method.
 func (m *MockModelState) GetAllOffererRelationUUIDs(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()

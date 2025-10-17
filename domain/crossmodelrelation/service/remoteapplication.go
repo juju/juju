@@ -17,6 +17,7 @@ import (
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -76,6 +77,10 @@ type ModelRemoteApplicationState interface {
 	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
 	// application is not found.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error)
+
+	// EnsureUnitsExist ensures that the given synthetic units exist in the local
+	// model.
+	EnsureUnitsExist(ctx context.Context, appUUID string, units []string) error
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -262,11 +267,32 @@ func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
 	return nil
 }
 
-// ProcessRelationChange processes any pending relation changes from the
-// offerer side of the relation. This ensures that we have a mirror image
-// of the relation data in the consumer model.
-func (s *Service) ProcessRelationChange(context.Context) error {
-	return nil
+// EnsureUnitsExist ensures that the given synthetic units exist in the local
+// model.
+func (s *Service) EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if len(units) == 0 {
+		return nil
+	}
+
+	if err := appUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
+	}
+	for _, u := range units {
+		if err := u.Validate(); err != nil {
+			return internalerrors.Capture(err)
+		}
+	}
+
+	unitNames := make([]string, len(units))
+	for i, u := range units {
+		unitNames[i] = u.String()
+	}
+
+	return s.modelState.EnsureUnitsExist(ctx, appUUID.String(), unitNames)
 }
 
 // SuspendRelation suspends the specified relation in the local model
