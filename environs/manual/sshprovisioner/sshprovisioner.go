@@ -40,7 +40,7 @@ import (
 //
 // authorizedKeys may be empty, in which case the file
 // will be created and left empty.
-func InitUbuntuUser(host, login, authorizedKeys string, privateKeys string, read io.Reader, write io.Writer) error {
+func InitUbuntuUser(host, login, authorizedKeys string, privateKeys, ubuntuUserPrivateKey string, read io.Reader, write io.Writer) error {
 	logger.Infof("initialising %q, user %q", host, login)
 
 	// To avoid unnecessary prompting for the specified login,
@@ -50,7 +50,11 @@ func InitUbuntuUser(host, login, authorizedKeys string, privateKeys string, read
 	//
 	// Note that we explicitly do not allocate a PTY, so we
 	// get a failure if sudo prompts.
-	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, nil)
+	var ubuntuUserOptions ssh.Options
+	if ubuntuUserPrivateKey != "" {
+		ubuntuUserOptions.SetIdentities(ubuntuUserPrivateKey)
+	}
+	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, &ubuntuUserOptions)
 	if cmd.Run() == nil {
 		logger.Infof("ubuntu user is already initialised")
 		return nil
@@ -104,9 +108,14 @@ fi`
 // by connecting to the machine and executing a bash script.
 var DetectBaseAndHardwareCharacteristics = detectBaseAndHardwareCharacteristics
 
-func detectBaseAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, base corebase.Base, err error) {
+func detectBaseAndHardwareCharacteristics(host string, ubuntuUserPrivateKey string) (hc instance.HardwareCharacteristics, base corebase.Base, err error) {
 	logger.Infof("Detecting base and characteristics on %s", host)
-	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
+	var options ssh.Options
+	if ubuntuUserPrivateKey != "" {
+		options.SetIdentities(ubuntuUserPrivateKey)
+	}
+
+	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, &options)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -177,12 +186,16 @@ func detectBaseAndHardwareCharacteristics(host string) (hc instance.HardwareChar
 // exist on the host machine.
 var CheckProvisioned = checkProvisioned
 
-func checkProvisioned(host string) (bool, error) {
+func checkProvisioned(host string, ubuntuUserPrivateKey string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", host)
 
 	script := service.ListServicesScript()
 
-	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
+	var options ssh.Options
+	if ubuntuUserPrivateKey != "" {
+		options.SetIdentities(ubuntuUserPrivateKey)
+	}
+	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, &options)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -214,7 +227,7 @@ cat /proc/cpuinfo`
 // The hostname supplied should not include a username.
 // If we can, we will reverse lookup the hostname by its IP address, and use
 // the DNS resolved name, rather than the name that was supplied
-func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
+func gatherMachineParams(hostname string, ubuntuUserPrivateKey string) (*params.AddMachineParams, error) {
 
 	// Generate a unique nonce for the machine.
 	uuid, err := utils.NewUUID()
@@ -222,7 +235,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, err
 	}
 
-	provisioned, err := checkProvisioned(hostname)
+	provisioned, err := checkProvisioned(hostname, ubuntuUserPrivateKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error checking if provisioned")
 	}
@@ -230,7 +243,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, manual.ErrProvisioned
 	}
 
-	hc, machineBase, err := DetectBaseAndHardwareCharacteristics(hostname)
+	hc, machineBase, err := DetectBaseAndHardwareCharacteristics(hostname, ubuntuUserPrivateKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error detecting linux hardware characteristics")
 	}
@@ -256,11 +269,18 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	return machineParams, nil
 }
 
-func runProvisionScript(script, host string, progressWriter io.Writer) error {
+func runProvisionScript(script, host string, progressWriter io.Writer, ubuntuUserPrivateKey string) error {
 	params := sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		ProgressWriter: progressWriter,
 	}
+
+	if ubuntuUserPrivateKey != "" {
+		var options ssh.Options
+		options.SetIdentities(ubuntuUserPrivateKey)
+		params.SSHOptions = &options
+	}
+
 	return sshinit.RunConfigureScript(script, params)
 }
 
