@@ -65,7 +65,8 @@ type firewallerBaseSuite struct {
 
 	machinesCh     chan []string
 	openedPortsCh  chan []string
-	remoteRelCh    chan []string
+	consumerRelCh  chan []string
+	offererRelCh   chan []string
 	subnetsCh      chan []string
 	modelFwRulesCh chan struct{}
 
@@ -138,7 +139,8 @@ func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 
 	s.machinesCh = make(chan []string, 5)
 	s.openedPortsCh = make(chan []string, 10)
-	s.remoteRelCh = make(chan []string, 5)
+	s.consumerRelCh = make(chan []string, 5)
+	s.offererRelCh = make(chan []string, 5)
 	s.subnetsCh = make(chan []string, 5)
 	s.modelFwRulesCh = make(chan struct{}, 5)
 
@@ -190,7 +192,8 @@ func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 
 		s.machinesCh = nil
 		s.openedPortsCh = nil
-		s.remoteRelCh = nil
+		s.consumerRelCh = nil
+		s.offererRelCh = nil
 		s.subnetsCh = nil
 		s.modelFwRulesCh = nil
 	})
@@ -217,7 +220,8 @@ func (s *firewallerBaseSuite) ensureMocksWithoutMachine(ctrl *gomock.Controller)
 
 	s.machinesCh = make(chan []string, 5)
 	s.openedPortsCh = make(chan []string, 10)
-	s.remoteRelCh = make(chan []string, 5)
+	s.consumerRelCh = make(chan []string, 5)
+	s.offererRelCh = make(chan []string, 5)
 	s.subnetsCh = make(chan []string, 5)
 	s.modelFwRulesCh = make(chan struct{}, 5)
 
@@ -240,7 +244,8 @@ func (s *firewallerBaseSuite) ensureMocksWithoutMachine(ctrl *gomock.Controller)
 
 		s.machinesCh = nil
 		s.openedPortsCh = nil
-		s.remoteRelCh = nil
+		s.consumerRelCh = nil
+		s.offererRelCh = nil
 		s.subnetsCh = nil
 		s.modelFwRulesCh = nil
 	})
@@ -484,8 +489,11 @@ func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) wo
 	opWatcher := watchertest.NewMockStringsWatcher(s.openedPortsCh)
 	s.portService.EXPECT().WatchMachineOpenedPorts(gomock.Any()).Return(opWatcher, nil)
 
-	remoteRelWatcher := watchertest.NewMockStringsWatcher(s.remoteRelCh)
-	s.crossModelRelationService.EXPECT().WatchRemoteRelations(gomock.Any()).Return(remoteRelWatcher, nil)
+	consumerRelWatcher := watchertest.NewMockStringsWatcher(s.consumerRelCh)
+	s.crossModelRelationService.EXPECT().WatchConsumerRelations(gomock.Any()).Return(consumerRelWatcher, nil)
+
+	offererRelWatcher := watchertest.NewMockStringsWatcher(s.offererRelCh)
+	s.crossModelRelationService.EXPECT().WatchOffererRelations(gomock.Any()).Return(offererRelWatcher, nil)
 
 	subnetsWatcher := watchertest.NewMockStringsWatcher(s.subnetsCh)
 	s.firewaller.EXPECT().WatchSubnets(gomock.Any()).Return(subnetsWatcher, nil)
@@ -1430,7 +1438,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *tc.C
 	s.firewaller.EXPECT().WatchEgressAddressesForRelation(gomock.Any(), relTag).Return(remoteEgressWatch, nil).MinTimes(1)
 	s.crossmodelFirewaller.EXPECT().Close().Return(nil).MinTimes(1)
 
-	s.remoteRelCh <- []string{"wordpress:db remote-mysql:server"}
+	s.consumerRelCh <- []string{"wordpress:db remote-mysql:server"}
 
 	return localEgressCh, mac
 }
@@ -1598,7 +1606,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 	})
 	s.crossmodelFirewaller.EXPECT().Close().AnyTimes()
 
-	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
+	s.consumerRelCh <- []string{"remote-wordpress:db mysql:server"}
 	localEgressCh <- []string{"10.0.0.0/24"}
 
 	select {
@@ -1654,7 +1662,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	s.firewaller.EXPECT().WatchEgressAddressesForRelation(gomock.Any(), relTag).Return(remoteEgressWatch, nil).MinTimes(1)
 	s.crossmodelFirewaller.EXPECT().Close().Return(nil).MinTimes(1)
 
-	s.remoteRelCh <- []string{"wordpress:db remote-mysql:server"}
+	s.consumerRelCh <- []string{"wordpress:db remote-mysql:server"}
 
 	updated := make(chan bool)
 
@@ -1741,7 +1749,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
 	// Save a new ingress network against the relation.
-	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
+	s.offererRelCh <- []string{"remote-wordpress:db mysql:server"}
 	localIngressCh <- ingress
 
 	// Ports opened.
@@ -1761,13 +1769,13 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 	// And again when relation is suspended.
 	remoteRelParams.Suspended = true
 
-	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
+	s.offererRelCh <- []string{"remote-wordpress:db mysql:server"}
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
 	// And again when relation is resumed.
 	remoteRelParams.Suspended = false
 
-	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
+	s.offererRelCh <- []string{"remote-wordpress:db mysql:server"}
 	localIngressCh <- ingress
 	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
@@ -1778,7 +1786,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 	s.waitForMachineFlush(c)
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
-	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
+	s.offererRelCh <- []string{"remote-wordpress:db mysql:server"}
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *tc.C) {
