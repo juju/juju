@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -119,6 +120,7 @@ type ModelServices struct {
 	modelObjectStoreGetter objectstore.ModelObjectStoreGetter
 	storageRegistry        corestorage.ModelStorageRegistryGetter
 	publicKeyImporter      PublicKeyImporter
+	simplestreamsClient    http.HTTPClient
 	leaseManager           lease.ModelLeaseManagerGetter
 	logDir                 string
 	clock                  clock.Clock
@@ -136,6 +138,7 @@ func NewModelServices(
 	publicKeyImporter PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
 	logDir string,
+	simpleStreamsClient http.HTTPClient,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ModelServices {
@@ -153,16 +156,17 @@ func NewModelServices(
 		storageRegistry:        storageRegistry,
 		publicKeyImporter:      publicKeyImporter,
 		leaseManager:           leaseManager,
+		simplestreamsClient:    simpleStreamsClient,
 		logDir:                 logDir,
 		clock:                  clock,
 	}
 }
 
-// AgentBinaryStore returns the model's [agentbinaryservice.AgentBinaryStore]
+// AgentBinaryStore returns the model's [agentbinaryservice.ModelAgentBinaryStore]
 // for the current model.
-func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
-	return agentbinaryservice.NewAgentBinaryStore(
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.ModelAgentBinaryStore {
+	return agentbinaryservice.NewModelAgentBinaryStore(
+		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("modelagentbinary"),
 		s.modelObjectStoreGetter,
 	)
@@ -170,14 +174,24 @@ func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore 
 
 // AgentBinary returns the model's [agentbinaryservice.AgentBinaryService].
 func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
+	agentBinaryLogger := s.logger.Child("agentbinary")
+	controllerState := agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB))
 	return agentbinaryservice.NewAgentBinaryService(
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
-			s.providerFactory, s.modelUUID.String(),
+		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.AgentBinaryStore(),
+		controllerState,
+		// TODO(Alvin): Wire controller object store getter
+		agentbinaryservice.NewControllerAgentBinaryStore(
+			controllerState,
+			agentBinaryLogger,
+			s.modelObjectStoreGetter,
 		),
-		envtools.PreferredStreams, envtools.FindTools,
-	)
+		agentbinaryservice.NewSimpleStreamAgentBinaryStore(
+			agentBinaryLogger,
+			providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
+				s.providerFactory, s.modelUUID.String(),
+			), envtools.PreferredStreams, envtools.FindTools, s.simplestreamsClient,
+		))
 }
 
 // AgentProvisioner returns the agent provisioner service.

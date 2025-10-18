@@ -56,6 +56,7 @@ type DomainServicesGetterFn func(
 	domainservices.PublicKeyImporter,
 	lease.Manager,
 	string,
+	corehttp.HTTPClient,
 	clock.Clock,
 	logger.LoggerContextGetter,
 ) services.DomainServicesGetter
@@ -80,6 +81,7 @@ type ModelDomainServicesFn func(
 	domainservices.PublicKeyImporter,
 	lease.ModelLeaseManagerGetter,
 	string,
+	corehttp.HTTPClient,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices
@@ -185,6 +187,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	simpleStreamsClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.SimpleStreamPurpose)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var leaseManager lease.Manager
 	if err := getter.Get(config.LeaseManagerName, &leaseManager); err != nil {
 		return nil, errors.Trace(err)
@@ -209,6 +216,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		NewDomainServicesGetter:     config.NewDomainServicesGetter,
 		NewControllerDomainServices: config.NewControllerDomainServices,
 		NewModelDomainServices:      config.NewModelDomainServices,
+		SimpleStreamsClient:         simpleStreamsClient,
 	})
 }
 
@@ -262,6 +270,7 @@ func NewProviderTrackerModelDomainServices(
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
 	logDir string,
+	simplestreams corehttp.HTTPClient,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -275,6 +284,7 @@ func NewProviderTrackerModelDomainServices(
 		publicKeyImporter,
 		leaseManager,
 		logDir,
+		simplestreams,
 		clock,
 		logger,
 	)
@@ -291,6 +301,7 @@ func NewDomainServicesGetter(
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.Manager,
 	logDir string,
+	httpClient corehttp.HTTPClient,
 	clock clock.Clock,
 	loggerContextGetter logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
@@ -304,6 +315,7 @@ func NewDomainServicesGetter(
 		publicKeyImporter:      publicKeyImporter,
 		leaseManager:           leaseManager,
 		logDir:                 logDir,
+		httpClient:             httpClient,
 		clock:                  clock,
 		loggerContextGetter:    loggerContextGetter,
 	}
