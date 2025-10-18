@@ -120,9 +120,7 @@ func (s *SimpleStreamAgentBinaryStore) GetAgentBinary(ctx context.Context, ver c
 	s.logger.Debugf(ctx, "retrieving agent binary from simple stream agent binary store for ver %q and stream %q", ver.String(), stream.String())
 	finder := s.GetEnvironAgentBinariesFinder()
 	// TODO: Check this finder where arch filter/request stream will result in no tool list
-	toolList, err := finder(ctx, ver.Number.Major, ver.Number.Minor, ver.Number, "", coretools.Filter{
-		Number: ver.Number,
-	})
+	toolList, err := finder(ctx, ver.Number.Major, ver.Number.Minor, ver.Number, "", coretools.Filter{})
 	if err != nil {
 		return nil, 0, "", errors.Errorf("getting tool list for version %q: %w", ver.String(), err)
 	}
@@ -130,7 +128,7 @@ func (s *SimpleStreamAgentBinaryStore) GetAgentBinary(ctx context.Context, ver c
 	if len(toolList) == 0 {
 		return nil, 0, "", errors.Errorf("getting agent binary for version %q", ver.String()).Add(domainagenterrors.NotFound)
 	} else if len(toolList) != 1 {
-		return nil, 0, "", errors.Errorf("multiple tools found for version: %q", ver.String())
+		return nil, 0, "", errors.Errorf("multiple tools found for version: %q, the toolist is: %+v", ver.String(), toolList)
 	}
 
 	tool := toolList[0]
