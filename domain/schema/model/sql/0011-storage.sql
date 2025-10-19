@@ -267,7 +267,7 @@ CREATE TABLE storage_volume (
     persistent BOOLEAN,
     obliterate_on_cleanup BOOLEAN,
     CONSTRAINT chk_storage_volume_obliterate_on_cleanup_set_when_not_alive
-    CHECK (obliterate_on_cleanup IS NULL OR life_id != 0),
+    CHECK (obliterate_on_cleanup IS NULL OR life_id <> 0),
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -379,7 +379,7 @@ CREATE TABLE storage_filesystem (
     size_mib INT,
     obliterate_on_cleanup BOOLEAN,
     CONSTRAINT chk_storage_filesystem_obliterate_on_cleanup_set_when_not_alive
-    CHECK (obliterate_on_cleanup IS NULL OR life_id != 0),
+    CHECK (obliterate_on_cleanup IS NULL OR life_id <> 0),
     CONSTRAINT fk_storage_filesystem_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
