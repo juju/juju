@@ -18,7 +18,7 @@ import (
 	machine "github.com/juju/juju/core/machine"
 	semversion "github.com/juju/juju/core/semversion"
 	unit "github.com/juju/juju/core/unit"
-	modelagent "github.com/juju/juju/domain/modelagent"
+	agentbinary0 "github.com/juju/juju/domain/agentbinary"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -730,7 +730,7 @@ func (c *MockModelStateSetMachineRunningAgentBinaryVersionCall) DoAndReturn(f fu
 }
 
 // SetModelAgentStream mocks base method.
-func (m *MockModelState) SetModelAgentStream(arg0 context.Context, arg1 modelagent.AgentStream) error {
+func (m *MockModelState) SetModelAgentStream(arg0 context.Context, arg1 agentbinary0.Stream) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetModelAgentStream", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -756,13 +756,13 @@ func (c *MockModelStateSetModelAgentStreamCall) Return(arg0 error) *MockModelSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateSetModelAgentStreamCall) Do(f func(context.Context, modelagent.AgentStream) error) *MockModelStateSetModelAgentStreamCall {
+func (c *MockModelStateSetModelAgentStreamCall) Do(f func(context.Context, agentbinary0.Stream) error) *MockModelStateSetModelAgentStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateSetModelAgentStreamCall) DoAndReturn(f func(context.Context, modelagent.AgentStream) error) *MockModelStateSetModelAgentStreamCall {
+func (c *MockModelStateSetModelAgentStreamCall) DoAndReturn(f func(context.Context, agentbinary0.Stream) error) *MockModelStateSetModelAgentStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -806,7 +806,7 @@ func (c *MockModelStateSetModelTargetAgentVersionCall) DoAndReturn(f func(contex
 }
 
 // SetModelTargetAgentVersionAndStream mocks base method.
-func (m *MockModelState) SetModelTargetAgentVersionAndStream(arg0 context.Context, arg1, arg2 semversion.Number, arg3 modelagent.AgentStream) error {
+func (m *MockModelState) SetModelTargetAgentVersionAndStream(arg0 context.Context, arg1, arg2 semversion.Number, arg3 agentbinary0.Stream) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetModelTargetAgentVersionAndStream", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -832,13 +832,13 @@ func (c *MockModelStateSetModelTargetAgentVersionAndStreamCall) Return(arg0 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateSetModelTargetAgentVersionAndStreamCall) Do(f func(context.Context, semversion.Number, semversion.Number, modelagent.AgentStream) error) *MockModelStateSetModelTargetAgentVersionAndStreamCall {
+func (c *MockModelStateSetModelTargetAgentVersionAndStreamCall) Do(f func(context.Context, semversion.Number, semversion.Number, agentbinary0.Stream) error) *MockModelStateSetModelTargetAgentVersionAndStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateSetModelTargetAgentVersionAndStreamCall) DoAndReturn(f func(context.Context, semversion.Number, semversion.Number, modelagent.AgentStream) error) *MockModelStateSetModelTargetAgentVersionAndStreamCall {
+func (c *MockModelStateSetModelTargetAgentVersionAndStreamCall) DoAndReturn(f func(context.Context, semversion.Number, semversion.Number, agentbinary0.Stream) error) *MockModelStateSetModelTargetAgentVersionAndStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

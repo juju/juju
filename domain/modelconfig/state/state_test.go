@@ -12,10 +12,10 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	statemodel "github.com/juju/juju/domain/model/state/model"
-	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/domain/modelconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -195,7 +195,7 @@ func (s *stateSuite) createTestModel(c *tc.C) coremodel.UUID {
 	cid := uuid.MustNewUUID()
 	args := model.ModelDetailArgs{
 		UUID:               id,
-		AgentStream:        modelagent.AgentStreamReleased,
+		AgentStream:        domainagentbinary.AgentStreamReleased,
 		AgentVersion:       jujuversion.Current,
 		LatestAgentVersion: jujuversion.Current,
 		ControllerUUID:     cid,

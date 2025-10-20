@@ -16,7 +16,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
 	semversion "github.com/juju/juju/core/semversion"
-	modelagent "github.com/juju/juju/domain/modelagent"
+	agentbinary "github.com/juju/juju/domain/agentbinary"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -207,7 +207,7 @@ func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) DoAndReturn(f func
 }
 
 // UpgradeModelTargetAgentVersionStreamTo mocks base method.
-func (m *MockModelAgentService) UpgradeModelTargetAgentVersionStreamTo(arg0 context.Context, arg1 semversion.Number, arg2 modelagent.AgentStream) error {
+func (m *MockModelAgentService) UpgradeModelTargetAgentVersionStreamTo(arg0 context.Context, arg1 semversion.Number, arg2 agentbinary.Stream) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeModelTargetAgentVersionStreamTo", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -233,13 +233,13 @@ func (c *MockModelAgentServiceUpgradeModelTargetAgentVersionStreamToCall) Return
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelAgentServiceUpgradeModelTargetAgentVersionStreamToCall) Do(f func(context.Context, semversion.Number, modelagent.AgentStream) error) *MockModelAgentServiceUpgradeModelTargetAgentVersionStreamToCall {
+func (c *MockModelAgentServiceUpgradeModelTargetAgentVersionStreamToCall) Do(f func(context.Context, semversion.Number, agentbinary.Stream) error) *MockModelAgentServiceUpgradeModelTargetAgentVersionStreamToCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAgentServiceUpgradeModelTargetAgentVersionStreamToCall) DoAndReturn(f func(context.Context, semversion.Number, modelagent.AgentStream) error) *MockModelAgentServiceUpgradeModelTargetAgentVersionStreamToCall {
+func (c *MockModelAgentServiceUpgradeModelTargetAgentVersionStreamToCall) DoAndReturn(f func(context.Context, semversion.Number, agentbinary.Stream) error) *MockModelAgentServiceUpgradeModelTargetAgentVersionStreamToCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

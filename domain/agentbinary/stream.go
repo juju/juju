@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelagent
+package agentbinary
 
 import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -9,13 +9,13 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// AgentStream represents the agent stream that is currently being used by a
+// Stream represents the agent stream that is currently being used by a
 // model agent.
-type AgentStream int
+type Stream int
 
 const (
 	// AgentStreamReleased represents the released stream for agent binaries.
-	AgentStreamReleased AgentStream = iota
+	AgentStreamReleased Stream = iota
 	// AgentStreamProposed represents the proposed stream for agent binaries.
 	AgentStreamProposed
 	// AgentStreamTesting represents the testing stream for agent binaries.
@@ -24,12 +24,12 @@ const (
 	AgentStreamDevel
 )
 
-// AgentStreamFromCoreAgentStream converts a [coreagentbinary.AgentStream] to a
-// corresponding [AgentStream]. It returns an error if the value is not
+// StreamFromCoreAgentBinaryStream converts a [coreagentbinary.AgentStream] to a
+// corresponding [Stream]. It returns an error if the value is not
 // recognised or supported satisfying [coreerrors.NotValid].
-func AgentStreamFromCoreAgentStream(
+func StreamFromCoreAgentBinaryStream(
 	agentStream coreagentbinary.AgentStream,
-) (AgentStream, error) {
+) (Stream, error) {
 	switch agentStream {
 	case coreagentbinary.AgentStreamReleased:
 		return AgentStreamReleased, nil
@@ -41,13 +41,13 @@ func AgentStreamFromCoreAgentStream(
 		return AgentStreamDevel, nil
 	}
 
-	return AgentStream(-1), errors.Errorf(
+	return Stream(-1), errors.Errorf(
 		"agent stream %q is not recognised as a valid value", agentStream,
 	).Add(coreerrors.NotValid)
 }
 
-// IsValid checks if the [AgentStream] is a valid value.
-func (s AgentStream) IsValid() bool {
+// IsValid checks if the [Stream] is a valid value.
+func (s Stream) IsValid() bool {
 	switch s {
 	case AgentStreamReleased, AgentStreamProposed, AgentStreamTesting, AgentStreamDevel:
 		return true
@@ -56,10 +56,10 @@ func (s AgentStream) IsValid() bool {
 	}
 }
 
-// String returns the primitive string values of [AgentStream].
-// It is the client's responsibility to validate that [AgentStream]
-// is indeed valid before calling [AgentStream.String].
-func (s AgentStream) String() string {
+// String returns the primitive string values of [Stream].
+// It is the client's responsibility to validate that [Stream]
+// is indeed valid before calling [Stream.String].
+func (s Stream) String() string {
 	switch s {
 	case AgentStreamReleased:
 		return "released"

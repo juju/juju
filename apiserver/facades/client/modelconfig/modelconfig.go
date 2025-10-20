@@ -20,6 +20,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -227,8 +228,17 @@ func (s *ModelConfigAPI) setAgentStream(ctx context.Context, agentStream string)
 
 	s.logger.Debugf(ctx, "setting agent stream to %q via model config facade", agentStream)
 
-	err := s.modelAgentService.SetModelAgentStream(
-		ctx, agentbinary.AgentStream(agentStream),
+	streamVal, err := domainagentbinary.StreamFromCoreAgentBinaryStream(
+		agentbinary.AgentStream(agentStream),
+	)
+	if errors.Is(err, coreerrors.NotValid) {
+		return internalerrors.Errorf(
+			"agent stream %q is not a valid value", agentStream,
+		).Add(coreerrors.NotValid)
+	}
+
+	err = s.modelAgentService.SetModelAgentStream(
+		ctx, streamVal,
 	)
 	if errors.Is(err, coreerrors.NotValid) {
 		return internalerrors.Errorf(

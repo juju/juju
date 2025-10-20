@@ -19,16 +19,16 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ControllerState represents a type for interacting with the underlying state.
+// ModelState represents a type for interacting with the underlying state.
 // It works with both controller and model databases.
-type ControllerState struct {
+type ModelState struct {
 	*domain.StateBase
 }
 
-// NewControllerState returns a new ControllerState for interacting with agent binaries stored in
+// NewModelState returns a new ModelState for interacting with agent binaries stored in
 // the database.
-func NewControllerState(factory database.TxnRunnerFactory) *ControllerState {
-	return &ControllerState{
+func NewModelState(factory database.TxnRunnerFactory) *ModelState {
+	return &ModelState{
 		StateBase: domain.NewStateBase(factory),
 	}
 }
@@ -37,7 +37,7 @@ func NewControllerState(factory database.TxnRunnerFactory) *ControllerState {
 // agent binary in the object store. This sha256 sum could exist as an object in
 // the object store but unless the association has been made this will always
 // return false.
-func (s *ControllerState) CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum string) (bool, error) {
+func (s *ModelState) CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum string) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -79,7 +79,7 @@ WHERE sha_256 = $objectStoreSHA256Sum.sha_256
 // GetObjectUUID returns the object store UUID for the given file path.
 // The following errors can be returned:
 // - [agentbinaryerrors.ObjectNotFound] when no object exists that matches this path.
-func (s *ControllerState) GetObjectUUID(
+func (s *ModelState) GetObjectUUID(
 	ctx context.Context,
 	path string,
 ) (objectstore.UUID, error) {
@@ -129,7 +129,7 @@ WHERE  path = $objectStorePath.path`, objectStore)
 // [agentbinaryerrors.AgentBinaryImmutable] if an existing agent binary
 // already exists with the same version and architecture but a different
 // SHA.
-func (s *ControllerState) RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error {
+func (s *ModelState) RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -221,14 +221,14 @@ VALUES ($agentBinaryRecord.*)
 
 	if err != nil {
 		return errors.Errorf(
-			"adding agent binary for version %q and arch %q to controller state: %w",
+			"adding agent binary for version %q and arch %q to model state: %w",
 			arg.Version, arg.Arch, err,
 		)
 	}
 	return nil
 }
 
-func (s *ControllerState) getAgentBinary(
+func (s *ModelState) getAgentBinary(
 	ctx context.Context,
 	tx *sqlair.TX,
 	version string,
@@ -265,7 +265,7 @@ AND    architecture_id = $agentBinaryRecord.architecture_id
 
 // checkObjectExists checks if an object exists for the given UUID. True and
 // false will be returned with no error indicating if the object exists or not.
-func (s *ControllerState) checkObjectExists(
+func (s *ModelState) checkObjectExists(
 	ctx context.Context,
 	tx *sqlair.TX,
 	objectUUID objectstore.UUID,
@@ -297,7 +297,7 @@ WHERE  uuid = $objectStoreUUID.uuid
 // ListAgentBinaries lists all agent binaries in the state.
 // It returns a slice of agent binary metadata.
 // An empty slice is returned if no agent binaries are found.
-func (s *ControllerState) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
+func (s *ModelState) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -326,14 +326,15 @@ FROM   v_agent_binary_store`, metadataRecord{})
 
 // GetAgentBinarySHA256 retrieves the SHA256 value for the specified agent binary version.
 // It returns false and an empty string if no matching record exists.
-func (s *ControllerState) GetAgentBinarySHA256(ctx context.Context, version coreagentbinary.Version, stream agentbinary.Stream) (bool, string, error) {
+func (s *ModelState) GetAgentBinarySHA256(ctx context.Context, version coreagentbinary.Version) (bool, string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return false, "", errors.Capture(err)
 	}
 
+	// TODO(Alvin): Change this back to version number
 	record := metadataRecord{
-		Version: version.Number.String(),
+		Version: version.String(),
 	}
 
 	stmt, err := s.Prepare(`
@@ -364,4 +365,39 @@ WHERE version = $metadataRecord.version`, record)
 	}
 
 	return exists, record.SHA256, nil
+}
+
+// GetAgentStream returns the stream used by the current model.
+// The following errors may be returned:
+// - [agentbinaryerrors.StreamNotFound] when the agent binary stream used by the current model is not found.
+func (s *ModelState) GetAgentStream(ctx context.Context) (agentbinary.Stream, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	stream := modelAgentStream{}
+	stmt, err := s.Prepare(`
+SELECT &modelAgentStream.*
+FROM   agent_version
+`, stream)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt).Get(&stream)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return agentbinaryerrors.StreamNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return -1, err
+	}
+
+	return agentbinary.Stream(stream.StreamID), errors.Capture(err)
 }

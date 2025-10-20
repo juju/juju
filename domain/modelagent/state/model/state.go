@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -1001,13 +1001,13 @@ WHERE unit_uuid = $unitUUIDRef.unit_uuid
 // GetModelAgentStream gets the currently set agent stream for the model.
 func (st *State) GetModelAgentStream(
 	ctx context.Context,
-) (modelagent.AgentStream, error) {
+) (domainagentbinary.Stream, error) {
 	// NOTE (tlm): This function is written on purpose to assume that an agent
 	// version record has been established for the model. We assume that this is
 	// always done on model creation.
 	db, err := st.DB(ctx)
 	if err != nil {
-		return modelagent.AgentStream(-1), errors.Capture(err)
+		return domainagentbinary.Stream(-1), errors.Capture(err)
 	}
 
 	dbVal := agentVersionStream{}
@@ -1015,10 +1015,10 @@ func (st *State) GetModelAgentStream(
 SELECT &agentVersionStream.* FROM agent_version
 `, dbVal)
 	if err != nil {
-		return modelagent.AgentStream(-1), errors.Capture(err)
+		return domainagentbinary.Stream(-1), errors.Capture(err)
 	}
 
-	rval := modelagent.AgentStream(-1)
+	rval := domainagentbinary.Stream(-1)
 	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&dbVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -1034,7 +1034,7 @@ SELECT &agentVersionStream.* FROM agent_version
 			)
 		}
 
-		rval = modelagent.AgentStream(dbVal.StreamID)
+		rval = domainagentbinary.Stream(dbVal.StreamID)
 		return nil
 	})
 }
@@ -1196,7 +1196,7 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 // use by the current model.
 func (st *State) SetModelAgentStream(
 	ctx context.Context,
-	agentStream modelagent.AgentStream,
+	agentStream domainagentbinary.Stream,
 ) error {
 	// NOTE (tlm): This function is written on purpose to ignore the fact that
 	// if an agent version record does not exist in the database that this func
@@ -1318,7 +1318,7 @@ func (st *State) SetModelTargetAgentVersionAndStream(
 	ctx context.Context,
 	preCondition semversion.Number,
 	toVersion semversion.Number,
-	stream modelagent.AgentStream,
+	stream domainagentbinary.Stream,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {

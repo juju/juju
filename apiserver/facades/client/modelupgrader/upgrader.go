@@ -15,19 +15,18 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/base"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/modelagent"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/rpc/params"
 )
@@ -55,7 +54,7 @@ type ModelAgentService interface {
 	// The version supplied must not be a downgrade from the current target agent
 	// version of the model. It must also not be greater than the maximum supported
 	// version of the controller.
-	UpgradeModelTargetAgentVersionStreamTo(context.Context, semversion.Number, modelagent.AgentStream) error
+	UpgradeModelTargetAgentVersionStreamTo(context.Context, semversion.Number, domainagentbinary.Stream) error
 }
 
 // UpgradeService is an interface that allows us to check if the model
@@ -298,21 +297,9 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 	return result, nil
 }
 
-func encodeAgentStream(agentStream string) (modelagent.AgentStream, error) {
-	switch agentStream {
-	case "released":
-		return modelagent.AgentStreamReleased, nil
-	case "proposed":
-		return modelagent.AgentStreamProposed, nil
-	case "testing":
-		return modelagent.AgentStreamTesting, nil
-	case "devel":
-		return modelagent.AgentStreamDevel, nil
-	default:
-		return modelagent.AgentStream(-1), internalerrors.Errorf(
-			"agent stream %q is not recognised as a valid value", agentStream,
-		).Add(coreerrors.NotValid)
-	}
+func encodeAgentStream(agentStream string) (domainagentbinary.Stream, error) {
+	as := coreagentbinary.AgentStream(agentStream)
+	return domainagentbinary.StreamFromCoreAgentBinaryStream(as)
 }
 
 func (m *ModelUpgraderAPI) validateModelUpgrade(

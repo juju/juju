@@ -11,9 +11,9 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/model"
 	statemodel "github.com/juju/juju/domain/model/state/model"
-	"github.com/juju/juju/domain/modelagent"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/environs/config"
@@ -113,7 +113,7 @@ func (s *suite) TestModelID(c *tc.C) {
 		UUID:               modelID,
 		LatestAgentVersion: semversion.Number{Major: 4, Minor: 21, Patch: 67},
 		AgentVersion:       semversion.Number{Major: 4, Minor: 21, Patch: 67},
-		AgentStream:        modelagent.AgentStreamReleased,
+		AgentStream:        domainagentbinary.AgentStreamReleased,
 		ControllerUUID:     uuid.MustNewUUID(),
 		Name:               "test-model",
 		Qualifier:          "prod",

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/modelagent"
+	"github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -127,7 +127,7 @@ type ModelDetailArgs struct {
 
 	// AgentStream is the agent stream used when getting model agents for
 	// [ModelDetailArgs.AgentVersion].
-	AgentStream modelagent.AgentStream
+	AgentStream agentbinary.Stream
 
 	// AgentVersion is the target version for agents running in this model.
 	AgentVersion semversion.Number

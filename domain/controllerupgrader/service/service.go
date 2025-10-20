@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/agentbinary"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
-	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -35,7 +34,7 @@ type AgentBinaryFinder interface {
 	HasBinariesForVersionStreamAndArchitectures(
 		context.Context,
 		semversion.Number,
-		modelagent.AgentStream,
+		agentbinary.Stream,
 		[]agentbinary.Architecture,
 	) (bool, error)
 
@@ -46,7 +45,7 @@ type AgentBinaryFinder interface {
 	// GetHighestPatchVersionAvailableForStream will return the highest available patch
 	// version available for the current controller version and stream.
 	GetHighestPatchVersionAvailableForStream(
-		context.Context, modelagent.AgentStream,
+		context.Context, agentbinary.Stream,
 	) (semversion.Number, error)
 }
 
@@ -97,7 +96,7 @@ type ControllerModelState interface {
 		ctx context.Context,
 		preCondition semversion.Number,
 		toVersion semversion.Number,
-		stream modelagent.AgentStream,
+		stream agentbinary.Stream,
 	) error
 }
 
@@ -190,7 +189,7 @@ func (s *Service) UpgradeController(
 // exists preventing a controller upgrade from proceeding.
 func (s *Service) UpgradeControllerWithStream(
 	ctx context.Context,
-	stream modelagent.AgentStream,
+	stream agentbinary.Stream,
 ) (semversion.Number, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -339,7 +338,7 @@ func (s *Service) UpgradeControllerToVersion(
 func (s *Service) UpgradeControllerToVersionWithStream(
 	ctx context.Context,
 	desiredVersion semversion.Number,
-	stream modelagent.AgentStream,
+	stream agentbinary.Stream,
 ) error {
 	// Controller upgrades are still controlled by that of the model agent
 	// version for the controllers model. Under the covers this is how they

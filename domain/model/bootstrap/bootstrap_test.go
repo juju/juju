@@ -21,6 +21,7 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	accessstate "github.com/juju/juju/domain/access/state"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	"github.com/juju/juju/domain/constraints"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
@@ -29,7 +30,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	statemodel "github.com/juju/juju/domain/model/state/model"
 	"github.com/juju/juju/domain/model/state/testing"
-	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -172,7 +172,7 @@ FROM agent_version`, v)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(v["target_version"], tc.DeepEquals, jujuversion.Current.String())
-	c.Check(v["stream_id"], tc.Equals, int64(modelagent.AgentStreamReleased))
+	c.Check(v["stream_id"], tc.Equals, int64(domainagentbinary.AgentStreamReleased))
 }
 
 // TestCreateModelUnsupportedCredential is asserting the fact that if we supply

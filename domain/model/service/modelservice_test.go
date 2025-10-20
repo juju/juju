@@ -24,12 +24,12 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/constraints"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelinternal "github.com/juju/juju/domain/model/internal"
-	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
@@ -1102,7 +1102,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          "ec2",
 		CloudRegion:        "myregion",
-		AgentStream:        modelagent.AgentStreamReleased,
+		AgentStream:        domainagentbinary.AgentStreamReleased,
 		AgentVersion:       jujuversion.Current,
 		LatestAgentVersion: jujuversion.Current,
 	}).Return(nil)
@@ -1142,7 +1142,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *t
 		Cloud:              "aws",
 		CloudType:          "ec2",
 		CloudRegion:        "myregion",
-		AgentStream:        modelagent.AgentStreamReleased,
+		AgentStream:        domainagentbinary.AgentStreamReleased,
 		AgentVersion:       jujuversion.Current,
 		LatestAgentVersion: jujuversion.Current,
 	}).Return(modelerrors.AlreadyExists)

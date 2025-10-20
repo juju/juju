@@ -14,13 +14,13 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/service"
 	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	statemodel "github.com/juju/juju/domain/model/state/model"
-	"github.com/juju/juju/domain/modelagent"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -171,7 +171,7 @@ func CreateLocalModelRecordWithAgentStream(
 			agentStream = coreagentbinary.AgentStreamReleased
 		}
 
-		agentStreamArg, err := modelagent.AgentStreamFromCoreAgentStream(agentStream)
+		agentStreamArg, err := domainagentbinary.StreamFromCoreAgentBinaryStream(agentStream)
 		if err != nil {
 			return errors.Errorf(
 				"converting agent stream %q to argument: %w", agentStream, err,

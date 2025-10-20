@@ -13,8 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	agentbinary "github.com/juju/juju/core/agentbinary"
 	constraints "github.com/juju/juju/core/constraints"
+	agentbinary "github.com/juju/juju/domain/agentbinary"
 	blockcommand "github.com/juju/juju/domain/blockcommand"
 	config "github.com/juju/juju/environs/config"
 	gomock "go.uber.org/mock/gomock"
@@ -145,7 +145,7 @@ func (m *MockModelAgentService) EXPECT() *MockModelAgentServiceMockRecorder {
 }
 
 // SetModelAgentStream mocks base method.
-func (m *MockModelAgentService) SetModelAgentStream(arg0 context.Context, arg1 agentbinary.AgentStream) error {
+func (m *MockModelAgentService) SetModelAgentStream(arg0 context.Context, arg1 agentbinary.Stream) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetModelAgentStream", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -171,13 +171,13 @@ func (c *MockModelAgentServiceSetModelAgentStreamCall) Return(arg0 error) *MockM
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelAgentServiceSetModelAgentStreamCall) Do(f func(context.Context, agentbinary.AgentStream) error) *MockModelAgentServiceSetModelAgentStreamCall {
+func (c *MockModelAgentServiceSetModelAgentStreamCall) Do(f func(context.Context, agentbinary.Stream) error) *MockModelAgentServiceSetModelAgentStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAgentServiceSetModelAgentStreamCall) DoAndReturn(f func(context.Context, agentbinary.AgentStream) error) *MockModelAgentServiceSetModelAgentStreamCall {
+func (c *MockModelAgentServiceSetModelAgentStreamCall) DoAndReturn(f func(context.Context, agentbinary.Stream) error) *MockModelAgentServiceSetModelAgentStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
