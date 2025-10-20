@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/internal/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -391,6 +392,14 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 		eventsource.NamespaceFilter(relationTable, changestream.All),
 		eventsource.NamespaceFilter(applicationRemoteConsumer, changestream.All),
 	)
+}
+
+// WatchRelationEgressNetworks watches for changes to the egress networks
+// for the specified relation UUID. It returns a NotifyWatcher that emits
+// events when there are insertions or deletions in the relation_network_egress
+// table.
+func (c *Service) WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.NotifyWatcher, error) {
+	return nil, internalerrors.Errorf("crossmodelrelation.WatchRelationEgressNetworks").Add(coreerrors.NotImplemented)
 }
 
 // WatchRelationIngressNetworks watches for changes to the ingress networks

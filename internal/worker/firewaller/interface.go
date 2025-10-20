@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
-	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
@@ -73,6 +72,14 @@ type CrossModelRelationService interface {
 	// relation key.
 	GetMacaroonForRelationKey(ctx context.Context, relationKey relation.Key) (*macaroon.Macaroon, error)
 
+	// GetRelationNetworkEgress retrieves all egress network CIDRs for the
+	// specified relation.
+	GetRelationNetworkEgress(ctx context.Context, relationUUID string) ([]string, error)
+
+	// GetRelationNetworkIngress retrieves all ingress network CIDRs for the
+	// specified relation.
+	GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error)
+
 	// RemoteApplications returns the current state for the named remote applications.
 	RemoteApplications(ctx context.Context, applications []string) ([]params.RemoteApplicationResult, error)
 
@@ -84,18 +91,17 @@ type CrossModelRelationService interface {
 	// offering model and notifies the worker of any changes.
 	WatchOffererRelations(ctx context.Context) (watcher.StringsWatcher, error)
 
-	// WatchEgressAddressesForRelation returns a watcher that notifies when
-	// addresses, from which connections will originate to the provider side of the
-	// relation, change.
-	// Each event contains the entire set of addresses which the provider side is
-	// required to allow for access from the other side of the relation.
-	WatchEgressAddressesForRelation(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error)
+	// WatchRelationEgressNetworks watches for changes to the egress networks
+	// for the specified relation UUID. It returns a NotifyWatcher that emits
+	// events when there are insertions or deletions in the relation_network_egress
+	// table.
+	WatchRelationEgressNetworks(ctx context.Context, relationUUID relation.UUID) (watcher.NotifyWatcher, error)
 
-	// WatchIngressAddressesForRelation returns a watcher that notifies when
-	// addresses, from which connections will originate for the relation, change.
-	// Each event contains the entire set of addresses which are required
-	// for ingress into this model from the other requirer side of the relation.
-	WatchIngressAddressesForRelation(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error)
+	// WatchRelationIngressNetworks watches for changes to the ingress networks
+	// for the specified relation UUID. It returns a NotifyWatcher that emits
+	// events when there are insertions or deletions in the relation_network_ingress
+	// table.
+	WatchRelationIngressNetworks(ctx context.Context, relationUUID relation.UUID) (watcher.NotifyWatcher, error)
 }
 
 // RelationService provides access to relations.

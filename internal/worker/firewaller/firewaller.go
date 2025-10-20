@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
-	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
@@ -1702,6 +1701,7 @@ func (fw *Firewaller) startOffererRelation(ctx context.Context, rel domainrelati
 		fw:                  fw,
 		tag:                 tag,
 		localApplicationTag: names.NewApplicationTag(localApplicationName),
+		relationUUID:        rel.UUID,
 	}
 
 	// Start the worker which watches for ingress address changes
@@ -1738,7 +1738,7 @@ func (rd *remoteRelationData) watchLocalIngress() error {
 
 	// Watch the local model for ingress changes published from the consuming
 	// model.
-	ingressAddressWatcher, err := fw.crossModelRelationService.WatchIngressAddressesForRelation(ctx, rd.relationUUID)
+	ingressAddressWatcher, err := fw.crossModelRelationService.WatchRelationIngressNetworks(ctx, rd.relationUUID)
 	if err != nil {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
@@ -1751,13 +1751,15 @@ func (rd *remoteRelationData) watchLocalIngress() error {
 		return errors.Trace(err)
 	}
 
-	localChanges := make(chan *remoteRelationNetworkChange)
-
 	for {
 		select {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
-		case cidrs := <-ingressAddressWatcher.Changes():
+		case <-ingressAddressWatcher.Changes():
+			cidrs, err := fw.crossModelRelationService.GetRelationNetworkIngress(ctx, string(rd.relationUUID))
+			if err != nil {
+				return errors.Trace(err)
+			}
 			fw.logger.Debugf(ctx, "offerer relation ingress addresses for %v changed: %v", rd.tag, cidrs)
 			change := &remoteRelationNetworkChange{
 				relationTag:         rd.tag,
@@ -1765,9 +1767,11 @@ func (rd *remoteRelationData) watchLocalIngress() error {
 				networks:            set.NewStrings(cidrs...),
 				ingressRequired:     len(cidrs) > 0,
 			}
-			localChanges <- change
-		case change := <-localChanges:
-			rd.fw.localRelationsChange <- change
+			select {
+			case <-rd.catacomb.Dying():
+				return rd.catacomb.ErrDying()
+			case rd.fw.localRelationsChange <- change:
+			}
 		}
 	}
 }
@@ -1786,7 +1790,7 @@ func (rd *remoteRelationData) watchLocalEgressPublishRemote() error {
 		}
 	}()
 
-	egressAddressWatcher, err := rd.fw.crossModelRelationService.WatchEgressAddressesForRelation(ctx, rd.relationUUID)
+	egressAddressWatcher, err := rd.fw.crossModelRelationService.WatchRelationEgressNetworks(ctx, rd.relationUUID)
 	if err != nil {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
@@ -1803,7 +1807,11 @@ func (rd *remoteRelationData) watchLocalEgressPublishRemote() error {
 		select {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
-		case cidrs := <-egressAddressWatcher.Changes():
+		case <-egressAddressWatcher.Changes():
+			cidrs, err := rd.fw.crossModelRelationService.GetRelationNetworkEgress(ctx, string(rd.relationUUID))
+			if err != nil {
+				return errors.Trace(err)
+			}
 			rd.fw.logger.Debugf(ctx, "local egress addresses for %v changed: %v", rd.tag, cidrs)
 			if err := rd.publishIngressToRemote(ctx, cidrs); err != nil {
 				return errors.Trace(err)
@@ -1904,13 +1912,13 @@ func (rd *remoteRelationData) publishIngressToRemote(ctx context.Context, cidrs 
 		BakeryVersion:   bakery.LatestVersion,
 	}
 	if err := remoteModelAPI.PublishIngressNetworkChange(ctx, event); err != nil {
+		// If the requested ingress is not permitted on the offering side,
+		// mark the relation as in error. It's not an error that requires a
+		// worker restart though.
+		if params.IsCodeForbidden(err) {
+			return rd.fw.relationService.SetRelationStatus(ctx, rd.relationUUID, relation.Error, err.Error())
+		}
 		return errors.Trace(err)
-	}
-	// If the requested ingress is not permitted on the offering side,
-	// mark the relation as in error. It's not an error that requires a
-	// worker restart though.
-	if params.IsCodeForbidden(err) {
-		return rd.fw.relationService.SetRelationStatus(ctx, rd.relationUUID, relation.Error, err.Error())
 	}
 
 	rd.ingressRequired = len(cidrs) > 0
@@ -1927,7 +1935,7 @@ type remoteRelationData struct {
 	// relationUUID is the relation UUID both in the consuming and offering
 	// model. It's used as relationToken when communicating with the remote
 	// model.
-	relationUUID    corerelation.UUID
+	relationUUID    relation.UUID
 	remoteModelUUID string
 
 	crossModelFirewallerFacade CrossModelFirewallerFacadeCloser
