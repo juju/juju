@@ -187,7 +187,7 @@ func (w *localWorker) loop() error {
 					err, "fetching local side of relation %v", w.consumerRelationUUID)
 			}
 
-			if isEmpty(unitRelationInfo) {
+			if unitRelationInfo.Empty() {
 				continue
 			}
 
@@ -229,8 +229,4 @@ func (w *localWorker) Report() map[string]any {
 	}
 
 	return result
-}
-
-func isEmpty(change relation.RelationUnitChange) bool {
-	return len(change.UnitsSettings)+len(change.InScopeUnits) == 0
 }

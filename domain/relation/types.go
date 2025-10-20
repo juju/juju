@@ -367,6 +367,10 @@ type RelationUnitChange struct {
 	ApplicationSettings map[string]string
 }
 
+func (c RelationUnitChange) Empty() bool {
+	return len(c.UnitsSettings)+len(c.InScopeUnits) == 0
+}
+
 // UnitSettings represents the settings of a single unit in a relation.
 type UnitSettings struct {
 	// UnitId uniquely identifies the remote unit.
