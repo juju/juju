@@ -251,6 +251,10 @@ INSERT INTO storage_provision_scope (id, scope) VALUES
 (0, 'model'),
 (1, 'machine');
 
+-- storage_volume describes a volume held by a storage_instance.
+--
+-- obliterate_on_cleanup can only be set when life_id is not-alive(>0), to
+-- ensure it is only set with intent to cause volume death.
 CREATE TABLE storage_volume (
     uuid TEXT NOT NULL PRIMARY KEY,
     volume_id TEXT NOT NULL,
@@ -261,6 +265,9 @@ CREATE TABLE storage_volume (
     hardware_id TEXT,
     wwn TEXT,
     persistent BOOLEAN,
+    obliterate_on_cleanup BOOLEAN,
+    CONSTRAINT chk_storage_volume_obliterate_on_cleanup_set_when_not_alive
+    CHECK (obliterate_on_cleanup IS NULL OR life_id <> 0),
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -359,6 +366,10 @@ CREATE TABLE storage_filesystem_status (
     REFERENCES storage_filesystem_status_value (id)
 );
 
+-- storage_filesystem describes a filsystem held by a storage_instance.
+--
+-- obliterate_on_cleanup can only be set when life_id is not-alive(>0), to
+-- ensure it is only set with intent to cause fileystem death.
 CREATE TABLE storage_filesystem (
     uuid TEXT NOT NULL PRIMARY KEY,
     filesystem_id TEXT NOT NULL,
@@ -366,6 +377,9 @@ CREATE TABLE storage_filesystem (
     provision_scope_id INT NOT NULL,
     provider_id TEXT,
     size_mib INT,
+    obliterate_on_cleanup BOOLEAN,
+    CONSTRAINT chk_storage_filesystem_obliterate_on_cleanup_set_when_not_alive
+    CHECK (obliterate_on_cleanup IS NULL OR life_id <> 0),
     CONSTRAINT fk_storage_filesystem_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
