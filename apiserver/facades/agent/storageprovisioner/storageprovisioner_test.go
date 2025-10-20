@@ -3727,3 +3727,199 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfoUnitErrors(c *tc.C) {
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.NotNil)
 }
+
+func (s *provisionerSuite) TestRemoveWithVolumeTagNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+
+	svc := s.storageProvisioningService
+	svc.EXPECT().GetVolumeUUIDForID(gomock.Any(), tag.Id()).
+		Return("", storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.Remove(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveWithVolumeTagNotFoundUUID(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+	uuid := tc.Must(c, storageprovisioning.NewVolumeUUID)
+
+	svc := s.storageProvisioningService
+	svc.EXPECT().GetVolumeUUIDForID(gomock.Any(), tag.Id()).
+		Return(uuid, nil)
+	svc.EXPECT().RemoveDeadVolume(gomock.Any(), uuid).Return(
+		storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.Remove(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveWithVolumeTagNotDead(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+	uuid := tc.Must(c, storageprovisioning.NewVolumeUUID)
+
+	svc := s.storageProvisioningService
+	svc.EXPECT().GetVolumeUUIDForID(gomock.Any(), tag.Id()).
+		Return(uuid, nil)
+	svc.EXPECT().RemoveDeadVolume(gomock.Any(), uuid).Return(
+		storageprovisioningerrors.VolumeNotDead)
+
+	result, err := s.api.Remove(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Message, tc.Matches,
+		`volume "123" is not yet dead`)
+}
+
+func (s *provisionerSuite) TestRemoveWithVolumeTag(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	uuid := tc.Must(c, storageprovisioning.NewVolumeUUID)
+
+	svc := s.storageProvisioningService
+	svc.EXPECT().CheckVolumeForIDExists(
+		gomock.Any(), tag.Id()).Return(true, nil)
+	svc.EXPECT().GetVolumeUUIDForID(gomock.Any(), tag.Id()).
+		Return(uuid, nil)
+	svc.EXPECT().RemoveDeadVolume(gomock.Any(), uuid).Return(nil)
+
+	result, err := s.api.Remove(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveWithFilesystemTagNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+
+	svc := s.storageProvisioningService
+	svc.EXPECT().GetFilesystemUUIDForID(gomock.Any(), tag.Id()).
+		Return("", storageprovisioningerrors.FilesystemNotFound)
+
+	result, err := s.api.Remove(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveWithFilesystemTagNotFoundUUID(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+
+	svc := s.storageProvisioningService
+	svc.EXPECT().GetFilesystemUUIDForID(gomock.Any(), tag.Id()).
+		Return(uuid, nil)
+	svc.EXPECT().RemoveDeadFilesystem(gomock.Any(), uuid).Return(
+		storageprovisioningerrors.FilesystemNotFound)
+
+	result, err := s.api.Remove(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveWithFilesystemTagNotDead(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+
+	svc := s.storageProvisioningService
+	svc.EXPECT().GetFilesystemUUIDForID(gomock.Any(), tag.Id()).
+		Return(uuid, nil)
+	svc.EXPECT().RemoveDeadFilesystem(gomock.Any(), uuid).Return(
+		storageprovisioningerrors.FilesystemNotDead)
+
+	result, err := s.api.Remove(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Message, tc.Matches,
+		`filesystem "123" is not yet dead`)
+}
+
+func (s *provisionerSuite) TestRemoveWithFilesystemTag(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+
+	svc := s.storageProvisioningService
+	svc.EXPECT().CheckFilesystemForIDExists(
+		gomock.Any(), tag.Id()).Return(true, nil)
+	svc.EXPECT().GetFilesystemUUIDForID(gomock.Any(), tag.Id()).
+		Return(uuid, nil)
+	svc.EXPECT().RemoveDeadFilesystem(gomock.Any(), uuid).Return(nil)
+
+	result, err := s.api.Remove(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}

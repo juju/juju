@@ -2671,7 +2671,7 @@ func (s *StorageProvisionerAPIv4) removeVolume(
 		ctx, uuid)
 	if errors.Is(err, storageprovisioningerrors.VolumeNotDead) {
 		return errors.Errorf(
-			"filesystem %q is not yet dead", tag.Id(),
+			"volume %q is not yet dead", tag.Id(),
 		)
 	} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
 		// Already removed.
