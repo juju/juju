@@ -3769,9 +3769,10 @@ func (s *provisionerSuite) TestRemoveWithVolumeTagNotFoundUUID(c *tc.C) {
 	uuid := tc.Must(c, storageprovisioning.NewVolumeUUID)
 
 	svc := s.storageProvisioningService
+	rsvc := s.removalService
 	svc.EXPECT().GetVolumeUUIDForID(gomock.Any(), tag.Id()).
 		Return(uuid, nil)
-	svc.EXPECT().RemoveDeadVolume(gomock.Any(), uuid).Return(
+	rsvc.EXPECT().RemoveDeadVolume(gomock.Any(), uuid).Return(
 		storageprovisioningerrors.VolumeNotFound)
 
 	result, err := s.api.Remove(c.Context(), params.Entities{
@@ -3794,9 +3795,10 @@ func (s *provisionerSuite) TestRemoveWithVolumeTagNotDead(c *tc.C) {
 	uuid := tc.Must(c, storageprovisioning.NewVolumeUUID)
 
 	svc := s.storageProvisioningService
+	rsvc := s.removalService
 	svc.EXPECT().GetVolumeUUIDForID(gomock.Any(), tag.Id()).
 		Return(uuid, nil)
-	svc.EXPECT().RemoveDeadVolume(gomock.Any(), uuid).Return(
+	rsvc.EXPECT().RemoveDeadVolume(gomock.Any(), uuid).Return(
 		storageprovisioningerrors.VolumeNotDead)
 
 	result, err := s.api.Remove(c.Context(), params.Entities{
@@ -3819,11 +3821,12 @@ func (s *provisionerSuite) TestRemoveWithVolumeTag(c *tc.C) {
 	uuid := tc.Must(c, storageprovisioning.NewVolumeUUID)
 
 	svc := s.storageProvisioningService
+	rsvc := s.removalService
 	svc.EXPECT().CheckVolumeForIDExists(
 		gomock.Any(), tag.Id()).Return(true, nil)
 	svc.EXPECT().GetVolumeUUIDForID(gomock.Any(), tag.Id()).
 		Return(uuid, nil)
-	svc.EXPECT().RemoveDeadVolume(gomock.Any(), uuid).Return(nil)
+	rsvc.EXPECT().RemoveDeadVolume(gomock.Any(), uuid).Return(nil)
 
 	result, err := s.api.Remove(c.Context(), params.Entities{
 		Entities: []params.Entity{{
@@ -3867,9 +3870,10 @@ func (s *provisionerSuite) TestRemoveWithFilesystemTagNotFoundUUID(c *tc.C) {
 	uuid := tc.Must(c, storageprovisioning.NewFilesystemUUID)
 
 	svc := s.storageProvisioningService
+	rsvc := s.removalService
 	svc.EXPECT().GetFilesystemUUIDForID(gomock.Any(), tag.Id()).
 		Return(uuid, nil)
-	svc.EXPECT().RemoveDeadFilesystem(gomock.Any(), uuid).Return(
+	rsvc.EXPECT().RemoveDeadFilesystem(gomock.Any(), uuid).Return(
 		storageprovisioningerrors.FilesystemNotFound)
 
 	result, err := s.api.Remove(c.Context(), params.Entities{
@@ -3892,9 +3896,10 @@ func (s *provisionerSuite) TestRemoveWithFilesystemTagNotDead(c *tc.C) {
 	uuid := tc.Must(c, storageprovisioning.NewFilesystemUUID)
 
 	svc := s.storageProvisioningService
+	rsvc := s.removalService
 	svc.EXPECT().GetFilesystemUUIDForID(gomock.Any(), tag.Id()).
 		Return(uuid, nil)
-	svc.EXPECT().RemoveDeadFilesystem(gomock.Any(), uuid).Return(
+	rsvc.EXPECT().RemoveDeadFilesystem(gomock.Any(), uuid).Return(
 		storageprovisioningerrors.FilesystemNotDead)
 
 	result, err := s.api.Remove(c.Context(), params.Entities{
@@ -3917,11 +3922,12 @@ func (s *provisionerSuite) TestRemoveWithFilesystemTag(c *tc.C) {
 	uuid := tc.Must(c, storageprovisioning.NewFilesystemUUID)
 
 	svc := s.storageProvisioningService
+	rsvc := s.removalService
 	svc.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id()).Return(true, nil)
 	svc.EXPECT().GetFilesystemUUIDForID(gomock.Any(), tag.Id()).
 		Return(uuid, nil)
-	svc.EXPECT().RemoveDeadFilesystem(gomock.Any(), uuid).Return(nil)
+	rsvc.EXPECT().RemoveDeadFilesystem(gomock.Any(), uuid).Return(nil)
 
 	result, err := s.api.Remove(c.Context(), params.Entities{
 		Entities: []params.Entity{{

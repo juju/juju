@@ -1616,82 +1616,6 @@ func (c *MockStorageProvisioningServiceGetVolumeUUIDForIDCall) DoAndReturn(f fun
 	return c
 }
 
-// RemoveDeadFilesystem mocks base method.
-func (m *MockStorageProvisioningService) RemoveDeadFilesystem(arg0 context.Context, arg1 storageprovisioning.FilesystemUUID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveDeadFilesystem", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveDeadFilesystem indicates an expected call of RemoveDeadFilesystem.
-func (mr *MockStorageProvisioningServiceMockRecorder) RemoveDeadFilesystem(arg0, arg1 any) *MockStorageProvisioningServiceRemoveDeadFilesystemCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveDeadFilesystem", reflect.TypeOf((*MockStorageProvisioningService)(nil).RemoveDeadFilesystem), arg0, arg1)
-	return &MockStorageProvisioningServiceRemoveDeadFilesystemCall{Call: call}
-}
-
-// MockStorageProvisioningServiceRemoveDeadFilesystemCall wrap *gomock.Call
-type MockStorageProvisioningServiceRemoveDeadFilesystemCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStorageProvisioningServiceRemoveDeadFilesystemCall) Return(arg0 error) *MockStorageProvisioningServiceRemoveDeadFilesystemCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceRemoveDeadFilesystemCall) Do(f func(context.Context, storageprovisioning.FilesystemUUID) error) *MockStorageProvisioningServiceRemoveDeadFilesystemCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceRemoveDeadFilesystemCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemUUID) error) *MockStorageProvisioningServiceRemoveDeadFilesystemCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RemoveDeadVolume mocks base method.
-func (m *MockStorageProvisioningService) RemoveDeadVolume(arg0 context.Context, arg1 storageprovisioning.VolumeUUID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveDeadVolume", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveDeadVolume indicates an expected call of RemoveDeadVolume.
-func (mr *MockStorageProvisioningServiceMockRecorder) RemoveDeadVolume(arg0, arg1 any) *MockStorageProvisioningServiceRemoveDeadVolumeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveDeadVolume", reflect.TypeOf((*MockStorageProvisioningService)(nil).RemoveDeadVolume), arg0, arg1)
-	return &MockStorageProvisioningServiceRemoveDeadVolumeCall{Call: call}
-}
-
-// MockStorageProvisioningServiceRemoveDeadVolumeCall wrap *gomock.Call
-type MockStorageProvisioningServiceRemoveDeadVolumeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStorageProvisioningServiceRemoveDeadVolumeCall) Return(arg0 error) *MockStorageProvisioningServiceRemoveDeadVolumeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceRemoveDeadVolumeCall) Do(f func(context.Context, storageprovisioning.VolumeUUID) error) *MockStorageProvisioningServiceRemoveDeadVolumeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceRemoveDeadVolumeCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeUUID) error) *MockStorageProvisioningServiceRemoveDeadVolumeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetFilesystemAttachmentProvisionedInfoForMachine mocks base method.
 func (m *MockStorageProvisioningService) SetFilesystemAttachmentProvisionedInfoForMachine(arg0 context.Context, arg1 string, arg2 machine.UUID, arg3 storageprovisioning.FilesystemAttachmentProvisionedInfo) error {
 	m.ctrl.T.Helper()
@@ -2621,6 +2545,82 @@ func (c *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall) Do(f func(context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentPlanUUID) error) *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RemoveDeadFilesystem mocks base method.
+func (m *MockRemovalService) RemoveDeadFilesystem(arg0 context.Context, arg1 storageprovisioning.FilesystemUUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveDeadFilesystem", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveDeadFilesystem indicates an expected call of RemoveDeadFilesystem.
+func (mr *MockRemovalServiceMockRecorder) RemoveDeadFilesystem(arg0, arg1 any) *MockRemovalServiceRemoveDeadFilesystemCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveDeadFilesystem", reflect.TypeOf((*MockRemovalService)(nil).RemoveDeadFilesystem), arg0, arg1)
+	return &MockRemovalServiceRemoveDeadFilesystemCall{Call: call}
+}
+
+// MockRemovalServiceRemoveDeadFilesystemCall wrap *gomock.Call
+type MockRemovalServiceRemoveDeadFilesystemCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemovalServiceRemoveDeadFilesystemCall) Return(arg0 error) *MockRemovalServiceRemoveDeadFilesystemCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemovalServiceRemoveDeadFilesystemCall) Do(f func(context.Context, storageprovisioning.FilesystemUUID) error) *MockRemovalServiceRemoveDeadFilesystemCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemovalServiceRemoveDeadFilesystemCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemUUID) error) *MockRemovalServiceRemoveDeadFilesystemCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RemoveDeadVolume mocks base method.
+func (m *MockRemovalService) RemoveDeadVolume(arg0 context.Context, arg1 storageprovisioning.VolumeUUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveDeadVolume", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveDeadVolume indicates an expected call of RemoveDeadVolume.
+func (mr *MockRemovalServiceMockRecorder) RemoveDeadVolume(arg0, arg1 any) *MockRemovalServiceRemoveDeadVolumeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveDeadVolume", reflect.TypeOf((*MockRemovalService)(nil).RemoveDeadVolume), arg0, arg1)
+	return &MockRemovalServiceRemoveDeadVolumeCall{Call: call}
+}
+
+// MockRemovalServiceRemoveDeadVolumeCall wrap *gomock.Call
+type MockRemovalServiceRemoveDeadVolumeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemovalServiceRemoveDeadVolumeCall) Return(arg0 error) *MockRemovalServiceRemoveDeadVolumeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemovalServiceRemoveDeadVolumeCall) Do(f func(context.Context, storageprovisioning.VolumeUUID) error) *MockRemovalServiceRemoveDeadVolumeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemovalServiceRemoveDeadVolumeCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeUUID) error) *MockRemovalServiceRemoveDeadVolumeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

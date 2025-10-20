@@ -117,6 +117,18 @@ type RemovalService interface {
 	MarkVolumeAttachmentPlanAsDead(
 		ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
 	) error
+
+	// RemoveDeadFilesystem is to be called from the storage provisoner to
+	// finally remove a dead filesystem that it has been gracefully cleaned up.
+	RemoveDeadFilesystem(
+		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	) error
+
+	// RemoveDeadVolume is to be called from the storage provisoner to finally
+	// remove a dead volume that it has been gracefully cleaned up.
+	RemoveDeadVolume(
+		ctx context.Context, uuid storageprovisioning.VolumeUUID,
+	) error
 }
 
 // StorageStatusService provides methods to set filesystem and volume status.
@@ -163,12 +175,6 @@ type StorageProvisioningService interface {
 	GetFilesystemRemovalParams(
 		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
 	) (storageprovisioning.FilesystemRemovalParams, error)
-
-	// RemoveDeadFilesystem is to be called from the storage provisoner to
-	// finally remove a dead filesystem that it has been gracefully cleaned up.
-	RemoveDeadFilesystem(
-		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
-	) error
 
 	// CheckFilesystemForIDExists checks if a filesystem exists for the supplied
 	// filesystem ID. True is returned when a filesystem exists.
@@ -262,12 +268,6 @@ type StorageProvisioningService interface {
 	GetVolumeRemovalParams(
 		ctx context.Context, uuid storageprovisioning.VolumeUUID,
 	) (storageprovisioning.VolumeRemovalParams, error)
-
-	// RemoveDeadVolume is to be called from the storage provisoner to finally
-	// remove a dead volume that it has been gracefully cleaned up.
-	RemoveDeadVolume(
-		ctx context.Context, uuid storageprovisioning.VolumeUUID,
-	) error
 
 	// CheckVolumeForIDExists checks if a volume exists for the supplied volume
 	// ID. True is returned when a volume exists.

@@ -2733,8 +2733,7 @@ func (s *StorageProvisionerAPIv4) removeVolume(
 		return err
 	}
 
-	err = s.storageProvisioningService.RemoveDeadVolume(
-		ctx, uuid)
+	err = s.removalService.RemoveDeadVolume(ctx, uuid)
 	if errors.Is(err, storageprovisioningerrors.VolumeNotDead) {
 		return errors.Errorf(
 			"volume %q is not yet dead", tag.Id(),
@@ -2764,8 +2763,7 @@ func (s *StorageProvisionerAPIv4) removeFilesystem(
 		return err
 	}
 
-	err = s.storageProvisioningService.RemoveDeadFilesystem(
-		ctx, uuid)
+	err = s.removalService.RemoveDeadFilesystem(ctx, uuid)
 	if errors.Is(err, storageprovisioningerrors.FilesystemNotDead) {
 		return errors.Errorf(
 			"filesystem %q is not yet dead", tag.Id(),
