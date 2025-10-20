@@ -1215,6 +1215,36 @@ func (s *provisionerSuite) TestRemoveFilesystemParamsNotFoundWithUUID(c *tc.C) {
 	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
 }
 
+func (s *provisionerSuite) TestRemoveFilesystemParamsNotDead(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(fsUUID, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemRemovalParams(
+		gomock.Any(), fsUUID,
+	).Return(
+		storageprovisioning.FilesystemRemovalParams{},
+		storageprovisioningerrors.FilesystemNotDead,
+	)
+
+	results, err := s.api.RemoveFilesystemParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error.Message, tc.Matches,
+		`filesystem "123" is not yet dead`)
+}
+
 func (s *provisionerSuite) TestRemoveFilesystemParams(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
@@ -1737,6 +1767,36 @@ func (s *provisionerSuite) TestRemoveVolumeParamsNotFoundWithUUID(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestRemoveVolumeParamsNotDead(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+	volUUID := storageprovisioningtesting.GenVolumeUUID(c)
+
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(volUUID, nil)
+	s.storageProvisioningService.EXPECT().GetVolumeRemovalParams(
+		gomock.Any(), volUUID,
+	).Return(
+		storageprovisioning.VolumeRemovalParams{},
+		storageprovisioningerrors.VolumeNotDead,
+	)
+
+	results, err := s.api.RemoveVolumeParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error.Message, tc.Matches,
+		`volume "123" is not yet dead`)
 }
 
 func (s *provisionerSuite) TestRemoveVolumeParams(c *tc.C) {
