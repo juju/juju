@@ -52,7 +52,7 @@ func (s *State) GetControllerAgentVersionsByArchitecture(
 	var agentVersions []agentVersionArchitecture
 
 	stmt, err := s.Prepare(`
-SELECT &agentVersion.*
+SELECT &agentVersionArchitecture.*
 FROM   controller_node_agent_version
 WHERE  architecture_id IN ($ids[:])
 `, agentVersionArchitecture{}, architectureIDs)
@@ -73,16 +73,17 @@ WHERE  architecture_id IN ($ids[:])
 		return zeroArchAndVersions, errors.Capture(err)
 	}
 
-	versions := make(map[agentbinary.Architecture][]semversion.Number)
+	versions := make(map[agentbinary.Architecture][]semversion.Number, len(architectures))
+	for _, architecture := range architectures {
+		versions[architecture] = []semversion.Number{}
+	}
+
 	for _, agent := range agentVersions {
 		version, err := semversion.Parse(agent.Version)
 		if err != nil {
 			return zeroArchAndVersions, errors.Capture(err)
 		}
 		archID := agentbinary.Architecture(agent.ArchitectureID)
-		if _, ok := versions[archID]; !ok {
-			versions[archID] = []semversion.Number{}
-		}
 		versions[archID] = append(versions[archID], version)
 	}
 
