@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
+	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
@@ -1635,15 +1636,17 @@ func (fw *Firewaller) startConsumerRelation(ctx context.Context, rel domainrelat
 		fw:                  fw,
 		tag:                 tag,
 		localApplicationTag: names.NewApplicationTag(localEndpoint.ApplicationName),
+		relationUUID:        rel.UUID,
 		remoteModelUUID:     remoteModelUUID,
 	}
 	var watchEgressLoop func() error
 	if localEndpoint.Role == charm.RoleRequirer {
 		// Local endpoint is requirer, so watch local egress and publish to
-		// remote.
+		// remote (offering model).
 		watchEgressLoop = data.watchLocalEgressPublishRemote
 	} else {
-		// Local endpoint is provider, so watch remote egress and apply locally.
+		// Local endpoint is provider, so watch remote (offering model) egress
+		// and apply locally.
 		watchEgressLoop = data.watchRemoteEgressApplyLocal
 	}
 
@@ -1735,7 +1738,7 @@ func (rd *remoteRelationData) watchLocalIngress() error {
 
 	// Watch the local model for ingress changes published from the consuming
 	// model.
-	ingressAddressWatcher, err := fw.firewallerApi.WatchIngressAddressesForRelation(ctx, rd.tag)
+	ingressAddressWatcher, err := fw.crossModelRelationService.WatchIngressAddressesForRelation(ctx, rd.relationUUID)
 	if err != nil {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
@@ -1783,7 +1786,7 @@ func (rd *remoteRelationData) watchLocalEgressPublishRemote() error {
 		}
 	}()
 
-	egressAddressWatcher, err := rd.fw.firewallerApi.WatchEgressAddressesForRelation(ctx, rd.tag)
+	egressAddressWatcher, err := rd.fw.crossModelRelationService.WatchEgressAddressesForRelation(ctx, rd.relationUUID)
 	if err != nil {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
@@ -1817,7 +1820,6 @@ func (rd *remoteRelationData) watchRemoteEgressApplyLocal() error {
 
 	rd.fw.logger.Debugf(ctx, "watching remote egress for %v to apply local ingress", rd.tag.Id())
 
-	// Connect to remote model to watch egress
 	apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(ctx, rd.remoteModelUUID)
 	if err != nil {
 		return errors.Annotatef(err, "cannot get api info for model %v", rd.remoteModelUUID)
@@ -1827,12 +1829,16 @@ func (rd *remoteRelationData) watchRemoteEgressApplyLocal() error {
 		return errors.Annotate(err, "cannot open facade to remote model to watch egress addresses")
 	}
 
-	mac, err := rd.fw.firewallerApi.MacaroonForRelation(ctx, rd.tag.Id())
+	relKey, err := relation.NewKeyFromString(rd.tag.Id())
+	if err != nil {
+		return errors.Annotatef(err, "cannot parse relation key for %v", rd.tag.Id())
+	}
+	mac, err := rd.fw.crossModelRelationService.GetMacaroonForRelationKey(ctx, relKey)
 	if err != nil {
 		return errors.Annotatef(err, "cannot get macaroon for %v", rd.tag.Id())
 	}
 	arg := params.RemoteEntityArg{
-		Token:         rd.relationToken,
+		Token:         rd.relationUUID.String(),
 		Macaroons:     macaroon.Slice{mac},
 		BakeryVersion: bakery.LatestVersion,
 	}
@@ -1862,7 +1868,8 @@ func (rd *remoteRelationData) watchRemoteEgressApplyLocal() error {
 	}
 }
 
-// publishIngressToRemote publishes ingress network changes to the remote offering model.
+// publishIngressToRemote publishes ingress network changes to the offering
+// model.
 func (rd *remoteRelationData) publishIngressToRemote(ctx context.Context, cidrs []string) error {
 	rd.fw.logger.Debugf(ctx, "publishing ingress cidrs for %v: %+v", rd.tag, cidrs)
 
@@ -1870,7 +1877,12 @@ func (rd *remoteRelationData) publishIngressToRemote(ctx context.Context, cidrs 
 	if err != nil {
 		return errors.Annotatef(err, "cannot get api info for model %v", rd.remoteModelUUID)
 	}
-	mac, err := rd.fw.firewallerApi.MacaroonForRelation(ctx, rd.tag.Id())
+
+	relKey, err := relation.NewKeyFromString(rd.tag.Id())
+	if err != nil {
+		return errors.Annotatef(err, "cannot parse relation key for %v", rd.tag.Id())
+	}
+	mac, err := rd.fw.crossModelRelationService.GetMacaroonForRelationKey(ctx, relKey)
 	if params.IsCodeNotFound(err) {
 		// Relation has gone, nothing to do.
 		return nil
@@ -1885,7 +1897,7 @@ func (rd *remoteRelationData) publishIngressToRemote(ctx context.Context, cidrs 
 	defer remoteModelAPI.Close()
 
 	event := params.IngressNetworksChangeEvent{
-		RelationToken:   rd.relationToken,
+		RelationToken:   rd.relationUUID.String(),
 		Networks:        cidrs,
 		IngressRequired: len(cidrs) > 0,
 		Macaroons:       macaroon.Slice{mac},
@@ -1894,14 +1906,16 @@ func (rd *remoteRelationData) publishIngressToRemote(ctx context.Context, cidrs 
 	if err := remoteModelAPI.PublishIngressNetworkChange(ctx, event); err != nil {
 		return errors.Trace(err)
 	}
+	// If the requested ingress is not permitted on the offering side,
+	// mark the relation as in error. It's not an error that requires a
+	// worker restart though.
+	if params.IsCodeForbidden(err) {
+		return rd.fw.relationService.SetRelationStatus(ctx, rd.relationUUID, relation.Error, err.Error())
+	}
 
 	rd.ingressRequired = len(cidrs) > 0
 	rd.networks = set.NewStrings(cidrs...)
 	return nil
-}
-
-type remoteRelationInfo struct {
-	relationToken string
 }
 
 type remoteRelationData struct {
@@ -1910,8 +1924,11 @@ type remoteRelationData struct {
 
 	tag                 names.RelationTag
 	localApplicationTag names.ApplicationTag
-	relationToken       string
-	remoteModelUUID     string
+	// relationUUID is the relation UUID both in the consuming and offering
+	// model. It's used as relationToken when communicating with the remote
+	// model.
+	relationUUID    corerelation.UUID
+	remoteModelUUID string
 
 	crossModelFirewallerFacade CrossModelFirewallerFacadeCloser
 
@@ -1930,56 +1947,6 @@ type remoteRelationNetworkChange struct {
 	localApplicationTag names.ApplicationTag
 	networks            set.Strings
 	ingressRequired     bool
-}
-
-// updateProviderModel gathers the ingress CIDRs for the relation and notifies
-// that a change has occurred.
-func (rd *remoteRelationData) updateProviderModel(ctx context.Context, cidrs []string) error {
-	rd.fw.logger.Debugf(ctx, "ingress cidrs for %v: %+v", rd.tag, cidrs)
-	change := &remoteRelationNetworkChange{
-		relationTag:         rd.tag,
-		localApplicationTag: rd.localApplicationTag,
-		networks:            set.NewStrings(cidrs...),
-		ingressRequired:     len(cidrs) > 0,
-	}
-
-	apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(ctx, rd.remoteModelUUID)
-	if err != nil {
-		return errors.Annotatef(err, "cannot get api info for model %v", rd.remoteModelUUID)
-	}
-	mac, err := rd.fw.firewallerApi.MacaroonForRelation(ctx, rd.tag.Id())
-	if params.IsCodeNotFound(err) {
-		// Relation has gone, nothing to do.
-		return nil
-	}
-	if err != nil {
-		return errors.Annotatef(err, "cannot get macaroon for %v", rd.tag.Id())
-	}
-	remoteModelAPI, err := rd.fw.newRemoteFirewallerAPIFunc(ctx, apiInfo)
-	if err != nil {
-		return errors.Annotate(err, "cannot open facade to remote model to publish network change")
-	}
-	defer remoteModelAPI.Close()
-	event := params.IngressNetworksChangeEvent{
-		RelationToken:   rd.relationToken,
-		Networks:        change.networks.Values(),
-		IngressRequired: change.ingressRequired,
-		Macaroons:       macaroon.Slice{mac},
-		BakeryVersion:   bakery.LatestVersion,
-	}
-	err = remoteModelAPI.PublishIngressNetworkChange(ctx, event)
-	if errors.Is(err, errors.NotFound) {
-		rd.fw.logger.Debugf(ctx, "relation id not found publishing %+v", event)
-		return nil
-	}
-
-	// If the requested ingress is not permitted on the offering side,
-	// mark the relation as in error. It's not an error that requires a
-	// worker restart though.
-	if params.IsCodeForbidden(err) {
-		return rd.fw.firewallerApi.SetRelationStatus(ctx, rd.tag.Id(), relation.Error, err.Error())
-	}
-	return errors.Annotate(err, "cannot publish ingress network change")
 }
 
 // updateIngressNetworks processes the changed ingress networks on the relation.

@@ -369,10 +369,10 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 	return s.modelState.SaveMacaroonForRelation(ctx, relationUUID.String(), bytes)
 }
 
-// GetRelationToken returns the token associated with the provided relation Key.
-// Not implemented yet in the domain service.
-func (w *Service) GetRelationToken(ctx context.Context, relationKey string) (string, error) {
-	return "", internalerrors.Errorf("crossmodelrelation.GetToken").Add(errors.NotImplemented)
+// GetMacaroonForRelation retrieves the macaroon associated with the provided
+// relation key.
+func (s *Service) GetMacaroonForRelationKey(ctx context.Context, relationKey corerelation.Key) (*macaroon.Macaroon, error) {
+	return nil, internalerrors.Errorf("crossmodelrelation.GetMacaroonForRelation").Add(errors.NotImplemented)
 }
 
 // GetMacaroonForRelation gets the macaroon for the specified remote relation,

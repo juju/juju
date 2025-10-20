@@ -26,7 +26,6 @@ import (
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
-	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockFirewallerAPI is a mock of FirewallerAPI interface.
@@ -126,45 +125,6 @@ func (c *MockFirewallerAPIControllerAPIInfoForModelCall) Do(f func(context.Conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockFirewallerAPIControllerAPIInfoForModelCall) DoAndReturn(f func(context.Context, string) (*api.Info, error)) *MockFirewallerAPIControllerAPIInfoForModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// MacaroonForRelation mocks base method.
-func (m *MockFirewallerAPI) MacaroonForRelation(arg0 context.Context, arg1 string) (*macaroon.Macaroon, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MacaroonForRelation", arg0, arg1)
-	ret0, _ := ret[0].(*macaroon.Macaroon)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MacaroonForRelation indicates an expected call of MacaroonForRelation.
-func (mr *MockFirewallerAPIMockRecorder) MacaroonForRelation(arg0, arg1 any) *MockFirewallerAPIMacaroonForRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MacaroonForRelation", reflect.TypeOf((*MockFirewallerAPI)(nil).MacaroonForRelation), arg0, arg1)
-	return &MockFirewallerAPIMacaroonForRelationCall{Call: call}
-}
-
-// MockFirewallerAPIMacaroonForRelationCall wrap *gomock.Call
-type MockFirewallerAPIMacaroonForRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockFirewallerAPIMacaroonForRelationCall) Return(arg0 *macaroon.Macaroon, arg1 error) *MockFirewallerAPIMacaroonForRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockFirewallerAPIMacaroonForRelationCall) Do(f func(context.Context, string) (*macaroon.Macaroon, error)) *MockFirewallerAPIMacaroonForRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFirewallerAPIMacaroonForRelationCall) DoAndReturn(f func(context.Context, string) (*macaroon.Macaroon, error)) *MockFirewallerAPIMacaroonForRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -398,84 +358,6 @@ func (c *MockFirewallerAPIUnitCall) Do(f func(context.Context, names.UnitTag) (f
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockFirewallerAPIUnitCall) DoAndReturn(f func(context.Context, names.UnitTag) (firewaller0.Unit, error)) *MockFirewallerAPIUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchEgressAddressesForRelation mocks base method.
-func (m *MockFirewallerAPI) WatchEgressAddressesForRelation(arg0 context.Context, arg1 names.RelationTag) (watcher.Watcher[[]string], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchEgressAddressesForRelation", arg0, arg1)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchEgressAddressesForRelation indicates an expected call of WatchEgressAddressesForRelation.
-func (mr *MockFirewallerAPIMockRecorder) WatchEgressAddressesForRelation(arg0, arg1 any) *MockFirewallerAPIWatchEgressAddressesForRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchEgressAddressesForRelation", reflect.TypeOf((*MockFirewallerAPI)(nil).WatchEgressAddressesForRelation), arg0, arg1)
-	return &MockFirewallerAPIWatchEgressAddressesForRelationCall{Call: call}
-}
-
-// MockFirewallerAPIWatchEgressAddressesForRelationCall wrap *gomock.Call
-type MockFirewallerAPIWatchEgressAddressesForRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockFirewallerAPIWatchEgressAddressesForRelationCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockFirewallerAPIWatchEgressAddressesForRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockFirewallerAPIWatchEgressAddressesForRelationCall) Do(f func(context.Context, names.RelationTag) (watcher.Watcher[[]string], error)) *MockFirewallerAPIWatchEgressAddressesForRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFirewallerAPIWatchEgressAddressesForRelationCall) DoAndReturn(f func(context.Context, names.RelationTag) (watcher.Watcher[[]string], error)) *MockFirewallerAPIWatchEgressAddressesForRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchIngressAddressesForRelation mocks base method.
-func (m *MockFirewallerAPI) WatchIngressAddressesForRelation(arg0 context.Context, arg1 names.RelationTag) (watcher.Watcher[[]string], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchIngressAddressesForRelation", arg0, arg1)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchIngressAddressesForRelation indicates an expected call of WatchIngressAddressesForRelation.
-func (mr *MockFirewallerAPIMockRecorder) WatchIngressAddressesForRelation(arg0, arg1 any) *MockFirewallerAPIWatchIngressAddressesForRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchIngressAddressesForRelation", reflect.TypeOf((*MockFirewallerAPI)(nil).WatchIngressAddressesForRelation), arg0, arg1)
-	return &MockFirewallerAPIWatchIngressAddressesForRelationCall{Call: call}
-}
-
-// MockFirewallerAPIWatchIngressAddressesForRelationCall wrap *gomock.Call
-type MockFirewallerAPIWatchIngressAddressesForRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockFirewallerAPIWatchIngressAddressesForRelationCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockFirewallerAPIWatchIngressAddressesForRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockFirewallerAPIWatchIngressAddressesForRelationCall) Do(f func(context.Context, names.RelationTag) (watcher.Watcher[[]string], error)) *MockFirewallerAPIWatchIngressAddressesForRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFirewallerAPIWatchIngressAddressesForRelationCall) DoAndReturn(f func(context.Context, names.RelationTag) (watcher.Watcher[[]string], error)) *MockFirewallerAPIWatchIngressAddressesForRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

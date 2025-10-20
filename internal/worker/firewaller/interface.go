@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
@@ -38,10 +39,7 @@ type FirewallerAPI interface {
 	Machine(ctx context.Context, tag names.MachineTag) (Machine, error)
 	Unit(ctx context.Context, tag names.UnitTag) (Unit, error)
 	Relation(ctx context.Context, tag names.RelationTag) (*firewaller.Relation, error)
-	WatchEgressAddressesForRelation(ctx context.Context, tag names.RelationTag) (watcher.StringsWatcher, error)
-	WatchIngressAddressesForRelation(ctx context.Context, tag names.RelationTag) (watcher.StringsWatcher, error)
 	ControllerAPIInfoForModel(ctx context.Context, modelUUID string) (*api.Info, error)
-	MacaroonForRelation(ctx context.Context, relationKey string) (*macaroon.Macaroon, error)
 	SetRelationStatus(ctx context.Context, relationKey string, status relation.Status, message string) error
 	AllSpaceInfos(ctx context.Context) (network.SpaceInfos, error)
 	WatchSubnets(ctx context.Context) (watcher.StringsWatcher, error)
@@ -50,7 +48,15 @@ type FirewallerAPI interface {
 // CrossModelFirewallerFacade exposes firewaller functionality on the
 // remote offering model to a worker.
 type CrossModelFirewallerFacade interface {
+	// PublishIngressNetworkChange publishes changes to the required
+	// ingress addresses to the model hosting the offer in the relation.
 	PublishIngressNetworkChange(context.Context, params.IngressNetworksChangeEvent) error
+
+	// WatchEgressAddressesForRelation creates a watcher that notifies when
+	// addresses, from which connections will originate for the relation,
+	// change.
+	// Each event contains the entire set of addresses which are required for
+	// ingress for the relation.
 	WatchEgressAddressesForRelation(ctx context.Context, details params.RemoteEntityArg) (watcher.StringsWatcher, error)
 }
 
@@ -63,8 +69,9 @@ type CrossModelFirewallerFacadeCloser interface {
 
 // CrossModelRelationService provides access to cross-model relations.
 type CrossModelRelationService interface {
-	// GetRelationToken returns the token associated with the provided relation Key.
-	GetRelationToken(ctx context.Context, relationKey string) (string, error)
+	// GetMacaroonForRelation retrieves the macaroon associated with the provided
+	// relation key.
+	GetMacaroonForRelationKey(ctx context.Context, relationKey relation.Key) (*macaroon.Macaroon, error)
 
 	// RemoteApplications returns the current state for the named remote applications.
 	RemoteApplications(ctx context.Context, applications []string) ([]params.RemoteApplicationResult, error)
@@ -76,14 +83,32 @@ type CrossModelRelationService interface {
 	// WatchOffererRelations watches the changes to (remote) relations on the
 	// offering model and notifies the worker of any changes.
 	WatchOffererRelations(ctx context.Context) (watcher.StringsWatcher, error)
+
+	// WatchEgressAddressesForRelation returns a watcher that notifies when
+	// addresses, from which connections will originate to the provider side of the
+	// relation, change.
+	// Each event contains the entire set of addresses which the provider side is
+	// required to allow for access from the other side of the relation.
+	WatchEgressAddressesForRelation(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error)
+
+	// WatchIngressAddressesForRelation returns a watcher that notifies when
+	// addresses, from which connections will originate for the relation, change.
+	// Each event contains the entire set of addresses which are required
+	// for ingress into this model from the other requirer side of the relation.
+	WatchIngressAddressesForRelation(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error)
 }
 
 // RelationService provides access to relations.
 type RelationService interface {
 	// GetRelationUUIDByKey returns a relation UUID for the given Key.
 	GetRelationUUIDByKey(ctx context.Context, relationKey relation.Key) (relation.UUID, error)
+
 	// GetRelationDetails returns RelationDetails for the given relation UUID.
 	GetRelationDetails(ctx context.Context, relationUUID relation.UUID) (domainrelation.RelationDetails, error)
+
+	// SetRelationStatus sets the status and message for the given relation
+	// UUID.
+	SetRelationStatus(ctx context.Context, relationUUID relation.UUID, status relation.Status, message string) error
 }
 
 // PortService provides methods to query opened ports for machines
