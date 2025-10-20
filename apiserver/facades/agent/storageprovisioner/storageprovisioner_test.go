@@ -22,7 +22,6 @@ import (
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -4206,11 +4205,11 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagNotFoundToUnit(c
 
 	tag := names.NewFilesystemTag("123")
 	host := names.NewUnitTag("app/2")
-	uUUID := tc.Must(c, unit.NewUUID)
+	uUUID := tc.Must(c, coreunit.NewUUID)
 
 	svc := s.storageProvisioningService
 	asvc := s.applicationService
-	asvc.EXPECT().GetUnitUUID(gomock.Any(), unit.Name(host.Id())).
+	asvc.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name(host.Id())).
 		Return(uUUID, nil)
 	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), uUUID,
@@ -4238,12 +4237,12 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagNotFoundUUIDToUn
 	tag := names.NewFilesystemTag("123")
 	host := names.NewUnitTag("app/2")
 	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
-	uUUID := tc.Must(c, unit.NewUUID)
+	uUUID := tc.Must(c, coreunit.NewUUID)
 
 	svc := s.storageProvisioningService
 	rsvc := s.removalService
 	asvc := s.applicationService
-	asvc.EXPECT().GetUnitUUID(gomock.Any(), unit.Name(host.Id())).
+	asvc.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name(host.Id())).
 		Return(uUUID, nil)
 	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), uUUID,
@@ -4271,12 +4270,12 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagStillAliveToUnit
 	tag := names.NewFilesystemTag("123")
 	host := names.NewUnitTag("app/2")
 	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
-	uUUID := tc.Must(c, unit.NewUUID)
+	uUUID := tc.Must(c, coreunit.NewUUID)
 
 	svc := s.storageProvisioningService
 	rsvc := s.removalService
 	asvc := s.applicationService
-	asvc.EXPECT().GetUnitUUID(gomock.Any(), unit.Name(host.Id())).
+	asvc.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name(host.Id())).
 		Return(uUUID, nil)
 	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), uUUID,
@@ -4304,12 +4303,12 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagToUnit(c *tc.C) 
 	tag := names.NewFilesystemTag("123")
 	host := names.NewUnitTag("app/2")
 	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
-	uUUID := tc.Must(c, unit.NewUUID)
+	uUUID := tc.Must(c, coreunit.NewUUID)
 
 	svc := s.storageProvisioningService
 	rsvc := s.removalService
 	asvc := s.applicationService
-	asvc.EXPECT().GetUnitUUID(gomock.Any(), unit.Name(host.Id())).
+	asvc.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name(host.Id())).
 		Return(uUUID, nil)
 	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), uUUID,
