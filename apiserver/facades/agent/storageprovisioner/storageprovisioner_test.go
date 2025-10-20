@@ -1212,7 +1212,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParamsNotFoundWithUUID(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeUnauthorized)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
 }
 
 func (s *provisionerSuite) TestRemoveFilesystemParams(c *tc.C) {
@@ -1683,6 +1683,128 @@ func (s *provisionerSuite) TestVolumeParams(c *tc.C) {
 		Tags: map[string]string{
 			"tag1": "value1",
 		},
+	})
+}
+
+func (s *provisionerSuite) TestRemoveVolumeParamsNotFound(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+
+	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+		gomock.Any(),
+	).Return(map[string]string{}, nil).AnyTimes()
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return("", storageprovisioningerrors.VolumeNotFound)
+
+	results, err := s.api.RemoveVolumeParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestRemoveVolumeParamsNotFoundWithUUID(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+	volUUID := storageprovisioningtesting.GenVolumeUUID(c)
+
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(volUUID, nil)
+	s.storageProvisioningService.EXPECT().GetVolumeRemovalParams(
+		gomock.Any(), volUUID,
+	).Return(
+		storageprovisioning.VolumeRemovalParams{},
+		storageprovisioningerrors.VolumeNotFound,
+	)
+
+	results, err := s.api.RemoveVolumeParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestRemoveVolumeParams(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	tag := names.NewVolumeTag("123")
+	volUUID := storageprovisioningtesting.GenVolumeUUID(c)
+
+	s.storageProvisioningService.EXPECT().CheckVolumeForIDExists(
+		gomock.Any(), tag.Id(),
+	).Return(true, nil)
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(volUUID, nil)
+	s.storageProvisioningService.EXPECT().GetVolumeRemovalParams(
+		gomock.Any(), volUUID,
+	).Return(storageprovisioning.VolumeRemovalParams{
+		Provider:   "myprovider",
+		ProviderID: "vol-provider-id",
+	}, nil)
+
+	results, err := s.api.RemoveVolumeParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	removalParams := results.Results[0].Result
+	c.Check(removalParams, tc.DeepEquals, params.RemoveVolumeParams{
+		Provider:   "myprovider",
+		ProviderId: "vol-provider-id",
+		Destroy:    false,
+	})
+}
+
+func (s *provisionerSuite) TestRemoveVolumeParamsWithObliterate(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	tag := names.NewVolumeTag("123")
+	volUUID := storageprovisioningtesting.GenVolumeUUID(c)
+
+	s.storageProvisioningService.EXPECT().CheckVolumeForIDExists(
+		gomock.Any(), tag.Id(),
+	).Return(true, nil)
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(volUUID, nil)
+	s.storageProvisioningService.EXPECT().GetVolumeRemovalParams(
+		gomock.Any(), volUUID,
+	).Return(storageprovisioning.VolumeRemovalParams{
+		Provider:   "myprovider",
+		ProviderID: "vol-provider-id",
+		Obliterate: true,
+	}, nil)
+
+	results, err := s.api.RemoveVolumeParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	removalParams := results.Results[0].Result
+	c.Check(removalParams, tc.DeepEquals, params.RemoveVolumeParams{
+		Provider:   "myprovider",
+		ProviderId: "vol-provider-id",
+		Destroy:    true,
 	})
 }
 
