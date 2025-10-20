@@ -114,10 +114,25 @@ VALUES (?, ?, ?, ?)
 func (s *baseSuite) addCharm(c *tc.C) corecharm.ID {
 	charmUUID := corecharmtesting.GenCharmID(c)
 	// The UUID is also used as the reference_name as there is a unique
-	// constraint on the reference_name, revision and source_id.
+	// constraint on the reference_name, revision.
 	s.query(c, `
-INSERT INTO charm (uuid, reference_name, architecture_id, revision)
-VALUES (?, ?, 0, 42)
+INSERT INTO charm (uuid, reference_name, revision)
+VALUES (?, ?, 42)
+`, charmUUID, charmUUID)
+	return charmUUID
+}
+
+// addCMRCharm inserts a new charm, where the source is CMR, into the
+// database and returns the UUID.
+func (s *baseSuite) addCMRCharm(c *tc.C) corecharm.ID {
+	charmUUID := corecharmtesting.GenCharmID(c)
+	// The UUID is also used as the reference_name as there is a unique
+	// constraint on the reference_name, revision.
+	s.query(c, `
+INSERT INTO charm (uuid, reference_name, source_id, revision)
+VALUES (?, ?, 
+        (SELECT id FROM charm_source WHERE name = 'cmr'),
+        42)
 `, charmUUID, charmUUID)
 	return charmUUID
 }
@@ -160,6 +175,12 @@ VALUES (?, 0, ?, 0)
 `, relationUUID, s.relationCount)
 	s.relationCount++
 	return relationUUID
+}
+
+func (s *baseSuite) addRelationEndpoint(c *tc.C, relationUUID, endpointUUID string) {
+	s.query(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), relationUUID, endpointUUID)
 }
 
 // addOffer inserts a new offer with offer_endpoints into the database. Returns

@@ -93,8 +93,8 @@ func (s *offererUnitRelationsWorker) TestStart(c *tc.C) {
 
 	done := make(chan struct{})
 	s.client.EXPECT().WatchRelationChanges(gomock.Any(),
-		s.consumerRelationUUID.String(), s.offererApplicationUUID.String(), macaroon.Slice{s.macaroon}).
-		DoAndReturn(func(ctx context.Context, s1, s2 string, s3 macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
+		s.consumerRelationUUID.String(), macaroon.Slice{s.macaroon}).
+		DoAndReturn(func(_ context.Context, _ string, _ macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
 			defer close(done)
 			return watchertest.NewMockWatcher(make(<-chan params.RemoteRelationChangeEvent)), nil
 		})
@@ -118,8 +118,8 @@ func (s *offererUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 
 	sync := make(chan struct{})
 	s.client.EXPECT().WatchRelationChanges(gomock.Any(),
-		s.consumerRelationUUID.String(), s.offererApplicationUUID.String(), macaroon.Slice{s.macaroon}).
-		DoAndReturn(func(ctx context.Context, s1, s2 string, s3 macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
+		s.consumerRelationUUID.String(), macaroon.Slice{s.macaroon}).
+		DoAndReturn(func(_ context.Context, _ string, _ macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
 			defer close(sync)
 			return watchertest.NewMockWatcher(ch), nil
 		})
@@ -194,8 +194,8 @@ func (s *offererUnitRelationsWorker) TestChangeEventIsEmpty(c *tc.C) {
 
 	sync := make(chan struct{})
 	s.client.EXPECT().WatchRelationChanges(gomock.Any(),
-		s.consumerRelationUUID.String(), s.offererApplicationUUID.String(), macaroon.Slice{s.macaroon}).
-		DoAndReturn(func(ctx context.Context, s1, s2 string, s3 macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
+		s.consumerRelationUUID.String(), macaroon.Slice{s.macaroon}).
+		DoAndReturn(func(_ context.Context, _ string, _ macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
 			defer close(sync)
 			return watchertest.NewMockWatcher(ch), nil
 		})
@@ -231,8 +231,8 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 
 	sync := make(chan struct{})
 	s.client.EXPECT().WatchRelationChanges(gomock.Any(),
-		s.consumerRelationUUID.String(), s.offererApplicationUUID.String(), macaroon.Slice{s.macaroon}).
-		DoAndReturn(func(ctx context.Context, s1, s2 string, s3 macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
+		s.consumerRelationUUID.String(), macaroon.Slice{s.macaroon}).
+		DoAndReturn(func(_ context.Context, _ string, _ macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
 			defer close(sync)
 			return watchertest.NewMockWatcher(ch), nil
 		})

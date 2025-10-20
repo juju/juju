@@ -21,6 +21,7 @@ import (
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
@@ -1096,6 +1097,65 @@ JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_
 		res[i] = r.UUID
 	}
 	return res, nil
+}
+
+// GetOfferingApplicationToken returns the offering application token (uuid)
+// for the given offer UUID.
+// Returns
+//
+//	-[relationerrors.RelationNotFound] if the query has no rows, the relation
+//	  wasn't found.
+//	-[crossmodelrelationerrors.RelationNotRemote] if there is no CMR sourced
+//	  charm in the relation.
+func (st *State) GetOfferingApplicationToken(ctx context.Context, relUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT (a.uuid, cs.name) AS (&applicationUUIDAndCharmSource.*)
+FROM   application AS a
+JOIN   application_endpoint AS ae ON a.uuid = ae.application_uuid
+JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
+JOIN   relation AS r ON re.relation_uuid = r.uuid
+JOIN   charm AS c ON a.charm_uuid = c.uuid
+JOIN   charm_source AS cs ON c.source_id = cs.id
+WHERE  r.uuid = $uuid.uuid
+`, uuid{}, applicationUUIDAndCharmSource{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	relationUUID := uuid{UUID: relUUID}
+	var applicationUUID []applicationUUIDAndCharmSource
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, relationUUID).GetAll(&applicationUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var cmrAppUUID, localAppUUID string
+	for _, a := range applicationUUID {
+		if a.CharmSource == charm.CMRSource {
+			cmrAppUUID = a.UUID
+		} else {
+			localAppUUID = a.UUID
+		}
+	}
+
+	if cmrAppUUID == "" {
+		return "", errors.Errorf("%q: %w", relationUUID, crossmodelrelationerrors.RelationNotRemote)
+	}
+
+	return localAppUUID, nil
 }
 
 func (st *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid string, ch charm.Charm) error {

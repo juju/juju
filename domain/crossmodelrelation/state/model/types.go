@@ -34,6 +34,11 @@ type uuid struct {
 	UUID string `db:"uuid"`
 }
 
+type applicationUUIDAndCharmSource struct {
+	UUID        string            `db:"uuid"`
+	CharmSource charm.CharmSource `db:"name"`
+}
+
 // name is an agnostic container for a `name` column.
 type name struct {
 	Name string `db:"name"`

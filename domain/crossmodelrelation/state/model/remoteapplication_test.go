@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
+	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
@@ -1644,6 +1646,87 @@ WHERE uuid = ?`, applicationUUID)
 
 	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetOfferingApplicationToken(c *tc.C) {
+	// Arrange
+	cmrCharmUUID := s.addCMRCharm(c)
+	cmrRelation := internalcharm.Relation{
+		Name:      "db",
+		Role:      internalcharm.RoleRequirer,
+		Interface: "db",
+		Scope:     internalcharm.ScopeGlobal,
+	}
+	cmrRelationUUID := s.addCharmRelation(c, cmrCharmUUID, cmrRelation)
+	cmrAppUUID := s.addApplication(c, cmrCharmUUID, "cmr-app")
+	cmrEndpointUUID := s.addApplicationEndpoint(c, cmrAppUUID, cmrRelationUUID)
+
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relation := internalcharm.Relation{
+		Name:      "db",
+		Role:      internalcharm.RoleProvider,
+		Interface: "db",
+		Scope:     internalcharm.ScopeGlobal,
+	}
+	charmRelationUUID := s.addCharmRelation(c, charmUUID, relation)
+	appUUID := s.addApplication(c, charmUUID, "local")
+	endpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelationUUID)
+
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID.String(), endpointUUID)
+	s.addRelationEndpoint(c, relationUUID.String(), cmrEndpointUUID)
+
+	// Act
+	appToken, err := s.state.GetOfferingApplicationToken(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(appToken, tc.Equals, appUUID.String())
+}
+
+func (s *modelRemoteApplicationSuite) TestGetOfferingApplicationTokenNotRemote(c *tc.C) {
+	// Arrange
+	otherCharmUUID := s.addCharm(c)
+	otherRelation := internalcharm.Relation{
+		Name:      "db",
+		Role:      internalcharm.RoleRequirer,
+		Interface: "db",
+		Scope:     internalcharm.ScopeGlobal,
+	}
+	otherRelationUUID := s.addCharmRelation(c, otherCharmUUID, otherRelation)
+	otherAppUUID := s.addApplication(c, otherCharmUUID, "app")
+	otherEndpointUUID := s.addApplicationEndpoint(c, otherAppUUID, otherRelationUUID)
+
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relation := internalcharm.Relation{
+		Name:      "db",
+		Role:      internalcharm.RoleProvider,
+		Interface: "db",
+		Scope:     internalcharm.ScopeGlobal,
+	}
+	charmRelationUUID := s.addCharmRelation(c, charmUUID, relation)
+	appUUID := s.addApplication(c, charmUUID, "local")
+	endpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelationUUID)
+
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID.String(), endpointUUID)
+	s.addRelationEndpoint(c, relationUUID.String(), otherEndpointUUID)
+
+	// Act
+	_, err := s.state.GetOfferingApplicationToken(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RelationNotRemote)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetOfferingApplicationTokenNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetOfferingApplicationToken(c.Context(), "bad-uuid")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *modelRemoteApplicationSuite) assertUnitNames(c *tc.C, applicationUUID string, expectedNames []string) {
