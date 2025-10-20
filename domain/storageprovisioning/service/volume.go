@@ -296,10 +296,9 @@ func (s *Service) GetVolumeAttachmentIDs(
 
 // GetVolumeParams returns the volume params for the supplied UUID.
 // The following errors may be returned:
-// - [coreerrors.NotValid] when the supplied volume attachment UUID is not
-// valid.
-// - [storageprovisioningerrors.VolumeNotFound] when no volume
-// attachment exists for the supplied values.
+// - [coreerrors.NotValid] when the supplied volume UUID is not valid.
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// supplied values.
 func (s *Service) GetVolumeParams(
 	ctx context.Context, uuid storageprovisioning.VolumeUUID,
 ) (storageprovisioning.VolumeParams, error) {
@@ -313,6 +312,21 @@ func (s *Service) GetVolumeParams(
 	}
 
 	return s.st.GetVolumeParams(ctx, uuid)
+}
+
+// GetVolumeRemovalParams returns the volume removal params for the supplied
+// uuid.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied volume UUID is not valid.
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// provided volume UUID.
+// - [storageprovisioningerrors.VolumeNotDead] when the volume exists but was
+// expected to be dead but was not.
+func (s *Service) GetVolumeRemovalParams(
+	ctx context.Context, uuid storageprovisioning.VolumeUUID,
+) (storageprovisioning.VolumeRemovalParams, error) {
+	return storageprovisioning.VolumeRemovalParams{}, errors.New("not implemented")
 }
 
 // GetVolumeAttachmentParams retrieves the attachment parameters for a given

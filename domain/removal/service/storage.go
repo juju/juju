@@ -148,3 +148,69 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 
 	return nil
 }
+
+// MarkFilesystemAttachmentAsDead marks the filesystem attachment as dead.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] if the filesystem
+// attachment is not found.
+// - [removalerrors.EntityStillAlive] if the filesystem attachment is alive.
+func (s *Service) MarkFilesystemAttachmentAsDead(
+	ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+) error {
+	return errors.New("not implemented: MarkFilesystemAttachmentAsDead")
+}
+
+// MarkVolumeAttachmentAsDead marks the volume attachment as dead.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] if the volume
+// attachment is not found.
+// - [removalerrors.EntityStillAlive] if the volume attachment is alive.
+func (s *Service) MarkVolumeAttachmentAsDead(
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+) error {
+	return errors.New("not implemented: MarkVolumeAttachmentAsDead")
+}
+
+// MarkVolumeAttachmentPlanAsDead marks the volume attachment plan as dead.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] if the volume
+// attachment plan is not found.
+// - [removalerrors.EntityStillAlive] if the volume attachment plan is alive.
+func (s *Service) MarkVolumeAttachmentPlanAsDead(
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+) error {
+	return errors.New("not implemented: MarkVolumeAttachmentPlanAsDead")
+}
+
+// RemoveDeadFilesystem is to be called from the storage provisoner to
+// finally remove a dead filesystem that it has been gracefully cleaned up.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied filesystem UUID is not valid.
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+// for the uuid.
+// - [storageprovisioningerrors.FilesystemNotDead] when the filesystem was found but is
+// either alive or dying, when it is expected to be dead.
+func (s *Service) RemoveDeadFilesystem(
+	ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+) error {
+	return errors.New("not implemented: RemoveDeadFilesystem")
+}
+
+// RemoveDeadVolume is to be called from the storage provisoner to finally
+// remove a dead volume that it has been gracefully cleaned up.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied volume UUID is not valid.
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// provided volume UUID.
+// - [storageprovisioningerrors.VolumeNotDead] when the volume exists but was expected to be
+// dead but was not.
+func (s *Service) RemoveDeadVolume(
+	ctx context.Context, uuid storageprovisioning.VolumeUUID,
+) error {
+	return errors.New("not implemented: RemoveDeadVolume")
+}

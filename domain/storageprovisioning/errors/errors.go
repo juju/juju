@@ -10,6 +10,10 @@ const (
 	// found in the model.
 	FilesystemNotFound = errors.ConstError("filesystem not found")
 
+	// FilesystemNotDead describes an error that occurs when the filesystem was
+	// expected to be dead, but is not dead.
+	FilesystemNotDead = errors.ConstError("filesystem not dead")
+
 	// FilesystemAttachmentNotFound describes an error that occurs when no
 	// filesystem attachment was found in the model.
 	FilesystemAttachmentNotFound = errors.ConstError("filesystem attachment not found")
@@ -17,6 +21,10 @@ const (
 	// VolumeNotFound describes an error that occurs when no volume was
 	// found in the model.
 	VolumeNotFound = errors.ConstError("volume not found")
+
+	// VolumeNotDead describes an error that occurs when the volume was expected
+	// to be dead, but is not dead.
+	VolumeNotDead = errors.ConstError("volume not dead")
 
 	// VolumeAttachmentNotFound describes an error that occurs when no
 	// volume attachment was found in the model.

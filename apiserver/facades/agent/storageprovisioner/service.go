@@ -100,6 +100,37 @@ type ApplicationService interface {
 	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 }
 
+// RemovalService provides removal operations to progress the removal of
+// volume attachments, filesystem attachment and volume attachment plans.
+type RemovalService interface {
+	// MarkFilesystemAttachmentAsDead marks the filesystem attachment as dead.
+	MarkFilesystemAttachmentAsDead(
+		ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+	) error
+
+	// MarkVolumeAttachmentAsDead marks the volume attachment as dead.
+	MarkVolumeAttachmentAsDead(
+		ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+	) error
+
+	// MarkVolumeAttachmentPlanAsDead marks the volume attachment plan as dead.
+	MarkVolumeAttachmentPlanAsDead(
+		ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	) error
+
+	// RemoveDeadFilesystem is to be called from the storage provisoner to
+	// finally remove a dead filesystem that it has been gracefully cleaned up.
+	RemoveDeadFilesystem(
+		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	) error
+
+	// RemoveDeadVolume is to be called from the storage provisoner to finally
+	// remove a dead volume that it has been gracefully cleaned up.
+	RemoveDeadVolume(
+		ctx context.Context, uuid storageprovisioning.VolumeUUID,
+	) error
+}
+
 // StorageStatusService provides methods to set filesystem and volume status.
 type StorageStatusService interface {
 	// SetFilesystemStatus saves the given filesystem status, overwriting any
@@ -138,6 +169,12 @@ type StorageProvisioningService interface {
 	GetFilesystemParams(
 		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
 	) (storageprovisioning.FilesystemParams, error)
+
+	// GetFilesystemRemovalParams returns the filesystem removal params for the
+	// supplied uuid.
+	GetFilesystemRemovalParams(
+		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	) (storageprovisioning.FilesystemRemovalParams, error)
 
 	// CheckFilesystemForIDExists checks if a filesystem exists for the supplied
 	// filesystem ID. True is returned when a filesystem exists.
@@ -225,6 +262,12 @@ type StorageProvisioningService interface {
 	GetVolumeParams(
 		ctx context.Context, uuid storageprovisioning.VolumeUUID,
 	) (storageprovisioning.VolumeParams, error)
+
+	// GetVolumeRemovalParams returns the volume removal params for the supplied
+	// uuid.
+	GetVolumeRemovalParams(
+		ctx context.Context, uuid storageprovisioning.VolumeUUID,
+	) (storageprovisioning.VolumeRemovalParams, error)
 
 	// CheckVolumeForIDExists checks if a volume exists for the supplied volume
 	// ID. True is returned when a volume exists.

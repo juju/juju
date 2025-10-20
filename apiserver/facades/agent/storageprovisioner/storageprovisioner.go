@@ -27,6 +27,7 @@ import (
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
@@ -48,6 +49,7 @@ type StorageProvisionerAPIv4 struct {
 	storageProvisioningService StorageProvisioningService
 	machineService             MachineService
 	applicationService         ApplicationService
+	removalService             RemovalService
 	getScopeAuthFunc           common.GetAuthFunc
 	getStorageEntityAuthFunc   common.GetAuthFunc
 	getLifeAuthFunc            common.GetAuthFunc
@@ -69,6 +71,7 @@ func NewStorageProvisionerAPIv4(
 	blockDeviceService BlockDeviceService,
 	machineService MachineService,
 	applicationService ApplicationService,
+	removalService RemovalService,
 	authorizer facade.Authorizer,
 	storagePoolGetter StoragePoolGetter,
 	storageStatusService StorageStatusService,
@@ -196,6 +199,7 @@ func NewStorageProvisionerAPIv4(
 		storageProvisioningService: storageProvisioningService,
 		machineService:             machineService,
 		applicationService:         applicationService,
+		removalService:             removalService,
 		getScopeAuthFunc:           getScopeAuthFunc,
 		getStorageEntityAuthFunc:   getStorageEntityAuthFunc,
 		getLifeAuthFunc:            getLifeAuthFunc,
@@ -721,11 +725,71 @@ func machineStorageIDsToParams(ids []corewatcher.MachineStorageID) []params.Mach
 }
 
 func (s *StorageProvisionerAPIv4) RemoveVolumeAttachmentPlan(ctx context.Context, args params.MachineStorageIds) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Ids)),
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
+	if err != nil {
+		return params.ErrorResults{}, err
 	}
-	// TODO: implement this method using the storageProvisioningService.
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, 0, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) error {
+		tag, err := names.ParseVolumeTag(arg.AttachmentTag)
+		if err != nil {
+			return errors.Errorf(
+				"volume tag %q invalid", arg.AttachmentTag,
+			).Add(coreerrors.NotValid)
+		}
+		machineTag, err := names.ParseMachineTag(arg.MachineTag)
+		if err != nil {
+			return errors.Errorf(
+				"machine tag %q invalid", arg.MachineTag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(machineTag, tag) {
+			return apiservererrors.ErrPerm
+		}
+		return s.removeVolumeAttachmentPlan(ctx, machineTag, tag)
+	}
+	for _, arg := range args.Ids {
+		var result params.ErrorResult
+		err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		}
+		results.Results = append(results.Results, result)
+	}
 	return results, nil
+}
+
+// removeVolumeAttachmentPlan handles the volume attachment plan removal
+// operations for the corresponding facade method RemoveVolumeAttachmentPlan.
+func (s *StorageProvisionerAPIv4) removeVolumeAttachmentPlan(
+	ctx context.Context, machineTag names.MachineTag, tag names.VolumeTag,
+) error {
+	machineUUID, err := s.getMachineUUID(ctx, machineTag)
+	if err != nil {
+		return err
+	}
+	volumeAttachmentPlanUUID, err := s.getVolumeAttachmentPlanUUID(
+		ctx, tag, machineUUID)
+	if errors.Is(err, coreerrors.NotFound) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	err = s.removalService.MarkVolumeAttachmentPlanAsDead(
+		ctx, volumeAttachmentPlanUUID)
+	if errors.Is(err, removalerrors.EntityStillAlive) {
+		return errors.Errorf(
+			"volume %q attachment plan for machine %q is still alive",
+			tag.Id(), machineTag.Id(),
+		)
+	} else if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *StorageProvisionerAPIv4) watchAttachments(
@@ -1516,11 +1580,73 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 // RemoveVolumeParams returns the parameters for destroying
 // or releasing the volumes with the specified tags.
 func (s *StorageProvisionerAPIv4) RemoveVolumeParams(ctx context.Context, args params.Entities) (params.RemoveVolumeParamsResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.RemoveVolumeParamsResults{}, err
+	}
 	results := params.RemoveVolumeParamsResults{
-		Results: make([]params.RemoveVolumeParamsResult, len(args.Entities)),
+		Results: make([]params.RemoveVolumeParamsResult, 0, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (params.RemoveVolumeParams, error) {
+		tag, err := names.ParseVolumeTag(arg.Tag)
+		if err != nil {
+			return params.RemoveVolumeParams{}, errors.Errorf(
+				"volume tag %q invalid", arg.Tag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(tag) {
+			return params.RemoveVolumeParams{}, apiservererrors.ErrPerm
+		}
+		return s.removeVolumeParams(ctx, tag)
+	}
+	for _, arg := range args.Entities {
+		var result params.RemoveVolumeParamsResult
+		volumeAttachment, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result = volumeAttachment
+		}
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
+}
+
+// removeVolumeParams performs operations required for the corresponding
+// facade method RemoveVolumeParams.
+func (s *StorageProvisionerAPIv4) removeVolumeParams(
+	ctx context.Context, tag names.VolumeTag,
+) (params.RemoveVolumeParams, error) {
+	uuid, err := s.storageProvisioningService.GetVolumeUUIDForID(
+		ctx, tag.Id(),
+	)
+	if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+		return params.RemoveVolumeParams{}, errors.Errorf(
+			"volume %q not found", tag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return params.RemoveVolumeParams{}, err
+	}
+
+	rp, err := s.storageProvisioningService.GetVolumeRemovalParams(
+		ctx, uuid)
+	if errors.Is(err, storageprovisioningerrors.VolumeNotDead) {
+		return params.RemoveVolumeParams{}, errors.Errorf(
+			"volume %q is not yet dead", tag.Id(),
+		)
+	} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+		return params.RemoveVolumeParams{}, errors.Errorf(
+			"volume %q not found", tag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return params.RemoveVolumeParams{}, err
+	}
+
+	return params.RemoveVolumeParams{
+		Provider:   rp.Provider,
+		ProviderId: rp.ProviderID,
+		Destroy:    rp.Obliterate,
+	}, nil
 }
 
 // FilesystemParams returns the parameters for creating the filesystems
@@ -1607,12 +1733,76 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 
 // RemoveFilesystemParams returns the parameters for destroying or
 // releasing the filesystems with the specified tags.
-func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(ctx context.Context, args params.Entities) (params.RemoveFilesystemParamsResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(
+	ctx context.Context, args params.Entities,
+) (params.RemoveFilesystemParamsResults, error) {
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.RemoveFilesystemParamsResults{}, err
+	}
 	results := params.RemoveFilesystemParamsResults{
-		Results: make([]params.RemoveFilesystemParamsResult, len(args.Entities)),
+		Results: make([]params.RemoveFilesystemParamsResult, 0, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (params.RemoveFilesystemParams, error) {
+		tag, err := names.ParseFilesystemTag(arg.Tag)
+		if err != nil {
+			return params.RemoveFilesystemParams{}, errors.Errorf(
+				"filesystem tag %q invalid", arg.Tag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(tag) {
+			return params.RemoveFilesystemParams{}, apiservererrors.ErrPerm
+		}
+		return s.removeFilesystemParams(ctx, tag)
+	}
+	for _, arg := range args.Entities {
+		var result params.RemoveFilesystemParamsResult
+		volumeAttachment, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result = volumeAttachment
+		}
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
+}
+
+// removeFilesystemParams performs operations required for the corresponding
+// facade method RemoveFilesystemParams.
+func (s *StorageProvisionerAPIv4) removeFilesystemParams(
+	ctx context.Context, tag names.FilesystemTag,
+) (params.RemoveFilesystemParams, error) {
+	uuid, err := s.storageProvisioningService.GetFilesystemUUIDForID(
+		ctx, tag.Id(),
+	)
+	if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+		return params.RemoveFilesystemParams{}, errors.Errorf(
+			"filesystem %q not found", tag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return params.RemoveFilesystemParams{}, err
+	}
+
+	rp, err := s.storageProvisioningService.GetFilesystemRemovalParams(
+		ctx, uuid)
+	if errors.Is(err, storageprovisioningerrors.FilesystemNotDead) {
+		return params.RemoveFilesystemParams{}, errors.Errorf(
+			"filesystem %q is not yet dead", tag.Id(),
+		)
+	} else if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+		return params.RemoveFilesystemParams{}, errors.Errorf(
+			"filesystem %q not found", tag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return params.RemoveFilesystemParams{}, err
+	}
+
+	return params.RemoveFilesystemParams{
+		Provider:   rp.Provider,
+		ProviderId: rp.ProviderID,
+		Destroy:    rp.Obliterate,
+	}, nil
 }
 
 // VolumeAttachmentParams returns the parameters for creating the volume
@@ -2487,21 +2677,209 @@ func (s *StorageProvisionerAPIv4) AttachmentLife(ctx context.Context, args param
 
 // Remove removes volumes and filesystems from state.
 func (s *StorageProvisionerAPIv4) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
 	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
+		Results: make([]params.ErrorResult, 0, len(args.Entities)),
+	}
+	one := func(arg params.Entity) error {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			return errors.Errorf(
+				"tag %q invalid", arg.Tag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(tag) {
+			return apiservererrors.ErrPerm
+		}
+		switch t := tag.(type) {
+		case names.VolumeTag:
+			return s.removeVolume(ctx, t)
+		case names.FilesystemTag:
+			return s.removeFilesystem(ctx, t)
+		}
+		return errors.Errorf(
+			"tag %q invalid", arg.Tag,
+		).Add(coreerrors.NotValid)
+	}
+	for _, arg := range args.Entities {
+		var result params.ErrorResult
+		err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		}
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
+}
+
+// removeVolume handles the volume removal operations for the corresponding
+// facade method Remove.
+func (s *StorageProvisionerAPIv4) removeVolume(
+	ctx context.Context, tag names.VolumeTag,
+) error {
+	uuid, err := s.storageProvisioningService.GetVolumeUUIDForID(
+		ctx, tag.Id(),
+	)
+	if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+		// Already removed.
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	err = s.removalService.RemoveDeadVolume(ctx, uuid)
+	if errors.Is(err, storageprovisioningerrors.VolumeNotDead) {
+		return errors.Errorf(
+			"volume %q is not yet dead", tag.Id(),
+		)
+	} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+		// Already removed.
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// removeFilesystem handles the filesystem removal operations for the
+// corresponding facade method Remove.
+func (s *StorageProvisionerAPIv4) removeFilesystem(
+	ctx context.Context, tag names.FilesystemTag,
+) error {
+	uuid, err := s.storageProvisioningService.GetFilesystemUUIDForID(
+		ctx, tag.Id(),
+	)
+	if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+		// Already removed.
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	err = s.removalService.RemoveDeadFilesystem(ctx, uuid)
+	if errors.Is(err, storageprovisioningerrors.FilesystemNotDead) {
+		return errors.Errorf(
+			"filesystem %q is not yet dead", tag.Id(),
+		)
+	} else if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+		// Already removed.
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // RemoveAttachment removes the specified machine storage attachments
 // from state.
 func (s *StorageProvisionerAPIv4) RemoveAttachment(ctx context.Context, args params.MachineStorageIds) (params.ErrorResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
 	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Ids)),
+		Results: make([]params.ErrorResult, 0, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) error {
+		tag, err := names.ParseTag(arg.AttachmentTag)
+		if err != nil {
+			return errors.Errorf(
+				"tag %q invalid", arg.AttachmentTag,
+			).Add(coreerrors.NotValid)
+		}
+		hostTag, err := names.ParseTag(arg.MachineTag)
+		if err != nil {
+			return errors.Errorf(
+				"tag %q invalid", arg.MachineTag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(hostTag, tag) {
+			return apiservererrors.ErrPerm
+		}
+		switch t := tag.(type) {
+		case names.VolumeTag:
+			if m, ok := hostTag.(names.MachineTag); ok {
+				return s.removeVolumeAttachment(ctx, m, t)
+			}
+		case names.FilesystemTag:
+			return s.removeFilesystemAttachment(ctx, hostTag, t)
+		}
+		return errors.Errorf(
+			"tag %q on host %q invalid", arg.AttachmentTag, arg.MachineTag,
+		).Add(coreerrors.NotValid)
+	}
+	for _, arg := range args.Ids {
+		var result params.ErrorResult
+		err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		}
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
+}
+
+// removeVolumeAttachment handles the volume attachment removal operations
+// for the corresponding facade method RemoveAttachment.
+func (s *StorageProvisionerAPIv4) removeVolumeAttachment(
+	ctx context.Context, machineTag names.MachineTag, tag names.VolumeTag,
+) error {
+	machineUUID, err := s.getMachineUUID(ctx, machineTag)
+	if err != nil {
+		return err
+	}
+	volumeAttachmentUUID, err := s.getVolumeAttachmentUUID(
+		ctx, tag, machineUUID)
+	if errors.Is(err, coreerrors.NotFound) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	err = s.removalService.MarkVolumeAttachmentAsDead(
+		ctx, volumeAttachmentUUID)
+	if errors.Is(err, removalerrors.EntityStillAlive) {
+		return errors.Errorf(
+			"volume %q attachment to machine %q is still alive",
+			tag.Id(), machineTag.Id(),
+		)
+	} else if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+// removeFilesystemAttachment handles the filesystem attachment removal operations
+// for the corresponding facade method RemoveAttachment.
+func (s *StorageProvisionerAPIv4) removeFilesystemAttachment(
+	ctx context.Context, hostTag names.Tag, tag names.FilesystemTag,
+) error {
+	filesystemAttachmentUUID, err := s.getFilesystemAttachmentUUID(
+		ctx, tag, hostTag)
+	if errors.Is(err, coreerrors.NotFound) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	err = s.removalService.MarkFilesystemAttachmentAsDead(
+		ctx, filesystemAttachmentUUID)
+	if errors.Is(err, removalerrors.EntityStillAlive) {
+		return errors.Errorf(
+			"filesystem %q attachment to %s %q is still alive",
+			tag.Id(), hostTag.Kind(), hostTag.Id(),
+		)
+	} else if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return nil
 }
 
 // SetStatus sets the status of each given storage artefact.
