@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -2263,4 +2264,96 @@ WHERE ae.application_uuid = ? AND cr.name = ?`, applicationUUID, endpointName).S
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return epUUID
+}
+
+func (s *modelRemoteApplicationSuite) setupRelationStatus(c *tc.C, appName, appName2 string, statusID int) {
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relation := internalcharm.Relation{
+		Name:      "db",
+		Role:      internalcharm.RoleProvider,
+		Interface: "db",
+		Scope:     internalcharm.ScopeGlobal,
+	}
+	charmRelUUID := s.addCharmRelation(c, charmUUID, relation)
+
+	charmUUID2 := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID2, false)
+	relation2 := internalcharm.Relation{
+		Name:      "database",
+		Role:      internalcharm.RoleRequirer,
+		Interface: "db",
+		Scope:     internalcharm.ScopeGlobal,
+	}
+	charmRelUUID2 := s.addCharmRelation(c, charmUUID, relation2)
+
+	appUUID := s.addApplication(c, charmUUID, appName)
+	appUUID2 := s.addApplication(c, charmUUID2, appName2)
+	localEndpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelUUID)
+	localEndpointUUID2 := s.addApplicationEndpoint(c, appUUID2, charmRelUUID2)
+
+	relUUID := s.addRelation(c)
+
+	s.query(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), relUUID, localEndpointUUID2)
+	s.query(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), relUUID, localEndpointUUID)
+
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
+VALUES (?, ?, 0)`, relUUID, statusID)
+}
+
+func (s *modelRemoteApplicationSuite) TestIsRelationWithEndpointIdentifiersSuspendedTrue(c *tc.C) {
+	s.setupRelationStatus(c, "test", "remote-test", 4)
+	isSuspended, err := s.state.IsRelationWithEndpointIdentifiersSuspended(
+		c.Context(),
+		corerelation.EndpointIdentifier{
+			ApplicationName: "test",
+			EndpointName:    "db",
+		},
+		corerelation.EndpointIdentifier{
+			ApplicationName: "remote-test",
+			EndpointName:    "database",
+		},
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isSuspended, tc.IsTrue)
+}
+
+func (s *modelRemoteApplicationSuite) TestIsRelationWithEndpointIdentifiersSuspendedFalse(c *tc.C) {
+	s.setupRelationStatus(c, "test", "remote-test", 0)
+	isSuspended, err := s.state.IsRelationWithEndpointIdentifiersSuspended(
+		c.Context(),
+		corerelation.EndpointIdentifier{
+			ApplicationName: "test",
+			EndpointName:    "db",
+		},
+		corerelation.EndpointIdentifier{
+			ApplicationName: "remote-test",
+			EndpointName:    "database",
+		},
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isSuspended, tc.IsFalse)
+}
+
+func (s *modelRemoteApplicationSuite) TestIsRelationWithEndpointIdentifiersSuspendedRelationNotFound(c *tc.C) {
+	_, err := s.state.IsRelationWithEndpointIdentifiersSuspended(
+		c.Context(),
+		corerelation.EndpointIdentifier{
+			ApplicationName: "test",
+			EndpointName:    "db",
+		},
+		corerelation.EndpointIdentifier{
+			ApplicationName: "remote-test",
+			EndpointName:    "database",
+		},
+	)
+
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }

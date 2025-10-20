@@ -13,6 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
+	application "github.com/juju/juju/core/application"
+	relation "github.com/juju/juju/core/relation"
 	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
@@ -20,6 +22,7 @@ import (
 	service0 "github.com/juju/juju/domain/secretbackend/service"
 	provider "github.com/juju/juju/internal/secrets/provider"
 	gomock "go.uber.org/mock/gomock"
+	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockSecretTriggers is a mock of SecretTriggers interface.
@@ -953,6 +956,130 @@ func (c *MockSecretBackendServiceDrainBackendConfigInfoCall) Do(f func(context.C
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSecretBackendServiceDrainBackendConfigInfoCall) DoAndReturn(f func(context.Context, service0.DrainBackendConfigParams) (*provider.ModelBackendConfigInfo, error)) *MockSecretBackendServiceDrainBackendConfigInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockApplicationService is a mock of ApplicationService interface.
+type MockApplicationService struct {
+	ctrl     *gomock.Controller
+	recorder *MockApplicationServiceMockRecorder
+}
+
+// MockApplicationServiceMockRecorder is the mock recorder for MockApplicationService.
+type MockApplicationServiceMockRecorder struct {
+	mock *MockApplicationService
+}
+
+// NewMockApplicationService creates a new mock instance.
+func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService {
+	mock := &MockApplicationService{ctrl: ctrl}
+	mock.recorder = &MockApplicationServiceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
+	return m.recorder
+}
+
+// GetApplicationUUIDByName mocks base method.
+func (m *MockApplicationService) GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationUUIDByName", ctx, name)
+	ret0, _ := ret[0].(application.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationUUIDByName indicates an expected call of GetApplicationUUIDByName.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationUUIDByName(ctx, name any) *MockApplicationServiceGetApplicationUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationUUIDByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationUUIDByName), ctx, name)
+	return &MockApplicationServiceGetApplicationUUIDByNameCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationUUIDByNameCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationUUIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationUUIDByNameCall) Return(arg0 application.UUID, arg1 error) *MockApplicationServiceGetApplicationUUIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationUUIDByNameCall) Do(f func(context.Context, string) (application.UUID, error)) *MockApplicationServiceGetApplicationUUIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationUUIDByNameCall) DoAndReturn(f func(context.Context, string) (application.UUID, error)) *MockApplicationServiceGetApplicationUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockCrossModelRelationService is a mock of CrossModelRelationService interface.
+type MockCrossModelRelationService struct {
+	ctrl     *gomock.Controller
+	recorder *MockCrossModelRelationServiceMockRecorder
+}
+
+// MockCrossModelRelationServiceMockRecorder is the mock recorder for MockCrossModelRelationService.
+type MockCrossModelRelationServiceMockRecorder struct {
+	mock *MockCrossModelRelationService
+}
+
+// NewMockCrossModelRelationService creates a new mock instance.
+func NewMockCrossModelRelationService(ctrl *gomock.Controller) *MockCrossModelRelationService {
+	mock := &MockCrossModelRelationService{ctrl: ctrl}
+	mock.recorder = &MockCrossModelRelationServiceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCrossModelRelationService) EXPECT() *MockCrossModelRelationServiceMockRecorder {
+	return m.recorder
+}
+
+// GetMacaroonForRelation mocks base method.
+func (m *MockCrossModelRelationService) GetMacaroonForRelation(ctx context.Context, relationUUID relation.UUID) (*macaroon.Macaroon, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMacaroonForRelation", ctx, relationUUID)
+	ret0, _ := ret[0].(*macaroon.Macaroon)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMacaroonForRelation indicates an expected call of GetMacaroonForRelation.
+func (mr *MockCrossModelRelationServiceMockRecorder) GetMacaroonForRelation(ctx, relationUUID any) *MockCrossModelRelationServiceGetMacaroonForRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMacaroonForRelation", reflect.TypeOf((*MockCrossModelRelationService)(nil).GetMacaroonForRelation), ctx, relationUUID)
+	return &MockCrossModelRelationServiceGetMacaroonForRelationCall{Call: call}
+}
+
+// MockCrossModelRelationServiceGetMacaroonForRelationCall wrap *gomock.Call
+type MockCrossModelRelationServiceGetMacaroonForRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceGetMacaroonForRelationCall) Return(arg0 *macaroon.Macaroon, arg1 error) *MockCrossModelRelationServiceGetMacaroonForRelationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceGetMacaroonForRelationCall) Do(f func(context.Context, relation.UUID) (*macaroon.Macaroon, error)) *MockCrossModelRelationServiceGetMacaroonForRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceGetMacaroonForRelationCall) DoAndReturn(f func(context.Context, relation.UUID) (*macaroon.Macaroon, error)) *MockCrossModelRelationServiceGetMacaroonForRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

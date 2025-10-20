@@ -6,6 +6,10 @@ package secretsmanager
 import (
 	"context"
 
+	"gopkg.in/macaroon.v2"
+
+	coreapplication "github.com/juju/juju/core/application"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -59,4 +63,16 @@ type SecretBackendService interface {
 	BackendConfigInfo(
 		ctx context.Context, p secretbackendservice.BackendConfigParams,
 	) (*provider.ModelBackendConfigInfo, error)
+}
+
+// ApplicationService provides access to the application service.
+type ApplicationService interface {
+	// GetApplicationUUIDByName returns an application UUID by application name.
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+}
+
+// CrossModelRelationService provides access to the cross model relation service.
+type CrossModelRelationService interface {
+	// GetMacaroonForRelation gets the given macaroon for the specified remote relation.
+	GetMacaroonForRelation(ctx context.Context, relationUUID corerelation.UUID) (*macaroon.Macaroon, error)
 }

@@ -9,6 +9,9 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
+
+	relationtesting "github.com/juju/juju/core/relation/testing"
+	"github.com/juju/juju/domain/crossmodelrelation/errors"
 )
 
 type macaroonSuite struct {
@@ -50,4 +53,26 @@ SELECT macaroon FROM application_remote_offerer_relation_macaroon WHERE relation
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bytes, tc.DeepEquals, []byte("meshuggah"))
+}
+
+func (s *macaroonSuite) TestGetMacaroonForRelation(c *tc.C) {
+	relationUUID := s.addRelation(c)
+	mac := newMacaroon(c, "macaroon")
+	macBytes := tc.Must(c, mac.MarshalJSON)
+
+	err := s.state.SaveMacaroonForRelation(c.Context(), relationUUID.String(), macBytes)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := s.state.GetMacaroonForRelation(c.Context(), relationUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	bytes, err := got.MarshalJSON()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bytes, tc.DeepEquals, macBytes)
+}
+
+func (s *macaroonSuite) TestGetMacaroonForRelationNotFound(c *tc.C) {
+	relationUUID := relationtesting.GenRelationUUID(c)
+
+	_, err := s.state.GetMacaroonForRelation(c.Context(), relationUUID.String())
+	c.Assert(err, tc.ErrorIs, errors.MacaroonNotFound)
 }

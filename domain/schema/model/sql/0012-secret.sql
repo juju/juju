@@ -301,15 +301,15 @@ SELECT
         WHEN sp.subject_type_id = 0 THEN suu.name
         WHEN sp.subject_type_id = 1 THEN sua.name
         WHEN sp.subject_type_id = 2 THEN m.uuid
-        -- TODO: we don't have a remote-application table yet
-        WHEN sp.subject_type_id = 3 THEN sp.subject_uuid
+        -- synthetic remote applications are stored in the application table
+        WHEN sp.subject_type_id = 3 THEN sua.name
     END) AS subject_id,
     -- scope_id is the natural id of the scope entity (uuid for model)
     (CASE
         WHEN sp.scope_type_id = 0 THEN scu.name
         WHEN sp.scope_type_id = 1 THEN sca.name
         WHEN sp.scope_type_id = 2 THEN m.uuid
-        -- TODO: we don't have a relation table yet
+        -- TODO: we should be using the relation key here
         WHEN sp.scope_type_id = 3 THEN sp.scope_uuid
     END) AS scope_id
 FROM secret_permission AS sp
@@ -317,4 +317,5 @@ LEFT JOIN unit AS suu ON sp.subject_uuid = suu.uuid
 LEFT JOIN application AS sua ON sp.subject_uuid = sua.uuid
 LEFT JOIN unit AS scu ON sp.scope_uuid = scu.uuid
 LEFT JOIN application AS sca ON sp.scope_uuid = sca.uuid
+LEFT JOIN relation AS scr ON sp.scope_uuid = scr.uuid
 JOIN model AS m;

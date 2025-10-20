@@ -11,11 +11,16 @@ import (
 
 	"github.com/juju/tc"
 
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
+	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
+	coretesting "github.com/juju/juju/internal/testing"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -90,8 +95,10 @@ VALUES (?, ?, ?, ?, ?)
 	return appUUID
 }
 
-func (s *modelSecretsSuite) createSecret(c *tc.C, uri *coresecrets.URI, content map[string]string) {
-	c.Assert(content, tc.Not(tc.HasLen), 0)
+func (s *modelSecretsSuite) createSecret(c *tc.C, uri *coresecrets.URI, content map[string]string, valueRef *coresecrets.ValueRef) {
+	if valueRef == nil {
+		c.Assert(content, tc.Not(tc.HasLen), 0)
+	}
 
 	now := time.Now().UTC()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -125,7 +132,15 @@ func (s *modelSecretsSuite) createSecret(c *tc.C, uri *coresecrets.URI, content 
 			}
 		}
 
-		return nil
+		if valueRef == nil {
+			return nil
+		}
+
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO secret_value_ref (revision_uuid, backend_uuid, revision_id) VALUES (?, ?, ?)`,
+			revisionUUID, valueRef.BackendID, valueRef.RevisionID,
+		)
+		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -171,11 +186,11 @@ func (s *modelSecretsSuite) prepareWatchForRemoteConsumedSecretsChangesFromOffer
 	}
 
 	uri1 := coresecrets.NewURI()
-	s.createSecret(c, uri1, map[string]string{"foo": "bar", "hello": "world"})
+	s.createSecret(c, uri1, map[string]string{"foo": "bar", "hello": "world"}, nil)
 	uri1.SourceUUID = s.ModelUUID()
 
 	uri2 := coresecrets.NewURI()
-	s.createSecret(c, uri2, map[string]string{"foo": "bar", "hello": "world"})
+	s.createSecret(c, uri2, map[string]string{"foo": "bar", "hello": "world"}, nil)
 	uri2.SourceUUID = s.ModelUUID()
 
 	appUUID := s.setupRemoteApp(c, "mediawiki")
@@ -223,7 +238,7 @@ func (s *modelSecretsSuite) TestGetRemoteConsumedSecretURIsWithChangesFromOfferi
 
 func (s *modelSecretsSuite) TestSaveSecretRemoteConsumer(c *tc.C) {
 	uri := coresecrets.NewURI()
-	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"})
+	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
@@ -241,7 +256,7 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumer(c *tc.C) {
 
 func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *tc.C) {
 	uri := coresecrets.NewURI()
-	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"})
+	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)
 	s.addRevision(c, uri, map[string]string{"foo": "bar2"})
 
 	consumer := coresecrets.SecretConsumerMetadata{
@@ -280,7 +295,7 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerSecretNotExists(c *tc.C)
 
 func (s *modelSecretsSuite) TestGetSecretRemoteConsumerFirstTime(c *tc.C) {
 	uri := coresecrets.NewURI()
-	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"})
+	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)
 
 	ctx := c.Context()
 	_, latest, err := s.state.GetSecretRemoteConsumer(ctx, uri, "remote-app/0")
@@ -321,4 +336,116 @@ func (s *modelSecretsSuite) TestUpdateRemoteSecretRevision(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	got = getLatest()
 	c.Assert(got, tc.Equals, 667)
+}
+
+func (s *modelSecretsSuite) setupSecretAccess(c *tc.C, uri *coresecrets.URI, unitName unit.Name) {
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadataWithDescription(c, charmUUID, "testing application")
+	rel := charm.Relation{
+		Name:      "db-admin",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, rel)
+
+	appUUID := s.addApplication(c, charmUUID, unitName.Application())
+	err := s.state.EnsureUnitsExist(c.Context(), appUUID.String(), []string{unitName.String()})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		modelUUID := modeltesting.GenModelUUID(c)
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid,  name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id())
+		if err != nil {
+			return err
+		}
+
+		var unitUUID string
+		err = tx.QueryRowContext(ctx, `SELECT uuid FROM unit WHERE name = ?`, unitName).Scan(&unitUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO secret_permission(secret_id, role_id, subject_uuid, subject_type_id, scope_uuid, scope_type_id)
+			VALUES(?, ?, ?, ?, ?, ?)
+		`, uri.ID, domainsecret.RoleView, unitUUID, domainsecret.SubjectUnit, relationUUID, domainsecret.ScopeRelation)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelSecretsSuite) TestGetSecretAccess(c *tc.C) {
+	uri := coresecrets.NewURI()
+	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)
+	s.setupSecretAccess(c, uri, tc.Must1(c, unit.NewName, "mediawiki/0"))
+
+	access, err := s.state.GetSecretAccess(c.Context(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mediawiki/0",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(access, tc.DeepEquals, "view")
+}
+
+func (s *modelSecretsSuite) TestGetSecretAccessNone(c *tc.C) {
+	uri := coresecrets.NewURI()
+	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)
+	s.setupSecretAccess(c, uri, tc.Must1(c, unit.NewName, "mediawiki/0"))
+
+	access, err := s.state.GetSecretAccess(c.Context(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(access, tc.DeepEquals, "")
+}
+
+func (s *modelSecretsSuite) TestGetSecretAccessNotFound(c *tc.C) {
+	uri := coresecrets.NewURI()
+
+	_, err := s.state.GetSecretAccess(c.Context(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "unit/0",
+	})
+	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+func (s *modelSecretsSuite) TestGetSecretValueWithContent(c *tc.C) {
+	uri := coresecrets.NewURI()
+	data := map[string]string{"foo": "bar", "hello": "world"}
+	s.createSecret(c, uri, data, nil)
+
+	got, ref, err := s.state.GetSecretValue(c.Context(), uri, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ref, tc.IsNil)
+	c.Assert(got, tc.DeepEquals, coresecrets.SecretData(data))
+}
+
+func (s *modelSecretsSuite) TestGetSecretValueRef(c *tc.C) {
+	uri := coresecrets.NewURI()
+	s.createSecret(c, uri, nil, &coresecrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	})
+
+	val, ref, err := s.state.GetSecretValue(c.Context(), uri, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(val, tc.IsNil)
+	c.Assert(ref, tc.DeepEquals, &coresecrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	})
+}
+
+func (s *modelSecretsSuite) TestGetSecretValueRevisionNotFound(c *tc.C) {
+	uri := coresecrets.NewURI()
+	data := map[string]string{"foo": "bar", "hello": "world"}
+	s.createSecret(c, uri, data, nil)
+
+	_, _, err := s.state.GetSecretValue(c.Context(), uri, 666)
+	c.Assert(err, tc.ErrorIs, secreterrors.SecretRevisionNotFound)
 }

@@ -6,7 +6,10 @@ package crossmodelsecrets
 import (
 	"context"
 
+	coreapplication "github.com/juju/juju/core/application"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -15,8 +18,6 @@ import (
 // The following interfaces are used to access secret services.
 
 type SecretService interface {
-	GetSecret(context.Context, *secrets.URI) (*secrets.SecretMetadata, error)
-	GetSecretValue(context.Context, *secrets.URI, int, secretservice.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error)
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor secretservice.SecretAccessor) (secretservice.SecretAccessScope, error)
 	ListGrantedSecretsForBackend(
 		ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secretservice.SecretAccessor,
@@ -28,4 +29,21 @@ type SecretBackendService interface {
 	BackendConfigInfo(
 		ctx context.Context, p secretbackendservice.BackendConfigParams,
 	) (*provider.ModelBackendConfigInfo, error)
+}
+
+type ApplicationService interface {
+	// GetApplicationName returns the name of the specified application.
+	GetApplicationName(ctx context.Context, appID coreapplication.UUID) (string, error)
+}
+
+type CrossModelRelationService interface {
+	// ProcessRemoteConsumerGetSecret returns the content of a remotely consumed secret,
+	// and the latest secret revision.
+	ProcessRemoteConsumerGetSecret(
+		ctx context.Context, uri *secrets.URI, unitName unit.Name, revision *int, peek, refresh bool,
+	) (secrets.SecretValue, *secrets.ValueRef, int, error)
+
+	// IsCrossModelRelationValidForApplication checks that the cross model relation is valid for the application.
+	// A relation is valid if it is not suspended and the application is involved in the relation.
+	IsCrossModelRelationValidForApplication(ctx context.Context, key corerelation.Key, appName string) (bool, error)
 }

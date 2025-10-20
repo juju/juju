@@ -13,6 +13,8 @@ import (
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
+	applicationtesting "github.com/juju/juju/core/application/testing"
+	relationtesting "github.com/juju/juju/core/relation/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
@@ -130,6 +132,8 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 
 func (s *CrossControllerSuite) TestGetSecretAccessScope(c *tc.C) {
 	uri := coresecrets.NewURI()
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	relUUID := relationtesting.GenRelationUUID(c)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "CrossModelSecrets")
 		c.Check(version, tc.Equals, 0)
@@ -137,7 +141,7 @@ func (s *CrossControllerSuite) TestGetSecretAccessScope(c *tc.C) {
 		c.Check(request, tc.Equals, "GetSecretAccessScope")
 		c.Check(arg, tc.DeepEquals, params.GetRemoteSecretAccessArgs{
 			Args: []params.GetRemoteSecretAccessArg{{
-				ApplicationToken: "app-token",
+				ApplicationToken: appUUID.String(),
 				UnitId:           666,
 				URI:              uri.String(),
 			}},
@@ -145,13 +149,13 @@ func (s *CrossControllerSuite) TestGetSecretAccessScope(c *tc.C) {
 		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
-				Result: "scope-token",
+				Result: relUUID.String(),
 			}},
 		}
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	scope, err := client.GetSecretAccessScope(c.Context(), uri, "app-token", 666)
+	scope, err := client.GetSecretAccessScope(c.Context(), uri, appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(scope, tc.Equals, "scope-token")
+	c.Assert(scope, tc.Equals, relUUID)
 }

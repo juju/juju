@@ -9,6 +9,8 @@ import (
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -34,5 +36,36 @@ func makeStateCrossModelSecretsAPIV1(stdCtx context.Context, ctx facade.MultiMod
 // makeStateCrossModelSecretsAPI creates a new server-side CrossModelSecrets API facade
 // backed by global state.
 func makeStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*CrossModelSecretsAPI, error) {
-	return NewCrossModelSecretsAPI()
+	secretsServiceGetter := func(c context.Context, modelUUID model.UUID) (SecretService, error) {
+		domainServices, err := ctx.DomainServicesForModel(stdCtx, modelUUID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		return domainServices.Secret(), nil
+	}
+	applicationServiceGetter := func(c context.Context, modelUUID model.UUID) (ApplicationService, error) {
+		domainServices, err := ctx.DomainServicesForModel(stdCtx, modelUUID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		return domainServices.Application(), nil
+	}
+	crossModelRelationServiceGetter := func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error) {
+		domainServices, err := ctx.DomainServicesForModel(stdCtx, modelUUID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		return domainServices.CrossModelRelation(), nil
+	}
+
+	return NewCrossModelSecretsAPI(
+		ctx.ControllerUUID(),
+		ctx.ModelUUID(),
+		ctx.CrossModelAuthContext(),
+		ctx.DomainServices().SecretBackend(),
+		secretsServiceGetter,
+		applicationServiceGetter,
+		crossModelRelationServiceGetter,
+		ctx.Logger().Child("crossmodelsecrets"),
+	)
 }

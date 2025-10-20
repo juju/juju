@@ -286,6 +286,30 @@ func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOffererByApplica
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
+func (s *remoteApplicationServiceSuite) TestGetMacaroonForRelation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	mac := newMacaroon(c, "test")
+
+	s.modelState.EXPECT().GetMacaroonForRelation(gomock.Any(), relationUUID.String()).Return(mac, nil)
+
+	service := s.service(c)
+
+	got, err := service.GetMacaroonForRelation(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, mac)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetMacaroonForRelationInvalidRelationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := s.service(c)
+
+	_, err := service.GetMacaroonForRelation(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
 func (s *remoteApplicationServiceSuite) TestSaveMacaroonForRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -814,4 +838,30 @@ func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidUnitNames(c *
 
 	err := service.EnsureUnitsExist(c.Context(), appUUID, units)
 	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
+}
+
+func (s *remoteApplicationServiceSuite) TestIsRelationWithEndpointIdentifiersSuspended(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	key := tc.Must1(c, corerelation.NewKeyFromString, "mediawiki:server mysql:database")
+	eids := key.EndpointIdentifiers()
+
+	s.modelState.EXPECT().IsRelationWithEndpointIdentifiersSuspended(gomock.Any(), eids[0], eids[1]).Return(true, nil)
+
+	service := s.service(c)
+
+	isValid, err := service.IsCrossModelRelationValidForApplication(c.Context(), key, "mediawiki")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isValid, tc.IsFalse)
+}
+
+func (s *remoteApplicationServiceSuite) TestIsRelationWithEndpointIdentifiersSuspendedIncorrectApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	key := tc.Must1(c, corerelation.NewKeyFromString, "mediawiki:server mysql:database")
+
+	service := s.service(c)
+
+	_, err := service.IsCrossModelRelationValidForApplication(c.Context(), key, "wordpress")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }

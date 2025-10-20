@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/application"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets"
@@ -62,7 +64,7 @@ func (c *Client) handleDischargeError(ctx context.Context, apiErr error) (macaro
 	if errResp.Info == nil {
 		return nil, errors.Annotatef(apiErr, "no error info found in discharge-required response error")
 	}
-	logger.Debugf(context.TODO(), "attempting to discharge macaroon due to error: %v", apiErr)
+	logger.Debugf(ctx, "attempting to discharge macaroon due to error: %v", apiErr)
 	var info params.DischargeRequiredErrorInfo
 	if errUnmarshal := errResp.UnmarshalInfo(&info); errUnmarshal != nil {
 		return nil, errors.Annotatef(apiErr, "unable to extract macaroon details from discharge-required response error")
@@ -71,9 +73,9 @@ func (c *Client) handleDischargeError(ctx context.Context, apiErr error) (macaro
 	m := info.BakeryMacaroon
 	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(ctx, m)
 	if err == nil && logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef(context.TODO(), "discharge macaroon ids:")
+		logger.Tracef(ctx, "discharge macaroon ids:")
 		for _, m := range ms {
-			logger.Tracef(context.TODO(), "  - %v", m.Id())
+			logger.Tracef(ctx, "  - %v", m.Id())
 		}
 	}
 	if err != nil {
@@ -82,13 +84,13 @@ func (c *Client) handleDischargeError(ctx context.Context, apiErr error) (macaro
 	return ms, err
 }
 
-func (c *Client) getCachedMacaroon(opName, token string) (macaroon.Slice, bool) {
+func (c *Client) getCachedMacaroon(ctx context.Context, opName, token string) (macaroon.Slice, bool) {
 	ms, ok := c.cache.Get(token)
 	if ok {
-		logger.Debugf(context.TODO(), "%s using cached macaroons for %s", opName, token)
+		logger.Debugf(ctx, "%s using cached macaroons for %s", opName, token)
 		if logger.IsLevelEnabled(corelogger.TRACE) {
 			for _, m := range ms {
-				logger.Tracef(context.TODO(), "  - %v", m.Id())
+				logger.Tracef(ctx, "  - %v", m.Id())
 			}
 		}
 	}
@@ -106,19 +108,19 @@ const (
 )
 
 // GetSecretAccessScope gets access details for a secret from a cross model controller.
-func (c *Client) GetSecretAccessScope(ctx context.Context, uri *coresecrets.URI, appToken string, unitId int) (string, error) {
+func (c *Client) GetSecretAccessScope(ctx context.Context, uri *coresecrets.URI, appUUID application.UUID, unitId int) (relation.UUID, error) {
 	if uri == nil {
 		return "", errors.NotValidf("empty secret URI")
 	}
 
 	arg := params.GetRemoteSecretAccessArg{
-		ApplicationToken: appToken,
+		ApplicationToken: appUUID.String(),
 		UnitId:           unitId,
 		URI:              uri.String(),
 	}
 	args := params.GetRemoteSecretAccessArgs{Args: []params.GetRemoteSecretAccessArg{arg}}
 
-	apiCall := func() (string, error) {
+	apiCall := func() (relation.UUID, error) {
 		var results params.StringResults
 
 		if err := c.facade.FacadeCall(
@@ -134,16 +136,16 @@ func (c *Client) GetSecretAccessScope(ctx context.Context, uri *coresecrets.URI,
 		if err := results.Results[0].Error; err != nil {
 			return "", apiservererrors.RestoreError(err)
 		}
-		return results.Results[0].Result, nil
+		return relation.ParseUUID(results.Results[0].Result)
 	}
 
 	var (
-		scopeTag string
-		apiErr   error
+		relUUID relation.UUID
+		apiErr  error
 	)
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			scopeTag, apiErr = apiCall()
+			relUUID, apiErr = apiCall()
 			return apiErr
 		},
 		IsFatalError: func(err error) bool {
@@ -156,11 +158,14 @@ func (c *Client) GetSecretAccessScope(ctx context.Context, uri *coresecrets.URI,
 		Clock:    Clock,
 		Attempts: numRetries,
 	})
-	return scopeTag, errors.Trace(err)
+	return relUUID, errors.Trace(err)
 }
 
 // GetRemoteSecretContentInfo gets secret content from a cross model controller.
-func (c *Client) GetRemoteSecretContentInfo(ctx context.Context, uri *coresecrets.URI, revision int, refresh, peek bool, sourceControllerUUID, appToken string, unitId int, macs macaroon.Slice) (
+func (c *Client) GetRemoteSecretContentInfo(
+	ctx context.Context, uri *coresecrets.URI, revision int, refresh, peek bool,
+	sourceControllerUUID string, appUUID application.UUID, unitId int, macs macaroon.Slice,
+) (
 	*secrets.ContentParams, *provider.ModelBackendConfig, int, bool, error,
 ) {
 	if uri == nil {
@@ -169,7 +174,7 @@ func (c *Client) GetRemoteSecretContentInfo(ctx context.Context, uri *coresecret
 
 	arg := params.GetRemoteSecretContentArg{
 		SourceControllerUUID: sourceControllerUUID,
-		ApplicationToken:     appToken,
+		ApplicationToken:     appUUID.String(),
 		UnitId:               unitId,
 		URI:                  uri.String(),
 		Refresh:              refresh,
@@ -183,7 +188,7 @@ func (c *Client) GetRemoteSecretContentInfo(ctx context.Context, uri *coresecret
 
 	args := params.GetRemoteSecretContentArgs{Args: []params.GetRemoteSecretContentArg{arg}}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("get remote secret content info", appToken); ok {
+	if ms, ok := c.getCachedMacaroon(ctx, "get remote secret content info", appUUID.String()); ok {
 		args.Args[0].Macaroons = ms
 		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}

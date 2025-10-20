@@ -16,6 +16,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 	internalerrors "github.com/juju/juju/internal/errors"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
 )
 
 const (
@@ -24,6 +25,14 @@ const (
 	sourceModelKey = "source-model-uuid"
 	relationKey    = "relation-key"
 )
+
+// RelationInfoFromMacaroons extracts the relation and offer caveats from a macaroon.
+func RelationInfoFromMacaroons(mac macaroon.Slice) (string, string, bool) {
+	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
+	relKey, ok1 := declared[relationKey]
+	offerUUID, ok2 := declared[offerUUIDKey]
+	return relKey, offerUUID, ok1 && ok2
+}
 
 const (
 	offerPermissionCaveat = "has-offer-permission"
@@ -221,7 +230,7 @@ func (o *baseBakery) GetRelationRequiredValues(sourceModelUUID, offerUUID, relat
 	}, nil
 }
 
-// AllowedMacaroonAuth checks the specified macaroon is valid for the operation
+// AllowedAuth checks the specified macaroon is valid for the operation
 // and returns the associated AuthInfo.
 func (o *baseBakery) AllowedAuth(ctx context.Context, op bakery.Op, mac macaroon.Slice) ([]string, error) {
 	authInfo, err := o.checker.Auth(mac).Allow(ctx, op)

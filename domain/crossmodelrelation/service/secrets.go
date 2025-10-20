@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -30,6 +31,12 @@ type ModelSecretsState interface {
 	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md secrets.SecretConsumerMetadata) error
 	// UpdateRemoteSecretRevision records the latest revision of the specified cross model secret.
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
+
+	// GetSecretValue returns the contents - either data or value reference - of a
+	// given secret revision.
+	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
+	// GetSecretAccess returns the access to the secret for the specified accessor.
+	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
 }
 
 // UpdateRemoteConsumedRevision returns the latest revision for the specified secret,
@@ -72,4 +79,75 @@ func (s *Service) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.U
 	defer span.End()
 
 	return s.modelState.UpdateRemoteSecretRevision(ctx, uri, latestRevision)
+}
+
+func (s *Service) canRead(ctx context.Context, uri *secrets.URI, consumer unit.Name) error {
+	role, err := s.modelState.GetSecretAccess(ctx, uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     consumer.String(),
+	})
+	if err != nil {
+		// Typically not found error.
+		return errors.Capture(err)
+	}
+	if !secrets.SecretRole(role).Allowed(secrets.RoleView) {
+		return errors.Errorf("%q is not allowed to read this secret", consumer.String()).Add(secreterrors.PermissionDenied)
+	}
+	return nil
+}
+
+// ProcessRemoteConsumerGetSecret returns the content of a remotely consumed secret,
+// and the latest secret revision.
+// The following errors may be returned:
+// - [secreterrors.PermissionDenied] if the consumer does not have permission to read the secret
+// - [secreterrors.SecretNotFound] if the secret does not exist
+// - [secreterrors.SecretRevisionNotFound] if the secret revision does not exist
+func (s *Service) ProcessRemoteConsumerGetSecret(
+	ctx context.Context, uri *secrets.URI, consumer unit.Name, revision *int, peek, refresh bool,
+) (secrets.SecretValue, *secrets.ValueRef, int, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.canRead(ctx, uri, consumer); err != nil {
+		return nil, nil, 0, errors.Capture(err)
+	}
+
+	var (
+		wantRevision   int
+		latestRevision int
+	)
+	// Use the latest revision as the current one if --peek.
+	if peek || refresh || revision == nil {
+		var err error
+		latestRevision, err = s.updateConsumedRevision(ctx, consumer, uri, refresh)
+		if err != nil {
+			return nil, nil, 0, errors.Capture(err)
+		}
+		wantRevision = latestRevision
+	} else {
+		wantRevision = *revision
+	}
+
+	data, valueRef, err := s.modelState.GetSecretValue(ctx, uri, wantRevision)
+	return secrets.NewSecretValue(data), valueRef, latestRevision, err
+}
+
+func (s *Service) updateConsumedRevision(ctx context.Context, consumer unit.Name, uri *secrets.URI, refresh bool) (int, error) {
+	consumerInfo, latestRevision, err := s.modelState.GetSecretRemoteConsumer(ctx, uri, consumer.String())
+	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
+		return 0, errors.Capture(err)
+	}
+	refresh = refresh ||
+		err != nil // Not found, so need to create one.
+
+	if refresh {
+		if consumerInfo == nil {
+			consumerInfo = &secrets.SecretConsumerMetadata{}
+		}
+		consumerInfo.CurrentRevision = latestRevision
+		if err := s.modelState.SaveSecretRemoteConsumer(ctx, uri, consumer.String(), *consumerInfo); err != nil {
+			return 0, errors.Capture(err)
+		}
+	}
+	return latestRevision, nil
 }
