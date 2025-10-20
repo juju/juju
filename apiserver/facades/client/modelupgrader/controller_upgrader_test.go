@@ -100,7 +100,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionAndStreamDryRun(
 	u.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, u.controllerTag).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	u.upgraderService.EXPECT().CanUpgradeControllerToVersionWithStream(gomock.Any(), version, modelagent.AgentStreamReleased).Return(nil)
+	u.upgraderService.EXPECT().RunPreUpgradeChecksToVersionWithStream(gomock.Any(), version, modelagent.AgentStreamReleased).Return(nil)
 
 	api := NewControllerUpgraderAPI(
 		u.controllerTag,
@@ -160,7 +160,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionDryRun(c *tc.C) 
 
 	u.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, u.controllerTag).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().CanUpgradeControllerToVersion(gomock.Any(), version).Return(nil)
+	u.upgraderService.EXPECT().RunPreUpgradeChecksToVersion(gomock.Any(), version).Return(nil)
 
 	api := NewControllerUpgraderAPI(
 		u.controllerTag,
@@ -221,7 +221,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
 	u.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, u.controllerTag).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	u.upgraderService.EXPECT().CanUpgradeControllerWithStream(
+	u.upgraderService.EXPECT().RunPreUpgradeChecksWithStream(
 		gomock.Any(), modelagent.AgentStreamReleased,
 	).Return(version, nil)
 
@@ -281,7 +281,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStreamDryR
 
 	u.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, u.controllerTag).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().CanUpgradeController(gomock.Any()).Return(version, nil)
+	u.upgraderService.EXPECT().RunPreUpgradeChecks(gomock.Any()).Return(version, nil)
 
 	api := NewControllerUpgraderAPI(
 		u.controllerTag,
