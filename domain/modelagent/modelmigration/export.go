@@ -17,6 +17,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	modelagentservice "github.com/juju/juju/domain/modelagent/service"
 	modelagentstate "github.com/juju/juju/domain/modelagent/state"
+	modelagentctrlstate "github.com/juju/juju/domain/modelagent/state/controller"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -225,6 +226,7 @@ func (b *baseAgentBinaryExportOperation) Setup(scope modelmigration.Scope) error
 	b.exportService = modelagentservice.NewService(
 		modelagentservice.DefaultAgentBinaryFinder(),
 		modelagentstate.NewState(scope.ModelDB()),
+		modelagentctrlstate.NewState(scope.ControllerDB()),
 	)
 	return nil
 }
