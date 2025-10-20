@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -374,38 +375,177 @@ func (w *dbReplWorker) execTables(ctx context.Context) {
 // This command helps identify dependencies by showing which child tables have foreign keys
 // pointing to the specified parent table/column.
 //
+// When an identifier is provided, it also shows the live count of references for each child table.
+//
 // The query returns:
 //   - child_table: Name of the table containing the foreign key
 //   - child_column: Name of the column in the child table that references the parent
-//   - parent_column: Name of the referenced column in the parent table
+//   - parent_column: Name of the referenced column in the parent table (when no identifier)
 //   - fk_id: Foreign key constraint identifier (0, 1, 2...) - each FK constraint gets a unique ID
 //   - fk_seq: Sequence number within a composite foreign key (0, 1, 2...) - for multi-column FKs
+//   - reference_count: Live count of references (when identifier provided)
 func (w *dbReplWorker) execForeignKeysList(ctx context.Context, args []string) {
-	if len(args) != 2 {
-		_, _ = fmt.Fprintln(w.cfg.Stderr, "usage: .fk_list <table_name> <column_name>")
+	if len(args) < 2 || len(args) > 3 {
+		_, _ = fmt.Fprintln(w.cfg.Stderr, "usage: .fk_list <table_name> <column_name> [identifier]")
 		return
 	}
 
 	tableName := args[0]
 	columnName := args[1]
 
-	const fkListQuery = `
+	var identifier string
+	if len(args) == 3 {
+		identifier = args[2]
+	}
+
+	if err := w.execForeignKeysListInternal(ctx, tableName, columnName, identifier); err != nil {
+		w.cfg.Logger.Errorf(ctx, "failed to execute foreign keys list: %v", err)
+	}
+}
+
+// fkRelation represents a foreign key relationship.
+type fkRelation struct {
+	childTable  string
+	childColumn string
+	fkID        int
+	fkSeq       int
+}
+
+// fkRelationWithCount represents a foreign key relationship with reference count.
+type fkRelationWithCount struct {
+	fkRelation
+	count int64
+}
+
+// execForeignKeysListInternal is the unified implementation that handles both use cases.
+func (w *dbReplWorker) execForeignKeysListInternal(ctx context.Context, tableName, columnName, identifier string) error {
+	relations, err := w.getForeignKeyRelations(ctx, tableName, columnName)
+	if err != nil {
+		return err
+	}
+
+	if len(relations) == 0 {
+		_, _ = fmt.Fprintf(w.cfg.Stdout, "No foreign key references found for table %q column %q\n", tableName, columnName)
+		return nil
+	}
+
+	if identifier == "" {
+		return w.displayForeignKeysOnly(relations, tableName, columnName)
+	}
+	return w.displayForeignKeysWithCounts(ctx, relations, identifier)
+}
+
+// getForeignKeyRelations fetches foreign key relationships (shared between both modes).
+func (w *dbReplWorker) getForeignKeyRelations(ctx context.Context, tableName, columnName string) ([]fkRelation, error) {
+	var relations []fkRelation
+
+	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		const fkListQuery = `
 WITH tbls(name) AS ( 
 	SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' 
 ) 
 SELECT t.name AS child_table, 
 	fk."from" AS child_column, 
-	fk."to" AS parent_column, 
 	fk.id AS fk_id, 
 	fk.seq AS fk_seq 
 FROM tbls t, pragma_foreign_key_list(t.name) AS fk 
 WHERE fk."table" = ? AND fk."to" = ?
 ORDER BY child_table, fk_id, fk_seq;
 `
-	if err := w.executeQuery(ctx, w.currentDB, fkListQuery, tableName, columnName); err != nil {
-		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
+		rows, err := tx.QueryContext(ctx, fkListQuery, tableName, columnName)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var rel fkRelation
+			if err := rows.Scan(&rel.childTable, &rel.childColumn, &rel.fkID, &rel.fkSeq); err != nil {
+				return err
+			}
+			relations = append(relations, rel)
+		}
+		return rows.Err()
+	})
+
+	return relations, err
+}
+
+// displayForeignKeysOnly shows just the foreign key relationships.
+func (w *dbReplWorker) displayForeignKeysOnly(relations []fkRelation, tableName, columnName string) error {
+	headerStyle := color.New(color.Bold)
+	var sb strings.Builder
+	writer := ansiterm.NewTabWriter(&sb, 0, 8, 1, '\t', 0)
+
+	_, _ = headerStyle.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n",
+		"child_table", "child_column", "parent_column", "fk_id", "fk_seq")
+
+	for _, rel := range relations {
+		_, _ = fmt.Fprintf(writer, "%s\t%s\t%s\t%d\t%d\n",
+			rel.childTable, rel.childColumn, columnName, rel.fkID, rel.fkSeq)
 	}
 
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+
+	_, _ = fmt.Fprintln(w.cfg.Stdout, sb.String())
+	return nil
+}
+
+// displayForeignKeysWithCounts shows foreign keys with live reference counts, sorted by count (descending).
+func (w *dbReplWorker) displayForeignKeysWithCounts(ctx context.Context, relations []fkRelation, identifier string) error {
+	var relationsWithCounts []fkRelationWithCount
+
+	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		for _, rel := range relations {
+			countQuery := fmt.Sprintf("SELECT COUNT(*) FROM `%s` WHERE `%s` = ?", rel.childTable, rel.childColumn)
+
+			var count int64
+			row := tx.QueryRowContext(ctx, countQuery, identifier)
+			if err := row.Scan(&count); err != nil {
+				w.cfg.Logger.Debugf(ctx, "failed to count references in table %q column %q: %v", rel.childTable, rel.childColumn, err)
+				count = -1
+			}
+
+			relationsWithCounts = append(relationsWithCounts, fkRelationWithCount{
+				fkRelation: rel,
+				count:      count,
+			})
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	sort.SliceStable(relationsWithCounts, func(i, j int) bool {
+		return relationsWithCounts[i].count > relationsWithCounts[j].count
+	})
+
+	headerStyle := color.New(color.Bold)
+	var sb strings.Builder
+	writer := ansiterm.NewTabWriter(&sb, 0, 8, 1, '\t', 0)
+
+	_, _ = headerStyle.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n",
+		"child_table", "child_column", "fk_id", "fk_seq", "reference_count")
+
+	for _, rel := range relationsWithCounts {
+		countStr := fmt.Sprintf("%d", rel.count)
+		if rel.count == -1 {
+			countStr = "ERROR"
+		}
+		_, _ = fmt.Fprintf(writer, "%s\t%s\t%d\t%d\t%s\n",
+			rel.childTable, rel.childColumn, rel.fkID, rel.fkSeq, countStr)
+	}
+
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+
+	_, _ = fmt.Fprintln(w.cfg.Stdout, sb.String())
+	return nil
 }
 
 func (w *dbReplWorker) execShowDDL(ctx context.Context, args []string) {
@@ -577,10 +717,13 @@ Database commands:
   .open <model-uuid>          Open a specific model database by UUID.
   .tables                     Show all standard tables in the current database.
   .triggers                   Show all trigger tables in the current database.
-  .fk_list <table> <column>   List foreign keys referencing the specified table and column.
+  .fk_list <table> <column> [identifier]
+                              List foreign keys referencing the specified table and column.
                               Shows child tables that have foreign keys pointing to the given
                               parent table/column. Returns fk_id (constraint identifier) and
                               fk_seq (column position within composite foreign keys).
+                              When identifier is provided, also shows live reference counts
+                              for each child table (e.g., ".fk_list unit uuid <unit-uuid>").
   .views                      Show all views in the current database.
   .ddl <name>                 Show the DDL for the specified table, trigger, or view.
   .query-models <query>       Execute a query on all models and print the results.
