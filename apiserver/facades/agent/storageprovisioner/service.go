@@ -100,6 +100,25 @@ type ApplicationService interface {
 	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 }
 
+// RemovalService provides removal operations to progress the removal of
+// volume attachments, filesystem attachment and volume attachment plans.
+type RemovalService interface {
+	// MarkFilesystemAttachmentAsDead marks the filesystem attachment as dead.
+	MarkFilesystemAttachmentAsDead(
+		ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+	) error
+
+	// MarkVolumeAttachmentAsDead marks the volume attachment as dead.
+	MarkVolumeAttachmentAsDead(
+		ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+	) error
+
+	// MarkVolumeAttachmentPlanAsDead marks the volume attachment plan as dead.
+	MarkVolumeAttachmentPlanAsDead(
+		ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	) error
+}
+
 // StorageStatusService provides methods to set filesystem and volume status.
 type StorageStatusService interface {
 	// SetFilesystemStatus saves the given filesystem status, overwriting any

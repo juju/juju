@@ -46,6 +46,7 @@ type provisionerSuite struct {
 	machineService             *MockMachineService
 	applicationService         *MockApplicationService
 	blockDeviceService         *MockBlockDeviceService
+	removalService             *MockRemovalService
 
 	api *StorageProvisionerAPIv4
 
@@ -75,6 +76,7 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.blockDeviceService = NewMockBlockDeviceService(ctrl)
+	s.removalService = NewMockRemovalService(ctrl)
 
 	var err error
 	s.api, err = NewStorageProvisionerAPIv4(
@@ -84,6 +86,7 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 		s.blockDeviceService,
 		s.machineService,
 		s.applicationService,
+		s.removalService,
 		s.authorizer,
 		nil, // storageProviderRegistry
 		nil, // storageService
@@ -99,6 +102,10 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 		s.authorizer = nil
 		s.watcherRegistry = nil
 		s.storageProvisioningService = nil
+		s.machineService = nil
+		s.applicationService = nil
+		s.blockDeviceService = nil
+		s.removalService = nil
 		s.api = nil
 	})
 

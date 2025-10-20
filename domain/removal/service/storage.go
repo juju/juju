@@ -148,3 +148,39 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 
 	return nil
 }
+
+// MarkFilesystemAttachmentAsDead marks the filesystem attachment as dead.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] if the filesystem
+// attachment is not found.
+// - [removalerrors.EntityStillAlive] if the filesystem attachment is alive.
+func (s *Service) MarkFilesystemAttachmentAsDead(
+	ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+) error {
+	return errors.New("not implemented: MarkFilesystemAttachmentAsDead")
+}
+
+// MarkVolumeAttachmentAsDead marks the volume attachment as dead.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] if the volume
+// attachment is not found.
+// - [removalerrors.EntityStillAlive] if the volume attachment is alive.
+func (s *Service) MarkVolumeAttachmentAsDead(
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+) error {
+	return errors.New("not implemented: MarkVolumeAttachmentAsDead")
+}
+
+// MarkVolumeAttachmentPlanAsDead marks the volume attachment plan as dead.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] if the volume
+// attachment plan is not found.
+// - [removalerrors.EntityStillAlive] if the volume attachment plan is alive.
+func (s *Service) MarkVolumeAttachmentPlanAsDead(
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+) error {
+	return errors.New("not implemented: MarkVolumeAttachmentPlanAsDead")
+}

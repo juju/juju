@@ -49,6 +49,7 @@ type StorageProvisionerAPIv4 struct {
 	storageProvisioningService StorageProvisioningService
 	machineService             MachineService
 	applicationService         ApplicationService
+	removalService             RemovalService
 	getScopeAuthFunc           common.GetAuthFunc
 	getStorageEntityAuthFunc   common.GetAuthFunc
 	getLifeAuthFunc            common.GetAuthFunc
@@ -70,6 +71,7 @@ func NewStorageProvisionerAPIv4(
 	blockDeviceService BlockDeviceService,
 	machineService MachineService,
 	applicationService ApplicationService,
+	removalService RemovalService,
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
 	storagePoolGetter StoragePoolGetter,
@@ -199,6 +201,7 @@ func NewStorageProvisionerAPIv4(
 		storageProvisioningService: storageProvisioningService,
 		machineService:             machineService,
 		applicationService:         applicationService,
+		removalService:             removalService,
 		getScopeAuthFunc:           getScopeAuthFunc,
 		getStorageEntityAuthFunc:   getStorageEntityAuthFunc,
 		getLifeAuthFunc:            getLifeAuthFunc,
@@ -2654,6 +2657,8 @@ func (s *StorageProvisionerAPIv4) Remove(ctx context.Context, args params.Entiti
 	return results, nil
 }
 
+// removeVolume handles the volume removal operations for the corresponding
+// facade method Remove.
 func (s *StorageProvisionerAPIv4) removeVolume(
 	ctx context.Context, tag names.VolumeTag,
 ) error {
@@ -2683,6 +2688,8 @@ func (s *StorageProvisionerAPIv4) removeVolume(
 	return nil
 }
 
+// removeFilesystem handles the filesystem removal operations for the
+// corresponding facade method Remove.
 func (s *StorageProvisionerAPIv4) removeFilesystem(
 	ctx context.Context, tag names.FilesystemTag,
 ) error {
