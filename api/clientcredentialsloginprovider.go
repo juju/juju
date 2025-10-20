@@ -50,7 +50,7 @@ func NewClientCredentialsLoginProvider(clientID, clientSecret string) *clientCre
 	return &clientCredentialsLoginProvider{
 		clientID:           clientID,
 		clientSecret:       clientSecret,
-		afterLoginCallback: func() {},
+		afterLoginCallback: nil,
 	}
 }
 
