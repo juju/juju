@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/environs/bootstrap"
@@ -1215,6 +1216,31 @@ func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *tc.C) {
 		RelationId: getUUIDArgs.RelationID,
 		Force:      ptr(true),
 		MaxWait:    &maxWait,
+	}
+
+	// Act
+	err := s.api.DestroyRelation(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestDestroyRelationCrossModel(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	getUUIDArgs := relation.GetRelationUUIDForRemovalArgs{
+		RelationID: 7,
+	}
+	relUUID := s.expectGetRelationUUIDForRemoval(c, getUUIDArgs, nil)
+	removalUUID := tc.Must(c, removal.NewUUID)
+
+	s.removalService.EXPECT().RemoveRelation(gomock.Any(), relUUID, false, time.Duration(0)).Return("", removalerrors.RelationIsCrossModel)
+	s.removalService.EXPECT().RemoveRemoteRelation(gomock.Any(), relUUID, false, time.Duration(0)).Return(removalUUID, nil)
+
+	arg := params.DestroyRelation{
+		RelationId: getUUIDArgs.RelationID,
 	}
 
 	// Act

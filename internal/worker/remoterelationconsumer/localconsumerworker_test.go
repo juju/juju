@@ -31,6 +31,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	removal "github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -1950,10 +1951,10 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeDyingRelat
 		GetRelationDetails(gomock.Any(), relationUUID).
 		Return(domainrelation.RelationDetails{}, nil)
 	s.crossModelService.EXPECT().
-		RemoveRemoteRelation(gomock.Any(), relationUUID).
-		DoAndReturn(func(context.Context, relation.UUID) error {
+		RemoveRemoteRelation(gomock.Any(), relationUUID, false, time.Duration(0)).
+		DoAndReturn(func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error) {
 			close(sync)
-			return nil
+			return "", nil
 		})
 
 	w := s.newLocalConsumerWorker(c)
@@ -2008,10 +2009,10 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeDeadRelati
 		GetRelationDetails(gomock.Any(), relationUUID).
 		Return(domainrelation.RelationDetails{}, nil)
 	s.crossModelService.EXPECT().
-		RemoveRemoteRelation(gomock.Any(), relationUUID).
-		DoAndReturn(func(context.Context, relation.UUID) error {
+		RemoveRemoteRelation(gomock.Any(), relationUUID, false, time.Duration(0)).
+		DoAndReturn(func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error) {
 			close(sync)
-			return nil
+			return "", nil
 		})
 
 	w := s.newLocalConsumerWorker(c)
@@ -2450,10 +2451,10 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationChangeDying(c *tc.C)
 
 	sync := make(chan struct{})
 	s.crossModelService.EXPECT().
-		RemoveRemoteRelation(gomock.Any(), relationUUID).
-		DoAndReturn(func(ctx context.Context, rel relation.UUID) error {
+		RemoveRemoteRelation(gomock.Any(), relationUUID, false, time.Duration(0)).
+		DoAndReturn(func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error) {
 			close(sync)
-			return nil
+			return "", nil
 		})
 
 	w := s.newLocalConsumerWorker(c)

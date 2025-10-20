@@ -20,6 +20,7 @@ import (
 // methods specific to relation removal.
 type RelationState interface {
 	// RelationExists returns true if a relation exists with the input UUID.
+	// Returns false (with an error) if the relation is a cross model relation.
 	RelationExists(ctx context.Context, rUUID string) (bool, error)
 
 	// EnsureRelationNotAlive ensures that there is no relation
@@ -33,8 +34,11 @@ type RelationState interface {
 	// GetRelationLife returns the life of the relation with the input UUID.
 	GetRelationLife(ctx context.Context, rUUID string) (life.Life, error)
 
-	// UnitNamesInScope returns the names of units in
-	// the scope of the relation with the input UUID.
+	// UnitNamesInScope returns the names of units in the scope of the relation
+	// with the input UUID. Does not return synthetic units (i.e. units that
+	// represent units in another model, for the purpose of modelling CMRs),
+	// since synthetic units are not meaningfully in scope in the context of
+	// this model.
 	UnitNamesInScope(ctx context.Context, rUUID string) ([]string, error)
 
 	// DeleteRelationUnits deletes all relation unit records and their
@@ -61,7 +65,11 @@ type RelationState interface {
 // life-cycle advancement and removal to finish before forcefully removing the
 // relation. This duration is ignored if the force argument is false.
 // The UUID for the scheduled removal job is returned.
-// [relationerrors.RelationNotFound] is returned if no such relation exists.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if no such relation exists.
+//   - [removalerrors.RelationIsCrossModel] is returned if the relation is a
+//     cross model relation.
 func (s *Service) RemoveRelation(
 	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration) (removal.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())

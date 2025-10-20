@@ -12,6 +12,7 @@ package crossmodelrelations
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	application "github.com/juju/juju/core/application"
 	offer "github.com/juju/juju/core/offer"
@@ -23,6 +24,7 @@ import (
 	application0 "github.com/juju/juju/domain/application"
 	service "github.com/juju/juju/domain/crossmodelrelation/service"
 	relation0 "github.com/juju/juju/domain/relation"
+	removal "github.com/juju/juju/domain/removal"
 	config "github.com/juju/juju/environs/config"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -846,17 +848,18 @@ func (c *MockRemovalServiceLeaveScopeCall) DoAndReturn(f func(context.Context, r
 }
 
 // RemoveRemoteRelation mocks base method.
-func (m *MockRemovalService) RemoveRemoteRelation(arg0 context.Context, arg1 relation.UUID) error {
+func (m *MockRemovalService) RemoveRemoteRelation(arg0 context.Context, arg1 relation.UUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveRemoteRelation", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "RemoveRemoteRelation", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(removal.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // RemoveRemoteRelation indicates an expected call of RemoveRemoteRelation.
-func (mr *MockRemovalServiceMockRecorder) RemoveRemoteRelation(arg0, arg1 any) *MockRemovalServiceRemoveRemoteRelationCall {
+func (mr *MockRemovalServiceMockRecorder) RemoveRemoteRelation(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveRemoteRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRemoteRelation", reflect.TypeOf((*MockRemovalService)(nil).RemoveRemoteRelation), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRemoteRelation", reflect.TypeOf((*MockRemovalService)(nil).RemoveRemoteRelation), arg0, arg1, arg2, arg3)
 	return &MockRemovalServiceRemoveRemoteRelationCall{Call: call}
 }
 
@@ -866,19 +869,19 @@ type MockRemovalServiceRemoveRemoteRelationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRemovalServiceRemoveRemoteRelationCall) Return(arg0 error) *MockRemovalServiceRemoveRemoteRelationCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockRemovalServiceRemoveRemoteRelationCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveRemoteRelationCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemovalServiceRemoveRemoteRelationCall) Do(f func(context.Context, relation.UUID) error) *MockRemovalServiceRemoveRemoteRelationCall {
+func (c *MockRemovalServiceRemoveRemoteRelationCall) Do(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRemoteRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemovalServiceRemoveRemoteRelationCall) DoAndReturn(f func(context.Context, relation.UUID) error) *MockRemovalServiceRemoveRemoteRelationCall {
+func (c *MockRemovalServiceRemoveRemoteRelationCall) DoAndReturn(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRemoteRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

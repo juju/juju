@@ -5,6 +5,7 @@ package crossmodelrelations
 
 import (
 	"context"
+	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/offer"
@@ -16,6 +17,7 @@ import (
 	domainapplication "github.com/juju/juju/domain/application"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	domainrelation "github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -126,7 +128,8 @@ type RemovalService interface {
 	// - No longer alive.
 	// - Removed or scheduled to be removed with the input force qualification.
 	RemoveRemoteRelation(
-		ctx context.Context, relUUID corerelation.UUID) error
+		ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration,
+	) (removal.UUID, error)
 
 	// LeaveScope updates the relation to indicate that the unit represented by
 	// the input relation unit UUID is not in the implied relation scope.

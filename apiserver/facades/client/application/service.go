@@ -548,4 +548,19 @@ type RemovalService interface {
 		force bool,
 		wait time.Duration,
 	) (removal.UUID, error)
+
+	// RemoveRelation checks if a relation with the input UUID exists.
+	// If it does, the relation is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// remote application. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveRemoteRelation(
+		ctx context.Context,
+		relUUID corerelation.UUID,
+		force bool,
+		wait time.Duration,
+	) (removal.UUID, error)
 }

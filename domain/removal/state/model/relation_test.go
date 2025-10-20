@@ -10,15 +10,15 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
-	"github.com/juju/juju/domain/removal/errors"
-	schematesting "github.com/juju/juju/domain/schema/testing"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type relationSuite struct {
-	schematesting.ModelSuite
+	baseSuite
 }
 
 func TestRelationSuite(t *testing.T) {
@@ -26,33 +26,43 @@ func TestRelationSuite(t *testing.T) {
 }
 
 func (s *relationSuite) TestRelationExists(c *tc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)",
-		"some-relation-uuid", 0, "some-relation-id", 0)
-	c.Assert(err, tc.ErrorIsNil)
+	relUUID := s.createRelation(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	exists, err := st.RelationExists(c.Context(), "some-relation-uuid")
+	exists, err := st.RelationExists(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, true)
+}
 
-	exists, err = st.RelationExists(c.Context(), "not-today-henry")
+func (s *relationSuite) TestRelationExistsDoesNotExist(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	exists, err := st.RelationExists(c.Context(), "not-today-henry")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
 }
 
-func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *tc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)",
-		"some-relation-uuid", 0, "some-relation-id", 0)
-	c.Assert(err, tc.ErrorIsNil)
+func (s *relationSuite) TestRelationExistsCrossModelRelation(c *tc.C) {
+	relUUID, _ := s.createRemoteRelation(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.EnsureRelationNotAlive(c.Context(), "some-relation-uuid")
+	exists, err := st.RelationExists(c.Context(), relUUID.String())
+	c.Check(exists, tc.Equals, false)
+	c.Check(err, tc.ErrorIs, removalerrors.RelationIsCrossModel)
+}
+
+func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *tc.C) {
+	relUUID := s.createRelation(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.EnsureRelationNotAlive(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Relation had life "alive" and should now be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM relation where uuid = ?", "some-relation-uuid")
+	row := s.DB().QueryRow("SELECT life_id FROM relation where uuid = ?", relUUID)
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -60,17 +70,15 @@ func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *tc.C) {
 }
 
 func (s *relationSuite) TestEnsureRelationNotAliveDyingSuccess(c *tc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)",
-		"some-relation-uuid", 1, "some-relation-id", 0)
-	c.Assert(err, tc.ErrorIsNil)
+	relUUID := s.createRelation(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.EnsureRelationNotAlive(c.Context(), "some-relation-uuid")
+	err := st.EnsureRelationNotAlive(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Relation was already "dying" and should be unchanged.
-	row := s.DB().QueryRow("SELECT life_id FROM relation where uuid = ?", "some-relation-uuid")
+	row := s.DB().QueryRow("SELECT life_id FROM relation where uuid = ?", relUUID)
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -86,15 +94,13 @@ func (s *relationSuite) TestEnsureRelationNotAliveNotExistsSuccess(c *tc.C) {
 }
 
 func (s *relationSuite) TestRelationRemovalNormalSuccess(c *tc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)",
-		"some-relation-uuid", 1, "some-relation-id", 0)
-	c.Assert(err, tc.ErrorIsNil)
+	relUUID := s.createRelation(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	when := time.Now().UTC()
-	err = st.RelationScheduleRemoval(
-		c.Context(), "removal-uuid", "some-relation-uuid", false, when,
+	err := st.RelationScheduleRemoval(
+		c.Context(), "removal-uuid", relUUID.String(), false, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -113,7 +119,7 @@ func (s *relationSuite) TestRelationRemovalNormalSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(removalTypeID, tc.Equals, 0)
-	c.Check(rUUID, tc.Equals, "some-relation-uuid")
+	c.Check(rUUID, tc.Equals, relUUID.String())
 	c.Check(force, tc.Equals, false)
 	c.Check(scheduledFor, tc.Equals, when)
 }
@@ -152,13 +158,21 @@ where  r.uuid = ?`, "removal-uuid",
 }
 
 func (s *relationSuite) TestGetRelationLifeSuccess(c *tc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)",
-		"some-relation-uuid", 1, "some-relation-id", 0)
-	c.Assert(err, tc.ErrorIsNil)
+	relUUID := s.createRelation(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	l, err := st.GetRelationLife(c.Context(), "some-relation-uuid")
+	l, err := st.GetRelationLife(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+}
+
+func (s *relationSuite) TestGetRelationLifeDying(c *tc.C) {
+	relUUID := s.createRelation(c)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st.EnsureRelationNotAlive(c.Context(), relUUID.String())
+
+	l, err := st.GetRelationLife(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(l, tc.Equals, life.Dying)
 }
@@ -179,7 +193,7 @@ func (s *relationSuite) TestUnitNamesInScopeNoRows(c *tc.C) {
 }
 
 func (s *relationSuite) TestUnitNamesInScopeSuccess(c *tc.C) {
-	rel, unit, _ := s.addAppUnitRelationScope(c)
+	rel, unit, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -188,8 +202,18 @@ func (s *relationSuite) TestUnitNamesInScopeSuccess(c *tc.C) {
 	c.Check(inScope, tc.SameContents, []string{unit})
 }
 
+func (s *relationSuite) TestUnitNamesInScopeDropsSyntheticUnits(c *tc.C) {
+	rel, _, _ := s.addAppUnitRelationScope(c, domaincharm.CMRSource)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	inScope, err := st.UnitNamesInScope(c.Context(), rel)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(inScope, tc.SameContents, []string{})
+}
+
 func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *tc.C) {
-	rel, _, _ := s.addAppUnitRelationScope(c)
+	rel, _, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -203,16 +227,16 @@ func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *tc.C) {
 }
 
 func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *tc.C) {
-	rel, _, _ := s.addAppUnitRelationScope(c)
+	rel, _, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.DeleteRelation(c.Context(), rel)
-	c.Assert(err, tc.ErrorIs, errors.UnitsStillInScope)
+	c.Assert(err, tc.ErrorIs, removalerrors.UnitsStillInScope)
 }
 
 func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
-	rel, _, _ := s.addAppUnitRelationScope(c)
+	rel, _, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -228,7 +252,7 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
 
 func (s *relationSuite) TestLeaveScopeSuccess(c *tc.C) {
 	// Arrange
-	rel, unit, relUnit := s.addAppUnitRelationScope(c)
+	rel, unit, relUnit := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
 
 	ctx := c.Context()
 
@@ -288,15 +312,25 @@ func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
 // addAppUnitRelationScope adds charm, application, unit and relation
 // infrastructure such that a single unit is in the scope of a single relation.
 // The relation, unit and relation-unit identifiers are returned.
-func (s *relationSuite) addAppUnitRelationScope(c *tc.C) (string, string, string) {
-	charm := "some-charm-uuid"
-	_, err := s.DB().Exec("INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, ?)", charm, charm, 0)
-	c.Assert(err, tc.ErrorIsNil)
+func (s *relationSuite) addAppUnitRelationScope(c *tc.C, source domaincharm.CharmSource) (string, string, string) {
+	charmUUID := "some-charm-uuid"
+	// cmr charms don't have an architecture
+	if source == domaincharm.CMRSource {
+		_, err := s.DB().Exec(
+			"INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, ?, ?)",
+			charmUUID, charmUUID, encodeCharmSource(c, source))
+		c.Assert(err, tc.ErrorIsNil)
+	} else {
+		_, err := s.DB().Exec(
+			"INSERT INTO charm (uuid, reference_name, source_id, architecture_id) VALUES (?, ?, ?, ?)",
+			charmUUID, charmUUID, encodeCharmSource(c, source), 0)
+		c.Assert(err, tc.ErrorIsNil)
+	}
 
 	app := "some-app-uuid"
-	_, err = s.DB().Exec(
+	_, err := s.DB().Exec(
 		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)",
-		app, app, 0, charm, network.AlphaSpaceId,
+		app, app, 0, charmUUID, network.AlphaSpaceId,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -304,7 +338,7 @@ func (s *relationSuite) addAppUnitRelationScope(c *tc.C) (string, string, string
 	_, err = s.DB().Exec(`
 INSERT INTO charm_relation (uuid, charm_uuid, name, interface, capacity, role_id,  scope_id)
 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		cr, charm, cr, "interface", 0, 0, 0,
+		cr, charmUUID, cr, "interface", 0, 0, 0,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -346,7 +380,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	unit := "some-unit-uuid"
 	_, err = s.DB().Exec(
 		"INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)",
-		unit, unit, 0, app, charm, node)
+		unit, unit, 0, app, charmUUID, node)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relUnit := "some-rel-unit-uuid"
@@ -372,4 +406,18 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	c.Assert(err, tc.ErrorIsNil)
 
 	return rel, unit, relUnit
+}
+
+func encodeCharmSource(c *tc.C, source domaincharm.CharmSource) int {
+	switch source {
+	case domaincharm.LocalSource:
+		return 0
+	case domaincharm.CharmHubSource:
+		return 1
+	case domaincharm.CMRSource:
+		return 2
+	default:
+		c.Fatalf("unsupported source type: %s", source)
+		return -1
+	}
 }

@@ -6,6 +6,7 @@ package crossmodelrelations
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
@@ -148,7 +149,11 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 	case change.Life != life.Alive:
 		// Relations only transition to dying and are removed, so we can safely
 		// just remove the relation and return early.
-		return api.removalService.RemoveRemoteRelation(ctx, relationUUID)
+		_, err := api.removalService.RemoveRemoteRelation(ctx, relationUUID, true, time.Minute)
+		if errors.Is(err, relationerrors.RelationNotFound) {
+			return nil
+		}
+		return err
 
 	case change.Suspended != nil && *change.Suspended != relationDetails.Suspended:
 		if err := api.handleSuspendedRelationChange(ctx, relationUUID, *change.Suspended, change.SuspendedReason); err != nil {

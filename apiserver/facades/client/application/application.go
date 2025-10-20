@@ -52,6 +52,7 @@ import (
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/environs/bootstrap"
@@ -1408,17 +1409,29 @@ func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRela
 		maxWait = *args.MaxWait
 	}
 
+	var msg string
+	if len(args.Endpoints) == 2 {
+		msg = fmt.Sprintf("%q, %q", args.Endpoints[0], args.Endpoints[1])
+	} else {
+		msg = fmt.Sprintf("%d", args.RelationId)
+	}
 	removalUUID, err := api.removalService.RemoveRelation(ctx, relUUID, force, maxWait)
 	if err == nil {
-		var msg string
-		if len(args.Endpoints) == 2 {
-			msg = fmt.Sprintf("%q, %q", args.Endpoints[0], args.Endpoints[1])
-		} else {
-			msg = fmt.Sprintf("%d", args.RelationId)
-		}
 		api.logger.Debugf(ctx, "removal uuid %q for relation %q", removalUUID, msg)
+		return nil
+	} else if !errors.Is(err, removalerrors.RelationIsCrossModel) {
+		return internalerrors.Capture(err)
 	}
-	return internalerrors.Capture(err)
+
+	removalUUID, err = api.removalService.RemoveRemoteRelation(ctx, relUUID, force, maxWait)
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		return nil
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	api.logger.Debugf(ctx, "removal uuid %q for remote relation %q", removalUUID, msg)
+	return nil
 }
 
 // SetRelationsSuspended sets the suspended status of the specified relations.
