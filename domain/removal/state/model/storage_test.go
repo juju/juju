@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -113,7 +113,7 @@ func (s *storageSuite) TestGetStorageAttachmentLifeNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	_, err := st.GetStorageAttachmentLife(c.Context(), "some-sa-uuid")
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
 func (s *storageSuite) TestDeleteStorageAttachmentSuccess(c *tc.C) {

@@ -20,6 +20,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
@@ -599,8 +600,8 @@ WHERE  storage_id = $storageID.storage_id`, input, dbVal)
 // unit UUID.
 // - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
 // instance exists for the provided storage instance UUID.
-// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
-// attachment does not exist for the unit and storage instance.
+// - [storageerrors.StorageAttachmentNotFound] when
+// the storage attachment does not exist for the unit and storage instance.
 func (st *State) GetStorageAttachmentLife(ctx context.Context, unitUUID, storageInstanceUUID string) (domainlife.Life, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -642,7 +643,7 @@ AND    storage_instance_uuid = $storageAttachmentIdentifier.storage_instance_uui
 			return errors.Errorf(
 				"storage attachment for unit %q and storage instance %q does not exist",
 				unitUUID, storageInstanceUUID,
-			).Add(storageprovisioningerrors.StorageAttachmentNotFound)
+			).Add(storageerrors.StorageAttachmentNotFound)
 		}
 		return err
 	})
@@ -671,8 +672,8 @@ func (st *State) InitialWatchStatementForUnitStorageAttachments(
 // - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
 // instance does not exist for the provided storage ID.
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
-// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
-// storage attachment does not exist.
+// - [storageerrors.StorageAttachmentNotFound] if the storage attachment does
+// not exist.
 func (st *State) GetStorageAttachmentUUIDForUnit(
 	ctx context.Context,
 	storageInstanceID, unitUUID string,
@@ -718,7 +719,7 @@ WHERE  si.storage_id = $storageID.storage_id AND sa.unit_uuid = $unitUUIDRef.uni
 			return errors.Errorf(
 				"storage attachment for %q and unit %q does not exist",
 				storageIDInput.ID, unitUUIDInput.UUID,
-			).Add(storageprovisioningerrors.StorageAttachmentNotFound)
+			).Add(storageerrors.StorageAttachmentNotFound)
 		}
 		return err
 	})
