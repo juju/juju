@@ -13,7 +13,7 @@ run_refresh_local() {
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	OUT=$(juju refresh ubuntu --path "${charm_name}" 2>&1 || true)
-	if echo "${OUT}" | grep -E -vq "Added local charm"; then
+	if echo "${OUT}" | grep -v "no change" | grep -E -vq "Added local charm"; then
 		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
 		exit 5
