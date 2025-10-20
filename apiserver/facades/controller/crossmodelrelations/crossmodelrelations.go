@@ -15,6 +15,7 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
@@ -34,6 +35,7 @@ import (
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	domainlife "github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/rpc/params"
 )
@@ -453,10 +455,74 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 // WatchRelationChanges starts a RemoteRelationChangesWatcher for each
 // specified relation, returning the watcher IDs and initial values,
 // or an error if the remote relations couldn't be watched.
-func (api *CrossModelRelationsAPIv3) WatchRelationChanges(ctx context.Context, remoteRelationArgs params.RemoteEntityArgs) (
-	params.RemoteRelationWatchResults, error,
-) {
-	return params.RemoteRelationWatchResults{}, nil
+func (api *CrossModelRelationsAPIv3) WatchRelationChanges(
+	ctx context.Context, remoteRelationArgs params.RemoteEntityArgs,
+) (params.RemoteRelationWatchResults, error) {
+	results := params.RemoteRelationWatchResults{
+		Results: make([]params.RemoteRelationWatchResult, len(remoteRelationArgs.Args)),
+	}
+
+	for i, arg := range remoteRelationArgs.Args {
+		w, changes, err := api.watchOneRelationChanges(ctx, arg)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// Ignore the changes, this method and the watcher return
+		// different structures.
+		watcherID, _, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, w)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		results.Results[i].RemoteRelationWatcherId = watcherID
+		results.Results[i].Changes = changes
+	}
+
+	return results, nil
+}
+
+func (api *CrossModelRelationsAPIv3) watchOneRelationChanges(
+	ctx context.Context,
+	arg params.RemoteEntityArg,
+) (common.RelationUnitsWatcher, params.RemoteRelationChangeEvent, error) {
+	var empty params.RemoteRelationChangeEvent
+	// relationToken is the relation UUID.
+	relationToken := arg.Token
+
+	relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, arg.Token)
+	if err != nil {
+		return nil, empty, internalerrors.Errorf("getting relation key for %q: %w", arg.Token, err)
+	}
+	relationTag := names.NewRelationTag(relationKey.String())
+
+	relationUUID := corerelation.UUID(relationToken)
+	if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
+		return nil, empty, internalerrors.Capture(err)
+	}
+
+	appToken, err := api.crossModelRelationService.GetOfferingApplicationToken(ctx, relationUUID)
+	if err != nil {
+		return nil, empty, internalerrors.Errorf("getting offering relation tokens: %w", err)
+	}
+	w, err := api.relationService.WatchRelationUnits(ctx, corerelation.UUID(relationToken), appToken)
+	if err != nil {
+		return nil, empty, internalerrors.Errorf("watching relation units: %w", err)
+	}
+
+	// TODO: 20-Oct-25
+	// Implement retrieval and return of params.RemoteRelationChangeEvent data
+
+	wrapped, err := wrappedRelationChangesWatcher(w, appToken, relationUUID, api.relationService)
+	if err != nil {
+		return nil, empty, internalerrors.Errorf("watching relation changes: %w", err)
+	}
+
+	return wrapped, params.RemoteRelationChangeEvent{
+		RelationToken: arg.Token,
+	}, nil
 }
 
 // WatchRelationsSuspendedStatus starts a RelationStatusWatcher for
