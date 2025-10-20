@@ -27,6 +27,7 @@ import (
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
@@ -727,11 +728,71 @@ func machineStorageIDsToParams(ids []corewatcher.MachineStorageID) []params.Mach
 }
 
 func (s *StorageProvisionerAPIv4) RemoveVolumeAttachmentPlan(ctx context.Context, args params.MachineStorageIds) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Ids)),
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
+	if err != nil {
+		return params.ErrorResults{}, err
 	}
-	// TODO: implement this method using the storageProvisioningService.
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, 0, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) error {
+		tag, err := names.ParseVolumeTag(arg.AttachmentTag)
+		if err != nil {
+			return errors.Errorf(
+				"volume tag %q invalid", arg.AttachmentTag,
+			).Add(coreerrors.NotValid)
+		}
+		machineTag, err := names.ParseMachineTag(arg.MachineTag)
+		if err != nil {
+			return errors.Errorf(
+				"machine tag %q invalid", arg.MachineTag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(machineTag, tag) {
+			return apiservererrors.ErrPerm
+		}
+		return s.removeVolumeAttachmentPlan(ctx, machineTag, tag)
+	}
+	for _, arg := range args.Ids {
+		var result params.ErrorResult
+		err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		}
+		results.Results = append(results.Results, result)
+	}
 	return results, nil
+}
+
+// removeVolumeAttachmentPlan handles the volume attachment plan removal
+// operations for the corresponding facade method RemoveVolumeAttachmentPlan.
+func (s *StorageProvisionerAPIv4) removeVolumeAttachmentPlan(
+	ctx context.Context, machineTag names.MachineTag, tag names.VolumeTag,
+) error {
+	machineUUID, err := s.getMachineUUID(ctx, machineTag)
+	if err != nil {
+		return err
+	}
+	volumeAttachmentPlanUUID, err := s.getVolumeAttachmentPlanUUID(
+		ctx, tag, machineUUID)
+	if errors.Is(err, coreerrors.NotFound) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	err = s.removalService.MarkVolumeAttachmentPlanAsDead(
+		ctx, volumeAttachmentPlanUUID)
+	if errors.Is(err, removalerrors.EntityStillAlive) {
+		return errors.Errorf(
+			"volume %q attachment plan for machine %q is still alive",
+			tag.Id(), machineTag.Id(),
+		)
+	} else if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *StorageProvisionerAPIv4) watchAttachments(
