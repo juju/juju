@@ -27,34 +27,52 @@ type UpgraderAPI interface {
 	UpgradeModel(ctx context.Context, arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error)
 }
 
+// UpgradeAPI represents the model upgrader facade. This type exist to sastify
+// registration requirements of providing a singular type to must register.
+// Behind this struct is a facade implementation that implements the
+// [UpgradeAPI] interface.
+type UpgradeAPI struct {
+	UpgraderAPI
+}
+
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegisterForMultiModel("ModelUpgrader", 1, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return newUpgraderFacadeV1(ctx)
-	}, reflect.TypeOf((*ModelUpgraderAPI)(nil)))
+	}, reflect.TypeOf(UpgradeAPI{}))
 }
 
 // newUpgraderFacadeV1 returns which facade to register.
 // It will return a [ControllerUpgraderAPI] if the current model hosts the controller.
 // Otherwise, it defaults to [ModelUpgraderAPI].
-func newUpgraderFacadeV1(ctx facade.MultiModelContext) (UpgraderAPI, error) {
+func newUpgraderFacadeV1(ctx facade.MultiModelContext) (UpgradeAPI, error) {
+	auth := ctx.Auth()
+	if !auth.AuthClient() {
+		return UpgradeAPI{}, apiservererrors.ErrPerm
+	}
+	var (
+		upgraderAPI UpgraderAPI
+		err         error
+	)
+
 	if ctx.IsControllerModelScoped() {
-		auth := ctx.Auth()
-		// Since we know this is a user tag (because AuthClient is true),
-		// we just do the type assertion to the UserTag.
-		if !auth.AuthClient() {
-			return nil, apiservererrors.ErrPerm
-		}
 		domainServices := ctx.DomainServices()
-		return NewControllerUpgraderAPI(
+		upgraderAPI, err = NewControllerUpgraderAPI(
 			names.NewControllerTag(ctx.ControllerUUID()),
 			names.NewModelTag(ctx.ModelUUID().String()),
 			auth,
 			common.NewBlockChecker(domainServices.BlockCommand()),
 			domainServices.ControllerUpgraderService(),
 		), nil
+	} else {
+		upgraderAPI, err = newFacadeV1(ctx)
 	}
-	return newFacadeV1(ctx)
+
+	if err != nil {
+		return UpgradeAPI{}, errors.Trace(err)
+	}
+
+	return UpgradeAPI{UpgraderAPI: upgraderAPI}, nil
 }
 
 // newFacadeV1 is used for API registration.
