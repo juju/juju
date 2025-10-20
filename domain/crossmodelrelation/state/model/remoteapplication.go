@@ -1080,8 +1080,8 @@ JOIN   relation AS r ON r.uuid = oc.remote_relation_uuid
 	return res, nil
 }
 
-// GetOfferingApplicationToken returns the offering application token (uuid)
-// for the given offer UUID.
+// GetOfferingApplicationToken returns the offering application token (UUID)
+// for the given relation token (UUID).
 // Returns
 //
 //	-[relationerrors.RelationNotFound] if the query has no rows, the relation

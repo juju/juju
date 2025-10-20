@@ -722,14 +722,16 @@ func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationConsumersError(c
 
 func (s *remoteApplicationServiceSuite) TestGetOfferingApplicationToken(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	relationUUID := tc.Must(c, uuid.NewUUID)
 
-	s.modelState.EXPECT().GetOfferingApplicationToken(gomock.Any(), relationUUID.String()).Return("appToken", nil)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	appUUID := tc.Must(c, coreapplication.NewID)
+
+	s.modelState.EXPECT().GetOfferingApplicationToken(gomock.Any(), relationUUID.String()).Return(appUUID.String(), nil)
 	service := s.service(c)
 
-	obtainedToken, err := service.GetOfferingApplicationToken(c.Context(), relationUUID.String())
+	obtainedToken, err := service.GetOfferingApplicationToken(c.Context(), relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedToken, tc.Equals, "appToken")
+	c.Assert(obtainedToken, tc.Equals, appUUID)
 }
 
 func (s *remoteApplicationServiceSuite) TestGetOfferingApplicationTokenInvalidUUID(c *tc.C) {
@@ -741,13 +743,13 @@ func (s *remoteApplicationServiceSuite) TestGetOfferingApplicationTokenInvalidUU
 
 func (s *remoteApplicationServiceSuite) TestGetOfferingApplicationTokenError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	relationUUID := tc.Must(c, uuid.NewUUID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 
 	s.modelState.EXPECT().GetOfferingApplicationToken(gomock.Any(), relationUUID.String()).Return("", internalerrors.Errorf("front fell off"))
 
 	service := s.service(c)
 
-	_, err := service.GetOfferingApplicationToken(c.Context(), relationUUID.String())
+	_, err := service.GetOfferingApplicationToken(c.Context(), relationUUID)
 	c.Assert(err, tc.ErrorMatches, "front fell off")
 }
 
