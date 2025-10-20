@@ -27,7 +27,7 @@ WITH conn AS (
 
 active_conn AS (
     SELECT oc.offer_uuid FROM offer_connection AS oc
-    JOIN relation_status AS rs ON oc.application_remote_relation_uuid = rs.relation_uuid
+    JOIN relation_status AS rs ON oc.remote_relation_uuid = rs.relation_uuid
     WHERE rs.relation_status_type_id = 1
 )
 

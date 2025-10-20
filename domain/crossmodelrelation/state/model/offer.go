@@ -149,7 +149,7 @@ func (st *State) GetOfferUUIDByRelationUUID(ctx context.Context, relationUUID st
 	stmt, err := st.Prepare(`
 SELECT &offerConnection.*
 FROM   offer_connection oc
-WHERE  oc.application_remote_relation_uuid = $remoteRelationUUID.uuid
+WHERE  oc.remote_relation_uuid = $remoteRelationUUID.uuid
 `, remoteRelationUUID, offerConnection{})
 	if err != nil {
 		return "", errors.Capture(err)
