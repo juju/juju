@@ -1,9 +1,13 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package controller
 
 import (
 	"context"
 
 	"github.com/canonical/sqlair"
+
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
@@ -27,51 +31,59 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // all the controllers agent versions. It is used by upstream to further narrow
 // down to get the highest version. Since we follow semantic versioning, doing a
 // ORDER BY ASC won't give us the correct semantics.
-func (s State) GetControllerAgentVersionsByArchitecture(
+func (s *State) GetControllerAgentVersionsByArchitecture(
 	ctx context.Context,
 	architectures []agentbinary.Architecture,
-) ([]semversion.Number, error) {
+) (map[agentbinary.Architecture][]semversion.Number, error) {
+	zeroArchAndVersions := map[agentbinary.Architecture][]semversion.Number{}
 	if len(architectures) == 0 {
-		return []semversion.Number{}, nil
+		return zeroArchAndVersions, nil
 	}
 	db, err := s.DB(ctx)
 	if err != nil {
-		return []semversion.Number{}, errors.Capture(err)
+		return zeroArchAndVersions, errors.Capture(err)
 	}
 
-	architectureIDs := make(ids, 0, len(architectures))
+	architectureIDs := make(ids, len(architectures))
 	for i, arch := range architectures {
 		architectureIDs[i] = int(arch)
 	}
 
+	var agentVersions []agentVersionArchitecture
+
 	stmt, err := s.Prepare(`
-SELECT version
+SELECT &agentVersion.*
 FROM   controller_node_agent_version
 WHERE  architecture_id IN ($ids[:])
-`, architectureIDs)
-
-	var versions []semversion.Number
+`, agentVersionArchitecture{}, architectureIDs)
+	if err != nil {
+		return zeroArchAndVersions, errors.Capture(err)
+	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		iter := tx.Query(ctx, stmt, architectureIDs).Iter()
-		defer iter.Close()
-
-		for iter.Next() {
-			var version string
-			err := iter.Get(&version)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			number, err := semversion.Parse(version)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			versions = append(versions, number)
+		err := tx.Query(ctx, stmt, architectureIDs).GetAll(&agentVersions)
+		if err != nil && errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("no controller agents found")
+		} else if err != nil {
+			return errors.Capture(err)
 		}
 		return nil
 	})
 	if err != nil {
-		return []semversion.Number{}, errors.Capture(err)
+		return zeroArchAndVersions, errors.Capture(err)
+	}
+
+	versions := make(map[agentbinary.Architecture][]semversion.Number)
+	for _, agent := range agentVersions {
+		version, err := semversion.Parse(agent.Version)
+		if err != nil {
+			return zeroArchAndVersions, errors.Capture(err)
+		}
+		archID := agentbinary.Architecture(agent.ArchitectureID)
+		if _, ok := versions[archID]; !ok {
+			versions[archID] = []semversion.Number{}
+		}
+		versions[archID] = append(versions[archID], version)
 	}
 
 	return versions, nil

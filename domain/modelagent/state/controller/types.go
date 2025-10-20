@@ -4,3 +4,8 @@
 package controller
 
 type ids []int
+
+type agentVersionArchitecture struct {
+	Version        string `db:"version"`
+	ArchitectureID int    `db:"architecture_id"`
+}

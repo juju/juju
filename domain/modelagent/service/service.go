@@ -196,11 +196,15 @@ type ModelState interface {
 	SetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID, agentbinary.Version) error
 }
 
+// ControllerState defines the interface for interacting with the
+// underlying model that hosts the current controller(s).
 type ControllerState interface {
+	// GetControllerAgentVersionsByArchitecture has the responsibility of
+	// getting the agent versions of all the controllers.
 	GetControllerAgentVersionsByArchitecture(
 		context.Context,
 		[]agentbinarydomain.Architecture,
-	) ([]semversion.Number, error)
+	) (map[agentbinarydomain.Architecture][]semversion.Number, error)
 }
 
 // WatcherFactory provides a factory for constructing new watchers.
@@ -991,34 +995,44 @@ func (s *Service) validateModelCanBeUpgradedTo(
 	return nil
 }
 
+// getHighestAgentVersion has the responsibility of getting the versions by
+// the supplied architectures. It is then filtered to find the highest version
+// among each architecture. The highest version is returned to the caller.
 func (s *Service) getHighestAgentVersion(
 	ctx context.Context,
 ) (semversion.Number, error) {
+	// TODO(adisazhar123): Get architectures from DB rather than hardcoding.
 	architectures := []agentbinarydomain.Architecture{agentbinarydomain.AMD64}
-	versions, err := s.controllerSt.GetControllerAgentVersionsByArchitecture(
-		ctx,
-		architectures,
-	)
+	architecturesAndVersions, err := s.controllerSt.
+		GetControllerAgentVersionsByArchitecture(
+			ctx,
+			architectures,
+		)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
 
-	if len(versions) == 0 {
-		return semversion.Zero, errors.New(
-			"upgrading model cannot find a recommended version to upgrade to").
-			Add(modelagenterrors.AgentVersionNotFound)
+	// TODO(adisazhar123): Improve handling to:
+	// - support missing architectures
+	// - handle cases where multiple architectures have different highest versions
+	highestVersion := semversion.Zero
+	for _, versions := range architecturesAndVersions {
+		slices.SortFunc(versions, func(a, b semversion.Number) int {
+			if a.Compare(b) < 0 {
+				return -1
+			} else if a.Compare(b) == 0 {
+				return 0
+			}
+			return 1
+		})
+
+		foundHigherVersion := highestVersion.Compare(versions[len(versions)-1]) < 0
+		if foundHigherVersion {
+			highestVersion = versions[len(versions)-1]
+		}
 	}
 
-	slices.SortFunc(versions, func(a, b semversion.Number) int {
-		if a.Compare(b) < 0 {
-			return -1
-		} else if a.Compare(b) == 0 {
-			return 0
-		}
-		return 1
-	})
-
-	return versions[len(versions)-1], nil
+	return highestVersion, nil
 }
 
 // WatchMachineTargetAgentVersion is responsible for watching the target agent
