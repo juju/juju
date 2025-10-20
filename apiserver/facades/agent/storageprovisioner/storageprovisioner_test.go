@@ -22,6 +22,7 @@ import (
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -29,6 +30,7 @@ import (
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
@@ -3924,6 +3926,394 @@ func (s *provisionerSuite) TestRemoveWithFilesystemTag(c *tc.C) {
 	result, err := s.api.Remove(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithVolumeTagNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+	host := names.NewMachineTag("2")
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	msvc := s.machineService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+		gomock.Any(), tag.Id(), mUUID,
+	).Return(
+		"", storageprovisioningerrors.VolumeAttachmentNotFound,
+	)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithVolumeTagNotFoundUUID(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+	host := names.NewMachineTag("2")
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID)
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	msvc := s.machineService
+	rsvc := s.removalService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(),
+		tag.Id(), mUUID).Return(uuid, nil)
+	rsvc.EXPECT().MarkVolumeAttachmentAsDead(gomock.Any(), uuid).Return(
+		storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithVolumeTagStillAlive(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+	host := names.NewMachineTag("2")
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID)
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	msvc := s.machineService
+	rsvc := s.removalService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(),
+		tag.Id(), mUUID).Return(uuid, nil)
+	rsvc.EXPECT().MarkVolumeAttachmentAsDead(gomock.Any(), uuid).Return(
+		removalerrors.EntityStillAlive)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Message, tc.Matches,
+		`volume "123" attachment to machine "2" is still alive`)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithVolumeTag(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	host := names.NewMachineTag("2")
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID)
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	msvc := s.machineService
+	rsvc := s.removalService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().CheckVolumeForIDExists(
+		gomock.Any(), tag.Id()).Return(true, nil)
+	svc.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(),
+		tag.Id(), mUUID).Return(uuid, nil)
+	rsvc.EXPECT().MarkVolumeAttachmentAsDead(gomock.Any(), uuid).Return(nil)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+	host := names.NewMachineTag("2")
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	msvc := s.machineService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+		gomock.Any(), tag.Id(), mUUID,
+	).Return(
+		"", storageprovisioningerrors.FilesystemAttachmentNotFound,
+	)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagNotFoundUUID(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+	host := names.NewMachineTag("2")
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	rsvc := s.removalService
+	msvc := s.machineService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+		gomock.Any(), tag.Id(), mUUID,
+	).Return(uuid, nil)
+	rsvc.EXPECT().MarkFilesystemAttachmentAsDead(gomock.Any(), uuid).Return(
+		storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagStillAlive(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+	host := names.NewMachineTag("2")
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	rsvc := s.removalService
+	msvc := s.machineService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+		gomock.Any(), tag.Id(), mUUID,
+	).Return(uuid, nil)
+	rsvc.EXPECT().MarkFilesystemAttachmentAsDead(gomock.Any(), uuid).Return(
+		removalerrors.EntityStillAlive)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Message, tc.Matches,
+		`filesystem "123" attachment to machine "2" is still alive`)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTag(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	host := names.NewMachineTag("2")
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	rsvc := s.removalService
+	msvc := s.machineService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().CheckFilesystemForIDExists(
+		gomock.Any(), tag.Id()).Return(true, nil)
+	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+		gomock.Any(), tag.Id(), mUUID,
+	).Return(uuid, nil)
+	rsvc.EXPECT().MarkFilesystemAttachmentAsDead(gomock.Any(), uuid).Return(nil)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagNotFoundToUnit(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+	host := names.NewUnitTag("app/2")
+	uUUID := tc.Must(c, unit.NewUUID)
+
+	svc := s.storageProvisioningService
+	asvc := s.applicationService
+	asvc.EXPECT().GetUnitUUID(gomock.Any(), unit.Name(host.Id())).
+		Return(uUUID, nil)
+	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+		gomock.Any(), tag.Id(), uUUID,
+	).Return(
+		"", storageprovisioningerrors.FilesystemAttachmentNotFound,
+	)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagNotFoundUUIDToUnit(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+	host := names.NewUnitTag("app/2")
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uUUID := tc.Must(c, unit.NewUUID)
+
+	svc := s.storageProvisioningService
+	rsvc := s.removalService
+	asvc := s.applicationService
+	asvc.EXPECT().GetUnitUUID(gomock.Any(), unit.Name(host.Id())).
+		Return(uUUID, nil)
+	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+		gomock.Any(), tag.Id(), uUUID,
+	).Return(uuid, nil)
+	rsvc.EXPECT().MarkFilesystemAttachmentAsDead(gomock.Any(), uuid).Return(
+		storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagStillAliveToUnit(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+	host := names.NewUnitTag("app/2")
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uUUID := tc.Must(c, unit.NewUUID)
+
+	svc := s.storageProvisioningService
+	rsvc := s.removalService
+	asvc := s.applicationService
+	asvc.EXPECT().GetUnitUUID(gomock.Any(), unit.Name(host.Id())).
+		Return(uUUID, nil)
+	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+		gomock.Any(), tag.Id(), uUUID,
+	).Return(uuid, nil)
+	rsvc.EXPECT().MarkFilesystemAttachmentAsDead(gomock.Any(), uuid).Return(
+		removalerrors.EntityStillAlive)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Message, tc.Matches,
+		`filesystem "123" attachment to unit "app/2" is still alive`)
+}
+
+func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagToUnit(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	host := names.NewUnitTag("app/2")
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uUUID := tc.Must(c, unit.NewUUID)
+
+	svc := s.storageProvisioningService
+	rsvc := s.removalService
+	asvc := s.applicationService
+	asvc.EXPECT().GetUnitUUID(gomock.Any(), unit.Name(host.Id())).
+		Return(uUUID, nil)
+	svc.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+		gomock.Any(), tag.Id(), uUUID,
+	).Return(uuid, nil)
+	rsvc.EXPECT().MarkFilesystemAttachmentAsDead(gomock.Any(), uuid).Return(nil)
+
+	result, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
