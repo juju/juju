@@ -35,6 +35,10 @@ type applicationUUID struct {
 	UUID string `db:"application_uuid"`
 }
 
+type name struct {
+	Name string `db:"name"`
+}
+
 type relation struct {
 	UUID    corerelation.UUID `db:"uuid"`
 	ID      uint64            `db:"relation_id"`
@@ -160,6 +164,11 @@ type relationUnitSetting struct {
 type applicationSettingsHash struct {
 	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
 	Hash                 string `db:"sha256"`
+}
+
+type nameAndHash struct {
+	Hash string `db:"sha256"`
+	Name string `db:"name"`
 }
 
 type unitSettingsHash struct {

@@ -241,6 +241,45 @@ func (c *MockStateGetAllRelationDetailsCall) DoAndReturn(f func(context.Context)
 	return c
 }
 
+// GetConsumerRelationUnitsChange mocks base method.
+func (m *MockState) GetConsumerRelationUnitsChange(arg0 context.Context, arg1, arg2 string) (relation0.ConsumerRelationUnitsChange, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConsumerRelationUnitsChange", arg0, arg1, arg2)
+	ret0, _ := ret[0].(relation0.ConsumerRelationUnitsChange)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetConsumerRelationUnitsChange indicates an expected call of GetConsumerRelationUnitsChange.
+func (mr *MockStateMockRecorder) GetConsumerRelationUnitsChange(arg0, arg1, arg2 any) *MockStateGetConsumerRelationUnitsChangeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumerRelationUnitsChange", reflect.TypeOf((*MockState)(nil).GetConsumerRelationUnitsChange), arg0, arg1, arg2)
+	return &MockStateGetConsumerRelationUnitsChangeCall{Call: call}
+}
+
+// MockStateGetConsumerRelationUnitsChangeCall wrap *gomock.Call
+type MockStateGetConsumerRelationUnitsChangeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetConsumerRelationUnitsChangeCall) Return(arg0 relation0.ConsumerRelationUnitsChange, arg1 error) *MockStateGetConsumerRelationUnitsChangeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetConsumerRelationUnitsChangeCall) Do(f func(context.Context, string, string) (relation0.ConsumerRelationUnitsChange, error)) *MockStateGetConsumerRelationUnitsChangeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetConsumerRelationUnitsChangeCall) DoAndReturn(f func(context.Context, string, string) (relation0.ConsumerRelationUnitsChange, error)) *MockStateGetConsumerRelationUnitsChangeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetGoalStateRelationDataForApplication mocks base method.
 func (m *MockState) GetGoalStateRelationDataForApplication(arg0 context.Context, arg1 application.UUID) ([]relation0.GoalStateRelationData, error) {
 	m.ctrl.T.Helper()

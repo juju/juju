@@ -2803,6 +2803,154 @@ WHERE  r.uuid = $watcherMapperData.uuid
 	}, nil
 }
 
+// GetConsumerRelationUnitsChange returns the versions of the relation units
+// settings and any departed units.
+func (st *State) GetConsumerRelationUnitsChange(
+	ctx context.Context,
+	relationUUID, applicationUUID string,
+) (domainrelation.ConsumerRelationUnitsChange, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return domainrelation.ConsumerRelationUnitsChange{}, errors.Capture(err)
+	}
+
+	var appSettingsVersion, unitsSettingsVersions map[string]int64
+	var departed []string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appSettingsVersion, err = st.getApplicationSettingsVersion(ctx, tx, relationUUID, applicationUUID)
+		if err != nil {
+			return errors.Errorf("getting application %q settings version: %w", applicationUUID, err)
+		}
+		unitsSettingsVersions, err = st.getUnitsSettingsVersions(ctx, tx, relationUUID, applicationUUID)
+		if err != nil {
+			return errors.Errorf("getting units settings versions: %w", err)
+		}
+		departed, err = st.getDepartedUnits(ctx, tx, relationUUID, applicationUUID)
+		if err != nil {
+			return errors.Errorf("getting departed units for relation %q: %w", relationUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return domainrelation.ConsumerRelationUnitsChange{}, errors.Capture(err)
+	}
+
+	return domainrelation.ConsumerRelationUnitsChange{
+		AppSettingsVersion:    appSettingsVersion,
+		DepartedUnits:         departed,
+		UnitsSettingsVersions: unitsSettingsVersions,
+	}, nil
+}
+
+func (st *State) getApplicationSettingsVersion(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID, applicationUUID string,
+) (map[string]int64, error) {
+	stmt, err := st.Prepare(`
+SELECT (rash.sha256, a.name) AS (&nameAndHash.*)
+FROM   relation_application_settings_hash AS rash
+JOIN   relation_endpoint AS re ON rash.relation_endpoint_uuid = re.uuid
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   application AS a ON ae.application_uuid = a.uuid
+WHERE  a.uuid = $relationAndApplicationUUID.application_uuid
+AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
+`, relationAndApplicationUUID{}, nameAndHash{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	relAndApp := relationAndApplicationUUID{
+		RelationUUID:  relationUUID,
+		ApplicationID: applicationUUID,
+	}
+	var result nameAndHash
+	err = tx.Query(ctx, stmt, relAndApp).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return map[string]int64{result.Name: hashToInt(result.Hash)}, nil
+}
+
+func (st *State) getUnitsSettingsVersions(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID, applicationUUID string,
+) (map[string]int64, error) {
+	stmt, err := st.Prepare(`
+SELECT (rush.sha256, u.name) AS (&nameAndHash.*)
+FROM   relation_unit_settings_hash AS rush
+JOIN   relation_unit AS ru ON rush.relation_unit_uuid = ru.uuid
+JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   application AS a ON ae.application_uuid = a.uuid
+JOIN   unit AS u ON a.uuid = u.application_uuid AND ru.unit_uuid = u.uuid
+WHERE  a.uuid = $relationAndApplicationUUID.application_uuid
+AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
+`, relationAndApplicationUUID{}, nameAndHash{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	relAndApp := relationAndApplicationUUID{
+		RelationUUID:  relationUUID,
+		ApplicationID: applicationUUID,
+	}
+	var result []nameAndHash
+	err = tx.Query(ctx, stmt, relAndApp).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return transform.SliceToMap(result, func(in nameAndHash) (string, int64) {
+		return in.Name, hashToInt(in.Hash)
+	}), nil
+}
+
+func (st *State) getDepartedUnits(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID, applicationUUID string,
+) ([]string, error) {
+	stmt, err := st.Prepare(`
+WITH in_scope_units AS (
+    SELECT u.uuid
+    FROM   unit AS u 
+    JOIN   application AS a ON u.application_uuid = a.uuid
+    JOIN   application_endpoint AS ae ON a.uuid = ae.application_uuid
+    JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
+    JOIN   relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid AND u.uuid = ru.unit_uuid
+    WHERE  a.uuid = $relationAndApplicationUUID.application_uuid
+    AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
+)
+SELECT u.name AS &name.name
+FROM   unit AS u 
+JOIN   application AS a ON u.application_uuid = a.uuid
+WHERE  a.uuid = $relationAndApplicationUUID.application_uuid
+AND    u.uuid NOT IN in_scope_units
+`, relationAndApplicationUUID{}, name{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	relAndApp := relationAndApplicationUUID{
+		RelationUUID:  relationUUID,
+		ApplicationID: applicationUUID,
+	}
+	var result []name
+	err = tx.Query(ctx, stmt, relAndApp).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return transform.Slice(result, func(in name) string {
+		return in.Name
+	}), nil
+}
+
 func (st *State) getRelationUnits(
 	ctx context.Context,
 	tx *sqlair.TX,

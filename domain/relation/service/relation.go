@@ -79,6 +79,13 @@ type State interface {
 	// for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
 
+	// GetConsumerRelationUnitsChange returns the versions of the relation units
+	// settings and any departed units.
+	GetConsumerRelationUnitsChange(
+		ctx context.Context,
+		relationUUID, applicationUUID string,
+	) (relation.ConsumerRelationUnitsChange, error)
+
 	// GetGoalStateRelationDataForApplication returns GoalStateRelationData for
 	// all relations the given application is in, modulo peer relations.
 	GetGoalStateRelationDataForApplication(
@@ -913,6 +920,28 @@ func (s *Service) GetRelationUnits(
 	}
 
 	return s.st.GetRelationUnitsChanges(ctx, relationUUID, applicationUUID)
+}
+
+// GetConsumerRelationUnitsChange returns the versions of the relation units
+// settings and any departed units.
+func (s *Service) GetConsumerRelationUnitsChange(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationUUID application.UUID,
+) (relation.ConsumerRelationUnitsChange, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return relation.ConsumerRelationUnitsChange{}, errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	if err := applicationUUID.Validate(); err != nil {
+		return relation.ConsumerRelationUnitsChange{}, errors.Errorf(
+			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
+	}
+
+	return s.st.GetConsumerRelationUnitsChange(ctx, relationUUID.String(), applicationUUID.String())
 }
 
 // GetRelationKeyByUUID returns the relation Key for the given UUID.

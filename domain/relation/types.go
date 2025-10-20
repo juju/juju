@@ -367,8 +367,9 @@ type RelationUnitChange struct {
 	ApplicationSettings map[string]string
 }
 
+// Empty returns true if the change is empty.
 func (c RelationUnitChange) Empty() bool {
-	return len(c.UnitsSettings)+len(c.InScopeUnits) == 0
+	return len(c.UnitsSettings)+len(c.InScopeUnits)+(len(c.AllUnits)-len(c.InScopeUnits)) == 0
 }
 
 // UnitSettings represents the settings of a single unit in a relation.
@@ -378,4 +379,24 @@ type UnitSettings struct {
 
 	// Settings is the current settings for the relation unit.
 	Settings map[string]string
+}
+
+// ConsumerRelationUnitsChange encapsulates a consumer relation event.
+type ConsumerRelationUnitsChange struct {
+	// AppSettingsVersion represent application settings hash converted
+	// to a version for compatibility.
+	AppSettingsVersion map[string]int64
+
+	// DepartedUnits represents the units which have departed from this
+	// relation.
+	DepartedUnits []string
+
+	// UnitsSettingsVersions represents the units settings hash converted
+	// to version for all units in this relation.
+	UnitsSettingsVersions map[string]int64
+}
+
+// Empty returns true if the change is empty.
+func (c ConsumerRelationUnitsChange) Empty() bool {
+	return len(c.UnitsSettingsVersions)+len(c.AppSettingsVersion)+(len(c.DepartedUnits)) == 0
 }

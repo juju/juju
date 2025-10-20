@@ -1185,6 +1185,57 @@ func (s *relationServiceSuite) TestGetRelationUnitsApplicationIDNotValid(c *tc.C
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
+func (s *relationServiceSuite) TestGetConsumerRelationUnitsChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	expected := relation.ConsumerRelationUnitsChange{
+		DepartedUnits: []string{"gone/1"},
+	}
+	s.state.EXPECT().GetConsumerRelationUnitsChange(gomock.Any(), relUUID.String(), appUUID.String()).Return(expected, nil)
+
+	// Act
+	obtained, err := s.service.GetConsumerRelationUnitsChange(c.Context(), relUUID, appUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, expected)
+}
+
+func (s *relationServiceSuite) TestGetConsumerRelationUnitsChangeFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	boom := errors.Errorf("boom")
+	s.state.EXPECT().GetConsumerRelationUnitsChange(gomock.Any(), relUUID.String(), appUUID.String()).Return(relation.ConsumerRelationUnitsChange{}, boom)
+
+	// Act
+	_, err := s.service.GetConsumerRelationUnitsChange(c.Context(), relUUID, appUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, boom)
+}
+
+func (s *relationServiceSuite) TestGetConsumerRelationUnitsChangeRelationUUIDNotValid(c *tc.C) {
+	// Act
+	_, err := s.service.GetConsumerRelationUnitsChange(c.Context(), "bad-uuid", coreapplicationtesting.GenApplicationUUID(c))
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetConsumerRelationUnitsChangeApplicationIDNotValid(c *tc.C) {
+	// Act
+	_, err := s.service.GetConsumerRelationUnitsChange(c.Context(), corerelationtesting.GenRelationUUID(c), "bad-uuid")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
+}
+
 type relationLeadershipServiceSuite struct {
 	baseServiceSuite
 
