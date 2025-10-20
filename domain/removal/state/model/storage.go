@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
+	"github.com/juju/juju/domain/removal/internal"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -208,4 +209,135 @@ WHERE  sa.uuid = $entityUUID.uuid`
 
 		return nil
 	}))
+}
+
+// ensureStorageInstanceNotAliveCascade ensures that the storage instance
+// identitied by the input UUID is no longer alive.
+// If any of the instance's volumes or file-systems have a provisioning scope
+// of "machine", those entities will also no longer be alive.
+// All attachments to those volumes or file-systems will no longer be alive.
+// All entities who's lives were advanced are indicated in the return.
+func (st *State) ensureStorageInstanceNotAliveCascade(
+	ctx context.Context, tx *sqlair.TX, siUUID entityUUID,
+) (internal.CascadedStorageInstanceLives, error) {
+	var cascaded internal.CascadedStorageInstanceLives
+
+	// First kill the storage instance.
+	stmt, err := st.Prepare("UPDATE storage_instance SET life_id = 1 WHERE uuid = $entityUUID.uuid", siUUID)
+	if err != nil {
+		return cascaded, errors.Errorf("preparing storage instance life update: %w", err)
+	}
+	if err := tx.Query(ctx, stmt, siUUID).Run(); err != nil {
+		return cascaded, errors.Errorf("running storage instance life update: %w", err)
+	}
+
+	qry := `
+SELECT &entityUUID.uuid
+FROM   storage_instance_filesystem f
+       JOIN storage_filesystem_attachment a ON f.storage_filesystem_uuid = a.storage_filesystem_uuid
+WHERE  f.storage_instance_uuid = $entityUUID.uuid
+AND    a.life_id = 0`
+
+	del := "UPDATE storage_filesystem_attachment SET life_id = 1 WHERE uuid = $entityUUID.uuid"
+
+	if cascaded.FileSystemAttachmentUUID, err = st.ensureStorageEntityNotAlive(
+		ctx, tx, siUUID, "file-system attachment", qry, del,
+	); err != nil {
+		return cascaded, errors.Capture(err)
+	}
+
+	qry = `
+SELECT &entityUUID.uuid
+FROM   storage_instance_volume v
+       JOIN storage_volume_attachment a ON v.storage_volume_uuid = a.storage_volume_uuid
+WHERE  v.storage_instance_uuid = $entityUUID.uuid
+AND    a.life_id = 0`
+
+	del = "UPDATE storage_volume_attachment SET life_id = 1 WHERE uuid = $entityUUID.uuid"
+
+	if cascaded.VolumeAttachmentUUID, err = st.ensureStorageEntityNotAlive(
+		ctx, tx, siUUID, "volume attachment", qry, del,
+	); err != nil {
+		return cascaded, errors.Capture(err)
+	}
+
+	qry = `
+SELECT &entityUUID.uuid
+FROM   storage_instance_volume v
+       JOIN storage_volume_attachment_plan a ON v.storage_volume_uuid = a.storage_volume_uuid
+WHERE  v.storage_instance_uuid = $entityUUID.uuid
+AND    a.life_id = 0`
+
+	del = "UPDATE storage_volume_attachment_plan SET life_id = 1 WHERE uuid = $entityUUID.uuid"
+
+	if cascaded.VolumeAttachmentPlanUUID, err = st.ensureStorageEntityNotAlive(
+		ctx, tx, siUUID, "volume attachment plan", qry, del,
+	); err != nil {
+		return cascaded, errors.Capture(err)
+	}
+
+	// File-systems are set to "dying" if they were provisioned with
+	// "machine" scope *unless* they are volume-backed and the volume
+	// was not provisioned with "machine" scope.
+	qry = `
+SELECT f.uuid AS &entityUUID.uuid
+FROM   storage_instance_filesystem i
+       JOIN storage_filesystem f ON i.storage_filesystem_uuid = f.uuid
+	   LEFT JOIN storage_instance_volume iv ON i.storage_instance_uuid = iv.storage_instance_uuid
+	   LEFT JOIN storage_volume v ON iv.storage_volume_uuid = v.uuid AND v.provision_scope_id = 0
+WHERE  i.storage_instance_uuid = $entityUUID.uuid
+AND    v.uuid IS NULL
+AND    f.provision_scope_id = 1
+AND    f.life_id = 0`
+
+	del = "UPDATE storage_filesystem SET life_id = 1 WHERE uuid = $entityUUID.uuid"
+
+	if cascaded.FileSystemUUID, err = st.ensureStorageEntityNotAlive(
+		ctx, tx, siUUID, "file-system", qry, del,
+	); err != nil {
+		return cascaded, errors.Capture(err)
+	}
+
+	qry = `
+SELECT &entityUUID.uuid
+FROM   storage_instance_volume i
+       JOIN storage_volume v ON i.storage_volume_uuid = v.uuid
+WHERE  i.storage_instance_uuid = $entityUUID.uuid
+AND    v.provision_scope_id = 1
+AND    v.life_id = 0`
+
+	del = "UPDATE storage_volume SET life_id = 1 WHERE uuid = $entityUUID.uuid"
+
+	if cascaded.VolumeUUID, err = st.ensureStorageEntityNotAlive(
+		ctx, tx, siUUID, "volume", qry, del,
+	); err != nil {
+		return cascaded, errors.Capture(err)
+	}
+
+	return cascaded, nil
+}
+
+func (st *State) ensureStorageEntityNotAlive(
+	ctx context.Context, tx *sqlair.TX, siUUID entityUUID, entityType, qry, del string,
+) (*string, error) {
+	stmt, err := st.Prepare(qry, siUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing %s query: %w", entityType, err)
+	}
+
+	var dying entityUUID
+	if err := tx.Query(ctx, stmt, siUUID).Get(&dying); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("running %s query: %w", entityType, err)
+	}
+	if dying.UUID == "" {
+		return nil, nil
+	}
+	if stmt, err = st.Prepare(del, dying); err != nil {
+		return nil, errors.Errorf("preparing %s life update: %w", entityType, err)
+	}
+	if err := tx.Query(ctx, stmt, dying).Run(); err != nil {
+		return nil, errors.Errorf("running %s life update: %w", entityType, err)
+	}
+
+	return &dying.UUID, nil
 }

@@ -177,13 +177,21 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 
 			// If there are any container machines, we also need to
 			// select any units that are on those machines.
-			//
-			// NOTE(jack-w-shaw): we know implicitly here that force must be
-			// true, so no need to perform a force check.
+			// Note that this is safe because:
+			// 1. The UI requires force if the machine has any containers
+			//    or units.
+			// 2. If this was cascaded from application or unit, we already
+			//    determined that only the dying unit was attached to this
+			//    machine (in which case there will be no containers).
 			err := tx.Query(ctx, selectUnitStmt, uuids(cascaded.MachineUUIDs)).GetAll(&childUnitUUIDs)
 			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("selecting container units: %w", err)
 			}
+		}
+
+		cascaded.CascadedStorageLives, err = st.ensureMachineStorageInstancesNotAliveCascade(ctx, tx, mUUID)
+		if err != nil {
+			return errors.Errorf("advancing machine storage entity lives: %w", err)
 		}
 
 		// If there are no units to update, we can return early.
@@ -204,18 +212,69 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}
 			// We don't expect storage instances to advance because we pass
-			// destroyStorage as false, but we can have dying attachments.
+			// destroyStorage as false, but we can have dying unit attachments.
 			cascaded.StorageAttachmentUUIDs = append(cascaded.StorageAttachmentUUIDs, uc.StorageAttachmentUUIDs...)
 		}
-
-		// TODO (manadart 2025-09-18): Kill machine-scoped storage instances
-		// on the machines.
 
 		return nil
 	})); err != nil {
 		return cascaded, errors.Capture(err)
 	}
 
+	return cascaded, nil
+}
+
+// ensureMachineStorageInstancesNotAliveCascade transitions any "alive"
+// storage instances attached to this machine to "dying" along with said
+// attachments. If any attached file-systems or volumes were provisioned
+// with machine scope, those will be "dying" too.
+func (st *State) ensureMachineStorageInstancesNotAliveCascade(
+	ctx context.Context, tx *sqlair.TX, mUUID string,
+) (internal.CascadedStorageLives, error) {
+	var cascaded internal.CascadedStorageLives
+	machineUUID := entityUUID{UUID: mUUID}
+
+	q := `
+WITH all_instances AS (
+    SELECT iv.storage_instance_uuid
+    FROM   storage_instance i 
+           JOIN storage_instance_volume iv ON i.uuid = iv.storage_instance_uuid
+           JOIN storage_volume_attachment va ON iv.storage_volume_uuid = va.storage_volume_uuid
+           JOIN machine m ON va.net_node_uuid = m.net_node_uuid
+    WHERE  m.uuid = $entityUUID.uuid
+    AND    i.life_id = 0
+    UNION
+    SELECT if.storage_instance_uuid
+    FROM   storage_instance i 
+           JOIN storage_instance_filesystem if ON i.uuid = if.storage_instance_uuid
+           JOIN storage_filesystem_attachment fa ON if.storage_filesystem_uuid = fa.storage_filesystem_uuid
+           JOIN machine m ON fa.net_node_uuid = m.net_node_uuid
+    WHERE  m.uuid = $entityUUID.uuid
+    AND    i.life_id = 0
+)
+SELECT storage_instance_uuid as &entityUUID.uuid FROM all_instances`
+
+	stmt, err := st.Prepare(q, machineUUID)
+	if err != nil {
+		return cascaded, errors.Errorf("preparing machine storage instance query: %w", err)
+	}
+
+	var sUUIDs []entityUUID
+	if err := tx.Query(ctx, stmt, machineUUID).GetAll(&sUUIDs); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return cascaded, nil
+		}
+		return cascaded, errors.Errorf("running machine storage instance query: %w", err)
+	}
+
+	for _, sUUID := range sUUIDs {
+		c, err := st.ensureStorageInstanceNotAliveCascade(ctx, tx, sUUID)
+		if err != nil {
+			return cascaded, errors.Errorf("killing storage instance %q: %w", sUUID.UUID, err)
+		}
+		cascaded.StorageInstanceUUIDs = append(cascaded.StorageInstanceUUIDs, sUUID.UUID)
+		cascaded = cascaded.MergeInstance(c)
+	}
 	return cascaded, nil
 }
 
