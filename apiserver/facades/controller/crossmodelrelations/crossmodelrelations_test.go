@@ -19,6 +19,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
@@ -26,9 +27,12 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	domainapplication "github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	domainlife "github.com/juju/juju/domain/life"
+	domainrelation "github.com/juju/juju/domain/relation"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -52,6 +56,9 @@ type facadeSuite struct {
 	authenticator         *MockMacaroonAuthenticator
 
 	modelUUID model.UUID
+
+	macaroon  *macaroon.Macaroon
+	macaroons macaroon.Slice
 }
 
 func TestFacadeSuite(t *testing.T) {
@@ -61,6 +68,242 @@ func TestFacadeSuite(t *testing.T) {
 // SetUpTest runs before each test in the suite.
 func (s *facadeSuite) SetUpTest(c *tc.C) {
 	s.modelUUID = model.UUID(tc.Must(c, uuid.NewUUID).String())
+	s.macaroon = newMacaroon(c, "test-id")
+	s.macaroons = macaroon.Slice{s.macaroon}
+}
+
+func (s *facadeSuite) TestPublishRelationChanges(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	offerUUID := tc.Must(c, offer.NewUUID)
+
+	relationKey := names.NewRelationTag("foo:db bar:admin")
+
+	s.relationService.EXPECT().
+		GetRelationDetails(gomock.Any(), relationUUID).
+		Return(domainrelation.RelationDetails{
+			Life: life.Alive,
+			Key: corerelation.Key{{
+				ApplicationName: "foo",
+				EndpointName:    "db",
+				Role:            internalcharm.RoleProvider,
+			}, {
+				ApplicationName: "bar",
+				EndpointName:    "admin",
+				Role:            internalcharm.RoleRequirer,
+			}},
+			Endpoints: []domainrelation.Endpoint{
+				{
+					ApplicationName: "foo",
+					Relation: internalcharm.Relation{
+						Name:      "db",
+						Role:      internalcharm.RoleProvider,
+						Interface: "db",
+					},
+				},
+				{
+					ApplicationName: "bar",
+					Relation: internalcharm.Relation{
+						Name:      "admin",
+						Role:      internalcharm.RoleRequirer,
+						Interface: "db",
+					},
+				},
+			},
+		}, nil)
+	s.crossModelRelationService.EXPECT().
+		GetOfferUUIDByRelationUUID(gomock.Any(), relationUUID).
+		Return(offerUUID, nil)
+	s.crossModelAuthContext.EXPECT().
+		Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().
+		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
+		Return(nil)
+
+	s.applicationService.EXPECT().
+		GetApplicationDetails(gomock.Any(), applicationUUID).
+		Return(domainapplication.ApplicationDetails{
+			Life: domainlife.Alive,
+			Name: "foo",
+		}, nil)
+	s.relationService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), applicationUUID, relationUUID, nil, nil).
+		Return(nil)
+
+	api := s.api(c)
+	results, err := api.PublishRelationChanges(c.Context(), params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{{
+			Life:                    life.Alive,
+			RelationToken:           relationUUID.String(),
+			ApplicationOrOfferToken: applicationUUID.String(),
+			Macaroons:               s.macaroons,
+			BakeryVersion:           bakery.LatestVersion,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+}
+
+func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	offerUUID := tc.Must(c, offer.NewUUID)
+
+	relationKey := names.NewRelationTag("foo:db bar:admin")
+
+	s.relationService.EXPECT().
+		GetRelationDetails(gomock.Any(), relationUUID).
+		Return(domainrelation.RelationDetails{
+			Life: life.Alive,
+			Key: corerelation.Key{{
+				ApplicationName: "foo",
+				EndpointName:    "db",
+				Role:            internalcharm.RoleProvider,
+			}, {
+				ApplicationName: "bar",
+				EndpointName:    "admin",
+				Role:            internalcharm.RoleRequirer,
+			}},
+			Endpoints: []domainrelation.Endpoint{
+				{
+					ApplicationName: "foo",
+					Relation: internalcharm.Relation{
+						Name:      "db",
+						Role:      internalcharm.RoleProvider,
+						Interface: "db",
+					},
+				},
+				{
+					ApplicationName: "bar",
+					Relation: internalcharm.Relation{
+						Name:      "admin",
+						Role:      internalcharm.RoleRequirer,
+						Interface: "db",
+					},
+				},
+			},
+		}, nil)
+	s.crossModelRelationService.EXPECT().
+		GetOfferUUIDByRelationUUID(gomock.Any(), relationUUID).
+		Return(offerUUID, nil)
+	s.crossModelAuthContext.EXPECT().
+		Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().
+		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
+		Return(nil)
+
+	s.applicationService.EXPECT().
+		GetApplicationDetails(gomock.Any(), applicationUUID).
+		Return(domainapplication.ApplicationDetails{
+			Life: domainlife.Alive,
+			Name: "foo",
+		}, nil)
+	s.removalService.EXPECT().
+		RemoveRemoteRelation(gomock.Any(), relationUUID).
+		Return(nil)
+
+	api := s.api(c)
+	results, err := api.PublishRelationChanges(c.Context(), params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{{
+			Life:                    life.Dead,
+			RelationToken:           relationUUID.String(),
+			ApplicationOrOfferToken: applicationUUID.String(),
+			Macaroons:               s.macaroons,
+			BakeryVersion:           bakery.LatestVersion,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+}
+
+func (s *facadeSuite) TestPublishRelationChangesSuspended(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	offerUUID := tc.Must(c, offer.NewUUID)
+
+	relationKey := names.NewRelationTag("foo:db bar:admin")
+
+	s.relationService.EXPECT().
+		GetRelationDetails(gomock.Any(), relationUUID).
+		Return(domainrelation.RelationDetails{
+			Life: life.Alive,
+			Key: corerelation.Key{{
+				ApplicationName: "foo",
+				EndpointName:    "db",
+				Role:            internalcharm.RoleProvider,
+			}, {
+				ApplicationName: "bar",
+				EndpointName:    "admin",
+				Role:            internalcharm.RoleRequirer,
+			}},
+			Endpoints: []domainrelation.Endpoint{
+				{
+					ApplicationName: "foo",
+					Relation: internalcharm.Relation{
+						Name:      "db",
+						Role:      internalcharm.RoleProvider,
+						Interface: "db",
+					},
+				},
+				{
+					ApplicationName: "bar",
+					Relation: internalcharm.Relation{
+						Name:      "admin",
+						Role:      internalcharm.RoleRequirer,
+						Interface: "db",
+					},
+				},
+			},
+			Suspended: false,
+		}, nil)
+	s.crossModelRelationService.EXPECT().
+		GetOfferUUIDByRelationUUID(gomock.Any(), relationUUID).
+		Return(offerUUID, nil)
+	s.crossModelAuthContext.EXPECT().
+		Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().
+		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
+		Return(nil)
+
+	s.applicationService.EXPECT().
+		GetApplicationDetails(gomock.Any(), applicationUUID).
+		Return(domainapplication.ApplicationDetails{
+			Life: domainlife.Alive,
+			Name: "foo",
+		}, nil)
+	s.statusService.EXPECT().
+		SetRemoteRelationStatus(gomock.Any(), relationUUID, corestatus.StatusInfo{
+			Status:  corestatus.Suspended,
+			Message: "front fell off",
+		}).
+		Return(nil)
+	s.relationService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), applicationUUID, relationUUID, nil, nil).
+		Return(nil)
+
+	api := s.api(c)
+	results, err := api.PublishRelationChanges(c.Context(), params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{{
+			Life:                    life.Alive,
+			RelationToken:           relationUUID.String(),
+			ApplicationOrOfferToken: applicationUUID.String(),
+			Macaroons:               s.macaroons,
+			BakeryVersion:           bakery.LatestVersion,
+			Suspended:               ptr(true),
+			SuspendedReason:         "front fell off",
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
 }
 
 func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {

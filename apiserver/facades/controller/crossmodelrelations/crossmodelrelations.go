@@ -161,7 +161,7 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 		}
 	}
 
-	if err := api.handleUnitSettings(ctx, relationUUID, applicationUUID, appDetails.Name, change); err != nil {
+	if err := api.handlePublishSettings(ctx, relationUUID, applicationUUID, appDetails.Name, change); err != nil {
 		return err
 	}
 
@@ -197,55 +197,21 @@ func (api *CrossModelRelationsAPIv3) handleSuspendedRelationChange(
 	)
 }
 
-func (api *CrossModelRelationsAPIv3) handleUnitSettings(
+func (api *CrossModelRelationsAPIv3) handlePublishSettings(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	applicationUUID coreapplication.UUID,
 	applicationName string,
 	change params.RemoteRelationChangeEvent,
 ) error {
-	units, err := transform.SliceOrErr(change.ChangedUnits, func(u params.RemoteRelationUnitChange) (unit.Name, error) {
-		return unit.NewNameFromParts(applicationName, u.UnitId)
-	})
+	unitSettings, err := api.handleUnitSettings(ctx, applicationUUID, applicationName, change.ChangedUnits)
 	if err != nil {
-		return errors.Annotatef(err, "parsing unit names for relation %q", relationUUID)
+		return errors.Annotatef(err, "handling unit settings for relation %q", relationUUID)
 	}
 
-	// Ensure all the units exist in the local model, we'll need these upfront
-	// before we can process the application and unit settings.
-	if err := api.crossModelRelationService.EnsureUnitsExist(ctx, applicationUUID, units); err != nil {
-		return errors.Annotatef(err, "ensuring units exist for relation %q", relationUUID)
-	}
-
-	// Map the unit settings into a map keyed by unit name.
-	unitSettings := make(map[unit.Name]map[string]string, len(change.ChangedUnits))
-	for _, u := range change.ChangedUnits {
-		unitName, err := unit.NewNameFromParts(applicationName, u.UnitId)
-		if err != nil {
-			return errors.Annotatef(err, "parsing unit name %q for relation %q", u.UnitId, relationUUID)
-		}
-
-		settings := make(map[string]string, len(u.Settings))
-		for k, v := range u.Settings {
-			switch v := v.(type) {
-			case string:
-				settings[k] = v
-			default:
-				return errors.NotValidf("setting value for key %q on unit %q for relation %q", k, unitName, relationUUID)
-			}
-		}
-
-		unitSettings[unitName] = settings
-	}
-
-	applicationSettings := make(map[string]string, len(change.ApplicationSettings))
-	for k, v := range change.ApplicationSettings {
-		switch v := v.(type) {
-		case string:
-			applicationSettings[k] = v
-		default:
-			return errors.NotValidf("application setting value for key %q for relation %q", k, relationUUID)
-		}
+	applicationSettings, err := api.handleApplicationSettings(change.ApplicationSettings)
+	if err != nil {
+		return errors.Annotatef(err, "handling application settings for relation %q", relationUUID)
 	}
 
 	// Process the relation application and unit settings changes.
@@ -281,6 +247,70 @@ func (api *CrossModelRelationsAPIv3) handleUnitSettings(
 	}
 
 	return nil
+}
+
+func (api *CrossModelRelationsAPIv3) handleUnitSettings(
+	ctx context.Context,
+	applicationUUID coreapplication.UUID,
+	applicationName string,
+	unitChanges []params.RemoteRelationUnitChange,
+) (map[unit.Name]map[string]string, error) {
+	if unitChanges == nil {
+		return nil, nil
+	}
+
+	units, err := transform.SliceOrErr(unitChanges, func(u params.RemoteRelationUnitChange) (unit.Name, error) {
+		return unit.NewNameFromParts(applicationName, u.UnitId)
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing unit names")
+	}
+
+	// Ensure all the units exist in the local model, we'll need these upfront
+	// before we can process the application and unit settings.
+	if err := api.crossModelRelationService.EnsureUnitsExist(ctx, applicationUUID, units); err != nil {
+		return nil, errors.Annotatef(err, "ensuring units exist")
+	}
+
+	// Map the unit settings into a map keyed by unit name.
+	unitSettings := make(map[unit.Name]map[string]string, len(unitChanges))
+	for i, u := range unitChanges {
+		unitName := units[i]
+
+		settings := make(map[string]string, len(u.Settings))
+		for k, v := range u.Settings {
+			switch v := v.(type) {
+			case string:
+				settings[k] = v
+			default:
+				return nil, errors.NotValidf("setting value for key %q on unit %q", k, unitName)
+			}
+		}
+
+		unitSettings[unitName] = settings
+	}
+
+	return unitSettings, nil
+}
+
+func (api *CrossModelRelationsAPIv3) handleApplicationSettings(
+	applicationSettings map[string]any,
+) (map[string]string, error) {
+	if applicationSettings == nil {
+		return nil, nil
+	}
+
+	coerced := make(map[string]string, len(applicationSettings))
+	for k, v := range applicationSettings {
+		switch v := v.(type) {
+		case string:
+			applicationSettings[k] = v
+		default:
+			return nil, errors.NotValidf("application setting value for key %q", k)
+		}
+	}
+
+	return coerced, nil
 }
 
 // RegisterRemoteRelations sets up the model to participate
