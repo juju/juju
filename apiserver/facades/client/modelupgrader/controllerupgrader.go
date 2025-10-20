@@ -52,23 +52,23 @@ type ControllerUpgraderService interface {
 		stream modelagent.AgentStream,
 	) error
 
-	// CanUpgradeController determines whether the controller can be upgraded
+	// RunPreUpgradeChecks determines whether the controller can be upgraded
 	// to the latest available patch version.
-	CanUpgradeController(ctx context.Context) (semversion.Number, error)
+	RunPreUpgradeChecks(ctx context.Context) (semversion.Number, error)
 
-	// CanUpgradeControllerToVersion determines whether the controller can be safely
+	// RunPreUpgradeChecksToVersion determines whether the controller can be safely
 	// upgraded to the specified version. It performs validation checks to ensure that
 	// the target version is valid and that the upgrade can proceed.
-	CanUpgradeControllerToVersion(ctx context.Context, desiredVersion semversion.Number) error
+	RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersion semversion.Number) error
 
-	// CanUpgradeControllerWithStream determines whether the controller can be upgraded
+	// RunPreUpgradeChecksWithStream determines whether the controller can be upgraded
 	// to the latest available patch version within the specified agent stream. It returns
 	// the desired version that the controller can upgrade to if all validation checks pass.
-	CanUpgradeControllerWithStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error)
+	RunPreUpgradeChecksWithStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error)
 
-	// CanUpgradeControllerToVersionWithStream determines whether the controller can be
+	// RunPreUpgradeChecksToVersionWithStream determines whether the controller can be
 	// safely upgraded to the specified version within the given agent stream.
-	CanUpgradeControllerToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream modelagent.AgentStream) error
+	RunPreUpgradeChecksToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream modelagent.AgentStream) error
 }
 
 // ControllerUpgraderAPI upgrades a controller and a model hosting the controller.
@@ -128,10 +128,9 @@ func (c *ControllerUpgraderAPI) canUpgrade(ctx context.Context, model names.Mode
 		permission.WriteAccess,
 		model,
 	)
-	if err != nil {
-		if errors.Is(err, authentication.ErrorEntityMissingPermission) {
-			return false, nil
-		}
+	if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return false, nil
+	} else if err != nil {
 		return false, errors.Capture(err)
 	}
 	return true, nil
@@ -143,34 +142,31 @@ func (c *ControllerUpgraderAPI) mapResponse(err error, targetVersion semversion.
 	// We mirror as closely as possible to [UpgradeModel] func in [modelupgrader.ModelUpgraderAPI].
 	switch {
 	case errors.Is(err, controllerupgradererrors.MissingControllerBinaries):
-		result.Error = &params.Error{
-			Message: err.Error(),
-			Code:    params.CodeNotFound,
-		}
+		result.Error = apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"controller agent binaries are not available for version %q",
+			targetVersion,
+		)
 		return result, nil
 	case errors.HasType[controllerupgradererrors.ControllerUpgradeBlocker](err):
-		message := err.Error()
-		err, ok := errors.AsType[controllerupgradererrors.ControllerUpgradeBlocker](err)
-		if ok {
-			message = err.Reason
-		}
-		result.Error = &params.Error{
-			Message: message,
-			Code:    params.CodeNotSupported,
-		}
+		blockedErr, _ := errors.AsType[controllerupgradererrors.ControllerUpgradeBlocker](err)
+		result.Error = apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"controller upgrading is blocked for reason: %s",
+			blockedErr.Reason,
+		)
 		return result, nil
 	case errors.Is(err, controllerupgradererrors.VersionNotSupported):
-		e := errors.Errorf(
-			"cannot upgrade to a version %q greather than that of the controller", targetVersion,
+		e := errors.New(
+			"cannot upgrade the controller to a version that is more than a patch version increase",
 		).Add(coreerrors.NotValid)
 		return result, errors.Capture(e)
 	case errors.Is(err, modelagenterrors.AgentStreamNotValid):
 		e := errors.Errorf(
-			"agent stream %q is not recognised as a valid value", arg.AgentStream,
+			"agent stream %q is not a recognised valid value", arg.AgentStream,
 		).Add(coreerrors.NotValid)
 		return result, errors.Capture(e)
 	case err != nil:
-		return result, errors.Capture(apiservererrors.ServerError(err))
+		return params.UpgradeModelResult{}, apiservererrors.ServerError(err)
 	}
 
 	result.ChosenVersion = targetVersion
@@ -214,14 +210,14 @@ func (c *ControllerUpgraderAPI) doUpgrade(ctx context.Context, arg params.Upgrad
 			return c.upgraderService.UpgradeControllerToVersionAndStream(ctx, targetVersion, targetStream)
 		}
 		dryRunValidate = func(ctx context.Context) (semversion.Number, error) {
-			return targetVersion, c.upgraderService.CanUpgradeControllerToVersionWithStream(ctx, targetVersion, targetStream)
+			return targetVersion, c.upgraderService.RunPreUpgradeChecksToVersionWithStream(ctx, targetVersion, targetStream)
 		}
 	case hasTargetVersion && !hasStreamChange:
 		upgrader = func(ctx context.Context) error {
 			return c.upgraderService.UpgradeControllerToVersion(ctx, targetVersion)
 		}
 		dryRunValidate = func(ctx context.Context) (semversion.Number, error) {
-			return targetVersion, c.upgraderService.CanUpgradeControllerToVersion(ctx, targetVersion)
+			return targetVersion, c.upgraderService.RunPreUpgradeChecksToVersion(ctx, targetVersion)
 		}
 	case !hasTargetVersion && hasStreamChange:
 		upgrader = func(ctx context.Context) error {
@@ -230,16 +226,16 @@ func (c *ControllerUpgraderAPI) doUpgrade(ctx context.Context, arg params.Upgrad
 			return err
 		}
 		dryRunValidate = func(ctx context.Context) (semversion.Number, error) {
-			return c.upgraderService.CanUpgradeControllerWithStream(ctx, targetStream)
+			return c.upgraderService.RunPreUpgradeChecksWithStream(ctx, targetStream)
 		}
-	case !hasTargetVersion && !hasStreamChange:
+	default:
 		upgrader = func(ctx context.Context) error {
 			version, err := c.upgraderService.UpgradeController(ctx)
 			targetVersion = version
 			return err
 		}
 		dryRunValidate = func(ctx context.Context) (semversion.Number, error) {
-			return c.upgraderService.CanUpgradeController(ctx)
+			return c.upgraderService.RunPreUpgradeChecks(ctx)
 		}
 	}
 

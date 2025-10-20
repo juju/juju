@@ -153,10 +153,6 @@ func (s *Service) UpgradeController(
 	// very unlikely error that has occurred. These exists to point a developer
 	// at the problem and not to offer any actionable item for a caller.
 	switch {
-	// Keep the err type for [controllerupgradererrors.ControllerUpgradeBlocker]
-	// to respect this function's contract.
-	case errors.HasType[controllerupgradererrors.ControllerUpgradeBlocker](err):
-		return semversion.Zero, err
 	case errors.Is(err, controllerupgradererrors.DowngradeNotSupported):
 		return semversion.Zero, errors.Errorf(
 			"upgrading controller to recommended version %q is considered a downgrade",
@@ -225,11 +221,6 @@ func (s *Service) UpgradeControllerWithStream(
 	// very unlikely error that has occurred. These exists to point a developer
 	// at the problem and not to offer any actionable item for a caller.
 	switch {
-	// Keep the err type for both [controllerupgradererrors.ControllerUpgradeBlocker]
-	// and [modelagenterrors.AgentStreamNotValid] to respect this function's
-	// contract.
-	case errors.HasType[controllerupgradererrors.ControllerUpgradeBlocker](err):
-		return semversion.Zero, err
 	case errors.Is(err, modelagenterrors.AgentStreamNotValid):
 		return semversion.Zero, err
 	case errors.Is(err, controllerupgradererrors.DowngradeNotSupported):
@@ -287,7 +278,7 @@ func (s *Service) UpgradeControllerToVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	err := s.CanUpgradeControllerToVersion(ctx, desiredVersion)
+	err := s.RunPreUpgradeChecksToVersion(ctx, desiredVersion)
 	if err != nil {
 		return err
 	}
@@ -356,7 +347,7 @@ func (s *Service) UpgradeControllerToVersionAndStream(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	err := s.CanUpgradeControllerToVersionWithStream(ctx, desiredVersion, stream)
+	err := s.RunPreUpgradeChecksToVersionWithStream(ctx, desiredVersion, stream)
 	if err != nil {
 		return err
 	}
@@ -487,7 +478,7 @@ func (s *Service) validateControllerCanBeUpgradedTo(
 	return nil
 }
 
-// CanUpgradeController determines whether the controller can be upgraded
+// RunPreUpgradeChecks determines whether the controller can be upgraded
 // to the latest available patch version. It returns the desired version
 // that the controller can upgrade to if all validation checks pass. The
 // method ensures that the desired version can be retrieved and is valid,
@@ -495,14 +486,22 @@ func (s *Service) validateControllerCanBeUpgradedTo(
 // version change, that all controller nodes are synchronized and not
 // blocking the upgrade, and that controller binaries exist for the desired
 // version and architecture.
-func (s *Service) CanUpgradeController(ctx context.Context) (semversion.Number, error) {
+//
+// The following errors may be expected:
+// - [controllerupgradererrors.DowngradeNotSupported] if the requested version
+// being upgraded to would result in a downgrade of the controller.
+// - [controllerupgradererrors.VersionNotSupported] if the requested version
+// being upgraded to is more then a patch version upgrade.
+// - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
+// exists preventing a controller upgrade from proceeding.
+func (s *Service) RunPreUpgradeChecks(ctx context.Context) (semversion.Number, error) {
 	desiredVersion, err := s.agentBinaryFinder.GetHighestPatchVersionAvailable(ctx)
 	if err != nil {
 		return semversion.Zero, errors.Errorf(
 			"getting desired controller version to upgrade to: %w", err,
 		)
 	}
-	err = s.CanUpgradeControllerToVersion(ctx, desiredVersion)
+	err = s.RunPreUpgradeChecksToVersion(ctx, desiredVersion)
 	if err != nil {
 		return semversion.Zero, err
 	}
@@ -510,14 +509,22 @@ func (s *Service) CanUpgradeController(ctx context.Context) (semversion.Number, 
 	return desiredVersion, nil
 }
 
-// CanUpgradeControllerToVersion determines whether the controller can be safely
+// RunPreUpgradeChecksToVersion determines whether the controller can be safely
 // upgraded to the specified version. It performs validation checks to ensure that
 // the target version is valid and that the upgrade can proceed. The method ensures
 // that the desired version is not the zero value, that the upgrade does not attempt
 // a downgrade or a non-patch version change, that all controller nodes are in a
 // consistent state and not blocking the upgrade, and that controller binaries exist
 // for the specified version and required architectures.
-func (s *Service) CanUpgradeControllerToVersion(ctx context.Context, desiredVersion semversion.Number) error {
+//
+// The following errors may be expected:
+// - [controllerupgradererrors.DowngradeNotSupported] if the requested version
+// being upgraded to would result in a downgrade of the controller.
+// - [controllerupgradererrors.VersionNotSupported] if the requested version
+// being upgraded to is more then a patch version upgrade.
+// - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
+// exists preventing a controller upgrade from proceeding.
+func (s *Service) RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersion semversion.Number) error {
 	// We should not continue any further if the version is a zero value.
 	if desiredVersion == semversion.Zero {
 		return errors.New(
@@ -550,7 +557,7 @@ func (s *Service) CanUpgradeControllerToVersion(ctx context.Context, desiredVers
 	return nil
 }
 
-// CanUpgradeControllerWithStream determines whether the controller can be upgraded
+// RunPreUpgradeChecksWithStream determines whether the controller can be upgraded
 // to the latest available patch version within the specified agent stream. It returns
 // the desired version that the controller can upgrade to if all validation checks pass.
 //
@@ -558,7 +565,15 @@ func (s *Service) CanUpgradeControllerToVersion(ctx context.Context, desiredVers
 // highest available patch version for that stream. It validates that upgrading to the
 // retrieved version is supported and safe, and confirms that the required controller
 // binaries exist for the version, stream, and architectures.
-func (s *Service) CanUpgradeControllerWithStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error) {
+//
+// The following errors may be expected:
+// - [controllerupgradererrors.DowngradeNotSupported] if the requested version
+// being upgraded to would result in a downgrade of the controller.
+// - [controllerupgradererrors.VersionNotSupported] if the requested version
+// being upgraded to is more then a patch version upgrade.
+// - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
+// exists preventing a controller upgrade from proceeding.
+func (s *Service) RunPreUpgradeChecksWithStream(ctx context.Context, stream modelagent.AgentStream) (semversion.Number, error) {
 	if !stream.IsValid() {
 		return semversion.Zero, errors.New(
 			"agent stream is not valid",
@@ -574,7 +589,7 @@ func (s *Service) CanUpgradeControllerWithStream(ctx context.Context, stream mod
 		)
 	}
 
-	err = s.CanUpgradeControllerToVersionWithStream(ctx, desiredVersion, stream)
+	err = s.RunPreUpgradeChecksToVersionWithStream(ctx, desiredVersion, stream)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
@@ -582,13 +597,21 @@ func (s *Service) CanUpgradeControllerWithStream(ctx context.Context, stream mod
 	return desiredVersion, nil
 }
 
-// CanUpgradeControllerToVersionWithStream determines whether the controller can be
+// RunPreUpgradeChecksToVersionWithStream determines whether the controller can be
 // safely upgraded to the specified version within the given agent stream. It verifies
 // that the desired version and stream are valid, ensures the upgrade does not attempt
 // a downgrade or a non-patch upgrade, checks that all controller nodes are in a
 // consistent state, and confirms that the necessary controller binaries exist for the
 // specified version, stream, and architectures.
-func (s *Service) CanUpgradeControllerToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream modelagent.AgentStream) error {
+//
+// The following errors may be expected:
+// - [controllerupgradererrors.DowngradeNotSupported] if the requested version
+// being upgraded to would result in a downgrade of the controller.
+// - [controllerupgradererrors.VersionNotSupported] if the requested version
+// being upgraded to is more then a patch version upgrade.
+// - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
+// exists preventing a controller upgrade from proceeding.
+func (s *Service) RunPreUpgradeChecksToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream modelagent.AgentStream) error {
 	// We should not continue any further if the version is a zero value.
 	if desiredVersion == semversion.Zero {
 		return errors.New(

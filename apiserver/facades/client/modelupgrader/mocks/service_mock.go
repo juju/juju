@@ -42,9 +42,9 @@ func (m *MockControllerUpgraderService) EXPECT() *MockControllerUpgraderServiceM
 }
 
 // CanUpgradeController mocks base method.
-func (m *MockControllerUpgraderService) CanUpgradeController(arg0 context.Context) (semversion.Number, error) {
+func (m *MockControllerUpgraderService) RunPreUpgradeChecks(arg0 context.Context) (semversion.Number, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CanUpgradeController", arg0)
+	ret := m.ctrl.Call(m, "RunPreUpgradeChecks", arg0)
 	ret0, _ := ret[0].(semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -53,7 +53,7 @@ func (m *MockControllerUpgraderService) CanUpgradeController(arg0 context.Contex
 // CanUpgradeController indicates an expected call of CanUpgradeController.
 func (mr *MockControllerUpgraderServiceMockRecorder) CanUpgradeController(arg0 any) *MockControllerUpgraderServiceCanUpgradeControllerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanUpgradeController", reflect.TypeOf((*MockControllerUpgraderService)(nil).CanUpgradeController), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPreUpgradeChecks", reflect.TypeOf((*MockControllerUpgraderService)(nil).RunPreUpgradeChecks), arg0)
 	return &MockControllerUpgraderServiceCanUpgradeControllerCall{Call: call}
 }
 
@@ -81,9 +81,9 @@ func (c *MockControllerUpgraderServiceCanUpgradeControllerCall) DoAndReturn(f fu
 }
 
 // CanUpgradeControllerToVersion mocks base method.
-func (m *MockControllerUpgraderService) CanUpgradeControllerToVersion(arg0 context.Context, arg1 semversion.Number) error {
+func (m *MockControllerUpgraderService) RunPreUpgradeChecksToVersion(arg0 context.Context, arg1 semversion.Number) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CanUpgradeControllerToVersion", arg0, arg1)
+	ret := m.ctrl.Call(m, "RunPreUpgradeChecksToVersion", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -91,7 +91,7 @@ func (m *MockControllerUpgraderService) CanUpgradeControllerToVersion(arg0 conte
 // CanUpgradeControllerToVersion indicates an expected call of CanUpgradeControllerToVersion.
 func (mr *MockControllerUpgraderServiceMockRecorder) CanUpgradeControllerToVersion(arg0, arg1 any) *MockControllerUpgraderServiceCanUpgradeControllerToVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanUpgradeControllerToVersion", reflect.TypeOf((*MockControllerUpgraderService)(nil).CanUpgradeControllerToVersion), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPreUpgradeChecksToVersion", reflect.TypeOf((*MockControllerUpgraderService)(nil).RunPreUpgradeChecksToVersion), arg0, arg1)
 	return &MockControllerUpgraderServiceCanUpgradeControllerToVersionCall{Call: call}
 }
 
@@ -119,9 +119,9 @@ func (c *MockControllerUpgraderServiceCanUpgradeControllerToVersionCall) DoAndRe
 }
 
 // CanUpgradeControllerToVersionWithStream mocks base method.
-func (m *MockControllerUpgraderService) CanUpgradeControllerToVersionWithStream(arg0 context.Context, arg1 semversion.Number, arg2 modelagent.AgentStream) error {
+func (m *MockControllerUpgraderService) RunPreUpgradeChecksToVersionWithStream(arg0 context.Context, arg1 semversion.Number, arg2 modelagent.AgentStream) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CanUpgradeControllerToVersionWithStream", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "RunPreUpgradeChecksToVersionWithStream", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -129,7 +129,7 @@ func (m *MockControllerUpgraderService) CanUpgradeControllerToVersionWithStream(
 // CanUpgradeControllerToVersionWithStream indicates an expected call of CanUpgradeControllerToVersionWithStream.
 func (mr *MockControllerUpgraderServiceMockRecorder) CanUpgradeControllerToVersionWithStream(arg0, arg1, arg2 any) *MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanUpgradeControllerToVersionWithStream", reflect.TypeOf((*MockControllerUpgraderService)(nil).CanUpgradeControllerToVersionWithStream), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPreUpgradeChecksToVersionWithStream", reflect.TypeOf((*MockControllerUpgraderService)(nil).RunPreUpgradeChecksToVersionWithStream), arg0, arg1, arg2)
 	return &MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCall{Call: call}
 }
 
@@ -157,9 +157,9 @@ func (c *MockControllerUpgraderServiceCanUpgradeControllerToVersionWithStreamCal
 }
 
 // CanUpgradeControllerWithStream mocks base method.
-func (m *MockControllerUpgraderService) CanUpgradeControllerWithStream(arg0 context.Context, arg1 modelagent.AgentStream) (semversion.Number, error) {
+func (m *MockControllerUpgraderService) RunPreUpgradeChecksWithStream(arg0 context.Context, arg1 modelagent.AgentStream) (semversion.Number, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CanUpgradeControllerWithStream", arg0, arg1)
+	ret := m.ctrl.Call(m, "RunPreUpgradeChecksWithStream", arg0, arg1)
 	ret0, _ := ret[0].(semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -168,7 +168,7 @@ func (m *MockControllerUpgraderService) CanUpgradeControllerWithStream(arg0 cont
 // CanUpgradeControllerWithStream indicates an expected call of CanUpgradeControllerWithStream.
 func (mr *MockControllerUpgraderServiceMockRecorder) CanUpgradeControllerWithStream(arg0, arg1 any) *MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanUpgradeControllerWithStream", reflect.TypeOf((*MockControllerUpgraderService)(nil).CanUpgradeControllerWithStream), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPreUpgradeChecksWithStream", reflect.TypeOf((*MockControllerUpgraderService)(nil).RunPreUpgradeChecksWithStream), arg0, arg1)
 	return &MockControllerUpgraderServiceCanUpgradeControllerWithStreamCall{Call: call}
 }
 

@@ -6,13 +6,14 @@ package modelupgrader
 import (
 	"testing"
 
+	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/facade/mocks"
 	modelupgradermocks "github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
 	coreerrors "github.com/juju/juju/core/errors"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
@@ -22,8 +23,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v6"
-	"github.com/juju/tc"
 )
 
 type controllerUpgraderAPISuite struct {
@@ -32,7 +31,6 @@ type controllerUpgraderAPISuite struct {
 	authorizer      *mocks.MockAuthorizer
 	check           *modelupgradermocks.MockBlockCheckerInterface
 	upgraderService *modelupgradermocks.MockControllerUpgraderService
-	logger          corelogger.Logger
 	controllerTag   names.Tag
 	modelTag        names.Tag
 }
@@ -323,7 +321,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrMissingControllerBina
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
 		Error: &params.Error{
-			Message: "bad",
+			Message: "controller agent binaries are not available for version \"0.0.0\"",
 			Code:    "not found",
 		},
 	})
@@ -353,7 +351,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrControllerUpgradeBloc
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
 		Error: &params.Error{
-			Message: "controller nodes 1 are not running controller version 4.0.1",
+			Message: "controller upgrading is blocked for reason: controller nodes 1 are not running controller version 4.0.1",
 			Code:    "not supported",
 		},
 	})
