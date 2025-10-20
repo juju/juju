@@ -39,12 +39,17 @@ import (
 type facadeSuite struct {
 	testhelpers.IsolationSuite
 
-	watcherRegistry           *facademocks.MockWatcherRegistry
-	statusService             *MockStatusService
+	watcherRegistry *facademocks.MockWatcherRegistry
+
+	applicationService        *MockApplicationService
 	crossModelRelationService *MockCrossModelRelationService
+	relationService           *MockRelationService
+	removalService            *MockRemovalService
 	secretService             *MockSecretService
-	crossModelAuthContext     *MockCrossModelAuthContext
-	authenticator             *MockMacaroonAuthenticator
+	statusService             *MockStatusService
+
+	crossModelAuthContext *MockCrossModelAuthContext
+	authenticator         *MockMacaroonAuthenticator
 
 	modelUUID model.UUID
 }
@@ -454,7 +459,10 @@ func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
+	s.relationService = NewMockRelationService(ctrl)
+	s.removalService = NewMockRemovalService(ctrl)
 	s.secretService = NewMockSecretService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.crossModelAuthContext = NewMockCrossModelAuthContext(ctrl)
@@ -462,7 +470,11 @@ func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	c.Cleanup(func() {
 		s.watcherRegistry = nil
+
+		s.applicationService = nil
 		s.crossModelRelationService = nil
+		s.relationService = nil
+		s.removalService = nil
 		s.secretService = nil
 		s.statusService = nil
 		s.crossModelAuthContext = nil
@@ -476,9 +488,12 @@ func (s *facadeSuite) api(c *tc.C) *CrossModelRelationsAPIv3 {
 		s.modelUUID,
 		s.crossModelAuthContext,
 		s.watcherRegistry,
+		s.applicationService,
+		s.relationService,
 		s.crossModelRelationService,
 		s.statusService,
 		s.secretService,
+		s.removalService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)

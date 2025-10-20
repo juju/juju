@@ -6,10 +6,8 @@ package crossmodelrelations
 import (
 	"context"
 
-	"github.com/juju/juju/core/application"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/offer"
-	"github.com/juju/juju/core/relation"
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -24,7 +22,7 @@ import (
 type CrossModelRelationService interface {
 	// GetApplicationNameAndUUIDByOfferUUID returns the application name and
 	// UUID for the given offer UUID.
-	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, application.UUID, error)
+	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, coreapplication.UUID, error)
 
 	// AddRemoteApplicationConsumer adds a new synthetic application
 	// representing a remote relation on the consuming model, to this, the
@@ -38,7 +36,7 @@ type CrossModelRelationService interface {
 	// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any
 	// unit of the specified app and returns a watcher which notifies of secret URIs
 	// that have had a new revision added.
-	WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID application.UUID) (watcher.StringsWatcher, error)
+	WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID coreapplication.UUID) (watcher.StringsWatcher, error)
 
 	// EnsureUnitsExist ensures that the given synthetic units exist in the local
 	// model.
@@ -65,13 +63,13 @@ type StatusService interface {
 
 	// SetRemoteRelationStatus sets the status of the relation to the status
 	// provided.
-	SetRemoteRelationStatus(ctx context.Context, relationUUID relation.UUID, statusInfo status.StatusInfo) error
+	SetRemoteRelationStatus(ctx context.Context, relationUUID corerelation.UUID, statusInfo status.StatusInfo) error
 }
 
 // RelationService provides access to relations.
 type RelationService interface {
 	// GetRelationDetails returns relation details for the given relationUUID.
-	GetRelationDetails(ctx context.Context, relationUUID relation.UUID) (domainrelation.RelationDetails, error)
+	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (domainrelation.RelationDetails, error)
 
 	// SetRelationRemoteApplicationAndUnitSettings will set the application and
 	// unit settings for a remote relation. If the unit has not yet entered
@@ -81,7 +79,7 @@ type RelationService interface {
 	// they are alive.
 	SetRelationRemoteApplicationAndUnitSettings(
 		ctx context.Context,
-		applicationUUID application.UUID,
+		applicationUUID coreapplication.UUID,
 		relationUUID corerelation.UUID,
 		applicationSettings map[string]string,
 		unitSettings map[unit.Name]map[string]string,
@@ -100,7 +98,7 @@ type RelationService interface {
 type ApplicationService interface {
 	// GetApplicationDetails returns application details for the given appID.
 	// This includes the life status and the name of the application.
-	GetApplicationDetails(ctx context.Context, appID application.UUID) (domainapplication.ApplicationDetails, error)
+	GetApplicationDetails(ctx context.Context, appID coreapplication.UUID) (domainapplication.ApplicationDetails, error)
 }
 
 // RemovalService provides the ability to remove remote relations.
