@@ -1519,11 +1519,73 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 // RemoveVolumeParams returns the parameters for destroying
 // or releasing the volumes with the specified tags.
 func (s *StorageProvisionerAPIv4) RemoveVolumeParams(ctx context.Context, args params.Entities) (params.RemoveVolumeParamsResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.RemoveVolumeParamsResults{}, err
+	}
 	results := params.RemoveVolumeParamsResults{
-		Results: make([]params.RemoveVolumeParamsResult, len(args.Entities)),
+		Results: make([]params.RemoveVolumeParamsResult, 0, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (params.RemoveVolumeParams, error) {
+		tag, err := names.ParseVolumeTag(arg.Tag)
+		if err != nil {
+			return params.RemoveVolumeParams{}, errors.Errorf(
+				"volume tag %q invalid", arg.Tag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(tag) {
+			return params.RemoveVolumeParams{}, apiservererrors.ErrPerm
+		}
+		return s.removeVolumeParams(ctx, tag)
+	}
+	for _, arg := range args.Entities {
+		var result params.RemoveVolumeParamsResult
+		volumeAttachment, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result = volumeAttachment
+		}
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
+}
+
+// removeVolumeParams performs operations required for the corresponding
+// facade method RemoveVolumeParams.
+func (s *StorageProvisionerAPIv4) removeVolumeParams(
+	ctx context.Context, tag names.VolumeTag,
+) (params.RemoveVolumeParams, error) {
+	uuid, err := s.storageProvisioningService.GetVolumeUUIDForID(
+		ctx, tag.Id(),
+	)
+	if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+		return params.RemoveVolumeParams{}, errors.Errorf(
+			"volume %q not found", tag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return params.RemoveVolumeParams{}, err
+	}
+
+	rp, err := s.storageProvisioningService.GetVolumeRemovalParams(
+		ctx, uuid)
+	if errors.Is(err, storageprovisioningerrors.VolumeNotDead) {
+		return params.RemoveVolumeParams{}, errors.Errorf(
+			"volume %q is not yet dead", tag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+		return params.RemoveVolumeParams{}, errors.Errorf(
+			"volume %q not found", tag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return params.RemoveVolumeParams{}, err
+	}
+
+	return params.RemoveVolumeParams{
+		Provider:   rp.Provider,
+		ProviderId: rp.ProviderID,
+		Destroy:    rp.Obliterate,
+	}, nil
 }
 
 // FilesystemParams returns the parameters for creating the filesystems

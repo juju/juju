@@ -130,3 +130,17 @@ type VolumeParams struct {
 	SizeMiB              uint64
 	VolumeAttachmentUUID *VolumeAttachmentUUID
 }
+
+// VolumeRemovalParams defines the set of parameters that a caller needs to
+// know in order to de-provision a volume in the model.
+type VolumeRemovalParams struct {
+	// Provider is the name of the provider that is provisioning this volume.
+	Provider string
+
+	// ProviderID is the ID of the volume from the storage provider.
+	ProviderID string
+
+	// Obliterate is true when the provisioner should remove the volume from
+	// existence.
+	Obliterate bool
+}

@@ -22,6 +22,10 @@ const (
 	// found in the model.
 	VolumeNotFound = errors.ConstError("volume not found")
 
+	// VolumeNotDead describes an error that occurs when the volume was expected
+	// to be dead, but is not dead.
+	VolumeNotDead = errors.ConstError("volume not dead")
+
 	// VolumeAttachmentNotFound describes an error that occurs when no
 	// volume attachment was found in the model.
 	VolumeAttachmentNotFound = errors.ConstError("volume attachment not found")

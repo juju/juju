@@ -1538,6 +1538,45 @@ func (c *MockStorageProvisioningServiceGetVolumeParamsCall) DoAndReturn(f func(c
 	return c
 }
 
+// GetVolumeRemovalParams mocks base method.
+func (m *MockStorageProvisioningService) GetVolumeRemovalParams(arg0 context.Context, arg1 storageprovisioning.VolumeUUID) (storageprovisioning.VolumeRemovalParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeRemovalParams", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.VolumeRemovalParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeRemovalParams indicates an expected call of GetVolumeRemovalParams.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetVolumeRemovalParams(arg0, arg1 any) *MockStorageProvisioningServiceGetVolumeRemovalParamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeRemovalParams", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetVolumeRemovalParams), arg0, arg1)
+	return &MockStorageProvisioningServiceGetVolumeRemovalParamsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetVolumeRemovalParamsCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetVolumeRemovalParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetVolumeRemovalParamsCall) Return(arg0 storageprovisioning.VolumeRemovalParams, arg1 error) *MockStorageProvisioningServiceGetVolumeRemovalParamsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetVolumeRemovalParamsCall) Do(f func(context.Context, storageprovisioning.VolumeUUID) (storageprovisioning.VolumeRemovalParams, error)) *MockStorageProvisioningServiceGetVolumeRemovalParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetVolumeRemovalParamsCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeUUID) (storageprovisioning.VolumeRemovalParams, error)) *MockStorageProvisioningServiceGetVolumeRemovalParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetVolumeUUIDForID mocks base method.
 func (m *MockStorageProvisioningService) GetVolumeUUIDForID(arg0 context.Context, arg1 string) (storageprovisioning.VolumeUUID, error) {
 	m.ctrl.T.Helper()

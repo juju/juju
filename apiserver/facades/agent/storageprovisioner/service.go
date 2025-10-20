@@ -232,6 +232,12 @@ type StorageProvisioningService interface {
 		ctx context.Context, uuid storageprovisioning.VolumeUUID,
 	) (storageprovisioning.VolumeParams, error)
 
+	// GetVolumeRemovalParams returns the volume removal params for the supplied
+	// uuid.
+	GetVolumeRemovalParams(
+		ctx context.Context, uuid storageprovisioning.VolumeUUID,
+	) (storageprovisioning.VolumeRemovalParams, error)
+
 	// CheckVolumeForIDExists checks if a volume exists for the supplied volume
 	// ID. True is returned when a volume exists.
 	CheckVolumeForIDExists(context.Context, string) (bool, error)
