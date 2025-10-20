@@ -329,6 +329,21 @@ func (s *Service) GetVolumeRemovalParams(
 	return storageprovisioning.VolumeRemovalParams{}, errors.New("not implemented")
 }
 
+// RemoveDeadVolume is to be called from the storage provisoner to finally
+// remove a dead volume that it has been gracefully cleaned up.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied volume UUID is not valid.
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// provided volume UUID.
+// - [storageprovisioningerrors.VolumeNotDead] when the volume exists but was
+// expected to be dead but was not.
+func (s *Service) RemoveDeadVolume(
+	ctx context.Context, uuid storageprovisioning.VolumeUUID,
+) error {
+	return errors.New("not implemented")
+}
+
 // GetVolumeAttachmentParams retrieves the attachment parameters for a given
 // volume attachment.
 // The following errors may be returned:
