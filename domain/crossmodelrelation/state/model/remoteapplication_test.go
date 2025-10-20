@@ -570,20 +570,9 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumer(c *tc.C) 
 	c.Check(endpoints[1].charmRelationName, tc.Equals, "db")
 	c.Check(endpoints[2].charmRelationName, tc.Equals, "juju-info")
 
-	// Fetch the synthetic relation from the application_remote_relation table:
-	var syntheticRelationUUID string
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-SELECT r.uuid
-FROM   relation AS r
-JOIN   application_remote_relation AS arr ON r.uuid = arr.relation_uuid
-WHERE  arr.consumer_relation_uuid = ?`, relationUUID).
-			Scan(&syntheticRelationUUID)
-	})
-	c.Assert(err, tc.ErrorIsNil)
 	// Check that the synthetic relation has been created with the expected
 	// UUID and ID 0 (the first relation created in the model).
-	s.assertRelation(c, syntheticRelationUUID, 0)
+	s.assertRelation(c, relationUUID, 0)
 }
 
 func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwiceSameApp(c *tc.C) {
@@ -1086,10 +1075,10 @@ SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?
 	var offererRelationUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, `
-SELECT arr.relation_uuid
+SELECT r.uuid
 FROM   application_remote_consumer AS arc
 JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
-JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+JOIN   relation AS r ON r.uuid = oc.remote_relation_uuid
 WHERE  arc.uuid = ?`, consumerUUID).Scan(&offererRelationUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1239,18 +1228,18 @@ SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, `
-SELECT arr.relation_uuid
+SELECT r.uuid
 FROM   application_remote_consumer AS arc
 JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
-JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+JOIN   relation AS r ON r.uuid = oc.remote_relation_uuid
 WHERE  arc.uuid = ?`, consumerUUID1).Scan(&offererRelationUUID1); err != nil {
 			return err
 		}
 		return tx.QueryRowContext(ctx, `
-SELECT arr.relation_uuid
+SELECT r.uuid
 FROM   application_remote_consumer AS arc
 JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
-JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+JOIN   relation AS r ON r.uuid = oc.remote_relation_uuid
 WHERE  arc.uuid = ?`, consumerUUID2).Scan(&offererRelationUUID2)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1367,18 +1356,18 @@ SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, `
-SELECT arr.relation_uuid
+SELECT r.uuid
 FROM   application_remote_consumer AS arc
 JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
-JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+JOIN   relation AS r ON r.uuid = oc.remote_relation_uuid
 WHERE  arc.uuid = ?`, consumerUUID1).Scan(&offererRelationUUID1); err != nil {
 			return err
 		}
 		return tx.QueryRowContext(ctx, `
-SELECT arr.relation_uuid
+SELECT r.uuid
 FROM   application_remote_consumer AS arc
 JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
-JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+JOIN   relation AS r ON r.uuid = oc.remote_relation_uuid
 WHERE  arc.uuid = ?`, consumerUUID2).Scan(&offererRelationUUID2)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1456,10 +1445,10 @@ SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?
 			return err
 		}
 		return tx.QueryRowContext(ctx, `
-SELECT arr.relation_uuid
+SELECT r.uuid
 FROM   application_remote_consumer AS arc
 JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
-JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+JOIN   relation AS r ON r.uuid = oc.remote_relation_uuid
 WHERE  arc.uuid = ?`, consumerUUID).Scan(&offererRelationUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1518,10 +1507,10 @@ SELECT uuid FROM application_remote_consumer WHERE consumer_application_uuid = ?
 			return err
 		}
 		return tx.QueryRowContext(ctx, `
-SELECT arr.relation_uuid
+SELECT r.uuid
 FROM   application_remote_consumer AS arc
 JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
-JOIN   application_remote_relation AS arr ON arr.relation_uuid = oc.application_remote_relation_uuid
+JOIN   relation AS r ON r.uuid = oc.remote_relation_uuid
 WHERE  arc.uuid = ?`, consumerUUID).Scan(&offererRelationUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)

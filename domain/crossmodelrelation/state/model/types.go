@@ -231,10 +231,10 @@ type remoteApplicationConsumer struct {
 }
 
 type offerConnection struct {
-	UUID                          string `db:"uuid"`
-	OfferUUID                     string `db:"offer_uuid"`
-	ApplicationRemoteRelationUUID string `db:"application_remote_relation_uuid"`
-	Username                      string `db:"username"`
+	UUID               string `db:"uuid"`
+	OfferUUID          string `db:"offer_uuid"`
+	RemoteRelationUUID string `db:"remote_relation_uuid"`
+	Username           string `db:"username"`
 }
 
 type remoteRelationUUID struct {
@@ -249,15 +249,6 @@ type relation struct {
 	UUID       string `db:"uuid"`
 	LifeID     int    `db:"life_id"`
 	RelationID uint64 `db:"relation_id"`
-}
-
-type applicationRemoteRelation struct {
-	RelationUUID         string `db:"relation_uuid"`
-	ConsumerRelationUUID string `db:"consumer_relation_uuid"`
-}
-
-type consumerRelationUUID struct {
-	ConsumerRelationUUID string `db:"consumer_relation_uuid"`
 }
 
 type consumerApplicationUUID struct {

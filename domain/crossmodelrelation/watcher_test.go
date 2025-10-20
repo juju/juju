@@ -492,7 +492,7 @@ func (s *watcherSuite) TestWatchConsumerRelations(c *tc.C) {
 
 	// Seting the relation to dying should trigger an event.
 	harness.AddTest(c, func(c *tc.C) {
-		s.setRelationDying(c, db, remoteRelationUUID)
+		s.setRelationDying(c, db, remoteRelationUUID.String())
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert(remoteRelationUUID.String()))
 	})
@@ -527,7 +527,7 @@ func (s *watcherSuite) TestWatchOffererRelations(c *tc.C) {
 
 	// Setting the relation to dying should trigger an event.
 	harness.AddTest(c, func(c *tc.C) {
-		s.setRelationDying(c, db, remoteRelationUUID)
+		s.setRelationDying(c, db, remoteRelationUUID.String())
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert(remoteRelationUUID.String()))
 	})
@@ -563,17 +563,17 @@ func (s *watcherSuite) TestWatchOffererRelationsCaching(c *tc.C) {
 
 	// Add an app remote consumer - this should create a relation and trigger
 	// the watcher.
-	var remoteRelationUUID1 uuid.UUID
+	var consumerRelationUUID1 string
 	var remoteApplicationUUID1 string
 	harness.AddTest(c, func(c *tc.C) {
 		remoteApplicationUUID1 = tc.Must(c, uuid.NewUUID).String()
 		consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
-		consumerRelationUUID := tc.Must(c, uuid.NewUUID).String()
+		consumerRelationUUID1 = tc.Must(c, uuid.NewUUID).String()
 
 		err := svc.AddRemoteApplicationConsumer(c.Context(), service.AddRemoteApplicationConsumerArgs{
 			RemoteApplicationUUID: remoteApplicationUUID1,
 			OfferUUID:             localOfferUUID,
-			RelationUUID:          consumerRelationUUID,
+			RelationUUID:          consumerRelationUUID1,
 			ConsumerModelUUID:     consumerModelUUID,
 			Endpoints: []charm.Relation{{
 				Name:      "db",
@@ -584,34 +584,22 @@ func (s *watcherSuite) TestWatchOffererRelationsCaching(c *tc.C) {
 		})
 		c.Assert(err, tc.ErrorIsNil)
 
-		// Get the synthetic relation UUID
-		var syntheticRelationUUIDStr string
-		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			return tx.QueryRowContext(ctx, `
-SELECT arr.relation_uuid
-FROM   application_remote_relation AS arr
-WHERE  arr.consumer_relation_uuid = ?`, consumerRelationUUID).Scan(&syntheticRelationUUIDStr)
-		})
-		c.Assert(err, tc.ErrorIsNil)
-
-		remoteRelationUUID1, err = uuid.UUIDFromString(syntheticRelationUUIDStr)
-		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(remoteRelationUUID1.String()))
+		w.Check(watchertest.StringSliceAssert(consumerRelationUUID1))
 	})
 
 	// Add a second app remote consumer - the watcher should now track this
 	// relation too.
-	var remoteRelationUUID2 uuid.UUID
+	var consumerRelationUUID2 string
 	harness.AddTest(c, func(c *tc.C) {
 		remoteApplicationUUID := tc.Must(c, uuid.NewUUID).String()
 		consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
-		consumerRelationUUID := tc.Must(c, uuid.NewUUID).String()
+		consumerRelationUUID2 = tc.Must(c, uuid.NewUUID).String()
 
 		err := svc.AddRemoteApplicationConsumer(c.Context(), service.AddRemoteApplicationConsumerArgs{
 			RemoteApplicationUUID: remoteApplicationUUID,
 			OfferUUID:             localOfferUUID,
-			RelationUUID:          consumerRelationUUID,
+			RelationUUID:          consumerRelationUUID2,
 			ConsumerModelUUID:     consumerModelUUID,
 			Endpoints: []charm.Relation{{
 				Name:      "db",
@@ -622,20 +610,8 @@ WHERE  arr.consumer_relation_uuid = ?`, consumerRelationUUID).Scan(&syntheticRel
 		})
 		c.Assert(err, tc.ErrorIsNil)
 
-		// Get the synthetic relation UUID
-		var syntheticRelationUUIDStr string
-		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			return tx.QueryRowContext(ctx, `
-SELECT arr.relation_uuid
-FROM   application_remote_relation AS arr
-WHERE  arr.consumer_relation_uuid = ?`, consumerRelationUUID).Scan(&syntheticRelationUUIDStr)
-		})
-		c.Assert(err, tc.ErrorIsNil)
-
-		remoteRelationUUID2, err = uuid.UUIDFromString(syntheticRelationUUIDStr)
-		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(remoteRelationUUID2.String()))
+		w.Check(watchertest.StringSliceAssert(consumerRelationUUID2))
 	})
 
 	// Remove the first app remote consumer - the watcher should now stop tracking
@@ -647,7 +623,7 @@ WHERE  arr.consumer_relation_uuid = ?`, consumerRelationUUID).Scan(&syntheticRel
 SELECT arc.uuid, oc.uuid
 FROM application_remote_consumer arc
 JOIN offer_connection oc ON oc.uuid = arc.offer_connection_uuid
-WHERE oc.application_remote_relation_uuid = ?`, remoteRelationUUID1.String()).Scan(&consumerUUID, &offerConnUUID); err != nil {
+WHERE oc.remote_relation_uuid = ?`, consumerRelationUUID1).Scan(&consumerUUID, &offerConnUUID); err != nil {
 				return err
 			}
 			if _, err := tx.ExecContext(ctx, `DELETE FROM application_remote_consumer WHERE uuid=?`, consumerUUID); err != nil {
@@ -666,7 +642,7 @@ WHERE oc.application_remote_relation_uuid = ?`, remoteRelationUUID1.String()).Sc
 	// Modify the first remote relation - should NOT trigger an event because
 	// the consumer was removed and the cache should have been updated.
 	harness.AddTest(c, func(c *tc.C) {
-		s.setRelationDying(c, db, remoteRelationUUID1)
+		s.setRelationDying(c, db, consumerRelationUUID1)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -674,9 +650,9 @@ WHERE oc.application_remote_relation_uuid = ?`, remoteRelationUUID1.String()).Sc
 	// Modify the second remote relation - should trigger an event because
 	// its consumer is still active and the cache should still track it.
 	harness.AddTest(c, func(c *tc.C) {
-		s.setRelationDying(c, db, remoteRelationUUID2)
+		s.setRelationDying(c, db, consumerRelationUUID2)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(remoteRelationUUID2.String()))
+		w.Check(watchertest.StringSliceAssert(consumerRelationUUID2))
 	})
 
 	// Create a local-to-local relation - should be ignored by the watcher.
@@ -697,12 +673,12 @@ func (s *watcherSuite) setupLocalOfferRemoteConsumerAndRelation(c *tc.C, db data
 	// Add a remote consumer for the local offer.
 	remoteApplicationUUID := tc.Must(c, uuid.NewUUID).String()
 	consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
-	consumerRelationUUID := tc.Must(c, uuid.NewUUID).String()
+	consumerRelationUUID := tc.Must(c, uuid.NewUUID)
 
 	err := svc.AddRemoteApplicationConsumer(c.Context(), service.AddRemoteApplicationConsumerArgs{
 		RemoteApplicationUUID: remoteApplicationUUID,
 		OfferUUID:             localOfferUUID,
-		RelationUUID:          consumerRelationUUID,
+		RelationUUID:          consumerRelationUUID.String(),
 		ConsumerModelUUID:     consumerModelUUID,
 		Endpoints: []charm.Relation{{
 			Name:      "db",
@@ -713,22 +689,7 @@ func (s *watcherSuite) setupLocalOfferRemoteConsumerAndRelation(c *tc.C, db data
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Get the synthetic relation UUID
-	var syntheticRelationUUID uuid.UUID
-	err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var syntheticRelationUUIDStr string
-		if err := tx.QueryRowContext(ctx, `
-SELECT arr.relation_uuid
-FROM   application_remote_relation AS arr
-WHERE  arr.consumer_relation_uuid = ?`, consumerRelationUUID).Scan(&syntheticRelationUUIDStr); err != nil {
-			return err
-		}
-		syntheticRelationUUID, err = uuid.UUIDFromString(syntheticRelationUUIDStr)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	return syntheticRelationUUID
+	return consumerRelationUUID
 }
 
 func (s *watcherSuite) setupRemoteOffererLocalAndRelation(c *tc.C, db database.TxnRunner, svc *service.WatchableService) uuid.UUID {
@@ -880,9 +841,9 @@ VALUES (?, ?, ?)`, tc.Must(c, uuid.NewUUID).String(), rUUID, epUUID); err != nil
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *watcherSuite) setRelationDying(c *tc.C, db database.TxnRunner, relationUUID uuid.UUID) {
+func (s *watcherSuite) setRelationDying(c *tc.C, db database.TxnRunner, relationUUID string) {
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `UPDATE relation SET life_id = ? WHERE uuid = ?`, life.Dying, relationUUID.String())
+		_, err := tx.ExecContext(ctx, `UPDATE relation SET life_id = ? WHERE uuid = ?`, life.Dying, relationUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

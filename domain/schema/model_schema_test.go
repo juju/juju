@@ -311,7 +311,6 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"application_remote_offerer",
 		"application_remote_offerer_status",
 		"application_remote_offerer_relation_macaroon",
-		"application_remote_relation",
 		"offer_connection",
 
 		// Operations

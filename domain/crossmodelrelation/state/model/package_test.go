@@ -179,14 +179,10 @@ INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`, offerUUID
 
 func (s *baseSuite) addOfferConnection(c *tc.C, offerUUID offer.UUID, statusID status.RelationStatusType) string {
 	relUUID := s.addRelation(c)
-	consumerRelUUID := tc.Must(c, internaluuid.NewUUID).String()
-	s.query(c, `
-INSERT INTO application_remote_relation (relation_uuid, consumer_relation_uuid)
-VALUES (?, ?)`, relUUID, consumerRelUUID)
 
 	connUUID := tc.Must(c, internaluuid.NewUUID).String()
 	s.query(c, `
-INSERT INTO offer_connection (uuid, offer_uuid, application_remote_relation_uuid, username)
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
 VALUES (?, ?, ?, "bob")`, connUUID, offerUUID, relUUID)
 
 	s.query(c, `
