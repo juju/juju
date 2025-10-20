@@ -4320,3 +4320,131 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagToUnit(c *tc.C) 
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 }
+
+func (s *provisionerSuite) TestRemoveVolumeAttachmentNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+	host := names.NewMachineTag("2")
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	msvc := s.machineService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
+		gomock.Any(), tag.Id(), mUUID,
+	).Return(
+		"", storageprovisioningerrors.VolumeAttachmentPlanNotFound,
+	)
+
+	result, err := s.api.RemoveVolumeAttachmentPlan(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveVolumeAttachmentNotFoundUUID(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+	host := names.NewMachineTag("2")
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	msvc := s.machineService
+	rsvc := s.removalService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeIDMachine(gomock.Any(),
+		tag.Id(), mUUID).Return(uuid, nil)
+	rsvc.EXPECT().MarkVolumeAttachmentPlanAsDead(gomock.Any(), uuid).Return(
+		storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+
+	result, err := s.api.RemoveVolumeAttachmentPlan(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveVolumeAttachmentStillAlive(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewVolumeTag("123")
+	host := names.NewMachineTag("2")
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	msvc := s.machineService
+	rsvc := s.removalService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeIDMachine(gomock.Any(),
+		tag.Id(), mUUID).Return(uuid, nil)
+	rsvc.EXPECT().MarkVolumeAttachmentPlanAsDead(gomock.Any(), uuid).Return(
+		removalerrors.EntityStillAlive)
+
+	result, err := s.api.RemoveVolumeAttachmentPlan(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Message, tc.Matches,
+		`volume "123" attachment plan for machine "2" is still alive`)
+}
+
+func (s *provisionerSuite) TestRemoveVolumeAttachment(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	host := names.NewMachineTag("2")
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+	mUUID := tc.Must(c, machine.NewUUID)
+
+	svc := s.storageProvisioningService
+	msvc := s.machineService
+	rsvc := s.removalService
+	msvc.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(host.Id())).
+		Return(mUUID, nil)
+	svc.EXPECT().CheckVolumeForIDExists(
+		gomock.Any(), tag.Id()).Return(true, nil)
+	svc.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeIDMachine(gomock.Any(),
+		tag.Id(), mUUID).Return(uuid, nil)
+	rsvc.EXPECT().MarkVolumeAttachmentPlanAsDead(gomock.Any(), uuid).Return(nil)
+
+	result, err := s.api.RemoveVolumeAttachmentPlan(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    host.String(),
+			AttachmentTag: tag.String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
