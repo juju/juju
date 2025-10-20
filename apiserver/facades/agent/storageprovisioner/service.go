@@ -139,6 +139,12 @@ type StorageProvisioningService interface {
 		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
 	) (storageprovisioning.FilesystemParams, error)
 
+	// GetFilesystemRemovalParams returns the filesystem removal params for the
+	// supplied uuid.
+	GetFilesystemRemovalParams(
+		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	) (storageprovisioning.FilesystemRemovalParams, error)
+
 	// CheckFilesystemForIDExists checks if a filesystem exists for the supplied
 	// filesystem ID. True is returned when a filesystem exists.
 	CheckFilesystemForIDExists(context.Context, string) (bool, error)

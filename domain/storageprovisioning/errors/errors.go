@@ -10,6 +10,10 @@ const (
 	// found in the model.
 	FilesystemNotFound = errors.ConstError("filesystem not found")
 
+	// FilesystemNotDead describes an error that occurs when the filesystem was
+	// expected to be dead, but is not dead.
+	FilesystemNotDead = errors.ConstError("filesystem not dead")
+
 	// FilesystemAttachmentNotFound describes an error that occurs when no
 	// filesystem attachment was found in the model.
 	FilesystemAttachmentNotFound = errors.ConstError("filesystem attachment not found")

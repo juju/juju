@@ -60,6 +60,21 @@ type FilesystemParams struct {
 	BackingVolume *FilesystemBackingVolume
 }
 
+// FilesystemRemovalParams defines the set of parameters that a caller needs to
+// know in order to de-provision a filesystem in the model.
+type FilesystemRemovalParams struct {
+	// Provider is the name of the provider that is provisioning this
+	// filesystem.
+	Provider string
+
+	// ProviderID is the ID of the filesystem from the storage provider.
+	ProviderID string
+
+	// Obliterate is true when the provisioner should remove the filesystem from
+	// existence.
+	Obliterate bool
+}
+
 // FilesystemBackingVolume contains information about the volume that is used
 // to back a filesystem.
 type FilesystemBackingVolume struct {

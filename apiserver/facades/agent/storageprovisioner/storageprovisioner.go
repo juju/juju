@@ -1610,12 +1610,76 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 
 // RemoveFilesystemParams returns the parameters for destroying or
 // releasing the filesystems with the specified tags.
-func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(ctx context.Context, args params.Entities) (params.RemoveFilesystemParamsResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(
+	ctx context.Context, args params.Entities,
+) (params.RemoveFilesystemParamsResults, error) {
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.RemoveFilesystemParamsResults{}, err
+	}
 	results := params.RemoveFilesystemParamsResults{
-		Results: make([]params.RemoveFilesystemParamsResult, len(args.Entities)),
+		Results: make([]params.RemoveFilesystemParamsResult, 0, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (params.RemoveFilesystemParams, error) {
+		tag, err := names.ParseFilesystemTag(arg.Tag)
+		if err != nil {
+			return params.RemoveFilesystemParams{}, errors.Errorf(
+				"filesystem tag %q invalid", arg.Tag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(tag) {
+			return params.RemoveFilesystemParams{}, apiservererrors.ErrPerm
+		}
+		return s.removeFilesystemParams(ctx, tag)
+	}
+	for _, arg := range args.Entities {
+		var result params.RemoveFilesystemParamsResult
+		volumeAttachment, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result = volumeAttachment
+		}
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
+}
+
+// removeFilesystemParams performs operations required for the corresponding
+// facade method RemoveFilesystemParams.
+func (s *StorageProvisionerAPIv4) removeFilesystemParams(
+	ctx context.Context, tag names.FilesystemTag,
+) (params.RemoveFilesystemParams, error) {
+	uuid, err := s.storageProvisioningService.GetFilesystemUUIDForID(
+		ctx, tag.Id(),
+	)
+	if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+		return params.RemoveFilesystemParams{}, errors.Errorf(
+			"filesystem %q not found", tag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return params.RemoveFilesystemParams{}, err
+	}
+
+	rp, err := s.storageProvisioningService.GetFilesystemRemovalParams(
+		ctx, uuid)
+	if errors.Is(err, storageprovisioningerrors.FilesystemNotDead) {
+		return params.RemoveFilesystemParams{}, errors.Errorf(
+			"filesystem %q is not yet dead", tag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+		return params.RemoveFilesystemParams{}, errors.Errorf(
+			"filesystem %q not found", tag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return params.RemoveFilesystemParams{}, err
+	}
+
+	return params.RemoveFilesystemParams{
+		Provider:   rp.Provider,
+		ProviderId: rp.ProviderID,
+		Destroy:    rp.Obliterate,
+	}, nil
 }
 
 // VolumeAttachmentParams returns the parameters for creating the volume

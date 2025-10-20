@@ -521,6 +521,21 @@ func (s *Service) GetFilesystemParams(
 	return s.st.GetFilesystemParams(ctx, uuid)
 }
 
+// GetFilesystemRemovalParams returns the filesystem removal params for the
+// supplied uuid.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied filesystem UUID is not valid.
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+// for the uuid.
+// - [storageprovisioningerrors.FilesystemNotDead] when the filesystem was found
+// but is either alive or dying, when it is expected to be dead.
+func (s *Service) GetFilesystemRemovalParams(
+	ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+) (storageprovisioning.FilesystemRemovalParams, error) {
+	return storageprovisioning.FilesystemRemovalParams{}, errors.New("not implemented")
+}
+
 // GetFilesystemUUIDForID returns the UUID for a filesystem with the supplied
 // id.
 //
