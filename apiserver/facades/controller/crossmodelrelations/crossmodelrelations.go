@@ -226,24 +226,8 @@ func (api *CrossModelRelationsAPIv3) handlePublishSettings(
 	}
 
 	// We've got departed units, these need to leave scope.
-	for _, u := range change.DepartedUnits {
-		unitName, err := unit.NewNameFromParts(applicationName, u)
-		if err != nil {
-			return errors.Annotatef(err, "parsing departed unit name %q for relation %q", u, relationUUID)
-		}
-
-		// If the relation unit doesn't exist, then it has already been removed,
-		// so we can skip it.
-		relationUnitUUID, err := api.relationService.GetRelationUnitUUID(ctx, relationUUID, unitName)
-		if errors.Is(err, relationerrors.RelationUnitNotFound) {
-			continue
-		} else if err != nil {
-			return errors.Annotatef(err, "querying relation unit UUID for departed unit %q for relation %q", unitName, relationUUID)
-		}
-
-		if err := api.removalService.LeaveScope(ctx, relationUnitUUID); err != nil {
-			return errors.Annotatef(err, "removing departed unit %q for relation %q", unitName, relationUUID)
-		}
+	if err := api.handleDepartedUnits(ctx, relationUUID, change.DepartedUnits, applicationName); err != nil {
+		return errors.Annotatef(err, "handling departed units for relation %q", relationUUID)
 	}
 
 	return nil
@@ -275,8 +259,12 @@ func (api *CrossModelRelationsAPIv3) handleUnitSettings(
 	// Map the unit settings into a map keyed by unit name.
 	unitSettings := make(map[unit.Name]map[string]string, len(unitChanges))
 	for i, u := range unitChanges {
-		unitName := units[i]
+		if u.Settings == nil {
+			unitSettings[units[i]] = nil
+			continue
+		}
 
+		unitName := units[i]
 		settings := make(map[string]string, len(u.Settings))
 		for k, v := range u.Settings {
 			switch v := v.(type) {
@@ -300,17 +288,45 @@ func (api *CrossModelRelationsAPIv3) handleApplicationSettings(
 		return nil, nil
 	}
 
-	coerced := make(map[string]string, len(applicationSettings))
+	settings := make(map[string]string, len(applicationSettings))
 	for k, v := range applicationSettings {
 		switch v := v.(type) {
 		case string:
-			applicationSettings[k] = v
+			settings[k] = v
 		default:
 			return nil, errors.NotValidf("application setting value for key %q", k)
 		}
 	}
 
-	return coerced, nil
+	return settings, nil
+}
+
+func (api *CrossModelRelationsAPIv3) handleDepartedUnits(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	departedUnits []int,
+	applicationName string,
+) error {
+	for _, u := range departedUnits {
+		unitName, err := unit.NewNameFromParts(applicationName, u)
+		if err != nil {
+			return errors.Annotatef(err, "parsing departed unit name %q", u)
+		}
+
+		// If the relation unit doesn't exist, then it has already been removed,
+		// so we can skip it.
+		relationUnitUUID, err := api.relationService.GetRelationUnitUUID(ctx, relationUUID, unitName)
+		if errors.Is(err, relationerrors.RelationUnitNotFound) {
+			continue
+		} else if err != nil {
+			return errors.Annotatef(err, "querying relation unit UUID for departed unit %q", unitName)
+		}
+
+		if err := api.removalService.LeaveScope(ctx, relationUnitUUID); err != nil {
+			return errors.Annotatef(err, "removing departed unit %q", unitName)
+		}
+	}
+	return nil
 }
 
 // RegisterRemoteRelations sets up the model to participate

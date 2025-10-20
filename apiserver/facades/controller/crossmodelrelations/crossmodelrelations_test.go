@@ -19,6 +19,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
@@ -26,6 +27,7 @@ import (
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -304,6 +306,172 @@ func (s *facadeSuite) TestPublishRelationChangesSuspended(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.IsNil)
+}
+
+func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsUnitSettings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.crossModelRelationService.EXPECT().
+		EnsureUnitsExist(gomock.Any(), applicationUUID, []unit.Name{unit.Name("foo/0")}).
+		Return(nil)
+
+	s.relationService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), applicationUUID, relationUUID, nil, map[unit.Name]map[string]string{
+			"foo/0": {
+				"key1": "value1",
+			},
+		}).Return(nil)
+
+	api := s.api(c)
+	err := api.handlePublishSettings(c.Context(), relationUUID, applicationUUID, "foo", params.RemoteRelationChangeEvent{
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"key1": "value1",
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsBadUnitSettingsValue(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.crossModelRelationService.EXPECT().
+		EnsureUnitsExist(gomock.Any(), applicationUUID, []unit.Name{unit.Name("foo/0")}).
+		Return(nil)
+
+	api := s.api(c)
+	err := api.handlePublishSettings(c.Context(), relationUUID, applicationUUID, "foo", params.RemoteRelationChangeEvent{
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"key1": 1,
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsApplicationUnitSettings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.crossModelRelationService.EXPECT().
+		EnsureUnitsExist(gomock.Any(), applicationUUID, []unit.Name{unit.Name("foo/0")}).
+		Return(nil)
+
+	s.relationService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), applicationUUID, relationUUID, map[string]string{
+			"appkey": "appvalue",
+		}, map[unit.Name]map[string]string{
+			"foo/0": {
+				"key1": "value1",
+			},
+		}).Return(nil)
+
+	api := s.api(c)
+	err := api.handlePublishSettings(c.Context(), relationUUID, applicationUUID, "foo", params.RemoteRelationChangeEvent{
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"key1": "value1",
+			},
+		}},
+		ApplicationSettings: map[string]any{
+			"appkey": "appvalue",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsApplicationUnitSettingsBadApplicationSettings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.crossModelRelationService.EXPECT().
+		EnsureUnitsExist(gomock.Any(), applicationUUID, []unit.Name{unit.Name("foo/0")}).
+		Return(nil)
+
+	api := s.api(c)
+	err := api.handlePublishSettings(c.Context(), relationUUID, applicationUUID, "foo", params.RemoteRelationChangeEvent{
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"key1": "value1",
+			},
+		}},
+		ApplicationSettings: map[string]any{
+			"appkey": 1,
+		},
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsNoUnitsSettings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.crossModelRelationService.EXPECT().
+		EnsureUnitsExist(gomock.Any(), applicationUUID, []unit.Name{unit.Name("foo/0")}).
+		Return(nil)
+
+	s.relationService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), applicationUUID, relationUUID, nil, map[unit.Name]map[string]string{
+			"foo/0": nil,
+		}).Return(nil)
+
+	api := s.api(c)
+	err := api.handlePublishSettings(c.Context(), relationUUID, applicationUUID, "foo", params.RemoteRelationChangeEvent{
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsDepartedUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	relationUnitUUID := tc.Must(c, corerelation.NewUnitUUID)
+
+	s.crossModelRelationService.EXPECT().
+		EnsureUnitsExist(gomock.Any(), applicationUUID, []unit.Name{unit.Name("foo/0")}).
+		Return(nil)
+
+	s.relationService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), applicationUUID, relationUUID, nil, map[unit.Name]map[string]string{
+			"foo/0": nil,
+		}).Return(nil)
+	s.relationService.EXPECT().
+		GetRelationUnitUUID(gomock.Any(), relationUUID, unit.Name("foo/1")).
+		Return(relationUnitUUID, nil)
+	s.removalService.EXPECT().
+		LeaveScope(gomock.Any(), relationUnitUUID).
+		Return(nil)
+
+	api := s.api(c)
+	err := api.handlePublishSettings(c.Context(), relationUUID, applicationUUID, "foo", params.RemoteRelationChangeEvent{
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+		}},
+		DepartedUnits: []int{1},
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
