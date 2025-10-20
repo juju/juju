@@ -944,10 +944,10 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 }
 
 // GetControllerAgentVersionsByArchitecture mocks base method.
-func (m *MockControllerState) GetControllerAgentVersionsByArchitecture(arg0 context.Context, arg1 []agentbinary0.Architecture) ([]semversion.Number, error) {
+func (m *MockControllerState) GetControllerAgentVersionsByArchitecture(arg0 context.Context, arg1 []agentbinary0.Architecture) (map[agentbinary0.Architecture][]semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetControllerAgentVersionsByArchitecture", arg0, arg1)
-	ret0, _ := ret[0].([]semversion.Number)
+	ret0, _ := ret[0].(map[agentbinary0.Architecture][]semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -965,19 +965,19 @@ type MockControllerStateGetControllerAgentVersionsByArchitectureCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerStateGetControllerAgentVersionsByArchitectureCall) Return(arg0 []semversion.Number, arg1 error) *MockControllerStateGetControllerAgentVersionsByArchitectureCall {
+func (c *MockControllerStateGetControllerAgentVersionsByArchitectureCall) Return(arg0 map[agentbinary0.Architecture][]semversion.Number, arg1 error) *MockControllerStateGetControllerAgentVersionsByArchitectureCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerStateGetControllerAgentVersionsByArchitectureCall) Do(f func(context.Context, []agentbinary0.Architecture) ([]semversion.Number, error)) *MockControllerStateGetControllerAgentVersionsByArchitectureCall {
+func (c *MockControllerStateGetControllerAgentVersionsByArchitectureCall) Do(f func(context.Context, []agentbinary0.Architecture) (map[agentbinary0.Architecture][]semversion.Number, error)) *MockControllerStateGetControllerAgentVersionsByArchitectureCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateGetControllerAgentVersionsByArchitectureCall) DoAndReturn(f func(context.Context, []agentbinary0.Architecture) ([]semversion.Number, error)) *MockControllerStateGetControllerAgentVersionsByArchitectureCall {
+func (c *MockControllerStateGetControllerAgentVersionsByArchitectureCall) DoAndReturn(f func(context.Context, []agentbinary0.Architecture) (map[agentbinary0.Architecture][]semversion.Number, error)) *MockControllerStateGetControllerAgentVersionsByArchitectureCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
