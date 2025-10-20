@@ -146,7 +146,8 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 
 	switch {
 	case change.Life != life.Alive:
-		// We're dying or dead, either way we shouldn't continue onwards.
+		// We're dying or dead. We shouldn't continue onwards if we're dead,
+		// so return early.
 		if err := api.removalService.RemoveRemoteRelation(ctx, relationUUID); err != nil {
 			return errors.Annotatef(err, "removing remote relation %q", relationUUID)
 		}
@@ -259,12 +260,13 @@ func (api *CrossModelRelationsAPIv3) handleUnitSettings(
 	// Map the unit settings into a map keyed by unit name.
 	unitSettings := make(map[unit.Name]map[string]string, len(unitChanges))
 	for i, u := range unitChanges {
+		unitName := units[i]
+
 		if u.Settings == nil {
 			unitSettings[units[i]] = nil
 			continue
 		}
 
-		unitName := units[i]
 		settings := make(map[string]string, len(u.Settings))
 		for k, v := range u.Settings {
 			switch v := v.(type) {

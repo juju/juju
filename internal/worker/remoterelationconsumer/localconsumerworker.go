@@ -506,7 +506,9 @@ func (w *localConsumerWorker) handleRelationChange(ctx context.Context, details 
 func (w *localConsumerWorker) handleRelationSuspended(ctx context.Context, details relation.RelationDetails) error {
 	w.logger.Debugf(ctx, "relation %q is suspended, there are %d units in-scope", details.UUID, details.InScopeUnits)
 
-	// If the relation is dying
+	// TODO (stickupkid): Force all the units to leave scope!
+
+	// If the relation is dying.
 	if dead, err := w.isRelationWorkerDead(ctx, details.UUID); err != nil {
 		return errors.Annotatef(err, "querying offerer relation worker for %q", details.UUID)
 	} else if dead {
@@ -889,31 +891,32 @@ func (w *localConsumerWorker) isRelationWorkerDead(ctx context.Context, relation
 }
 
 func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Context, change offererunitrelations.RelationUnitChange) error {
-	// TODO (stickupkid): Handle the dying/dead case, along with suspended.
-
-	// Ensure all units exist in the local model.
-	units, err := transform.SliceOrErr(change.ChangedUnits, func(u offererunitrelations.UnitChange) (unit.Name, error) {
-		return unit.NewNameFromParts(w.applicationName, u.UnitID)
-	})
-	if err != nil {
-		return errors.Annotatef(err, "parsing unit names for relation %q", change.ConsumerRelationUUID)
+	details, err := w.crossModelService.GetRelationDetails(ctx, change.ConsumerRelationUUID)
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		return w.handleRelationRemoved(ctx, change.ConsumerRelationUUID, 0)
+	} else if err != nil {
+		return errors.Annotatef(err, "querying relation details for %q", change.ConsumerRelationUUID)
 	}
 
-	// Ensure all the units exist in the local model, we'll need these upfront
-	// before we can process the application and unit settings.
-	if err := w.crossModelService.EnsureUnitsExist(ctx, w.applicationUUID, units); err != nil {
-		return errors.Annotatef(err, "ensuring units exist for relation %q", change.ConsumerRelationUUID)
-	}
-
-	// Map the unit settings into a map keyed by unit name.
-	unitSettings := make(map[unit.Name]map[string]string, len(change.ChangedUnits))
-	for _, u := range change.ChangedUnits {
-		unitName, err := unit.NewNameFromParts(w.applicationName, u.UnitID)
-		if err != nil {
-			return errors.Annotatef(err, "parsing unit name %q for relation %q", u.UnitID, change.ConsumerRelationUUID)
+	switch {
+	case change.Life != life.Alive:
+		// We're dying or dead. We shouldn't continue onwards if we're dead,
+		// so return early.
+		if err := w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID); err != nil {
+			return errors.Annotatef(err, "removing remote relation %q", change.ConsumerRelationUUID)
 		}
+		return nil
 
-		unitSettings[unitName] = u.Settings
+	case change.Suspended != details.Suspended:
+		if err := w.handleRelationSuspended(ctx, details); err != nil {
+			return errors.Annotatef(err, "handling suspended state for relation %q", change.ConsumerRelationUUID)
+		}
+		return nil
+	}
+
+	unitSettings, err := w.handleUnitSettings(ctx, change.ChangedUnits)
+	if err != nil {
+		return errors.Annotatef(err, "handling unit settings for relation %q", change.ConsumerRelationUUID)
 	}
 
 	// Process the relation application and unit settings changes.
@@ -928,26 +931,67 @@ func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Contex
 	}
 
 	// We've got departed units, these need to leave scope.
-	for _, u := range change.DeprecatedDepartedUnits {
+	if err := w.handleDepartedUnits(ctx, change.ConsumerRelationUUID, change.DeprecatedDepartedUnits); err != nil {
+		return errors.Annotatef(err, "handling departed units for relation %q", change.ConsumerRelationUUID)
+	}
+
+	return nil
+}
+
+func (w *localConsumerWorker) handleUnitSettings(
+	ctx context.Context,
+	unitChanges []offererunitrelations.UnitChange,
+) (map[unit.Name]map[string]string, error) {
+	// Ensure all units exist in the local model.
+	units, err := transform.SliceOrErr(unitChanges, func(u offererunitrelations.UnitChange) (unit.Name, error) {
+		return unit.NewNameFromParts(w.applicationName, u.UnitID)
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing unit names")
+	}
+
+	// Ensure all the units exist in the local model, we'll need these upfront
+	// before we can process the application and unit settings.
+	if err := w.crossModelService.EnsureUnitsExist(ctx, w.applicationUUID, units); err != nil {
+		return nil, errors.Annotatef(err, "ensuring units exist")
+	}
+
+	// Map the unit settings into a map keyed by unit name.
+	unitSettings := make(map[unit.Name]map[string]string, len(unitChanges))
+	for i, u := range unitChanges {
+		unitName := units[i]
+
+		if u.Settings == nil {
+			unitSettings[unitName] = nil
+			continue
+		}
+
+		unitSettings[unitName] = u.Settings
+	}
+
+	return unitSettings, nil
+}
+
+func (w *localConsumerWorker) handleDepartedUnits(ctx context.Context, relationUUID corerelation.UUID, departedUnits []int) error {
+	for _, u := range departedUnits {
 		unitName, err := unit.NewNameFromParts(w.applicationName, u)
 		if err != nil {
-			return errors.Annotatef(err, "parsing departed unit name %q for relation %q", u, change.ConsumerRelationUUID)
+			return errors.Annotatef(err, "parsing departed unit name %q", u)
 		}
 
 		// If the relation unit doesn't exist, then it has already been removed,
 		// so we can skip it.
-		relationUnitUUID, err := w.crossModelService.GetRelationUnitUUID(ctx, change.ConsumerRelationUUID, unitName)
+		relationUnitUUID, err := w.crossModelService.GetRelationUnitUUID(ctx, relationUUID, unitName)
 		if errors.Is(err, relationerrors.RelationUnitNotFound) {
 			continue
 		} else if err != nil {
-			return errors.Annotatef(err, "querying relation unit UUID for departed unit %q for relation %q", unitName, change.ConsumerRelationUUID)
+			return errors.Annotatef(err, "querying relation unit UUID for departed unit %q", unitName)
 		}
 
 		if err := w.crossModelService.LeaveScope(ctx, relationUnitUUID); err != nil {
-			return errors.Annotatef(err, "removing departed unit %q for relation %q", unitName, change.ConsumerRelationUUID)
+			return errors.Annotatef(err, "removing departed unit %q", unitName)
 		}
 	}
-
 	return nil
 }
 

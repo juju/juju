@@ -2161,7 +2161,7 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeInvalidUni
 		}},
 		Suspended: false,
 	})
-	c.Assert(err, tc.ErrorMatches, `parsing unit names for relation.*`)
+	c.Assert(err, tc.ErrorMatches, `.*parsing unit names.*`)
 
 	err = workertest.CheckKill(c, w)
 	c.Assert(err, tc.ErrorIsNil)
