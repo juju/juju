@@ -1162,6 +1162,128 @@ func (s *provisionerSuite) TestFilesystemParamsBackingVolume(c *tc.C) {
 	// the fs params.
 }
 
+func (s *provisionerSuite) TestRemoveFilesystemParamsNotFound(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+
+	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+		gomock.Any(),
+	).Return(map[string]string{}, nil).AnyTimes()
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return("", storageprovisioningerrors.FilesystemNotFound)
+
+	results, err := s.api.RemoveFilesystemParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestRemoveFilesystemParamsNotFoundWithUUID(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.disableAuthz(c)
+
+	tag := names.NewFilesystemTag("123")
+	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(fsUUID, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemRemovalParams(
+		gomock.Any(), fsUUID,
+	).Return(
+		storageprovisioning.FilesystemRemovalParams{},
+		storageprovisioningerrors.FilesystemNotFound,
+	)
+
+	results, err := s.api.RemoveFilesystemParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeUnauthorized)
+}
+
+func (s *provisionerSuite) TestRemoveFilesystemParams(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	tag := names.NewFilesystemTag("123")
+	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+		gomock.Any(), tag.Id(),
+	).Return(true, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(fsUUID, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemRemovalParams(
+		gomock.Any(), fsUUID,
+	).Return(storageprovisioning.FilesystemRemovalParams{
+		Provider:   "myprovider",
+		ProviderID: "fs-provider-id",
+	}, nil)
+
+	results, err := s.api.RemoveFilesystemParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	removalParams := results.Results[0].Result
+	c.Check(removalParams, tc.DeepEquals, params.RemoveFilesystemParams{
+		Provider:   "myprovider",
+		ProviderId: "fs-provider-id",
+		Destroy:    false,
+	})
+}
+
+func (s *provisionerSuite) TestRemoveFilesystemParamsWithObliterate(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	tag := names.NewFilesystemTag("123")
+	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+		gomock.Any(), tag.Id(),
+	).Return(true, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(fsUUID, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemRemovalParams(
+		gomock.Any(), fsUUID,
+	).Return(storageprovisioning.FilesystemRemovalParams{
+		Provider:   "myprovider",
+		ProviderID: "fs-provider-id",
+		Obliterate: true,
+	}, nil)
+
+	results, err := s.api.RemoveFilesystemParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	removalParams := results.Results[0].Result
+	c.Check(removalParams, tc.DeepEquals, params.RemoveFilesystemParams{
+		Provider:   "myprovider",
+		ProviderId: "fs-provider-id",
+		Destroy:    true,
+	})
+}
+
 // TestFilesystemAttachmentParamsMachineNotFound tests the case where the
 // filesystem params are requested
 func (s *provisionerSuite) TestFilesystemAttachmentParamsMachineNotFound(c *tc.C) {
