@@ -21,6 +21,8 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/juju/sockets"
@@ -36,20 +38,28 @@ func TestSuite(t *testing.T) {
 
 func (s *suite) TestConfigValidation(c *tc.C) {
 	socketName := path.Join(c.MkDir(), "introspection-test.socket")
-	w, err := introspection.NewWorker(introspection.Config{})
-	c.Check(w, tc.IsNil)
-	c.Assert(err, tc.ErrorMatches, "empty SocketName not valid")
-	w, err = introspection.NewWorker(introspection.Config{
+	_, err := introspection.NewWorker(introspection.Config{})
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+
+	_, err = introspection.NewWorker(introspection.Config{
 		SocketName: socketName,
 	})
-	c.Check(w, tc.IsNil)
-	c.Assert(err, tc.ErrorMatches, "nil PrometheusGatherer not valid")
-	w, err = introspection.NewWorker(introspection.Config{
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+
+	_, err = introspection.NewWorker(introspection.Config{
 		SocketName:         socketName,
 		PrometheusGatherer: newPrometheusGatherer(),
 	})
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+
+	w, err := introspection.NewWorker(introspection.Config{
+		SocketName:         socketName,
+		PrometheusGatherer: newPrometheusGatherer(),
+		FlightRecorder:     flightRecorder{},
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(w, tc.Not(tc.IsNil))
+
+	defer workertest.CleanKill(c, w)
 }
 
 func (s *suite) TestStartStop(c *tc.C) {
@@ -61,6 +71,7 @@ func (s *suite) TestStartStop(c *tc.C) {
 	w, err := introspection.NewWorker(introspection.Config{
 		SocketName:         socketName,
 		PrometheusGatherer: prometheus.NewRegistry(),
+		FlightRecorder:     flightRecorder{},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	_ = workertest.CheckKill(c, w)
@@ -69,10 +80,11 @@ func (s *suite) TestStartStop(c *tc.C) {
 type introspectionSuite struct {
 	testhelpers.IsolationSuite
 
-	name     string
-	worker   worker.Worker
-	reporter introspection.DepEngineReporter
-	gatherer prometheus.Gatherer
+	name           string
+	worker         worker.Worker
+	depEngine      introspection.DependencyEngine
+	gatherer       prometheus.Gatherer
+	flightRecorder flightrecorder.FlightRecorder
 }
 
 func TestIntrospectionSuite(t *testing.T) {
@@ -84,9 +96,10 @@ func (s *introspectionSuite) SetUpTest(c *tc.C) {
 		c.Skip("introspection worker not supported on non-linux")
 	}
 	s.IsolationSuite.SetUpTest(c)
-	s.reporter = nil
+	s.depEngine = nil
 	s.worker = nil
 	s.gatherer = newPrometheusGatherer()
+	s.flightRecorder = flightRecorder{}
 	s.startWorker(c)
 }
 
@@ -94,8 +107,9 @@ func (s *introspectionSuite) startWorker(c *tc.C) {
 	s.name = path.Join(c.MkDir(), fmt.Sprintf("introspection-test-%d.socket", os.Getpid()))
 	w, err := introspection.NewWorker(introspection.Config{
 		SocketName:         s.name,
-		DepEngine:          s.reporter,
+		DepEngine:          s.depEngine,
 		PrometheusGatherer: s.gatherer,
+		FlightRecorder:     s.flightRecorder,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	s.worker = w
@@ -173,7 +187,7 @@ func (s *introspectionSuite) TestEngineReporter(c *tc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.
 	workertest.CleanKill(c, s.worker)
-	s.reporter = &reporter{
+	s.depEngine = &depEngine{
 		values: map[string]interface{}{
 			"working": true,
 		},
@@ -200,11 +214,11 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 	s.assertContains(c, body, "tau 6.283185")
 }
 
-type reporter struct {
+type depEngine struct {
 	values map[string]interface{}
 }
 
-func (r *reporter) Report() map[string]interface{} {
+func (r *depEngine) Report() map[string]interface{} {
 	return r.values
 }
 
@@ -232,4 +246,8 @@ func unixSocketHTTPTransport(socketPath string) *http.Transport {
 			})
 		},
 	}
+}
+
+type flightRecorder struct {
+	flightrecorder.FlightRecorder
 }

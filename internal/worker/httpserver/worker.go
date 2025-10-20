@@ -17,7 +17,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4/catacomb"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/core/logger"
@@ -31,15 +30,14 @@ var (
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
-	AgentName            string
-	Clock                clock.Clock
-	TLSConfig            *tls.Config
-	Mux                  *apiserverhttp.Mux
-	MuxShutdownWait      time.Duration
-	LogDir               string
-	Logger               logger.Logger
-	PrometheusRegisterer prometheus.Registerer
-	APIPort              int
+	AgentName       string
+	Clock           clock.Clock
+	TLSConfig       *tls.Config
+	Mux             *apiserverhttp.Mux
+	MuxShutdownWait time.Duration
+	LogDir          string
+	Logger          logger.Logger
+	APIPort         int
 }
 
 // Validate validates the API server configuration.
@@ -55,9 +53,6 @@ func (config Config) Validate() error {
 	}
 	if config.Mux == nil {
 		return errors.NotValidf("nil Mux")
-	}
-	if config.PrometheusRegisterer == nil {
-		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	return nil
 }

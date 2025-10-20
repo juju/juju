@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -35,11 +34,10 @@ type ManifoldConfig struct {
 	// their handlers are registered.
 	APIServerName string
 
-	AgentName            string
-	Clock                clock.Clock
-	MuxShutdownWait      time.Duration
-	LogDir               string
-	PrometheusRegisterer prometheus.Registerer
+	AgentName       string
+	Clock           clock.Clock
+	MuxShutdownWait time.Duration
+	LogDir          string
 
 	Logger logger.Logger
 
@@ -67,9 +65,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
-	}
-	if config.PrometheusRegisterer == nil {
-		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	if config.GetControllerConfig == nil {
 		return errors.NotValidf("nil GetControllerConfig")
@@ -150,15 +145,14 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	)
 
 	w, err := config.NewWorker(Config{
-		AgentName:            config.AgentName,
-		Clock:                config.Clock,
-		PrometheusRegisterer: config.PrometheusRegisterer,
-		TLSConfig:            tlsConfig,
-		Mux:                  mux,
-		MuxShutdownWait:      config.MuxShutdownWait,
-		LogDir:               config.LogDir,
-		Logger:               config.Logger,
-		APIPort:              controllerConfig.APIPort(),
+		AgentName:       config.AgentName,
+		Clock:           config.Clock,
+		TLSConfig:       tlsConfig,
+		Mux:             mux,
+		MuxShutdownWait: config.MuxShutdownWait,
+		LogDir:          config.LogDir,
+		Logger:          config.Logger,
+		APIPort:         controllerConfig.APIPort(),
 	})
 	return w, errors.Trace(err)
 }

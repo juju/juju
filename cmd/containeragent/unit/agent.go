@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
+	"github.com/juju/juju/core/flightrecorder"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
@@ -304,6 +305,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		Engine:             eng,
 		MachineLock:        c.machineLock,
 		PrometheusGatherer: c.prometheusRegistry,
+		FlightRecorder:     flightrecorder.NoopRecorder{},
 		WorkerFunc:         introspection.NewWorker,
 		Clock:              c.clk,
 		Logger:             logger.Child("introspection"),

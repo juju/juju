@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
@@ -46,6 +47,7 @@ import (
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/diskmanager"
+	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
@@ -124,6 +126,9 @@ type ManifoldsConfig struct {
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
+
+	// FlightRecorder is used to record significant events.
+	FlightRecorder flightrecorder.FlightRecorderWorker
 
 	// ValidateMigration is called by the migrationminion during the
 	// migration process to check that the agent will be ok when
@@ -227,6 +232,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		terminationName: terminationworker.Manifold(),
 
 		clockName: clockManifold(config.Clock),
+
+		flightRecorderName: workerflightrecorder.Manifold(config.FlightRecorder),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
@@ -467,10 +474,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// final removal of its agents' units from state when they are no
 		// longer needed.
 		deployerName: ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Logger:        internallogger.GetLogger("juju.worker.deployer"),
+			AgentName:      agentName,
+			APICallerName:  apiCallerName,
+			FlightRecorder: config.FlightRecorder,
+			Clock:          config.Clock,
+			Logger:         internallogger.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,
 			SetupLogging:     config.SetupLogging,
@@ -603,6 +611,7 @@ const (
 	apiCallerName        = "api-caller"
 	apiConfigWatcherName = "api-config-watcher"
 	clockName            = "clock"
+	flightRecorderName   = "flight-recorder"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"

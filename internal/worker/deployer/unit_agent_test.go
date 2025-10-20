@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/semversion"
 	jv "github.com/juju/juju/core/version"
@@ -44,11 +45,12 @@ func (s *UnitAgentSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.config = deployer.UnitAgentConfig{
-		Name:         "someunit/42",
-		DataDir:      c.MkDir(),
-		Clock:        clock.WallClock,
-		Logger:       loggertesting.WrapCheckLog(c).Child("unit-agent"),
-		SetupLogging: func(logger.LoggerContext, agent.Config) {},
+		Name:           "someunit/42",
+		DataDir:        c.MkDir(),
+		FlightRecorder: flightrecorder.NoopRecorder{},
+		Clock:          clock.WallClock,
+		Logger:         loggertesting.WrapCheckLog(c).Child("unit-agent"),
+		SetupLogging:   func(logger.LoggerContext, agent.Config) {},
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
 				dependency.DefaultMetrics(),

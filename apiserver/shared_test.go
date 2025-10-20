@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -73,6 +74,7 @@ func (s *sharedServerContextSuite) newConfig(c *tc.C) sharedServerConfig {
 		domainServicesGetter:    &StubDomainServicesGetter{},
 		watcherRegistryGetter:   &StubWatcherRegistryGetter{},
 		tracerGetter:            &StubTracerGetter{},
+		flightRecorder:          flightrecorder.NoopRecorder{},
 		objectStoreGetter:       &StubObjectStoreGetter{},
 		machineTag:              names.NewMachineTag("0"),
 		dataDir:                 c.MkDir(),

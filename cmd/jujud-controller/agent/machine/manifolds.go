@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud-controller/util"
+	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
@@ -77,6 +78,7 @@ import (
 	workerdomainservices "github.com/juju/juju/internal/worker/domainservices"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
 	"github.com/juju/juju/internal/worker/filenotifywatcher"
+	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
@@ -189,6 +191,9 @@ type ManifoldsConfig struct {
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
+
+	// FlightRecorder is used to record significant events.
+	FlightRecorder flightrecorder.FlightRecorderWorker
 
 	// ValidateMigration is called by the migrationminion during the
 	// migration process to check that the agent will be ok when
@@ -328,6 +333,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		terminationName: terminationworker.Manifold(),
 
 		clockName: clockManifold(config.Clock),
+
+		flightRecorderName: workerflightrecorder.Manifold(config.FlightRecorder),
 
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
@@ -514,19 +521,18 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
-			AuthorityName:        certificateWatcherName,
-			DomainServicesName:   domainServicesName,
-			MuxName:              httpServerArgsName,
-			APIServerName:        apiServerName,
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			AgentName:            config.AgentName,
-			Clock:                config.Clock,
-			MuxShutdownWait:      config.MuxShutdownWait,
-			LogDir:               agentConfig.LogDir(),
-			Logger:               internallogger.GetLogger("juju.worker.httpserver"),
-			GetControllerConfig:  httpserver.GetControllerConfig,
-			NewTLSConfig:         httpserver.NewTLSConfig,
-			NewWorker:            httpserver.NewWorkerShim,
+			AuthorityName:       certificateWatcherName,
+			DomainServicesName:  domainServicesName,
+			MuxName:             httpServerArgsName,
+			APIServerName:       apiServerName,
+			AgentName:           config.AgentName,
+			Clock:               config.Clock,
+			MuxShutdownWait:     config.MuxShutdownWait,
+			LogDir:              agentConfig.LogDir(),
+			Logger:              internallogger.GetLogger("juju.worker.httpserver"),
+			GetControllerConfig: httpserver.GetControllerConfig,
+			NewTLSConfig:        httpserver.NewTLSConfig,
+			NewWorker:           httpserver.NewWorkerShim,
 		}),
 
 		logSinkName: logsink.Manifold(logsink.ManifoldConfig{
@@ -551,6 +557,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
 			WatcherRegistryName:    watcherRegistryName,
+			FlightRecorderName:     flightRecorderName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -1058,10 +1065,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// final removal of its agents' units from state when they are no
 		// longer needed.
 		deployerName: ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Logger:        internallogger.GetLogger("juju.worker.deployer"),
+			AgentName:      agentName,
+			APICallerName:  apiCallerName,
+			FlightRecorder: config.FlightRecorder,
+			Clock:          config.Clock,
+			Logger:         internallogger.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,
 			SetupLogging:     config.SetupLogging,
@@ -1290,6 +1298,7 @@ const (
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	clockName              = "clock"
+	flightRecorderName     = "flight-recorder"
 
 	bootstrapName       = "bootstrap"
 	isBootstrapGateName = "is-bootstrap-gate"

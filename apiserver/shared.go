@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -36,6 +37,9 @@ type sharedServerContext struct {
 	// crossModelAuthContext provides methods to create and authorize macaroons
 	// for cross model operations.
 	crossModelAuthContext facade.CrossModelAuthContext
+
+	// flightRecorder is the flight recorder for the server.
+	flightRecorder flightrecorder.FlightRecorder
 
 	leaseManager       lease.Manager
 	logger             corelogger.Logger
@@ -82,6 +86,7 @@ type sharedServerContext struct {
 
 type sharedServerConfig struct {
 	crossModelAuthContext facade.CrossModelAuthContext
+	flightRecorder        flightrecorder.FlightRecorder
 	leaseManager          lease.Manager
 	controllerUUID        string
 	controllerModelUUID   model.UUID
@@ -104,6 +109,9 @@ type sharedServerConfig struct {
 func (c *sharedServerConfig) validate() error {
 	if c.crossModelAuthContext == nil {
 		return errors.NotValidf("nil crossModelAuthContext")
+	}
+	if c.flightRecorder == nil {
+		return errors.NotValidf("nil flightRecorder")
 	}
 	if c.leaseManager == nil {
 		return errors.NotValidf("nil leaseManager")
@@ -147,6 +155,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 	}
 	return &sharedServerContext{
 		crossModelAuthContext:   config.crossModelAuthContext,
+		flightRecorder:          config.flightRecorder,
 		leaseManager:            config.leaseManager,
 		logger:                  config.logger,
 		controllerUUID:          config.controllerUUID,

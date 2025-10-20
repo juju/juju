@@ -17,17 +17,19 @@ import (
 	"gopkg.in/tomb.v2"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/machinelock"
 	internallogger "github.com/juju/juju/internal/logger"
+	introspectionflightrecorder "github.com/juju/juju/internal/worker/introspection/flightrecorder"
 	"github.com/juju/juju/internal/worker/introspection/pprof"
 	"github.com/juju/juju/juju/sockets"
 )
 
 var logger = internallogger.GetLogger("juju.worker.introspection")
 
-// DepEngineReporter provides insight into the running dependency engine of the
+// DependencyEngine provides insight into the running dependency engine of the
 // agent.
-type DepEngineReporter interface {
+type DependencyEngine interface {
 	// Report returns a map describing the state of the receiver. It is expected
 	// to be goroutine-safe.
 	Report() map[string]interface{}
@@ -42,9 +44,10 @@ type Reporter interface {
 // Config describes the arguments required to create the introspection worker.
 type Config struct {
 	SocketName         string
-	DepEngine          DepEngineReporter
+	DepEngine          DependencyEngine
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
+	FlightRecorder     flightrecorder.FlightRecorder
 }
 
 // Validate checks the config values to assert they are valid to create the worker.
@@ -55,17 +58,24 @@ func (c *Config) Validate() error {
 	if c.PrometheusGatherer == nil {
 		return errors.NotValidf("nil PrometheusGatherer")
 	}
+	if c.FlightRecorder == nil {
+		return errors.NotValidf("nil FlightRecorder")
+	}
 	return nil
 }
 
 // socketListener is a worker and constructed with NewWorker.
 type socketListener struct {
-	tomb               tomb.Tomb
-	listener           net.Listener
-	depEngine          DepEngineReporter
-	machineLock        machinelock.Lock
+	tomb tomb.Tomb
+
+	listener    net.Listener
+	depEngine   DependencyEngine
+	machineLock machinelock.Lock
+
 	prometheusGatherer prometheus.Gatherer
-	done               chan struct{}
+	flightRecorder     flightrecorder.FlightRecorder
+
+	done chan struct{}
 }
 
 // NewWorker starts an http server listening on an abstract domain socket
@@ -77,14 +87,15 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if runtime.GOOS != "linux" {
 		return nil, errors.NotSupportedf("os %q", runtime.GOOS)
 	}
-	l, err := sockets.Listen(sockets.Socket{
 
+	l, err := sockets.Listen(sockets.Socket{
 		Network: "unix",
 		Address: config.SocketName,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to listen on unix socket")
 	}
+
 	logger.Debugf(context.Background(), "introspection worker listening on %q", config.SocketName)
 
 	w := &socketListener{
@@ -92,6 +103,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		depEngine:          config.DepEngine,
 		machineLock:        config.MachineLock,
 		prometheusGatherer: config.PrometheusGatherer,
+		flightRecorder:     config.FlightRecorder,
 		done:               make(chan struct{}),
 	}
 	w.tomb.Go(w.serve)
@@ -154,9 +166,9 @@ func (w *socketListener) RegisterHTTPHandlers(
 	handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
-	handle("/depengine", depengineHandler{w.depEngine})
+	handle("/depengine", depengineHandler{reporter: w.depEngine})
 	handle("/metrics", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
-	handle("/machinelock", machineLockHandler{w.machineLock})
+	handle("/machinelock", machineLockHandler{lock: w.machineLock})
 	// The trailing slash is kept for metrics because we don't want to
 	// break the metrics exporting that is using the internal charm. Since
 	// we don't know if it is using the exported shell function, or calling
@@ -164,7 +176,12 @@ func (w *socketListener) RegisterHTTPHandlers(
 	handle("/metrics/", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
 
 	// TODO(leases) - add metrics
-	handle("/leases", notSupportedHandler{"Leases"})
+	handle("/leases", notSupportedHandler{name: "Leases"})
+
+	// Flight recorder.
+	handle("/flightrecorder/start", introspectionflightrecorder.StartHandler(w.flightRecorder))
+	handle("/flightrecorder/stop", introspectionflightrecorder.StopHandler(w.flightRecorder))
+	handle("/flightrecorder/capture", introspectionflightrecorder.CaptureHandler(w.flightRecorder))
 }
 
 type notSupportedHandler struct {
@@ -177,7 +194,7 @@ func (h notSupportedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type depengineHandler struct {
-	reporter DepEngineReporter
+	reporter DependencyEngine
 }
 
 // ServeHTTP is part of the http.Handler interface.
