@@ -111,6 +111,10 @@ type ExternalControllerService interface {
 
 // CrossModelRelationService provides access to cross-model relations.
 type CrossModelRelationService interface {
+	// AddRelationNetworkEgress adds egress network CIDRs for the specified
+	// relation.
+	AddRelationNetworkEgress(ctx context.Context, relationKey corerelation.Key, cidrs ...string) error
+
 	// AddRemoteApplicationOfferer adds a new synthetic application representing
 	// an offer from an external model, to this, the consuming model.
 	AddRemoteApplicationOfferer(

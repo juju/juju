@@ -2934,6 +2934,49 @@ func (m *MockCrossModelRelationService) EXPECT() *MockCrossModelRelationServiceM
 	return m.recorder
 }
 
+// AddRelationNetworkEgress mocks base method.
+func (m *MockCrossModelRelationService) AddRelationNetworkEgress(arg0 context.Context, arg1 relation.Key, arg2 ...string) error {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AddRelationNetworkEgress", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddRelationNetworkEgress indicates an expected call of AddRelationNetworkEgress.
+func (mr *MockCrossModelRelationServiceMockRecorder) AddRelationNetworkEgress(arg0, arg1 any, arg2 ...any) *MockCrossModelRelationServiceAddRelationNetworkEgressCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1}, arg2...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelationNetworkEgress", reflect.TypeOf((*MockCrossModelRelationService)(nil).AddRelationNetworkEgress), varargs...)
+	return &MockCrossModelRelationServiceAddRelationNetworkEgressCall{Call: call}
+}
+
+// MockCrossModelRelationServiceAddRelationNetworkEgressCall wrap *gomock.Call
+type MockCrossModelRelationServiceAddRelationNetworkEgressCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceAddRelationNetworkEgressCall) Return(arg0 error) *MockCrossModelRelationServiceAddRelationNetworkEgressCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceAddRelationNetworkEgressCall) Do(f func(context.Context, relation.Key, ...string) error) *MockCrossModelRelationServiceAddRelationNetworkEgressCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceAddRelationNetworkEgressCall) DoAndReturn(f func(context.Context, relation.Key, ...string) error) *MockCrossModelRelationServiceAddRelationNetworkEgressCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddRemoteApplicationOfferer mocks base method.
 func (m *MockCrossModelRelationService) AddRemoteApplicationOfferer(arg0 context.Context, arg1 string, arg2 service0.AddRemoteApplicationOffererArgs) error {
 	m.ctrl.T.Helper()

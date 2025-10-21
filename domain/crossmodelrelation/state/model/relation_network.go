@@ -9,9 +9,61 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/life"
+	corerelation "github.com/juju/juju/core/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 )
+
+// AddRelationNetworkEgress adds egress network CIDRs for the specified
+// relation. The CIDRs are added to the relation_network_egress table.
+// If a CIDR already exists for the relation, it will be silently ignored
+// due to the primary key constraint.
+//
+// It returns a [relationerrors.RelationNotFound] if the provided relation does
+// not exist.
+func (st *State) AddRelationNetworkEgress(ctx context.Context, relationKey corerelation.Key, cidrs ...string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	endpoints := relationKey.EndpointIdentifiers()
+
+	// Defensive check: this should be validated at the service layer, but we
+	// verify here as well to ensure data integrity.
+	if len(endpoints) != 2 {
+		return errors.Errorf("relation must have exactly 2 endpoints, got %d", len(endpoints))
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Get the relation UUID using the key
+		relationUUID, err := st.getRegularRelationUUIDByEndpointIdentifiers(ctx, tx, endpoints[0], endpoints[1])
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		// Insert each CIDR
+		insertStmt, err := st.Prepare(`
+INSERT INTO relation_network_egress (relation_uuid, cidr)
+VALUES ($relationNetworkEgress.*)
+ON CONFLICT (relation_uuid, cidr) DO NOTHING
+`, relationNetworkEgress{})
+		if err != nil {
+			return errors.Errorf("preparing insert statement: %w", err)
+		}
+
+		for _, cidr := range cidrs {
+			entry := relationNetworkEgress{
+				RelationUUID: relationUUID,
+				CIDR:         cidr,
+			}
+			if err := tx.Query(ctx, insertStmt, entry).Run(); err != nil {
+				return errors.Errorf("inserting CIDR %q for relation %q: %w", cidr, relationKey.String(), err)
+			}
+		}
+		return nil
+	})
+}
 
 // AddRelationNetworkIngress adds ingress network CIDRs for the specified
 // relation.
@@ -136,4 +188,54 @@ WHERE  t.uuid = $uuid.uuid
 	}
 
 	return relationLife.Value, nil
+}
+
+// getRegularRelationUUIDByEndpointIdentifiers returns the relation UUID for a
+// regular (non-peer) relation identified by two endpoint identifiers.
+// It uses the v_relation_endpoint_identifier view to match both endpoints.
+//
+// It returns a [relationerrors.RelationNotFound] if no matching relation
+// exists.
+func (st *State) getRegularRelationUUIDByEndpointIdentifiers(
+	ctx context.Context,
+	tx *sqlair.TX,
+	endpoint1, endpoint2 corerelation.EndpointIdentifier,
+) (string, error) {
+	// Use different types for each endpoint to satisfy sqlair's type system
+	type endpointIdentifier1 endpointIdentifier
+	type endpointIdentifier2 endpointIdentifier
+
+	e1 := endpointIdentifier1{
+		ApplicationName: endpoint1.ApplicationName,
+		EndpointName:    endpoint1.EndpointName,
+	}
+	e2 := endpointIdentifier2{
+		ApplicationName: endpoint2.ApplicationName,
+		EndpointName:    endpoint2.EndpointName,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &uuid.*
+FROM   relation r
+JOIN   v_relation_endpoint_identifier e1 ON r.uuid = e1.relation_uuid
+JOIN   v_relation_endpoint_identifier e2 ON r.uuid = e2.relation_uuid
+WHERE  e1.application_name = $endpointIdentifier1.application_name 
+AND    e1.endpoint_name    = $endpointIdentifier1.endpoint_name
+AND    e2.application_name = $endpointIdentifier2.application_name 
+AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
+`, uuid{}, e1, e2)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result uuid
+	err = tx.Query(ctx, stmt, e1, e2).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", relationerrors.RelationNotFound
+	}
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return result.UUID, nil
 }

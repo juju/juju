@@ -227,6 +227,49 @@ func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
 }
 
+// AddRelationNetworkEgress mocks base method.
+func (m *MockModelState) AddRelationNetworkEgress(arg0 context.Context, arg1 relation.Key, arg2 ...string) error {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AddRelationNetworkEgress", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddRelationNetworkEgress indicates an expected call of AddRelationNetworkEgress.
+func (mr *MockModelStateMockRecorder) AddRelationNetworkEgress(arg0, arg1 any, arg2 ...any) *MockModelStateAddRelationNetworkEgressCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1}, arg2...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelationNetworkEgress", reflect.TypeOf((*MockModelState)(nil).AddRelationNetworkEgress), varargs...)
+	return &MockModelStateAddRelationNetworkEgressCall{Call: call}
+}
+
+// MockModelStateAddRelationNetworkEgressCall wrap *gomock.Call
+type MockModelStateAddRelationNetworkEgressCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateAddRelationNetworkEgressCall) Return(arg0 error) *MockModelStateAddRelationNetworkEgressCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateAddRelationNetworkEgressCall) Do(f func(context.Context, relation.Key, ...string) error) *MockModelStateAddRelationNetworkEgressCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateAddRelationNetworkEgressCall) DoAndReturn(f func(context.Context, relation.Key, ...string) error) *MockModelStateAddRelationNetworkEgressCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddRelationNetworkIngress mocks base method.
 func (m *MockModelState) AddRelationNetworkIngress(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
@@ -1678,6 +1721,49 @@ func NewMockModelRelationNetworkState(ctrl *gomock.Controller) *MockModelRelatio
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelRelationNetworkState) EXPECT() *MockModelRelationNetworkStateMockRecorder {
 	return m.recorder
+}
+
+// AddRelationNetworkEgress mocks base method.
+func (m *MockModelRelationNetworkState) AddRelationNetworkEgress(arg0 context.Context, arg1 relation.Key, arg2 ...string) error {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AddRelationNetworkEgress", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddRelationNetworkEgress indicates an expected call of AddRelationNetworkEgress.
+func (mr *MockModelRelationNetworkStateMockRecorder) AddRelationNetworkEgress(arg0, arg1 any, arg2 ...any) *MockModelRelationNetworkStateAddRelationNetworkEgressCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1}, arg2...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelationNetworkEgress", reflect.TypeOf((*MockModelRelationNetworkState)(nil).AddRelationNetworkEgress), varargs...)
+	return &MockModelRelationNetworkStateAddRelationNetworkEgressCall{Call: call}
+}
+
+// MockModelRelationNetworkStateAddRelationNetworkEgressCall wrap *gomock.Call
+type MockModelRelationNetworkStateAddRelationNetworkEgressCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelRelationNetworkStateAddRelationNetworkEgressCall) Return(arg0 error) *MockModelRelationNetworkStateAddRelationNetworkEgressCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelRelationNetworkStateAddRelationNetworkEgressCall) Do(f func(context.Context, relation.Key, ...string) error) *MockModelRelationNetworkStateAddRelationNetworkEgressCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelRelationNetworkStateAddRelationNetworkEgressCall) DoAndReturn(f func(context.Context, relation.Key, ...string) error) *MockModelRelationNetworkStateAddRelationNetworkEgressCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // AddRelationNetworkIngress mocks base method.
