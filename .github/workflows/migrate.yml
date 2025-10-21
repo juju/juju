@@ -76,6 +76,11 @@ jobs:
           juju switch controller
           juju wait-for application controller
 
+          
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+          
       - name: Migrate model to target controller
         run: |
           # Determine which Juju client to use
