@@ -8,19 +8,73 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/docker/registry"
+	"github.com/juju/juju/rpc/params"
 )
+
+// UpgraderAPI holds the common methods for upgrading agents in controllers and models.
+// At the moment it is used to dynamically register the facade because the facade names
+// are the same for both [ControllerUpgraderAPI] and [ModelUpgraderAPI].
+// See [Register] func.
+type UpgraderAPI interface {
+	AbortModelUpgrade(ctx context.Context, arg params.ModelParam) error
+	UpgradeModel(
+		ctx context.Context,
+		arg params.UpgradeModelParams,
+	) (result params.UpgradeModelResult, err error)
+}
+
+// UpgradeAPI represents the model upgrader facade. This type exist to sastify
+// registration requirements of providing a singular type to must register.
+// Behind this struct is a facade implementation that implements the
+// [UpgradeAPI] interface.
+type UpgradeAPI struct {
+	UpgraderAPI
+}
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegisterForMultiModel("ModelUpgrader", 1, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-		return newFacadeV1(ctx)
-	}, reflect.TypeOf((*ModelUpgraderAPI)(nil)))
+	registry.MustRegisterForMultiModel("ModelUpgrader", 1, func(
+		stdCtx context.Context,
+		ctx facade.MultiModelContext,
+	) (facade.Facade, error) {
+		return newUpgraderFacadeV1(ctx)
+	}, reflect.TypeOf(UpgradeAPI{}))
+}
+
+// newUpgraderFacadeV1 returns which facade to register.
+// It will return a [ControllerUpgraderAPI] if the current model hosts the controller.
+// Otherwise, it defaults to [ModelUpgraderAPI].
+func newUpgraderFacadeV1(ctx facade.MultiModelContext) (UpgradeAPI, error) {
+	auth := ctx.Auth()
+	if !auth.AuthClient() {
+		return UpgradeAPI{}, apiservererrors.ErrPerm
+	}
+
+	if ctx.IsControllerModelScoped() {
+		domainServices := ctx.DomainServices()
+		upgraderAPI := NewControllerUpgraderAPI(
+			names.NewControllerTag(ctx.ControllerUUID()),
+			names.NewModelTag(ctx.ModelUUID().String()),
+			auth,
+			common.NewBlockChecker(domainServices.BlockCommand()),
+			domainServices.ControllerUpgraderService(),
+		)
+		return UpgradeAPI{upgraderAPI}, nil
+	}
+
+	upgraderAPI, err := newFacadeV1(ctx)
+	if err != nil {
+		return UpgradeAPI{}, errors.Trace(err)
+	}
+
+	return UpgradeAPI{UpgraderAPI: upgraderAPI}, nil
 }
 
 // newFacadeV1 is used for API registration.

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/modelagent"
@@ -25,7 +24,7 @@ type agentFinderSuite struct {
 	ctrlSt       *MockAgentFinderControllerState
 	modelSt      *MockAgentFinderControllerModelState
 	agentFinder  *MockSimpleStreamsAgentFinder
-	bootstrapEnv *mocks.MockBootstrapEnviron
+	bootstrapEnv *MockBootstrapEnviron
 }
 
 // TestAgentFinderSuite runs the test methods in agentFinderSuite.
@@ -40,7 +39,7 @@ func (s *agentFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.ctrlSt = NewMockAgentFinderControllerState(ctrl)
 	s.modelSt = NewMockAgentFinderControllerModelState(ctrl)
 	s.agentFinder = NewMockSimpleStreamsAgentFinder(ctrl)
-	s.bootstrapEnv = mocks.NewMockBootstrapEnviron(ctrl)
+	s.bootstrapEnv = NewMockBootstrapEnviron(ctrl)
 
 	c.Cleanup(func() {
 		s.ctrlSt = nil
