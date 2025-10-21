@@ -118,13 +118,21 @@ type filesystemAttachmentParams struct {
 	ReadOnly   sql.Null[bool]   `db:"read_only"`
 }
 
-// filesystemParams represents the attachment params for a filesystem from the
+// filesystemParams represents the provisioning params for a filesystem from the
 // model database.
 type filesystemParams struct {
 	FilesystemID string           `db:"filesystem_id"`
 	Type         string           `db:"type"`
 	SizeMiB      uint64           `db:"size_mib"`
 	VolumeID     sql.Null[string] `db:"volume_id"`
+}
+
+// filesystemRemovalParams represents the removal params for a filesystem from
+// the model database.
+type filesystemRemovalParams struct {
+	Type       string         `db:"type"`
+	ProviderID string         `db:"provider_id"`
+	Obliterate sql.Null[bool] `db:"obliterate_on_cleanup"`
 }
 
 // filesystemUUID represents the UUID of a record in the filesystem table.

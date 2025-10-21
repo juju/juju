@@ -961,6 +961,80 @@ WHERE  sf.uuid = $filesystemUUID.uuid
 	return retVal, nil
 }
 
+// GetFilesystemRemovalParams returns the parameters needed to remove a
+// filesystem.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+// for the provided uuid.
+func (st *State) GetFilesystemRemovalParams(
+	ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+) (storageprovisioning.FilesystemRemovalParams, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return storageprovisioning.FilesystemRemovalParams{}, errors.Capture(err)
+	}
+
+	var (
+		input     = filesystemUUID{UUID: uuid.String()}
+		paramsVal filesystemRemovalParams
+	)
+
+	paramsStmt, err := st.Prepare(`
+SELECT &filesystemRemovalParams.* FROM (
+    SELECT sf.provider_id,
+           sf.obliterate_on_cleanup,
+           sp.type
+    FROM   storage_filesystem sf
+    JOIN   storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sf.uuid
+    JOIN   storage_instance si ON sif.storage_instance_uuid = si.uuid
+    JOIN   storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    WHERE  sf.uuid = $filesystemUUID.uuid
+)
+`,
+		paramsVal, input,
+	)
+	if err != nil {
+		return storageprovisioning.FilesystemRemovalParams{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkFilesystemExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf("checking if filesystem %q exists: %w", uuid, err)
+		}
+		if !exists {
+			return errors.Errorf(
+				"filesystem %q does not exist", uuid,
+			).Add(storageprovisioningerrors.FilesystemNotFound)
+		}
+
+		err = tx.Query(ctx, paramsStmt, input).Get(&paramsVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New(
+				"filesystem is not associated with a storage instance",
+			)
+		} else if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return storageprovisioning.FilesystemRemovalParams{}, errors.Capture(err)
+	}
+
+	retVal := storageprovisioning.FilesystemRemovalParams{
+		Provider:   paramsVal.Type,
+		ProviderID: paramsVal.ProviderID,
+	}
+	if paramsVal.Obliterate.Valid {
+		retVal.Obliterate = paramsVal.Obliterate.V
+	}
+
+	return retVal, nil
+}
+
 // GetFilesystemUUIDForID returns the uuid for a filesystem with the supplied
 // id.
 //
