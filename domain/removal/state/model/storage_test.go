@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -135,6 +136,102 @@ func (s *storageSuite) TestDeleteStorageAttachmentSuccess(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestGetVolumeLife(c *tc.C) {
+	volUUID := s.addVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetVolumeLife(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+}
+
+func (s *storageSuite) TestGetVolumeLifeNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetVolumeLife(c.Context(), "some-vol-uuid")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *storageSuite) TestVolumeScheduleRemovalSuccess(c *tc.C) {
+	volUUID := s.addVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.VolumeScheduleRemoval(
+		c.Context(), "removal-uuid", volUUID, false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	row := s.DB().QueryRow(
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
+		"removal-uuid",
+	)
+	var (
+		removalTypeID int
+		rUUID         string
+		force         bool
+		scheduledFor  time.Time
+	)
+	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalTypeID, tc.Equals, 7)
+	c.Check(rUUID, tc.Equals, volUUID)
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *storageSuite) TestGetFilesystemLife(c *tc.C) {
+	fsUUID := s.addFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetFilesystemLife(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+}
+
+func (s *storageSuite) TestGetFilesystemLifeNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetFilesystemLife(c.Context(), "some-vol-uuid")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+func (s *storageSuite) TestFilesystemScheduleRemovalSuccess(c *tc.C) {
+	fsUUID := s.addFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.FilesystemScheduleRemoval(
+		c.Context(), "removal-uuid", fsUUID, false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	row := s.DB().QueryRow(
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
+		"removal-uuid",
+	)
+	var (
+		removalTypeID int
+		rUUID         string
+		force         bool
+		scheduledFor  time.Time
+	)
+	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalTypeID, tc.Equals, 8)
+	c.Check(rUUID, tc.Equals, fsUUID)
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
+}
+
 // addAppUnitStorage sets up a unit with a storage attachment.
 // The storage instance and attachment UUIDs are returned.
 func (s *storageSuite) addAppUnitStorage(c *tc.C) (string, string) {
@@ -189,4 +286,30 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 	c.Assert(err, tc.ErrorIsNil)
 
 	return storageInstance, storageAttachment
+}
+
+func (s *storageSuite) addVolume(c *tc.C) string {
+	ctx := c.Context()
+
+	volUUID := "some-vol-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		volUUID, "some-vol", 0, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volUUID
+}
+
+func (s *storageSuite) addFilesystem(c *tc.C) string {
+	ctx := c.Context()
+
+	fsUUID := "some-fs-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		fsUUID, "some-fs", 0, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID
 }
