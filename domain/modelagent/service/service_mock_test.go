@@ -18,7 +18,6 @@ import (
 	machine "github.com/juju/juju/core/machine"
 	semversion "github.com/juju/juju/core/semversion"
 	unit "github.com/juju/juju/core/unit"
-	agentbinary0 "github.com/juju/juju/domain/agentbinary"
 	modelagent "github.com/juju/juju/domain/modelagent"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -943,41 +942,41 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 	return m.recorder
 }
 
-// GetControllerAgentVersionsByArchitecture mocks base method.
-func (m *MockControllerState) GetControllerAgentVersionsByArchitecture(arg0 context.Context, arg1 []agentbinary0.Architecture) (map[agentbinary0.Architecture][]semversion.Number, error) {
+// GetControllerAgentVersions mocks base method.
+func (m *MockControllerState) GetControllerAgentVersions(arg0 context.Context) ([]semversion.Number, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControllerAgentVersionsByArchitecture", arg0, arg1)
-	ret0, _ := ret[0].(map[agentbinary0.Architecture][]semversion.Number)
+	ret := m.ctrl.Call(m, "GetControllerAgentVersions", arg0)
+	ret0, _ := ret[0].([]semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetControllerAgentVersionsByArchitecture indicates an expected call of GetControllerAgentVersionsByArchitecture.
-func (mr *MockControllerStateMockRecorder) GetControllerAgentVersionsByArchitecture(arg0, arg1 any) *MockControllerStateGetControllerAgentVersionsByArchitectureCall {
+// GetControllerAgentVersions indicates an expected call of GetControllerAgentVersions.
+func (mr *MockControllerStateMockRecorder) GetControllerAgentVersions(arg0 any) *MockControllerStateGetControllerAgentVersionsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerAgentVersionsByArchitecture", reflect.TypeOf((*MockControllerState)(nil).GetControllerAgentVersionsByArchitecture), arg0, arg1)
-	return &MockControllerStateGetControllerAgentVersionsByArchitectureCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerAgentVersions", reflect.TypeOf((*MockControllerState)(nil).GetControllerAgentVersions), arg0)
+	return &MockControllerStateGetControllerAgentVersionsCall{Call: call}
 }
 
-// MockControllerStateGetControllerAgentVersionsByArchitectureCall wrap *gomock.Call
-type MockControllerStateGetControllerAgentVersionsByArchitectureCall struct {
+// MockControllerStateGetControllerAgentVersionsCall wrap *gomock.Call
+type MockControllerStateGetControllerAgentVersionsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerStateGetControllerAgentVersionsByArchitectureCall) Return(arg0 map[agentbinary0.Architecture][]semversion.Number, arg1 error) *MockControllerStateGetControllerAgentVersionsByArchitectureCall {
+func (c *MockControllerStateGetControllerAgentVersionsCall) Return(arg0 []semversion.Number, arg1 error) *MockControllerStateGetControllerAgentVersionsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerStateGetControllerAgentVersionsByArchitectureCall) Do(f func(context.Context, []agentbinary0.Architecture) (map[agentbinary0.Architecture][]semversion.Number, error)) *MockControllerStateGetControllerAgentVersionsByArchitectureCall {
+func (c *MockControllerStateGetControllerAgentVersionsCall) Do(f func(context.Context) ([]semversion.Number, error)) *MockControllerStateGetControllerAgentVersionsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateGetControllerAgentVersionsByArchitectureCall) DoAndReturn(f func(context.Context, []agentbinary0.Architecture) (map[agentbinary0.Architecture][]semversion.Number, error)) *MockControllerStateGetControllerAgentVersionsByArchitectureCall {
+func (c *MockControllerStateGetControllerAgentVersionsCall) DoAndReturn(f func(context.Context) ([]semversion.Number, error)) *MockControllerStateGetControllerAgentVersionsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

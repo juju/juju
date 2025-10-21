@@ -18,7 +18,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	agentbinarydomain "github.com/juju/juju/domain/agentbinary"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/modelagent"
@@ -199,12 +198,9 @@ type ModelState interface {
 // ControllerState defines the interface for interacting with the
 // underlying model that hosts the current controller(s).
 type ControllerState interface {
-	// GetControllerAgentVersionsByArchitecture has the responsibility of
+	// GetControllerAgentVersions has the responsibility of
 	// getting the agent versions of all the controllers.
-	GetControllerAgentVersionsByArchitecture(
-		context.Context,
-		[]agentbinarydomain.Architecture,
-	) (map[agentbinarydomain.Architecture][]semversion.Number, error)
+	GetControllerAgentVersions(context.Context) ([]semversion.Number, error)
 }
 
 // WatcherFactory provides a factory for constructing new watchers.
@@ -646,7 +642,7 @@ func (s *Service) UpgradeModelTargetAgentVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	recommendedVersion, err := s.getHighestAgentVersion(ctx)
+	recommendedVersion, err := s.getRecommendedVersion(ctx)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
@@ -708,7 +704,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStream(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	recommendedVersion, err := s.getHighestAgentVersion(ctx)
+	recommendedVersion, err := s.getRecommendedVersion(ctx)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
@@ -959,7 +955,7 @@ func (s *Service) validateModelCanBeUpgradedTo(
 		).Add(modelagenterrors.DowngradeNotSupported)
 	}
 
-	currentControllerVersion, err := s.getHighestAgentVersion(ctx)
+	currentControllerVersion, err := s.getRecommendedVersion(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -995,44 +991,29 @@ func (s *Service) validateModelCanBeUpgradedTo(
 	return nil
 }
 
-// getHighestAgentVersion has the responsibility of getting the versions by
-// the supplied architectures. It is then filtered to find the highest version
-// among each architecture. The highest version is returned to the caller.
-func (s *Service) getHighestAgentVersion(
+// getRecommendedVersion has the responsibility of getting the agent versions
+// for all controllers.
+// It is then sorted to find the highest version in which it is returned to the
+// caller.
+func (s *Service) getRecommendedVersion(
 	ctx context.Context,
 ) (semversion.Number, error) {
-	// TODO(adisazhar123): Get architectures from DB rather than hardcoding.
-	architectures := []agentbinarydomain.Architecture{agentbinarydomain.AMD64}
-	architecturesAndVersions, err := s.controllerSt.
-		GetControllerAgentVersionsByArchitecture(
-			ctx,
-			architectures,
-		)
+	versions, err := s.controllerSt.
+		GetControllerAgentVersions(ctx)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
 
-	// TODO(adisazhar123): Improve handling to:
-	// - support missing architectures
-	// - handle cases where multiple architectures have different highest versions
-	highestVersion := semversion.Zero
-	for _, versions := range architecturesAndVersions {
-		slices.SortFunc(versions, func(a, b semversion.Number) int {
-			if a.Compare(b) < 0 {
-				return -1
-			} else if a.Compare(b) == 0 {
-				return 0
-			}
-			return 1
-		})
-
-		foundHigherVersion := highestVersion.Compare(versions[len(versions)-1]) < 0
-		if foundHigherVersion {
-			highestVersion = versions[len(versions)-1]
-		}
+	if len(versions) == 0 {
+		return semversion.Zero, errors.New("no recommended versions found")
 	}
 
-	return highestVersion, nil
+	// Sort it descendingly so the highest version is the first element.
+	slices.SortFunc(versions, func(a, b semversion.Number) int {
+		return a.Compare(b) * -1
+	})
+
+	return versions[0], nil
 }
 
 // WatchMachineTargetAgentVersion is responsible for watching the target agent

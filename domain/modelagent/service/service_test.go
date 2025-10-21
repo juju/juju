@@ -17,7 +17,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain/agentbinary"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/modelagent"
@@ -777,12 +776,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionControllerModel(c 
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil).Times(2)
+	).Return([]semversion.Number{desiredVersion}, nil).AnyTimes()
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
@@ -802,12 +798,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionMachineBaseValidat
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil).Times(2)
+	).Return([]semversion.Number{desiredVersion}, nil).AnyTimes()
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
@@ -833,19 +826,15 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersion(c *tc.C) {
 	desiredVersion := semversion.MustParse("4.0.5")
 	// Our service has logic to narrow down to pick the highest version
 	// which is `desiredVersion`.
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(
-		map[agentbinary.Architecture][]semversion.Number{
-			agentbinary.AMD64: {
-				version2,
-				version3,
-				desiredVersion,
-				version4,
-				version1,
-			},
-		}, nil).Times(2)
+	).Return([]semversion.Number{
+		version2,
+		version3,
+		desiredVersion,
+		version4,
+		version1,
+	}, nil).AnyTimes()
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
@@ -872,12 +861,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamControllerMo
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil).Times(2)
+	).Return([]semversion.Number{desiredVersion}, nil).AnyTimes()
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
@@ -898,12 +884,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamNotValid(c *
 
 	agentStream := modelagent.AgentStream(-1)
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil)
+	).Return([]semversion.Number{desiredVersion}, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
 	_, err := svc.UpgradeModelTargetAgentVersionStream(c.Context(), agentStream)
@@ -911,7 +894,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamNotValid(c *
 }
 
 // TestUpgradeModelTargetAgentVersionStreamMachineBaseValidation tests that if a
-// caller asks for the for the current model's target agent version to be
+// caller asks for the current model's target agent version to be
 // upgraded, but there are machines in the model that are not running a
 // supported base. The upgrade must fail with an error satisfying
 // [modelagenterrors.ModelUpgradeBlocker].
@@ -920,12 +903,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamMachineBaseV
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil).Times(2)
+	).Return([]semversion.Number{desiredVersion}, nil).AnyTimes()
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
@@ -947,12 +927,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStream(c *tc.C) {
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil).Times(2)
+	).Return([]semversion.Number{desiredVersion}, nil).AnyTimes()
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
@@ -995,12 +972,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToOverMax(c *tc.C)
 	defer s.setupMocks(c).Finish()
 	version := semversion.MustParse("4.0.0")
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version, nil)
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {version},
-	}, nil)
+	).Return([]semversion.Number{version}, nil)
 	// This is a version that is greater than the max supported version of the
 	// controller.
 	upgradeTo := version
@@ -1019,12 +993,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToMissingAgentBina
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil)
+	).Return([]semversion.Number{desiredVersion}, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(false, nil)
 
@@ -1041,12 +1012,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToControllerModel(
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil)
+	).Return([]semversion.Number{desiredVersion}, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
@@ -1066,12 +1034,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToMachineBaseValid
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil)
+	).Return([]semversion.Number{desiredVersion}, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
@@ -1090,12 +1055,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionTo(c *tc.C) {
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil)
+	).Return([]semversion.Number{desiredVersion}, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
@@ -1137,12 +1099,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToOverMax(c 
 	defer s.setupMocks(c).Finish()
 
 	version := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {version},
-	}, nil)
+	).Return([]semversion.Number{version}, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version, nil)
 
 	// This is a version that is greater than the max supported version of the
@@ -1165,12 +1124,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToMissingAge
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil)
+	).Return([]semversion.Number{desiredVersion}, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(false, nil)
 
@@ -1189,12 +1145,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToController
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil)
+	).Return([]semversion.Number{desiredVersion}, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
@@ -1233,12 +1186,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToMachineBas
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil)
+	).Return([]semversion.Number{desiredVersion}, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
@@ -1259,12 +1209,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamTo(c *tc.C) 
 
 	currentTargetVersion := s.getVersionMinorLess()
 	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersionsByArchitecture(
+	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
-		[]agentbinary.Architecture{agentbinary.AMD64},
-	).Return(map[agentbinary.Architecture][]semversion.Number{
-		agentbinary.AMD64: {desiredVersion},
-	}, nil)
+	).Return([]semversion.Number{desiredVersion}, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)

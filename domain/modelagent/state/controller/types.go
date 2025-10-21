@@ -3,9 +3,7 @@
 
 package controller
 
-type ids []int
-
-type agentVersionArchitecture struct {
-	Version        string `db:"version"`
-	ArchitectureID int    `db:"architecture_id"`
+// agentVersion represents the version of the agents running in the controller.
+type agentVersion struct {
+	Version string `db:"version"`
 }
