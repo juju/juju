@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/blockdevice"
@@ -161,11 +160,10 @@ type StorageAPIv6 struct {
 
 // StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
-	applicationService  ApplicationService
-	blockCommandService common.BlockCommandService
-	blockDeviceService  BlockDeviceService
-	removalService      RemovalService
-	storageService      StorageService
+	applicationService ApplicationService
+	blockDeviceService BlockDeviceService
+	removalService     RemovalService
+	storageService     StorageService
 
 	authorizer     facade.Authorizer
 	controllerUUID string
@@ -177,17 +175,15 @@ func NewStorageAPI(
 	modelUUID coremodel.UUID,
 	authorizer facade.Authorizer,
 	applicationService ApplicationService,
-	blockCommandService common.BlockCommandService,
 	blockDeviceService BlockDeviceService,
 	removalService RemovalService,
 	storageService StorageService,
 ) *StorageAPI {
 	return &StorageAPI{
-		applicationService:  applicationService,
-		blockCommandService: blockCommandService,
-		blockDeviceService:  blockDeviceService,
-		removalService:      removalService,
-		storageService:      storageService,
+		applicationService: applicationService,
+		blockDeviceService: blockDeviceService,
+		removalService:     removalService,
+		storageService:     storageService,
 
 		authorizer:     authorizer,
 		controllerUUID: controllerUUID,

@@ -66,12 +66,12 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerUUID, s.modelUUID,
 		s.blockDeviceService,
 		s.storageService, s.applicationService,
-		s.authorizer, s.blockCommandService)
+		s.authorizer)
 	s.apiCaas = storage.NewStorageAPI(
 		s.controllerUUID, s.modelUUID,
 		s.blockDeviceService,
 		s.storageService, s.applicationService,
-		s.authorizer, s.blockCommandService)
+		s.authorizer)
 
 	return ctrl
 }
