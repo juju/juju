@@ -580,7 +580,10 @@ VALUES (?, 'some-model', ?, 0)`
 	_, err = s.DB().ExecContext(ctx, q, sID, unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.advanceUnitLife(c, unitUUID, life.Dead)
+	// We only check the unit life for "alive" in the state layer.
+	// The service layer is responsible for calling DeleteUnit according
+	// to its current life value and whether a forced removal is being actioned.
+	s.advanceUnitLife(c, unitUUID, life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
