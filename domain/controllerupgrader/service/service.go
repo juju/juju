@@ -143,8 +143,6 @@ func (s *Service) UpgradeController(
 		)
 	}
 
-	err = s.UpgradeControllerToVersion(ctx, desiredVersion)
-
 	// NOTE (tlm): Because this func uses
 	// [Service.UpgradeControllerToVersion] to compose its implementation. This
 	// func must handle the contract of UpgradeControllerToVersion. Specifically
@@ -152,6 +150,8 @@ func (s *Service) UpgradeController(
 	// below switch statement re-writes the error cases to better explain the
 	// very unlikely error that has occurred. These exists to point a developer
 	// at the problem and not to offer any actionable item for a caller.
+	err = s.UpgradeControllerToVersion(ctx, desiredVersion)
+
 	switch {
 	case errors.Is(err, controllerupgradererrors.DowngradeNotSupported):
 		return semversion.Zero, errors.Errorf(
@@ -210,16 +210,16 @@ func (s *Service) UpgradeControllerWithStream(
 		)
 	}
 
-	err = s.UpgradeControllerToVersionAndStream(ctx, desiredVersion, stream)
-
 	// NOTE (tlm): Because this func uses
-	// [Service.UpgradeControllerToVersionAndStream] to compose its
+	// [Service.UpgradeControllerToVersionWithStream] to compose its
 	// implementation. This func must handle the contract of
-	// UpgradeControllerToVersionAndStream. Specifically the errors returned
-	// don't align with the expecations of the caller. The
+	// UpgradeControllerToVersionWithStream. Specifically the errors returned
+	// don't align with the expectations of the caller. The
 	// below switch statement re-writes the error cases to better explain the
 	// very unlikely error that has occurred. These exists to point a developer
 	// at the problem and not to offer any actionable item for a caller.
+	err = s.UpgradeControllerToVersionWithStream(ctx, desiredVersion, stream)
+
 	switch {
 	case errors.Is(err, modelagenterrors.AgentStreamNotValid):
 		return semversion.Zero, err
@@ -336,7 +336,7 @@ func (s *Service) UpgradeControllerToVersion(
 // to is not valid.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
-func (s *Service) UpgradeControllerToVersionAndStream(
+func (s *Service) UpgradeControllerToVersionWithStream(
 	ctx context.Context,
 	desiredVersion semversion.Number,
 	stream modelagent.AgentStream,

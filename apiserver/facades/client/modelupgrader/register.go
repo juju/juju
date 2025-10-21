@@ -24,7 +24,10 @@ import (
 // See [Register] func.
 type UpgraderAPI interface {
 	AbortModelUpgrade(ctx context.Context, arg params.ModelParam) error
-	UpgradeModel(ctx context.Context, arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error)
+	UpgradeModel(
+		ctx context.Context,
+		arg params.UpgradeModelParams,
+	) (result params.UpgradeModelResult, err error)
 }
 
 // UpgradeAPI represents the model upgrader facade. This type exist to sastify
@@ -37,7 +40,10 @@ type UpgradeAPI struct {
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegisterForMultiModel("ModelUpgrader", 1, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
+	registry.MustRegisterForMultiModel("ModelUpgrader", 1, func(
+		stdCtx context.Context,
+		ctx facade.MultiModelContext,
+	) (facade.Facade, error) {
 		return newUpgraderFacadeV1(ctx)
 	}, reflect.TypeOf(UpgradeAPI{}))
 }
@@ -50,24 +56,20 @@ func newUpgraderFacadeV1(ctx facade.MultiModelContext) (UpgradeAPI, error) {
 	if !auth.AuthClient() {
 		return UpgradeAPI{}, apiservererrors.ErrPerm
 	}
-	var (
-		upgraderAPI UpgraderAPI
-		err         error
-	)
 
 	if ctx.IsControllerModelScoped() {
 		domainServices := ctx.DomainServices()
-		upgraderAPI, err = NewControllerUpgraderAPI(
+		upgraderAPI := NewControllerUpgraderAPI(
 			names.NewControllerTag(ctx.ControllerUUID()),
 			names.NewModelTag(ctx.ModelUUID().String()),
 			auth,
 			common.NewBlockChecker(domainServices.BlockCommand()),
 			domainServices.ControllerUpgraderService(),
-		), nil
-	} else {
-		upgraderAPI, err = newFacadeV1(ctx)
+		)
+		return UpgradeAPI{upgraderAPI}, nil
 	}
 
+	upgraderAPI, err := newFacadeV1(ctx)
 	if err != nil {
 		return UpgradeAPI{}, errors.Trace(err)
 	}

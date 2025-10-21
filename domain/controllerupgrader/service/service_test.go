@@ -129,13 +129,16 @@ func (s *serviceSuite) TestUpgradeControllerWithInvalidStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	_, err := svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStream(-1))
+	_, err := svc.UpgradeControllerWithStream(
+		c.Context(),
+		modelagent.AgentStream(-1),
+	)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentStreamNotValid)
 }
 
 // TestUpgradeControllerWithErrorDowngrade tests the downstream error
-// [controllerupgradererrors.DowngradeNotSupported] is mapped to an error
-// that loses the [controllerupgradererrors.DowngradeNotSupported] type.
+// [controllerupgradererrors.DowngradeNotSupported] is rewritten
+// to a downgrade error message.
 func (s *serviceSuite) TestUpgradeControllerWithErrorDowngrade(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -156,12 +159,11 @@ func (s *serviceSuite) TestUpgradeControllerWithErrorDowngrade(c *tc.C) {
 		"upgrading controller to recommended version %q is considered a downgrade",
 		downGradeVersion),
 	)
-	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.DowngradeNotSupported)
 }
 
 // TestUpgradeControllerWithErrorDowngrade tests the downstream error
-// [controllerupgradererrors.VersionNotSupported] is mapped to an error
-// that loses the [controllerupgradererrors.VersionNotSupported] type.
+// [controllerupgradererrors.VersionNotSupported] is rewritten to an upgrade
+// not supported error message.
 func (s *serviceSuite) TestUpgradeControllerWithErrorVersionNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -182,12 +184,11 @@ func (s *serviceSuite) TestUpgradeControllerWithErrorVersionNotSupported(c *tc.C
 		"upgrading controller to recommended version %q is not supported",
 		majorVersionChange),
 	)
-	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.VersionNotSupported)
 }
 
 // TestUpgradeControllerWithMissingControllerBinaries tests the downstream error
-// [controllerupgradererrors.MissingControllerBinaries] is mapped to an error
-// that loses the [controllerupgradererrors.MissingControllerBinaries] type.
+// [controllerupgradererrors.MissingControllerBinaries] is rewritten to a
+// missing binaries error message.
 func (s *serviceSuite) TestUpgradeControllerWithMissingControllerBinaries(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -218,7 +219,6 @@ func (s *serviceSuite) TestUpgradeControllerWithMissingControllerBinaries(c *tc.
 		"updating controller to recommended version %q is missing agent binaries",
 		highestVersion),
 	)
-	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.VersionNotSupported)
 }
 
 // TestUpgradeControllerWithStreamNodeBlocker tests the case where a controller
@@ -258,8 +258,8 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamNodeBlocker(c *tc.C) {
 }
 
 // TestUpgradeControllerWithStreamErrorDowngrade tests the downstream error
-// [controllerupgradererrors.DowngradeNotSupported] is mapped to an error
-// that loses the [controllerupgradererrors.DowngradeNotSupported] type.
+// [controllerupgradererrors.DowngradeNotSupported] is rewritten
+// to a downgrade error message.
 func (s *serviceSuite) TestUpgradeControllerWithStreamErrorDowngrade(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -280,12 +280,11 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamErrorDowngrade(c *tc.C) {
 		"upgrading controller to recommended version %q is considered a downgrade",
 		downGradeVersion),
 	)
-	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.DowngradeNotSupported)
 }
 
-// TestUpgradeControllerWithStreamErrorVersionNotSupported tests the downstream error
-// [controllerupgradererrors.VersionNotSupported] is mapped to an error
-// that loses the [controllerupgradererrors.VersionNotSupported] type.
+// TestUpgradeControllerWithStreamErrorVersionNotSupported tests the downstream
+// error [controllerupgradererrors.VersionNotSupported] is rewritten to an
+// upgrade not supported error message.
 func (s *serviceSuite) TestUpgradeControllerWithStreamErrorVersionNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -306,12 +305,11 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamErrorVersionNotSupported(c
 		"upgrading controller to recommended version %q is not supported",
 		majorVersionChange),
 	)
-	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.VersionNotSupported)
 }
 
-// TestUpgradeControllerWithStreamMissingControllerBinaries tests the downstream error
-// [controllerupgradererrors.MissingControllerBinaries] is mapped to an error
-// that loses the [controllerupgradererrors.MissingControllerBinaries] type.
+// TestUpgradeControllerWithStreamMissingControllerBinaries tests the downstream
+// error [controllerupgradererrors.MissingControllerBinaries] is rewritten to a
+// missing binaries error message.
 func (s *serviceSuite) TestUpgradeControllerWithStreamMissingControllerBinaries(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -347,7 +345,6 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamMissingControllerBinaries(
 		"updating controller to recommended version %q is missing agent binaries",
 		highestVersion),
 	)
-	c.Check(err, tc.Not(tc.ErrorIs), controllerupgradererrors.VersionNotSupported)
 }
 
 // TestUpgradeControllerWithStream tests the happy path for upgrading a
@@ -690,7 +687,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamZero(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err := svc.UpgradeControllerToVersionAndStream(
+	err := svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		semversion.Zero,
 		modelagent.AgentStreamProposed,
@@ -716,7 +713,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamDowngrade(c *tc.C)
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionAndStream(
+	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		downGradeVersion,
 		modelagent.AgentStreamProposed,
@@ -770,7 +767,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNoChange(c *tc.C) 
 		Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionAndStream(
+	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamDevel,
@@ -797,7 +794,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamGreaterThanPatch(c
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionAndStream(
+	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamProposed,
@@ -834,7 +831,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamMissingBinaries(c 
 	).Return(false, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionAndStream(
+	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamProposed,
@@ -853,7 +850,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamInvalidStream(c *t
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionAndStream(
+	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStream(-1),
@@ -888,7 +885,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNodeBlocker(c *tc.
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionAndStream(
+	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamProposed,
@@ -954,7 +951,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionAndStream(
+	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamDevel,
@@ -990,7 +987,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 		nil,
 	)
 
-	err = svc.UpgradeControllerToVersionAndStream(
+	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamDevel,
@@ -1039,7 +1036,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	err = svc.UpgradeControllerToVersionAndStream(
+	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
 		modelagent.AgentStreamTesting,
