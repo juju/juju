@@ -15,7 +15,7 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Storage", 6, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newStorageAPIV6(ctx) // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
+		return newStorageAPIV6(ctx) // modify Remove to support force and maxWait;
 	}, reflect.TypeOf((*StorageAPIv6)(nil)))
 
 	registry.MustRegister("Storage", 7, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
@@ -42,13 +42,13 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	storageService := domainServices.Storage()
 	return NewStorageAPI(
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
-		domainServices.BlockDevice(),
-		storageService,
-		domainServices.Application(),
 		authorizer,
-		domainServices.BlockCommand()), nil
+		domainServices.Application(),
+		domainServices.BlockDevice(),
+		domainServices.Removal(),
+		domainServices.Storage(),
+	), nil
 }

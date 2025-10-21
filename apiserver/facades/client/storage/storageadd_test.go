@@ -10,7 +10,6 @@ import (
 )
 
 type storageAddSuite struct {
-	baseStorageSuite
 }
 
 func TestStorageAddSuite(t *testing.T) {

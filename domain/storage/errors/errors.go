@@ -34,9 +34,9 @@ const (
 	// StorageAttachmentNotFound is used when a storage attachment cannot be found.
 	StorageAttachmentNotFound = errors.ConstError("storage attachment not found")
 
-	// StorageNotFound describes an error that occurs when the storage being operated
-	// on does not exist.
-	StorageNotFound = errors.ConstError("storage not found")
+	// StorageInstanceNotFound describes an error that occurs when the storage
+	// instance being operated on does not exist.
+	StorageInstanceNotFound = errors.ConstError("storage instance not found")
 
 	// VolumeNotFound describes an error that occurs when the volume being operated
 	// on does not exist.

@@ -11,6 +11,22 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// UnitStorageMinViolation describes an error that occurs when a unit's charm
+// required minimum storage count would have been violated. An example of this
+// is if a charm requires 3 storage instances for "data" but an operation on a
+// unit would have resulted in less than the minimum.
+type UnitStorageMinViolation struct {
+	// CharmStorageName is the name of the storage as referenced by the charm.
+	CharmStorageName string
+
+	// RequiredMinimum is the minimum number of storage instances required by
+	// the charm for this storage.
+	RequiredMinimum int
+
+	// UnitUUID is the uuid of the unit for which the violation has occurred.
+	UnitUUID string
+}
+
 const (
 	// ApplicationNotFound describes an error that occurs when the application
 	// being operated on does not exist.
@@ -337,5 +353,15 @@ func (s StorageCountLimitExceeded) Error() string {
 		s.Minimum,
 		maxStr,
 		s.Requested,
+	)
+}
+
+// Error returns a string representation of the [UnitStorageMinViolation] error
+// providing context for the violation. This func implements the [error]
+// interface.
+func (u UnitStorageMinViolation) Error() string {
+	return fmt.Sprintf(
+		"unit %q storage %q minimum requirement %d violated",
+		u.UnitUUID, u.CharmStorageName, u.RequiredMinimum,
 	)
 }

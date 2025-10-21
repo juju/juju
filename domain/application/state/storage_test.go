@@ -78,7 +78,7 @@ func (s *storageSuite) TestGetStorageUUIDByIDNotFound(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 	_, err := st.GetStorageUUIDByID(c.Context(), "pgdata/0")
-	c.Assert(err, tc.ErrorIs, storageerrors.StorageNotFound)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
 }
 
 func (s *applicationStateSuite) createStoragePool(

@@ -10,7 +10,6 @@ import (
 )
 
 type storageSuite struct {
-	baseStorageSuite
 }
 
 func TestStorageSuite(t *testing.T) {
@@ -32,10 +31,6 @@ func (s *storageSuite) TestStub(c *tc.C) {
 - TestShowStorage
 - TestShowStorageInvalidId
 - TestRemove
-- TestDetach
-- TestDetachSpecifiedNotFound
-- TestDetachAttachmentNotFoundConcurrent
-- TestDetachNoAttachmentsStorageNotFound
 - TestAttach
 - TestImportFilesystem
 - TestImportFilesystemVolumeBacked

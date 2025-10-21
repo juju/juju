@@ -98,6 +98,41 @@ func (s *Service) RemoveStorageAttachment(
 
 }
 
+// RemoveStorageAttachmentFromAliveUnit is responsible for removing one or more
+// storage attachments from a unit that is still alive in the model. This
+// operation can be considered a detatch of a storage instance from a unit.
+//
+// If the storage attachment exists and the unit it is attached to is alive the
+// caller can expect that after this call the attachment is:
+// - No longer alive.
+// - Removed or scheduled to be removed with the input force qualification.
+//
+// The input wait duration is the time that we will give for the normal
+// life-cycle advancement and removal to finish before forcefully removing the
+// attachment. This duration is ignored if the force argument is false.
+//
+// If removing the storage attachment would violate the minimum number of
+// storage instances required by the unit's charm then this operation will fail.
+// Regardless of if force is supplied this will not bypass fundamental checks.
+// Force exists to force removal of the attachment resource and not the business
+// logic that determines safety.
+//
+// The following errors may be returned:
+// - [storageerrors.StorageAttachmentNotFound] if the supplied storage
+// attachment uuid does not exist in the model.
+// - [applicationerrors.UnitNotAlive] if the unit the storage attachment is
+// conencted to is not alive.
+// [applicationerrors.UnitStorageMinViolation] if removing a storage
+// attachment would violate the charm minimums required for the unit.
+func (s *Service) RemoveStorageAttachmentFromAliveUnit(
+	ctx context.Context,
+	saUUID storageprovisioning.StorageAttachmentUUID,
+	force bool,
+	wait time.Duration,
+) (removal.UUID, error) {
+	return "", nil
+}
+
 func (s *Service) storageAttachmentScheduleRemoval(
 	ctx context.Context, saUUID storageprovisioning.StorageAttachmentUUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {

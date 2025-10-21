@@ -5,20 +5,25 @@ package storage
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/blockdevice"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/unit"
+	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainremoval "github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -28,6 +33,29 @@ type BlockDeviceService interface {
 	GetBlockDevicesForMachine(
 		ctx context.Context, machineUUID machine.UUID,
 	) ([]blockdevice.BlockDevice, error)
+}
+
+// RemovalService defines the interface required for removing storage related
+// entities in the model on behalf of an API caller.
+type RemovalService interface {
+	// RemoveStorageAttachmentsFromAliveUnit is responsible for removing one or
+	// more storage attachments from a unit that is still alive in the model.
+	// This operation can be considered a detatch of a storage instance from a
+	// unit.
+	//
+	// The following errors may be returned:
+	// - [storageerrors.StorageAttachmentNotFound] if the supplied storage
+	// attachment uuid does not exist in the model.
+	// - [applicationerrors.UnitNotAlive] if the unit the storage attachment is
+	// conencted to is not alive.
+	// - [applicationerrors.UnitStorageMinViolation] if removing a storage
+	// attachment would violate the charm minimums required for the unit.
+	RemoveStorageAttachmentFromAliveUnit(
+		ctx context.Context,
+		uuid domainstorageprovisioning.StorageAttachmentUUID,
+		force bool,
+		wait time.Duration,
+	) (domainremoval.UUID, error)
 }
 
 // StorageService defines apis on the storage service.
@@ -43,6 +71,32 @@ type StorageService interface {
 	// The following errors can be expected:
 	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 	DeleteStoragePool(ctx context.Context, name string) error
+
+	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
+	// [domainstorageprovisioning.StorageAttachmentUUID] associated with the
+	// given storage instance id and unit name.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] if the
+	// storage instance for the supplied uuid no longer exists.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the
+	// unit no longer exists for the supplied uuid.
+	GetStorageAttachmentUUIDForStorageInstanceAndUnit(
+		ctx context.Context,
+		uuid domainstorage.StorageInstanceUUID,
+		unitUUID coreunit.UUID,
+	) (domainstorageprovisioning.StorageAttachmentUUID, error)
+
+	// GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
+	// storage ID.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] if no
+	// storage instance exists for the provided storage id.
+	GetStorageInstanceUUIDForID(
+		ctx context.Context,
+		storageID string,
+	) (domainstorage.StorageInstanceUUID, error)
 
 	// ReplaceStoragePool replaces an existing storage pool with the specified configuration.
 	// The following errors can be expected:
@@ -86,7 +140,16 @@ type StorageService interface {
 
 // ApplicationService defines apis on the application service.
 type ApplicationService interface {
-	GetUnitMachineName(ctx context.Context, unitName unit.Name) (machine.Name, error)
+	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (machine.Name, error)
+
+	// GetUnitUUID returns the UUID for the named unit.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/unit.InvalidUnitName] if the unit name is
+	// invalid.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the
+	// unit doesn't exist.
+	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)
 }
 
 // StorageAPIv6 provides the Storage API facade for version 6.
@@ -96,12 +159,12 @@ type StorageAPIv6 struct {
 
 // StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
-	blockDeviceService  BlockDeviceService
-	storageService      StorageService
-	applicationService  ApplicationService
-	authorizer          facade.Authorizer
-	blockCommandService common.BlockCommandService
+	applicationService ApplicationService
+	blockDeviceService BlockDeviceService
+	removalService     RemovalService
+	storageService     StorageService
 
+	authorizer     facade.Authorizer
 	controllerUUID string
 	modelUUID      coremodel.UUID
 }
@@ -109,20 +172,21 @@ type StorageAPI struct {
 func NewStorageAPI(
 	controllerUUID string,
 	modelUUID coremodel.UUID,
-	blockDeviceService BlockDeviceService,
-	storageService StorageService,
-	applicationService ApplicationService,
 	authorizer facade.Authorizer,
-	blockCommandService common.BlockCommandService,
+	applicationService ApplicationService,
+	blockDeviceService BlockDeviceService,
+	removalService RemovalService,
+	storageService StorageService,
 ) *StorageAPI {
 	return &StorageAPI{
-		controllerUUID:      controllerUUID,
-		modelUUID:           modelUUID,
-		blockDeviceService:  blockDeviceService,
-		storageService:      storageService,
-		applicationService:  applicationService,
-		authorizer:          authorizer,
-		blockCommandService: blockCommandService,
+		applicationService: applicationService,
+		blockDeviceService: blockDeviceService,
+		removalService:     removalService,
+		storageService:     storageService,
+
+		authorizer:     authorizer,
+		controllerUUID: controllerUUID,
+		modelUUID:      modelUUID,
 	}
 }
 
@@ -276,17 +340,161 @@ func (a *StorageAPI) Remove(ctx context.Context, args params.RemoveStorage) (par
 	return params.ErrorResults{Results: result}, nil
 }
 
-// DetachStorage sets the specified storage attachments to Dying, unless they are
-// already Dying or Dead. Any associated, persistent storage will remain
-// alive. This call can be forced.
+// DetachStorage sets the specified storage attachment(s) to Dying, unless they
+// are already Dying or Dead. Any associated, persistent storage will remain
+// alive. This call can be forced to only remove the attachment. Force will not
+// bypass business logic or safety checks.
 func (a *StorageAPI) DetachStorage(
 	ctx context.Context,
 	args params.StorageDetachmentParams,
 ) (params.ErrorResults, error) {
+	var (
+		force    bool
+		waitTime time.Duration
+	)
+	if args.MaxWait != nil && *args.MaxWait < 0 {
+		err := errors.Errorf(
+			"max wait time cannot be a negative number",
+		).Add(coreerrors.NotValid)
+		return params.ErrorResults{}, apiservererrors.ServerError(err)
+	} else if args.MaxWait != nil {
+		waitTime = *args.MaxWait
+	}
 
-	result := make([]params.ErrorResult, len(args.StorageIds.Ids))
+	if args.Force != nil {
+		force = *args.Force
+	}
+
+	processStorageAttachmentID := func(
+		id params.StorageAttachmentId,
+	) error {
+		storageTag, err := names.ParseStorageTag(id.StorageTag)
+		if err != nil {
+			return errors.Errorf(
+				"invalid storage tag %q", id.StorageTag,
+			).Add(coreerrors.NotValid)
+		}
+
+		unitTag, err := names.ParseUnitTag(id.UnitTag)
+		if err != nil {
+			return errors.Errorf(
+				"invalid unit tag %q", id.UnitTag,
+			).Add(coreerrors.NotValid)
+		}
+
+		return a.detachStorageAttachment(
+			ctx,
+			storageTag.Id(),
+			coreunit.Name(unitTag.Id()),
+			force,
+			waitTime,
+		)
+	}
+
+	result := make([]params.ErrorResult, 0, len(args.StorageIds.Ids))
+	for _, attachID := range args.StorageIds.Ids {
+		err := processStorageAttachmentID(attachID)
+		result = append(result, params.ErrorResult{
+			Error: apiservererrors.ServerError(err),
+		})
+	}
 
 	return params.ErrorResults{Results: result}, nil
+}
+
+// detachStorageAttachment detaches exactly one storage attachment for a
+// request. It expects that the caller has processed the supplied tags and can
+// now provide string values representing the entities.
+func (a *StorageAPI) detachStorageAttachment(
+	ctx context.Context,
+	storageID string,
+	unitName coreunit.Name,
+	force bool,
+	wait time.Duration,
+) error {
+	unitUUID, err := a.applicationService.GetUnitUUID(ctx, unitName)
+	switch {
+	case errors.Is(err, coreunit.InvalidUnitName):
+		return errors.Errorf("invalid unit name %q", unitName).Add(
+			coreerrors.NotValid,
+		)
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return errors.Errorf("unit %q does not exist", unitName).Add(coreerrors.NotFound)
+	case err != nil:
+		return errors.Errorf(
+			"getting unit uuid for unit name %q: %w", unitName, err,
+		)
+	}
+
+	storageInstanceUUID, err := a.storageService.GetStorageInstanceUUIDForID(
+		ctx, storageID,
+	)
+	switch {
+	case errors.Is(err, storageerrors.StorageInstanceNotFound):
+		return errors.Errorf("storage %q does not exist", storageID).Add(
+			coreerrors.NotFound,
+		)
+	case err != nil:
+		return errors.Errorf(
+			"getting storage instance uuid for storage id %q: %w", storageID, err,
+		)
+	}
+
+	storageAttachmentUUID, err := a.storageService.
+		GetStorageAttachmentUUIDForStorageInstanceAndUnit(
+			ctx, storageInstanceUUID, unitUUID,
+		)
+	// We purposely ignore not valid errors for the uuids supplied. We have
+	// received these uuids from the domain and not the caller so they can
+	// safely be considered valid.
+	switch {
+	case errors.Is(err, storageerrors.StorageInstanceNotFound):
+		return errors.Errorf("storage %q does not exist", storageID).Add(coreerrors.NotFound)
+	case errors.Is(err, storageerrors.StorageAttachmentNotFound):
+		return errors.Errorf(
+			"storage %q is not attached to unit %q", storageID, unitName,
+		).Add(coreerrors.NotFound)
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return errors.Errorf("unit %q does not exist", unitName).Add(coreerrors.NotFound)
+	case err != nil:
+		return errors.Errorf(
+			"getting storage attachment uuid for storage %q attached to unit %q: %w",
+			storageID, unitName, err,
+		)
+	}
+
+	_, err = a.removalService.RemoveStorageAttachmentFromAliveUnit(
+		ctx, storageAttachmentUUID, force, wait,
+	)
+	// Early exit path. Everything below this point can now be considered error
+	// handling.
+	if err == nil {
+		return nil
+	}
+
+	switch {
+	case errors.HasType[applicationerrors.UnitStorageMinViolation](err):
+		viErr, _ := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
+		return errors.Errorf(
+			"removing storage %q from unit %q would violate charm storage %q requirements of having minimum %d storage instances",
+			storageID, unitName, viErr.CharmStorageName, viErr.RequiredMinimum,
+		).Add(coreerrors.NotValid)
+	case errors.Is(err, applicationerrors.UnitNotAlive):
+		return errors.Errorf(
+			"unit %q must be alive in order to remove storage %q",
+			unitName, storageID,
+		).Add(coreerrors.NotValid)
+	case errors.Is(err, storageerrors.StorageAttachmentNotFound):
+		// The storage attachment has already been removed. We had already
+		// resolved that it existed above and so we can safely ignore this
+		// error.
+		return nil
+	default:
+		return errors.Errorf(
+			"removing storage %q attachment to unit %q: %w",
+			storageID, unitName, err,
+		)
+	}
 }
 
 // Attach attaches existing storage instances to units.
