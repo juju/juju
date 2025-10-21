@@ -1296,6 +1296,45 @@ func (c *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromO
 	return c
 }
 
+// IsRelationCrossModel mocks base method.
+func (m *MockModelState) IsRelationCrossModel(arg0 context.Context, arg1 relation.Key) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsRelationCrossModel", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsRelationCrossModel indicates an expected call of IsRelationCrossModel.
+func (mr *MockModelStateMockRecorder) IsRelationCrossModel(arg0, arg1 any) *MockModelStateIsRelationCrossModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRelationCrossModel", reflect.TypeOf((*MockModelState)(nil).IsRelationCrossModel), arg0, arg1)
+	return &MockModelStateIsRelationCrossModelCall{Call: call}
+}
+
+// MockModelStateIsRelationCrossModelCall wrap *gomock.Call
+type MockModelStateIsRelationCrossModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateIsRelationCrossModelCall) Return(arg0 bool, arg1 error) *MockModelStateIsRelationCrossModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateIsRelationCrossModelCall) Do(f func(context.Context, relation.Key) (bool, error)) *MockModelStateIsRelationCrossModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateIsRelationCrossModelCall) DoAndReturn(f func(context.Context, relation.Key) (bool, error)) *MockModelStateIsRelationCrossModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsRelationWithEndpointIdentifiersSuspended mocks base method.
 func (m *MockModelState) IsRelationWithEndpointIdentifiersSuspended(arg0 context.Context, arg1, arg2 relation.EndpointIdentifier) (bool, error) {
 	m.ctrl.T.Helper()

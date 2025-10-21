@@ -127,6 +127,10 @@ type ModelRemoteApplicationState interface {
 	// initial query function for watching relation UUIDs that are associated with
 	// remote consumer applications present in this model (i.e. offerer side).
 	InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery)
+
+	// IsRelationCrossModel checks if the relation identified by the given key
+	// is a cross-model relation.
+	IsRelationCrossModel(ctx context.Context, key corerelation.Key) (bool, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -451,6 +455,29 @@ func (s *Service) IsCrossModelRelationValidForApplication(ctx context.Context, r
 		return false, internalerrors.Errorf("getting relation suspended status by key: %w", err)
 	}
 	return !isSuspended, nil
+}
+
+// IsRelationCrossModel determines if the given relation is a cross-model
+// relation.
+//
+// It returns a [relationerrors.RelationNotFound] if the provided relation does
+// not exist.
+func (s *Service) IsRelationCrossModel(ctx context.Context, relationKey corerelation.Key) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationKey.Validate(); err != nil {
+		return false, internalerrors.Errorf("validating relation key: %w", err)
+	}
+
+	// Cross-model relations are only non-peer relations (2 endpoints).
+	// Peer relations are always local to a model.
+	endpoints := relationKey.EndpointIdentifiers()
+	if len(endpoints) != 2 {
+		return false, nil
+	}
+
+	return s.modelState.IsRelationCrossModel(ctx, relationKey)
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {

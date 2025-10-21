@@ -244,8 +244,11 @@ func nilEmpty(s *string) string {
 }
 
 func (s *baseSuite) setupSimpleTwoEndpointRelation(c *tc.C,
-	app1Name, endpoint1Name string, role1 charm.RelationRole,
-	app2Name, endpoint2Name string, role2 charm.RelationRole) (corerelation.UUID, corerelation.Key) {
+	app1Name, endpoint1Name string,
+	role1 charm.RelationRole,
+	app2Name, endpoint2Name string,
+	role2 charm.RelationRole,
+) (corerelation.UUID, corerelation.Key) {
 
 	// Create minimal charms (just need UUIDs for foreign keys)
 	charmUUID1 := s.addCharm(c)
