@@ -71,11 +71,17 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	)
 
 	c.Cleanup(func() {
+		s.authorizer = apiservertesting.FakeAuthorizer{}
 		s.api = nil
 		s.applicationService = nil
 		s.blockDeviceService = nil
+		s.controllerUUID = ""
+		s.machineTag = names.MachineTag{}
+		s.modelUUID = ""
+		s.poolsInUse = nil
 		s.removalService = nil
 		s.storageService = nil
+		s.unitTag = names.UnitTag{}
 	})
 
 	return ctrl
