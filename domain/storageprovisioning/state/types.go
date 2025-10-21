@@ -118,9 +118,9 @@ type filesystemAttachmentParams struct {
 	ReadOnly   sql.Null[bool]   `db:"read_only"`
 }
 
-// filesystemParams represents the provisioning params for a filesystem from the
+// filesystemProvisioningParams represents the provisioning params for a filesystem from the
 // model database.
-type filesystemParams struct {
+type filesystemProvisioningParams struct {
 	FilesystemID string           `db:"filesystem_id"`
 	Type         string           `db:"type"`
 	SizeMiB      uint64           `db:"size_mib"`

@@ -862,11 +862,11 @@ func (st *State) GetFilesystemParams(
 
 	var (
 		input     = filesystemUUID{UUID: uuid.String()}
-		paramsVal filesystemParams
+		paramsVal filesystemProvisioningParams
 	)
 
 	paramsStmt, err := st.Prepare(`
-SELECT &filesystemParams.* FROM (
+SELECT &filesystemProvisioningParams.* FROM (
     SELECT    sf.filesystem_id,
               si.requested_size_mib AS size_mib,
               sp.type,
