@@ -6,7 +6,6 @@ package crossmodelsecrets
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sync"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -87,8 +86,15 @@ func (s *CrossModelSecretsAPI) GetSecretAccessScope(ctx context.Context, args pa
 	for i, arg := range args.Args {
 		relUUID, err := s.getSecretAccessScope(ctx, arg)
 		if err != nil {
+			switch {
+			case errors.Is(err, secreterrors.SecretNotFound):
+				err = apiservererrors.ParamsErrorf(params.CodeNotFound, "secret %q not found", arg.URI)
+			case errors.Is(err, secreterrors.SecretAccessScopeNotFound):
+				err = apiservererrors.ParamsErrorf(params.CodeNotFound, "secret access scope not found")
+			}
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
+
 		}
 		result.Results[i].Result = relUUID
 	}
@@ -116,7 +122,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx context.Context, arg par
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	consumerUnit, err := unit.NewName(fmt.Sprintf("%s/%d", consumerApp, arg.UnitId))
+	consumerUnit, err := unit.NewNameFromParts(consumerApp, arg.UnitId)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -296,7 +302,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx context.Context, arg params.
 	} else if err != nil {
 		return nil, nil, 0, errors.Capture(err)
 	}
-	consumerUnit, err := unit.NewName(fmt.Sprintf("%s/%d", consumerApp, arg.UnitId))
+	consumerUnit, err := unit.NewNameFromParts(consumerApp, arg.UnitId)
 	if err != nil {
 		return nil, nil, 0, errors.Capture(err)
 	}

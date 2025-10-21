@@ -384,7 +384,7 @@ func (st *State) GetSecretValue(
 	contentQuery := `
 SELECT (*) AS (&secretContent.*)
 FROM   secret_content sc
-       JOIN secret_revision rev ON sc.revision_uuid = rev.uuid
+JOIN   secret_revision rev ON sc.revision_uuid = rev.uuid
 WHERE  rev.secret_id = $secretRevision.secret_id
 AND    rev.revision = $secretRevision.revision`
 
@@ -396,7 +396,7 @@ AND    rev.revision = $secretRevision.revision`
 	valueRefQuery := `
 SELECT (*) AS (&secretValueRef.*)
 FROM   secret_value_ref val
-       JOIN secret_revision rev ON val.revision_uuid = rev.uuid
+JOIN   secret_revision rev ON val.revision_uuid = rev.uuid
 WHERE  rev.secret_id = $secretRevision.secret_id
 AND    rev.revision = $secretRevision.revision`
 
@@ -408,21 +408,21 @@ AND    rev.revision = $secretRevision.revision`
 	want := secretRevision{SecretID: uri.ID, Revision: revision}
 
 	var (
-		dbSecretValues    secretValues
-		dbSecretValueRefs []secretValueRef
+		secretValueContent secretValues
+		secretValueRefs    []secretValueRef
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, contentQueryStmt, want).GetAll(&dbSecretValues)
+		err := tx.Query(ctx, contentQueryStmt, want).GetAll(&secretValueContent)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("retrieving secret value for %q revision %d: %w", uri, revision, err)
 		}
 		// Do we have content from the db?
-		if len(dbSecretValues) > 0 {
+		if len(secretValueContent) > 0 {
 			return nil
 		}
 
 		// No content, try a value reference.
-		err = tx.Query(ctx, valueRefQueryStmt, want).GetAll(&dbSecretValueRefs)
+		err = tx.Query(ctx, valueRefQueryStmt, want).GetAll(&secretValueRefs)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
@@ -435,24 +435,23 @@ AND    rev.revision = $secretRevision.revision`
 	}
 
 	// Compose and return any secret content from the db.
-	if len(dbSecretValues) > 0 {
-		content := dbSecretValues.toSecretData()
-		return content, nil, nil
+	if len(secretValueContent) > 0 {
+		return secretValueContent.toSecretData(), nil, nil
 	}
 
 	// Process any value reference.
-	if len(dbSecretValueRefs) == 0 {
+	if len(secretValueRefs) == 0 {
 		return nil, nil, errors.Errorf(
 			"secret value ref for %q revision %d not found", uri, revision).Add(secreterrors.SecretRevisionNotFound)
 	}
-	if len(dbSecretValueRefs) != 1 {
+	if len(secretValueRefs) != 1 {
 		return nil, nil, errors.Errorf(
-			"unexpected secret value refs for %q revision %d: got %d values", uri, revision, len(dbSecretValues))
+			"unexpected secret value refs for %q revision %d: got %d values", uri, revision, len(secretValueContent))
 
 	}
 	return nil, &coresecrets.ValueRef{
-		BackendID:  dbSecretValueRefs[0].BackendUUID,
-		RevisionID: dbSecretValueRefs[0].RevisionID,
+		BackendID:  secretValueRefs[0].BackendUUID,
+		RevisionID: secretValueRefs[0].RevisionID,
 	}, nil
 }
 
@@ -468,7 +467,7 @@ func (st *State) GetSecretAccess(
 	}
 
 	query := `
-SELECT sr.role AS &M.role
+SELECT sr.role AS &secretRole.role
 FROM   v_secret_permission sp
        JOIN secret_role sr ON sr.id = sp.role_id
 WHERE  secret_id = $secretAccessor.secret_id
@@ -480,20 +479,18 @@ AND    subject_id = $secretAccessor.subject_id`
 		SubjectTypeID: params.SubjectTypeID,
 		SubjectID:     params.SubjectID,
 	}
-	selectRoleStmt, err := st.Prepare(query, access, sqlair.M{})
+	selectRoleStmt, err := st.Prepare(query, access, secretRole{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	var role string
+	var result secretRole
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkExists(ctx, tx, uri); err != nil {
 			return errors.Capture(err)
 		}
-		result := sqlair.M{}
 		err = tx.Query(ctx, selectRoleStmt, access).Get(&result)
 		if err == nil || errors.Is(err, sqlair.ErrNoRows) {
-			role, _ = result["role"].(string)
 			return nil
 		}
 		if err != nil {
@@ -501,5 +498,5 @@ AND    subject_id = $secretAccessor.subject_id`
 		}
 		return nil
 	})
-	return role, errors.Capture(err)
+	return result.Role, errors.Capture(err)
 }

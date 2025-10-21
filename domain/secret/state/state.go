@@ -1547,10 +1547,10 @@ SELECT sm.secret_id AS &secretID.id,
        svr.backend_uuid AS &secretExternalRevision.backend_uuid,
        svr.revision_id AS &secretExternalRevision.revision_id,
        rev.revision AS &secretExternalRevision.revision
-FROM   secret_metadata sm
-       JOIN secret_revision rev ON rev.secret_id = sm.secret_id
-       LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid
-       JOIN secret_model_owner mso ON mso.secret_id = sm.secret_id`
+FROM      secret_metadata sm
+JOIN      secret_revision rev ON rev.secret_id = sm.secret_id
+LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid
+JOIN      secret_model_owner mso ON mso.secret_id = sm.secret_id`
 
 	queryStmt, err := st.Prepare(query, secretID{}, secretExternalRevision{})
 	if err != nil {
@@ -1631,9 +1631,9 @@ SELECT sm.secret_id AS &secretID.id,
        svr.backend_uuid AS &secretExternalRevision.backend_uuid,
        svr.revision_id AS &secretExternalRevision.revision_id,
        rev.revision AS &secretExternalRevision.revision
-FROM   secret_metadata sm
-       JOIN secret_revision rev ON rev.secret_id = sm.secret_id
-       LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid`[1:]
+FROM      secret_metadata sm
+JOIN      secret_revision rev ON rev.secret_id = sm.secret_id
+LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid`[1:]
 
 	queryParts = append(queryParts, query)
 
@@ -1817,7 +1817,7 @@ func (st State) GetSecretValue(
 	contentQuery := `
 SELECT (*) AS (&secretContent.*)
 FROM   secret_content sc
-       JOIN secret_revision rev ON sc.revision_uuid = rev.uuid
+JOIN   secret_revision rev ON sc.revision_uuid = rev.uuid
 WHERE  rev.secret_id = $secretRevision.secret_id
 AND    rev.revision = $secretRevision.revision`
 
@@ -1829,7 +1829,7 @@ AND    rev.revision = $secretRevision.revision`
 	valueRefQuery := `
 SELECT (*) AS (&secretValueRef.*)
 FROM   secret_value_ref val
-       JOIN secret_revision rev ON val.revision_uuid = rev.uuid
+JOIN   secret_revision rev ON val.revision_uuid = rev.uuid
 WHERE  rev.secret_id = $secretRevision.secret_id
 AND    rev.revision = $secretRevision.revision`
 
@@ -2694,9 +2694,9 @@ func (st State) ListGrantedSecretsForBackend(
 SELECT (sm.secret_id) AS (&secretInfo.*),
        (svr.*) AS (&secretValueRef.*)
 FROM   secret_metadata sm
-       JOIN secret_revision rev ON rev.secret_id = sm.secret_id
-       JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid
-       JOIN v_secret_permission sp ON sp.secret_id = sm.secret_id
+JOIN   secret_revision rev ON rev.secret_id = sm.secret_id
+JOIN   secret_value_ref svr ON svr.revision_uuid = rev.uuid
+JOIN   v_secret_permission sp ON sp.secret_id = sm.secret_id
 WHERE  sp.role_id = $secretAccessor.role_id
 AND    svr.backend_uuid = $secretBackendID.id
 AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($units[:])

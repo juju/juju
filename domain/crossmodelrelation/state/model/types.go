@@ -352,6 +352,10 @@ type secretAccessor struct {
 	RoleID        domainsecret.Role             `db:"role_id"`
 }
 
+type secretRole struct {
+	Role string `db:"role"`
+}
+
 type secretValueRef struct {
 	BackendUUID string `db:"backend_uuid"`
 	RevisionID  string `db:"revision_id"`
