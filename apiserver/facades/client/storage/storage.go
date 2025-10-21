@@ -5,6 +5,7 @@ package storage
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/names/v6"
 
@@ -17,8 +18,10 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/unit"
+	domainremoval "github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageservice "github.com/juju/juju/domain/storage/service"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -28,6 +31,29 @@ type BlockDeviceService interface {
 	GetBlockDevicesForMachine(
 		ctx context.Context, machineUUID machine.UUID,
 	) ([]blockdevice.BlockDevice, error)
+}
+
+// RemovalService defines the interface required for removing storage related
+// entities in the model on behalf of an API caller.
+type RemovalService interface {
+	// RemoveStorageAttachmentsFromAliveUnit is reponsible for removing one or
+	// more storage attachments from a unit that is still alive in the model.
+	// This operation can be considered a detatch of a storage instance from a
+	// unit.
+	//
+	// The following errors may be returned:
+	// - [storageerrors.StorageAttachmentNotFound] if the supplied storage
+	// attachment uuid does not exist in the model.
+	// - [applicationerrors.UnitNotAlive] if the unit the storage attachment is
+	// conencted to is not alive.
+	// [applicationerrors.UnitStorageMinViolation] if removing a storage
+	// attachment would violate the charm minimums required for the unit.
+	RemoveStorageAttachmentFromAliveUnit(
+		context.Context,
+		domainstorageprovisioning.StorageAttachmentUUID,
+		bool,
+		time.Duration,
+	) (domainremoval.UUID, error)
 }
 
 // StorageService defines apis on the storage service.
@@ -96,12 +122,13 @@ type StorageAPIv6 struct {
 
 // StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
-	blockDeviceService  BlockDeviceService
-	storageService      StorageService
 	applicationService  ApplicationService
-	authorizer          facade.Authorizer
 	blockCommandService common.BlockCommandService
+	blockDeviceService  BlockDeviceService
+	removalService      RemovalService
+	storageService      StorageService
 
+	authorizer     facade.Authorizer
 	controllerUUID string
 	modelUUID      coremodel.UUID
 }
@@ -109,20 +136,23 @@ type StorageAPI struct {
 func NewStorageAPI(
 	controllerUUID string,
 	modelUUID coremodel.UUID,
-	blockDeviceService BlockDeviceService,
-	storageService StorageService,
-	applicationService ApplicationService,
 	authorizer facade.Authorizer,
+	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
+	blockDeviceService BlockDeviceService,
+	removalService RemovalService,
+	storageService StorageService,
 ) *StorageAPI {
 	return &StorageAPI{
-		controllerUUID:      controllerUUID,
-		modelUUID:           modelUUID,
-		blockDeviceService:  blockDeviceService,
-		storageService:      storageService,
 		applicationService:  applicationService,
-		authorizer:          authorizer,
 		blockCommandService: blockCommandService,
+		blockDeviceService:  blockDeviceService,
+		removalService:      removalService,
+		storageService:      storageService,
+
+		authorizer:     authorizer,
+		controllerUUID: controllerUUID,
+		modelUUID:      modelUUID,
 	}
 }
 
