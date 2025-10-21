@@ -76,6 +76,8 @@ CREATE TABLE relation (
     uuid TEXT NOT NULL PRIMARY KEY,
     life_id INT NOT NULL,
     relation_id INT NOT NULL,
+    suspended BOOLEAN DEFAULT FALSE,
+    suspended_reason TEXT,
     -- NOTE: the scope of a relation is not just the same as the scope of either
     -- of it's endpoints. It's a property we need to consider as intrinsic to
     -- the relation itself. This is because a relation is considered

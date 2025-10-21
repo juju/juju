@@ -70,6 +70,8 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.life_id != OLD.life_id OR
 	NEW.relation_id != OLD.relation_id OR
+	(NEW.suspended != OLD.suspended OR (NEW.suspended IS NOT NULL AND OLD.suspended IS NULL) OR (NEW.suspended IS NULL AND OLD.suspended IS NOT NULL)) OR
+	(NEW.suspended_reason != OLD.suspended_reason OR (NEW.suspended_reason IS NOT NULL AND OLD.suspended_reason IS NULL) OR (NEW.suspended_reason IS NULL AND OLD.suspended_reason IS NOT NULL)) OR
 	NEW.scope_id != OLD.scope_id 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
