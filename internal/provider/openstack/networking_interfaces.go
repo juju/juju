@@ -56,6 +56,7 @@ type NetworkingBase interface {
 // NetworkingNova describes the Nova methods needed for Networking.
 type NetworkingNova interface {
 	GetServer(string) (*nova.ServerDetail, error)
+	ListAvailabilityZones() ([]nova.AvailabilityZone, error)
 }
 
 // NetworkingNeutron describes the Neutron methods needed for Networking.

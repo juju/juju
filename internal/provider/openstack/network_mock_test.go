@@ -1643,6 +1643,45 @@ func (c *MockNetworkingNovaGetServerCall) DoAndReturn(f func(string) (*nova.Serv
 	return c
 }
 
+// ListAvailabilityZones mocks base method.
+func (m *MockNetworkingNova) ListAvailabilityZones() ([]nova.AvailabilityZone, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAvailabilityZones")
+	ret0, _ := ret[0].([]nova.AvailabilityZone)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListAvailabilityZones indicates an expected call of ListAvailabilityZones.
+func (mr *MockNetworkingNovaMockRecorder) ListAvailabilityZones() *MockNetworkingNovaListAvailabilityZonesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAvailabilityZones", reflect.TypeOf((*MockNetworkingNova)(nil).ListAvailabilityZones))
+	return &MockNetworkingNovaListAvailabilityZonesCall{Call: call}
+}
+
+// MockNetworkingNovaListAvailabilityZonesCall wrap *gomock.Call
+type MockNetworkingNovaListAvailabilityZonesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNovaListAvailabilityZonesCall) Return(arg0 []nova.AvailabilityZone, arg1 error) *MockNetworkingNovaListAvailabilityZonesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNovaListAvailabilityZonesCall) Do(f func() ([]nova.AvailabilityZone, error)) *MockNetworkingNovaListAvailabilityZonesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNovaListAvailabilityZonesCall) DoAndReturn(f func() ([]nova.AvailabilityZone, error)) *MockNetworkingNovaListAvailabilityZonesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockNetworkingEnvironConfig is a mock of NetworkingEnvironConfig interface.
 type MockNetworkingEnvironConfig struct {
 	ctrl     *gomock.Controller

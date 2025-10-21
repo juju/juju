@@ -333,7 +333,7 @@ func generateUniquePortName(name string) string {
 	return fmt.Sprintf("juju-%s-%s", name, unique)
 }
 
-func makeSubnetInfo(ctx context.Context, neutron NetworkingNeutron, subnet neutron.SubnetV2) (network.SubnetInfo, error) {
+func makeSubnetInfo(ctx context.Context, neutron NetworkingNeutron, subnet neutron.SubnetV2, azNames []string) (network.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(subnet.Cidr)
 	if err != nil {
 		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", subnet.Cidr)
@@ -341,6 +341,10 @@ func makeSubnetInfo(ctx context.Context, neutron NetworkingNeutron, subnet neutr
 	net, err := neutron.GetNetworkV2(subnet.NetworkId)
 	if err != nil {
 		return network.SubnetInfo{}, err
+	}
+
+	if len(net.AvailabilityZones) > 0 {
+		azNames = net.AvailabilityZones
 	}
 
 	// TODO (hml) 2017-03-20:
@@ -351,7 +355,7 @@ func makeSubnetInfo(ctx context.Context, neutron NetworkingNeutron, subnet neutr
 		ProviderId:        network.Id(subnet.Id),
 		ProviderNetworkId: network.Id(subnet.NetworkId),
 		VLANTag:           0,
-		AvailabilityZones: net.AvailabilityZones,
+		AvailabilityZones: azNames,
 	}
 	logger.Tracef(ctx, "found subnet with info %#v", info)
 	return info, nil
@@ -422,13 +426,29 @@ func (n *NeutronNetworking) Subnets(subnetIds []network.Id) ([]network.SubnetInf
 			subIdSet.Add(subnet.Id)
 		}
 	}
+
+	// if there are no availability zones linked to a subnet, we will default
+	// it to all available zones.
+	// This is required because for now, AZs are only inserted in the database
+	// through subnet infos, and AZs will be required to create a VM.
+	allAZs, err := n.nova().ListAvailabilityZones()
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to retrieve availability zones")
+	}
+	var allAZNames []string
+	for _, az := range allAZs {
+		if az.State.Available {
+			allAZNames = append(allAZNames, az.Name)
+		}
+	}
+
 	for _, subnet := range subnets {
 		if !subIdSet.Contains(subnet.Id) {
 			logger.Tracef(context.TODO(), "subnet %q not in %v, skipping", subnet.Id, subnetIds)
 			continue
 		}
 		subIdSet.Remove(subnet.Id)
-		if info, err := makeSubnetInfo(context.TODO(), neutron, subnet); err == nil {
+		if info, err := makeSubnetInfo(context.TODO(), neutron, subnet, allAZNames); err == nil {
 			// Error will already have been logged.
 			results = append(results, info)
 		}
