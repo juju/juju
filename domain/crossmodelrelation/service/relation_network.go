@@ -8,9 +8,9 @@ import (
 	"net"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelRelationNetworkState describes retrieval and persistence methods for
@@ -32,7 +32,7 @@ type ModelRelationNetworkState interface {
 // AddRelationNetworkIngress adds ingress network CIDRs for the specified
 // relation.
 // The CIDRs are added to the relation_network_ingress table.
-func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs ...string) error {
+func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID corerelation.UUID, cidrs ...string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -40,8 +40,8 @@ func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID st
 		return errors.Errorf("relation UUID cannot be empty")
 	}
 
-	if !uuid.IsValidUUIDString(relationUUID) {
-		return errors.Errorf("relation UUID %q is not a valid UUID", relationUUID).Add(coreerrors.NotValid)
+	if err := relationUUID.Validate(); err != nil {
+		return errors.Capture(err)
 	}
 
 	if len(cidrs) == 0 {
@@ -58,7 +58,7 @@ func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID st
 		}
 	}
 
-	if err := s.modelState.AddRelationNetworkIngress(ctx, relationUUID, cidrs...); err != nil {
+	if err := s.modelState.AddRelationNetworkIngress(ctx, relationUUID.String(), cidrs...); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -68,18 +68,19 @@ func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID st
 // GetRelationNetworkIngress retrieves all ingress network CIDRs for the
 // specified relation.
 // The CIDRs are retrieved from the relation_network_ingress table.
-func (s *Service) GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error) {
+func (s *Service) GetRelationNetworkIngress(ctx context.Context, relationUUID corerelation.UUID) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if relationUUID == "" {
 		return nil, errors.Errorf("relation UUID cannot be empty")
 	}
-	if !uuid.IsValidUUIDString(relationUUID) {
-		return nil, errors.Errorf("relation UUID %q is not a valid UUID", relationUUID).Add(coreerrors.NotValid)
+
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
 	}
 
-	cidrs, err := s.modelState.GetRelationNetworkIngress(ctx, relationUUID)
+	cidrs, err := s.modelState.GetRelationNetworkIngress(ctx, relationUUID.String())
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

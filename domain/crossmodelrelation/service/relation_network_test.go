@@ -9,8 +9,8 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type relationNetworkServiceSuite struct {
@@ -25,11 +25,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	cidrs := []string{"192.0.2.0/24", "198.51.100.0/24"}
 
 	// The service will cast modelState to ModelRelationNetworkState
-	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID, cidrs[0], cidrs[1]).Return(nil)
+	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID.String(), cidrs[0], cidrs[1]).Return(nil)
 
 	// Act
 	err := s.service(c).AddRelationNetworkIngress(c.Context(), relationUUID, cidrs...)
@@ -42,10 +42,10 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressSingleCIDR(c 
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	cidr := "192.0.2.0/24"
 
-	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID, cidr).Return(nil)
+	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID.String(), cidr).Return(nil)
 
 	// Act
 	err := s.service(c).AddRelationNetworkIngress(c.Context(), relationUUID, cidr)
@@ -71,7 +71,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressNoCIDRs(c *tc
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 
 	// Act - No mock expectations needed as validation happens before state call
 	err := s.service(c).AddRelationNetworkIngress(c.Context(), relationUUID)
@@ -84,7 +84,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressEmptyCIDR(c *
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	cidrs := []string{"192.0.2.0/24", "", "198.51.100.0/24"}
 
 	// Act - No mock expectations needed as validation happens before state call
@@ -98,11 +98,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressStateError(c 
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	cidrs := []string{"192.0.2.0/24"}
 	expectedErr := errors.Errorf("state error")
 
-	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID, cidrs[0]).Return(expectedErr)
+	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID.String(), cidrs[0]).Return(expectedErr)
 
 	// Act
 	err := s.service(c).AddRelationNetworkIngress(c.Context(), relationUUID, cidrs...)
@@ -115,7 +115,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressMultipleCIDRs
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	cidrs := []string{
 		"192.0.2.0/24",
 		"198.51.100.0/24",
@@ -125,7 +125,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressMultipleCIDRs
 
 	s.modelState.EXPECT().AddRelationNetworkIngress(
 		gomock.Any(),
-		relationUUID,
+		relationUUID.String(),
 		cidrs[0], cidrs[1], cidrs[2], cidrs[3],
 	).Return(nil)
 
@@ -140,21 +140,21 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressInvalidUUID(c
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	invalidUUID := "not-a-uuid"
+	invalidUUID := corerelation.UUID("not-a-uuid")
 	cidrs := []string{"192.0.2.0/24"}
 
 	// Act - No mock expectations needed as validation happens before state call
 	err := s.service(c).AddRelationNetworkIngress(c.Context(), invalidUUID, cidrs...)
 
 	// Assert
-	c.Assert(err, tc.ErrorMatches, `relation UUID "not-a-uuid" is not a valid UUID`)
+	c.Assert(err, tc.ErrorMatches, `relation uuid "not-a-uuid": not valid`)
 }
 
 func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressInvalidCIDRv4(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	cidrs := []string{"192.0.2.0/24", "not-a-cidr", "198.51.100.0/24"}
 
 	// Act - No mock expectations needed as validation happens before state call
@@ -168,7 +168,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressInvalidCIDRFo
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	cidrs := []string{"192.0.2.256/24"} // Invalid IP address
 
 	// Act - No mock expectations needed as validation happens before state call
@@ -182,10 +182,10 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressIPv6CIDR(c *t
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	cidrs := []string{"2001:db8::/32", "2001:db8:1::/48"}
 
-	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID, cidrs[0], cidrs[1]).Return(nil)
+	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID.String(), cidrs[0], cidrs[1]).Return(nil)
 
 	// Act
 	err := s.service(c).AddRelationNetworkIngress(c.Context(), relationUUID, cidrs...)
@@ -198,10 +198,10 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressMixedIPv4IPv6
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	cidrs := []string{"192.0.2.0/24", "2001:db8::/32"}
 
-	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID, cidrs[0], cidrs[1]).Return(nil)
+	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID.String(), cidrs[0], cidrs[1]).Return(nil)
 
 	// Act
 	err := s.service(c).AddRelationNetworkIngress(c.Context(), relationUUID, cidrs...)
@@ -214,10 +214,10 @@ func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	expectedCIDRs := []string{"192.0.2.0/24", "198.51.100.0/24"}
 
-	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID.String()).Return(expectedCIDRs, nil)
 
 	// Act
 	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
@@ -231,10 +231,10 @@ func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressSingleCIDR(c 
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	expectedCIDRs := []string{"192.0.2.0/24"}
 
-	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID.String()).Return(expectedCIDRs, nil)
 
 	// Act
 	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
@@ -248,10 +248,10 @@ func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressEmpty(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	expectedCIDRs := []string{}
 
-	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID.String()).Return(expectedCIDRs, nil)
 
 	// Act
 	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
@@ -276,13 +276,13 @@ func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressInvalidUUID(c
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	invalidUUID := "not-a-uuid"
+	invalidUUID := corerelation.UUID("not-a-uuid")
 
 	// Act - No mock expectations needed as validation happens before state call
 	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), invalidUUID)
 
 	// Assert
-	c.Assert(err, tc.ErrorMatches, `relation UUID "not-a-uuid" is not a valid UUID`)
+	c.Assert(err, tc.ErrorMatches, `relation uuid "not-a-uuid": not valid`)
 	c.Check(obtainedCIDRs, tc.IsNil)
 }
 
@@ -290,10 +290,10 @@ func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressStateError(c 
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	expectedErr := errors.Errorf("state error")
 
-	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(nil, expectedErr)
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID.String()).Return(nil, expectedErr)
 
 	// Act
 	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
@@ -307,7 +307,7 @@ func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressMultipleCIDRs
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	expectedCIDRs := []string{
 		"192.0.2.0/24",
 		"198.51.100.0/24",
@@ -315,7 +315,7 @@ func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressMultipleCIDRs
 		"2001:db8::/32",
 	}
 
-	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID.String()).Return(expectedCIDRs, nil)
 
 	// Act
 	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
@@ -329,10 +329,10 @@ func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressIPv6CIDR(c *t
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	expectedCIDRs := []string{"2001:db8::/32", "2001:db8:1::/48"}
 
-	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID.String()).Return(expectedCIDRs, nil)
 
 	// Act
 	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
@@ -346,10 +346,10 @@ func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressMixedIPv4IPv6
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	expectedCIDRs := []string{"192.0.2.0/24", "2001:db8::/32"}
 
-	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID).Return(expectedCIDRs, nil)
+	s.modelState.EXPECT().GetRelationNetworkIngress(gomock.Any(), relationUUID.String()).Return(expectedCIDRs, nil)
 
 	// Act
 	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), relationUUID)
