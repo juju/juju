@@ -62,7 +62,9 @@ func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, r
 }
 
 // GetSecretAccessScope returns the access scope for the specified accessor's permission on the secret.
-// It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
+// It returns an error satisfying:
+// - [secreterrors.SecretNotFound] if the secret is not found.
+// - [secreterrors.SecretAccessScopeNotFound] if the access scope is not found.
 func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) (SecretAccessScope, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

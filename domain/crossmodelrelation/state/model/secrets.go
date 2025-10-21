@@ -11,6 +11,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -366,4 +367,136 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		return nil
 	})
 	return errors.Capture(err)
+}
+
+// GetSecretValue returns the contents - either data or value reference - of a
+// given secret revision, returning an error satisfying
+// [secreterrors.SecretRevisionNotFound] if the secret revision does not exist.
+func (st *State) GetSecretValue(
+	ctx context.Context, uri *coresecrets.URI, revision int) (coresecrets.SecretData, *coresecrets.ValueRef, error,
+) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+
+	// We look for either content or a value reference, which ever is present.
+	contentQuery := `
+SELECT (*) AS (&secretContent.*)
+FROM   secret_content sc
+JOIN   secret_revision rev ON sc.revision_uuid = rev.uuid
+WHERE  rev.secret_id = $secretRevision.secret_id
+AND    rev.revision = $secretRevision.revision`
+
+	contentQueryStmt, err := st.Prepare(contentQuery, secretContent{}, secretRevision{})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+
+	valueRefQuery := `
+SELECT (*) AS (&secretValueRef.*)
+FROM   secret_value_ref val
+JOIN   secret_revision rev ON val.revision_uuid = rev.uuid
+WHERE  rev.secret_id = $secretRevision.secret_id
+AND    rev.revision = $secretRevision.revision`
+
+	valueRefQueryStmt, err := st.Prepare(valueRefQuery, secretValueRef{}, secretRevision{})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+
+	want := secretRevision{SecretID: uri.ID, Revision: revision}
+
+	var (
+		secretValueContent secretValues
+		secretValueRefs    []secretValueRef
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, contentQueryStmt, want).GetAll(&secretValueContent)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("retrieving secret value for %q revision %d: %w", uri, revision, err)
+		}
+		// Do we have content from the db?
+		if len(secretValueContent) > 0 {
+			return nil
+		}
+
+		// No content, try a value reference.
+		err = tx.Query(ctx, valueRefQueryStmt, want).GetAll(&secretValueRefs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("retrieving secret value ref for %q revision %d: %w", uri, revision, err)
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, errors.Errorf("querying secret value: %w", err)
+	}
+
+	// Compose and return any secret content from the db.
+	if len(secretValueContent) > 0 {
+		return secretValueContent.toSecretData(), nil, nil
+	}
+
+	// Process any value reference.
+	if len(secretValueRefs) == 0 {
+		return nil, nil, errors.Errorf(
+			"secret value ref for %q revision %d not found", uri, revision).Add(secreterrors.SecretRevisionNotFound)
+	}
+	if len(secretValueRefs) != 1 {
+		return nil, nil, errors.Errorf(
+			"unexpected secret value refs for %q revision %d: got %d values", uri, revision, len(secretValueContent))
+
+	}
+	return nil, &coresecrets.ValueRef{
+		BackendID:  secretValueRefs[0].BackendUUID,
+		RevisionID: secretValueRefs[0].RevisionID,
+	}, nil
+}
+
+// GetSecretAccess returns the access to the secret for the specified accessor.
+// It returns an error satisfying [secreterrors.SecretNotFound]
+// if the secret is not found.
+func (st *State) GetSecretAccess(
+	ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	query := `
+SELECT sr.role AS &secretRole.role
+FROM   v_secret_permission sp
+       JOIN secret_role sr ON sr.id = sp.role_id
+WHERE  secret_id = $secretAccessor.secret_id
+AND    subject_type_id = $secretAccessor.subject_type_id
+AND    subject_id = $secretAccessor.subject_id`
+
+	access := secretAccessor{
+		SecretID:      uri.ID,
+		SubjectTypeID: params.SubjectTypeID,
+		SubjectID:     params.SubjectID,
+	}
+	selectRoleStmt, err := st.Prepare(query, access, secretRole{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result secretRole
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkExists(ctx, tx, uri); err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, selectRoleStmt, access).Get(&result)
+		if err == nil || errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("looking up secret grant for %q on %q: %w", params.SubjectID, uri, err)
+		}
+		return nil
+	})
+	return result.Role, errors.Capture(err)
 }

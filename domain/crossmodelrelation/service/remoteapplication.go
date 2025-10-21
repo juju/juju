@@ -23,6 +23,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -75,6 +76,11 @@ type ModelRemoteApplicationState interface {
 	// remote application.
 	SaveMacaroonForRelation(context.Context, string, []byte) error
 
+	// GetMacaroonForRelation gets the macaroon for the specified remote relation,
+	// returning an error satisfying [crossmodelrelationerrors.MacaroonNotFound]
+	// if the macaroon is not found.
+	GetMacaroonForRelation(context.Context, string) (*macaroon.Macaroon, error)
+
 	// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
 	// for the given offer UUID.
 	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
@@ -84,6 +90,16 @@ type ModelRemoteApplicationState interface {
 	// EnsureUnitsExist ensures that the given synthetic units exist in the local
 	// model.
 	EnsureUnitsExist(ctx context.Context, appUUID string, units []string) error
+
+	// IsRelationWithEndpointIdentifiersSuspended returns the suspended status
+	// of a relation with the specified endpoints.
+	// The following error types can be expected:
+	//   - [relationerrors.RelationNotFound]: when no relation exists for the given
+	//     endpoints.
+	IsRelationWithEndpointIdentifiersSuspended(
+		ctx context.Context,
+		endpoint1, endpoint2 corerelation.EndpointIdentifier,
+	) (bool, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -312,7 +328,7 @@ func (s *Service) EnsureUnitsExist(ctx context.Context, appUUID coreapplication.
 }
 
 // SaveMacaroonForRelation saves the given macaroon for the specified remote
-// application.
+// relation.
 func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID corerelation.UUID, mac *macaroon.Macaroon) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -336,6 +352,19 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 // Not implemented yet in the domain service.
 func (w *Service) GetRelationToken(ctx context.Context, relationKey string) (string, error) {
 	return "", internalerrors.Errorf("crossmodelrelation.GetToken").Add(errors.NotImplemented)
+}
+
+// GetMacaroonForRelation gets the macaroon for the specified remote relation,
+// returning an error satisfying [crossmodelrelationerrors.MacaroonNotFound]
+// if the macaroon is not found.
+func (s *Service) GetMacaroonForRelation(ctx context.Context, relationUUID corerelation.UUID) (*macaroon.Macaroon, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return nil, internalerrors.Errorf("relation UUID %q is not valid: %w", relationUUID, err).Add(errors.NotValid)
+	}
+	return s.modelState.GetMacaroonForRelation(ctx, relationUUID.String())
 }
 
 // GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
@@ -422,4 +451,30 @@ func splitRelationsByType(relations []charm.Relation) (map[string]charm.Relation
 	}
 
 	return provides, requires, nil
+}
+
+// IsCrossModelRelationValidForApplication checks that the cross model relation is valid for the application.
+// A relation is valid if it is not suspended and the application is involved in the relation.
+func (s *Service) IsCrossModelRelationValidForApplication(ctx context.Context, relationKey corerelation.Key, appName string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationKey.Validate(); err != nil {
+		return false, relationerrors.RelationKeyNotValid
+	}
+
+	eids := relationKey.EndpointIdentifiers()
+	if len(eids) != 2 {
+		// Should never happen.
+		return false, internalerrors.Errorf("internal error: unexpected number of endpoints %d", len(eids))
+	}
+	if eids[0].ApplicationName != appName && eids[1].ApplicationName != appName {
+		return false, internalerrors.Errorf("relation %q not valid for application %q", relationKey, appName).Add(errors.NotValid)
+	}
+
+	isSuspended, err := s.modelState.IsRelationWithEndpointIdentifiersSuspended(ctx, eids[0], eids[1])
+	if err != nil {
+		return false, internalerrors.Errorf("getting relation suspended status by key: %w", err)
+	}
+	return !isSuspended, nil
 }

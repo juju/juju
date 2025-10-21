@@ -15,13 +15,16 @@ import (
 
 	application "github.com/juju/juju/core/application"
 	offer "github.com/juju/juju/core/offer"
+	relation "github.com/juju/juju/core/relation"
 	secrets "github.com/juju/juju/core/secrets"
 	user "github.com/juju/juju/core/user"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
 	internal "github.com/juju/juju/domain/crossmodelrelation/internal"
+	secret "github.com/juju/juju/domain/secret"
 	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
+	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockControllerState is a mock of ControllerState interface.
@@ -538,6 +541,45 @@ func (c *MockModelStateGetConsumerRelationUUIDsCall) DoAndReturn(f func(context.
 	return c
 }
 
+// GetMacaroonForRelation mocks base method.
+func (m *MockModelState) GetMacaroonForRelation(arg0 context.Context, arg1 string) (*macaroon.Macaroon, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMacaroonForRelation", arg0, arg1)
+	ret0, _ := ret[0].(*macaroon.Macaroon)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMacaroonForRelation indicates an expected call of GetMacaroonForRelation.
+func (mr *MockModelStateMockRecorder) GetMacaroonForRelation(arg0, arg1 any) *MockModelStateGetMacaroonForRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMacaroonForRelation", reflect.TypeOf((*MockModelState)(nil).GetMacaroonForRelation), arg0, arg1)
+	return &MockModelStateGetMacaroonForRelationCall{Call: call}
+}
+
+// MockModelStateGetMacaroonForRelationCall wrap *gomock.Call
+type MockModelStateGetMacaroonForRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetMacaroonForRelationCall) Return(arg0 *macaroon.Macaroon, arg1 error) *MockModelStateGetMacaroonForRelationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetMacaroonForRelationCall) Do(f func(context.Context, string) (*macaroon.Macaroon, error)) *MockModelStateGetMacaroonForRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetMacaroonForRelationCall) DoAndReturn(f func(context.Context, string) (*macaroon.Macaroon, error)) *MockModelStateGetMacaroonForRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetOfferDetails mocks base method.
 func (m *MockModelState) GetOfferDetails(arg0 context.Context, arg1 internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
 	m.ctrl.T.Helper()
@@ -899,6 +941,45 @@ func (c *MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCal
 	return c
 }
 
+// GetSecretAccess mocks base method.
+func (m *MockModelState) GetSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.AccessParams) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretAccess", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretAccess indicates an expected call of GetSecretAccess.
+func (mr *MockModelStateMockRecorder) GetSecretAccess(arg0, arg1, arg2 any) *MockModelStateGetSecretAccessCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretAccess", reflect.TypeOf((*MockModelState)(nil).GetSecretAccess), arg0, arg1, arg2)
+	return &MockModelStateGetSecretAccessCall{Call: call}
+}
+
+// MockModelStateGetSecretAccessCall wrap *gomock.Call
+type MockModelStateGetSecretAccessCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetSecretAccessCall) Return(arg0 string, arg1 error) *MockModelStateGetSecretAccessCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetSecretAccessCall) Do(f func(context.Context, *secrets.URI, secret.AccessParams) (string, error)) *MockModelStateGetSecretAccessCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetSecretAccessCall) DoAndReturn(f func(context.Context, *secrets.URI, secret.AccessParams) (string, error)) *MockModelStateGetSecretAccessCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSecretRemoteConsumer mocks base method.
 func (m *MockModelState) GetSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string) (*secrets.SecretConsumerMetadata, int, error) {
 	m.ctrl.T.Helper()
@@ -935,6 +1016,46 @@ func (c *MockModelStateGetSecretRemoteConsumerCall) Do(f func(context.Context, *
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateGetSecretRemoteConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, string) (*secrets.SecretConsumerMetadata, int, error)) *MockModelStateGetSecretRemoteConsumerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetSecretValue mocks base method.
+func (m *MockModelState) GetSecretValue(arg0 context.Context, arg1 *secrets.URI, arg2 int) (secrets.SecretData, *secrets.ValueRef, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretValue", arg0, arg1, arg2)
+	ret0, _ := ret[0].(secrets.SecretData)
+	ret1, _ := ret[1].(*secrets.ValueRef)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetSecretValue indicates an expected call of GetSecretValue.
+func (mr *MockModelStateMockRecorder) GetSecretValue(arg0, arg1, arg2 any) *MockModelStateGetSecretValueCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockModelState)(nil).GetSecretValue), arg0, arg1, arg2)
+	return &MockModelStateGetSecretValueCall{Call: call}
+}
+
+// MockModelStateGetSecretValueCall wrap *gomock.Call
+type MockModelStateGetSecretValueCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetSecretValueCall) Return(arg0 secrets.SecretData, arg1 *secrets.ValueRef, arg2 error) *MockModelStateGetSecretValueCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetSecretValueCall) Do(f func(context.Context, *secrets.URI, int) (secrets.SecretData, *secrets.ValueRef, error)) *MockModelStateGetSecretValueCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetSecretValueCall) DoAndReturn(f func(context.Context, *secrets.URI, int) (secrets.SecretData, *secrets.ValueRef, error)) *MockModelStateGetSecretValueCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1052,6 +1173,45 @@ func (c *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromO
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall) DoAndReturn(f func(string) (string, eventsource.NamespaceQuery)) *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsRelationWithEndpointIdentifiersSuspended mocks base method.
+func (m *MockModelState) IsRelationWithEndpointIdentifiersSuspended(arg0 context.Context, arg1, arg2 relation.EndpointIdentifier) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsRelationWithEndpointIdentifiersSuspended", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsRelationWithEndpointIdentifiersSuspended indicates an expected call of IsRelationWithEndpointIdentifiersSuspended.
+func (mr *MockModelStateMockRecorder) IsRelationWithEndpointIdentifiersSuspended(arg0, arg1, arg2 any) *MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRelationWithEndpointIdentifiersSuspended", reflect.TypeOf((*MockModelState)(nil).IsRelationWithEndpointIdentifiersSuspended), arg0, arg1, arg2)
+	return &MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall{Call: call}
+}
+
+// MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall wrap *gomock.Call
+type MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall) Return(arg0 bool, arg1 error) *MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall) Do(f func(context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier) (bool, error)) *MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall) DoAndReturn(f func(context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier) (bool, error)) *MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

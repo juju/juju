@@ -98,7 +98,7 @@ func (c *secretGrantCommand) Init(args []string) error {
 }
 
 // Run implements cmd.Command.
-func (c *secretGrantCommand) Run(_ *cmd.Context) error {
+func (c *secretGrantCommand) Run(ctx *cmd.Context) error {
 	args := &SecretGrantRevokeArgs{
 		RelationKey: &c.relation,
 	}
@@ -109,5 +109,5 @@ func (c *secretGrantCommand) Run(_ *cmd.Context) error {
 		args.ApplicationName = &c.app
 	}
 
-	return c.ctx.GrantSecret(nil, c.secretURI, args)
+	return c.ctx.GrantSecret(ctx, c.secretURI, args)
 }

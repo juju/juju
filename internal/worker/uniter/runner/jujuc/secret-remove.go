@@ -65,5 +65,5 @@ func (c *secretRemoveCommand) Run(ctx *cmd.Context) error {
 	if c.revision > 0 {
 		rev = &c.revision
 	}
-	return c.ctx.RemoveSecret(nil, c.secretURI, rev)
+	return c.ctx.RemoveSecret(ctx, c.secretURI, rev)
 }

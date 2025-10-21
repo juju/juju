@@ -166,7 +166,7 @@ SELECT  a.name AS &remoteApplicationOffererInfo.application_name,
         aro.offer_uuid AS &remoteApplicationOffererInfo.offer_uuid,
         aro.version AS &remoteApplicationOffererInfo.version,
         aro.offerer_model_uuid AS &remoteApplicationOffererInfo.offerer_model_uuid,
-		aro.offer_url AS &remoteApplicationOffererInfo.offer_url,
+        aro.offer_url AS &remoteApplicationOffererInfo.offer_url,
         aro.macaroon AS &remoteApplicationOffererInfo.macaroon
 FROM    application_remote_offerer AS aro
 JOIN    application AS a ON a.uuid = aro.application_uuid
@@ -1479,4 +1479,64 @@ func decodeMacaroon(data []byte) (*macaroon.Macaroon, error) {
 		return nil, errors.Errorf("unmarshalling macaroon: %w", err)
 	}
 	return &m, nil
+}
+
+// IsRelationWithEndpointIdentifiersSuspended returns the suspended status
+// of a relation with the specified endpoints.
+// The following error types can be expected:
+//   - [relationerrors.RelationNotFound]: when no relation exists for the given
+//     endpoints.
+func (st *State) IsRelationWithEndpointIdentifiersSuspended(
+	ctx context.Context,
+	endpoint1, endpoint2 corerelation.EndpointIdentifier,
+) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	type endpointIdentifier1 endpointIdentifier
+	type endpointIdentifier2 endpointIdentifier
+	e1 := endpointIdentifier1{
+		ApplicationName: endpoint1.ApplicationName,
+		EndpointName:    endpoint1.EndpointName,
+	}
+	e2 := endpointIdentifier2{
+		ApplicationName: endpoint2.ApplicationName,
+		EndpointName:    endpoint2.EndpointName,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT rs.relation_status_type_id = 4 AS &relationSuspended.suspended
+FROM   relation r
+JOIN   v_relation_endpoint_identifier e1 ON r.uuid = e1.relation_uuid
+JOIN   v_relation_endpoint_identifier e2 ON r.uuid = e2.relation_uuid
+JOIN   relation_status rs ON rs.relation_uuid = r.uuid
+WHERE  e1.application_name = $endpointIdentifier1.application_name 
+AND    e1.endpoint_name    = $endpointIdentifier1.endpoint_name
+AND    e2.application_name = $endpointIdentifier2.application_name 
+AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
+`, relationSuspended{}, e1, e2)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var relationsSuspended []relationSuspended
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, e1, e2).GetAll(&relationsSuspended)
+		if errors.Is(err, sql.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return false, errors.Errorf("querying relation status for endpoints: %w", err)
+	}
+
+	if len(relationsSuspended) > 1 {
+		return false, errors.Errorf("found multiple relations for endpoint pair")
+	}
+
+	return relationsSuspended[0].IsSuspended, errors.Capture(err)
 }

@@ -45,4 +45,8 @@ const (
 
 	// RelationNotRemote indicates that the relation is not remote.
 	RelationNotRemote = errors.ConstError("relation not remote")
+
+	// MacaroonNotFound describes an error that occurs when looking up a
+	// macaroon by relation UUID and it does not exist.
+	MacaroonNotFound = errors.ConstError("macaroon not found")
 )

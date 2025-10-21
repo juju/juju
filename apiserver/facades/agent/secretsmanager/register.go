@@ -75,18 +75,20 @@ func NewSecretManagerAPI(_ context.Context, ctx facade.ModelContext) (*SecretsMa
 	}
 
 	return &SecretsManagerAPI{
-		authTag:              ctx.Auth().GetAuthTag(),
-		authorizer:           ctx.Auth(),
-		leadershipChecker:    leadershipChecker,
-		watcherRegistry:      ctx.WatcherRegistry(),
-		secretBackendService: backendService,
-		secretService:        secretService,
-		secretsTriggers:      secretService,
-		secretsConsumer:      secretService,
-		clock:                ctx.Clock(),
-		controllerUUID:       ctx.ControllerUUID(),
-		modelUUID:            ctx.ModelUUID().String(),
-		remoteClientGetter:   remoteClientGetter,
-		logger:               ctx.Logger().Child("secretsmanager", corelogger.SECRETS),
+		authTag:                   ctx.Auth().GetAuthTag(),
+		authorizer:                ctx.Auth(),
+		leadershipChecker:         leadershipChecker,
+		watcherRegistry:           ctx.WatcherRegistry(),
+		secretBackendService:      backendService,
+		secretService:             secretService,
+		secretsTriggers:           secretService,
+		secretsConsumer:           secretService,
+		applicationService:        domainServices.Application(),
+		crossModelRelationService: domainServices.CrossModelRelation(),
+		clock:                     ctx.Clock(),
+		controllerUUID:            ctx.ControllerUUID(),
+		modelUUID:                 ctx.ModelUUID().String(),
+		remoteClientGetter:        remoteClientGetter,
+		logger:                    ctx.Logger().Child("secretsmanager", corelogger.SECRETS),
 	}, nil
 }

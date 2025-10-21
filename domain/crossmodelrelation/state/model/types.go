@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/life"
+	domainsecret "github.com/juju/juju/domain/secret"
 )
 
 // nameAndUUID is an agnostic container for the pair of
@@ -342,4 +343,51 @@ type remoteApplicationConsumerInfo struct {
 	LifeID          life.Life `db:"life_id"`
 	OfferUUID       string    `db:"offer_uuid"`
 	Version         uint64    `db:"version"`
+}
+
+type secretAccessor struct {
+	SecretID      string                        `db:"secret_id"`
+	SubjectID     string                        `db:"subject_id"`
+	SubjectTypeID domainsecret.GrantSubjectType `db:"subject_type_id"`
+	RoleID        domainsecret.Role             `db:"role_id"`
+}
+
+type secretRole struct {
+	Role string `db:"role"`
+}
+
+type secretValueRef struct {
+	BackendUUID string `db:"backend_uuid"`
+	RevisionID  string `db:"revision_id"`
+}
+
+type secretContent struct {
+	Name    string `db:"name"`
+	Content string `db:"content"`
+}
+
+type secretRevision struct {
+	SecretID string `db:"secret_id"`
+	Revision int    `db:"revision"`
+}
+
+type secretValues []secretContent
+
+func (rows secretValues) toSecretData() coresecrets.SecretData {
+	result := make(coresecrets.SecretData)
+	for _, row := range rows {
+		result[row.Name] = row.Content
+	}
+	return result
+}
+
+type relationSuspended struct {
+	IsSuspended bool `db:"suspended"`
+}
+
+type endpointIdentifier struct {
+	// ApplicationName is the name of the application the endpoint belongs to.
+	ApplicationName string `db:"application_name"`
+	// EndpointName is the name of the endpoint.
+	EndpointName string `db:"endpoint_name"`
 }

@@ -109,7 +109,7 @@ func (c *secretRevokeCommand) Init(args []string) error {
 }
 
 // Run implements cmd.Command.
-func (c *secretRevokeCommand) Run(_ *cmd.Context) error {
+func (c *secretRevokeCommand) Run(ctx *cmd.Context) error {
 	args := &SecretGrantRevokeArgs{}
 	if c.app != "" {
 		args.ApplicationName = &c.app
@@ -118,5 +118,5 @@ func (c *secretRevokeCommand) Run(_ *cmd.Context) error {
 		args.UnitName = &c.unit
 	}
 
-	return c.ctx.RevokeSecret(nil, c.secretURL, args)
+	return c.ctx.RevokeSecret(ctx, c.secretURL, args)
 }
