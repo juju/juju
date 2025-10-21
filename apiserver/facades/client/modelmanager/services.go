@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/apiserver/facade"
-	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
-	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
@@ -87,6 +87,11 @@ type ModelService interface {
 	// as that of the model.
 	UpdateCredential(ctx context.Context, uuid coremodel.UUID, key credential.Key) error
 
+	// DefaultCloudCredentialKeyForOwner returns the owner's valid (and non-revoked) credential key for a given cloud
+	// if only one credential exists. If owner has multiple valid cloud credentials a NotFound error is returned as
+	// we cannot determine the default credential.
+	DefaultCloudCredentialKeyForOwner(ctx context.Context, owner user.Name, cloudName string) (credential.Key, error)
+
 	// Model returns the model associated with the provided uuid.
 	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
 
@@ -99,7 +104,7 @@ type ModelService interface {
 	ListAllModels(context.Context) ([]coremodel.Model, error)
 
 	// ListModelsForUser returns a list of models for the given user.
-	ListModelsForUser(context.Context, coreuser.UUID) ([]coremodel.Model, error)
+	ListModelsForUser(context.Context, user.UUID) ([]coremodel.Model, error)
 
 	// ListModelUUIDs returns a list of all model UUIDs in the controller that
 	// are active.
@@ -108,7 +113,7 @@ type ModelService interface {
 	// ListModelUUIDsForUser returns a list of model UUIDs that the supplied
 	// user has access to. If the user supplied does not have access to any
 	// models then an empty slice is returned.
-	ListModelUUIDsForUser(context.Context, coreuser.UUID) ([]coremodel.UUID, error)
+	ListModelUUIDsForUser(context.Context, user.UUID) ([]coremodel.UUID, error)
 
 	// GetModelUsers will retrieve basic information about users with
 	// permissions on the given model UUID.
@@ -116,7 +121,7 @@ type ModelService interface {
 
 	// GetModelUser will retrieve basic information about the specified model
 	// user.
-	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error)
+	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name user.Name) (coremodel.ModelUserInfo, error)
 }
 
 // ModelDefaultsService defines a interface for interacting with the model
@@ -175,7 +180,7 @@ type ModelInfoService interface {
 
 	// GetUserModelSummary returns a summary of the current model from the
 	// provided user's perspective.
-	GetUserModelSummary(ctx context.Context, userUUID coreuser.UUID) (coremodel.UserModelSummary, error)
+	GetUserModelSummary(ctx context.Context, userUUID user.UUID) (coremodel.UserModelSummary, error)
 
 	// IsControllerModel returns true if the model is the controller model.
 	IsControllerModel(ctx context.Context) (bool, error)
@@ -189,19 +194,19 @@ type ModelInfoService interface {
 // CredentialService exposes State methods needed by credential manager.
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given key.
-	CloudCredential(ctx context.Context, id credential.Key) (jujucloud.Credential, error)
+	CloudCredential(ctx context.Context, id credential.Key) (cloud.Credential, error)
 }
 
 // AccessService defines a interface for interacting the users and permissions
 // of a controller.
 type AccessService interface {
 	// GetUserUUIDByName returns the UUID of the user with the given name.
-	GetUserUUIDByName(context.Context, coreuser.Name) (coreuser.UUID, error)
+	GetUserUUIDByName(context.Context, user.Name) (user.UUID, error)
 	// UpdatePermission updates the access level for a user of the model.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 	// LastModelLogin will return the last login time of the specified
 	// user.
-	LastModelLogin(context.Context, coreuser.Name, coremodel.UUID) (time.Time, error)
+	LastModelLogin(context.Context, user.Name, coremodel.UUID) (time.Time, error)
 }
 
 // ModelAgentService provides access to the Juju agent version for the model.

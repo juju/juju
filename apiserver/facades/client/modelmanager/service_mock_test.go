@@ -360,6 +360,45 @@ func (c *MockModelServiceCreateModelCall) DoAndReturn(f func(context.Context, mo
 	return c
 }
 
+// DefaultCloudCredentialKeyForOwner mocks base method.
+func (m *MockModelService) DefaultCloudCredentialKeyForOwner(arg0 context.Context, arg1 user.Name, arg2 string) (credential.Key, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DefaultCloudCredentialKeyForOwner", arg0, arg1, arg2)
+	ret0, _ := ret[0].(credential.Key)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DefaultCloudCredentialKeyForOwner indicates an expected call of DefaultCloudCredentialKeyForOwner.
+func (mr *MockModelServiceMockRecorder) DefaultCloudCredentialKeyForOwner(arg0, arg1, arg2 any) *MockModelServiceDefaultCloudCredentialKeyForOwnerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultCloudCredentialKeyForOwner", reflect.TypeOf((*MockModelService)(nil).DefaultCloudCredentialKeyForOwner), arg0, arg1, arg2)
+	return &MockModelServiceDefaultCloudCredentialKeyForOwnerCall{Call: call}
+}
+
+// MockModelServiceDefaultCloudCredentialKeyForOwnerCall wrap *gomock.Call
+type MockModelServiceDefaultCloudCredentialKeyForOwnerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceDefaultCloudCredentialKeyForOwnerCall) Return(arg0 credential.Key, arg1 error) *MockModelServiceDefaultCloudCredentialKeyForOwnerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceDefaultCloudCredentialKeyForOwnerCall) Do(f func(context.Context, user.Name, string) (credential.Key, error)) *MockModelServiceDefaultCloudCredentialKeyForOwnerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceDefaultCloudCredentialKeyForOwnerCall) DoAndReturn(f func(context.Context, user.Name, string) (credential.Key, error)) *MockModelServiceDefaultCloudCredentialKeyForOwnerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DefaultModelCloudInfo mocks base method.
 func (m *MockModelService) DefaultModelCloudInfo(arg0 context.Context) (string, string, error) {
 	m.ctrl.T.Helper()

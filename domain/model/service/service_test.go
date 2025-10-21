@@ -31,6 +31,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -1224,4 +1225,23 @@ func (s *serviceSuite) TestGetControllerModelUUIDNotFound(c *tc.C) {
 	svc := s.newService(c)
 	_, err := svc.GetControllerModelUUID(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestDefaultCloudCredentialKeyForOwner(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := s.newService(c)
+
+	s.mockState.EXPECT().DefaultCloudCredentialNameForOwner(gomock.Any(), usertesting.GenNewName(c, "fred"), "cirrus").Return("some-credential", nil)
+
+	fred := usertesting.GenNewName(c, "fred")
+	key, err := svc.DefaultCloudCredentialKeyForOwner(c.Context(), fred, "cirrus")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(key, tc.DeepEquals, credential.Key{Cloud: "cirrus", Owner: fred, Name: "some-credential"})
+
+	s.mockState.EXPECT().DefaultCloudCredentialNameForOwner(gomock.Any(), usertesting.GenNewName(c, "fred"), "cirrus").Return("", credentialerrors.NotFound)
+
+	key, err = svc.DefaultCloudCredentialKeyForOwner(c.Context(), fred, "cirrus")
+	c.Assert(err, tc.ErrorIs, credentialerrors.NotFound)
+	c.Assert(key, tc.DeepEquals, credential.Key{})
 }

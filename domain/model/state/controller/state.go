@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -2175,4 +2176,57 @@ WHERE uuid = $dbModelUUID.uuid;`,
 	}
 
 	return !invalidCredentialStatus.CredentialInvalid, nil
+}
+
+// DefaultCloudCredentialNameForOwner returns the owner's default cloud credential name for a given
+// cloud. If user has multiple (or no) credentials for the specified cloud a NotFound error is returned as
+// we cannot determine the default credential.
+func (st *State) DefaultCloudCredentialNameForOwner(ctx context.Context, owner user.Name, cloudName string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var credNames []dbCredKey
+	credQuery := `
+SELECT DISTINCT (cc.name) AS (&dbCredKey.cloud_credential_name)
+FROM   v_cloud_credential cc
+WHERE  cc.owner_name = $ownerAndCloudName.owner_name
+AND    cc.cloud_name = $ownerAndCloudName.cloud_name
+AND    cc.revoked = false
+AND    cc.invalid = false
+`
+	names := ownerAndCloudName{
+		OwnerName: owner.Name(),
+		CloudName: cloudName,
+	}
+	credStmt, err := st.Prepare(
+		credQuery,
+		dbCredKey{},
+		names,
+	)
+	if err != nil {
+		return "", errors.Errorf("preparing select credentials for owner statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+
+		err = tx.Query(ctx, credStmt, names).GetAll(&credNames)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("loading cloud credentials: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if len(credNames) == 0 {
+		return "", errors.Errorf("no credentials found: %w", credentialerrors.NotFound)
+	}
+	if len(credNames) > 1 {
+		return "", errors.Errorf("cannot determine default credentials: %w", credentialerrors.NotFound)
+	}
+
+	return credNames[0].CloudCredentialName, nil
 }

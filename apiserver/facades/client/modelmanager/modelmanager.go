@@ -23,10 +23,11 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/user"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/config"
@@ -220,9 +221,21 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			return result, errors.Trace(err)
 		}
 		creationArgs.Credential = credential.KeyFromTag(cloudCredentialTag)
+	} else {
+		// we're looking up credentials for the apiUser - what if JIMM is creating a model on behalf of another user (JIMM always
+		// specifies the credential, so we should be fine)
+		credKey, err := m.modelService.DefaultCloudCredentialKeyForOwner(ctx, coreuser.NameFromTag(m.apiUser), cloudTag.Id())
+		if err != nil {
+			// if we cannot find the default credential key, we continue as some clouds may allow model creation without
+			// credentials, so we error out only if this is NOT a NotFound error
+			if !errors.Is(err, credentialerrors.NotFound) {
+				return result, errors.Trace(err)
+			}
+		}
+		creationArgs.Credential = credKey
 	}
 
-	userUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(m.apiUser))
+	userUUID, err := m.accessService.GetUserUUIDByName(ctx, coreuser.NameFromTag(m.apiUser))
 	switch {
 	case errors.Is(err, accesserrors.UserNotFound):
 		return result, internalerrors.Errorf(
@@ -238,7 +251,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			m.apiUser.Name(), args.Name, err,
 		)
 	}
-	creationArgs.AdminUsers = []user.UUID{userUUID}
+	creationArgs.AdminUsers = []coreuser.UUID{userUUID}
 
 	// Create the model in the controller database.
 	modelUUID, activator, err := m.modelService.CreateModel(ctx, creationArgs)
@@ -533,7 +546,7 @@ func (m *ModelManagerAPI) listModelSummariesForUser(ctx context.Context, tag nam
 		)
 	}
 	result := params.ModelSummaryResults{}
-	userUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(tag))
+	userUUID, err := m.accessService.GetUserUUIDByName(ctx, coreuser.NameFromTag(tag))
 	if err != nil {
 		return result, makeErrorReturn(err)
 	}
@@ -689,7 +702,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 		return result, errors.Trace(err)
 	}
 
-	userUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(userTag))
+	userUUID, err := m.accessService.GetUserUUIDByName(ctx, coreuser.NameFromTag(userTag))
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -709,7 +722,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 
 	for _, mi := range models {
 		var lastConnection *time.Time
-		lc, err := m.accessService.LastModelLogin(ctx, user.NameFromTag(userTag), mi.UUID)
+		lc, err := m.accessService.LastModelLogin(ctx, coreuser.NameFromTag(userTag), mi.UUID)
 		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
 			lastConnection = nil
 		} else if errors.Is(err, modelerrors.NotFound) {
@@ -963,7 +976,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 		}
 	}
 
-	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, modelTag, user.NameFromTag(m.apiUser), m.isAdmin)
+	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, modelTag, coreuser.NameFromTag(m.apiUser), m.isAdmin)
 	if err != nil {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}
@@ -1036,7 +1049,7 @@ func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.Mod
 				Access: modelAccess,
 			},
 			Change:  permission.AccessChange(arg.Action),
-			Subject: user.NameFromTag(targetUserTag),
+			Subject: coreuser.NameFromTag(targetUserTag),
 		})
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
