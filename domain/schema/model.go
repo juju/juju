@@ -22,7 +22,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status,application_endpoint
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/operation-triggers.gen.go -package=triggers -tables=operation_task_log
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer,application_remote_consumer,relation_network_ingress
@@ -90,7 +90,6 @@ const (
 	tableRelationApplicationSettingsHash
 	tableRelationUnitSettingsHash
 	tableRelation
-	tableRelationStatus
 	tableRelationUnit
 	tableIPAddress
 	tableApplicationEndpoint
@@ -175,8 +174,6 @@ func ModelDDL() *schema.Schema {
 			tableRelationUnitSettingsHash),
 		triggers.ChangeLogTriggersForRelation("uuid",
 			tableRelation),
-		triggers.ChangeLogTriggersForRelationStatus("relation_uuid",
-			tableRelationStatus),
 		triggers.ChangeLogTriggersForRelationUnit("unit_uuid", tableRelationUnit),
 		triggers.ChangeLogTriggersForIpAddress("net_node_uuid", tableIPAddress),
 		triggers.ChangeLogTriggersForApplicationEndpoint("application_uuid", tableApplicationEndpoint),
