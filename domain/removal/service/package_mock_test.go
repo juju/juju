@@ -1456,6 +1456,45 @@ func (c *MockModelDBStateGetRemoteApplicationOffererLifeCall) DoAndReturn(f func
 	return c
 }
 
+// GetRemoteApplicationOffererUUIDByApplicationUUID mocks base method.
+func (m *MockModelDBState) GetRemoteApplicationOffererUUIDByApplicationUUID(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteApplicationOffererUUIDByApplicationUUID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteApplicationOffererUUIDByApplicationUUID indicates an expected call of GetRemoteApplicationOffererUUIDByApplicationUUID.
+func (mr *MockModelDBStateMockRecorder) GetRemoteApplicationOffererUUIDByApplicationUUID(arg0, arg1 any) *MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteApplicationOffererUUIDByApplicationUUID", reflect.TypeOf((*MockModelDBState)(nil).GetRemoteApplicationOffererUUIDByApplicationUUID), arg0, arg1)
+	return &MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall{Call: call}
+}
+
+// MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall wrap *gomock.Call
+type MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall) Return(arg0 string, arg1 error) *MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall) Do(f func(context.Context, string) (string, error)) *MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStorageAttachmentLife mocks base method.
 func (m *MockModelDBState) GetStorageAttachmentLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()

@@ -229,8 +229,6 @@ func (s *modelSuite) TestIsControllerModel(c *tc.C) {
 }
 
 func (s *modelSuite) TestIsControllerModelControllerModel(c *tc.C) {
-	s.DumpTable(c, "model")
-
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Force the model to be a controller model.
 		_, err := tx.ExecContext(ctx, `DROP TRIGGER IF EXISTS trg_model_immutable_update;`)

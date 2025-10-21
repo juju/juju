@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
@@ -25,6 +26,26 @@ type remoteApplicationOffererSuite struct {
 
 func TestRemoteApplicationOffererSuite(t *testing.T) {
 	tc.Run(t, &remoteApplicationOffererSuite{})
+}
+
+func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererByApplicationUUIDNoWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewID)
+	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	exp := s.modelState.EXPECT()
+	exp.GetRemoteApplicationOffererUUIDByApplicationUUID(gomock.Any(), appUUID.String()).Return(remoteAppUUID.String(), nil)
+	exp.RemoteApplicationOffererExists(gomock.Any(), remoteAppUUID.String()).Return(true, nil)
+	exp.EnsureRemoteApplicationOffererNotAliveCascade(gomock.Any(), remoteAppUUID.String()).Return(internal.CascadedRemoteApplicationOffererLives{}, nil)
+	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveRemoteApplicationOffererByApplicationUUID(c.Context(), appUUID, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
 func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererNoWaitSuccess(c *tc.C) {

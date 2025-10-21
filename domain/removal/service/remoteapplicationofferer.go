@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	"github.com/juju/juju/core/trace"
@@ -50,6 +51,12 @@ type RemoteApplicationOffererState interface {
 	// the database completely. This also removes the synthetic application,
 	// unit and charm associated with the remote application offerer.
 	DeleteRemoteApplicationOfferer(ctx context.Context, rUUID string) error
+
+	// GetRemoteApplicationOffererUUIDByApplicationUUID returns the remote
+	// application offerer UUID associated with the input application UUID.
+	GetRemoteApplicationOffererUUIDByApplicationUUID(
+		ctx context.Context, appUUID string,
+	) (string, error)
 }
 
 // RemoveRemoteApplicationOfferer checks if a remote application with the input
@@ -119,6 +126,36 @@ func (s *Service) RemoveRemoteApplicationOfferer(
 	return appJobUUID, nil
 }
 
+// RemoveRemoteApplicationOffererByApplicationUUID checks if a remote
+// application offerer associated with the input application UUID exists. If it
+// does, the remote application offerer is guaranteed after this call to be:
+//
+// - No longer alive.
+// - Removed or scheduled to be removed with the input force qualification.
+//
+// The input wait duration is the time that we will give for the normal
+// life-cycle advancement and removal to finish before forcefully removing the
+// remote application offerer. This duration is ignored if the force argument is
+// false. The UUID for the scheduled removal job is returned.
+func (s *Service) RemoveRemoteApplicationOffererByApplicationUUID(
+	ctx context.Context,
+	applicationUUID coreapplication.UUID,
+	force bool,
+	wait time.Duration,
+) (removal.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	remoteAppOffererUUID, err := s.modelState.GetRemoteApplicationOffererUUIDByApplicationUUID(
+		ctx, applicationUUID.String(),
+	)
+	if err != nil {
+		return "", errors.Errorf("getting remote application offerer for application %q: %w", applicationUUID, err)
+	}
+
+	return s.RemoveRemoteApplicationOfferer(ctx, coreremoteapplication.UUID(remoteAppOffererUUID), force, wait)
+}
+
 func (s *Service) remoteApplicationOffererScheduleRemoval(
 	ctx context.Context, remoteAppOffererUUID coreremoteapplication.UUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {
@@ -153,9 +190,7 @@ func (s *Service) processRemoteApplicationOffererRemovalJob(ctx context.Context,
 		return nil
 	} else if err != nil {
 		return errors.Errorf("getting remote application offerer %q life: %w", job.EntityUUID, err)
-	}
-
-	if l == life.Alive {
+	} else if l == life.Alive {
 		return errors.Errorf("remote application offerer %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
