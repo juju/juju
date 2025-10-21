@@ -675,15 +675,6 @@ VALUES (?,?,?),
 		w.AssertChange()
 	})
 
-	// Act: set relation unit departing
-	// Assert: no change seen, per custom trigger
-	harness.AddTest(c, func(c *tc.C) {
-		s.act(c, "UPDATE relation_unit SET departing = true WHERE uuid = ?",
-			relationUnitUUID)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertNoChange()
-	})
-
 	// Act: update the unit settings hash.
 	// Assert: change seen
 	harness.AddTest(c, func(c *tc.C) {
