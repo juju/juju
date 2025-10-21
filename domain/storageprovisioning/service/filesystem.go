@@ -140,6 +140,16 @@ type FilesystemState interface {
 		context.Context, storageprovisioning.FilesystemUUID,
 	) (storageprovisioning.FilesystemParams, error)
 
+	// GetFilesystemRemovalParams returns the filesystem removal params for the
+	// supplied uuid.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
+	// exists for the uuid.
+	GetFilesystemRemovalParams(
+		context.Context, storageprovisioning.FilesystemUUID,
+	) (storageprovisioning.FilesystemRemovalParams, error)
+
 	// GetFilesystemUUIDForID returns the UUID for a filesystem with the
 	// supplied id.
 	//
@@ -533,7 +543,29 @@ func (s *Service) GetFilesystemParams(
 func (s *Service) GetFilesystemRemovalParams(
 	ctx context.Context, uuid storageprovisioning.FilesystemUUID,
 ) (storageprovisioning.FilesystemRemovalParams, error) {
-	return storageprovisioning.FilesystemRemovalParams{}, errors.New("not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return storageprovisioning.FilesystemRemovalParams{}, errors.New(
+			"filesystem uuid is not valid",
+		).Add(coreerrors.NotValid)
+	}
+
+	life, err := s.st.GetFilesystemLife(ctx, uuid)
+	if err != nil {
+		return storageprovisioning.FilesystemRemovalParams{}, errors.Capture(
+			err,
+		)
+	}
+	if life != domainlife.Dead {
+		return storageprovisioning.FilesystemRemovalParams{}, errors.Errorf(
+			"filesystem %q is not dead", uuid.String(),
+		).Add(storageprovisioningerrors.FilesystemNotDead)
+	}
+
+	return s.st.GetFilesystemRemovalParams(ctx, uuid)
 }
 
 // GetFilesystemUUIDForID returns the UUID for a filesystem with the supplied
