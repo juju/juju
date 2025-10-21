@@ -126,6 +126,13 @@ type CrossModelRelationService interface {
 	// GetRemoteApplicationOffererByApplicationName returns the UUID of the remote
 	// application offerer for the given application name.
 	GetRemoteApplicationOffererByApplicationName(context.Context, string) (coreremoteapplication.UUID, error)
+
+	// IsRelationCrossModel determines if the given relation is a cross-model
+	// relation.
+	//
+	// It returns a [relationerrors.RelationNotFound] if the provided relation does
+	// not exist.
+	IsRelationCrossModel(ctx context.Context, relationKey corerelation.Key) (bool, error)
 }
 
 // CredentialService provides access to credentials.

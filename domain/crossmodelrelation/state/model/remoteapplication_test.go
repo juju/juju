@@ -2476,14 +2476,9 @@ func (s *modelRemoteApplicationSuite) TestIsRelationCrossModelWithRemoteConsumer
 
 	// Create a relation for the remote relation
 	remoteRelationUUID := s.addRelation(c)
-	consumerRelationUUID := tc.Must(c, internaluuid.NewUUID).String()
 
 	s.query(c, `
-INSERT INTO application_remote_relation (relation_uuid, consumer_relation_uuid)
-VALUES (?, ?)`, remoteRelationUUID, consumerRelationUUID)
-
-	s.query(c, `
-INSERT INTO offer_connection (uuid, offer_uuid, application_remote_relation_uuid, username)
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
 VALUES (?, ?, ?, 'test-user')`, offerConnectionUUID, offerUUID, remoteRelationUUID)
 
 	s.query(c, `
@@ -2558,14 +2553,9 @@ func (s *modelRemoteApplicationSuite) TestIsRelationCrossModelWithRemoteConsumer
 
 	// Create a relation for the remote relation
 	remoteRelationUUID := s.addRelation(c)
-	consumerRelationUUID := tc.Must(c, internaluuid.NewUUID).String()
 
 	s.query(c, `
-INSERT INTO application_remote_relation (relation_uuid, consumer_relation_uuid)
-VALUES (?, ?)`, remoteRelationUUID, consumerRelationUUID)
-
-	s.query(c, `
-INSERT INTO offer_connection (uuid, offer_uuid, application_remote_relation_uuid, username)
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
 VALUES (?, ?, ?, 'test-user')`, offerConnectionUUID, offerUUID, remoteRelationUUID)
 
 	s.query(c, `

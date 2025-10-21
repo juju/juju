@@ -40,6 +40,7 @@ import (
 	coreoffer "github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
+	corerelation "github.com/juju/juju/core/relation"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
@@ -1345,12 +1346,6 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 		return params.AddRelationResults{}, internalerrors.Capture(err)
 	}
 
-	if len(args.ViaCIDRs) > 0 {
-		// Integration via subnets is only for cross model relations.
-		return params.AddRelationResults{}, internalerrors.Errorf("cross model relations are disabled until "+
-			"backend functionality is moved to domain: %w", errors.NotImplemented)
-	}
-
 	if len(args.Endpoints) != 2 {
 		return params.AddRelationResults{}, errors.BadRequestf("a relation should have exactly two endpoints")
 	}
@@ -1363,6 +1358,40 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 			args.Endpoints[0], args.Endpoints[1], err,
 		)
 	}
+
+	if len(args.ViaCIDRs) > 0 {
+		// We only support relation networks for CMR, so we need to check that
+		// the newly created relation is indeed a CMR.
+		relationKey, err := corerelation.NewKey(
+			[]corerelation.EndpointIdentifier{
+				ep1.EndpointIdentifier(),
+				ep2.EndpointIdentifier(),
+			})
+		if err != nil {
+			return params.AddRelationResults{}, internalerrors.Errorf(
+				"creating relation key for relation between endpoints %q and %q: %w",
+				args.Endpoints[0], args.Endpoints[1], err,
+			)
+		}
+		isCMR, err := api.crossModelRelationService.IsRelationCrossModel(ctx, relationKey)
+		if err != nil {
+			return params.AddRelationResults{}, internalerrors.Errorf(
+				"checking if relation between endpoints %q and %q is cross-model: %w",
+				args.Endpoints[0], args.Endpoints[1], err,
+			)
+		}
+		if !isCMR {
+			return params.AddRelationResults{}, errors.NotSupportedf("integration via subnets for non cross model relations")
+		}
+
+		if err := api.crossModelRelationService.AddRelationNetworkEgress(ctx, relationKey); err != nil {
+			return params.AddRelationResults{}, internalerrors.Errorf(
+				"adding network egress rules for relation between endpoints %q and %q: %w",
+				args.Endpoints[0], args.Endpoints[1], err,
+			)
+		}
+	}
+
 	return params.AddRelationResults{Endpoints: map[string]params.CharmRelation{
 		ep1.ApplicationName: encodeRelation(ep1.Relation),
 		ep2.ApplicationName: encodeRelation(ep2.Relation),
