@@ -386,17 +386,24 @@ func (s *Service) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offe
 	return appName, appUUID, nil
 }
 
-// GetOfferingApplicationToken returns the offering application token (uuid)
-// for the given offer UUID.
-func (s *Service) GetOfferingApplicationToken(ctx context.Context, relationUUIDStr string) (string, error) {
+// GetOfferingApplicationToken returns the offering application token (UUID)
+// for the given relation token (UUID).
+func (s *Service) GetOfferingApplicationToken(
+	ctx context.Context, relationUUID corerelation.UUID,
+) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := corerelation.UUID(relationUUIDStr).Validate(); err != nil {
+	if err := relationUUID.Validate(); err != nil {
 		return "", internalerrors.Errorf("validating offer UUID: %w", err)
 	}
 
-	return s.modelState.GetOfferingApplicationToken(ctx, relationUUIDStr)
+	appUUID, err := s.modelState.GetOfferingApplicationToken(ctx, relationUUID.String())
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	return coreapplication.ParseID(appUUID)
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {

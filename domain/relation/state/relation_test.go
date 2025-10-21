@@ -3659,6 +3659,73 @@ func (s *relationSuite) TestGetRelationUnitUUIDsByEndpointUUID(c *tc.C) {
 	c.Check(relationUnitUUIDs, tc.SameContents, []string{relationUnitUUID.String()})
 }
 
+func (s *relationSuite) TestGetConsumerRelationUnitsChangeSettings(c *tc.C) {
+	// Arrange
+	// - 1 application with settings hash => will return a non nil hash
+	// - 1 unit with settings hash => will return a non nil hash
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
+	withSettingAppUUID := s.addApplication(c, charmUUID, "withSetting")
+	withSettingAppEndpointUUID := s.addApplicationEndpoint(c, withSettingAppUUID, charmRelationUUID)
+	relationUUID := s.addRelation(c)
+	withSettingUnitUUID := s.addUnit(c, "withSetting/0", withSettingAppUUID, charmUUID)
+	withSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, withSettingAppEndpointUUID)
+	relUnitUUID := s.addRelationUnit(c, withSettingUnitUUID, withSettingRelationEndpointUUID)
+	s.addRelationUnitSettingsHash(c, relUnitUUID, "42")
+	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84")
+
+	s.DumpTable(c, "application", "unit", "application_endpoint",
+		"relation_endpoint", "relation_unit", "relation", "relation_application_settings_hash",
+		"relation_unit_settings_hash")
+
+	// Act
+	changes, err := s.state.GetConsumerRelationUnitsChange(c.Context(),
+		relationUUID.String(),
+		withSettingAppUUID.String(),
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(changes.UnitsSettingsVersions, tc.DeepEquals, map[string]int64{
+		"withSetting/0": hashToInt("42"),
+	})
+	c.Check(changes.AppSettingsVersion, tc.DeepEquals, map[string]int64{
+		"withSetting": hashToInt("84"),
+	})
+	c.Check(changes.DepartedUnits, tc.SameContents, []string{})
+}
+
+func (s *relationSuite) TestGetConsumerRelationUnitsChangeNoSettings(c *tc.C) {
+	// Arrange
+	// - 1 application with no settings hash
+	// - 1 unit with no settings hash
+	// - 1 unit requested but not found => will be added to departed
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
+	noSettingAppUUID := s.addApplication(c, charmUUID, "noSetting")
+	noSettingAppEndpointUUID := s.addApplicationEndpoint(c, noSettingAppUUID, charmRelationUUID)
+	relationUUID := s.addRelation(c)
+	s.addUnit(c, "noSetting/1", noSettingAppUUID, charmUUID)
+	noSettingUnitUUID := s.addUnit(c, "noSetting/0", noSettingAppUUID, charmUUID)
+	noSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, noSettingAppEndpointUUID)
+	s.addRelationUnit(c, noSettingUnitUUID, noSettingRelationEndpointUUID)
+
+	s.DumpTable(c, "application", "unit", "application_endpoint",
+		"relation_endpoint", "relation_unit", "relation")
+
+	// Act
+	changes, err := s.state.GetConsumerRelationUnitsChange(c.Context(),
+		relationUUID.String(),
+		noSettingAppUUID.String(),
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(changes.UnitsSettingsVersions, tc.IsNil)
+	c.Check(changes.AppSettingsVersion, tc.IsNil)
+	c.Check(changes.DepartedUnits, tc.SameContents, []string{"noSetting/1"})
+}
+
 // addRelationUnitSettingsHash inserts a relation unit settings hash into the
 // database using the provided relationUnitUUID.
 func (s *relationSuite) addRelationUnitSettingsHash(c *tc.C, relationUnitUUID corerelation.UnitUUID, hash string) {
