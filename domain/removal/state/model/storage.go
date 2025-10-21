@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
+	"github.com/juju/juju/domain/removal/internal"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -92,6 +93,22 @@ func (st *State) EnsureStorageAttachmentNotAliveWithFulfilment(
 	fulfilment int,
 ) error {
 	return errors.New("no implemented: coming soon")
+}
+
+// GetDetachInfoForStorageAttachment returns the information required to
+// compute what a units storage requirement will look like after having
+// removed the storage attachment.
+//
+// This information can be used to establish if detaching storage from the
+// unit would violate the expectations of the unit's charm.
+//
+// The following errors may be returned:
+// - [storageerrors.StorageAttachmentNotFound] if the storage attachment
+// no longer exists in the model.
+func (st *State) GetDetachInfoForStorageAttachment(
+	ctx context.Context, saUUID string,
+) (internal.StorageAttachmentDetachInfo, error) {
+	return internal.StorageAttachmentDetachInfo{}, errors.New("no implemented: coming soon")
 }
 
 // StorageAttachmentScheduleRemoval schedules a removal job for the storage
