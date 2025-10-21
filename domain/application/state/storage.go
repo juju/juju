@@ -1075,7 +1075,7 @@ func (st *State) makeInsertUnitVolumeAttachmentArgs(
 }
 
 // GetStorageUUIDByID returns the UUID for the specified storage, returning an error
-// satisfying [storageerrors.StorageNotFound] if the storage doesn't exist.
+// satisfying [storageerrors.StorageInstanceNotFound] if the storage doesn't exist.
 func (st *State) GetStorageUUIDByID(ctx context.Context, storageID corestorage.ID) (domainstorage.StorageInstanceUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1095,7 +1095,7 @@ WHERE  storage_id = $storageInstance.storage_id
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, query, inst).Get(&inst)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("storage %q not found", storageID).Add(storageerrors.StorageNotFound)
+			return errors.Errorf("storage %q not found", storageID).Add(storageerrors.StorageInstanceNotFound)
 		}
 		return err
 	})
@@ -1108,7 +1108,7 @@ WHERE  storage_id = $storageInstance.storage_id
 
 // AttachStorage attaches the specified storage to the specified unit.
 // The following error types can be expected:
-// - [storageerrors.StorageNotFound] when the storage doesn't exist.
+// - [storageerrors.StorageInstanceNotFound] when the storage doesn't exist.
 // - [applicationerrors.UnitNotFound]: when the unit does not exist.
 // - [applicationerrors.StorageAlreadyAttached]: when the attachment already exists.
 // - [applicationerrors.FilesystemAlreadyAttached]: when the filesystem is already attached.
@@ -1220,7 +1220,7 @@ WHERE  uuid = $storageInstance.uuid
 		if !errors.Is(err, sqlair.ErrNoRows) {
 			return storageInstance{}, errors.Errorf("querying storage %q life: %w", storageUUID, err)
 		}
-		return storageInstance{}, errors.Errorf("%w: %s", storageerrors.StorageNotFound, storageUUID)
+		return storageInstance{}, errors.Errorf("%w: %s", storageerrors.StorageInstanceNotFound, storageUUID)
 	}
 	return inst, nil
 }
