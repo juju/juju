@@ -1051,11 +1051,11 @@ func (st *State) GetVolumeParams(
 
 	var (
 		input     = volumeUUID{UUID: uuid.String()}
-		paramsVal volumeParams
+		paramsVal volumeProvisioningParams
 	)
 
 	paramsStmt, err := st.Prepare(`
-SELECT &volumeParams.* FROM (
+SELECT &volumeProvisioningParams.* FROM (
     SELECT    sv.volume_id,
               si.requested_size_mib,
               sp.type,

@@ -302,9 +302,9 @@ type filesystemTemplate struct {
 	Location     string `db:"location"`
 }
 
-// volumeParams represents the provisioning params for a volume from the model
+// volumeProvisioningParams represents the provisioning params for a volume from the model
 // database.
-type volumeParams struct {
+type volumeProvisioningParams struct {
 	VolumeID             string `db:"volume_id"`
 	Type                 string `db:"type"`
 	RequestedSizeMiB     uint64 `db:"requested_size_mib"`
