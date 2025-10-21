@@ -33,7 +33,6 @@ import (
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	domainlife "github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/rpc/params"
@@ -120,7 +119,7 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 		return nil
 	}
 
-	relationTag, err := constructRelationTag(relationDetails)
+	relationTag, err := constructRelationTag(relationDetails.Key)
 	if err != nil {
 		return errors.Annotatef(err, "constructing relation tag for relation %q", relationUUID)
 	}
@@ -129,11 +128,9 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 		return errors.Annotatef(err, "checking macaroons for relation %q", relationUUID)
 	}
 
-	// TODO (stickupkid): Work out if we get a offer UUID and get the
-	// application UUID from that instead.
-	applicationUUID, err := coreapplication.ParseID(change.ApplicationOrOfferToken)
+	applicationUUID, err := api.getApplicationUUIDFromToken(ctx, change.ApplicationOrOfferToken)
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "getting application UUID for relation %q", relationUUID)
 	}
 
 	// Ensure that the application is still alive.
@@ -161,6 +158,29 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 	}
 
 	return nil
+}
+
+func (api *CrossModelRelationsAPIv3) getApplicationUUIDFromToken(
+	ctx context.Context,
+	token string,
+) (coreapplication.UUID, error) {
+	// First try as an application UUID.
+	appUUID, err := coreapplication.ParseUUID(token)
+	if err == nil {
+		return appUUID, nil
+	}
+
+	// Next try as an offer UUID.
+	offerUUID, err := offer.ParseUUID(token)
+	if err != nil {
+		return "", errors.NotValidf("token %q is not a valid application or offer UUID", token)
+	}
+
+	_, appUUID, err = api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
+	if err != nil {
+		return "", errors.Annotatef(err, "getting application UUID from offer %q", offerUUID)
+	}
+	return appUUID, nil
 }
 
 func (api *CrossModelRelationsAPIv3) handleSuspendedRelationChange(
@@ -628,10 +648,10 @@ func (api *CrossModelRelationsAPIv3) checkMacaroonsForRelation(
 	return auth.CheckRelationMacaroons(ctx, api.modelUUID.String(), offerUUID.String(), relationTag, mac, version)
 }
 
-func constructRelationTag(relationDetails relation.RelationDetails) (names.RelationTag, error) {
-	relationKey := relationDetails.Key.String()
+func constructRelationTag(key corerelation.Key) (names.RelationTag, error) {
+	relationKey := key.String()
 	if !names.IsValidRelation(relationKey) {
-		return names.RelationTag{}, errors.NotValidf("relation key %q", relationDetails.Key)
+		return names.RelationTag{}, errors.NotValidf("relation key %q", key)
 	}
 	return names.NewRelationTag(relationKey), nil
 }

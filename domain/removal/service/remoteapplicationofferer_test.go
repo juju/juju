@@ -31,7 +31,7 @@ func TestRemoteApplicationOffererSuite(t *testing.T) {
 func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererByApplicationUUIDNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := tc.Must(c, coreapplication.NewID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
 
 	when := time.Now()

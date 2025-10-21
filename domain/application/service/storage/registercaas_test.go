@@ -70,7 +70,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	appUUID := tc.Must(c, coreapplication.NewID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	poolUUID := s.newFilesystemStoragePool(c, ctrl)
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	providerFSInfo := []caas.FilesystemInfo{
@@ -463,7 +463,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	appUUID := tc.Must(c, coreapplication.NewID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	poolUUID := s.newFilesystemStoragePool(c, ctrl)
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	providerFSInfo := []caas.FilesystemInfo{
@@ -597,7 +597,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitApplicationNotFoun
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	appUUID := tc.Must(c, coreapplication.NewID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	providerFSInfo := []caas.FilesystemInfo{
 		{

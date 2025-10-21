@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	corelife "github.com/juju/juju/core/life"
@@ -1967,7 +1966,7 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatusWrongApp(c *
 	_, err := s.state.GetMapperDataForWatchLifeSuspendedStatus(
 		c.Context(),
 		relationUUID,
-		coreapplicationtesting.GenApplicationUUID(c),
+		tc.Must(c, coreapplication.NewUUID),
 	)
 
 	// Assert:
@@ -2053,7 +2052,7 @@ func (s *relationSuite) TestGetRelationEndpointScope(c *tc.C) {
 
 func (s *relationSuite) TestGetRelationEndpointScopeRelationNotFound(c *tc.C) {
 	// Arrange:
-	applicationUUID := coreapplicationtesting.GenApplicationUUID(c)
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	// Act:
@@ -2204,7 +2203,7 @@ func (s *relationSuite) TestGetRelationUnitsChanges(c *tc.C) {
 func (s *relationSuite) TestGetRelationUnitsChangesRelationNotFound(c *tc.C) {
 	// Act
 	_, err := s.state.GetRelationUnitsChanges(c.Context(), corerelationtesting.GenRelationUUID(c),
-		coreapplicationtesting.GenApplicationUUID(c))
+		tc.Must(c, coreapplication.NewUUID))
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
@@ -2987,7 +2986,7 @@ func (s *relationSuite) TestApplicationRelationsInfoPeerRelation(c *tc.C) {
 
 func (s *relationSuite) TestApplicationRelationsInfoNoApp(c *tc.C) {
 	// Arrange:
-	appID := coreapplicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 
 	// Act:
 	_, err := s.state.ApplicationRelationsInfo(c.Context(), appID)

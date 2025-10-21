@@ -517,7 +517,7 @@ func (s *modelStateSuite) TestGetApplicationUUIDByNameNotFound(c *tc.C) {
 func (s *modelStateSuite) TestSetApplicationPasswordApplicationNotFound(c *tc.C) {
 	st := NewModelState(s.TxnRunnerFactory())
 
-	appID, err := coreapplication.NewID()
+	appID, err := coreapplication.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := s.genPasswordHash(c)
@@ -549,7 +549,7 @@ func (s *modelStateSuite) TestMatchesApplicationPasswordHash(c *tc.C) {
 func (s *modelStateSuite) TestMatchesApplicationPasswordHashApplicationNotFound(c *tc.C) {
 	st := NewModelState(s.TxnRunnerFactory())
 
-	appID, err := coreapplication.NewID()
+	appID, err := coreapplication.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := s.genPasswordHash(c)

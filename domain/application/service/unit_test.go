@@ -12,7 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
@@ -115,7 +114,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	unitName := coreunit.Name("foo/666")
 	now := time.Now()
 
@@ -183,7 +182,7 @@ func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
 func (s *unitServiceSuite) TestUpdateCAASUnitNotAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	s.state.EXPECT().GetApplicationLifeByName(gomock.Any(), "foo").Return(id, life.Dying, nil)
 
 	err := s.service.UpdateCAASUnit(c.Context(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
@@ -251,7 +250,7 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "foo"
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	unitNames := []coreunit.Name{"foo/666", "foo/667"}
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
@@ -275,7 +274,7 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplicationDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "foo"
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
 	s.state.EXPECT().GetUnitNamesForApplication(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationIsDead)
@@ -316,7 +315,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	principalUnitName := unittesting.GenNewName(c, "principal/0")
 	principalUnitUUID := tc.Must(c, coreunit.NewUUID)
 	principalNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
@@ -349,7 +348,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitUnitAlreadyHasSubordinate(c
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	principalUnitName := unittesting.GenNewName(c, "principal/0")
 
 	s.state.EXPECT().GetUnitUUIDAndNetNodeForName(gomock.Any(), principalUnitName).Return(
@@ -368,7 +367,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitUnitAlreadyHasSubordinate(c
 func (s *unitServiceSuite) TestAddIAASSubordinateUnitStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	principalUnitName := unittesting.GenNewName(c, "principal/0")
 
 	s.state.EXPECT().GetUnitUUIDAndNetNodeForName(gomock.Any(), principalUnitName).Return(
@@ -390,7 +389,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitApplicationNotSubordinate(c
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	principalUnitName := unittesting.GenNewName(c, "principal/0")
 	s.state.EXPECT().GetUnitUUIDAndNetNodeForName(gomock.Any(), principalUnitName).Return(
 		unittesting.GenUnitUUID(c), tc.Must(c, domainnetwork.NewNetNodeUUID), nil,
@@ -408,7 +407,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitBadUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 
 	// Act:
 	err := s.service.AddIAASSubordinateUnit(c.Context(), appID, "bad-name")
@@ -638,7 +637,7 @@ func (s *unitServiceSuite) TestGetUnitSubordinatesError(c *tc.C) {
 func (s *unitServiceSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 
 	allUnitDomainLife := map[string]int{
 		"foo/0": 0,
@@ -660,7 +659,7 @@ func (s *unitServiceSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
 func (s *unitServiceSuite) TestGetAllUnitLifeForApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 
 	boom := errors.New("boom")
 	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).
@@ -674,7 +673,7 @@ func (s *unitServiceSuite) TestGetAllUnitLifeForApplicationError(c *tc.C) {
 func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 
 	expectedResult := map[coreunit.Name]string{
 		"test/4": "foo",
@@ -691,7 +690,7 @@ func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplication(c *tc.C
 func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appID).
 		Return(nil, errors.New("nope"))

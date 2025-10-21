@@ -55,7 +55,7 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *tc.C) {
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	runner := mocks.NewMockRunner(ctrl)
-	testAppID, _ := application.NewID()
+	testAppID, _ := application.NewUUID()
 
 	applicationService.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		appChan <- []string{testAppID.String()}
@@ -112,7 +112,7 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *tc.C) {
 
 	appChan := make(chan []string, 5)
 	done := make(chan struct{})
-	testAppID, _ := application.NewID()
+	testAppID, _ := application.NewUUID()
 
 	appChan <- []string{testAppID.String()}
 	appChan <- []string{testAppID.String()}

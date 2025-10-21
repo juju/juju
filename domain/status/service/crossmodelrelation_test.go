@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
-	coreapplicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/offer"
@@ -47,7 +47,7 @@ func (s *serviceSuite) TestGetOfferStatus(c *tc.C) {
 	now := s.clock.Now().UTC()
 
 	offerUUID := tc.Must(c, offer.NewUUID)
-	applicationUUID := coreapplicationtesting.GenApplicationUUID(c)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	s.modelState.EXPECT().GetApplicationUUIDForOffer(gomock.Any(), offerUUID.String()).Return(applicationUUID.String(), nil)
 	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,

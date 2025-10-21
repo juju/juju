@@ -92,7 +92,7 @@ func (st *State) CreateIAASApplication(
 		return "", nil, errors.Capture(err)
 	}
 
-	appUUID, err := coreapplication.NewID()
+	appUUID, err := coreapplication.NewUUID()
 	if err != nil {
 		return "", nil, errors.Capture(err)
 	}
@@ -144,7 +144,7 @@ func (st *State) CreateCAASApplication(
 		return "", errors.Capture(err)
 	}
 
-	appUUID, err := coreapplication.NewID()
+	appUUID, err := coreapplication.NewUUID()
 	if err != nil {
 		return "", errors.Capture(err)
 	}

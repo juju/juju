@@ -11,7 +11,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -243,7 +242,7 @@ func (s *stateSuite) TestGetStorageResourceTagInfoForApplication(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetStorageResourceTagInfoForApplicationNotFound(c *tc.C) {
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	controllerUUID := uuid.MustNewUUID().String()
 	_, err := s.DB().ExecContext(
 		c.Context(),

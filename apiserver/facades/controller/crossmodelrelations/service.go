@@ -96,9 +96,9 @@ type RelationService interface {
 
 // ApplicationService provides access to applications.
 type ApplicationService interface {
-	// GetApplicationDetails returns application details for the given appID.
+	// GetApplicationDetails returns application details for the given appUUID.
 	// This includes the life status and the name of the application.
-	GetApplicationDetails(ctx context.Context, appID coreapplication.UUID) (domainapplication.ApplicationDetails, error)
+	GetApplicationDetails(ctx context.Context, appUUID coreapplication.UUID) (domainapplication.ApplicationDetails, error)
 }
 
 // RemovalService provides the ability to remove remote relations.

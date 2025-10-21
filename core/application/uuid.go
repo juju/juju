@@ -12,8 +12,8 @@ import (
 // UUID represents a application unique identifier.
 type UUID string
 
-// NewID is a convenience function for generating a new application uuid.
-func NewID() (UUID, error) {
+// NewUUID is a convenience function for generating a new application uuid.
+func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return UUID(""), err
@@ -21,9 +21,9 @@ func NewID() (UUID, error) {
 	return UUID(uuid.String()), nil
 }
 
-// ParseID returns a new ID from the given string. If the string is not a valid
-// uuid an error satisfying [errors.NotValid] will be returned.
-func ParseID(value string) (UUID, error) {
+// ParseUUID returns a new UUID from the given string. If the string is not a
+// valid uuid an error satisfying [errors.NotValid] will be returned.
+func ParseUUID(value string) (UUID, error) {
 	if !uuid.IsValidUUIDString(value) {
 		return "", errors.Errorf("id %q %w", value, coreerrors.NotValid)
 	}

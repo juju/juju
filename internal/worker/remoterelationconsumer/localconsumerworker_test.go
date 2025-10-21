@@ -64,7 +64,7 @@ func (s *localConsumerWorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.applicationName = "foo"
-	s.applicationUUID = tc.Must(c, application.NewID)
+	s.applicationUUID = tc.Must(c, application.NewUUID)
 	s.offererModelUUID = tc.Must(c, model.NewUUID).String()
 	s.consumerModelUUID = tc.Must(c, model.NewUUID)
 	s.offerUUID = tc.Must(c, uuid.NewUUID).String()
@@ -659,7 +659,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChangePeerRelation(
 func (s *localConsumerWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	token := tc.Must(c, application.NewID)
+	token := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
@@ -887,7 +887,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequestErro
 func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacaroon(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	token := tc.Must(c, application.NewID)
+	token := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
@@ -950,7 +950,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacar
 func (s *localConsumerWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	token := tc.Must(c, application.NewID)
+	token := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
@@ -1033,7 +1033,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	token := tc.Must(c, application.NewID)
+	token := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
@@ -1155,7 +1155,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c
 func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	token := tc.Must(c, application.NewID)
+	token := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
@@ -1248,7 +1248,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDying(c 
 func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDischargeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	token := tc.Must(c, application.NewID)
+	token := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, relation.NewUUID)
 	mac := newMacaroon(c, "test")
 
@@ -1643,7 +1643,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 	done := s.expectWorkerStartup()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
-	token := tc.Must(c, application.NewID)
+	token := tc.Must(c, application.NewUUID)
 
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken: s.applicationUUID.String(),

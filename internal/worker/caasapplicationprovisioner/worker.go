@@ -260,7 +260,7 @@ func (p *provisioner) loop() error {
 				return errors.New("app watcher closed channel")
 			}
 			for _, id := range apps {
-				appID, err := application.ParseID(id)
+				appID, err := application.ParseUUID(id)
 				if err != nil {
 					return errors.Trace(err)
 				}

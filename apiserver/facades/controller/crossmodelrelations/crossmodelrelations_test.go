@@ -18,7 +18,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -77,7 +76,7 @@ func (s *facadeSuite) SetUpTest(c *tc.C) {
 func (s *facadeSuite) TestPublishRelationChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewID)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	offerUUID := tc.Must(c, offer.NewUUID)
 
@@ -152,7 +151,7 @@ func (s *facadeSuite) TestPublishRelationChanges(c *tc.C) {
 func (s *facadeSuite) TestPublishRelationChangesMacaroonPermissionIssue(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewID)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	offerUUID := tc.Must(c, offer.NewUUID)
 
@@ -220,7 +219,7 @@ func (s *facadeSuite) TestPublishRelationChangesMacaroonPermissionIssue(c *tc.C)
 func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewID)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	offerUUID := tc.Must(c, offer.NewUUID)
 
@@ -295,7 +294,7 @@ func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 func (s *facadeSuite) TestPublishRelationChangesSuspended(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewID)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	offerUUID := tc.Must(c, offer.NewUUID)
 
@@ -379,7 +378,7 @@ func (s *facadeSuite) TestPublishRelationChangesSuspended(c *tc.C) {
 func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsUnitSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewID)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 
 	s.crossModelRelationService.EXPECT().
@@ -408,7 +407,7 @@ func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsUnitSetting
 func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsBadUnitSettingsValue(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewID)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 
 	s.crossModelRelationService.EXPECT().
@@ -430,7 +429,7 @@ func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsBadUnitSett
 func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsApplicationUnitSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewID)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 
 	s.crossModelRelationService.EXPECT().
@@ -464,7 +463,7 @@ func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsApplication
 func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsApplicationUnitSettingsBadApplicationSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewID)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 
 	s.crossModelRelationService.EXPECT().
@@ -489,7 +488,7 @@ func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsApplication
 func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsNoUnitsSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewID)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 
 	s.crossModelRelationService.EXPECT().
@@ -513,7 +512,7 @@ func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsNoUnitsSett
 func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsDepartedUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewID)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	relationUnitUUID := tc.Must(c, corerelation.NewUnitUUID)
 
@@ -847,7 +846,7 @@ func (s *facadeSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
 	relUUID := relationtesting.GenRelationUUID(c)
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	uri := coresecrets.NewURI()
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
@@ -890,7 +889,7 @@ func (s *facadeSuite) TestWatchConsumedSecretsChangesNotFound(c *tc.C) {
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID := relationtesting.GenRelationUUID(c)
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return("", crossmodelrelationerrors.OfferNotFound)
 
@@ -915,7 +914,7 @@ func (s *facadeSuite) TestWatchConsumedSecretsChangesAuthError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
 	relUUID := relationtesting.GenRelationUUID(c)
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)

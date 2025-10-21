@@ -18,7 +18,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
-	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -992,7 +992,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *tc.C)
 	uri := coresecrets.NewURI().WithSource(anotherUUID)
 
 	consumer := unittesting.GenNewName(c, "mariadb/0")
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	relUUID := relationtesting.GenRelationUUID(c)
 	mac := apitesting.MustNewMacaroon("id")
 
@@ -1065,7 +1065,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 	uri := coresecrets.NewURI().WithSource(anotherUUID)
 
 	consumer := unittesting.GenNewName(c, "mariadb/0")
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	relUUID := relationtesting.GenRelationUUID(c)
 	mac := apitesting.MustNewMacaroon("id")
 
@@ -1136,7 +1136,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 	uri := coresecrets.NewURI().WithSource(anotherUUID)
 
 	consumer := unittesting.GenNewName(c, "mariadb/0")
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	relUUID := relationtesting.GenRelationUUID(c)
 	mac := apitesting.MustNewMacaroon("id")
 
@@ -1207,7 +1207,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 	uri := coresecrets.NewURI().WithSource(anotherUUID)
 
 	consumer := unittesting.GenNewName(c, "mariadb/0")
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	relUUID := relationtesting.GenRelationUUID(c)
 	mac := apitesting.MustNewMacaroon("id")
 

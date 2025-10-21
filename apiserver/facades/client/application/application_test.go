@@ -17,7 +17,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	corearch "github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -432,7 +431,7 @@ func (s *applicationSuite) TestCharmRelations(c *tc.C) {
 
 	s.setupAPI(c)
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, application.NewUUID)
 	rels := []string{"foo", "bar"}
 
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "doink").Return(appID, nil)
@@ -756,7 +755,7 @@ func (s *applicationSuite) TestCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, application.NewUUID)
 
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.applicationService.EXPECT().GetApplicationAndCharmConfig(gomock.Any(), appID).Return(applicationservice.ApplicationConfig{
@@ -919,7 +918,7 @@ func (s *applicationSuite) TestSetConfigsInvalidConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, application.NewUUID)
 
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.applicationService.EXPECT().UpdateApplicationConfig(gomock.Any(), appID, gomock.Any()).Return(applicationerrors.InvalidApplicationConfig)
@@ -939,7 +938,7 @@ func (s *applicationSuite) TestSetConfigs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, application.NewUUID)
 
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.applicationService.EXPECT().UpdateApplicationConfig(gomock.Any(), appID, map[string]string{"foo": "bar"}).Return(nil)
@@ -1059,7 +1058,7 @@ func (s *applicationSuite) TestMergeBindings(c *tc.C) {
 	s.setupAPI(c)
 
 	appName := "doink"
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, application.NewUUID)
 
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
 	s.applicationService.EXPECT().MergeApplicationEndpointBindings(gomock.Any(), appID, map[string]network.SpaceName{
@@ -1088,7 +1087,7 @@ func (s *applicationSuite) TestMergeBindingsForce(c *tc.C) {
 	s.setupAPI(c)
 
 	appName := "doink"
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, application.NewUUID)
 
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
 	s.applicationService.EXPECT().MergeApplicationEndpointBindings(gomock.Any(), appID, map[string]network.SpaceName{
@@ -1247,7 +1246,7 @@ func (s *applicationSuite) testUnitsInfoCAAS(c *tc.C, inputTag names.Tag, result
 		resultingUnitName.Application(): resultingUnitName.String(),
 	}, nil)
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, application.NewUUID)
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appID, nil).AnyTimes()
 
 	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), resultingUnitName).Return(life.Alive, nil)

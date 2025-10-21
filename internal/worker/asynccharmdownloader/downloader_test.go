@@ -16,7 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -39,7 +38,7 @@ func TestAsyncWorkerSuite(t *stdtesting.T) {
 func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	charmID := charmtesting.GenCharmID(c)
 
 	done := make(chan struct{})
@@ -63,9 +62,9 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 	curl, err := url.Parse("https://example.com/foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(reserveInfo, nil)
 	s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, nil)
-	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
+	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appUUID, domainapplication.ResolveCharmDownload{
 		CharmUUID: charmID,
 		Path:      "path",
 		Size:      int64(123),
@@ -74,7 +73,7 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 		return nil
 	})
 
-	w := s.newWorker(c, appID)
+	w := s.newWorker(c, appUUID)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -89,7 +88,7 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	charmID := charmtesting.GenCharmID(c)
 
 	done := make(chan struct{})
@@ -113,7 +112,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 	curl, err := url.Parse("https://example.com/foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(reserveInfo, nil)
 
 	// Expect the download to fail twice before succeeding.
 
@@ -122,7 +121,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 		s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, nil),
 	)
 
-	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
+	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appUUID, domainapplication.ResolveCharmDownload{
 		CharmUUID: charmID,
 		Path:      "path",
 		Size:      int64(123),
@@ -131,7 +130,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 		return nil
 	})
 
-	w := s.newWorker(c, appID)
+	w := s.newWorker(c, appUUID)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -146,7 +145,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	charmID := charmtesting.GenCharmID(c)
 
 	done := make(chan struct{})
@@ -170,7 +169,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *tc.C) {
 	curl, err := url.Parse("https://example.com/foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(reserveInfo, nil)
 
 	gomock.InOrder(
 		s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, errors.Errorf("boom")).Times(retryAttempts-1),
@@ -180,7 +179,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *tc.C) {
 		}),
 	)
 
-	w := s.newWorker(c, appID)
+	w := s.newWorker(c, appUUID)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -196,7 +195,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *tc.C) {
 func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	charmID := charmtesting.GenCharmID(c)
 
 	done := make(chan struct{})
@@ -213,12 +212,12 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *tc.C) {
 		},
 	}
 
-	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).DoAndReturn(func(ctx context.Context, i application.UUID) (domainapplication.CharmDownloadInfo, error) {
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).DoAndReturn(func(ctx context.Context, i application.UUID) (domainapplication.CharmDownloadInfo, error) {
 		close(done)
 		return reserveInfo, applicationerrors.CharmAlreadyAvailable
 	})
 
-	w := s.newWorker(c, appID)
+	w := s.newWorker(c, appUUID)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -233,7 +232,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *tc.C) {
 func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	charmID := charmtesting.GenCharmID(c)
 
 	done := make(chan struct{})
@@ -257,9 +256,9 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *tc.C) {
 	curl, err := url.Parse("https://example.com/foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(reserveInfo, nil)
 	s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, nil)
-	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
+	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appUUID, domainapplication.ResolveCharmDownload{
 		CharmUUID: charmID,
 		Path:      "path",
 		Size:      int64(123),
@@ -268,7 +267,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *tc.C) {
 		return applicationerrors.CharmAlreadyResolved
 	})
 
-	w := s.newWorker(c, appID)
+	w := s.newWorker(c, appUUID)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -280,9 +279,9 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *asyncWorkerSuite) newWorker(c *tc.C, appID application.UUID) worker.Worker {
+func (s *asyncWorkerSuite) newWorker(c *tc.C, appUUID application.UUID) worker.Worker {
 	return NewAsyncDownloadWorker(
-		appID,
+		appUUID,
 		s.applicationService,
 		s.downloader,
 		s.clock,

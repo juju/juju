@@ -12,7 +12,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	applicationtesting "github.com/juju/juju/core/application/testing"
+	coreapplication "github.com/juju/juju/core/application"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -50,7 +50,7 @@ func TestResourceServiceSuite(t *testing.T) {
 func (s *resourceServiceSuite) TestDeleteApplicationResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().DeleteApplicationResources(gomock.Any(),
 		appUUID).Return(nil)
@@ -74,7 +74,7 @@ func (s *resourceServiceSuite) TestDeleteApplicationResourcesUnexpectedError(c *
 
 	stateError := errors.New("unexpected error")
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().DeleteApplicationResources(gomock.Any(),
 		appUUID).Return(stateError)
@@ -127,7 +127,7 @@ func (s *resourceServiceSuite) TestGetApplicationResourceID(c *tc.C) {
 
 	retID := resourcetesting.GenResourceUUID(c)
 	args := resource.GetApplicationResourceIDArgs{
-		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		ApplicationUUID: tc.Must(c, coreapplication.NewUUID),
 		Name:            "test-resource",
 	}
 	s.state.EXPECT().GetApplicationResourceID(gomock.Any(), args).Return(retID, nil)
@@ -152,7 +152,7 @@ func (s *resourceServiceSuite) TestGetApplicationResourceIDBadName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := resource.GetApplicationResourceIDArgs{
-		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		ApplicationUUID: tc.Must(c, coreapplication.NewUUID),
 		Name:            "",
 	}
 	_, err := s.service.GetApplicationResourceID(c.Context(), args)
@@ -213,7 +213,7 @@ func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameBa
 func (s *resourceServiceSuite) TestListResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	expectedList := coreresource.ApplicationResources{
 		Resources: []coreresource.Resource{{
 			RetrievedBy: "admin",
@@ -235,7 +235,7 @@ func (s *resourceServiceSuite) TestGetResourcesByApplicationUUIDBadID(c *tc.C) {
 func (s *resourceServiceSuite) TestGetResourcesByApplicationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	expectedList := []coreresource.Resource{{
 		RetrievedBy: "admin",
 	}}
@@ -890,7 +890,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResources(c *tc.C) {
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
 	args := resource.SetRepositoryResourcesArgs{
-		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		ApplicationUUID: tc.Must(c, coreapplication.NewUUID),
 		CharmID:         charmtesting.GenCharmID(c),
 		Info: []charmresource.Resource{{
 
@@ -924,7 +924,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationError(c *tc.
 
 	// Act
 	err = s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		ApplicationUUID: tc.Must(c, coreapplication.NewUUID),
 		CharmID:         charmtesting.GenCharmID(c),
 		Info: []charmresource.Resource{{
 			Meta: charmresource.Meta{
@@ -962,7 +962,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesCharmIDNotValid(c *tc.C
 
 	// Act
 	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		ApplicationUUID: tc.Must(c, coreapplication.NewUUID),
 		CharmID:         "Not-valid",
 	})
 
@@ -979,7 +979,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationNoLastPolled
 
 	// Act
 	err = s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		ApplicationUUID: tc.Must(c, coreapplication.NewUUID),
 		CharmID:         charmtesting.GenCharmID(c),
 		Info: []charmresource.Resource{{
 			Meta: charmresource.Meta{
@@ -1005,7 +1005,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationNoInfo(c *tc
 
 	// Act
 	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		ApplicationUUID: tc.Must(c, coreapplication.NewUUID),
 		CharmID:         charmtesting.GenCharmID(c),
 		Info:            nil,
 		LastPolled:      time.Now(),
@@ -1020,7 +1020,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationInvalidInfo(
 
 	// Act
 	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		ApplicationUUID: tc.Must(c, coreapplication.NewUUID),
 		CharmID:         charmtesting.GenCharmID(c),
 		Info:            []charmresource.Resource{{}, {}}, // Invalid resources
 		LastPolled:      time.Now(),

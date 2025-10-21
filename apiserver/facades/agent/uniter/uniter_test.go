@@ -19,7 +19,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
@@ -1824,7 +1823,7 @@ func (s *uniterRelationSuite) TestReadSettingsApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
@@ -1928,7 +1927,7 @@ func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
@@ -2044,7 +2043,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *tc.C) {
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	remoteAppTag := names.NewApplicationTag("mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
@@ -2077,7 +2076,7 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
@@ -2360,7 +2359,7 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *tc.C) {
 		unittesting.GenUnitUUID(c),
 	}
 	appUUIDs := []coreapplication.UUID{
-		applicationtesting.GenApplicationUUID(c),
+		tc.Must(c, coreapplication.NewUUID),
 	}
 
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())

@@ -65,7 +65,7 @@ func (s *Service) GetOfferStatus(ctx context.Context, offerUUID offer.UUID) (cor
 	} else if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
-	appUUID, err := coreapplication.ParseID(uuid)
+	appUUID, err := coreapplication.ParseUUID(uuid)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}

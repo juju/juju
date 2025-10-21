@@ -195,7 +195,7 @@ func (s *baseSuite) createIAASRemoteApplicationOfferer(
 	}
 
 	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
-	appUUID := tc.Must(c, coreapplication.NewID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	err := cmrState.AddRemoteApplicationOfferer(c.Context(), name, crossmodelrelation.AddRemoteApplicationOffererArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			RemoteApplicationUUID: remoteAppUUID.String(),

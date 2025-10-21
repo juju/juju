@@ -157,7 +157,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		return "", errors.Capture(err)
 	}
 
-	appUUID, err := coreapplication.NewID()
+	appUUID, err := coreapplication.NewUUID()
 	if err != nil {
 		return "", errors.Capture(err)
 	}

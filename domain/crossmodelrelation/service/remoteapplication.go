@@ -138,7 +138,7 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 		return internalerrors.Errorf("creating remote application uuid: %w", err)
 	}
 
-	applicationUUID, err := coreapplication.NewID()
+	applicationUUID, err := coreapplication.NewUUID()
 	if err != nil {
 		return internalerrors.Errorf("creating application uuid: %w", err)
 	}
@@ -403,7 +403,7 @@ func (s *Service) GetOfferingApplicationToken(
 		return "", internalerrors.Capture(err)
 	}
 
-	return coreapplication.ParseID(appUUID)
+	return coreapplication.ParseUUID(appUUID)
 }
 
 // SetRemoteRelationSuspendedState sets the suspended state of the specified

@@ -209,7 +209,7 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesEmpty(c *tc
 // TestGetApplicationStorageDirectivesNotFound tests that when an application
 // is not found the appropriate error is returned.
 func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesNotFound(c *tc.C) {
-	appUUID := tc.Must(c, coreapplication.NewID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	st := NewState(
 		s.ModelSuite.TxnRunnerFactory(),
 		clock.WallClock,

@@ -740,7 +740,7 @@ func (w *localConsumerWorker) registerConsumerRelation(
 	// anything that the remote model is running.
 	//
 	// See: https://github.com/juju/juju/blob/43e381811d9e330ee2d095c1e0562300bd78b68a/state/remoteentities.go#L110-L115
-	offererAppUUID, err := application.ParseID(registerResult.Token)
+	offererAppUUID, err := application.ParseUUID(registerResult.Token)
 	if err != nil {
 		return consumerRelationResult{}, errors.Annotatef(err, "parsing offering application token %q", registerResult.Token)
 	}
