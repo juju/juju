@@ -473,15 +473,13 @@ func (a *StorageAPI) detachStorageAttachment(
 		return nil
 	}
 
-	viErr, has := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
-	if has {
+	switch {
+	case errors.HasType[applicationerrors.UnitStorageMinViolation](err):
+		viErr, _ := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
 		return errors.Errorf(
 			"removing storage %q from unit %q would violate charm storage %q requirements of having minimum %d storage instances",
 			storageID, unitName, viErr.CharmStorageName, viErr.RequiredMinimum,
 		).Add(coreerrors.NotValid)
-	}
-
-	switch {
 	case errors.Is(err, applicationerrors.UnitNotAlive):
 		return errors.Errorf(
 			"unit %q must be alive in order to remove storage %q",
