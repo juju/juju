@@ -721,7 +721,7 @@ func (st *State) GetRelationsStatusForUnit(
 	type relationUnitStatus struct {
 		RelationUUID string `db:"relation_uuid"`
 		InScope      bool   `db:"in_scope"`
-		Status       string `db:"status"`
+		Suspended    bool   `db:"suspended"`
 	}
 	type unitUUIDArg struct {
 		UUID string `db:"unit_uuid"`
@@ -734,11 +734,11 @@ func (st *State) GetRelationsStatusForUnit(
 	stmt, err := st.Prepare(`
 SELECT re.relation_uuid AS &relationUnitStatus.relation_uuid,
        ru.uuid IS NOT NULL AS &relationUnitStatus.in_scope,
-       vrs.status AS &relationUnitStatus.status
+       r.suspended AS &relationUnitStatus.suspended
 FROM      relation_endpoint AS re
+JOIN      relation AS r ON re.relation_uuid = r.uuid
 JOIN      application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN      unit AS u ON ae.application_uuid = u.application_uuid
-JOIN      v_relation_status AS vrs ON re.relation_uuid = vrs.relation_uuid
 LEFT JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
 WHERE     u.uuid = $unitUUIDArg.unit_uuid
 `, uuid, relationUnitStatus{})
@@ -763,7 +763,7 @@ WHERE     u.uuid = $unitUUIDArg.unit_uuid
 			relationUnitStatuses = append(relationUnitStatuses, domainrelation.RelationUnitStatusResult{
 				Endpoints: endpoints,
 				InScope:   status.InScope,
-				Suspended: status.Status == corestatus.Suspended.String(),
+				Suspended: status.Suspended,
 			})
 		}
 

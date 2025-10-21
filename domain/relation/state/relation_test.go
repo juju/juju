@@ -1106,7 +1106,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *tc.C) {
 
 	// Arrange: Add unit to relation and set relation status.
 	s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
-	s.setRelationStatus(c, relationUUID, corestatus.Suspended, time.Now())
+	s.setRelationSuspended(c, relationUUID)
 
 	expectedResults := []domainrelation.RelationUnitStatusResult{{
 		Endpoints: []domainrelation.Endpoint{endpoint1, endpoint2},
@@ -1162,8 +1162,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *tc.C) {
 
 	// Arrange: Add unit to both the relation and set their status.
 	s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
-	s.setRelationStatus(c, relationUUID1, corestatus.Joined, time.Now())
-	s.setRelationStatus(c, relationUUID2, corestatus.Suspended, time.Now())
+	s.setRelationSuspended(c, relationUUID2)
 
 	expectedResults := []domainrelation.RelationUnitStatusResult{{
 		Endpoints: []domainrelation.Endpoint{endpoint1},
