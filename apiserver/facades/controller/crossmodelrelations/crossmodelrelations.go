@@ -146,15 +146,9 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 
 	switch {
 	case change.Life != life.Alive:
-		// We're dying or dead. We shouldn't continue onwards if we're dead,
-		// so return early.
-		if err := api.removalService.RemoveRemoteRelation(ctx, relationUUID); err != nil {
-			return errors.Annotatef(err, "removing remote relation %q", relationUUID)
-		}
-		if change.Life == life.Dead {
-			// No further processing for dead relations.
-			return nil
-		}
+		// Relations only transition to dying and are removed, so we can safely
+		// just remove the relation and return early.
+		return api.removalService.RemoveRemoteRelation(ctx, relationUUID)
 
 	case change.Suspended != nil && *change.Suspended != relationDetails.Suspended:
 		if err := api.handleSuspendedRelationChange(ctx, relationUUID, *change.Suspended, change.SuspendedReason); err != nil {
