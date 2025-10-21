@@ -1166,7 +1166,7 @@ func (st *State) GetVolumeRemovalParams(
 	)
 
 	paramsStmt, err := st.Prepare(`
-SELECT &volumeParams.* FROM (
+SELECT &volumeRemovalParams.* FROM (
     SELECT sv.provider_id,
            sv.obliterate_on_cleanup,
            sp.type
