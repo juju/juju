@@ -29,7 +29,7 @@ type StorageState interface {
 	// attachment identified by the input UUID that is still alive.
 	EnsureStorageAttachmentNotAlive(ctx context.Context, saUUID string) error
 
-	// EnsureStorageAttachmentsNotAliveWithFulfilment ensures that there is no
+	// EnsureStorageAttachmentNotAliveWithFulfilment ensures that there is no
 	// storage attachment identified by the input UUID that is still alive
 	// after this call. This condition is only realised when the storage
 	// fulfilment for the units charm is met by the removal.
@@ -40,7 +40,7 @@ type StorageState interface {
 	//  The following errors may be returned:
 	// - [removalerrors.StorageFulfilmentNotMet] when the fulfilment requiremnt
 	// fails.
-	EnsureStorageAttachmentsNotAliveWithFulfilment(
+	EnsureStorageAttachmentNotAliveWithFulfilment(
 		ctx context.Context,
 		saUUID string,
 		fulfilment int,
@@ -205,7 +205,7 @@ func (s *Service) RemoveStorageAttachmentFromAliveUnit(
 		})
 	}
 
-	err = s.modelState.EnsureStorageAttachmentsNotAliveWithFulfilment(
+	err = s.modelState.EnsureStorageAttachmentNotAliveWithFulfilment(
 		ctx, saUUID.String(), proposedNewFulfilment,
 	)
 	if errors.Is(err, removalerrors.StorageFulfilmentNotMet) {

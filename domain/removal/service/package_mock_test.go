@@ -949,40 +949,40 @@ func (c *MockModelDBStateEnsureStorageAttachmentNotAliveCall) DoAndReturn(f func
 	return c
 }
 
-// EnsureStorageAttachmentsNotAliveWithFulfilment mocks base method.
-func (m *MockModelDBState) EnsureStorageAttachmentsNotAliveWithFulfilment(arg0 context.Context, arg1 string, arg2 int) error {
+// EnsureStorageAttachmentNotAliveWithFulfilment mocks base method.
+func (m *MockModelDBState) EnsureStorageAttachmentNotAliveWithFulfilment(arg0 context.Context, arg1 string, arg2 int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureStorageAttachmentsNotAliveWithFulfilment", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "EnsureStorageAttachmentNotAliveWithFulfilment", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// EnsureStorageAttachmentsNotAliveWithFulfilment indicates an expected call of EnsureStorageAttachmentsNotAliveWithFulfilment.
-func (mr *MockModelDBStateMockRecorder) EnsureStorageAttachmentsNotAliveWithFulfilment(arg0, arg1, arg2 any) *MockModelDBStateEnsureStorageAttachmentsNotAliveWithFulfilmentCall {
+// EnsureStorageAttachmentNotAliveWithFulfilment indicates an expected call of EnsureStorageAttachmentNotAliveWithFulfilment.
+func (mr *MockModelDBStateMockRecorder) EnsureStorageAttachmentNotAliveWithFulfilment(arg0, arg1, arg2 any) *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureStorageAttachmentsNotAliveWithFulfilment", reflect.TypeOf((*MockModelDBState)(nil).EnsureStorageAttachmentsNotAliveWithFulfilment), arg0, arg1, arg2)
-	return &MockModelDBStateEnsureStorageAttachmentsNotAliveWithFulfilmentCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureStorageAttachmentNotAliveWithFulfilment", reflect.TypeOf((*MockModelDBState)(nil).EnsureStorageAttachmentNotAliveWithFulfilment), arg0, arg1, arg2)
+	return &MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall{Call: call}
 }
 
-// MockModelDBStateEnsureStorageAttachmentsNotAliveWithFulfilmentCall wrap *gomock.Call
-type MockModelDBStateEnsureStorageAttachmentsNotAliveWithFulfilmentCall struct {
+// MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall wrap *gomock.Call
+type MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDBStateEnsureStorageAttachmentsNotAliveWithFulfilmentCall) Return(arg0 error) *MockModelDBStateEnsureStorageAttachmentsNotAliveWithFulfilmentCall {
+func (c *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall) Return(arg0 error) *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateEnsureStorageAttachmentsNotAliveWithFulfilmentCall) Do(f func(context.Context, string, int) error) *MockModelDBStateEnsureStorageAttachmentsNotAliveWithFulfilmentCall {
+func (c *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall) Do(f func(context.Context, string, int) error) *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateEnsureStorageAttachmentsNotAliveWithFulfilmentCall) DoAndReturn(f func(context.Context, string, int) error) *MockModelDBStateEnsureStorageAttachmentsNotAliveWithFulfilmentCall {
+func (c *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall) DoAndReturn(f func(context.Context, string, int) error) *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

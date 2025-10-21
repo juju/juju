@@ -210,7 +210,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitFulfilmentError(c
 	exp.GetDetachInfoForStorageAttachment(
 		gomock.Any(), saUUID.String(),
 	).Return(detatchInfo, nil)
-	exp.EnsureStorageAttachmentsNotAliveWithFulfilment(
+	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
 		gomock.Any(), saUUID.String(), 2,
 	).Return(removalerrors.StorageFulfilmentNotMet)
 
@@ -251,7 +251,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitNoForceSuccess(c 
 	exp.GetDetachInfoForStorageAttachment(
 		gomock.Any(), saUUID.String(),
 	).Return(detatchInfo, nil).AnyTimes()
-	exp.EnsureStorageAttachmentsNotAliveWithFulfilment(
+	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
 		gomock.Any(), saUUID.String(), 1,
 	).Return(nil)
 	exp.StorageAttachmentScheduleRemoval(
@@ -289,7 +289,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceNoWaitSu
 	exp.GetDetachInfoForStorageAttachment(
 		gomock.Any(), saUUID.String(),
 	).Return(detatchInfo, nil).AnyTimes()
-	exp.EnsureStorageAttachmentsNotAliveWithFulfilment(
+	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
 		gomock.Any(), saUUID.String(), 1,
 	).Return(nil)
 	exp.StorageAttachmentScheduleRemoval(
@@ -327,7 +327,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceWaitSucc
 	exp.GetDetachInfoForStorageAttachment(
 		gomock.Any(), saUUID.String(),
 	).Return(detatchInfo, nil).AnyTimes()
-	exp.EnsureStorageAttachmentsNotAliveWithFulfilment(
+	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
 		gomock.Any(), saUUID.String(), 1,
 	).Return(nil)
 
