@@ -944,6 +944,79 @@ func (s *volumeSuite) TestGetVolumeParamsWithVolumeAttachment(c *tc.C) {
 	})
 }
 
+func (s *volumeSuite) TestGetVolumeRemovalParamsNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	_, err := st.GetVolumeRemovalParams(c.Context(), volUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeRemovalParams(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", map[string]string{
+		"foo": "bar",
+	})
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	volUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, suuid, volUUID)
+	s.changeVolumeProviderID(c, volUUID, "mypool-vol-123")
+
+	params, err := st.GetVolumeRemovalParams(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, domainstorageprovisioning.VolumeRemovalParams{
+		Provider:   "mypoolprovider",
+		ProviderID: "mypool-vol-123",
+		Obliterate: false,
+	})
+}
+
+func (s *volumeSuite) TestGetVolumeRemovalParamsWithObliterateFalse(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", map[string]string{
+		"foo": "bar",
+	})
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	volUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, suuid, volUUID)
+	s.changeVolumeProviderID(c, volUUID, "mypool-vol-123")
+	s.removeVolumeWithObliterateValue(c, volUUID, false)
+
+	params, err := st.GetVolumeRemovalParams(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, domainstorageprovisioning.VolumeRemovalParams{
+		Provider:   "mypoolprovider",
+		ProviderID: "mypool-vol-123",
+		Obliterate: false,
+	})
+}
+
+func (s *volumeSuite) TestGetVolumeRemovalParamsWithObliterateTrue(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", map[string]string{
+		"foo": "bar",
+	})
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	volUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, suuid, volUUID)
+	s.changeVolumeProviderID(c, volUUID, "mypool-vol-123")
+	s.removeVolumeWithObliterateValue(c, volUUID, true)
+
+	params, err := st.GetVolumeRemovalParams(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, domainstorageprovisioning.VolumeRemovalParams{
+		Provider:   "mypoolprovider",
+		ProviderID: "mypool-vol-123",
+		Obliterate: true,
+	})
+}
+
 // TestGetVolumeAttachmentParamsNotFound ensures a volume attachment not found
 // error is returned when the volume attachment does not exist.
 func (s *volumeSuite) TestGetVolumeAttachmentParamsNotFound(c *tc.C) {

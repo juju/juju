@@ -891,6 +891,73 @@ func (s *filesystemSuite) TestGetFilesystemParamsVolumeBacked(c *tc.C) {
 	// volume information.
 }
 
+func (s *filesystemSuite) TestGetFilesystemRemovalParamsNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	_, err := st.GetFilesystemRemovalParams(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemRemovalParams(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", nil)
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+	s.setFilesystemProviderID(c, fsUUID, "mypool-fs-123")
+
+	params, err := st.GetFilesystemRemovalParams(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemRemovalParams{
+		Provider:   "mypoolprovider",
+		ProviderID: "mypool-fs-123",
+		Obliterate: false,
+	})
+}
+
+func (s *filesystemSuite) TestGetFilesystemRemovalParamsWithObliterateFalse(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", nil)
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+	s.setFilesystemProviderID(c, fsUUID, "mypool-fs-123")
+	s.removeFilesystemWithObliterateValue(c, fsUUID, false)
+
+	params, err := st.GetFilesystemRemovalParams(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemRemovalParams{
+		Provider:   "mypoolprovider",
+		ProviderID: "mypool-fs-123",
+		Obliterate: false,
+	})
+}
+
+func (s *filesystemSuite) TestGetFilesystemRemovalParamsWithObliterateTrue(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", nil)
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+	s.setFilesystemProviderID(c, fsUUID, "mypool-fs-123")
+	s.removeFilesystemWithObliterateValue(c, fsUUID, true)
+
+	params, err := st.GetFilesystemRemovalParams(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemRemovalParams{
+		Provider:   "mypoolprovider",
+		ProviderID: "mypool-fs-123",
+		Obliterate: true,
+	})
+}
+
 // TestGetFilesystemAttachmentParamsNotFound is testing that when asking for the
 // params of a filesystem attachment that does not exist the caller gets back an
 // error satisfying [storageprovisioningerrors.FilesystemAttachmentNotFound].
@@ -1119,6 +1186,17 @@ WHERE  uuid = ?
 `,
 		providerID, fsUUID.String(),
 	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *filesystemSuite) removeFilesystemWithObliterateValue(
+	c *tc.C,
+	uuid storageprovisioning.FilesystemUUID,
+	obliterateValue bool,
+) {
+	_, err := s.DB().Exec(
+		`UPDATE storage_filesystem SET life_id=?, obliterate_on_cleanup=? WHERE uuid=?`,
+		domainlife.Dying, obliterateValue, uuid)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -118,13 +118,21 @@ type filesystemAttachmentParams struct {
 	ReadOnly   sql.Null[bool]   `db:"read_only"`
 }
 
-// filesystemParams represents the attachment params for a filesystem from the
+// filesystemProvisioningParams represents the provisioning params for a filesystem from the
 // model database.
-type filesystemParams struct {
+type filesystemProvisioningParams struct {
 	FilesystemID string           `db:"filesystem_id"`
 	Type         string           `db:"type"`
 	SizeMiB      uint64           `db:"size_mib"`
 	VolumeID     sql.Null[string] `db:"volume_id"`
+}
+
+// filesystemRemovalParams represents the removal params for a filesystem from
+// the model database.
+type filesystemRemovalParams struct {
+	Type       string         `db:"type"`
+	ProviderID string         `db:"provider_id"`
+	Obliterate sql.Null[bool] `db:"obliterate_on_cleanup"`
 }
 
 // filesystemUUID represents the UUID of a record in the filesystem table.
@@ -294,13 +302,21 @@ type filesystemTemplate struct {
 	Location     string `db:"location"`
 }
 
-// volumeParams represents the attachment params for a volume from the model
+// volumeProvisioningParams represents the provisioning params for a volume from the model
 // database.
-type volumeParams struct {
+type volumeProvisioningParams struct {
 	VolumeID             string `db:"volume_id"`
 	Type                 string `db:"type"`
 	RequestedSizeMiB     uint64 `db:"requested_size_mib"`
 	VolumeAttachmentUUID string `db:"volume_attachment_uuid"`
+}
+
+// volumeRemovalParams represents the removal params for a volume from the model
+// database.
+type volumeRemovalParams struct {
+	Type       string         `db:"type"`
+	ProviderID string         `db:"provider_id"`
+	Obliterate sql.Null[bool] `db:"obliterate_on_cleanup"`
 }
 
 // volumeAttachmentParams represents the attachment params for a volume

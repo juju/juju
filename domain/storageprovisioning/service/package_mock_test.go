@@ -632,6 +632,45 @@ func (c *MockStateGetFilesystemParamsCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// GetFilesystemRemovalParams mocks base method.
+func (m *MockState) GetFilesystemRemovalParams(arg0 context.Context, arg1 storageprovisioning.FilesystemUUID) (storageprovisioning.FilesystemRemovalParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemRemovalParams", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.FilesystemRemovalParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemRemovalParams indicates an expected call of GetFilesystemRemovalParams.
+func (mr *MockStateMockRecorder) GetFilesystemRemovalParams(arg0, arg1 any) *MockStateGetFilesystemRemovalParamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemRemovalParams", reflect.TypeOf((*MockState)(nil).GetFilesystemRemovalParams), arg0, arg1)
+	return &MockStateGetFilesystemRemovalParamsCall{Call: call}
+}
+
+// MockStateGetFilesystemRemovalParamsCall wrap *gomock.Call
+type MockStateGetFilesystemRemovalParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetFilesystemRemovalParamsCall) Return(arg0 storageprovisioning.FilesystemRemovalParams, arg1 error) *MockStateGetFilesystemRemovalParamsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetFilesystemRemovalParamsCall) Do(f func(context.Context, storageprovisioning.FilesystemUUID) (storageprovisioning.FilesystemRemovalParams, error)) *MockStateGetFilesystemRemovalParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetFilesystemRemovalParamsCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemUUID) (storageprovisioning.FilesystemRemovalParams, error)) *MockStateGetFilesystemRemovalParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetFilesystemTemplatesForApplication mocks base method.
 func (m *MockState) GetFilesystemTemplatesForApplication(arg0 context.Context, arg1 application.UUID) ([]storageprovisioning.FilesystemTemplate, error) {
 	m.ctrl.T.Helper()
@@ -1564,6 +1603,45 @@ func (c *MockStateGetVolumeParamsCall) Do(f func(context.Context, storageprovisi
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetVolumeParamsCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeUUID) (storageprovisioning.VolumeParams, error)) *MockStateGetVolumeParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetVolumeRemovalParams mocks base method.
+func (m *MockState) GetVolumeRemovalParams(arg0 context.Context, arg1 storageprovisioning.VolumeUUID) (storageprovisioning.VolumeRemovalParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeRemovalParams", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.VolumeRemovalParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeRemovalParams indicates an expected call of GetVolumeRemovalParams.
+func (mr *MockStateMockRecorder) GetVolumeRemovalParams(arg0, arg1 any) *MockStateGetVolumeRemovalParamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeRemovalParams", reflect.TypeOf((*MockState)(nil).GetVolumeRemovalParams), arg0, arg1)
+	return &MockStateGetVolumeRemovalParamsCall{Call: call}
+}
+
+// MockStateGetVolumeRemovalParamsCall wrap *gomock.Call
+type MockStateGetVolumeRemovalParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetVolumeRemovalParamsCall) Return(arg0 storageprovisioning.VolumeRemovalParams, arg1 error) *MockStateGetVolumeRemovalParamsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetVolumeRemovalParamsCall) Do(f func(context.Context, storageprovisioning.VolumeUUID) (storageprovisioning.VolumeRemovalParams, error)) *MockStateGetVolumeRemovalParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetVolumeRemovalParamsCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeUUID) (storageprovisioning.VolumeRemovalParams, error)) *MockStateGetVolumeRemovalParamsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

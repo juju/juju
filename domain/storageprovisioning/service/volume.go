@@ -151,6 +151,16 @@ type VolumeState interface {
 		context.Context, storageprovisioning.VolumeUUID,
 	) (storageprovisioning.VolumeParams, error)
 
+	// GetVolumeRemovalParams returns the volume removal params for the supplied
+	// uuid.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for
+	// the uuid.
+	GetVolumeRemovalParams(
+		context.Context, storageprovisioning.VolumeUUID,
+	) (storageprovisioning.VolumeRemovalParams, error)
+
 	// GetVolumeAttachmentParams retrieves the attachment params for the given
 	// volume attachment.
 	//
@@ -326,7 +336,29 @@ func (s *Service) GetVolumeParams(
 func (s *Service) GetVolumeRemovalParams(
 	ctx context.Context, uuid storageprovisioning.VolumeUUID,
 ) (storageprovisioning.VolumeRemovalParams, error) {
-	return storageprovisioning.VolumeRemovalParams{}, errors.New("not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return storageprovisioning.VolumeRemovalParams{}, errors.New(
+			"volume uuid is not valid",
+		).Add(coreerrors.NotValid)
+	}
+
+	life, err := s.st.GetVolumeLife(ctx, uuid)
+	if err != nil {
+		return storageprovisioning.VolumeRemovalParams{}, errors.Errorf(
+			"getting volume life for %q: %w", uuid, err,
+		)
+	}
+	if life != domainlife.Dead {
+		return storageprovisioning.VolumeRemovalParams{}, errors.Errorf(
+			"volume %q is not dead", uuid.String(),
+		).Add(storageprovisioningerrors.VolumeNotDead)
+	}
+
+	return s.st.GetVolumeRemovalParams(ctx, uuid)
 }
 
 // GetVolumeAttachmentParams retrieves the attachment parameters for a given

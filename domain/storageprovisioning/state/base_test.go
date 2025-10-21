@@ -517,6 +517,28 @@ func (s *baseSuite) changeVolumeInfo(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *baseSuite) changeVolumeProviderID(
+	c *tc.C,
+	uuid storageprovisioning.VolumeUUID,
+	providerID string,
+) {
+	_, err := s.DB().Exec(
+		`UPDATE storage_volume SET provider_id=? WHERE uuid=?`,
+		providerID, uuid)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) removeVolumeWithObliterateValue(
+	c *tc.C,
+	uuid storageprovisioning.VolumeUUID,
+	obliterateValue bool,
+) {
+	_, err := s.DB().Exec(
+		`UPDATE storage_volume SET life_id=?, obliterate_on_cleanup=? WHERE uuid=?`,
+		domainlife.Dying, obliterateValue, uuid)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 type preparer struct{}
 
 func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {

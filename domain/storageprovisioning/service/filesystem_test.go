@@ -18,6 +18,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -652,6 +653,105 @@ func (s *filesystemSuite) TestGetFilesystemParamsNotFound(c *tc.C) {
 	)
 
 	_, err := svc.GetFilesystemParams(c.Context(), fsUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemRemovalParams(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
+		domainlife.Dead, nil)
+	s.state.EXPECT().GetFilesystemRemovalParams(gomock.Any(), fsUUID).Return(
+		storageprovisioning.FilesystemRemovalParams{
+			Provider:   "myprovider",
+			ProviderID: "prov-volume-id",
+		}, nil,
+	)
+
+	params, err := svc.GetFilesystemRemovalParams(c.Context(), fsUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemRemovalParams{
+		Provider:   "myprovider",
+		ProviderID: "prov-volume-id",
+		Obliterate: false,
+	})
+}
+
+func (s *filesystemSuite) TestGetFilesystemRemovalParamsWithObliterate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
+		domainlife.Dead, nil)
+	s.state.EXPECT().GetFilesystemRemovalParams(gomock.Any(), fsUUID).Return(
+		storageprovisioning.FilesystemRemovalParams{
+			Provider:   "myprovider",
+			ProviderID: "prov-volume-id",
+			Obliterate: true,
+		}, nil,
+	)
+
+	params, err := svc.GetFilesystemRemovalParams(c.Context(), fsUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemRemovalParams{
+		Provider:   "myprovider",
+		ProviderID: "prov-volume-id",
+		Obliterate: true,
+	})
+}
+
+func (s *filesystemSuite) TestGetFilesystemRemovalParamsAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
+		domainlife.Alive, nil)
+
+	_, err := svc.GetFilesystemRemovalParams(c.Context(), fsUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotDead)
+}
+
+func (s *filesystemSuite) TestGetFilesystemRemovalParamsDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
+		domainlife.Dying, nil)
+
+	_, err := svc.GetFilesystemRemovalParams(c.Context(), fsUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotDead)
+}
+
+func (s *filesystemSuite) TestGetFilesystemRemovalParamsNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
+		domainlife.Dead, nil)
+	s.state.EXPECT().GetFilesystemRemovalParams(gomock.Any(), fsUUID).Return(
+		storageprovisioning.FilesystemRemovalParams{},
+		storageprovisioningerrors.FilesystemNotFound,
+	)
+
+	_, err := svc.GetFilesystemRemovalParams(c.Context(), fsUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemRemovalParamsNotFoundAtLife(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
+		0, storageprovisioningerrors.FilesystemNotFound)
+
+	_, err := svc.GetFilesystemRemovalParams(c.Context(), fsUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
 }
 
