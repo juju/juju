@@ -74,7 +74,7 @@ func (s *storageSuite) TestScheduleStorageAttachmentRemovalSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	when := time.Now().UTC()
-	err := st.RelationScheduleRemoval(
+	err := st.StorageAttachmentScheduleRemoval(
 		c.Context(), "removal-uuid", attachment, false, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -93,7 +93,7 @@ func (s *storageSuite) TestScheduleStorageAttachmentRemovalSuccess(c *tc.C) {
 	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(removalTypeID, tc.Equals, 0)
+	c.Check(removalTypeID, tc.Equals, 6)
 	c.Check(rUUID, tc.Equals, attachment)
 	c.Check(force, tc.Equals, false)
 	c.Check(scheduledFor, tc.Equals, when)
