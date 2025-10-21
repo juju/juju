@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainremoval "github.com/juju/juju/domain/removal"
@@ -141,7 +140,7 @@ type StorageService interface {
 
 // ApplicationService defines apis on the application service.
 type ApplicationService interface {
-	GetUnitMachineName(ctx context.Context, unitName unit.Name) (machine.Name, error)
+	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (machine.Name, error)
 
 	// GetUnitUUID returns the UUID for the named unit.
 	//

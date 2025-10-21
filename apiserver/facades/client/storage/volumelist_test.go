@@ -10,7 +10,6 @@ import (
 )
 
 type volumeSuite struct {
-	baseStorageSuite
 }
 
 func TestVolumeSuite(t *testing.T) {
