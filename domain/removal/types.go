@@ -63,6 +63,10 @@ func (t JobType) String() string {
 		return "storage instance"
 	case StorageAttachmentJob:
 		return "storage attachment"
+	case StorageVolumeJob:
+		return "storage volume"
+	case StorageFilesystemJob:
+		return "storage filesystem"
 	case RemoteApplicationOffererJob:
 		return "remote application offerer"
 	default:
