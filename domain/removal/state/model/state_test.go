@@ -796,6 +796,21 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, ipAddrUUID, lldUUID, "10.16.42.9/24", netNo
 	return ipAddrUUID
 }
 
+func (s *baseSuite) addIPAddressProviderID(c *tc.C, providerID, addrUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO provider_ip_address (provider_id, address_uuid)
+VALUES (?, ?)`, providerID, addrUUID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+}
+
 // addUnit inserts a new unit record into the database and returns the generated unit UUID.
 func (s *baseSuite) addUnit(c *tc.C, charmUUID string) string {
 	return s.addUnitWithName(c, charmUUID, "")

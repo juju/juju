@@ -659,27 +659,32 @@ func (st *State) removeNetNode(ctx context.Context, tx *sqlair.TX, netNodeUUID s
 	netNodeUUIDRec := node{UUID: netNodeUUID}
 
 	// Start by deleting any IP addresses associated with the net node.
-	deleteIPAddresses := `
-DELETE FROM ip_address
-WHERE net_node_uuid = $node.uuid;
- `
-
-	stmt, err := st.Prepare(deleteIPAddresses, node{})
+	q := `
+DELETE FROM provider_ip_address
+WHERE address_uuid IN (
+    SELECT uuid FROM ip_address WHERE net_node_uuid = $node.uuid
+)`
+	stmt, err := st.Prepare(q, node{})
 	if err != nil {
 		return errors.Capture(err)
 	}
-
 	if err := tx.Query(ctx, stmt, netNodeUUIDRec).Run(); err != nil {
-		return errors.Errorf("deleting net node ip addresses %q: %w", deleteIPAddresses, err)
+		return errors.Errorf("deleting net node IP address provider IDs: %w", err)
+	}
+
+	stmt, err = st.Prepare("DELETE FROM ip_address WHERE net_node_uuid = $node.uuid", node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, stmt, netNodeUUIDRec).Run(); err != nil {
+		return errors.Errorf("deleting net node IP addresses: %w", err)
 	}
 
 	// Get all link-layer devices associated with the net node.
 	selectDevices := `
 SELECT uuid AS &entityUUID.uuid
 FROM   link_layer_device
-WHERE  net_node_uuid = $node.uuid
-`
-
+WHERE  net_node_uuid = $node.uuid`
 	devStmt, err := st.Prepare(selectDevices, entityUUID{}, netNodeUUIDRec)
 	if err != nil {
 		return errors.Errorf("preparing devices for deletion statement: %w", err)
