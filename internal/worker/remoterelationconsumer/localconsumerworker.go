@@ -558,7 +558,7 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	// sure it is registered (ack'd) on the offering side.
 	result, err := w.registerConsumerRelation(
 		ctx,
-		details.UUID, w.offerUUID, w.consumeVersion,
+		details.UUID, w.offerUUID,
 		synthEndpoint, otherEndpointName,
 	)
 	if err != nil {
@@ -701,7 +701,7 @@ func (w *localConsumerWorker) ensureUnitRelationWorkers(
 // The relation has been created in the consumer model.
 func (w *localConsumerWorker) registerConsumerRelation(
 	ctx context.Context,
-	relationUUID corerelation.UUID, offerUUID string, consumeVersion int,
+	relationUUID corerelation.UUID, offerUUID string,
 	applicationEndpointIdent relation.Endpoint, remoteEndpointName string,
 ) (consumerRelationResult, error) {
 	w.logger.Debugf(ctx, "register consumer relation %q to synthetic offerer application %q", relationUUID, w.applicationName)
@@ -720,7 +720,7 @@ func (w *localConsumerWorker) registerConsumerRelation(
 			Limit:     applicationEndpointIdent.Limit,
 		},
 		LocalEndpointName: remoteEndpointName,
-		ConsumeVersion:    consumeVersion,
+		ConsumeVersion:    w.consumeVersion,
 		Macaroons:         macaroon.Slice{w.offerMacaroon},
 		BakeryVersion:     defaultBakeryVersion,
 	}

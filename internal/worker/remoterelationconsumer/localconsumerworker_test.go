@@ -706,7 +706,6 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
 	result, err := w.registerConsumerRelation(c.Context(),
 		relationUUID,
 		s.offerUUID,
-		1,
 		domainrelation.Endpoint{
 			ApplicationName: "foo",
 			Relation: charm.Relation{
@@ -763,7 +762,6 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequest(c *
 	_, err := w.registerConsumerRelation(c.Context(),
 		relationUUID,
 		s.offerUUID,
-		1,
 		domainrelation.Endpoint{
 			ApplicationName: "foo",
 			Relation: charm.Relation{
@@ -816,7 +814,6 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationInvalidResultLeng
 	_, err := w.registerConsumerRelation(c.Context(),
 		relationUUID,
 		s.offerUUID,
-		1,
 		domainrelation.Endpoint{
 			ApplicationName: "foo",
 			Relation: charm.Relation{
@@ -874,7 +871,6 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequestErro
 	_, err := w.registerConsumerRelation(c.Context(),
 		relationUUID,
 		s.offerUUID,
-		1,
 		domainrelation.Endpoint{
 			ApplicationName: "foo",
 			Relation: charm.Relation{
@@ -938,7 +934,6 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacar
 	_, err := w.registerConsumerRelation(c.Context(),
 		relationUUID,
 		s.offerUUID,
-		1,
 		domainrelation.Endpoint{
 			ApplicationName: "foo",
 			Relation: charm.Relation{
