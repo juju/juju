@@ -15,8 +15,6 @@ import (
 
 // StorageState defines an interface for interacting with the underlying state.
 type StorageState interface {
-	// GetModelDetails returns the model and controller UUID for the current model.
-	GetModelDetails() (storage.ModelDetails, error)
 	// ImportFilesystem associates a filesystem (either native or volume backed) hosted by a cloud provider
 	// with a new storage instance (and storage pool) in a model.
 	ImportFilesystem(ctx context.Context, name corestorage.Name,

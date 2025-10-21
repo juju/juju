@@ -6,7 +6,6 @@ package storage
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageservice "github.com/juju/juju/domain/storage/service"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
@@ -129,7 +129,7 @@ func NewStorageAPI(
 func (a *StorageAPI) checkCanRead(ctx context.Context) error {
 	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(a.controllerUUID))
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	if err == nil {
@@ -171,7 +171,7 @@ func (a *StorageAPI) ListPools(
 	filters params.StoragePoolFilters,
 ) (params.StoragePoolsResults, error) {
 	if err := a.checkCanRead(ctx); err != nil {
-		return params.StoragePoolsResults{}, errors.Trace(err)
+		return params.StoragePoolsResults{}, errors.Capture(err)
 	}
 
 	results := params.StoragePoolsResults{
@@ -203,7 +203,7 @@ func (a *StorageAPI) listPools(ctx context.Context, filter params.StoragePoolFil
 		pools, err = a.storageService.ListStoragePoolsByProviders(ctx, filter.Providers)
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	results := make([]params.StoragePool, len(pools))
 	for i, p := range pools {
@@ -326,7 +326,7 @@ func (a *StorageAPI) RemovePool(ctx context.Context, p params.StoragePoolDeleteA
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
 	if err := a.checkCanWrite(ctx); err != nil {
-		return results, errors.Trace(err)
+		return results, errors.Capture(err)
 	}
 
 	for i, pool := range p.Pools {
@@ -344,7 +344,7 @@ func (a *StorageAPI) UpdatePool(ctx context.Context, p params.StoragePoolArgs) (
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
 	if err := a.checkCanWrite(ctx); err != nil {
-		return results, errors.Trace(err)
+		return results, errors.Capture(err)
 	}
 
 	for i, pool := range p.Pools {
