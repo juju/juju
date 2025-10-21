@@ -4,7 +4,13 @@
 package state
 
 import (
+	"context"
 	"fmt"
+	v1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 	"sort"
 
 	"github.com/juju/mgo/v3"
@@ -206,4 +212,115 @@ func (s *upgradesSuite) TestSplitMigrationStatusMessages(c *gc.C) {
 		upgradedData(migStatus, expectedStatus),
 		upgradedData(migStatusMessage, expectedStatusMessage),
 	)
+}
+
+type newK8sFunc func(model *Model) (kubernetes.Interface, *rest.Config, error)
+
+func newFakeK8sClient(_ *Model) (kubernetes.Interface, *rest.Config, error) {
+	k8sClient := fake.NewSimpleClientset()
+	return k8sClient, nil, nil
+}
+
+func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
+	state1 := s.makeModel(c, "m1", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
+	state2 := s.makeModel(c, "m2", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
+	defer func() {
+		_ = state1.Close()
+		_ = state2.Close()
+	}()
+
+	coll1, closer := state1.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	model1, err := state1.Model()
+	c.Assert(err, gc.IsNil)
+
+	err = coll1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app1"),
+		"name":       "app1",
+		"model-uuid": model1.UUID(),
+	})
+	c.Assert(err, gc.IsNil)
+	err = coll1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app2"),
+		"name":       "app2",
+		"model-uuid": model1.UUID(),
+	})
+	c.Assert(err, gc.IsNil)
+	err = coll1.Insert(bson.M{
+		"_id":               ensureModelUUID(model1.UUID(), "app3"),
+		"name":              "app3",
+		"model-uuid":        model1.UUID(),
+		"storage-unique-id": "uniqueid3",
+	})
+	c.Assert(err, gc.IsNil)
+
+	model2, err := state2.Model()
+	c.Assert(err, gc.IsNil)
+
+	coll2, closer := state2.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	err = coll2.Insert(bson.M{
+		"_id":        ensureModelUUID(model2.UUID(), "app4"),
+		"name":       "app4",
+		"model-uuid": model2.UUID(),
+	})
+	c.Assert(err, gc.IsNil)
+	err = coll2.Insert(bson.M{
+		"_id":        ensureModelUUID(model2.UUID(), "app5"),
+		"name":       "app5",
+		"model-uuid": model2.UUID(),
+	})
+	c.Assert(err, gc.IsNil)
+
+	getStorageUniqueID := func(newK8sClient newK8sFunc) func(appName string, _ *Model) (string, error) {
+		k8sClient, _, err := newK8sClient(model1)
+
+		stsApp1 := v1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "app1",
+				Annotations: map[string]string{
+					"app.juju.is/uuid": "uniqueid1",
+				},
+			},
+		}
+		stsApp2 := v1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "app2",
+				Annotations: map[string]string{
+					"app.juju.is/uuid": "uniqueid2",
+				},
+			},
+		}
+		stsApp3 := v1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "app3",
+				Annotations: map[string]string{
+					"app.juju.is/uuid": "uniqueid3",
+				},
+			},
+		}
+		_, err = k8sClient.AppsV1().StatefulSets(model1.Name()).Create(context.Background(), &stsApp1, metav1.CreateOptions{})
+		c.Assert(err, gc.IsNil)
+		_, err = k8sClient.AppsV1().StatefulSets(model1.Name()).Create(context.Background(), &stsApp2, metav1.CreateOptions{})
+		c.Assert(err, gc.IsNil)
+		_, err = k8sClient.AppsV1().StatefulSets(model1.Name()).Create(context.Background(), &stsApp3, metav1.CreateOptions{})
+		c.Assert(err, gc.IsNil)
+
+		return func(appName string, model *Model) (string, error) {
+			sts, err := k8sClient.AppsV1().StatefulSets(model.Name()).Get(context.Background(), appName, metav1.GetOptions{})
+			if err != nil {
+				return "", err
+			}
+			annotations := sts.Annotations
+			v, ok := annotations["app.juju.is/uuid"]
+			c.Assert(ok, gc.Equals, true)
+			return v, nil
+		}
+	}
+
+	err = PopulateApplicationStorageUniqueID(s.pool, getStorageUniqueID(newFakeK8sClient))
+	logger.Infof("err is %s", err)
+	c.Assert(err, gc.IsNil)
 }

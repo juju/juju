@@ -250,3 +250,71 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 	}
 	return st.runRawTransaction(ops)
 }
+
+func PopulateApplicationStorageUniqueID(pool *StatePool, getStorageUniqueID func(appName string, model *Model) (string, error)) error {
+	logger.Infof("[adis] inside PopulateApplicationStorageUniqueID")
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var ops []txn.Op
+
+	// Run for each model because we want to backfill for every application.
+	err = runForAllModelStates(pool, func(st *State) error {
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Infof("[adis] trying to upgrade applications for model %q", model.Name())
+
+		if model.Type() != ModelTypeCAAS {
+			logger.Infof("[adis] skipping because model %q is not a caas model", model.Name())
+			return nil
+		}
+
+		logger.Infof("[adis] model %q preparing for populating storage id", model.Name())
+
+		applications, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		// Fetch the list of applications with an empty storageUniqueID.
+		// This ensures we don't repeat the upgrade for applications that have
+		// been populated with a storageUniqueID.
+		query := bson.M{"storage-unique-id": bson.M{"$exists": false}}
+		fields := bson.M{"_id": 1, "name": 1}
+		iter := applications.Find(query).Select(fields).Iter()
+		defer iter.Close()
+
+		var app bson.M
+		for iter.Next(&app) {
+			docId := app["_id"].(string)
+			name := app["name"].(string)
+
+			logger.Infof("[adis] trying to get storage unique id for app %q in model %q", name, model.UUID())
+
+			// Gives us the storageUniqueID for the application which we save to mongo.
+			storageUniqueID, err := getStorageUniqueID(name, model)
+			if err != nil {
+				logger.Infof("[adis] app %q in model %q has error %s", name, model.UUID(), err)
+				return err
+			}
+
+			logger.Infof("[adis] app %q in model %q has storageuniqueid %q", name, model.UUID(), storageUniqueID)
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     docId,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"storage-unique-id", storageUniqueID}}}},
+			})
+		}
+		return nil
+	})
+
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return st.runRawTransaction(ops)
+}
