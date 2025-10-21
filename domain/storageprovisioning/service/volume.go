@@ -348,8 +348,8 @@ func (s *Service) GetVolumeRemovalParams(
 
 	life, err := s.st.GetVolumeLife(ctx, uuid)
 	if err != nil {
-		return storageprovisioning.VolumeRemovalParams{}, errors.Capture(
-			err,
+		return storageprovisioning.VolumeRemovalParams{}, errors.Errorf(
+			"getting volume life for %q: %w", uuid, err,
 		)
 	}
 	if life != domainlife.Dead {

@@ -555,8 +555,8 @@ func (s *Service) GetFilesystemRemovalParams(
 
 	life, err := s.st.GetFilesystemLife(ctx, uuid)
 	if err != nil {
-		return storageprovisioning.FilesystemRemovalParams{}, errors.Capture(
-			err,
+		return storageprovisioning.FilesystemRemovalParams{}, errors.Errorf(
+			"getting filesystem life for %q: %w", uuid, err,
 		)
 	}
 	if life != domainlife.Dead {
