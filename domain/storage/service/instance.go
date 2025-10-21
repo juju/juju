@@ -20,7 +20,7 @@ import (
 func (s *Service) GetStorageInstanceUUIDForID(
 	ctx context.Context, storageID string,
 ) (domainstorage.StorageInstanceUUID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return "", errors.New("not implemented: coming soon")

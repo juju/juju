@@ -30,7 +30,7 @@ func (*Service) GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 	uuid domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
 ) (domainstorageprovisioning.StorageAttachmentUUID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if uuid.Validate() != nil {
