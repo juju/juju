@@ -454,7 +454,7 @@ func (a *StorageAPI) detachStorageAttachment(
 	case errors.Is(err, storageerrors.StorageAttachmentNotFound):
 		return errors.Errorf(
 			"storage %q is not attached to unit %q", storageID, unitName,
-		).Add(coreerrors.NotValid)
+		).Add(coreerrors.NotFound)
 	case errors.Is(err, applicationerrors.UnitNotFound):
 		return errors.Errorf("unit %q does not exist", unitName).Add(coreerrors.NotFound)
 	case err != nil:
@@ -478,7 +478,7 @@ func (a *StorageAPI) detachStorageAttachment(
 		return errors.Errorf(
 			"removing storage %q from unit %q would violate charm storage %q requirements of having minimum %d storage instances",
 			storageID, unitName, viErr.CharmStorageName, viErr.RequiredMinimum,
-		)
+		).Add(coreerrors.NotValid)
 	}
 
 	switch {
