@@ -89,7 +89,7 @@ jobs:
           # Ensure application is fully deployed
           # We have to use the old client to speak to the new controller, as
           # this is blocked otherwise.
-          $JUJU wait-for application ubuntu
+          $JUJU wait-for application ubuntu --timeout=20m
 
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
@@ -119,7 +119,7 @@ jobs:
           done
           
           juju switch test-migrate
-          juju wait-for application ubuntu
+          juju wait-for application ubuntu --timeout=20m
           
           juju deploy ubuntu yet-another-ubuntu
-          juju wait-for application yet-another-ubuntu
+          juju wait-for application yet-another-ubuntu --timeout=20m
