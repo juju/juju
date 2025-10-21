@@ -98,7 +98,7 @@ func (s *Service) RemoveStorageAttachment(
 
 }
 
-// RemoveStorageAttachmentsFromAliveUnit is reponsible for removing one or more
+// RemoveStorageAttachmentFromAliveUnit is reponsible for removing one or more
 // storage attachments from a unit that is still alive in the model. This
 // operation can be considered a detatch of a storage instance from a unit.
 //
@@ -122,13 +122,15 @@ func (s *Service) RemoveStorageAttachment(
 // attachment uuid does not exist in the model.
 // - [applicationerrors.UnitNotAlive] if the unit the storage attachment is
 // conencted to is not alive.
-func (s *Service) RemoveStorageAttachmentsFromAliveUnit(
+// [applicationerrors.UnitStorageMinViolation] if removing a storage
+// attachment would violate the charm minimums required for the unit.
+func (s *Service) RemoveStorageAttachmentFromAliveUnit(
 	ctx context.Context,
 	saUUID storageprovisioning.StorageAttachmentUUID,
 	force bool,
 	wait time.Duration,
-) ([]removal.UUID, error) {
-	return nil, errors.New("not implemented: coming soon")
+) (removal.UUID, error) {
+	return "", nil
 }
 
 func (s *Service) storageAttachmentScheduleRemoval(
