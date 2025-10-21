@@ -302,13 +302,21 @@ type filesystemTemplate struct {
 	Location     string `db:"location"`
 }
 
-// volumeParams represents the attachment params for a volume from the model
+// volumeParams represents the provisioning params for a volume from the model
 // database.
 type volumeParams struct {
 	VolumeID             string `db:"volume_id"`
 	Type                 string `db:"type"`
 	RequestedSizeMiB     uint64 `db:"requested_size_mib"`
 	VolumeAttachmentUUID string `db:"volume_attachment_uuid"`
+}
+
+// volumeRemovalParams represents the removal params for a volume from the model
+// database.
+type volumeRemovalParams struct {
+	Type       string         `db:"type"`
+	ProviderID string         `db:"provider_id"`
+	Obliterate sql.Null[bool] `db:"obliterate_on_cleanup"`
 }
 
 // volumeAttachmentParams represents the attachment params for a volume

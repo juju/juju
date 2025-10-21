@@ -1147,6 +1147,79 @@ WHERE  sv.uuid = $volumeUUID.uuid
 	return retVal, nil
 }
 
+// GetVolumeRemovalParams returns the parameters needed to removal a volume.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for
+// the uuid.
+func (st *State) GetVolumeRemovalParams(
+	ctx context.Context, uuid storageprovisioning.VolumeUUID,
+) (storageprovisioning.VolumeRemovalParams, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return storageprovisioning.VolumeRemovalParams{}, errors.Capture(err)
+	}
+
+	var (
+		input     = volumeUUID{UUID: uuid.String()}
+		paramsVal volumeRemovalParams
+	)
+
+	paramsStmt, err := st.Prepare(`
+SELECT &volumeParams.* FROM (
+    SELECT sv.provider_id,
+           sv.obliterate_on_cleanup,
+           sp.type
+    FROM   storage_volume sv
+    JOIN   storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
+    JOIN   storage_instance si ON siv.storage_instance_uuid = si.uuid
+    JOIN   storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    WHERE  sv.uuid = $volumeUUID.uuid
+)
+`,
+		paramsVal, input,
+	)
+	if err != nil {
+		return storageprovisioning.VolumeRemovalParams{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkVolumeExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf("checking if volume %q exists: %w", uuid, err)
+		}
+		if !exists {
+			return errors.Errorf(
+				"volume %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeNotFound)
+		}
+
+		err = tx.Query(ctx, paramsStmt, input).Get(&paramsVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New(
+				"volume is not associated with a storage instance",
+			)
+		} else if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return storageprovisioning.VolumeRemovalParams{}, errors.Capture(err)
+	}
+
+	retVal := storageprovisioning.VolumeRemovalParams{
+		Provider:   paramsVal.Type,
+		ProviderID: paramsVal.ProviderID,
+	}
+	if paramsVal.Obliterate.Valid {
+		retVal.Obliterate = paramsVal.Obliterate.V
+	}
+
+	return retVal, nil
+}
+
 // GetVolumeAttachmentParams retrieves the attachment params for the given
 // volume attachment.
 //
