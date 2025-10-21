@@ -97,7 +97,6 @@ CREATE TABLE relation_unit (
     uuid TEXT NOT NULL PRIMARY KEY,
     relation_endpoint_uuid TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
-    departing BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_relation_unit_uuid
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
