@@ -31,11 +31,11 @@ func newCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelationsAPI
 		ctx.CrossModelAuthContext(),
 		ctx.WatcherRegistry(),
 		domainServices.Application(),
-		domainServices.Relation(),
 		domainServices.CrossModelRelation(),
-		domainServices.Status(),
-		domainServices.Secret(),
+		domainServices.Relation(),
 		domainServices.Removal(),
+		domainServices.Secret(),
+		domainServices.Status(),
 		ctx.Logger().Child("caasapplication"),
 	)
 }

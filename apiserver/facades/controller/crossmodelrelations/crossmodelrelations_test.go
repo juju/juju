@@ -967,11 +967,11 @@ func (s *facadeSuite) api(c *tc.C) *CrossModelRelationsAPIv3 {
 		s.crossModelAuthContext,
 		s.watcherRegistry,
 		s.applicationService,
-		s.relationService,
 		s.crossModelRelationService,
-		s.statusService,
-		s.secretService,
+		s.relationService,
 		s.removalService,
+		s.secretService,
+		s.statusService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)

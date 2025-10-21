@@ -45,11 +45,11 @@ type CrossModelRelationsAPIv3 struct {
 	watcherRegistry facade.WatcherRegistry
 
 	applicationService        ApplicationService
-	relationService           RelationService
 	crossModelRelationService CrossModelRelationService
-	statusService             StatusService
-	secretService             SecretService
+	relationService           RelationService
 	removalService            RemovalService
+	secretService             SecretService
+	statusService             StatusService
 
 	logger logger.Logger
 }
@@ -60,11 +60,11 @@ func NewCrossModelRelationsAPI(
 	auth facade.CrossModelAuthContext,
 	watcherRegistry facade.WatcherRegistry,
 	applicationService ApplicationService,
-	relationService RelationService,
 	crossModelRelationService CrossModelRelationService,
-	statusService StatusService,
-	secretService SecretService,
+	relationService RelationService,
 	removalService RemovalService,
+	secretService SecretService,
+	statusService StatusService,
 	logger logger.Logger,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
@@ -72,11 +72,11 @@ func NewCrossModelRelationsAPI(
 		auth:                      auth,
 		watcherRegistry:           watcherRegistry,
 		applicationService:        applicationService,
-		relationService:           relationService,
 		crossModelRelationService: crossModelRelationService,
-		statusService:             statusService,
-		secretService:             secretService,
+		relationService:           relationService,
 		removalService:            removalService,
+		secretService:             secretService,
+		statusService:             statusService,
 		logger:                    logger,
 	}, nil
 }
