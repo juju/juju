@@ -488,16 +488,15 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// We only prevent deletion if the unit is alive.
+		// This method is only called by the unit removal job, which will invoke
+		// it for a dying (not dead) unit only if the job is forced.
+		// That check is made in the service layer.
 		if uLife, err := st.getUnitLife(ctx, tx, unitUUID); err != nil {
 			return errors.Errorf("getting unit life for unit %q: %w", unitUUID, err)
 		} else if uLife == life.Alive {
-			// The unit is still alive, we cannot delete it.
 			return errors.Errorf("cannot delete unit %q as it is still alive", unitUUID).
 				Add(removalerrors.EntityStillAlive)
-		} else if uLife == life.Dying {
-			// The unit is dying, we cannot delete it yet.
-			return errors.Errorf("waiting for unit %q to be dead before deletion", unitUUID).
-				Add(removalerrors.RemovalJobIncomplete)
 		}
 
 		// Delete all tasks related to the unit, and eventually removes

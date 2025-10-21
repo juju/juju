@@ -1261,6 +1261,7 @@ func (s *machineSuite) TestDeleteMachineWithLinkLayerDevice(c *tc.C) {
 	lldChildUUID := s.addLinkLayerDevice(c, "lld-2", machineUUID.String())
 	s.addLinkLayerDeviceParent(c, lldChildUUID, lldParentUUID)
 	ipUUID := s.addIPAddress(c, machineUUID.String(), lldParentUUID, subnetUUID)
+	s.addIPAddressProviderID(c, "whatever", ipUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
