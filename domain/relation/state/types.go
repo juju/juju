@@ -313,7 +313,7 @@ type watcherMapperData struct {
 	RelationUUID string `db:"uuid"`
 	AppUUID      string `db:"application_uuid"`
 	Life         string `db:"value"`
-	Suspended    string `db:"name"`
+	Suspended    bool   `db:"suspended"`
 }
 
 // applicationUUIDAndName is used to get the UUID and name of an application.

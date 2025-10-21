@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// State represents the relation domain state.
 type State struct {
 	*domain.StateBase
 	clock  clock.Clock
@@ -2502,7 +2503,7 @@ func (st *State) ApplicationExists(ctx context.Context, id application.UUID) err
 // InitialWatchLifeSuspendedStatus returns the two tables to watch for a
 // relation's Life and Suspended status when the relation contains the provided
 // application and the initial namespace query.
-func (st *State) InitialWatchLifeSuspendedStatus(id application.UUID) (string, string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchLifeSuspendedStatus(id application.UUID) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
 SELECT  re.relation_uuid AS &relationUUID.uuid
@@ -2531,7 +2532,7 @@ WHERE   ae.application_uuid = $entityUUID.uuid
 		return transform.Slice(results, func(r relationUUID) string { return r.UUID }), nil
 	}
 
-	return "relation", "relation_status", queryFunc
+	return "relation", queryFunc
 }
 
 // WatcherApplicationSettingsNamespace returns the namespace string used for
@@ -2597,8 +2598,8 @@ WHERE  relation_endpoint_uuid = $entityUUID.uuid
 	}), nil
 }
 
-// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a relation
-// uuid as part of WatchLifeSuspendedStatus eventmapper.
+// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a
+// relation uuid as part of WatchLifeSuspendedStatus eventmapper.
 //
 // The following error types can be expected to be returned:
 //   - [applicationerrors.ApplicationNotFoundForRelation] is returned if the
@@ -2631,12 +2632,10 @@ AND     re.relation_uuid = $watcherMapperData.uuid
 		return domainrelation.RelationLifeSuspendedData{}, errors.Capture(err)
 	}
 
-	lifeStatusStmt, err := st.Prepare(`
-SELECT (rst.name, l.value) AS (&watcherMapperData.*)
+	lifeSuspendedStmt, err := st.Prepare(`
+SELECT (r.suspended, l.value) AS (&watcherMapperData.*)
 FROM   relation r
 JOIN   life l ON r.life_id = l.id
-JOIN   relation_status rs ON rs.relation_uuid = r.uuid
-JOIN   relation_status_type rst ON rst.id = rs.relation_status_type_id
 WHERE  r.uuid = $watcherMapperData.uuid
 `, watcherMapperData{})
 	if err != nil {
@@ -2652,11 +2651,11 @@ WHERE  r.uuid = $watcherMapperData.uuid
 			return errors.Errorf("verifying relation application intersection: %w", err)
 		}
 
-		err = tx.Query(ctx, lifeStatusStmt, data).Get(&data)
+		err = tx.Query(ctx, lifeSuspendedStmt, data).Get(&data)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return relationerrors.RelationNotFound
 		} else if err != nil {
-			return errors.Errorf("getting relation life and status: %w", err)
+			return errors.Errorf("getting relation life and suspended state: %w", err)
 		}
 
 		endpoints, err = st.getRelationEndpoints(ctx, tx, data.RelationUUID)
@@ -2676,7 +2675,7 @@ WHERE  r.uuid = $watcherMapperData.uuid
 
 	return domainrelation.RelationLifeSuspendedData{
 		Life:                life.Value(data.Life),
-		Suspended:           data.Suspended == corestatus.Suspended.String(),
+		Suspended:           data.Suspended,
 		EndpointIdentifiers: endpointIdentifiers,
 	}, nil
 }
@@ -3118,10 +3117,9 @@ func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relation
 		UUID: relationUUID,
 	}
 	stmt, err := st.Prepare(`
-SELECT (r.uuid, r.relation_id, l.value, vrs.suspended) AS (&getRelation.*)
+SELECT (r.uuid, r.relation_id, l.value, r.suspended) AS (&getRelation.*)
 FROM   relation r
 JOIN   life l ON r.life_id = l.id
-JOIN   v_relation_status AS vrs ON r.uuid = vrs.relation_uuid
 WHERE  r.uuid = $getRelation.uuid
 `, rel)
 	if err != nil {

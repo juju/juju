@@ -297,6 +297,15 @@ ON CONFLICT (relation_uuid) DO UPDATE SET relation_status_type_id = ?, updated_a
 `, relationUUID, encodedStatus, since, encodedStatus, since)
 }
 
+// setRelationSuspended sets the suspended state of a relation.
+func (s *baseRelationSuite) setRelationSuspended(c *tc.C, relationUUID corerelation.UUID) {
+	s.query(c, `
+UPDATE relation
+SET suspended = TRUE
+WHERE uuid = ?
+`, relationUUID)
+}
+
 // addRelationUnitSetting inserts a relation unit setting into the database
 // using the provided relationUnitUUID.
 func (s *baseRelationSuite) addRelationUnitSetting(c *tc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {

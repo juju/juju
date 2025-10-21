@@ -1346,7 +1346,7 @@ func (s *relationSuite) TestGetRelationDetailsSuspended(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
-	s.setRelationStatus(c, relationUUID, corestatus.Suspended, time.Now())
+	s.setRelationSuspended(c, relationUUID)
 
 	expectedDetails := domainrelation.RelationDetailsResult{
 		Life:      corelife.Dying,
@@ -1458,7 +1458,7 @@ func (s *relationSuite) TestGetAllRelationDetails(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID1, applicationEndpointUUID2)
 	s.addRelationEndpoint(c, relationUUID2, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID2, applicationEndpointUUID3)
-	s.setRelationStatus(c, relationUUID2, corestatus.Suspended, time.Now())
+	s.setRelationSuspended(c, relationUUID2)
 
 	expectedDetails := map[int]domainrelation.RelationDetailsResult{
 		relationID1: {
@@ -1934,7 +1934,7 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *tc.C) {
 	relationUUID := s.addRelation(c)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
-	s.setRelationStatus(c, relationUUID, corestatus.Suspended, time.Now())
+	s.setRelationSuspended(c, relationUUID)
 
 	// Act:
 	result, err := s.state.GetMapperDataForWatchLifeSuspendedStatus(
