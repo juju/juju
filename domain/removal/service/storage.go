@@ -98,7 +98,7 @@ func (s *Service) RemoveStorageAttachment(
 
 }
 
-// RemoveStorageAttachmentFromAliveUnit is reponsible for removing one or more
+// RemoveStorageAttachmentFromAliveUnit is responsible for removing one or more
 // storage attachments from a unit that is still alive in the model. This
 // operation can be considered a detatch of a storage instance from a unit.
 //
@@ -113,7 +113,7 @@ func (s *Service) RemoveStorageAttachment(
 //
 // If removing the storage attachment would violate the minimum number of
 // storage instances required by the unit's charm then this operation will fail.
-// Regardless of if force is supplied this will not bypass fundemental checks.
+// Regardless of if force is supplied this will not bypass fundamental checks.
 // Force exists to force removal of the attachment resource and not the business
 // logic that determines safety.
 //

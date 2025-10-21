@@ -38,7 +38,7 @@ type BlockDeviceService interface {
 // RemovalService defines the interface required for removing storage related
 // entities in the model on behalf of an API caller.
 type RemovalService interface {
-	// RemoveStorageAttachmentsFromAliveUnit is reponsible for removing one or
+	// RemoveStorageAttachmentsFromAliveUnit is responsible for removing one or
 	// more storage attachments from a unit that is still alive in the model.
 	// This operation can be considered a detatch of a storage instance from a
 	// unit.
@@ -446,7 +446,7 @@ func (a *StorageAPI) detachStorageAttachment(
 			ctx, storageInstanceUUID, unitUUID,
 		)
 	// We purposely ignore not valid errors for the uuids supplied. We have
-	// recieved these uuids from the domain and not the caller so they can
+	// received these uuids from the domain and not the caller so they can
 	// safely be considered valid.
 	switch {
 	case errors.Is(err, storageerrors.StorageInstanceNotFound):
