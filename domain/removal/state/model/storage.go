@@ -75,6 +75,25 @@ AND    life_id = 0`, attachmentUUID)
 	}))
 }
 
+// EnsureStorageAttachmentNotAliveWithFulfilment ensures that there is no
+// storage attachment identified by the input UUID that is still alive
+// after this call. This condition is only realised when the storage
+// fulfilment for the units charm is met by the removal.
+//
+// Fulfilment expectation exists to assert the state of the world for which
+// the ensure operation was computed on top of.
+//
+// The following errors may be returned:
+// - [removalerrors.StorageFulfilmentNotMet] when the fulfilment requiremnt
+// fails.
+func (st *State) EnsureStorageAttachmentNotAliveWithFulfilment(
+	ctx context.Context,
+	saUUID string,
+	fulfilment int,
+) error {
+	return errors.New("no implemented: coming soon")
+}
+
 // StorageAttachmentScheduleRemoval schedules a removal job for the storage
 // attachment with the input UUID, qualified with the input force boolean.
 // We don't care if the attachment does not exist at this point because:

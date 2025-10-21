@@ -37,7 +37,7 @@ type StorageState interface {
 	// Fulfilment expectation exists to assert the state of the world for which
 	// the ensure operation was computed on top of.
 	//
-	//  The following errors may be returned:
+	// The following errors may be returned:
 	// - [removalerrors.StorageFulfilmentNotMet] when the fulfilment requiremnt
 	// fails.
 	EnsureStorageAttachmentNotAliveWithFulfilment(
