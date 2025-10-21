@@ -229,22 +229,17 @@ func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 }
 
 // AddRelationNetworkIngress mocks base method.
-func (m *MockModelState) AddRelationNetworkIngress(arg0 context.Context, arg1 string, arg2 ...string) error {
+func (m *MockModelState) AddRelationNetworkIngress(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "AddRelationNetworkIngress", varargs...)
+	ret := m.ctrl.Call(m, "AddRelationNetworkIngress", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddRelationNetworkIngress indicates an expected call of AddRelationNetworkIngress.
-func (mr *MockModelStateMockRecorder) AddRelationNetworkIngress(arg0, arg1 any, arg2 ...any) *MockModelStateAddRelationNetworkIngressCall {
+func (mr *MockModelStateMockRecorder) AddRelationNetworkIngress(arg0, arg1, arg2 any) *MockModelStateAddRelationNetworkIngressCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelationNetworkIngress", reflect.TypeOf((*MockModelState)(nil).AddRelationNetworkIngress), varargs...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelationNetworkIngress", reflect.TypeOf((*MockModelState)(nil).AddRelationNetworkIngress), arg0, arg1, arg2)
 	return &MockModelStateAddRelationNetworkIngressCall{Call: call}
 }
 
@@ -260,13 +255,13 @@ func (c *MockModelStateAddRelationNetworkIngressCall) Return(arg0 error) *MockMo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateAddRelationNetworkIngressCall) Do(f func(context.Context, string, ...string) error) *MockModelStateAddRelationNetworkIngressCall {
+func (c *MockModelStateAddRelationNetworkIngressCall) Do(f func(context.Context, string, []string) error) *MockModelStateAddRelationNetworkIngressCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateAddRelationNetworkIngressCall) DoAndReturn(f func(context.Context, string, ...string) error) *MockModelStateAddRelationNetworkIngressCall {
+func (c *MockModelStateAddRelationNetworkIngressCall) DoAndReturn(f func(context.Context, string, []string) error) *MockModelStateAddRelationNetworkIngressCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1687,22 +1682,17 @@ func (m *MockModelRelationNetworkState) EXPECT() *MockModelRelationNetworkStateM
 }
 
 // AddRelationNetworkIngress mocks base method.
-func (m *MockModelRelationNetworkState) AddRelationNetworkIngress(arg0 context.Context, arg1 string, arg2 ...string) error {
+func (m *MockModelRelationNetworkState) AddRelationNetworkIngress(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "AddRelationNetworkIngress", varargs...)
+	ret := m.ctrl.Call(m, "AddRelationNetworkIngress", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddRelationNetworkIngress indicates an expected call of AddRelationNetworkIngress.
-func (mr *MockModelRelationNetworkStateMockRecorder) AddRelationNetworkIngress(arg0, arg1 any, arg2 ...any) *MockModelRelationNetworkStateAddRelationNetworkIngressCall {
+func (mr *MockModelRelationNetworkStateMockRecorder) AddRelationNetworkIngress(arg0, arg1, arg2 any) *MockModelRelationNetworkStateAddRelationNetworkIngressCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelationNetworkIngress", reflect.TypeOf((*MockModelRelationNetworkState)(nil).AddRelationNetworkIngress), varargs...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelationNetworkIngress", reflect.TypeOf((*MockModelRelationNetworkState)(nil).AddRelationNetworkIngress), arg0, arg1, arg2)
 	return &MockModelRelationNetworkStateAddRelationNetworkIngressCall{Call: call}
 }
 
@@ -1718,13 +1708,13 @@ func (c *MockModelRelationNetworkStateAddRelationNetworkIngressCall) Return(arg0
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelRelationNetworkStateAddRelationNetworkIngressCall) Do(f func(context.Context, string, ...string) error) *MockModelRelationNetworkStateAddRelationNetworkIngressCall {
+func (c *MockModelRelationNetworkStateAddRelationNetworkIngressCall) Do(f func(context.Context, string, []string) error) *MockModelRelationNetworkStateAddRelationNetworkIngressCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelRelationNetworkStateAddRelationNetworkIngressCall) DoAndReturn(f func(context.Context, string, ...string) error) *MockModelRelationNetworkStateAddRelationNetworkIngressCall {
+func (c *MockModelRelationNetworkStateAddRelationNetworkIngressCall) DoAndReturn(f func(context.Context, string, []string) error) *MockModelRelationNetworkStateAddRelationNetworkIngressCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

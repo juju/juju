@@ -16,6 +16,7 @@ import (
 	domainapplication "github.com/juju/juju/domain/application"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	domainrelation "github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/environs/config"
 )
 
 // CrossModelRelationService provides access to cross-model relations.
@@ -23,6 +24,11 @@ type CrossModelRelationService interface {
 	// GetApplicationNameAndUUIDByOfferUUID returns the application name and
 	// UUID for the given offer UUID.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, coreapplication.UUID, error)
+
+	// AddRelationNetworkIngress adds ingress network CIDRs for the specified
+	// relation.
+	// The CIDRs are added to the relation_network_ingress table.
+	AddRelationNetworkIngress(ctx context.Context, relationUUID corerelation.UUID, saasIngressAllow []string, cidrs []string) error
 
 	// AddRemoteApplicationConsumer adds a new synthetic application
 	// representing a remote relation on the consuming model, to this, the
@@ -41,6 +47,13 @@ type CrossModelRelationService interface {
 	// EnsureUnitsExist ensures that the given synthetic units exist in the local
 	// model.
 	EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error
+}
+
+// ModelConfigService is an interface that provides access to the
+// model configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(ctx context.Context) (*config.Config, error)
 }
 
 // SecretService provides access to secrets.

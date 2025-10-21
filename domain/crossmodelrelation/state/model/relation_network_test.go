@@ -31,7 +31,7 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngress(c *tc.C) {
 	cidrs := []string{"192.0.2.0/24", "198.51.100.0/24"}
 
 	// Act
-	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -44,7 +44,7 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngress(c *tc.C) {
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressSingleCIDR(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
-	cidr := "192.0.2.0/24"
+	cidr := []string{"192.0.2.0/24"}
 
 	// Act
 	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
@@ -52,7 +52,7 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressSingleCIDR(c *t
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	obtainedCIDRs := s.readRelationNetworkIngress(c, relationUUID.String())
-	c.Check(obtainedCIDRs, tc.DeepEquals, []string{cidr})
+	c.Check(obtainedCIDRs, tc.DeepEquals, cidr)
 }
 
 // TestAddRelationNetworkIngressMultipleCalls tests that multiple calls
@@ -64,11 +64,11 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleCalls(c
 	secondCIDRs := []string{"198.51.100.0/24", "203.0.113.0/24"}
 
 	// Act - First call
-	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), firstCIDRs...)
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), firstCIDRs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act - Second call
-	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), secondCIDRs...)
+	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), secondCIDRs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
@@ -82,7 +82,7 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleCalls(c
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressDuplicateCIDR(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
-	cidr := "192.0.2.0/24"
+	cidr := []string{"192.0.2.0/24"}
 
 	// Act - First insertion
 	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
@@ -101,7 +101,7 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleRelatio
 	// Arrange
 	relationUUID1 := s.createTestRelationWithNames(c, "app1", "app2")
 	relationUUID2 := s.createTestRelationWithNames(c, "app3", "app4")
-	cidr := "192.0.2.0/24"
+	cidr := []string{"192.0.2.0/24"}
 
 	// Act
 	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID1.String(), cidr)
@@ -112,10 +112,10 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleRelatio
 
 	// Assert
 	obtainedCIDRs1 := s.readRelationNetworkIngress(c, relationUUID1.String())
-	c.Check(obtainedCIDRs1, tc.DeepEquals, []string{cidr})
+	c.Check(obtainedCIDRs1, tc.DeepEquals, cidr)
 
 	obtainedCIDRs2 := s.readRelationNetworkIngress(c, relationUUID2.String())
-	c.Check(obtainedCIDRs2, tc.DeepEquals, []string{cidr})
+	c.Check(obtainedCIDRs2, tc.DeepEquals, cidr)
 }
 
 // TestAddRelationNetworkIngressInvalidRelation tests that adding ingress
@@ -123,7 +123,7 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleRelatio
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressInvalidRelation(c *tc.C) {
 	// Arrange
 	nonExistentRelationUUID := internaluuid.MustNewUUID().String()
-	cidr := "192.0.2.0/24"
+	cidr := []string{"192.0.2.0/24"}
 
 	// Act
 	err := s.state.AddRelationNetworkIngress(c.Context(), nonExistentRelationUUID, cidr)
@@ -145,7 +145,7 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleCIDRsIn
 	}
 
 	// Act
-	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -158,24 +158,25 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleCIDRsIn
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressTransactional(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
-	existingCIDR := "192.0.2.0/24"
+	existingCIDR := []string{"192.0.2.0/24"}
 
 	// Add an existing CIDR
 	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), existingCIDR)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Try to add multiple CIDRs where one is a duplicate
-	cidrs := []string{"198.51.100.0/24", existingCIDR, "203.0.113.0/24"}
+	cidrs := []string{"198.51.100.0/24", "203.0.113.0/24"}
+	cidrs = append(cidrs, existingCIDR...)
 
 	// Act
-	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs)
 
 	// Assert - Should fail
 	c.Assert(err, tc.ErrorMatches, `.*inserting relation network ingress for relation.*`)
 
 	// Verify that the transaction was rolled back and no new CIDRs were added
 	obtainedCIDRs := s.readRelationNetworkIngress(c, relationUUID.String())
-	c.Check(obtainedCIDRs, tc.DeepEquals, []string{existingCIDR})
+	c.Check(obtainedCIDRs, tc.DeepEquals, existingCIDR)
 }
 
 // createTestRelation creates a test relation with two applications and returns
@@ -262,7 +263,7 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngress(c *tc.C) {
 	relationUUID := s.createTestRelation(c)
 	cidrs := []string{"192.0.2.0/24", "198.51.100.0/24"}
 
-	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
@@ -278,7 +279,7 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngress(c *tc.C) {
 func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSingleCIDR(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
-	cidr := "192.0.2.0/24"
+	cidr := []string{"192.0.2.0/24"}
 
 	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
 	c.Assert(err, tc.ErrorIsNil)
@@ -288,7 +289,7 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSingleCIDR(c *t
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedCIDRs, tc.DeepEquals, []string{cidr})
+	c.Check(obtainedCIDRs, tc.DeepEquals, cidr)
 }
 
 // TestGetRelationNetworkIngressEmpty tests that GetRelationNetworkIngress
@@ -331,7 +332,7 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressMultipleCIDRs(c
 		"2001:db8::/32",
 	}
 
-	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
@@ -349,7 +350,7 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSortedOrder(c *
 	relationUUID := s.createTestRelation(c)
 	cidrs := []string{"203.0.113.0/24", "192.0.2.0/24", "198.51.100.0/24"}
 
-	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs...)
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
@@ -371,10 +372,10 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressMultipleRelatio
 	cidrs1 := []string{"192.0.2.0/24"}
 	cidrs2 := []string{"198.51.100.0/24", "203.0.113.0/24"}
 
-	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID1.String(), cidrs1...)
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID1.String(), cidrs1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID2.String(), cidrs2...)
+	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID2.String(), cidrs2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
@@ -397,10 +398,10 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressAfterMultipleAd
 	firstCIDRs := []string{"192.0.2.0/24"}
 	secondCIDRs := []string{"198.51.100.0/24", "203.0.113.0/24"}
 
-	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), firstCIDRs...)
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), firstCIDRs)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), secondCIDRs...)
+	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), secondCIDRs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act

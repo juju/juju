@@ -7,10 +7,11 @@ import (
 	"context"
 	"net"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/network"
 )
 
 // ModelRelationNetworkState describes retrieval and persistence methods for
@@ -18,7 +19,7 @@ import (
 type ModelRelationNetworkState interface {
 	// AddRelationNetworkIngress adds ingress network CIDRs for the specified
 	// relation.
-	AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs ...string) error
+	AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs []string) error
 
 	// GetRelationNetworkIngress retrieves all ingress network CIDRs for the
 	// specified relation.
@@ -32,33 +33,20 @@ type ModelRelationNetworkState interface {
 // AddRelationNetworkIngress adds ingress network CIDRs for the specified
 // relation.
 // The CIDRs are added to the relation_network_ingress table.
-func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID corerelation.UUID, cidrs ...string) error {
+func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID corerelation.UUID, saasIngressAllow []string, cidrs []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-
-	if relationUUID == "" {
-		return errors.Errorf("relation UUID cannot be empty")
-	}
 
 	if err := relationUUID.Validate(); err != nil {
 		return errors.Capture(err)
 	}
 
-	if len(cidrs) == 0 {
-		return errors.Errorf("at least one CIDR must be provided")
-	}
-
 	// Validate CIDRs are not empty and are valid
-	for _, cidr := range cidrs {
-		if cidr == "" {
-			return errors.Errorf("CIDR cannot be empty")
-		}
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return errors.Errorf("CIDR %q is not valid: %w", cidr, err).Add(coreerrors.NotValid)
-		}
+	if err := s.validateIngressNetworks(saasIngressAllow, cidrs); err != nil {
+		return errors.Capture(err)
 	}
 
-	if err := s.modelState.AddRelationNetworkIngress(ctx, relationUUID.String(), cidrs...); err != nil {
+	if err := s.modelState.AddRelationNetworkIngress(ctx, relationUUID.String(), cidrs); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -86,4 +74,37 @@ func (s *Service) GetRelationNetworkIngress(ctx context.Context, relationUUID co
 	}
 
 	return cidrs, nil
+}
+
+func (s *Service) validateIngressNetworks(saasIngressAllow []string, networks []string) error {
+	if len(networks) == 0 {
+		return nil
+	}
+
+	var whitelistCIDRs, requestedCIDRs []*net.IPNet
+	if err := parseCIDRs(&whitelistCIDRs, saasIngressAllow); err != nil {
+		return errors.Capture(err)
+	}
+	if err := parseCIDRs(&requestedCIDRs, networks); err != nil {
+		return errors.Capture(err)
+	}
+	if len(whitelistCIDRs) > 0 {
+		for _, n := range requestedCIDRs {
+			if !network.SubnetInAnyRange(whitelistCIDRs, n) {
+				return errors.Errorf("subnet %v not in firewall whitelist", n).Add(crossmodelrelationerrors.SubnetNotInWhitelist)
+			}
+		}
+	}
+	return nil
+}
+
+func parseCIDRs(cidrs *[]*net.IPNet, values []string) error {
+	for _, cidrStr := range values {
+		if _, ipNet, err := net.ParseCIDR(cidrStr); err != nil {
+			return err
+		} else {
+			*cidrs = append(*cidrs, ipNet)
+		}
+	}
+	return nil
 }

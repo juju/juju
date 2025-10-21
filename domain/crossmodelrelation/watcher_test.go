@@ -860,7 +860,8 @@ func (s *watcherSuite) TestWatchRelationIngressNetworks(c *tc.C) {
 	// Set up a remote offerer app and a relation.
 	remoteRelationUUID := s.setupRemoteOffererLocalAndRelation(c, db, svc)
 	// Initial event.
-	err = svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, "203.0.113.0/24")
+	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
+	err = svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, saasIngressAllow, []string{"203.0.113.0/24"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Start the watcher.
@@ -872,7 +873,7 @@ func (s *watcherSuite) TestWatchRelationIngressNetworks(c *tc.C) {
 
 	// Adding an ingress network should trigger an event.
 	harness.AddTest(c, func(c *tc.C) {
-		err := svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, "192.0.2.0/24")
+		err := svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, saasIngressAllow, []string{"192.0.2.0/24"})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -881,7 +882,7 @@ func (s *watcherSuite) TestWatchRelationIngressNetworks(c *tc.C) {
 	// Adding another ingress network to the same relation should trigger
 	// another event.
 	harness.AddTest(c, func(c *tc.C) {
-		err := svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, "198.51.100.0/24")
+		err := svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, saasIngressAllow, []string{"198.51.100.0/24"})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -904,7 +905,7 @@ func (s *watcherSuite) TestWatchRelationIngressNetworks(c *tc.C) {
 	// Now create a different relation and add ingress networks to it; this should be ignored.
 	harness.AddTest(c, func(c *tc.C) {
 		otherRelationUUID := s.createRelation(c, db, svc)
-		err := svc.AddRelationNetworkIngress(c.Context(), otherRelationUUID, "203.0.113.0/24")
+		err := svc.AddRelationNetworkIngress(c.Context(), otherRelationUUID, saasIngressAllow, []string{"203.0.113.0/24"})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()

@@ -16,7 +16,7 @@ import (
 // relation.
 // It returns a [relationerrors.RelationNotFound] if the provided relation does
 // not exist.
-func (st *State) AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs ...string) error {
+func (st *State) AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs []string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
