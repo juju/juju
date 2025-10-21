@@ -20,7 +20,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
-	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -384,7 +383,7 @@ func (s *storageSuite) TestStorageAttachmentLifeWithStorageInstanceNotFound(c *t
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentLife(
 		gomock.Any(), unitUUID, "foo/1",
-	).Return(-1, storageprovisioningerrors.StorageInstanceNotFound)
+	).Return(-1, domainstorageerrors.StorageInstanceNotFound)
 
 	results, err := api.StorageAttachmentLife(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{
@@ -589,7 +588,7 @@ func (s *storageSuite) TestWatchStorageAttachmentsWithStorageInstanceNotFound(c 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
 		gomock.Any(), "foo/1", unitUUID,
-	).Return("", storageprovisioningerrors.StorageInstanceNotFound)
+	).Return("", domainstorageerrors.StorageInstanceNotFound)
 
 	results, err := api.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{
