@@ -1183,7 +1183,7 @@ func (s *serviceSuite) TestGrantSecretRelationScope(c *tc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectApplication,
 		SubjectID:     "mysql",
 		RoleID:        domainsecret.RoleView,

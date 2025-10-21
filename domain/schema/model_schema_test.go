@@ -383,6 +383,7 @@ func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 		"v_port_range",
 		"v_relation_endpoint",
 		"v_relation_endpoint_identifier",
+		"v_relation_key",
 		"v_relation_status",
 		"v_resource",
 		"v_revision_updater_application_unit",

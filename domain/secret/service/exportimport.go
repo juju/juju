@@ -194,7 +194,7 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 		//}
 
 		for _, access := range modelSecrets.Access[md.URI.ID] {
-			p := grantParams(SecretAccessParams{
+			p, err := grantParams(SecretAccessParams{
 				Scope: SecretAccessScope{
 					Kind: access.Scope.Kind,
 					ID:   access.Scope.ID,
@@ -205,6 +205,9 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 				},
 				Role: access.Role,
 			})
+			if err != nil {
+				return errors.Capture(err)
+			}
 			if err := s.secretState.GrantAccess(ctx, md.URI, p); err != nil {
 				return errors.Errorf("saving secret access for %s-%s for secret %q: %w",
 					access.Subject.Kind, access.Subject.ID, md.URI.ID, err)

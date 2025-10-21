@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -144,11 +145,15 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 	}
 
 	return withCaveat(ctx, func(innerCtx context.Context) error {
-		return s.secretState.GrantAccess(innerCtx, uri, grantParams(params))
+		p, err := grantParams(params)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return s.secretState.GrantAccess(innerCtx, uri, p)
 	})
 }
 
-func grantParams(in SecretAccessParams) domainsecret.GrantParams {
+func grantParams(in SecretAccessParams) (domainsecret.GrantParams, error) {
 	p := domainsecret.GrantParams{
 		ScopeID:   in.Scope.ID,
 		SubjectID: in.Subject.ID,
@@ -174,8 +179,14 @@ func grantParams(in SecretAccessParams) domainsecret.GrantParams {
 		p.ScopeTypeID = domainsecret.ScopeModel
 	case RelationAccessScope:
 		p.ScopeTypeID = domainsecret.ScopeRelation
+		// Ensure the relation key is correctly formatted.
+		key, err := corerelation.NewKeyFromString(in.Scope.ID)
+		if err != nil {
+			return domainsecret.GrantParams{}, errors.Capture(err)
+		}
+		p.ScopeID = key.String()
 	}
-	return p
+	return p, nil
 }
 
 // RevokeSecretAccess revokes access to the secret for the specified subject.

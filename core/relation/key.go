@@ -4,6 +4,7 @@
 package relation
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/juju/names/v6"
@@ -111,6 +112,7 @@ func (k Key) String() string {
 	for i, ei := range k {
 		endpoints[i] = ei.String()
 	}
+	sort.Strings(endpoints)
 	return strings.Join(endpoints, " ")
 }
 

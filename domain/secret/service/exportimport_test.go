@@ -236,7 +236,7 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	//})
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   3,
-		ScopeID:       "wordpress:db mysql:server",
+		ScopeID:       "mysql:server wordpress:db",
 		SubjectTypeID: 0,
 		SubjectID:     "wordpress/0",
 		RoleID:        1,

@@ -589,7 +589,7 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *tc.C) {
 
 	//backend := newHappyBackend()
 	err := s.sourcePrecheck(c)
-	c.Assert(err, tc.ErrorMatches, `unit bar/1 hasn't joined relation "foo:db bar:db" yet`)
+	c.Assert(err, tc.ErrorMatches, `unit bar/1 hasn't joined relation "bar:db foo:db" yet`)
 }
 
 func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *tc.C) {

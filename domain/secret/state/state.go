@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
@@ -2306,6 +2307,7 @@ func (st State) NamespaceForWatchSecretRevisionObsolete() string {
 const (
 	selectUnitUUID        = `SELECT uuid AS &entityRef.uuid FROM unit WHERE name=$entityRef.id`
 	selectApplicationUUID = `SELECT uuid AS &entityRef.uuid FROM application WHERE name=$entityRef.id`
+	selectRelationUUID    = `SELECT relation_uuid AS &entityRef.uuid FROM v_relation_key WHERE relation_key=$entityRef.id`
 	selectModelUUID       = `SELECT uuid AS &entityRef.uuid FROM model WHERE uuid=$entityRef.id`
 )
 
@@ -2325,11 +2327,8 @@ func (st State) lookupSubjectUUID(
 		selectSubjectUUID = selectApplicationUUID
 		subjectNotFoundError = applicationerrors.ApplicationNotFound
 	case domainsecret.SubjectRemoteApplication:
-		// TODO(secrets) - we don't have remote applications in dqlite yet
-		// Just use a temporary query that returns the id as uuid.
-		selectSubjectUUID = "SELECT uuid AS &entityRef.uuid FROM (SELECT $M.subject_id AS uuid FROM model) WHERE $entityRef.id <> ''"
-		selectSubjectQueryParams = append(selectSubjectQueryParams, sqlair.M{"subject_id": subjectID})
-		subjectNotFoundError = applicationerrors.ApplicationNotFound
+		selectSubjectUUID = selectRelationUUID
+		subjectNotFoundError = relationerrors.RelationNotFound
 	case domainsecret.SubjectModel:
 		selectSubjectUUID = selectModelUUID
 		subjectNotFoundError = modelerrors.NotFound
@@ -2373,10 +2372,8 @@ func (st State) lookupScopeUUID(
 		selectScopeUUID = selectModelUUID
 		scopeNotFoundError = modelerrors.NotFound
 	case domainsecret.ScopeRelation:
-		// TODO(secrets) - we don't have relations in dqlite yet
-		// Just use a temporary query that returns the id as uuid.
-		selectScopeUUID = "SELECT uuid AS &entityRef.uuid FROM (SELECT $M.scope_id AS uuid FROM model) WHERE $entityRef.id <> ''"
-		selectScopeQueryParams = append(selectScopeQueryParams, sqlair.M{"scope_id": scopeID})
+		selectScopeUUID = selectRelationUUID
+		scopeNotFoundError = relationerrors.RelationNotFound
 	}
 	selectScopeUUIDStmt, err := st.Prepare(selectScopeUUID, selectScopeQueryParams...)
 	if err != nil {

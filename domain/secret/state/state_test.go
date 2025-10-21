@@ -14,9 +14,11 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/schema/testing"
@@ -32,6 +34,8 @@ type stateSuite struct {
 	testing.ModelSuite
 
 	modelUUID string
+
+	relationCount int
 }
 
 func TestStateSuite(t *stdtesting.T) {
@@ -723,9 +727,10 @@ func (s *stateSuite) TestListSecretsByURI(c *tc.C) {
 	c.Assert(revs[0].CreateTime, tc.Almost, now)
 }
 
-func (s *stateSuite) setupUnits(c *tc.C, appName string) {
+func (s *stateSuite) setupApplication(c *tc.C, appName string) (string, string) {
+	applicationUUID := uuid.MustNewUUID().String()
+	charmUUID := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		charmUUID := uuid.MustNewUUID().String()
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, reference_name, architecture_id)
 VALUES (?, ?, 0);
@@ -742,7 +747,6 @@ VALUES (?, ?);
 			return errors.Capture(err)
 		}
 
-		applicationUUID := uuid.MustNewUUID().String()
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
 VALUES (?, ?, ?, ?, ?)
@@ -750,11 +754,23 @@ VALUES (?, ?, ?, ?, ?)
 		if err != nil {
 			return errors.Capture(err)
 		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return applicationUUID, charmUUID
+}
 
+func (s *stateSuite) setupUnits(c *tc.C, appName string) {
+	_, charmUUID := s.setupApplication(c, appName)
+	s.addUnits(c, appName, charmUUID)
+}
+
+func (s *stateSuite) addUnits(c *tc.C, appName, charmUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Do 2 units.
 		for i := 0; i < 2; i++ {
 			netNodeUUID := uuid.MustNewUUID().String()
-			_, err = tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+			_, err := tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -2584,10 +2600,105 @@ func (s *stateSuite) TestGrantModelAccess(c *tc.C) {
 	c.Assert(role, tc.Equals, "view")
 }
 
+func encodeRoleID(role charm.RelationRole) int {
+	return map[charm.RelationRole]int{
+		charm.RoleProvider: 0,
+		charm.RoleRequirer: 1,
+		charm.RolePeer:     2,
+	}[role]
+}
+
+func encodeScopeID(role charm.RelationScope) int {
+	return map[charm.RelationScope]int{
+		charm.ScopeGlobal:    0,
+		charm.ScopeContainer: 1,
+	}[role]
+}
+
+func (s *stateSuite) addCharmRelation(c *tc.C, charmUUID string, r charm.Relation) string {
+	charmRelationUUID := tc.Must(c, uuid.NewUUID).String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`, charmRelationUUID, charmUUID, r.Name, encodeRoleID(r.Role), r.Interface, r.Optional, r.Limit, encodeScopeID(r.Scope))
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return charmRelationUUID
+}
+
+// addRelation inserts a new relation into the database with default relation
+// and life IDs. Returns the relation UUID.
+func (s *stateSuite) addRelation(c *tc.C) corerelation.UUID {
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id) 
+VALUES (?, 0, ?, 0)
+`, relationUUID, s.relationCount)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.relationCount++
+	return relationUUID
+}
+
+func (s *stateSuite) addRelationEndpoint(c *tc.C, relationUUID, endpointUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, uuid.MustNewUUID().String(), relationUUID, endpointUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) addApplicationEndpoint(c *tc.C, applicationUUID string,
+	charmRelationUUID string) string {
+	applicationEndpointUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
+VALUES (?, ?, ?, ?)
+`, applicationEndpointUUID, applicationUUID, charmRelationUUID, network.AlphaSpaceId)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return applicationEndpointUUID
+}
+
+func (s *stateSuite) setupRelation(c *tc.C, appUUID, charmUUID, appUUID2, charmUUID2 string) {
+	relation := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelUUID := s.addCharmRelation(c, charmUUID, relation)
+	endpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelUUID)
+
+	otherRelation := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleRequirer,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelUUID2 := s.addCharmRelation(c, charmUUID2, otherRelation)
+	endpointUUID2 := s.addApplicationEndpoint(c, appUUID2, charmRelUUID2)
+
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID.String(), endpointUUID)
+	s.addRelationEndpoint(c, relationUUID.String(), endpointUUID2)
+}
+
 func (s *stateSuite) TestGrantRelationScope(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	s.setupUnits(c, "mysql")
+	appUUID, charmUUID := s.setupApplication(c, "mysql")
+	appUUID2, charmUUID2 := s.setupApplication(c, "mediawiki")
+	s.setupRelation(c, appUUID, charmUUID, appUUID2, charmUUID2)
+	s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
 		RevisionID:  ptr(uuid.MustNewUUID().String()),
@@ -2602,7 +2713,7 @@ func (s *stateSuite) TestGrantRelationScope(c *tc.C) {
 
 	p := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleView,
@@ -2622,7 +2733,10 @@ func (s *stateSuite) TestGrantRelationScope(c *tc.C) {
 func (s *stateSuite) TestGetRelationGrantAccessScope(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	s.setupUnits(c, "mysql")
+	appUUID, charmUUID := s.setupApplication(c, "mysql")
+	appUUID2, charmUUID2 := s.setupApplication(c, "mediawiki")
+	s.setupRelation(c, appUUID, charmUUID, appUUID2, charmUUID2)
+	s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
 		RevisionID:  ptr(uuid.MustNewUUID().String()),
@@ -2637,7 +2751,7 @@ func (s *stateSuite) TestGetRelationGrantAccessScope(c *tc.C) {
 
 	p := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleView,
@@ -2653,7 +2767,7 @@ func (s *stateSuite) TestGetRelationGrantAccessScope(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(scope, tc.DeepEquals, &domainsecret.AccessScope{
 		ScopeTypeID: domainsecret.ScopeRelation,
-		ScopeID:     "mysql:db mediawiki:db",
+		ScopeID:     "mediawiki:db mysql:db",
 	})
 }
 
@@ -2835,7 +2949,10 @@ func (s *stateSuite) TestGetSecretGrantsNone(c *tc.C) {
 func (s *stateSuite) TestGetSecretGrantsAppUnit(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	s.setupUnits(c, "mysql")
+	appUUID, charmUUID := s.setupApplication(c, "mysql")
+	appUUID2, charmUUID2 := s.setupApplication(c, "mediawiki")
+	s.setupRelation(c, appUUID, charmUUID, appUUID2, charmUUID2)
+	s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
 		RevisionID:  ptr(uuid.MustNewUUID().String()),
@@ -2850,7 +2967,7 @@ func (s *stateSuite) TestGetSecretGrantsAppUnit(c *tc.C) {
 
 	p := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleManage,
@@ -2860,7 +2977,7 @@ func (s *stateSuite) TestGetSecretGrantsAppUnit(c *tc.C) {
 
 	p2 := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
@@ -2872,7 +2989,7 @@ func (s *stateSuite) TestGetSecretGrantsAppUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(g, tc.DeepEquals, []domainsecret.GrantParams{{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
@@ -2882,7 +2999,10 @@ func (s *stateSuite) TestGetSecretGrantsAppUnit(c *tc.C) {
 func (s *stateSuite) TestGetSecretGrantsModel(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	s.setupUnits(c, "mysql")
+	appUUID, charmUUID := s.setupApplication(c, "mysql")
+	appUUID2, charmUUID2 := s.setupApplication(c, "mediawiki")
+	s.setupRelation(c, appUUID, charmUUID, appUUID2, charmUUID2)
+	s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
 		RevisionID:  ptr(uuid.MustNewUUID().String()),
@@ -2897,7 +3017,7 @@ func (s *stateSuite) TestGetSecretGrantsModel(c *tc.C) {
 
 	p := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleManage,
@@ -2929,7 +3049,10 @@ func (s *stateSuite) TestGetSecretGrantsModel(c *tc.C) {
 func (s *stateSuite) TestAllSecretGrants(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	s.setupUnits(c, "mysql")
+	appUUID, charmUUID := s.setupApplication(c, "mysql")
+	appUUID2, charmUUID2 := s.setupApplication(c, "mediawiki")
+	s.setupRelation(c, appUUID, charmUUID, appUUID2, charmUUID2)
+	s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
 		RevisionID: ptr(uuid.MustNewUUID().String()),
@@ -2949,7 +3072,7 @@ func (s *stateSuite) TestAllSecretGrants(c *tc.C) {
 
 	p := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleManage,
@@ -2959,7 +3082,7 @@ func (s *stateSuite) TestAllSecretGrants(c *tc.C) {
 
 	p2 := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
@@ -2978,13 +3101,13 @@ func (s *stateSuite) TestAllSecretGrants(c *tc.C) {
 			RoleID:        domainsecret.RoleManage,
 		}, {
 			ScopeTypeID:   domainsecret.ScopeRelation,
-			ScopeID:       "mysql:db mediawiki:db",
+			ScopeID:       "mediawiki:db mysql:db",
 			SubjectTypeID: domainsecret.SubjectUnit,
 			SubjectID:     "mysql/1",
 			RoleID:        domainsecret.RoleManage,
 		}, {
 			ScopeTypeID:   domainsecret.ScopeRelation,
-			ScopeID:       "mysql:db mediawiki:db",
+			ScopeID:       "mediawiki:db mysql:db",
 			SubjectTypeID: domainsecret.SubjectUnit,
 			SubjectID:     "mysql/0",
 			RoleID:        domainsecret.RoleView,
@@ -3001,7 +3124,10 @@ func (s *stateSuite) TestAllSecretGrants(c *tc.C) {
 func (s *stateSuite) TestRevokeAccess(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	s.setupUnits(c, "mysql")
+	appUUID, charmUUID := s.setupApplication(c, "mysql")
+	appUUID2, charmUUID2 := s.setupApplication(c, "mediawiki")
+	s.setupRelation(c, appUUID, charmUUID, appUUID2, charmUUID2)
+	s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
 		RevisionID:  ptr(uuid.MustNewUUID().String()),
@@ -3016,7 +3142,7 @@ func (s *stateSuite) TestRevokeAccess(c *tc.C) {
 
 	p := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleView,
@@ -3026,7 +3152,7 @@ func (s *stateSuite) TestRevokeAccess(c *tc.C) {
 
 	p2 := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
@@ -3044,7 +3170,7 @@ func (s *stateSuite) TestRevokeAccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(g, tc.DeepEquals, []domainsecret.GrantParams{{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
@@ -3054,7 +3180,10 @@ func (s *stateSuite) TestRevokeAccess(c *tc.C) {
 func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	s.setupUnits(c, "mysql")
+	appUUID, charmUUID := s.setupApplication(c, "mysql")
+	appUUID2, charmUUID2 := s.setupApplication(c, "mediawiki")
+	s.setupRelation(c, appUUID, charmUUID, appUUID2, charmUUID2)
+	s.addUnits(c, "mysql", charmUUID)
 
 	ctx := c.Context()
 	sp := domainsecret.UpsertSecretParams{
@@ -3097,7 +3226,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 
 	p := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
@@ -3109,7 +3238,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 
 	p2 := domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mysql:db mediawiki:db",
+		ScopeID:       "mediawiki:db mysql:db",
 		SubjectTypeID: domainsecret.SubjectApplication,
 		SubjectID:     "mysql",
 		RoleID:        domainsecret.RoleView,

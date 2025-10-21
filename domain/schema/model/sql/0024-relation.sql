@@ -283,7 +283,15 @@ SELECT
 FROM relation_endpoint AS re
 JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
-JOIN application AS a ON ae.application_uuid = a.uuid;
+JOIN application AS a ON ae.application_uuid = a.uuid
+ORDER BY application_name;
+
+CREATE VIEW v_relation_key AS
+SELECT
+    relation_uuid,
+    group_concat(concat(application_name, ':', endpoint_name), ' ') AS relation_key
+FROM v_relation_endpoint_identifier
+GROUP BY relation_uuid HAVING count(*) > 1;
 
 CREATE VIEW v_relation_status AS
 SELECT
