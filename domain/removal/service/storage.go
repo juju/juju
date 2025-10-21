@@ -435,7 +435,7 @@ func (s *Service) RemoveDeadVolume(
 	if fsLife != life.Dead {
 		return errors.Errorf(
 			"volume %q is not dead", uuid,
-		).Add(storageprovisioningerrors.VolumeNotFound)
+		).Add(storageprovisioningerrors.VolumeNotDead)
 	}
 
 	_, err = s.volumeScheduleRemoval(ctx, uuid, false, 0)
