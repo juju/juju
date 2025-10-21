@@ -321,6 +321,105 @@ func (s *filesystemSuite) TestGetVolumeParamsNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
 
+func (s *volumeSuite) TestGetVolumeRemovalParams(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetVolumeLife(gomock.Any(), volUUID).Return(
+		domainlife.Dead, nil)
+	s.state.EXPECT().GetVolumeRemovalParams(gomock.Any(), volUUID).Return(
+		storageprovisioning.VolumeRemovalParams{
+			Provider:   "myprovider",
+			ProviderID: "prov-vol-id",
+		}, nil,
+	)
+
+	params, err := svc.GetVolumeRemovalParams(c.Context(), volUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.VolumeRemovalParams{
+		Provider:   "myprovider",
+		ProviderID: "prov-vol-id",
+		Obliterate: false,
+	})
+}
+
+func (s *volumeSuite) TestGetVolumeRemovalParamsWithObliterate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetVolumeLife(gomock.Any(), volUUID).Return(
+		domainlife.Dead, nil)
+	s.state.EXPECT().GetVolumeRemovalParams(gomock.Any(), volUUID).Return(
+		storageprovisioning.VolumeRemovalParams{
+			Provider:   "myprovider",
+			ProviderID: "prov-vol-id",
+			Obliterate: true,
+		}, nil,
+	)
+
+	params, err := svc.GetVolumeRemovalParams(c.Context(), volUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.VolumeRemovalParams{
+		Provider:   "myprovider",
+		ProviderID: "prov-vol-id",
+		Obliterate: true,
+	})
+}
+
+func (s *filesystemSuite) TestGetVolumeRemovalParamsAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetVolumeLife(gomock.Any(), volUUID).Return(
+		domainlife.Alive, nil)
+
+	_, err := svc.GetVolumeRemovalParams(c.Context(), volUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotDead)
+}
+
+func (s *filesystemSuite) TestGetVolumeRemovalParamsDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetVolumeLife(gomock.Any(), volUUID).Return(
+		domainlife.Dying, nil)
+
+	_, err := svc.GetVolumeRemovalParams(c.Context(), volUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotDead)
+}
+
+func (s *filesystemSuite) TestGetVolumeRemovalParamsNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetVolumeLife(gomock.Any(), volUUID).Return(
+		domainlife.Dead, nil)
+	s.state.EXPECT().GetVolumeRemovalParams(gomock.Any(), volUUID).Return(
+		storageprovisioning.VolumeRemovalParams{},
+		storageprovisioningerrors.VolumeNotFound,
+	)
+
+	_, err := svc.GetVolumeRemovalParams(c.Context(), volUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *filesystemSuite) TestGetVolumeRemovalParamsNotFoundAtLife(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetVolumeLife(gomock.Any(), volUUID).Return(
+		0, storageprovisioningerrors.VolumeNotFound)
+
+	_, err := svc.GetVolumeRemovalParams(c.Context(), volUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
 // TestGetVolumeAttachmentParams tests that volume attachment params are
 // returned.
 func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
