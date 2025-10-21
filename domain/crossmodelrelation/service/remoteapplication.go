@@ -406,6 +406,20 @@ func (s *Service) GetOfferingApplicationToken(
 	return coreapplication.ParseID(appUUID)
 }
 
+// SetRemoteRelationSuspendedState sets the suspended state of the specified
+// remote relation in the local model.
+func (s *Service) SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"setting remote relation suspended state:%w", err).Add(relationerrors.RelationUUIDNotValid)
+	}
+
+	return nil
+}
+
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {
 	if len(endpoints) == 0 {
 		return charm.Charm{}, internalerrors.New("endpoints cannot be empty").Add(errors.NotValid)

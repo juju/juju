@@ -6,6 +6,7 @@ package remoterelationconsumer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
@@ -326,7 +327,7 @@ func (w *localConsumerWorker) loop() (err error) {
 				}
 
 				// The relation changed, we need to process the changed details.
-				if err := w.handleRelationChange(ctx, details); err != nil {
+				if err := w.handleConsumerRelationChange(ctx, details); err != nil {
 					return errors.Annotatef(err, "handling change for relation %q", relationUUID)
 				}
 			}
@@ -365,26 +366,19 @@ func (w *localConsumerWorker) loop() (err error) {
 			w.logger.Debugf(ctx, "offer status changed: %v", changes)
 
 			for _, change := range changes {
-				if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, change.Status); err != nil {
-					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
-				}
-
-				// If the offer has been terminated, stop the watcher as we
-				// don't want to keep getting terminated events. We should get
-				// more information about the termination from the offerer
-				// watchers and getting more terminated events is not useful.
-				// If we don't get more information from the offerer, then
-				// this will be orphaned and only the removal of the consumer
-				// relation will clean it up.
+				// If the offer has been terminated remove the remote
+				// application offerer from the consumer model and stop the
+				// worker.
 				if change.Status.Status == status.Terminated {
-					if err := worker.Stop(offerStatusWatcher); err != nil {
-						w.logger.Warningf(ctx, "failed stopping offer status watcher for remote application %q: %v", w.applicationName, err)
+					if _, err := w.crossModelService.RemoveRemoteApplicationOffererByApplicationUUID(ctx, w.applicationUUID, true, time.Minute); err != nil {
+						return errors.Annotatef(err, "removing remote application offerer for %q", w.applicationName)
 					}
 
-					// Forcing to nil will prevent us trying to read from it
-					// again.
-					offerStatusWatcher = nil
-					break
+					return RemoteApplicationOffererDeadErr
+				}
+
+				if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, change.Status); err != nil {
+					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
 				}
 			}
 		}
@@ -490,23 +484,21 @@ func (w *localConsumerWorker) handleRelationRemoved(ctx context.Context, relatio
 	return nil
 }
 
-// relationChanged processes changes to the relation as recorded in the
-// local model when a change event arrives from the remote model.
-func (w *localConsumerWorker) handleRelationChange(ctx context.Context, details relation.RelationDetails) error {
+// handleConsumerRelationChange processes changes to the relation as recorded in
+// the local model when a change event arrives from the remote model.
+func (w *localConsumerWorker) handleConsumerRelationChange(ctx context.Context, details relation.RelationDetails) error {
 	w.logger.Debugf(ctx, "relation %q changed in local model: %v", details.UUID, details)
 
 	switch {
 	case details.Suspended:
-		return w.handleRelationSuspended(ctx, details)
+		return w.handleConsumerRelationSuspended(ctx, details)
 	default:
 		return w.handleRelationConsumption(ctx, details)
 	}
 }
 
-func (w *localConsumerWorker) handleRelationSuspended(ctx context.Context, details relation.RelationDetails) error {
+func (w *localConsumerWorker) handleConsumerRelationSuspended(ctx context.Context, details relation.RelationDetails) error {
 	w.logger.Debugf(ctx, "relation %q is suspended, there are %d units in-scope", details.UUID, details.InScopeUnits)
-
-	// TODO (stickupkid): Force all the units to leave scope!
 
 	// If the relation is dying.
 	if dead, err := w.isRelationWorkerDead(ctx, details.UUID); err != nil {
@@ -870,11 +862,8 @@ func (w *localConsumerWorker) handleDischargeRequiredError(ctx context.Context, 
 	// aware of the relation changes anymore. In that case, we need to put the
 	// relation into a suspended state. This will hopefully prevent any further
 	// changes to the relation without mirroring them to the offerer side.
-	if err := w.crossModelService.SetRemoteRelationStatus(ctx, relationUUID, status.StatusInfo{
-		Status:  status.Suspended,
-		Message: "Offer permission revoked",
-	}); err != nil {
-		return errors.Annotatef(err, "suspending relation %q after discharge error", relationUUID)
+	if err := w.crossModelService.SetRemoteRelationSuspendedState(ctx, relationUUID, true, "Offer permission revoked"); err != nil {
+		return errors.Annotatef(err, "setting relation %q to suspended after discharge error", relationUUID)
 	}
 
 	return nil
@@ -900,18 +889,10 @@ func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Contex
 
 	switch {
 	case change.Life != life.Alive:
-		// We're dying or dead. We shouldn't continue onwards if we're dead,
-		// so return early.
-		if err := w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID); err != nil {
-			return errors.Annotatef(err, "removing remote relation %q", change.ConsumerRelationUUID)
-		}
-		return nil
+		return w.handleOffererRelationRemoved(ctx, change.ConsumerRelationUUID)
 
 	case change.Suspended != details.Suspended:
-		if err := w.handleRelationSuspended(ctx, details); err != nil {
-			return errors.Annotatef(err, "handling suspended state for relation %q", change.ConsumerRelationUUID)
-		}
-		return nil
+		return w.handleOffererRelationSuspendedState(ctx, change.Suspended, change.SuspendedReason, details)
 	}
 
 	unitSettings, err := w.handleUnitSettings(ctx, change.ChangedUnits)
@@ -936,6 +917,27 @@ func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Contex
 	}
 
 	return nil
+}
+
+func (w *localConsumerWorker) handleOffererRelationRemoved(ctx context.Context, relationUUID corerelation.UUID) error {
+	w.logger.Debugf(ctx, "offerer relation %q is dying or dead, removing local consumer relation", relationUUID)
+
+	// Remove the remote relation from the local model. This will ensure that
+	// all the associated data is cleaned up for the relation. The synthetic
+	// unit in the relation will also be removed as part of this process.
+	if err := w.crossModelService.RemoveRemoteRelation(ctx, relationUUID); err != nil {
+		return errors.Annotatef(err, "removing remote relation %q", relationUUID)
+	}
+
+	// There is nothing else to do here, as the relation is gone. We can safely
+	// ignore the settings or departed units associated with the relation.
+	return nil
+}
+
+func (w *localConsumerWorker) handleOffererRelationSuspendedState(ctx context.Context, suspended bool, reason string, details relation.RelationDetails) error {
+	w.logger.Debugf(ctx, "offerer relation %q is suspended, suspending local consumer relation", details.UUID)
+
+	return w.crossModelService.SetRemoteRelationSuspendedState(ctx, details.UUID, suspended, reason)
 }
 
 func (w *localConsumerWorker) handleUnitSettings(
@@ -1005,22 +1007,8 @@ func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, c
 		return w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID)
 	}
 
-	var relationStatus status.Status
-	var relationMessage string
-
-	if change.Suspended {
-		relationStatus = status.Suspended
-		relationMessage = change.SuspendedReason
-	} else {
-		relationStatus = status.Joining
-		relationMessage = ""
-	}
-
 	// Handle the case where the relation has become (un)suspended.
-	if err := w.crossModelService.SetRemoteRelationStatus(ctx, change.ConsumerRelationUUID, status.StatusInfo{
-		Status:  relationStatus,
-		Message: relationMessage,
-	}); err != nil {
+	if err := w.crossModelService.SetRemoteRelationSuspendedState(ctx, change.ConsumerRelationUUID, change.Suspended, change.SuspendedReason); err != nil {
 		return errors.Annotatef(err, "setting suspended state for relation %q", change.ConsumerRelationUUID)
 	}
 
