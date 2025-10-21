@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/removal/internal"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -242,6 +243,158 @@ WHERE  sa.uuid = $entityUUID.uuid`
 			}
 		}
 
+		return nil
+	}))
+}
+
+// GetVolumeLife returns the life of the volume with the input UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// uuid.
+func (st *State) GetVolumeLife(
+	ctx context.Context, rUUID string,
+) (life.Life, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var volLife entityLife
+	volUUID := entityUUID{UUID: rUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   storage_volume
+WHERE  uuid = $entityUUID.uuid`, volLife, volUUID)
+	if err != nil {
+		return -1, errors.Errorf("preparing volume life query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, volUUID).Get(&volLife)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.VolumeNotFound
+		} else if err != nil {
+			return errors.Errorf("running volume life query: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	return life.Life(volLife.Life), nil
+}
+
+// VolumeScheduleRemoval schedules a removal job for the volume with the input
+// UUID, qualified with the input force boolean.
+// We don't care if the volume does not exist at this point because:
+// - it should have been validated prior to calling this method,
+// - the removal job executor will handle that fact.
+func (st *State) VolumeScheduleRemoval(
+	ctx context.Context, removalUUID, volUUID string, force bool, when time.Time,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	removalRec := removalJob{
+		UUID:          removalUUID,
+		RemovalTypeID: uint64(removal.StorageVolumeJob),
+		EntityUUID:    volUUID,
+		Force:         force,
+		ScheduledFor:  when,
+	}
+
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
+	if err != nil {
+		return errors.Errorf("preparing volume removal: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, removalRec).Run()
+		if err != nil {
+			return errors.Errorf("scheduling volume removal: %w", err)
+		}
+		return nil
+	}))
+}
+
+// GetFilesystemLife returns the life of the filesystem with the input UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+// for the uuid.
+func (st *State) GetFilesystemLife(
+	ctx context.Context, rUUID string,
+) (life.Life, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var fsLife entityLife
+	fsUUID := entityUUID{UUID: rUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   storage_filesystem
+WHERE  uuid = $entityUUID.uuid`, fsLife, fsUUID)
+	if err != nil {
+		return -1, errors.Errorf("preparing filesystem life query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, fsUUID).Get(&fsLife)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.FilesystemNotFound
+		} else if err != nil {
+			return errors.Errorf("running filesystem life query: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	return life.Life(fsLife.Life), nil
+}
+
+// FilesystemScheduleRemoval schedules a removal job for the filesystem with the
+// input UUID, qualified with the input force boolean.
+// We don't care if the filesystem does not exist at this point because:
+// - it should have been validated prior to calling this method,
+// - the removal job executor will handle that fact.
+func (st *State) FilesystemScheduleRemoval(
+	ctx context.Context, removalUUID, fsUUID string, force bool, when time.Time,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	removalRec := removalJob{
+		UUID:          removalUUID,
+		RemovalTypeID: uint64(removal.StorageFilesystemJob),
+		EntityUUID:    fsUUID,
+		Force:         force,
+		ScheduledFor:  when,
+	}
+
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
+	if err != nil {
+		return errors.Errorf("preparing filesystem removal: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, removalRec).Run()
+		if err != nil {
+			return errors.Errorf("scheduling filesystem removal: %w", err)
+		}
 		return nil
 	}))
 }
