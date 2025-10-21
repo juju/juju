@@ -105,8 +105,8 @@ func (s *storageDetachSuite) TestDetachStorageInstanceNotFound(c *tc.C) {
 			},
 		},
 	})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(result.Results, tc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
 }
 
@@ -184,8 +184,8 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentUnitNotAlive(c *tc.C) {
 			},
 		},
 	})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(result.Results, tc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error.Code, tc.Equals, params.CodeNotValid)
 }
 
@@ -231,8 +231,8 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentUnitStorageViolation(c *
 			},
 		},
 	})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(result.Results, tc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error.Code, tc.Equals, params.CodeNotValid)
 }
 
@@ -271,8 +271,8 @@ func (s *storageDetachSuite) TestDetachStorageAttachment(c *tc.C) {
 			},
 		},
 	})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(result.Results, tc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.IsNil)
 }
 
@@ -317,7 +317,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentWithForceAndWait(c *tc.C
 			},
 		},
 	})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(result.Results, tc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.IsNil)
 }
