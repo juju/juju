@@ -212,8 +212,8 @@ func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.DEBUG,
-		`Successfully deployed local Juju controller charm`,
+		Level:   loggo.DEBUG,
+		Message: `Successfully deployed local Juju controller charm`,
 	}})
 	s.assertControllerApplication(c)
 }
@@ -246,8 +246,8 @@ func (s *BootstrapSuite) TestControllerCharmConstraints(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.DEBUG,
-		`Successfully deployed local Juju controller charm`,
+		Level:   loggo.DEBUG,
+		Message: `Successfully deployed local Juju controller charm`,
 	}})
 	s.assertControllerApplication(c)
 	st, closer := s.getSystemState(c)
@@ -333,8 +333,8 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.DEBUG,
-		`Successfully deployed store Juju controller charm`,
+		Level:   loggo.DEBUG,
+		Message: `Successfully deployed store Juju controller charm`,
 	}})
 	s.assertControllerApplication(c)
 }
@@ -362,13 +362,17 @@ func (s *BootstrapSuite) assertControllerApplication(c *gc.C) {
 	unitPorts, err := units[0].OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	openPorts := unitPorts.UniquePortRanges()
-	c.Assert(openPorts, gc.HasLen, 1)
+	c.Assert(openPorts, gc.HasLen, 2)
 	ctrlConfig, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	sshServerPort := ctrlConfig.SSHServerPort()
 	c.Assert(openPorts[0].FromPort, gc.Equals, sshServerPort)
 	c.Assert(openPorts[0].ToPort, gc.Equals, sshServerPort)
 	c.Assert(openPorts[0].Protocol, gc.Equals, "tcp")
+	apiPort := ctrlConfig.APIPort()
+	c.Assert(openPorts[1].FromPort, gc.Equals, apiPort)
+	c.Assert(openPorts[1].ToPort, gc.Equals, apiPort)
+	c.Assert(openPorts[1].Protocol, gc.Equals, "tcp")
 }
 
 var testPassword = "my-admin-secret"

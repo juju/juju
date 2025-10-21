@@ -17,6 +17,7 @@ test_controller() {
 
 	test_enable_ha
 	test_query_tracing
+	test_limit_access
 
 	# Leave this one last, as it can cause mongo to slowdown to a snails pace.
 	test_mongo_memory_profile
