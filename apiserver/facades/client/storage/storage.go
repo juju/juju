@@ -48,13 +48,13 @@ type RemovalService interface {
 	// attachment uuid does not exist in the model.
 	// - [applicationerrors.UnitNotAlive] if the unit the storage attachment is
 	// conencted to is not alive.
-	// [applicationerrors.UnitStorageMinViolation] if removing a storage
+	// - [applicationerrors.UnitStorageMinViolation] if removing a storage
 	// attachment would violate the charm minimums required for the unit.
 	RemoveStorageAttachmentFromAliveUnit(
-		context.Context,
-		domainstorageprovisioning.StorageAttachmentUUID,
-		bool,
-		time.Duration,
+		ctx context.Context,
+		uuid domainstorageprovisioning.StorageAttachmentUUID,
+		force bool,
+		wait time.Duration,
 	) (domainremoval.UUID, error)
 }
 
@@ -366,7 +366,6 @@ func (a *StorageAPI) DetachStorage(
 	}
 
 	processStorageAttachmentID := func(
-		ctx context.Context,
 		id params.StorageAttachmentId,
 	) error {
 		storageTag, err := names.ParseStorageTag(id.StorageTag)
@@ -394,7 +393,7 @@ func (a *StorageAPI) DetachStorage(
 
 	result := make([]params.ErrorResult, 0, len(args.StorageIds.Ids))
 	for _, attachID := range args.StorageIds.Ids {
-		err := processStorageAttachmentID(ctx, attachID)
+		err := processStorageAttachmentID(attachID)
 		result = append(result, params.ErrorResult{
 			Error: apiservererrors.ServerError(err),
 		})
