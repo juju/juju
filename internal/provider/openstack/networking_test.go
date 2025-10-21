@@ -176,6 +176,7 @@ func (s *networkingSuite) TestNetworkInterfaces(c *tc.C) {
 	s.externalNetwork = ""
 	s.expectListSubnets()
 
+	s.nova.EXPECT().ListAvailabilityZones().Return([]nova.AvailabilityZone{}, nil).AnyTimes() // not used
 	s.neutron.EXPECT().ListFloatingIPsV2(gomock.Any()).Return([]neutron.FloatingIPV2{
 		{
 			FixedIP: "10.0.0.2",
@@ -284,6 +285,7 @@ func (s *networkingSuite) TestNetworkInterfacesPartialMatch(c *tc.C) {
 	s.externalNetwork = ""
 	s.expectListSubnets()
 
+	s.nova.EXPECT().ListAvailabilityZones().Return([]nova.AvailabilityZone{}, nil).AnyTimes() // not used
 	s.neutron.EXPECT().ListFloatingIPsV2(gomock.Any()).Return(nil, nil)
 
 	s.neutron.EXPECT().ListPortsV2(gomock.Any()).Return([]neutron.PortV2{
@@ -307,6 +309,100 @@ func (s *networkingSuite) TestNetworkInterfacesPartialMatch(c *tc.C) {
 	c.Assert(res[1], tc.IsNil, tc.Commentf("expected a nil slice for non-matched machines"))
 }
 
+func (s *networkingSuite) TestSubnets_PopulatesAZsFromNetwork(c *tc.C) {
+	// When the network returned by neutron has availability zones, those should be used.
+	defer s.expectNeutronCalls(c).Finish()
+	s.externalNetwork = ""
+
+	// Internal networks configured
+	s.ecfg.EXPECT().networks().Return([]string{"int-net"})
+	// No external network configured
+	s.expectExternalNetwork()
+	// Resolve internal network
+	s.neutron.EXPECT().ListNetworksV2(gomock.Any()).Return([]neutron.NetworkV2{{
+		Id:                "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+		Name:              "int-net",
+		AvailabilityZones: []string{"ignored"},
+	}}, nil)
+	// All subnets in that network
+	s.neutron.EXPECT().ListSubnetsV2().Return([]neutron.SubnetV2{{
+		Id:        "sub-42",
+		NetworkId: "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+		Cidr:      "192.168.0.0/24",
+	}, {
+		Id:        "sub-665",
+		NetworkId: "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+		Cidr:      "10.0.0.0/24",
+	}}, nil)
+	// Nova AZs exist but should be ignored because network provides AZs
+	s.nova.EXPECT().ListAvailabilityZones().Return([]nova.AvailabilityZone{{
+		Name:  "az-a",
+		State: nova.AvailabilityZoneState{Available: true},
+	}}, nil)
+	// Network reports specific AZs
+	s.neutron.EXPECT().GetNetworkV2("deadbeef-0bad-400d-8000-4b1ddbeefbeef").Return(&neutron.NetworkV2{
+		AvailabilityZones: []string{"mars", "phobos"},
+	}, nil).AnyTimes()
+
+	nn := &NeutronNetworking{NetworkingBase: s.base}
+	subnets, err := nn.Subnets(nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 2)
+	for _, sn := range subnets {
+		c.Assert(sn.AvailabilityZones, tc.DeepEquals, []string{"mars", "phobos"})
+	}
+}
+
+func (s *networkingSuite) TestSubnets_PopulatesAZsFromNovaFallback(c *tc.C) {
+	// When the network has no availability zones, fallback to nova's available AZs.
+	defer s.expectNeutronCalls(c).Finish()
+	s.externalNetwork = ""
+
+	// Internal networks configured
+	s.ecfg.EXPECT().networks().Return([]string{"int-net"})
+	// No external network configured
+	s.expectExternalNetwork()
+	// Resolve internal network
+	s.neutron.EXPECT().ListNetworksV2(gomock.Any()).Return([]neutron.NetworkV2{{
+		Id:                "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+		Name:              "int-net",
+		AvailabilityZones: []string{"ignored"},
+	}}, nil)
+	// All subnets in that network
+	s.neutron.EXPECT().ListSubnetsV2().Return([]neutron.SubnetV2{{
+		Id:        "sub-42",
+		NetworkId: "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+		Cidr:      "192.168.0.0/24",
+	}, {
+		Id:        "sub-665",
+		NetworkId: "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+		Cidr:      "10.0.0.0/24",
+	}}, nil)
+	// Nova AZs should be used; only available ones are included
+	s.nova.EXPECT().ListAvailabilityZones().Return([]nova.AvailabilityZone{{
+		Name:  "az-1",
+		State: nova.AvailabilityZoneState{Available: true},
+	}, {
+		Name:  "az-2",
+		State: nova.AvailabilityZoneState{Available: false},
+	}, {
+		Name:  "az-3",
+		State: nova.AvailabilityZoneState{Available: true},
+	}}, nil)
+	// Network reports no AZs
+	s.neutron.EXPECT().GetNetworkV2("deadbeef-0bad-400d-8000-4b1ddbeefbeef").Return(&neutron.NetworkV2{
+		AvailabilityZones: []string{},
+	}, nil).AnyTimes()
+
+	nn := &NeutronNetworking{NetworkingBase: s.base}
+	subnets, err := nn.Subnets(nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 2)
+	for _, sn := range subnets {
+		c.Assert(sn.AvailabilityZones, tc.DeepEquals, []string{"az-1", "az-3"})
+	}
+}
+
 func (s *networkingSuite) expectNeutronCalls(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -314,6 +410,7 @@ func (s *networkingSuite) expectNeutronCalls(c *tc.C) *gomock.Controller {
 	s.client.EXPECT().TenantId().Return("TenantId").AnyTimes()
 
 	s.neutron = NewMockNetworkingNeutron(ctrl)
+	s.nova = NewMockNetworkingNova(ctrl)
 
 	s.ecfg = NewMockNetworkingEnvironConfig(ctrl)
 
@@ -322,6 +419,7 @@ func (s *networkingSuite) expectNeutronCalls(c *tc.C) *gomock.Controller {
 	bExp.neutron().Return(s.neutron).AnyTimes()
 	bExp.client().Return(s.client).AnyTimes()
 	bExp.ecfg().Return(s.ecfg).AnyTimes()
+	bExp.nova().Return(s.nova)
 
 	return ctrl
 }
