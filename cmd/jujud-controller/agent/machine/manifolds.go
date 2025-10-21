@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/simplestreams"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
@@ -849,6 +850,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 					macaroonLogger := internallogger.GetLogger("juju.macaroon", corelogger.MACAROON)
 					return macaroon.DefaultHTTPClient(macaroonLogger)
 
+				case corehttp.SimpleStreamPurpose:
+					simplestreamLogger := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
+					return simplestreams.DefaultHTTPClient(simplestreamLogger)
+				
 				default:
 					return internalhttp.NewClient(opts...)
 				}
