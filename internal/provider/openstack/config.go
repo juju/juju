@@ -73,9 +73,16 @@ func (c *environConfig) useDefaultSecurityGroup() bool {
 
 func (c *environConfig) networks() []string {
 	raw := strings.Split(c.attrs[NetworkKey].(string), ",")
-	res := make([]string, len(raw))
-	for i, net := range raw {
-		res[i] = strings.TrimSpace(net)
+	res := make([]string, 0, len(raw))
+	for _, net := range raw {
+		network := strings.TrimSpace(net)
+		if network != "" {
+			res = append(res, network)
+		}
+	}
+	if len(res) == 0 {
+		// If no networks are specified, we default to the empty string
+		return []string{""}
 	}
 	return res
 }
@@ -134,27 +141,28 @@ func (p EnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) 
 	ecfg := &environConfig{cfg, validated}
 
 	cfgAttrs := cfg.AllAttrs()
-	// If we have use-openstack-gbp set to Yes we require a proper UUID for policy-target-group.
+	// If we have use-openstack-gbp set to true we require a proper UUID for policy-target-group.
 	hasPTG := false
-	if ptg := cfgAttrs[PolicyTargetGroupKey]; ptg != nil && ptg.(string) != "" {
-		if utils.IsValidUUIDString(ptg.(string)) {
+	if ptg := ecfg.policyTargetGroup(); ptg != "" {
+		if utils.IsValidUUIDString(ptg) {
 			hasPTG = true
 		} else {
 			return nil, fmt.Errorf("policy-target-group has invalid UUID: %q", ptg)
 		}
 	}
-	if useGBP := cfgAttrs[UseOpenstackGBPKey]; useGBP != nil && useGBP.(bool) == true {
-		if hasPTG == false {
+	if ecfg.useOpenstackGBP() {
+		if !hasPTG {
 			return nil, fmt.Errorf("policy-target-group must be set when use-openstack-gbp is set")
 		}
-		if network := cfgAttrs[NetworkKey]; network != nil && network.(string) != "" {
+		// When GBP is enabled, 'network' must not be set.
+		if strings.Join(ecfg.networks(), "") != "" {
 			return nil, fmt.Errorf("cannot use 'network' config setting when use-openstack-gbp is set")
 		}
 	}
 
 	// Check for deprecated fields and log a warning. We also print to stderr to ensure the user sees the message
 	// even if they are not running with --debug.
-	if defaultImageId := cfgAttrs["default-image-id"]; defaultImageId != nil && defaultImageId.(string) != "" {
+	if defaultImageId := cfgAttrs["default-image-id"]; defaultImageId != nil && fmt.Sprint(defaultImageId) != "" {
 		msg := fmt.Sprintf(
 			"Config attribute %q (%v) is deprecated and ignored.\n"+
 				"Your cloud provider should have set up image metadata to provide the correct image id\n"+
@@ -164,7 +172,7 @@ func (p EnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) 
 			"default-image-id", defaultImageId)
 		logger.Warningf(ctx, msg)
 	}
-	if defaultInstanceType := cfgAttrs["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
+	if defaultInstanceType := cfgAttrs["default-instance-type"]; defaultInstanceType != nil && fmt.Sprint(defaultInstanceType) != "" {
 		msg := fmt.Sprintf(
 			"Config attribute %q (%v) is deprecated and ignored.\n"+
 				"The correct instance flavor is determined using constraints, globally specified\n"+
