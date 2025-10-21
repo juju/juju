@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/trace"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
@@ -27,9 +29,40 @@ type StorageState interface {
 	// attachment identified by the input UUID that is still alive.
 	EnsureStorageAttachmentNotAlive(ctx context.Context, saUUID string) error
 
+	// EnsureStorageAttachmentsNotAliveWithFulfilment ensures that there is no
+	// storage attachment identified by the input UUID that is still alive
+	// after this call. This condition is only realised when the storage
+	// fulfilment for the units charm is met by the removal.
+	//
+	// Fulfilment expectation exists to assert the state of the world for which
+	// the ensure operation was computed on top of.
+	//
+	//  The following errors may be returned:
+	// - [removalerrors.StorageFulfilmentNotMet] when the fulfilment requiremnt
+	// fails.
+	EnsureStorageAttachmentsNotAliveWithFulfilment(
+		ctx context.Context,
+		saUUID string,
+		fulfilment int,
+	) error
+
 	// StorageAttachmentScheduleRemoval schedules a removal job for the storage
 	// attachment with the input UUID, qualified with the input force boolean.
 	StorageAttachmentScheduleRemoval(ctx context.Context, removalUUID, saUUID string, force bool, when time.Time) error
+
+	// GetDetachInfoForStorageAttachment returns the information required to
+	// compute what a units storage requirement will look like after having
+	// removed the storage attachment.
+	//
+	// This information can be used to establish if detaching storage from the
+	// unit would violate the expectations of the unit's charm.
+	//
+	// The following errors may be returned:
+	// - [storageerrors.StorageAttachmentNotFound] if the storage attachment
+	// no longer exists in the model.
+	GetDetachInfoForStorageAttachment(
+		context.Context, string,
+	) (internal.StorageAttachmentDetachInfo, error)
 
 	// GetStorageAttachmentLife returns the life of the unit storage attachment
 	// with the input UUID.
@@ -98,9 +131,9 @@ func (s *Service) RemoveStorageAttachment(
 
 }
 
-// RemoveStorageAttachmentFromAliveUnit is responsible for removing one or more
-// storage attachments from a unit that is still alive in the model. This
-// operation can be considered a detatch of a storage instance from a unit.
+// RemoveStorageAttachmentFromAliveUnit is responsible for removing a storage
+// attachment from a unit that is still alive in the model. This operation can
+// be considered a detatch of a storage instance from a unit.
 //
 // If the storage attachment exists and the unit it is attached to is alive the
 // caller can expect that after this call the attachment is:
@@ -130,7 +163,93 @@ func (s *Service) RemoveStorageAttachmentFromAliveUnit(
 	force bool,
 	wait time.Duration,
 ) (removal.UUID, error) {
-	return "", nil
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	detachInfo, err := s.modelState.GetDetachInfoForStorageAttachment(
+		ctx, saUUID.String(),
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	// Declare value here before goto.
+	proposedNewFulfilment := detachInfo.CountFulfilment - 1
+
+	// If the storage attachment is already dead we can get on with the next
+	// item.
+	if life.Life(detachInfo.Life) != life.Alive {
+		goto RemovalJob
+	}
+
+	// Force does not allow the caller to ride through this check. Force
+	// is about forcibly removing the storage attachment.
+	if life.Life(detachInfo.UnitLife) != life.Alive {
+		return "", errors.Errorf(
+			"storage attachment %q cannot be removed because its unit %q is not alive",
+			saUUID, detachInfo.UnitUUID,
+		).Add(applicationerrors.UnitNotAlive)
+	}
+
+	if proposedNewFulfilment < detachInfo.RequiredCountMin {
+		return "", errors.Errorf(
+			"removing storage attachment %q would violate the minimum number %d of %q storage instances required by unit %q",
+			saUUID,
+			detachInfo.RequiredCountMin,
+			detachInfo.CharmStorageName,
+			detachInfo.UnitUUID,
+		).Add(applicationerrors.UnitStorageMinViolation{
+			CharmStorageName: detachInfo.CharmStorageName,
+			RequiredMinimum:  detachInfo.RequiredCountMin,
+			UnitUUID:         detachInfo.UnitUUID,
+		})
+	}
+
+	err = s.modelState.EnsureStorageAttachmentsNotAliveWithFulfilment(
+		ctx, saUUID.String(), proposedNewFulfilment,
+	)
+	if errors.Is(err, removalerrors.StorageFulfilmentNotMet) {
+		return "", errors.Errorf(
+			"removing storage attachment %q would violate the minimum number %d of %q storage instances required by unit %q",
+			saUUID,
+			detachInfo.RequiredCountMin,
+			detachInfo.CharmStorageName,
+			detachInfo.UnitUUID,
+		).Add(applicationerrors.UnitStorageMinViolation{
+			CharmStorageName: detachInfo.CharmStorageName,
+			RequiredMinimum:  detachInfo.RequiredCountMin,
+			UnitUUID:         detachInfo.UnitUUID,
+		})
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+RemovalJob:
+	var jUUID removal.UUID
+
+	if force {
+		if wait > 0 {
+			// If we have been supplied with the force flag *and* a wait time,
+			// schedule a normal removal job immediately. This will cause the
+			// earliest removal of the attachment if the normal destruction
+			// workflows complete within the wait duration.
+			if _, err := s.storageAttachmentScheduleRemoval(ctx, saUUID, false, 0); err != nil {
+				return jUUID, errors.Capture(err)
+			}
+		}
+	} else {
+		if wait > 0 {
+			s.logger.Infof(
+				ctx, "ignoring wait duration for non-forced removal of storage attachment %q", saUUID.String())
+			wait = 0
+		}
+	}
+
+	jUUID, err = s.storageAttachmentScheduleRemoval(ctx, saUUID, force, wait)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return jUUID, nil
 }
 
 func (s *Service) storageAttachmentScheduleRemoval(

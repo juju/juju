@@ -103,3 +103,30 @@ type CascadedRemoteApplicationOffererLives struct {
 func (c CascadedRemoteApplicationOffererLives) IsEmpty() bool {
 	return len(c.RelationUUIDs) == 0
 }
+
+// StorageAttachmentDetachInfo contains the information required to establish
+// if a storage attachment in the model can be detatched.
+type StorageAttachmentDetachInfo struct {
+	// CharmStorageName is the unique name given by the charm for for the
+	// storage.
+	CharmStorageName string
+
+	// CountFulfilment indicates how many alive storage attachments are
+	// currently in play to satisfy the requirements of
+	// [StorageAttachmentDetachInfo.RequiredCountMin].
+	CountFulfilment int
+
+	// RequiredCountMin indicates the minimum number storage instances that must
+	// be attached to this unit to satisfy the charm's requirements.
+	RequiredCountMin int
+
+	// Life is the current life value of the storage attachment.
+	Life int
+
+	// UnitLife is the current life value of the unit for with the storage
+	// is attached to.
+	UnitLife int
+
+	// UnitUUID is the UUID of the unit the storage is attached to.
+	UnitUUID string
+}

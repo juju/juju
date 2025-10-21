@@ -10,11 +10,16 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovtesting "github.com/juju/juju/domain/storageprovisioning/testing"
+	"github.com/juju/juju/internal/errors"
 )
 
 type storageSuite struct {
@@ -82,6 +87,269 @@ func (s *storageSuite) TestRemoveStorageAttachmentForceWaitSuccess(c *tc.C) {
 	jobUUID, err := s.newService(c).RemoveStorageAttachment(c.Context(), saUUID, true, time.Minute)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+// TestRemoveStorageAttachmentFromAliveUnitNotFound tests that requesting to
+// remove a storage attachment that doesn't exists results in a
+// [storageerrors.StorageAttachmentNotFound] error to the caller.
+func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(
+		internal.StorageAttachmentDetachInfo{},
+		storageerrors.StorageAttachmentNotFound,
+	)
+
+	_, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
+		c.Context(),
+		saUUID,
+		false,
+		0,
+	)
+	c.Check(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
+}
+
+// TestRemoveStorageAttachmentFromAliveUnitNotFound tests that requesting to
+// remove at least one storage attachment that doesn't exists fails the whole
+// operation. We don't want to any other storage attachments removed and the
+// caller get back an error which satisfies
+// [storageerrors.StorageAttachmentNotFound].
+func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitUnitNotAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Dying),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil)
+
+	_, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
+		c.Context(),
+		saUUID,
+		false,
+		0,
+	)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
+}
+
+// TestRemoveStorageAttachmentFromAliveUnitMinViolation tests that removing a
+// storage attachment which would violate the charms minimum storage
+// requirements results in a [applicationerrors.UnitStorageMinViolation] error.
+func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitMinViolation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 2,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Alive),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil)
+
+	_, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
+		c.Context(),
+		saUUID,
+		false,
+		0,
+	)
+
+	storageErr, has := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
+	c.Check(has, tc.IsTrue)
+	c.Check(storageErr, tc.Equals, applicationerrors.UnitStorageMinViolation{
+		CharmStorageName: "kratos-key-store",
+		RequiredMinimum:  2,
+		UnitUUID:         unitUUID.String(),
+	})
+}
+
+// TestRemoveStorageAttachmentFromAliveUnitFulfilmentError tests that when
+// ensuring a storage attachment is not alive but the fulfilment condition fails
+// [Service.RemoveStorageAttachmentFromAliveUnit] returns to the caller a
+// [applicationerrors.UnitStorageMinViolation] error.
+//
+// We would expect to see this type of situation when the unit's storage changes
+// after the service has calculated their assumptions.
+func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitFulfilmentError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  3,
+		RequiredCountMin: 2,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Alive),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil)
+	exp.EnsureStorageAttachmentsNotAliveWithFulfilment(
+		gomock.Any(), saUUID.String(), 2,
+	).Return(removalerrors.StorageFulfilmentNotMet)
+
+	_, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
+		c.Context(),
+		saUUID,
+		false,
+		0,
+	)
+
+	storageErr, has := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
+	c.Check(has, tc.IsTrue)
+	c.Check(storageErr, tc.Equals, applicationerrors.UnitStorageMinViolation{
+		CharmStorageName: "kratos-key-store",
+		RequiredMinimum:  2,
+		UnitUUID:         unitUUID.String(),
+	})
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitNoForceSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Alive),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentsNotAliveWithFulfilment(
+		gomock.Any(), saUUID.String(), 1,
+	).Return(nil)
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC(),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
+		c.Context(),
+		saUUID,
+		false,
+		0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceNoWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Alive),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentsNotAliveWithFulfilment(
+		gomock.Any(), saUUID.String(), 1,
+	).Return(nil)
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC(),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
+		c.Context(),
+		saUUID,
+		true,
+		0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Alive),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentsNotAliveWithFulfilment(
+		gomock.Any(), saUUID.String(), 1,
+	).Return(nil)
+
+	// The first normal removal scheduled immediately.
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC(),
+	).Return(nil)
+
+	// The forced removal scheduled after the wait duration.
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
+		c.Context(),
+		saUUID,
+		true,
+		time.Minute,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+
 }
 
 func (s *storageSuite) TestRemoveStorageAttachmentNotFound(c *tc.C) {
