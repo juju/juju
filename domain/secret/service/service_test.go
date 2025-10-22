@@ -20,6 +20,8 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/relation"
+	relationtesting "github.com/juju/juju/core/relation/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -30,6 +32,7 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	domaintesting "github.com/juju/juju/domain/testing"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -1079,15 +1082,19 @@ func (s *serviceSuite) TestGrantSecretUnitAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, coreunit.Name("mysql/0")).Return(unitUUID, nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "another/0",
 	}).Return("manage", nil)
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeApplication,
-		ScopeID:       "mysql",
+		ScopeUUID:     appUUID.String(),
 		SubjectTypeID: domainsecret.SubjectUnit,
-		SubjectID:     "mysql/0",
+		SubjectUUID:   unitUUID.String(),
 		RoleID:        domainsecret.RoleManage,
 	}).Return(nil)
 
@@ -1113,15 +1120,17 @@ func (s *serviceSuite) TestGrantSecretApplicationAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "another/0",
 	}).Return("manage", nil)
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeApplication,
-		ScopeID:       "mysql",
+		ScopeUUID:     appUUID.String(),
 		SubjectTypeID: domainsecret.SubjectApplication,
-		SubjectID:     "mysql",
+		SubjectUUID:   appUUID.String(),
 		RoleID:        domainsecret.RoleView,
 	}).Return(nil)
 
@@ -1177,15 +1186,27 @@ func (s *serviceSuite) TestGrantSecretRelationScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.state.EXPECT().GetRegularRelationUUIDByEndpointIdentifiers(gomock.Any(), relation.EndpointIdentifier{
+		ApplicationName: "mediawiki",
+		EndpointName:    "db",
+		Role:            charm.RoleRequirer,
+	}, relation.EndpointIdentifier{
+		ApplicationName: "mysql",
+		EndpointName:    "db",
+		Role:            charm.RoleProvider,
+	}).Return(relUUID.String(), nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "another/0",
 	}).Return("manage", nil)
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeID:       "mediawiki:db mysql:db",
+		ScopeUUID:     relUUID.String(),
 		SubjectTypeID: domainsecret.SubjectApplication,
-		SubjectID:     "mysql",
+		SubjectUUID:   appUUID.String(),
 		RoleID:        domainsecret.RoleView,
 	}).Return(nil)
 
@@ -1196,7 +1217,7 @@ func (s *serviceSuite) TestGrantSecretRelationScope(c *tc.C) {
 		},
 		Scope: SecretAccessScope{
 			Kind: RelationAccessScope,
-			ID:   "mysql:db mediawiki:db",
+			ID:   "mediawiki:db mysql:db",
 		},
 		Subject: SecretAccessor{
 			Kind: ApplicationAccessor,
@@ -1211,13 +1232,15 @@ func (s *serviceSuite) TestRevokeSecretUnitAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, coreunit.Name("another/0")).Return(unitUUID, nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
+	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.RevokeParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
-		SubjectID:     "another/0",
+		SubjectUUID:   unitUUID.String(),
 	}).Return(nil)
 
 	err := s.service.RevokeSecretAccess(c.Context(), uri, SecretAccessParams{
@@ -1237,13 +1260,15 @@ func (s *serviceSuite) TestRevokeSecretApplicationAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "another").Return(appUUID, nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
+	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.RevokeParams{
 		SubjectTypeID: domainsecret.SubjectApplication,
-		SubjectID:     "another",
+		SubjectUUID:   appUUID.String(),
 	}).Return(nil)
 
 	err := s.service.RevokeSecretAccess(c.Context(), uri, SecretAccessParams{
@@ -1263,13 +1288,15 @@ func (s *serviceSuite) TestRevokeSecretModelAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectModel,
 		SubjectID:     "model-uuid",
 	}).Return("manage", nil)
-	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
+	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.RevokeParams{
 		SubjectTypeID: domainsecret.SubjectApplication,
-		SubjectID:     "mysql",
+		SubjectUUID:   appUUID.String(),
 	}).Return(nil)
 
 	err := s.service.RevokeSecretAccess(c.Context(), uri, SecretAccessParams{
@@ -1319,62 +1346,49 @@ func (s *serviceSuite) TestGetSecretAccessNone(c *tc.C) {
 	c.Assert(role, tc.Equals, coresecrets.RoleNone)
 }
 
-func (s *serviceSuite) TestGetSecretAccessApplicationScope(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uri := coresecrets.NewURI()
-	s.state.EXPECT().GetSecretAccessScope(gomock.Any(), uri, domainsecret.AccessParams{
-		SubjectTypeID: domainsecret.SubjectApplication,
-		SubjectID:     "mysql",
-	}).Return(&domainsecret.AccessScope{
-		ScopeTypeID: domainsecret.ScopeApplication,
-		ScopeID:     "mysql",
-	}, nil)
-
-	scope, err := s.service.GetSecretAccessScope(c.Context(), uri, SecretAccessor{
-		Kind: ApplicationAccessor,
-		ID:   "mysql",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(scope, tc.DeepEquals, SecretAccessScope{
-		Kind: ApplicationAccessScope,
-		ID:   "mysql",
-	})
-}
-
 func (s *serviceSuite) TestGetSecretAccessRelationScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.state.EXPECT().GetSecretAccessScope(gomock.Any(), uri, domainsecret.AccessParams{
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.state.EXPECT().GetSecretAccessRelationScope(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectApplication,
 		SubjectID:     "mysql",
-	}).Return(&domainsecret.AccessScope{
-		ScopeTypeID: domainsecret.ScopeRelation,
-		ScopeID:     "mysql:db mediawiki:db",
-	}, nil)
+	}).Return(relUUID.String(), nil)
 
-	scope, err := s.service.GetSecretAccessScope(c.Context(), uri, SecretAccessor{
+	got, err := s.service.GetSecretAccessRelationScope(c.Context(), uri, SecretAccessor{
 		Kind: ApplicationAccessor,
 		ID:   "mysql",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(scope, tc.DeepEquals, SecretAccessScope{
-		Kind: RelationAccessScope,
-		ID:   "mysql:db mediawiki:db",
-	})
+	c.Assert(got, tc.Equals, relUUID)
 }
 
 func (s *serviceSuite) TestGetSecretGrants(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.state.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).Return([]domainsecret.GrantParams{{
+	s.state.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).Return([]domainsecret.GrantDetails{{
 		ScopeTypeID:   domainsecret.ScopeModel,
 		ScopeID:       "model-uuid",
 		SubjectTypeID: domainsecret.SubjectApplication,
 		SubjectID:     "mysql",
 		RoleID:        domainsecret.RoleView,
+	}, {
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeUUID:     "relation-uuid",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mediawiki/0",
+		RoleID:        domainsecret.RoleView,
+	}}, nil)
+	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), "relation-uuid").Return([]relation.EndpointIdentifier{{
+		ApplicationName: "mediawiki",
+		EndpointName:    "db",
+		Role:            "requirer",
+	}, {
+		ApplicationName: "mysql",
+		EndpointName:    "db",
+		Role:            "provider",
 	}}, nil)
 
 	g, err := s.service.GetSecretGrants(c.Context(), uri, coresecrets.RoleView)
@@ -1387,6 +1401,16 @@ func (s *serviceSuite) TestGetSecretGrants(c *tc.C) {
 		Subject: SecretAccessor{
 			Kind: ApplicationAccessor,
 			ID:   "mysql",
+		},
+		Role: coresecrets.RoleView,
+	}, {
+		Scope: SecretAccessScope{
+			Kind: RelationAccessScope,
+			ID:   "mediawiki:db mysql:db",
+		},
+		Subject: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mediawiki/0",
 		},
 		Role: coresecrets.RoleView,
 	}})

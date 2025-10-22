@@ -142,30 +142,24 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx context.Context, arg par
 
 func (s *CrossModelSecretsAPI) accessScope(ctx context.Context, secretService SecretService, uri *coresecrets.URI, unitName unit.Name) (relation.UUID, error) {
 	s.logger.Debugf(ctx, "scope for %q on secret %s", unitName, uri.ID)
-	scope, err := secretService.GetSecretAccessScope(ctx, uri, service.SecretAccessor{
+	relationUUID, err := secretService.GetSecretAccessRelationScope(ctx, uri, service.SecretAccessor{
 		Kind: service.UnitAccessor,
 		ID:   unitName.String(),
 	})
 	if err == nil {
-		if scope.Kind != service.RelationAccessScope {
-			return "", errors.Errorf("unexpected access scope for %q on secret %s: %s", unitName, uri.ID, scope.Kind)
-		}
-		return relation.ParseUUID(scope.ID)
+		return relationUUID, nil
 	}
 	if !errors.Is(err, secreterrors.SecretAccessScopeNotFound) {
 		return "", errors.Capture(err)
 	}
-	scope, err = secretService.GetSecretAccessScope(ctx, uri, service.SecretAccessor{
+	relationUUID, err = secretService.GetSecretAccessRelationScope(ctx, uri, service.SecretAccessor{
 		Kind: service.ApplicationAccessor,
 		ID:   unitName.Application(),
 	})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	if scope.Kind != service.RelationAccessScope {
-		return "", errors.Errorf("unexpected access scope for %q on secret %s: %s", unitName, uri.ID, scope.Kind)
-	}
-	return relation.ParseUUID(scope.ID)
+	return relationUUID, nil
 }
 
 // marshallLegacyBackendConfig converts the supplied backend config

@@ -19,7 +19,7 @@ import (
 
 // SecretService provides access to the secret service,
 type SecretService interface {
-	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor secretservice.SecretAccessor) (secretservice.SecretAccessScope, error)
+	GetSecretAccessRelationScope(ctx context.Context, uri *secrets.URI, accessor secretservice.SecretAccessor) (corerelation.UUID, error)
 	ListGrantedSecretsForBackend(
 		ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secretservice.SecretAccessor,
 	) ([]*secrets.SecretRevisionRef, error)

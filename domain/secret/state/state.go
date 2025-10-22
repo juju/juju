@@ -17,6 +17,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -26,6 +27,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -2227,6 +2229,105 @@ FROM   secret_unit_consumer suc
 	return secrets, nil
 }
 
+// GetRegularRelationUUIDByEndpointIdentifiers gets the UUID of a regular
+// relation specified by two endpoint identifiers.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+//     found.
+func (st State) GetRegularRelationUUIDByEndpointIdentifiers(
+	ctx context.Context,
+	endpoint1, endpoint2 corerelation.EndpointIdentifier,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	type endpointIdentifier1 endpointIdentifier
+	type endpointIdentifier2 endpointIdentifier
+	e1 := endpointIdentifier1{
+		ApplicationName: endpoint1.ApplicationName,
+		EndpointName:    endpoint1.EndpointName,
+	}
+	e2 := endpointIdentifier2{
+		ApplicationName: endpoint2.ApplicationName,
+		EndpointName:    endpoint2.EndpointName,
+	}
+	stmt, err := st.Prepare(`
+SELECT &relationUUID.*
+FROM   relation r
+JOIN   v_relation_endpoint_identifier e1 ON r.uuid = e1.relation_uuid
+JOIN   v_relation_endpoint_identifier e2 ON r.uuid = e2.relation_uuid
+WHERE  e1.application_name = $endpointIdentifier1.application_name 
+AND    e1.endpoint_name    = $endpointIdentifier1.endpoint_name
+AND    e2.application_name = $endpointIdentifier2.application_name 
+AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
+`, relationUUID{}, e1, e2)
+
+	var uuids []relationUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, e1, e2).GetAll(&uuids)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if len(uuids) > 1 {
+		return "", errors.Errorf("found multiple relations for endpoint pair")
+	}
+	return uuids[0].UUID, nil
+}
+
+// GetRelationEndpoints returns relation endpoints for the given relation UUID.
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID is not found.
+func (st State) GetRelationEndpoints(ctx context.Context, relUUID string) ([]corerelation.EndpointIdentifier, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	uuid := relationUUID{UUID: relUUID}
+	q, err := st.Prepare(`
+SELECT &endpointIdentifier.*
+FROM   v_relation_endpoint
+WHERE  relation_uuid = $relationUUID.uuid
+`, uuid, endpointIdentifier{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var endpoints []endpointIdentifier
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, q, uuid).GetAll(&endpoints)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("relation %q not found", relUUID).Add(relationerrors.RelationNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return errors.Capture(err)
+	})
+
+	if length := len(endpoints); length > 2 {
+		return nil, errors.Errorf("internal error: expected 1 or 2 endpoints in relation, got %d", length)
+	}
+
+	var result []corerelation.EndpointIdentifier
+	for _, e := range endpoints {
+		result = append(result, corerelation.EndpointIdentifier{
+			ApplicationName: e.ApplicationName,
+			EndpointName:    e.EndpointName,
+			Role:            charm.RelationRole(e.Role),
+		})
+	}
+	return result, errors.Capture(err)
+}
+
 // GrantAccess grants access to the secret for the specified subject with the specified scope.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 // If an attempt is made to change an existing permission's scope or subject type, an error
@@ -2263,19 +2364,17 @@ AND    (sp.subject_type_id <> $secretPermission.subject_type_id
 			return secreterrors.SecretIsNotLocal
 		}
 
-		// Look up the UUID of the subject.
-		perm.SubjectTypeID = params.SubjectTypeID
-		perm.SubjectUUID, err = st.lookupSubjectUUID(ctx, tx, params.SubjectID, params.SubjectTypeID)
-		if err != nil {
+		if err := st.checkSubjectUUIDExists(ctx, tx, params.SubjectUUID, params.SubjectTypeID); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.checkScopeUUIDExists(ctx, tx, params.ScopeUUID, params.ScopeTypeID); err != nil {
 			return errors.Capture(err)
 		}
 
-		// Look up the UUID of the access scope entity.
+		perm.SubjectTypeID = params.SubjectTypeID
+		perm.SubjectUUID = params.SubjectUUID
 		perm.ScopeTypeID = params.ScopeTypeID
-		perm.ScopeUUID, err = st.lookupScopeUUID(ctx, tx, params.ScopeID, params.ScopeTypeID)
-		if err != nil {
-			return errors.Capture(err)
-		}
+		perm.ScopeUUID = params.ScopeUUID
 
 		// Check that the access scope or subject type is not changing.
 		id := secretID{}
@@ -2305,60 +2404,57 @@ func (st State) NamespaceForWatchSecretRevisionObsolete() string {
 }
 
 const (
-	selectUnitUUID        = `SELECT uuid AS &entityRef.uuid FROM unit WHERE name=$entityRef.id`
-	selectApplicationUUID = `SELECT uuid AS &entityRef.uuid FROM application WHERE name=$entityRef.id`
-	selectRelationUUID    = `SELECT relation_uuid AS &entityRef.uuid FROM v_relation_key WHERE relation_key=$entityRef.id`
-	selectModelUUID       = `SELECT uuid AS &entityRef.uuid FROM model WHERE uuid=$entityRef.id`
+	selectUnitUUID        = `SELECT uuid AS &entityRef.uuid FROM unit WHERE uuid=$entityRef.uuid`
+	selectApplicationUUID = `SELECT uuid AS &entityRef.uuid FROM application WHERE uuid=$entityRef.uuid`
+	selectRelationUUID    = `SELECT uuid AS &entityRef.uuid FROM relation WHERE uuid=$entityRef.uuid`
+	selectModelUUID       = `SELECT uuid AS &entityRef.uuid FROM model WHERE uuid=$entityRef.uuid`
 )
 
-func (st State) lookupSubjectUUID(
-	ctx context.Context, tx *sqlair.TX, subjectID string, subjectTypeID domainsecret.GrantSubjectType,
-) (string, error) {
+func (st State) checkSubjectUUIDExists(
+	ctx context.Context, tx *sqlair.TX, subjectUUID string, subjectTypeID domainsecret.GrantSubjectType,
+) error {
 	var (
 		selectSubjectUUID        string
-		selectSubjectQueryParams = []any{entityRef{ID: subjectID}}
+		selectSubjectQueryParams = []any{entityRef{UUID: subjectUUID}}
 		subjectNotFoundError     error
 	)
 	switch subjectTypeID {
 	case domainsecret.SubjectUnit:
 		selectSubjectUUID = selectUnitUUID
 		subjectNotFoundError = applicationerrors.UnitNotFound
-	case domainsecret.SubjectApplication:
+	case domainsecret.SubjectApplication, domainsecret.SubjectRemoteApplication:
 		selectSubjectUUID = selectApplicationUUID
 		subjectNotFoundError = applicationerrors.ApplicationNotFound
-	case domainsecret.SubjectRemoteApplication:
-		selectSubjectUUID = selectRelationUUID
-		subjectNotFoundError = relationerrors.RelationNotFound
 	case domainsecret.SubjectModel:
 		selectSubjectUUID = selectModelUUID
 		subjectNotFoundError = modelerrors.NotFound
 	}
 	selectSubjectUUIDStmt, err := st.Prepare(selectSubjectUUID, selectSubjectQueryParams...)
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 	result := entityRef{}
 	err = tx.Query(ctx, selectSubjectUUIDStmt, selectSubjectQueryParams...).Get(&result)
-	if err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return "", errors.Errorf("%s %q not found", subjectTypeID, subjectID).Add(subjectNotFoundError)
-		} else {
-			subject := subjectID
-			if subjectTypeID == domainsecret.SubjectModel {
-				subject = "model"
-			}
-			return "", errors.Errorf("looking up secret grant subject UUID for %q: %w", subject, err)
-		}
+	if err == nil {
+		return nil
 	}
-	return result.UUID, nil
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("%s %q not found", subjectTypeID, subjectUUID).Add(subjectNotFoundError)
+	} else {
+		subject := subjectUUID
+		if subjectTypeID == domainsecret.SubjectModel {
+			subject = "model"
+		}
+		return errors.Errorf("looking up secret grant subject UUID for %q: %w", subject, err)
+	}
 }
 
-func (st State) lookupScopeUUID(
-	ctx context.Context, tx *sqlair.TX, scopeID string, scopeTypeID domainsecret.GrantScopeType,
-) (string, error) {
+func (st State) checkScopeUUIDExists(
+	ctx context.Context, tx *sqlair.TX, scopeUUID string, scopeTypeID domainsecret.GrantScopeType,
+) error {
 	var (
 		selectScopeUUID        string
-		selectScopeQueryParams = []any{entityRef{ID: scopeID}}
+		selectScopeQueryParams = []any{entityRef{UUID: scopeUUID}}
 		scopeNotFoundError     error
 	)
 	switch scopeTypeID {
@@ -2377,23 +2473,23 @@ func (st State) lookupScopeUUID(
 	}
 	selectScopeUUIDStmt, err := st.Prepare(selectScopeUUID, selectScopeQueryParams...)
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	result := entityRef{}
 	err = tx.Query(ctx, selectScopeUUIDStmt, selectScopeQueryParams...).Get(&result)
-	if err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return "", errors.Errorf("%s %q not found", scopeTypeID, scopeID).Add(scopeNotFoundError)
-		} else {
-			scope := scopeID
-			if scopeTypeID == domainsecret.ScopeModel {
-				scope = "model"
-			}
-			return "", errors.Errorf("looking up secret grant scope UUID for %q: %w", scope, err)
-		}
+	if err == nil {
+		return nil
 	}
-	return result.UUID, nil
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("%s %q not found", scopeTypeID, scopeUUID).Add(scopeNotFoundError)
+	} else {
+		scope := scopeUUID
+		if scopeTypeID == domainsecret.ScopeModel {
+			scope = "model"
+		}
+		return errors.Errorf("looking up secret grant scope UUID for %q: %w", scope, err)
+	}
 }
 
 func (st State) grantAccess(ctx context.Context, tx *sqlair.TX, perm secretPermission) error {
@@ -2422,7 +2518,7 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 // RevokeAccess revokes access to the secret for the specified subject.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the
 // secret is not found.
-func (st State) RevokeAccess(ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams) error {
+func (st State) RevokeAccess(ctx context.Context, uri *coresecrets.URI, params domainsecret.RevokeParams) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -2451,14 +2547,13 @@ AND    subject_uuid = $secretPermission.subject_uuid`
 			return secreterrors.SecretIsNotLocal
 		}
 
-		// Look up the UUID of the subject.
-		perm.SubjectUUID, err = st.lookupSubjectUUID(ctx, tx, params.SubjectID, params.SubjectTypeID)
-		if err != nil {
+		if err := st.checkSubjectUUIDExists(ctx, tx, params.SubjectUUID, params.SubjectTypeID); err != nil {
 			return errors.Capture(err)
 		}
+		perm.SubjectUUID = params.SubjectUUID
 		err = tx.Query(ctx, deleteStmt, perm).Run()
 		if err != nil {
-			return errors.Errorf("deleting secret grant for %q on %q: %w", params.SubjectID, uri, err)
+			return errors.Errorf("deleting secret grant for %q on %q: %w", params.SubjectUUID, uri, err)
 		}
 		return nil
 	})
@@ -2477,9 +2572,9 @@ func (st State) GetSecretAccess(
 	}
 
 	query := `
-SELECT sr.role AS &M.role
+SELECT sr.role AS &secretRole.role
 FROM   v_secret_permission sp
-       JOIN secret_role sr ON sr.id = sp.role_id
+JOIN   secret_role sr ON sr.id = sp.role_id
 WHERE  secret_id = $secretAccessor.secret_id
 AND    subject_type_id = $secretAccessor.subject_type_id
 AND    subject_id = $secretAccessor.subject_id`
@@ -2489,12 +2584,12 @@ AND    subject_id = $secretAccessor.subject_id`
 		SubjectTypeID: params.SubjectTypeID,
 		SubjectID:     params.SubjectID,
 	}
-	selectRoleStmt, err := st.Prepare(query, access, sqlair.M{})
+	selectRoleStmt, err := st.Prepare(query, access, secretRole{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	var role string
+	var result secretRole
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
 			return errors.Capture(err)
@@ -2502,37 +2597,33 @@ AND    subject_id = $secretAccessor.subject_id`
 			// Should never happen.
 			return secreterrors.SecretIsNotLocal
 		}
-		result := sqlair.M{}
 		err = tx.Query(ctx, selectRoleStmt, access).Get(&result)
-		if err == nil || errors.Is(err, sqlair.ErrNoRows) {
-			role, _ = result["role"].(string)
-			return nil
-		}
-		if err != nil {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("looking up secret grant for %q on %q: %w", params.SubjectID, uri, err)
 		}
 		return nil
 	})
-	return role, errors.Capture(err)
+	return result.Role, errors.Capture(err)
 }
 
-// GetSecretAccessScope returns the access scope for the specified accessor's
+// GetSecretAccessRelationScope returns any relation access scope for the specified accessor's
 // permission on the secret.It returns an error satisfying
 // [secreterrors.SecretNotFound] if the secret is not found.
-func (st State) GetSecretAccessScope(
+func (st State) GetSecretAccessRelationScope(
 	ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams,
-) (*domainsecret.AccessScope, error) {
+) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	query := `
-SELECT (sp.scope_id, sp.scope_type_id) AS (&secretAccessScope.*)
+SELECT (sp.scope_uuid, sp.scope_type_id) AS (&secretAccessScope.*)
 FROM   v_secret_permission sp
 WHERE  secret_id = $secretAccessor.secret_id
 AND    subject_type_id = $secretAccessor.subject_type_id
-AND    subject_id = $secretAccessor.subject_id`
+AND    subject_id = $secretAccessor.subject_id
+AND    scope_type_id = 3`
 
 	access := secretAccessor{
 		SecretID:      uri.ID,
@@ -2541,7 +2632,7 @@ AND    subject_id = $secretAccessor.subject_id`
 	}
 	selectScopeStmt, err := st.Prepare(query, access, secretAccessScope{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	result := secretAccessScope{}
@@ -2555,29 +2646,26 @@ AND    subject_id = $secretAccessor.subject_id`
 		err = tx.Query(ctx, selectScopeStmt, access).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"access scope for %q on secret %q not found",
+				"relation access scope for %q on secret %q not found",
 				params.SubjectID, uri).Add(secreterrors.SecretAccessScopeNotFound)
 
 		}
 		if err != nil {
-			return errors.Errorf("looking up secret access scope for %q on %q: %w", params.SubjectID, uri, err)
+			return errors.Errorf("looking up secret relation access scope for %q on %q: %w", params.SubjectID, uri, err)
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
-	return &domainsecret.AccessScope{
-		ScopeTypeID: result.ScopeTypeID,
-		ScopeID:     result.ScopeID,
-	}, nil
+	return result.ScopeUUID, nil
 }
 
 // GetSecretGrants returns the subjects which have the specified access to the secret.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (st State) GetSecretGrants(
 	ctx context.Context, uri *coresecrets.URI, role coresecrets.SecretRole,
-) ([]domainsecret.GrantParams, error) {
+) ([]domainsecret.GrantDetails, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2633,7 +2721,7 @@ AND    subject_type_id != $M.remote_application_type`
 }
 
 // AllSecretGrants returns access details for all local secrets, keyed on secret id.
-func (st State) AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error) {
+func (st State) AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantDetails, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2802,8 +2890,8 @@ func (st State) InitialWatchStatementForConsumedSecretsChange(unitName coreunit.
 		q := `
 SELECT   DISTINCT sr.uuid AS &revisionUUID.uuid
 FROM     secret_unit_consumer suc
-         JOIN unit u ON u.uuid = suc.unit_uuid
-         JOIN secret_revision sr ON sr.secret_id = suc.secret_id
+JOIN     unit u ON u.uuid = suc.unit_uuid
+JOIN     secret_revision sr ON sr.secret_id = suc.secret_id
 WHERE    u.name = $unit.name
 GROUP BY sr.secret_id
 HAVING   suc.current_revision < MAX(sr.revision)`
@@ -2852,8 +2940,8 @@ func (st State) GetConsumedSecretURIsWithChanges(
 	q := `
 SELECT DISTINCT suc.secret_id AS &secretUnitConsumer.secret_id
 FROM   secret_unit_consumer suc
-       JOIN unit u ON u.uuid = suc.unit_uuid
-       JOIN secret_revision sr ON sr.secret_id = suc.secret_id
+JOIN   unit u ON u.uuid = suc.unit_uuid
+JOIN   secret_revision sr ON sr.secret_id = suc.secret_id
 WHERE  u.name = $unit.name`
 
 	queryParams := []any{
@@ -2906,8 +2994,8 @@ func (st State) InitialWatchStatementForConsumedRemoteSecretsChange(unitName cor
 		q := `
 SELECT   DISTINCT sr.secret_id AS &lastestSecretRevision.secret_id
 FROM     secret_unit_consumer suc
-         JOIN unit u ON u.uuid = suc.unit_uuid
-         JOIN secret_reference sr ON sr.secret_id = suc.secret_id
+JOIN     unit u ON u.uuid = suc.unit_uuid
+JOIN     secret_reference sr ON sr.secret_id = suc.secret_id
 WHERE    u.name = $unit.name
 GROUP BY sr.secret_id
 HAVING   suc.current_revision < sr.latest_revision`
@@ -2957,8 +3045,8 @@ func (st State) GetConsumedRemoteSecretURIsWithChanges(
 SELECT suc.secret_id AS &secretUnitConsumer.secret_id,
        suc.source_model_uuid AS &secretUnitConsumer.source_model_uuid
 FROM   secret_unit_consumer suc
-       JOIN unit u ON u.uuid = suc.unit_uuid
-       JOIN secret_reference sr ON sr.secret_id = suc.secret_id
+JOIN   unit u ON u.uuid = suc.unit_uuid
+JOIN   secret_reference sr ON sr.secret_id = suc.secret_id
 WHERE  u.name = $unit.name`
 
 	queryParams := []any{
@@ -3170,11 +3258,11 @@ func (st State) DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string
 	q := `
 SELECT smo.secret_id AS &secretID.id,
        sr.revision AS &secretExternalRevision.revision
-FROM   secret_model_owner smo
-       JOIN secret_metadata sm ON sm.secret_id = smo.secret_id
-       JOIN secret_revision sr ON sr.secret_id = smo.secret_id
-       LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
-WHERE  sm.auto_prune = true AND sro.obsolete = true`
+FROM      secret_model_owner smo
+JOIN      secret_metadata sm ON sm.secret_id = smo.secret_id
+JOIN      secret_revision sr ON sr.secret_id = smo.secret_id
+LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
+WHERE     sm.auto_prune = true AND sro.obsolete = true`
 
 	stmt, err := st.Prepare(q, secretID{}, secretExternalRevision{})
 	if err != nil {
@@ -3407,7 +3495,7 @@ SELECT
        sro.next_rotation_time AS &secretRotationChange.next_rotation_time,
        MAX(sr.revision) AS &secretRotationChange.revision
 FROM   secret_rotation sro
-       JOIN secret_revision sr ON sr.secret_id = sro.secret_id`
+JOIN   secret_revision sr ON sr.secret_id = sro.secret_id`
 
 	var queryParams []any
 	var joins []string
@@ -3593,7 +3681,7 @@ SELECT
        sre.expire_time AS &secretRevisionExpireChange.expire_time,
        MAX(sr.revision) AS &secretRevisionExpireChange.revision
 FROM   secret_revision_expire sre
-       JOIN secret_revision sr ON sr.uuid = sre.revision_uuid`
+JOIN   secret_revision sr ON sr.uuid = sre.revision_uuid`
 
 	var queryParams []any
 	var joins []string
@@ -3713,11 +3801,11 @@ func (st State) GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context) 
 	}
 	q := `
 SELECT (sr.revision, sr.secret_id) AS (&obsoleteRevisionRow.*)
-FROM   secret_model_owner smo
-       JOIN secret_metadata sm ON sm.secret_id = smo.secret_id
-       JOIN secret_revision sr ON sr.secret_id = smo.secret_id
-       LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
-WHERE  sm.auto_prune = true AND sro.obsolete = true`
+FROM      secret_model_owner smo
+JOIN      secret_metadata sm ON sm.secret_id = smo.secret_id
+JOIN      secret_revision sr ON sr.secret_id = smo.secret_id
+LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
+WHERE     sm.auto_prune = true AND sro.obsolete = true`
 	stmt, err := st.Prepare(q, obsoleteRevisionRow{})
 	if err != nil {
 		return nil, errors.Capture(err)

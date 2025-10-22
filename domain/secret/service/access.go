@@ -7,10 +7,14 @@ import (
 	"context"
 	"strings"
 
+	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
@@ -52,6 +56,13 @@ func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, r
 			sa.Scope.Kind = ModelAccessScope
 		case domainsecret.ScopeRelation:
 			sa.Scope.Kind = RelationAccessScope
+			// For relation scoped secrets, we need to look up the key from the UUID.
+			// TODO - make this a bulk call.
+			key, err := s.getRelationKeyByUUID(ctx, accessor.ScopeUUID)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			sa.Scope.ID = key.String()
 		default:
 			// Should never happen.
 			return nil, errors.Errorf("unexpected accessor scope type: %#v", accessor.ScopeTypeID)
@@ -62,11 +73,24 @@ func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, r
 	return result, nil
 }
 
-// GetSecretAccessScope returns the access scope for the specified accessor's permission on the secret.
+func (s *SecretService) getRelationKeyByUUID(ctx context.Context, relUUID string) (corerelation.Key, error) {
+	endpoints, err := s.secretState.GetRelationEndpoints(ctx, relUUID)
+	if err != nil {
+		return corerelation.Key{}, errors.Capture(err)
+	}
+	key, err := corerelation.NewKey(endpoints)
+	if err != nil {
+		return corerelation.Key{}, errors.Errorf("generating relation key: %w", err)
+	}
+	return key, nil
+}
+
+// GetSecretAccessRelationScope returns the relation UUID of the access scope for the specified
+// app or unit's permission on the secret. This requires that the access scope is a relation.
 // It returns an error satisfying:
 // - [secreterrors.SecretNotFound] if the secret is not found.
 // - [secreterrors.SecretAccessScopeNotFound] if the access scope is not found.
-func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) (SecretAccessScope, error) {
+func (s *SecretService) GetSecretAccessRelationScope(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) (corerelation.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -78,29 +102,15 @@ func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.U
 		ap.SubjectTypeID = domainsecret.SubjectUnit
 	case ApplicationAccessor:
 		ap.SubjectTypeID = domainsecret.SubjectApplication
-	case RemoteApplicationAccessor:
-		ap.SubjectTypeID = domainsecret.SubjectRemoteApplication
-	case ModelAccessor:
-		ap.SubjectTypeID = domainsecret.SubjectModel
+	case RemoteApplicationAccessor, ModelAccessor:
+		// Should never happen.
+		return "", errors.Errorf("getting relation access scope for kind %q not supported", accessor.Kind).Add(coreerrors.NotSupported)
 	}
-	accessScope, err := s.secretState.GetSecretAccessScope(ctx, uri, ap)
+	relationUUID, err := s.secretState.GetSecretAccessRelationScope(ctx, uri, ap)
 	if err != nil {
-		return SecretAccessScope{}, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
-	result := SecretAccessScope{
-		ID: accessScope.ScopeID,
-	}
-	switch accessScope.ScopeTypeID {
-	case domainsecret.ScopeUnit:
-		result.Kind = UnitAccessScope
-	case domainsecret.ScopeApplication:
-		result.Kind = ApplicationAccessScope
-	case domainsecret.ScopeModel:
-		result.Kind = ModelAccessScope
-	case domainsecret.ScopeRelation:
-		result.Kind = RelationAccessScope
-	}
-	return result, nil
+	return corerelation.ParseUUID(relationUUID)
 }
 
 // getSecretAccess returns the access to the secret for the specified accessor.
@@ -145,7 +155,7 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 	}
 
 	return withCaveat(ctx, func(innerCtx context.Context) error {
-		p, err := grantParams(params)
+		p, err := s.grantParams(ctx, params)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -153,11 +163,108 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 	})
 }
 
-func grantParams(in SecretAccessParams) (domainsecret.GrantParams, error) {
+func (s *SecretService) getApplicationUUIDByName(ctx context.Context, name string) (string, error) {
+	var uuid coreapplication.UUID
+	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		uuid, err = s.secretState.GetApplicationUUID(ctx, name)
+		return errors.Capture(err)
+	})
+	return uuid.String(), errors.Capture(err)
+}
+
+func (s *SecretService) getUnitUUIDByName(ctx context.Context, name string) (string, error) {
+	unitName, err := unit.NewName(name)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var uuid unit.UUID
+	err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		uuid, err = s.secretState.GetUnitUUID(ctx, unitName)
+		return errors.Capture(err)
+	})
+	return uuid.String(), errors.Capture(err)
+}
+
+func (s *SecretService) getRelationUUIDByKey(ctx context.Context, relationKey corerelation.Key) (string, error) {
+	if err := relationKey.Validate(); err != nil {
+		return "", relationerrors.RelationKeyNotValid
+	}
+
+	eids := relationKey.EndpointIdentifiers()
+	var uuid string
+	var err error
+	switch len(eids) {
+	case 1:
+		return "", errors.Errorf("granting access to a secret over a peer relation is not supported").Add(coreerrors.NotSupported)
+	case 2:
+		uuid, err = s.secretState.GetRegularRelationUUIDByEndpointIdentifiers(
+			ctx,
+			eids[0],
+			eids[1],
+		)
+		if err != nil {
+			return "", errors.Errorf("getting regular relation by key: %w", err)
+		}
+		return uuid, nil
+	default:
+		return "", errors.Errorf("internal error: unexpected number of endpoints %d", len(eids))
+	}
+}
+
+func (s *SecretService) lookupSubjectUUID(
+	ctx context.Context, subjectID string, subjectKind SecretAccessorKind,
+) (string, error) {
+	switch subjectKind {
+	case UnitAccessor:
+		return s.getUnitUUIDByName(ctx, subjectID)
+	case ApplicationAccessor, RemoteApplicationAccessor:
+		return s.getApplicationUUIDByName(ctx, subjectID)
+	case ModelAccessor:
+		// The model ID is the UUID.
+		return subjectID, nil
+	}
+	return "", errors.Errorf("unexpected secret accessor: %s", subjectKind)
+}
+
+func (s *SecretService) lookupScopeUUID(
+	ctx context.Context, scopeID string, scopeKind SecretAccessScopeKind,
+) (string, error) {
+	switch scopeKind {
+	case UnitAccessScope:
+		return s.getUnitUUIDByName(ctx, scopeID)
+	case ApplicationAccessScope:
+		return s.getApplicationUUIDByName(ctx, scopeID)
+	case ModelAccessScope:
+		// The model ID is the UUID.
+		return scopeID, nil
+	case RelationAccessScope:
+		key, err := corerelation.NewKeyFromString(scopeID)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+		return s.getRelationUUIDByKey(ctx, key)
+	}
+	return "", errors.Errorf("unexpected secret access scope: %s", scopeKind)
+}
+
+func (s *SecretService) grantParams(ctx context.Context, in SecretAccessParams) (domainsecret.GrantParams, error) {
+	scopeUUID, err := s.lookupScopeUUID(ctx, in.Scope.ID, in.Scope.Kind)
+	if err != nil {
+		return domainsecret.GrantParams{}, errors.Capture(err)
+	}
+	subjectUUID := scopeUUID
+	if string(in.Scope.Kind) != string(in.Subject.Kind) || in.Scope.ID != in.Subject.ID {
+		subjectUUID, err = s.lookupSubjectUUID(ctx, in.Subject.ID, in.Subject.Kind)
+		if err != nil {
+			return domainsecret.GrantParams{}, errors.Capture(err)
+		}
+	}
 	p := domainsecret.GrantParams{
-		ScopeID:   in.Scope.ID,
-		SubjectID: in.Subject.ID,
-		RoleID:    domainsecret.MarshallRole(in.Role),
+		ScopeUUID:   scopeUUID,
+		SubjectUUID: subjectUUID,
+		RoleID:      domainsecret.MarshallRole(in.Role),
 	}
 	switch in.Subject.Kind {
 	case UnitAccessor:
@@ -179,12 +286,6 @@ func grantParams(in SecretAccessParams) (domainsecret.GrantParams, error) {
 		p.ScopeTypeID = domainsecret.ScopeModel
 	case RelationAccessScope:
 		p.ScopeTypeID = domainsecret.ScopeRelation
-		// Ensure the relation key is correctly formatted.
-		key, err := corerelation.NewKeyFromString(in.Scope.ID)
-		if err != nil {
-			return domainsecret.GrantParams{}, errors.Capture(err)
-		}
-		p.ScopeID = key.String()
 	}
 	return p, nil
 }
@@ -200,8 +301,12 @@ func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI
 		return errors.Capture(err)
 	}
 
-	p := domainsecret.AccessParams{
-		SubjectID: params.Subject.ID,
+	subjectUUID, err := s.lookupSubjectUUID(ctx, params.Subject.ID, params.Subject.Kind)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	p := domainsecret.RevokeParams{
+		SubjectUUID: subjectUUID,
 	}
 	switch params.Subject.Kind {
 	case UnitAccessor:

@@ -10,10 +10,14 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/relation"
+	relationtesting "github.com/juju/juju/core/relation/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
 	domaintesting "github.com/juju/juju/domain/testing"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -47,10 +51,11 @@ func (s *serviceSuite) TestGetSecretsForExport(c *tc.C) {
 		coresecrets.SecretData{"foo": "bar3"}, nil, nil,
 	)
 	s.state.EXPECT().AllSecretGrants(gomock.Any()).Return(
-		map[string][]domainsecret.GrantParams{
+		map[string][]domainsecret.GrantDetails{
 			uri.ID: {{
 				ScopeTypeID:   1,
 				ScopeID:       "wordpress",
+				ScopeUUID:     "wordpress-uuid",
 				SubjectTypeID: 1,
 				SubjectID:     "wordpress",
 				RoleID:        2,
@@ -192,10 +197,21 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		CurrentRevision: 666,
 	})
 
-	appUUID, err := coreapplication.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil).AnyTimes()
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, coreunit.Name("wordpress/0")).Return(unitUUID, nil)
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.state.EXPECT().GetRegularRelationUUIDByEndpointIdentifiers(gomock.Any(), relation.EndpointIdentifier{
+		ApplicationName: "wordpress",
+		EndpointName:    "db",
+		Role:            charm.RoleRequirer,
+	}, relation.EndpointIdentifier{
+		ApplicationName: "mysql",
+		EndpointName:    "server",
+		Role:            charm.RoleProvider,
+	}).Return(relUUID.String(), nil)
 
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
 	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, secrets[0].Label).Return(false, nil)
 	s.state.EXPECT().CreateCharmApplicationSecret(domaintesting.IsAtomicContextChecker, 0, uri, appUUID, domainsecret.UpsertSecretParams{
 		RotatePolicy:   ptr(domainsecret.RotateHourly),
@@ -236,17 +252,17 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	//})
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   3,
-		ScopeID:       "mysql:server wordpress:db",
+		ScopeUUID:     relUUID.String(),
 		SubjectTypeID: 0,
-		SubjectID:     "wordpress/0",
+		SubjectUUID:   unitUUID.String(),
 		RoleID:        1,
 	})
 
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri3, domainsecret.GrantParams{
 		ScopeTypeID:   1,
-		ScopeID:       "mysql",
+		ScopeUUID:     appUUID.String(),
 		SubjectTypeID: 1,
-		SubjectID:     "mysql",
+		SubjectUUID:   appUUID.String(),
 		RoleID:        1,
 	})
 
@@ -333,6 +349,6 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 			},
 		}},
 	}
-	err = s.service.ImportSecrets(c.Context(), toImport)
+	err := s.service.ImportSecrets(c.Context(), toImport)
 	c.Assert(err, tc.ErrorIsNil)
 }

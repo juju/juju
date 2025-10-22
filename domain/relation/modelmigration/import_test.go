@@ -35,7 +35,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	model := s.expectImportRelations(c, map[int]corerelation.Key{
 		3: relationtesting.GenNewKey(c, "ubuntu:peer"),
-		7: relationtesting.GenNewKey(c, "ntp:juju-info ubuntu:juju-info"),
+		7: relationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info"),
 	}, charm.ScopeGlobal)
 
 	importOp := importOperation{
@@ -56,7 +56,7 @@ func (s *importSuite) TestImportRelationsWithContainerScope(c *tc.C) {
 
 	model := s.expectImportRelations(c, map[int]corerelation.Key{
 		3: relationtesting.GenNewKey(c, "ubuntu:peer"),
-		7: relationtesting.GenNewKey(c, "ntp:juju-info ubuntu:juju-info"),
+		7: relationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info"),
 	}, charm.ScopeContainer)
 
 	importOp := importOperation{
