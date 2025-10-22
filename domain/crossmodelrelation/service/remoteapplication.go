@@ -18,6 +18,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -100,6 +101,32 @@ type ModelRemoteApplicationState interface {
 		ctx context.Context,
 		endpoint1, endpoint2 corerelation.EndpointIdentifier,
 	) (bool, error)
+
+	// InitialWatchStatementForConsumerRelations returns the namespace and the
+	// initial query function for watching relation UUIDs that are associated with
+	// remote offerer applications present in this model (i.e. consumer side).
+	InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery)
+
+	// GetConsumerRelationUUIDs filters the provided relation UUIDs and returns
+	// only those that are associated with remote offerer applications in this model.
+	GetConsumerRelationUUIDs(ctx context.Context, relationUUIDs ...string) ([]string, error)
+
+	// GetOfferingApplicationToken returns the offering application token (uuid)
+	// for the given offer UUID.
+	GetOfferingApplicationToken(ctx context.Context, offerUUID string) (string, error)
+
+	// GetOffererRelationUUIDsForConsumers returns the relation UUIDs associated
+	// with the provided remote consumer UUIDs.
+	GetOffererRelationUUIDsForConsumers(ctx context.Context, consumerUUIDs ...string) ([]string, error)
+
+	// GetAllOffererRelationUUIDs returns all relation UUIDs that are associated
+	// with remote consumers in this model (i.e. offerer side relations).
+	GetAllOffererRelationUUIDs(ctx context.Context) ([]string, error)
+
+	// InitialWatchStatementForOffererRelations returns the namespace and the
+	// initial query function for watching relation UUIDs that are associated with
+	// remote consumer applications present in this model (i.e. offerer side).
+	InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing

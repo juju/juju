@@ -46,6 +46,7 @@ type CrossModelRelationsAPIv3 struct {
 
 	applicationService        ApplicationService
 	crossModelRelationService CrossModelRelationService
+	modelConfigService        ModelConfigService
 	relationService           RelationService
 	removalService            RemovalService
 	secretService             SecretService
@@ -61,6 +62,7 @@ func NewCrossModelRelationsAPI(
 	watcherRegistry facade.WatcherRegistry,
 	applicationService ApplicationService,
 	crossModelRelationService CrossModelRelationService,
+	modelConfigService ModelConfigService,
 	relationService RelationService,
 	removalService RemovalService,
 	secretService SecretService,
@@ -73,6 +75,7 @@ func NewCrossModelRelationsAPI(
 		watcherRegistry:           watcherRegistry,
 		applicationService:        applicationService,
 		crossModelRelationService: crossModelRelationService,
+		modelConfigService:        modelConfigService,
 		relationService:           relationService,
 		removalService:            removalService,
 		secretService:             secretService,
@@ -622,7 +625,46 @@ func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 	ctx context.Context,
 	changes params.IngressNetworksChanges,
 ) (params.ErrorResults, error) {
-	return params.ErrorResults{}, nil
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(changes.Changes)),
+	}
+	for i, change := range changes.Changes {
+		api.logger.Debugf(ctx, "publishing ingress network change for relation %q: %+v", change.RelationToken, change)
+
+		relationUUID := corerelation.UUID(change.RelationToken)
+		relationDetails, err := api.relationService.GetRelationDetails(ctx, relationUUID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		relationTag := names.NewRelationTag(relationDetails.Key.String())
+		if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, change.Macaroons, change.BakeryVersion); err != nil {
+			if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
+				err = apiservererrors.ErrPerm
+			}
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// We get the allowed ingress networks from model config for validation.
+		modelConfig, err := api.modelConfigService.ModelConfig(ctx)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		err = api.crossModelRelationService.AddRelationNetworkIngress(ctx, relationUUID, modelConfig.SAASIngressAllow(), change.Networks)
+		if errors.Is(err, crossmodelrelationerrors.SubnetNotInWhitelist) {
+			results.Results[i].Error = &params.Error{
+				Code:    params.CodeForbidden,
+				Message: err.Error(),
+			}
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
 }
 
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which

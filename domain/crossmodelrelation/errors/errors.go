@@ -49,4 +49,8 @@ const (
 	// MacaroonNotFound describes an error that occurs when looking up a
 	// macaroon by relation UUID and it does not exist.
 	MacaroonNotFound = errors.ConstError("macaroon not found")
+
+	// SubnetNotInWhitelist describes an error that occurs when the provided
+	// (ingress) subnet is not in the firewaller allowed whitelist.
+	SubnetNotInWhitelist = errors.ConstError("subnet not in whitelist")
 )

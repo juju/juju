@@ -20,6 +20,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
+	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -692,7 +693,7 @@ func (s *watcherSuite) setupLocalOfferRemoteConsumerAndRelation(c *tc.C, db data
 	return consumerRelationUUID
 }
 
-func (s *watcherSuite) setupRemoteOffererLocalAndRelation(c *tc.C, db database.TxnRunner, svc *service.WatchableService) uuid.UUID {
+func (s *watcherSuite) setupRemoteOffererLocalAndRelation(c *tc.C, db database.TxnRunner, svc *service.WatchableService) corerelation.UUID {
 	// Add remote offerer "foo" with an endpoint "db".
 	err := svc.AddRemoteApplicationOfferer(c.Context(), "foo", service.AddRemoteApplicationOffererArgs{
 		OfferUUID:        tc.Must(c, offer.NewUUID),
@@ -710,7 +711,7 @@ func (s *watcherSuite) setupRemoteOffererLocalAndRelation(c *tc.C, db database.T
 	localOfferUUID := tc.Must(c, offer.NewUUID)
 	s.createLocalOfferForConsumer(c, db, localOfferUUID)
 
-	var relUUID uuid.UUID
+	var relUUID corerelation.UUID
 	// Create relation between remote app "foo" and "local-app" on endpoint "db".
 	err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var remoteAppUUID, localAppUUID string
@@ -741,7 +742,7 @@ WHERE  ae.application_uuid = ? AND cr.name = ?`
 			return err
 		}
 
-		relUUID = tc.Must(c, uuid.NewUUID)
+		relUUID = tc.Must(c, corerelation.NewUUID)
 		// Insert relation.
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO relation (uuid, life_id, relation_id, scope_id)
@@ -847,4 +848,118 @@ func (s *watcherSuite) setRelationDying(c *tc.C, db database.TxnRunner, relation
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) TestWatchRelationIngressNetworks(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+	svc, _ := s.setupService(c, factory)
+
+	db, err := s.GetWatchableDB(c.Context(), s.modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Set up a remote offerer app and a relation.
+	remoteRelationUUID := s.setupRemoteOffererLocalAndRelation(c, db, svc)
+	// Initial event.
+	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
+	err = svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, saasIngressAllow, []string{"203.0.113.0/24"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Start the watcher.
+	s.modelIdler.AssertChangeStreamIdle(c)
+	w, err := svc.WatchRelationIngressNetworks(c.Context(), remoteRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s.modelIdler, watchertest.NewWatcherC(c, w))
+
+	// Adding an ingress network should trigger an event.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, saasIngressAllow, []string{"192.0.2.0/24"})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Adding another ingress network to the same relation should trigger
+	// another event.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, saasIngressAllow, []string{"198.51.100.0/24"})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Deleting an ingress network should trigger an event.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteIngressNetwork(c, db, remoteRelationUUID, "192.0.2.0/24")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Deleting the last ingress network should trigger an event.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteIngressNetwork(c, db, remoteRelationUUID, "198.51.100.0/24")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Now create a different relation and add ingress networks to it; this should be ignored.
+	harness.AddTest(c, func(c *tc.C) {
+		otherRelationUUID := s.createRelation(c, db, svc)
+		err := svc.AddRelationNetworkIngress(c.Context(), otherRelationUUID, saasIngressAllow, []string{"203.0.113.0/24"})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchRelationIngressNetworksEmptyRelationUUID(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+	svc, _ := s.setupService(c, factory)
+
+	_, err := svc.WatchRelationIngressNetworks(c.Context(), "")
+	c.Assert(err, tc.ErrorMatches, "relation uuid cannot be empty")
+}
+
+func (s *watcherSuite) TestWatchRelationIngressNetworksInvalidUUID(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+	svc, _ := s.setupService(c, factory)
+
+	_, err := svc.WatchRelationIngressNetworks(c.Context(), "foo")
+	c.Assert(err, tc.ErrorMatches, "relation uuid \"foo\": not valid")
+}
+
+func (s *watcherSuite) deleteIngressNetwork(c *tc.C, db database.TxnRunner, relationUUID corerelation.UUID, cidr string) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+DELETE FROM relation_network_ingress
+WHERE relation_uuid = ? AND cidr = ?`, relationUUID.String(), cidr)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) createRelation(c *tc.C, db database.TxnRunner, svc *service.WatchableService) corerelation.UUID {
+	var relUUID corerelation.UUID
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Get global scope id.
+		var globalScopeID int
+		if err := tx.QueryRowContext(ctx, `SELECT id FROM charm_relation_scope WHERE name='global'`).Scan(&globalScopeID); err != nil {
+			return err
+		}
+
+		relUUID = tc.Must(c, corerelation.NewUUID)
+		// Insert relation.
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+VALUES (?, 0, 2, ?)`, relUUID.String(), globalScopeID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return relUUID
 }

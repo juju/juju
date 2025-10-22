@@ -14,6 +14,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/offer"
+	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
@@ -41,36 +42,7 @@ type ModelState interface {
 	ModelOfferState
 	ModelRemoteApplicationState
 	ModelSecretsState
-
-	// GetConsumerRelationUUIDs filters the provided relation UUIDs and returns
-	// only those that are associated with remote offerer applications in this model.
-	GetConsumerRelationUUIDs(ctx context.Context, relationUUIDs ...string) ([]string, error)
-
-	// GetOfferingApplicationToken returns the offering application token (uuid)
-	// for the given offer UUID.
-	GetOfferingApplicationToken(ctx context.Context, offerUUID string) (string, error)
-
-	// GetOffererRelationUUIDsForConsumers returns the relation UUIDs associated
-	// with the provided remote consumer UUIDs.
-	GetOffererRelationUUIDsForConsumers(ctx context.Context, consumerUUIDs ...string) ([]string, error)
-
-	// GetAllOffererRelationUUIDs returns all relation UUIDs that are associated
-	// with remote consumers in this model (i.e. offerer side relations).
-	GetAllOffererRelationUUIDs(ctx context.Context) ([]string, error)
-
-	// InitialWatchStatementForConsumerRelations returns the namespace and the
-	// initial query function for watching relation UUIDs that are associated with
-	// remote offerer applications present in this model (i.e. consumer side).
-	InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery)
-
-	// InitialWatchStatementForOffererRelations returns the namespace and the
-	// initial query function for watching relation UUIDs that are associated with
-	// remote consumer applications present in this model (i.e. offerer side).
-	InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery)
-
-	// NamespaceRemoteApplicationConsumers returns the namespace for remote
-	// application consumers.
-	NamespaceRemoteApplicationConsumers() string
+	ModelRelationNetworkState
 }
 
 // ControllerState describes retrieval and persistence methods for cross
@@ -125,6 +97,7 @@ type WatcherFactory interface {
 		summary string,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
+
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes from
 	// the input base watcher's db/queue. Filtering of values is done first by
 	// the filter, and then by the mapper. Based on the mapper's logic a subset
@@ -417,6 +390,27 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 		mapper,
 		eventsource.NamespaceFilter(relationTable, changestream.All),
 		eventsource.NamespaceFilter(applicationRemoteConsumer, changestream.All),
+	)
+}
+
+// WatchRelationIngressNetworks watches for changes to the ingress networks
+// for the specified relation UUID. It returns a NotifyWatcher that emits
+// events when there are insertions or deletions in the relation_network_ingress
+// table.
+func (w *WatchableService) WatchRelationIngressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	table := w.modelState.NamespaceForRelationIngressNetworksWatcher()
+
+	return w.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"relation ingress networks watcher",
+		eventsource.PredicateFilter(table, changestream.All, eventsource.EqualsPredicate(relationUUID.String())),
 	)
 }
 

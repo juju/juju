@@ -9,6 +9,7 @@ import (
 	"slices"
 	"time"
 
+	corelife "github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -390,4 +391,17 @@ type endpointIdentifier struct {
 	ApplicationName string `db:"application_name"`
 	// EndpointName is the name of the endpoint.
 	EndpointName string `db:"endpoint_name"`
+}
+
+type relationNetworkIngress struct {
+	RelationUUID string `db:"relation_uuid"`
+	CIDR         string `db:"cidr"`
+}
+
+type cidr struct {
+	CIDR string `db:"cidr"`
+}
+
+type queryLife struct {
+	Value corelife.Value `db:"value"`
 }
