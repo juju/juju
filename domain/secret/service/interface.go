@@ -9,6 +9,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coremodel "github.com/juju/juju/core/model"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -66,10 +67,12 @@ type State interface {
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
 	GetURIByConsumerLabel(ctx context.Context, label string, unitName coreunit.Name) (*secrets.URI, error)
 	GrantAccess(ctx context.Context, uri *secrets.URI, params domainsecret.GrantParams) error
-	RevokeAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) error
+	RevokeAccess(ctx context.Context, uri *secrets.URI, params domainsecret.RevokeParams) error
 	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
-	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (*domainsecret.AccessScope, error)
-	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantParams, error)
+	GetSecretAccessRelationScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
+	GetRegularRelationUUIDByEndpointIdentifiers(ctx context.Context, endpoint1, endpoint2 corerelation.EndpointIdentifier) (string, error)
+	GetRelationEndpoints(ctx context.Context, relationUUID string) ([]corerelation.EndpointIdentifier, error)
+	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantDetails, error)
 	ListGrantedSecretsForBackend(
 		ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role secrets.SecretRole,
 	) ([]*secrets.SecretRevisionRef, error)
@@ -130,7 +133,7 @@ type State interface {
 	) (string, eventsource.NamespaceQuery)
 
 	// Methods for loading secrets to be exported.
-	AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error)
+	AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantDetails, error)
 	AllSecretConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
 	AllSecretRemoteConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
 	AllRemoteSecrets(ctx context.Context) ([]domainsecret.RemoteSecretInfo, error)

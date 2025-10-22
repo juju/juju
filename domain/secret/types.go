@@ -69,24 +69,44 @@ func (u *UpsertSecretParams) HasUpdate() bool {
 // GrantParams are used when granting access to a secret.
 type GrantParams struct {
 	ScopeTypeID GrantScopeType
-	ScopeID     string
+	ScopeUUID   string
 
 	SubjectTypeID GrantSubjectType
-	SubjectID     string
+	SubjectUUID   string
 
 	RoleID Role
 }
 
-// AccessParams are used when querying secret access.
+// AccessParams are used when querying secrets
+// granted to a unit, application, or model.
 type AccessParams struct {
 	SubjectTypeID GrantSubjectType
 	SubjectID     string
 }
 
-// AccessScope are used when querying secret access scopes.
+// RevokeParams are used when revoking access to a secret.
+type RevokeParams struct {
+	SubjectTypeID GrantSubjectType
+	SubjectUUID   string
+}
+
+// AccessScope is the result of querying secret access scopes.
 type AccessScope struct {
 	ScopeTypeID GrantScopeType
+	ScopeUUID   string
+}
+
+// GrantDetails holds the access and scope details for
+// a secret permission record.
+type GrantDetails struct {
+	ScopeTypeID GrantScopeType
 	ScopeID     string
+	ScopeUUID   string
+
+	SubjectTypeID GrantSubjectType
+	SubjectID     string
+
+	RoleID Role
 }
 
 // RotationExpiryInfo holds information about the rotation and expiry of a secret.

@@ -22,6 +22,16 @@ type modelUUID struct {
 	UUID coremodel.UUID `db:"uuid"`
 }
 
+type relationUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type endpointIdentifier struct {
+	ApplicationName string `db:"application_name"`
+	EndpointName    string `db:"endpoint_name"`
+	Role            string `db:"role"`
+}
+
 type secretID struct {
 	ID string `db:"id"`
 }
@@ -36,7 +46,6 @@ type revisionUUID struct {
 
 type entityRef struct {
 	UUID string `db:"uuid"`
-	ID   string `db:"id"`
 }
 
 type unit struct {
@@ -192,6 +201,10 @@ type secretPermission struct {
 	ScopeTypeID   domainsecret.GrantScopeType   `db:"scope_type_id"`
 }
 
+type secretRole struct {
+	Role string `db:"role"`
+}
+
 type secretAccessor struct {
 	SecretID      string                        `db:"secret_id"`
 	SubjectID     string                        `db:"subject_id"`
@@ -212,6 +225,7 @@ var secretAccessorTypeParam = secretAccessorType{
 }
 
 type secretAccessScope struct {
+	ScopeUUID   string                      `db:"scope_uuid"`
 	ScopeID     string                      `db:"scope_id"`
 	ScopeTypeID domainsecret.GrantScopeType `db:"scope_type_id"`
 }
@@ -422,37 +436,39 @@ type secretAccessors []secretAccessor
 
 type secretAccessScopes []secretAccessScope
 
-func (rows secretAccessors) toSecretGrants(scopes secretAccessScopes) ([]domainsecret.GrantParams, error) {
+func (rows secretAccessors) toSecretGrants(scopes secretAccessScopes) ([]domainsecret.GrantDetails, error) {
 	if len(rows) != len(scopes) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch composing grant results")
 	}
-	result := make([]domainsecret.GrantParams, len(rows))
+	result := make([]domainsecret.GrantDetails, len(rows))
 	for i, row := range rows {
-		result[i] = domainsecret.GrantParams{
+		result[i] = domainsecret.GrantDetails{
 			SubjectTypeID: row.SubjectTypeID,
 			SubjectID:     row.SubjectID,
 			RoleID:        row.RoleID,
 			ScopeTypeID:   scopes[i].ScopeTypeID,
 			ScopeID:       scopes[i].ScopeID,
+			ScopeUUID:     scopes[i].ScopeUUID,
 		}
 	}
 	return result, nil
 }
 
-func (rows secretAccessors) toSecretGrantsBySecret(scopes secretAccessScopes) (map[string][]domainsecret.GrantParams, error) {
+func (rows secretAccessors) toSecretGrantsBySecret(scopes secretAccessScopes) (map[string][]domainsecret.GrantDetails, error) {
 	if len(rows) != len(scopes) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch composing grant results")
 	}
-	result := make(map[string][]domainsecret.GrantParams, len(rows))
+	result := make(map[string][]domainsecret.GrantDetails, len(rows))
 	for i, row := range rows {
-		params := domainsecret.GrantParams{
+		params := domainsecret.GrantDetails{
 			SubjectTypeID: row.SubjectTypeID,
 			SubjectID:     row.SubjectID,
 			RoleID:        row.RoleID,
 			ScopeTypeID:   scopes[i].ScopeTypeID,
 			ScopeID:       scopes[i].ScopeID,
+			ScopeUUID:     scopes[i].ScopeUUID,
 		}
 		result[row.SecretID] = append(result[row.SecretID], params)
 	}

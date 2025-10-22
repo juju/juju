@@ -290,32 +290,32 @@ ON secret_permission (secret_id);
 CREATE INDEX idx_secret_permission_subject_uuid_subject_type_id
 ON secret_permission (subject_uuid, subject_type_id);
 
+-- v_secret_permission is used to query secrets which can
+-- be accessed by a subject of application, unit, or model.
 CREATE VIEW v_secret_permission AS
 SELECT
     sp.secret_id,
     sp.role_id,
     sp.subject_type_id,
     sp.scope_type_id,
+    sp.scope_uuid,
     -- subject_id is the natural id of the subject entity (uuid for model)
     (CASE
         WHEN sp.subject_type_id = 0 THEN suu.name
         WHEN sp.subject_type_id = 1 THEN sua.name
         WHEN sp.subject_type_id = 2 THEN m.uuid
-        -- synthetic remote applications are stored in the application table
-        WHEN sp.subject_type_id = 3 THEN sua.name
     END) AS subject_id,
     -- scope_id is the natural id of the scope entity (uuid for model)
+    -- relations are not processed here - their scope_id is the relation key
+    -- which needs to be composed in code. 
     (CASE
         WHEN sp.scope_type_id = 0 THEN scu.name
         WHEN sp.scope_type_id = 1 THEN sca.name
         WHEN sp.scope_type_id = 2 THEN m.uuid
-        -- TODO: we should be using the relation key here
-        WHEN sp.scope_type_id = 3 THEN sp.scope_uuid
     END) AS scope_id
 FROM secret_permission AS sp
 LEFT JOIN unit AS suu ON sp.subject_uuid = suu.uuid
 LEFT JOIN application AS sua ON sp.subject_uuid = sua.uuid
 LEFT JOIN unit AS scu ON sp.scope_uuid = scu.uuid
 LEFT JOIN application AS sca ON sp.scope_uuid = sca.uuid
-LEFT JOIN relation AS scr ON sp.scope_uuid = scr.uuid
 JOIN model AS m;
