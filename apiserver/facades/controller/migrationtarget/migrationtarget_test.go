@@ -25,7 +25,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
-	_ "github.com/juju/juju/internal/provider/manual"
+	_ "github.com/juju/juju/internal/provider/unmanaged"
 	"github.com/juju/juju/internal/storage"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"

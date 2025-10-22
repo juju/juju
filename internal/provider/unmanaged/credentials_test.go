@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual_test
+package unmanaged_test
 
 import (
 	stdtesting "testing"
@@ -27,7 +27,7 @@ func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	var err error
-	s.provider, err = environs.Provider("manual")
+	s.provider, err = environs.Provider("unmanaged")
 	c.Assert(err, tc.ErrorIsNil)
 }
 

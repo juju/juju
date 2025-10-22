@@ -56,7 +56,7 @@ ensure() {
 # controller named in BOOTSTRAP_REUSE_LOCAL, if this is blank it will use any
 # existing test controller.
 #
-# If BOOTSTRAP_PROVIDER is set to "manual" then <cloud-name> should be provided
+# If BOOTSTRAP_PROVIDER is set to "manual" or "unmanaged" (>= Juju 4) then <cloud-name> should be provided
 # as the first arg.
 #
 # The name of the controller is randomised, but the model name is used to
@@ -113,6 +113,12 @@ bootstrap() {
 
 		cloud="${manual_name}"
 		;;
+  "unmanaged")
+    unmanaged_name=${1}
+    shift
+
+    cloud="${unmanaged_name}"
+    ;;
 	*)
 		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
 		exit 1

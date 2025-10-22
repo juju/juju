@@ -27,8 +27,8 @@ import (
 	_ "github.com/juju/juju/internal/provider/ec2"
 	_ "github.com/juju/juju/internal/provider/lxd"
 	_ "github.com/juju/juju/internal/provider/maas"
-	_ "github.com/juju/juju/internal/provider/manual"
 	_ "github.com/juju/juju/internal/provider/openstack"
+	_ "github.com/juju/juju/internal/provider/unmanaged"
 	_ "github.com/juju/juju/internal/provider/vsphere"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
@@ -177,10 +177,10 @@ var (
 		SkipTLSVerify: true,
 	}
 
-	manualCloud = jujucloud.Cloud{
-		Name:      "manual",
-		Type:      "manual",
-		AuthTypes: []jujucloud.AuthType{"manual"},
+	unmanagedCloud = jujucloud.Cloud{
+		Name:      "unmanaged",
+		Type:      "unmanaged",
+		AuthTypes: []jujucloud.AuthType{"unmanaged"},
 		Endpoint:  "192.168.1.6",
 	}
 )
@@ -535,8 +535,8 @@ func (*addSuite) TestInteractive(c *tc.C) {
 		"Cloud Types\n"+
 		"  lxd\n"+
 		"  maas\n"+
-		"  manual\n"+
 		"  openstack\n"+
+		"  unmanaged\n"+
 		"  vsphere\n"+
 		"\n"+
 		"Select cloud type: \n",
@@ -582,10 +582,10 @@ func (*addSuite) TestInteractiveMaas(c *tc.C) {
 		"to create a model (`juju add-model <your model name> m1`).\n")
 }
 
-func (*addSuite) TestInteractiveManual(c *tc.C) {
+func (*addSuite) TestInteractiveUnmanaged(c *tc.C) {
 	manCloud := jujucloud.Cloud{
-		Name:     "manual",
-		Type:     "manual",
+		Name:     "unmanaged",
+		Type:     "unmanaged",
 		Endpoint: "192.168.1.6",
 	}
 	manCloud.Name = "man"
@@ -606,7 +606,7 @@ func (*addSuite) TestInteractiveManual(c *tc.C) {
 		Stdout: out,
 		Stderr: errOut,
 		Stdin: strings.NewReader("" +
-			/* Select cloud type: */ "manual\n" +
+			/* Select cloud type: */ "unmanaged\n" +
 			/* Enter a name for the cloud: */ "man\n" +
 			/* Enter the controller's hostname or IP address: */ "192.168.1.6\n",
 		),
@@ -620,19 +620,19 @@ func (*addSuite) TestInteractiveManual(c *tc.C) {
 Cloud Types
   lxd
   maas
-  manual
   openstack
+  unmanaged
   vsphere
 
 Select cloud type: 
-Enter a name for your manual cloud: 
+Enter a name for your unmanaged cloud: 
 Enter the ssh connection string for controller, username@<hostname or IP> or <hostname or IP>: 
 `[1:])
 	c.Assert(errOut.String(), tc.Equals, "Cloud \"man\" successfully added to your local client.\n")
 }
 
-func (*addSuite) TestInteractiveManualInvalidName(c *tc.C) {
-	manCloud := manualCloud
+func (*addSuite) TestInteractiveUnmanagedInvalidName(c *tc.C) {
+	manCloud := unmanagedCloud
 	manCloud.Name = "invalid/123"
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
@@ -649,7 +649,7 @@ func (*addSuite) TestInteractiveManualInvalidName(c *tc.C) {
 		Stdout: io.Discard,
 		Stderr: io.Discard,
 		Stdin: strings.NewReader("" +
-			/* Select cloud type: */ "manual\n" +
+			/* Select cloud type: */ "unmanaged\n" +
 			/* Enter a name for the cloud: */ manCloud.Name + "\n",
 		),
 	}
@@ -725,14 +725,14 @@ Enter another datacenter\? \(y/N\):
 }
 
 func (*addSuite) TestInteractiveExistingNameOverride(c *tc.C) {
-	manualCloud := manualCloud
-	manualCloud.Name = "homestack"
+	unmanagedCloud := unmanagedCloud
+	unmanagedCloud.Name = "homestack"
 
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
-	manMetadata := map[string]jujucloud.Cloud{"homestack": manualCloud}
-	fake.Call("ParseOneCloud", []byte("endpoint: 192.168.1.6\n")).Returns(manualCloud, nil)
+	manMetadata := map[string]jujucloud.Cloud{"homestack": unmanagedCloud}
+	fake.Call("ParseOneCloud", []byte("endpoint: 192.168.1.6\n")).Returns(unmanagedCloud, nil)
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", addDefaultRegion(manMetadata)).Returns(nil)
 
 	command := cloud.NewAddCloudCommandForTest(fake, jujuclient.NewMemStore(), nil)
@@ -743,7 +743,7 @@ func (*addSuite) TestInteractiveExistingNameOverride(c *tc.C) {
 		Stdout: io.Discard,
 		Stderr: io.Discard,
 		Stdin: strings.NewReader("" +
-			/* Select cloud type: */ "manual\n" +
+			/* Select cloud type: */ "unmanaged\n" +
 			/* Enter a name for the cloud: */ "homestack\n" +
 			/* Do you want to replace that definition? */ "y\n" +
 			/* Enter the controller's hostname or IP address: */ "192.168.1.6\n",
@@ -762,7 +762,7 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *tc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
 	homestack2Cloud := jujucloud.Cloud{
 		Name:     "homestack2",
-		Type:     "manual",
+		Type:     "unmanaged",
 		Endpoint: "192.168.1.6",
 	}
 	fake.Call("ParseOneCloud", []byte("endpoint: 192.168.1.6\n")).Returns(homestack2Cloud, nil)
@@ -781,7 +781,7 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *tc.C) {
 		Stdout: &out,
 		Stderr: io.Discard,
 		Stdin: strings.NewReader("" +
-			/* Select cloud type: */ "manual\n" +
+			/* Select cloud type: */ "unmanaged\n" +
 			/* Enter a name for the cloud: */ "homestack" + "\n" +
 			/* Do you want to replace that definition? (y/N): */ "n\n" +
 			/* Enter a name for the cloud: */ "homestack2" + "\n" +
@@ -797,13 +797,13 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *tc.C) {
 	c.Check(out.String(), tc.Matches, regexp.QuoteMeta("Cloud Types\n"+
 		"  lxd\n"+
 		"  maas\n"+
-		"  manual\n"+
 		"  openstack\n"+
+		"  unmanaged\n"+
 		"  vsphere\n\n"+
 		"Select cloud type: \n"+
-		"Enter a name for your manual cloud: \n"+
+		"Enter a name for your unmanaged cloud: \n"+
 		"A cloud named \"homestack\" already exists. Do you want to replace that definition? (y/N): \n"+
-		"Enter a name for your manual cloud: \n"+
+		"Enter a name for your unmanaged cloud: \n"+
 		"Enter the ssh connection string for controller, username@<hostname or IP> or <hostname or IP>: \n"))
 }
 
@@ -813,7 +813,7 @@ func (s *addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *tc.C) {
 		Stdout: &out,
 		Stderr: io.Discard,
 		Stdin: strings.NewReader("" +
-			/* Select cloud type: */ "manual\n",
+			/* Select cloud type: */ "unmanaged\n",
 		),
 	}
 
@@ -830,7 +830,7 @@ func (s *addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *tc.C) {
 	err = command.Run(ctx)
 	c.Assert(errors.Cause(err), tc.Equals, io.EOF)
 
-	c.Check(out.String(), tc.Matches, "(?s).+Enter a name for your manual cloud: .*")
+	c.Check(out.String(), tc.Matches, "(?s).+Enter a name for your unmanaged cloud: .*")
 }
 
 func (s *addSuite) TestSpecifyingjujucloudThroughFlag_CorrectlySetsMemberVar(c *tc.C) {

@@ -59,12 +59,12 @@ func (s *cloudTypeSuite) TestCloudTypeDBValues(c *tc.C) {
 		CloudTypeKubernetes: CloudTypeKubernetes.String(),
 		CloudTypeLXD:        CloudTypeLXD.String(),
 		CloudTypeMAAS:       CloudTypeMAAS.String(),
-		CloudTypeManual:     CloudTypeManual.String(),
 		CloudTypeAzure:      CloudTypeAzure.String(),
 		CloudTypeEC2:        CloudTypeEC2.String(),
 		CloudTypeGCE:        CloudTypeGCE.String(),
 		CloudTypeOCI:        CloudTypeOCI.String(),
 		CloudTypeOpenStack:  CloudTypeOpenStack.String(),
+		CloudTypeUnmanaged:  CloudTypeUnmanaged.String(),
 		CloudTypeVSphere:    CloudTypeVSphere.String(),
 	})
 }

@@ -22,9 +22,6 @@ const (
 	// CloudTypeMAAS represents the MAAS cloud provider.
 	CloudTypeMAAS
 
-	// CloudTypeManual represents the Manual cloud provider.
-	CloudTypeManual
-
 	// CloudTypeAzure represents the Azure cloud provider.
 	CloudTypeAzure
 
@@ -40,6 +37,9 @@ const (
 
 	// CloudTypeOpenStack represents the OpenStack cloud provider.
 	CloudTypeOpenStack
+
+	// CloudTypeUnmanaged represents the Unmanaged cloud provider.
+	CloudTypeUnmanaged
 
 	// CloudTypeVSphere represents the vSphere cloud provider.
 	CloudTypeVSphere
@@ -74,8 +74,6 @@ func (ct CloudType) String() string {
 		return "lxd"
 	case CloudTypeMAAS:
 		return "maas"
-	case CloudTypeManual:
-		return "manual"
 	case CloudTypeAzure:
 		return "azure"
 	case CloudTypeEC2:
@@ -86,6 +84,8 @@ func (ct CloudType) String() string {
 		return "oci"
 	case CloudTypeOpenStack:
 		return "openstack"
+	case CloudTypeUnmanaged:
+		return "unmanaged"
 	case CloudTypeVSphere:
 		return "vsphere"
 	}

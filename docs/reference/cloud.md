@@ -13,7 +13,7 @@ cloud/kubernetes-clouds-and-juju
 ```
 
 
-<!-- > -  {ref}`Amazon AWS <the-amazon-ec2-cloud-and-juju>`,  {ref}`Amazon EKS <the-amazon-eks-cloud-and-juju>`,  {ref}`Google GCE <the-google-gce-cloud-and-juju>`, {ref}`Google GKE <the-google-gke-cloud-and-juju>`, {ref}`LXD <the-lxd-cloud-and-juju>`, {ref}`MAAS <the-maas-cloud-and-juju>`,  {ref}`Manual cloud <the-manual-cloud-and-juju>`, {ref}`MicroK8s <the-microk8s-cloud-and-juju>`, {ref}`Microsoft Azure <the-microsoft-azure-cloud-and-juju>`, {ref}`Microsoft AKS <the-microsoft-aks-cloud-and-juju>`, {ref}`OpenStack <openstack-and-juju>`, {ref}`Oracle <the-oracle-oci-cloud-and-juju>`, {ref}`VMware vSphere <vmware-vsphere-and-juju>` -->
+<!-- > -  {ref}`Amazon AWS <the-amazon-ec2-cloud-and-juju>`,  {ref}`Amazon EKS <the-amazon-eks-cloud-and-juju>`,  {ref}`Google GCE <the-google-gce-cloud-and-juju>`, {ref}`Google GKE <the-google-gke-cloud-and-juju>`, {ref}`LXD <the-lxd-cloud-and-juju>`, {ref}`MAAS <the-maas-cloud-and-juju>`,  {ref}`Unmanaged cloud <the-manual-cloud-and-juju>`, {ref}`MicroK8s <the-microk8s-cloud-and-juju>`, {ref}`Microsoft Azure <the-microsoft-azure-cloud-and-juju>`, {ref}`Microsoft AKS <the-microsoft-aks-cloud-and-juju>`, {ref}`OpenStack <openstack-and-juju>`, {ref}`Oracle <the-oracle-oci-cloud-and-juju>`, {ref}`VMware vSphere <vmware-vsphere-and-juju>` -->
 
 To Juju, a **cloud** (or backing cloud) is any entity that has an API that can provide compute, networking, and optionally storage resources in order for application units to be deployed on them. This includes public clouds such as Amazon Web Services, Google Compute Engine, Microsoft Azure and Kubernetes as well as private OpenStack-based clouds. Juju can also make use of environments which are not clouds per se, but which Juju can nonetheless treat as a cloud. MAAS and LXD fit into this last category. Because of this, in Juju a cloud is sometimes also called, more generally, a **substrate**.
 
@@ -217,7 +217,7 @@ The most important keys are `clouds`, `.<cloud name>`, `..type`, `..auth-types`,
 
 **Purpose:** To define the default endpoint for the cloud regions. Note: It may be overridden by a region.
 
-**Value:** String = the endpoint URL or, for manual clouds, the SSH URI (e.g., `ubuntu@1.2.3.4`).
+**Value:** String = the endpoint URL or, for unmanaged clouds, the SSH URI (e.g., `ubuntu@1.2.3.4`).
 
 ### `clouds.<cloud>.host-cloud-region`
 

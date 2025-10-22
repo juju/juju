@@ -7,5 +7,5 @@ package all
 
 import (
 	// Register the provider.
-	_ "github.com/juju/juju/internal/provider/manual"
+	_ "github.com/juju/juju/internal/provider/unmanaged"
 )

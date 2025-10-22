@@ -1256,7 +1256,7 @@ func (c *bootstrapCommand) detectCloud(
 		// provider does not support regions, then we
 		// reinterpret the supplied region name as the
 		// cloud's endpoint. This enables the user to
-		// supply, for example, maas/<IP> or manual/<IP>.
+		// supply, for example, maas/<IP> or unmanaged/<IP>.
 		if c.Region != "" {
 			ctx.Verbosef("interpreting %q as the cloud endpoint", c.Region)
 			cloudEndpoint = c.Region

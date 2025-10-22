@@ -93,7 +93,7 @@ const (
 	InteractiveAuthType = "interactive"
 
 	// EmptyAuthType is the authentication type used for providers
-	// that require no credentials, e.g. "lxd", and "manual".
+	// that require no credentials, e.g. "lxd", and "unmanaged".
 	EmptyAuthType AuthType = "empty"
 
 	// AuthTypesKey is the name of the key in a cloud config or cloud schema

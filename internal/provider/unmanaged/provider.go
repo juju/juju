@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package unmanaged
 
 import (
 	"bytes"
@@ -20,15 +20,15 @@ import (
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 )
 
-// ManualProvider contains the logic for using a random ubuntu machine as a
+// UnmanagedProvider contains the logic for using a random ubuntu machine as a
 // controller, connected via SSH.
-type ManualProvider struct {
+type UnmanagedProvider struct {
 	environProviderCredentials
 	ping func(endpoint string) error
 }
 
 // Verify that we conform to the interface.
-var _ environs.EnvironProvider = (*ManualProvider)(nil)
+var _ environs.EnvironProvider = (*UnmanagedProvider)(nil)
 
 var initUbuntuUser = sshprovisioner.InitUbuntuUser
 
@@ -43,7 +43,7 @@ func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string,
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
-func (p ManualProvider) DetectRegions() ([]cloud.Region, error) {
+func (p UnmanagedProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
 }
 
@@ -60,12 +60,12 @@ var cloudSchema = &jsonschema.Schema{
 }
 
 // CloudSchema returns the schema for verifying the cloud configuration.
-func (p ManualProvider) CloudSchema() *jsonschema.Schema {
+func (p UnmanagedProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p ManualProvider) Ping(_ context.Context, endpoint string) error {
+func (p UnmanagedProvider) Ping(_ context.Context, endpoint string) error {
 	if p.ping != nil {
 		return p.ping(endpoint)
 	}
@@ -89,7 +89,7 @@ var echo = func(s string) error {
 	return nil
 }
 
-// pingMachine is what is used in production by ManualProvider.Ping().
+// pingMachine is what is used in production by UnmanagedProvider.Ping().
 // It does nothing at the moment.
 func pingMachine(endpoint string) error {
 	// There's no "just connect" command for utils/ssh, so we run a command that
@@ -108,16 +108,16 @@ func pingMachine(endpoint string) error {
 }
 
 // ValidateCloud is specified in the EnvironProvider interface.
-func (ManualProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+func (UnmanagedProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
 	return errors.Annotate(validateCloudSpec(spec), "validating cloud spec")
 }
 
 // Version is part of the EnvironProvider interface.
-func (ManualProvider) Version() int {
+func (UnmanagedProvider) Version() int {
 	return 0
 }
 
-func (p ManualProvider) Open(ctx context.Context, args environs.OpenParams, invaliator environs.CredentialInvalidator) (environs.Environ, error) {
+func (p UnmanagedProvider) Open(ctx context.Context, args environs.OpenParams, invaliator environs.CredentialInvalidator) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -125,7 +125,7 @@ func (p ManualProvider) Open(ctx context.Context, args environs.OpenParams, inva
 	if err != nil {
 		return nil, err
 	}
-	// validate adds missing manual-specific config attributes
+	// validate adds missing unmanaged-specific config attributes
 	// with their defaults in the result; we don't want that in
 	// Open.
 	envConfig := newModelConfig(args.Config, args.Config.UnknownAttrs())
@@ -140,13 +140,13 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if spec.Endpoint == "" {
 		return errors.Errorf(
 			"missing address of host to bootstrap: " +
-				`please specify "juju bootstrap manual/[user@]<host>"`,
+				`please specify "juju bootstrap unmanaged/[user@]<host>"`,
 		)
 	}
 	return nil
 }
 
-func (p ManualProvider) open(ctx context.Context, host, user string, cfg *environConfig) (environs.Environ, error) {
+func (p UnmanagedProvider) open(ctx context.Context, host, user string, cfg *environConfig) (environs.Environ, error) {
 	env := &manualEnviron{host: host, user: user, cfg: cfg}
 	// Need to call SetConfig to initialise storage.
 	if err := env.SetConfig(ctx, cfg.Config); err != nil {
@@ -155,7 +155,7 @@ func (p ManualProvider) open(ctx context.Context, host, user string, cfg *enviro
 	return env, nil
 }
 
-func (p ManualProvider) validate(ctx context.Context, cfg, old *config.Config) (*environConfig, error) {
+func (p UnmanagedProvider) validate(ctx context.Context, cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(ctx, cfg, old); err != nil {
 		return nil, err
@@ -183,7 +183,7 @@ func (p ManualProvider) validate(ctx context.Context, cfg, old *config.Config) (
 	return envConfig, nil
 }
 
-func (p ManualProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
+func (p UnmanagedProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
 	envConfig, err := p.validate(ctx, cfg, old)
 	if err != nil {
 		return nil, err
