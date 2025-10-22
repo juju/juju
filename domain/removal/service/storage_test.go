@@ -587,3 +587,54 @@ func (s *storageSuite) TestRemoveDeadVolume(c *tc.C) {
 	err := svc.RemoveDeadVolume(c.Context(), volUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *storageSuite) TestExecuteJobForStorageVolumeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageVolumeJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetVolumeLife(gomock.Any(), j.EntityUUID).Return(
+		-1, storageprovisioningerrors.VolumeNotFound)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageVolumeStillAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageVolumeJob(c)
+
+	s.modelState.EXPECT().GetVolumeLife(gomock.Any(), j.EntityUUID).Return(
+		life.Alive, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageVolumeSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageVolumeJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetVolumeLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.DeleteVolume(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String())
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func newStorageVolumeJob(c *tc.C) removal.Job {
+	jUUID, err := removal.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	return removal.Job{
+		UUID:        jUUID,
+		RemovalType: removal.StorageVolumeJob,
+		EntityUUID:  tc.Must(c, storageprovisioning.NewVolumeUUID).String(),
+	}
+}
