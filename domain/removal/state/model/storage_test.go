@@ -184,6 +184,43 @@ func (s *storageSuite) TestVolumeScheduleRemovalSuccess(c *tc.C) {
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
+func (s *storageSuite) TestDeleteVolume(c *tc.C) {
+	volUUID := s.addVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteVolume(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume is gone.
+	var dummy string
+	row := s.DB().QueryRow(
+		"SELECT uuid FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *storageSuite) TestDeleteVolumeWithInstance(c *tc.C) {
+	siUUID, _ := s.addAppUnitStorage(c)
+	volUUID := s.addVolume(c)
+	s.bindVolumeToStorageInstance(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteVolume(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume is gone.
+	var dummy string
+	row := s.DB().QueryRow(
+		"SELECT uuid FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+	// Storage instance volume is gone.
+	row = s.DB().QueryRow(
+		"SELECT storage_volume_uuid FROM storage_instance_volume WHERE storage_volume_uuid = ?",
+		volUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
 func (s *storageSuite) TestGetFilesystemLife(c *tc.C) {
 	fsUUID := s.addFilesystem(c)
 
@@ -230,6 +267,28 @@ func (s *storageSuite) TestFilesystemScheduleRemovalSuccess(c *tc.C) {
 	c.Check(rUUID, tc.Equals, fsUUID)
 	c.Check(force, tc.Equals, false)
 	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *storageSuite) TestDeleteFilesystemWithInstance(c *tc.C) {
+	siUUID, _ := s.addAppUnitStorage(c)
+	fsUUID := s.addFilesystem(c)
+	s.bindFilesystemToStorageInstance(c, siUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteFilesystem(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Filesystem is gone.
+	var dummy string
+	row := s.DB().QueryRow(
+		"SELECT uuid FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+	// Storage instance filesystem is gone.
+	row = s.DB().QueryRow(
+		"SELECT storage_filesystem_uuid FROM storage_instance_filesystem WHERE storage_filesystem_uuid = ?",
+		fsUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
 // addAppUnitStorage sets up a unit with a storage attachment.
@@ -301,6 +360,16 @@ func (s *storageSuite) addVolume(c *tc.C) string {
 	return volUUID
 }
 
+func (s *storageSuite) bindVolumeToStorageInstance(c *tc.C, siUUID, volUUID string) {
+	ctx := c.Context()
+
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid) VALUES (?, ?)",
+		siUUID, volUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *storageSuite) addFilesystem(c *tc.C) string {
 	ctx := c.Context()
 
@@ -312,4 +381,14 @@ func (s *storageSuite) addFilesystem(c *tc.C) string {
 	c.Assert(err, tc.ErrorIsNil)
 
 	return fsUUID
+}
+
+func (s *storageSuite) bindFilesystemToStorageInstance(c *tc.C, siUUID, fsUUID string) {
+	ctx := c.Context()
+
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid) VALUES (?, ?)",
+		siUUID, fsUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 }
