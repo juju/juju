@@ -22,11 +22,11 @@ type State interface {
 
 	// GetStorageAttachmentUUIDForStorageIDAndUnit returns the
 	// [domainstorageprovisioning.StorageAttachmentUUID] associated with the given
-	// storage instance id and unit name.
+	// storage instance uuid and unit uuid.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] if the
-	// storage instance for the supplied uuid no longer exists.
+	// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound]
+	// if the storage instance for the supplied uuid no longer exists.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the
 	// unit no longer exists for the supplied uuid.
 	GetStorageAttachmentUUIDForStorageInstanceAndUnit(
