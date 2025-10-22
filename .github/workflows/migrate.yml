@@ -75,7 +75,7 @@ jobs:
             --model-default enable-os-upgrade=false
           juju switch controller
           juju wait-for application controller
-
+          
       - name: Migrate model to target controller
         run: |
           # Determine which Juju client to use
