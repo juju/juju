@@ -638,17 +638,10 @@ func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 			continue
 		}
 		relationTag := names.NewRelationTag(relationDetails.Key.String())
-
-		// Ensure the supplied macaroon allows access.
-		offerUUID, err := api.crossModelRelationService.GetOfferUUIDByRelationUUID(ctx, relationUUID)
-		if err != nil {
+		if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, change.Macaroons, change.BakeryVersion); err != nil {
 			if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
 				err = apiservererrors.ErrPerm
 			}
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := api.auth.Authenticator().CheckRelationMacaroons(ctx, api.modelUUID.String(), offerUUID.String(), relationTag, change.Macaroons, change.BakeryVersion); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

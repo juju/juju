@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/core/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -39,8 +40,11 @@ VALUES ($relationNetworkIngress.*)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkRelationExists(ctx, tx, relationUUID); err != nil {
+		relationLife, err := st.getRelationLife(ctx, tx, relationUUID)
+		if err != nil {
 			return errors.Capture(err)
+		} else if life.IsNotAlive(relationLife) {
+			return relationerrors.RelationNotAlive
 		}
 
 		if err := tx.Query(ctx, insertStmt, ingress).Run(); err != nil {
@@ -56,6 +60,8 @@ VALUES ($relationNetworkIngress.*)
 // specified relation.
 // It returns a [relationerrors.RelationNotFound] if the provided relation does
 // not exist.
+// It returns a [relationerrors.RelationNotAlive] if the provided relation is
+// dead.
 func (st *State) GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -73,7 +79,10 @@ WHERE  relation_uuid = $uuid.uuid
 
 	var cidrs []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkRelationExists(ctx, tx, relationUUID); err != nil {
+		// We ignore the returned life value here, we just want to check
+		// that the relation exists and return its ingress networks even if
+		// not alive.
+		if _, err := st.getRelationLife(ctx, tx, relationUUID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -102,35 +111,29 @@ func (st *State) NamespaceForRelationIngressNetworksWatcher() string {
 	return "relation_network_ingress"
 }
 
-// checkRelationExists checks if a relation with the given UUID exists in the
-// relation table.
+// getRelationLife retrieves the life value for the specified relation.
 // It returns a [relationerrors.RelationNotFound] if the relation does not
-// exist.
-func (st *State) checkRelationExists(
-	ctx context.Context,
-	tx *sqlair.TX,
-	relationUUID string,
-) error {
-	query := `
-SELECT COUNT(*) AS &countResult.count
-FROM   relation 
-WHERE  uuid = $uuid.uuid
-`
-	checkStmt, err := st.Prepare(query, countResult{}, uuid{})
+func (st *State) getRelationLife(ctx context.Context, tx *sqlair.TX, relationUUID string) (life.Value, error) {
+	ident := uuid{
+		UUID: relationUUID,
+	}
+	stmt, err := st.Prepare(`
+SELECT &queryLife.*
+FROM   relation t
+JOIN   life l ON t.life_id = l.id
+WHERE  t.uuid = $uuid.uuid
+`, queryLife{}, ident)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	var result countResult
-	rel := uuid{UUID: relationUUID}
-	err = tx.Query(ctx, checkStmt, rel).Get(&result)
-	if err != nil {
-		return errors.Errorf("checking relation exists: %w", err)
+	var relationLife queryLife
+	err = tx.Query(ctx, stmt, ident).Get(&relationLife)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", relationerrors.RelationNotFound
+	} else if err != nil {
+		return "", errors.Errorf("retrieving life for relation %q: %w", relationUUID, err)
 	}
 
-	if result.Count == 0 {
-		return relationerrors.RelationNotFound
-	}
-
-	return nil
+	return relationLife.Value, nil
 }

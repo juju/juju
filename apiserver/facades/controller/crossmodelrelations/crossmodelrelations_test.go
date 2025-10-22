@@ -34,7 +34,6 @@ import (
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	domainlife "github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
-	relation0 "github.com/juju/juju/domain/relation"
 	config "github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -952,7 +951,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
 		Key: relKey,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
@@ -995,7 +994,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesSuccessSingleNetwork(c *tc
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
 		Key: relKey,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
@@ -1041,7 +1040,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesMultipleChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag1 := names.NewRelationTag(relKey1.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID1).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID1).Return(domainrelation.RelationDetails{
 		Key: relKey1,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID1).Return(offerUUID1, nil)
@@ -1059,7 +1058,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesMultipleChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag2 := names.NewRelationTag(relKey2.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID2).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID2).Return(domainrelation.RelationDetails{
 		Key: relKey2,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID2).Return(offerUUID2, nil)
@@ -1103,7 +1102,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesOfferNotFound(c *tc.C) {
 	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
 		Key: relKey,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).
@@ -1136,7 +1135,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesAuthError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
 		Key: relKey,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
@@ -1173,7 +1172,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesAddIngressError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
 		Key: relKey,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
@@ -1220,7 +1219,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesPartialFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag1 := names.NewRelationTag(relKey1.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID1).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID1).Return(domainrelation.RelationDetails{
 		Key: relKey1,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID1).Return(offerUUID1, nil)
@@ -1239,7 +1238,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesPartialFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag2 := names.NewRelationTag(relKey2.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID2).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID2).Return(domainrelation.RelationDetails{
 		Key: relKey2,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID2).Return(offerUUID2, nil)
@@ -1284,7 +1283,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesEmptyNetworks(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
 		Key: relKey,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
@@ -1327,7 +1326,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesSubnetNotInWhitelist(c *tc
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
 		Key: relKey,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
@@ -1373,7 +1372,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesModelConfigError(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
 		Key: relKey,
 	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)

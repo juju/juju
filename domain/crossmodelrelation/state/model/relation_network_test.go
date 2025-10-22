@@ -23,8 +23,6 @@ func TestRelationNetworkStateSuite(t *testing.T) {
 	tc.Run(t, &relationNetworkStateSuite{})
 }
 
-// TestAddRelationNetworkIngress tests that AddRelationNetworkIngress
-// successfully adds ingress network CIDRs for a relation.
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngress(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -39,8 +37,6 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngress(c *tc.C) {
 	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
 }
 
-// TestAddRelationNetworkIngressSingleCIDR tests that AddRelationNetworkIngress
-// works with a single CIDR.
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressSingleCIDR(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -55,8 +51,6 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressSingleCIDR(c *t
 	c.Check(obtainedCIDRs, tc.DeepEquals, cidr)
 }
 
-// TestAddRelationNetworkIngressMultipleCalls tests that multiple calls
-// to AddRelationNetworkIngress accumulate CIDRs.
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleCalls(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -77,8 +71,6 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleCalls(c
 	c.Check(obtainedCIDRs, tc.SameContents, expectedCIDRs)
 }
 
-// TestAddRelationNetworkIngressDuplicateCIDR tests that adding a duplicate
-// CIDR for the same relation fails (due to primary key constraint).
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressDuplicateCIDR(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -95,8 +87,6 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressDuplicateCIDR(c
 	c.Assert(err, tc.ErrorMatches, `.*inserting relation network ingress for relation.*`)
 }
 
-// TestAddRelationNetworkIngressMultipleRelations tests that different relations
-// can have the same CIDR.
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleRelations(c *tc.C) {
 	// Arrange
 	relationUUID1 := s.createTestRelationWithNames(c, "app1", "app2")
@@ -118,8 +108,6 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleRelatio
 	c.Check(obtainedCIDRs2, tc.DeepEquals, cidr)
 }
 
-// TestAddRelationNetworkIngressInvalidRelation tests that adding ingress
-// networks for a non-existent relation fails due to foreign key constraint.
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressInvalidRelation(c *tc.C) {
 	// Arrange
 	nonExistentRelationUUID := internaluuid.MustNewUUID().String()
@@ -132,8 +120,6 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressInvalidRelation
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-// TestAddRelationNetworkIngressMultipleCIDRsInSingleCall tests that
-// multiple CIDRs can be added in a single call.
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleCIDRsInSingleCall(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -153,8 +139,6 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleCIDRsIn
 	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
 }
 
-// TestAddRelationNetworkIngressTransactional tests that if one CIDR insertion
-// fails, the entire transaction is rolled back.
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressTransactional(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -179,15 +163,15 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressTransactional(c
 	c.Check(obtainedCIDRs, tc.DeepEquals, existingCIDR)
 }
 
-// createTestRelation creates a test relation with two applications and returns
-// the relation UUID.
 func (s *relationNetworkStateSuite) createTestRelation(c *tc.C) internaluuid.UUID {
 	return s.createTestRelationWithNames(c, "app1", "app2")
 }
 
-// createTestRelationWithNames creates a test relation with two applications with
-// the specified names and returns the relation UUID.
 func (s *relationNetworkStateSuite) createTestRelationWithNames(c *tc.C, appName1, appName2 string) internaluuid.UUID {
+	return s.createTestRelationWithNamesAndLife(c, appName1, appName2, 0 /* alive */)
+}
+
+func (s *relationNetworkStateSuite) createTestRelationWithNamesAndLife(c *tc.C, appName1, appName2 string, lifeID int) internaluuid.UUID {
 	// Create a charm
 	charmUUID := s.addCharm(c)
 	s.addCharmMetadata(c, charmUUID, false)
@@ -219,7 +203,7 @@ func (s *relationNetworkStateSuite) createTestRelationWithNames(c *tc.C, appName
 
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO relation (uuid, life_id, relation_id, scope_id)
-VALUES (?, 0, ?, ?)`, relUUID.String(), s.relationCount, globalScopeID); err != nil {
+VALUES (?, ?, ?, ?)`, relUUID.String(), lifeID, s.relationCount, globalScopeID); err != nil {
 			return err
 		}
 
@@ -256,8 +240,38 @@ VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), relUUID.String(), ep2); 
 	return relUUID
 }
 
-// TestGetRelationNetworkIngress tests that GetRelationNetworkIngress
-// successfully retrieves ingress network CIDRs for a relation.
+func (s *relationNetworkStateSuite) createTestDyingRelation(c *tc.C) internaluuid.UUID {
+	return s.createTestRelationWithNamesAndLife(c, "app1", "app2", 1 /* dying */)
+}
+
+func (s *relationNetworkStateSuite) createTestDeadRelation(c *tc.C) internaluuid.UUID {
+	return s.createTestRelationWithNamesAndLife(c, "app1", "app2", 2 /* dead */)
+}
+
+func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressDyingRelation(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestDyingRelation(c)
+	cidr := []string{"192.0.2.0/24"}
+
+	// Act
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
+
+	// Assert - Should return RelationNotAlive
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotAlive)
+}
+
+func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressDeadRelation(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestDeadRelation(c)
+	cidr := []string{"192.0.2.0/24"}
+
+	// Act
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
+
+	// Assert - Should return RelationNotAlive
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotAlive)
+}
+
 func (s *relationNetworkStateSuite) TestGetRelationNetworkIngress(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -274,8 +288,6 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngress(c *tc.C) {
 	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
 }
 
-// TestGetRelationNetworkIngressSingleCIDR tests that GetRelationNetworkIngress
-// works with a single CIDR.
 func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSingleCIDR(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -292,8 +304,6 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSingleCIDR(c *t
 	c.Check(obtainedCIDRs, tc.DeepEquals, cidr)
 }
 
-// TestGetRelationNetworkIngressEmpty tests that GetRelationNetworkIngress
-// returns an empty slice when no CIDRs are associated with a relation.
 func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressEmpty(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -306,8 +316,6 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressEmpty(c *tc.C) 
 	c.Check(obtainedCIDRs, tc.HasLen, 0)
 }
 
-// TestGetRelationNetworkIngressInvalidRelation tests that GetRelationNetworkIngress
-// returns an error when the relation does not exist.
 func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressInvalidRelation(c *tc.C) {
 	// Arrange
 	nonExistentRelationUUID := internaluuid.MustNewUUID().String()
@@ -320,8 +328,32 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressInvalidRelation
 	c.Check(obtainedCIDRs, tc.IsNil)
 }
 
-// TestGetRelationNetworkIngressMultipleCIDRs tests that GetRelationNetworkIngress
-// retrieves all CIDRs including IPv4 and IPv6.
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressDyingRelation(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestDyingRelation(c)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkIngress(c.Context(), relationUUID.String())
+
+	// Assert - Should succeed and return empty slice (no CIDRs added)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.HasLen, 0)
+}
+
+// TestGetRelationNetworkIngressDeadRelation tests that GetRelationNetworkIngress
+// successfully retrieves ingress network CIDRs even when the relation is dead.
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressDeadRelation(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestDeadRelation(c)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkIngress(c.Context(), relationUUID.String())
+
+	// Assert - Should succeed and return empty slice (no CIDRs added)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.HasLen, 0)
+}
+
 func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressMultipleCIDRs(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)

@@ -9,6 +9,7 @@ import (
 	"slices"
 	"time"
 
+	corelife "github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -399,4 +400,8 @@ type relationNetworkIngress struct {
 
 type cidr struct {
 	CIDR string `db:"cidr"`
+}
+
+type queryLife struct {
+	Value corelife.Value `db:"value"`
 }
