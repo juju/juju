@@ -4132,3 +4132,41 @@ AND charm_uuid = $charmID.uuid;
 	}
 	return nil
 }
+
+func (s *applicationStateSuite) TestGetDefaultSpaceUUIDDefaultsToAlpha(c *tc.C) {
+	ctx := c.Context()
+	var got string
+	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		got, err = s.state.getDefaultSpaceUUID(ctx, tx)
+		return err
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, network.AlphaSpaceId.String())
+}
+
+func (s *applicationStateSuite) TestGetDefaultSpaceUUIDFromModelConfig(c *tc.C) {
+	ctx := c.Context()
+	spaceName := "my-space"
+	spaceUUID := s.addSpace(c, spaceName)
+
+	// Insert a new space and set it as the model's default space.
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO model_config (key, value) VALUES ('default-space', ?)", spaceName); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var got string
+	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		got, err = s.state.getDefaultSpaceUUID(ctx, tx)
+		return err
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, spaceUUID)
+}

@@ -75,7 +75,7 @@ type applicationDetails struct {
 	Name      string               `db:"name"`
 	CharmUUID corecharm.ID         `db:"charm_uuid"`
 	LifeID    life.Life            `db:"life_id"`
-	SpaceUUID network.SpaceUUID    `db:"space_uuid"`
+	SpaceUUID string               `db:"space_uuid"`
 }
 
 type applicationScale struct {
