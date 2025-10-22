@@ -2519,7 +2519,7 @@ func (suite *maasEnvironSuite) TestDestroy(c *tc.C) {
 	err := env.Destroy(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 
-	controller.Stub.CheckCallNames(c, "ReleaseMachines", "GetFile", "Files", "GetFile", "GetFile")
+	controller.Stub.CheckCallNames(c, "ReleaseMachines", "Files", "GetFile", "GetFile")
 	// Instances have been stopped.
 	controller.Stub.CheckCall(c, 0, "ReleaseMachines", gomaasapi.ReleaseMachinesArgs{
 		SystemIDs: []string{"pete"},
