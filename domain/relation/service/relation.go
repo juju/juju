@@ -297,7 +297,7 @@ func (s *LeadershipService) SetRelationUnitSettings(
 		return errors.Capture(fmt.Errorf("getting relation unit: %w", err))
 	}
 
-	return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, unitSettings)
+	return errors.Capture(s.st.SetRelationUnitSettings(ctx, relationUnitUUID, unitSettings))
 }
 
 // SetRelationApplicationAndUnitSettings records settings for a unit and
@@ -337,12 +337,16 @@ func (s *LeadershipService) SetRelationApplicationAndUnitSettings(
 		return errors.Capture(fmt.Errorf("getting relation unit: %w", err))
 	}
 
-	// Always ensure that we are the leader, don't be tempted to skip the
-	// leader check if applicationSettings is empty, as we need to
-	// ensure that the unit is allowed to set its own settings.
-	return s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
-		return s.st.SetRelationApplicationAndUnitSettings(ctx, relationUnitUUID, applicationSettings, unitSettings)
+	// Unless application settings are nil, we must be the leader.
+	// This includes an empty map, which implies deletion.
+	if applicationSettings == nil {
+		return errors.Capture(s.st.SetRelationUnitSettings(ctx, relationUnitUUID, unitSettings))
+	}
+	err = s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
+		err := s.st.SetRelationApplicationAndUnitSettings(ctx, relationUnitUUID, applicationSettings, unitSettings)
+		return errors.Capture(err)
 	})
+	return errors.Capture(err)
 }
 
 // Service provides the API for working with relations.

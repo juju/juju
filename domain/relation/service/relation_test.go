@@ -1411,7 +1411,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsNil(c *tc.C) {
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsBothNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -1420,6 +1420,25 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 
 	// Act:
 	err := s.leadershipService.SetRelationApplicationAndUnitSettings(c.Context(), unitName, relationUUID, nil, nil)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsAppSettingsNil(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	unitSettings := make(map[string]string)
+
+	s.state.EXPECT().GetRelationUnitUUID(gomock.Any(), relationUUID, unitName).Return(relationUnitUUID, nil)
+	s.state.EXPECT().SetRelationUnitSettings(gomock.Any(), relationUnitUUID, unitSettings).Return(nil)
+
+	// Act:
+	err := s.leadershipService.SetRelationApplicationAndUnitSettings(c.Context(), unitName, relationUUID, nil, unitSettings)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
