@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -375,6 +376,13 @@ func (s *Service) RemoveDeadFilesystem(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	err := uuid.Validate()
+	if err != nil {
+		return errors.Errorf(
+			"validating filesystem uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
 	fsLife, err := s.modelState.GetFilesystemLife(ctx, uuid.String())
 	if err != nil {
 		return errors.Errorf("getting filesystem life for %q: %w", uuid, err)
@@ -474,6 +482,13 @@ func (s *Service) RemoveDeadVolume(
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return errors.Errorf(
+			"validating volume uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
 
 	fsLife, err := s.modelState.GetVolumeLife(ctx, uuid.String())
 	if err != nil {
