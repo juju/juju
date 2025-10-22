@@ -82,7 +82,7 @@ func (s *storageSuite) TestScheduleStorageAttachmentRemovalSuccess(c *tc.C) {
 
 	// We should have a removal job scheduled immediately.
 	row := s.DB().QueryRow(
-		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal WHERE uuid = ?",
 		"removal-uuid",
 	)
 	var (
@@ -166,7 +166,7 @@ func (s *storageSuite) TestVolumeScheduleRemovalSuccess(c *tc.C) {
 
 	// We should have a removal job scheduled immediately.
 	row := s.DB().QueryRow(
-		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal WHERE uuid = ?",
 		"removal-uuid",
 	)
 	var (
@@ -251,7 +251,7 @@ func (s *storageSuite) TestFilesystemScheduleRemovalSuccess(c *tc.C) {
 
 	// We should have a removal job scheduled immediately.
 	row := s.DB().QueryRow(
-		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal WHERE uuid = ?",
 		"removal-uuid",
 	)
 	var (
