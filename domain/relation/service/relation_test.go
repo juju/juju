@@ -575,30 +575,34 @@ func (s *relationServiceSuite) TestGetRelationKeyByUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelationtesting.GenRelationUUID(c).String()
 
-	endpoint1 := relation.Endpoint{
-		ApplicationName: "app-1",
-		Relation: internalcharm.Relation{
-			Name: "fake-endpoint-name-1",
-			Role: internalcharm.RolePeer,
+	endpoints := []relation.Endpoint{
+		{
+			ApplicationName: "app-1",
+			Relation: internalcharm.Relation{
+				Name: "fake-endpoint-name-1",
+				Role: internalcharm.RoleRequirer,
+			},
+		}, {
+			ApplicationName: "app-2",
+			Relation: internalcharm.Relation{
+				Name: "fake-endpoint-name-2",
+				Role: internalcharm.RoleProvider,
+			},
 		},
 	}
 
-	relationDetailsResult := relation.RelationDetailsResult{
-		Endpoints: []relation.Endpoint{endpoint1},
-	}
+	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relationUUID).Return(endpoints, nil)
 
-	s.state.EXPECT().GetRelationDetails(gomock.Any(), relationUUID).Return(relationDetailsResult, nil)
-
-	expectedKey := corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1")
+	expectedKey := corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2")
 
 	// Act:
-	obtainedKey, err := s.service.GetRelationKeyByUUID(c.Context(), relationUUID.String())
+	obtainedKey, err := s.service.GetRelationKeyByUUID(c.Context(), relationUUID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedKey, tc.DeepEquals, expectedKey)
+	c.Check(obtainedKey.String(), tc.DeepEquals, expectedKey.String())
 }
 
 // TestGetRelationEndpointUUIDRelationUUIDNotValid tests the failure scenario

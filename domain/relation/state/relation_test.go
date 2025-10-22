@@ -1295,6 +1295,51 @@ func (s *relationSuite) TestGetRelationsStatusForUnitEmptyResult(c *tc.C) {
 	c.Check(results, tc.HasLen, 0)
 }
 
+func (s *relationSuite) TestGetRelationEndpoints(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	relationID := 7
+
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Dying, relationID)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	expectedEndpoints := []domainrelation.Endpoint{endpoint1, endpoint2}
+
+	// Act: Get relation endpoints.
+	obtainedEndpoints, err := s.state.GetRelationEndpoints(c.Context(), relationUUID.String())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedEndpoints, tc.SameContents, expectedEndpoints)
+}
+
 func (s *relationSuite) TestGetRelationDetails(c *tc.C) {
 	// Arrange: Add two endpoints and a relation on them.
 	relationID := 7

@@ -790,6 +790,31 @@ WHERE     u.uuid = $unitUUIDArg.unit_uuid
 	return relationUnitStatuses, nil
 }
 
+// GetRelationEndpoints returns the relation's endpoints.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+func (st *State) GetRelationEndpoints(
+	ctx context.Context,
+	relationUUID string,
+) ([]domainrelation.Endpoint, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var endpoints []domainrelation.Endpoint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		endpoints, err = st.getRelationEndpoints(ctx, tx, relationUUID)
+		if err != nil {
+			return errors.Errorf("getting relation endpoints: %w", err)
+		}
+		return errors.Capture(err)
+	})
+	return endpoints, errors.Capture(err)
+}
+
 // getRelationEndpoints retrieves the relation.ConsumerApplicationEndpoint of the specified relation.
 func (st *State) getRelationEndpoints(
 	ctx context.Context,
@@ -3159,7 +3184,6 @@ WHERE  r.uuid = $getRelation.uuid
 		return domainrelation.RelationDetailsResult{}, errors.Capture(err)
 	}
 
-	var endpoints []domainrelation.Endpoint
 	err = tx.Query(ctx, stmt, rel).Get(&rel)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return domainrelation.RelationDetailsResult{}, relationerrors.RelationNotFound
@@ -3167,6 +3191,7 @@ WHERE  r.uuid = $getRelation.uuid
 		return domainrelation.RelationDetailsResult{}, errors.Capture(err)
 	}
 
+	var endpoints []domainrelation.Endpoint
 	endpoints, err = st.getRelationEndpoints(ctx, tx, rel.UUID)
 	if err != nil {
 		return domainrelation.RelationDetailsResult{}, errors.Errorf("getting relation endpoints: %w", err)
@@ -3177,14 +3202,15 @@ WHERE  r.uuid = $getRelation.uuid
 		return domainrelation.RelationDetailsResult{}, errors.Errorf("counting in-scope relations: %w", err)
 	}
 
-	return domainrelation.RelationDetailsResult{
+	f := domainrelation.RelationDetailsResult{
 		Life:         rel.Life,
 		UUID:         corerelation.UUID(rel.UUID),
 		ID:           rel.ID,
 		Suspended:    rel.Suspended,
 		Endpoints:    endpoints,
 		InScopeUnits: inScopeCount,
-	}, nil
+	}
+	return f, nil
 }
 
 // countInScopeRelations counts the number of units in the relation that are in
