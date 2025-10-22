@@ -1004,11 +1004,7 @@ func (env *maasEnviron) StopInstances(ctx context.Context, ids ...instance.Id) e
 		return nil
 	}
 
-	err := env.releaseNodes(ctx, ids, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return common.RemoveStateInstances(env.Storage(), ids...)
+	return errors.Trace(env.releaseNodes(ctx, ids, true))
 }
 
 // Instances returns the instances.Instance objects corresponding to the given
