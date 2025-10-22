@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -55,7 +54,6 @@ func OperationBlockedError(msg string) error {
 }
 
 var singletonErrorCodes = map[errors.ConstError]string{
-	jujutxn.ErrExcessiveContention:               params.CodeExcessiveContention, // TODO(dqlite): remove jujutxn.ErrExcessiveContention from api errors
 	errors.ConstError(leadership.ErrClaimDenied): params.CodeLeadershipClaimDenied,
 	errors.ConstError(lease.ErrClaimDenied):      params.CodeLeaseClaimDenied,
 	ErrBadId:                                     params.CodeNotFound,
