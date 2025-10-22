@@ -30,6 +30,40 @@ type StorageProvider interface {
 	Supports(internalstorage.StorageKind) bool
 }
 
+// CheckStorageProviderSupportsStorageKind is responsible for checking whether a
+// storage provider is capable of fulfilling a request to create a given kind of
+// storage.
+//
+// To understand how this would be achieved see
+// [CalculateStorageInstanceComposition].
+func CheckStorageProviderSupportsStorageKind(
+	provider StorageProvider, kind domainstorage.StorageKind,
+) bool {
+	switch {
+	// If the provider supports creating block devices and a block device is
+	// requested.
+	case kind == domainstorage.StorageKindBlock &&
+		provider.Supports(internalstorage.StorageKindBlock):
+		return true
+
+	// If the provider supports creating filesystems directly and a filesystem
+	// is requested.
+	case kind == domainstorage.StorageKindFilesystem &&
+		provider.Supports(internalstorage.StorageKindFilesystem):
+		return true
+
+	// If the provider supports creating block devices and a filesystem is
+	// requested then we can create the filesystem on top of the block device
+	// (volume).
+	case kind == domainstorage.StorageKindFilesystem &&
+		provider.Supports(internalstorage.StorageKindBlock):
+		return true
+
+	default:
+		return false
+	}
+}
+
 // CalculateStorageInstanceComposition is responsible for taking a storage kind
 // that is to be created and coming up with a composition that can be achieved
 // with the current provider.
