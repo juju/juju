@@ -25,7 +25,7 @@ import (
 // instance for the supplied uuid no longer exists.
 // - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the unit
 // no longer exists for the supplied uuid.
-func (*Service) GetStorageAttachmentUUIDForStorageInstanceAndUnit(
+func (s *Service) GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 	ctx context.Context,
 	uuid domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
@@ -44,5 +44,7 @@ func (*Service) GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 		)
 	}
 
-	return "", errors.New("not implemented: coming soon")
+	return s.st.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
+		ctx, uuid, unitUUID,
+	)
 }

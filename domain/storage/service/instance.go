@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/core/trace"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/internal/errors"
 )
 
 // GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
@@ -23,5 +22,5 @@ func (s *Service) GetStorageInstanceUUIDForID(
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return "", errors.New("not implemented: coming soon")
+	return s.st.GetStorageInstanceUUIDByID(ctx, storageID)
 }
