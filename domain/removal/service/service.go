@@ -144,6 +144,12 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.StorageAttachmentJob:
 		err = s.processStorageAttachmentRemovalJob(ctx, job)
 
+	case removal.StorageVolumeJob:
+		err = s.processStorageVolumeRemovalJob(ctx, job)
+
+	case removal.StorageFilesystemJob:
+		err = s.processStorageFilesystemRemovalJob(ctx, job)
+
 	case removal.RemoteApplicationOffererJob:
 		err = s.processRemoteApplicationOffererRemovalJob(ctx, job)
 

@@ -413,6 +413,44 @@ func (c *MockModelDBStateDeleteApplicationCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// DeleteFilesystem mocks base method.
+func (m *MockModelDBState) DeleteFilesystem(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteFilesystem", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteFilesystem indicates an expected call of DeleteFilesystem.
+func (mr *MockModelDBStateMockRecorder) DeleteFilesystem(arg0, arg1 any) *MockModelDBStateDeleteFilesystemCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFilesystem", reflect.TypeOf((*MockModelDBState)(nil).DeleteFilesystem), arg0, arg1)
+	return &MockModelDBStateDeleteFilesystemCall{Call: call}
+}
+
+// MockModelDBStateDeleteFilesystemCall wrap *gomock.Call
+type MockModelDBStateDeleteFilesystemCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateDeleteFilesystemCall) Return(arg0 error) *MockModelDBStateDeleteFilesystemCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateDeleteFilesystemCall) Do(f func(context.Context, string) error) *MockModelDBStateDeleteFilesystemCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateDeleteFilesystemCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteFilesystemCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteJob mocks base method.
 func (m *MockModelDBState) DeleteJob(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -713,6 +751,44 @@ func (c *MockModelDBStateDeleteUnitCall) Do(f func(context.Context, string) erro
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateDeleteUnitCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteVolume mocks base method.
+func (m *MockModelDBState) DeleteVolume(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteVolume", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteVolume indicates an expected call of DeleteVolume.
+func (mr *MockModelDBStateMockRecorder) DeleteVolume(arg0, arg1 any) *MockModelDBStateDeleteVolumeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVolume", reflect.TypeOf((*MockModelDBState)(nil).DeleteVolume), arg0, arg1)
+	return &MockModelDBStateDeleteVolumeCall{Call: call}
+}
+
+// MockModelDBStateDeleteVolumeCall wrap *gomock.Call
+type MockModelDBStateDeleteVolumeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateDeleteVolumeCall) Return(arg0 error) *MockModelDBStateDeleteVolumeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateDeleteVolumeCall) Do(f func(context.Context, string) error) *MockModelDBStateDeleteVolumeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateDeleteVolumeCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteVolumeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
