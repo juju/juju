@@ -30,19 +30,21 @@ VALUES ($relationNetworkIngress.*)
 		return errors.Errorf("preparing insert relation network ingress query: %w", err)
 	}
 
+	var ingress []relationNetworkIngress
+	for _, cidr := range cidrs {
+		ingress = append(ingress, relationNetworkIngress{
+			RelationUUID: relationUUID,
+			CIDR:         cidr,
+		})
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkRelationExists(ctx, tx, relationUUID); err != nil {
 			return errors.Capture(err)
 		}
 
-		for _, cidr := range cidrs {
-			ingress := relationNetworkIngress{
-				RelationUUID: relationUUID,
-				CIDR:         cidr,
-			}
-			if err := tx.Query(ctx, insertStmt, ingress).Run(); err != nil {
-				return errors.Errorf("inserting relation network ingress for relation %q with CIDR %q: %w", relationUUID, cidr, err)
-			}
+		if err := tx.Query(ctx, insertStmt, ingress).Run(); err != nil {
+			return errors.Errorf("inserting relation network ingress for relation %q with CIDR %v: %w", relationUUID, cidrs, err)
 		}
 		return nil
 	})
