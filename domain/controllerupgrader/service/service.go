@@ -312,7 +312,7 @@ func (s *Service) UpgradeControllerToVersion(
 	return nil
 }
 
-// UpgradeControllerToVersionAndStream upgrades the current clusters set of
+// UpgradeControllerToVersionWithStream upgrades the current clusters set of
 // controllers to the specified version. Also updated is the agent stream used
 // for getting the controller binaries. All controllers participating in the
 // cluster will eventually be upgraded to the new version after this call
