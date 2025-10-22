@@ -17,9 +17,9 @@ import (
 	storage "github.com/juju/juju/core/storage"
 	unit "github.com/juju/juju/core/unit"
 	application0 "github.com/juju/juju/domain/application"
+	charm "github.com/juju/juju/domain/application/charm"
 	internal "github.com/juju/juju/domain/application/internal"
 	storage0 "github.com/juju/juju/domain/storage"
-	charm "github.com/juju/juju/internal/charm"
 	storage1 "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )

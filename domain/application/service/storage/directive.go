@@ -273,29 +273,15 @@ func validateApplicationStorageDirectiveOverride(
 	}
 
 	if override.PoolUUID != nil {
+		charmStorageType := charm.StorageType(charmStorageDef.Type)
 		supports, err := poolProvider.CheckPoolSupportsCharmStorage(
-			ctx, *override.PoolUUID, charmStorageDef.Type,
+			ctx, *override.PoolUUID, charmStorageType,
 		)
 		if err != nil {
 			return errors.Errorf(
 				"checking storage directive pool %q supports charm storage %q",
 				*override.PoolUUID, charmStorageDef.Type,
 			)
-		}
-
-		if !supports &&
-			charmStorageDef.Type == internalcharm.StorageFilesystem {
-			// TODO(storage): unify these checks with
-			// CalculateStorageInstaceComposition.
-			supports, err = poolProvider.CheckPoolSupportsCharmStorage(
-				ctx, *override.PoolUUID, internalcharm.StorageBlock,
-			)
-			if err != nil {
-				return errors.Errorf(
-					"checking storage directive pool %q supports charm storage %q",
-					*override.PoolUUID, internalcharm.StorageBlock,
-				)
-			}
 		}
 
 		if !supports {

@@ -10,9 +10,9 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/domain/application/charm"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	internalcharm "github.com/juju/juju/internal/charm"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -60,7 +60,7 @@ func (s *storagePoolProviderSuite) TestPoolSupportsCharmStorageNotFound(c *tc.C)
 
 	validator := NewStoragePoolProvider(s, s.state)
 	_, err := validator.CheckPoolSupportsCharmStorage(
-		c.Context(), poolUUID, internalcharm.StorageFilesystem,
+		c.Context(), poolUUID, charm.StorageFilesystem,
 	)
 	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
 }
@@ -84,7 +84,7 @@ func (s *storagePoolProviderSuite) TestPoolSupportsCharmStorageFilesystem(c *tc.
 
 	validator := NewStoragePoolProvider(s, s.state)
 	supports, err := validator.CheckPoolSupportsCharmStorage(
-		c.Context(), poolUUID, internalcharm.StorageFilesystem,
+		c.Context(), poolUUID, charm.StorageFilesystem,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(supports, tc.IsTrue)
@@ -109,7 +109,7 @@ func (s *storagePoolProviderSuite) TestPoolSupportsCharmStorageBlockdevice(c *tc
 
 	validator := NewStoragePoolProvider(s, s.state)
 	supports, err := validator.CheckPoolSupportsCharmStorage(
-		c.Context(), poolUUID, internalcharm.StorageBlock,
+		c.Context(), poolUUID, charm.StorageBlock,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(supports, tc.IsTrue)
