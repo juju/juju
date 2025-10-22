@@ -52,6 +52,7 @@ type Services struct {
 	RemovalService            RemovalService
 	ResourceService           ResourceService
 	StorageService            StorageService
+	StoragePoolService        StoragePoolService
 	CrossModelRelationService CrossModelRelationService
 }
 
@@ -183,6 +184,18 @@ type ApplicationService interface {
 	// ChangeApplicationScale alters the existing scale by the provided change
 	// amount, returning the new amount. This is used on CAAS models.
 	ChangeApplicationScale(ctx context.Context, name string, scaleChange int) (int, error)
+
+	// GetApplicationStorageDirectives returns the storage directives that are
+	// set for an application. If the application does not have any storage
+	// directives set then an empty result is returned.
+	//
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
+	// when the application no longer exists.
+	GetApplicationStorageDirectives(
+		ctx context.Context,
+		uuid coreapplication.UUID,
+	) ([]application.StorageDirective, error)
 
 	// GetApplicationLife looks up the life of the specified application.
 	GetApplicationLife(context.Context, coreapplication.UUID) (life.Value, error)
@@ -405,6 +418,13 @@ type ResourceService interface {
 type StorageService interface {
 	// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 	GetStoragePoolUUID(context.Context, string) (domainstorage.StoragePoolUUID, error)
+}
+
+type StoragePoolService interface {
+	// GetStoragePoolByUUID returns the storage pool with the UUID.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	GetStoragePoolByUUID(ctx context.Context, poolUUID domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error)
 }
 
 // BlockChecker defines the block-checking functionality required by

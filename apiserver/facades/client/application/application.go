@@ -103,6 +103,7 @@ type APIBase struct {
 	removalService            RemovalService
 	resourceService           ResourceService
 	storageService            StorageService
+	storagePoolService        StoragePoolService
 	externalControllerService ExternalControllerService
 	crossModelRelationService CrossModelRelationService
 
@@ -180,6 +181,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			RemovalService:            domainServices.Removal(),
 			ResourceService:           domainServices.Resource(),
 			StorageService:            storageService,
+			StoragePoolService:        storageService.StoragePoolService,
 			CrossModelRelationService: domainServices.CrossModelRelation(),
 		},
 		ctx.Auth(),
@@ -256,6 +258,7 @@ func NewAPIBase(
 		removalService:            services.RemovalService,
 		resourceService:           services.ResourceService,
 		storageService:            services.StorageService,
+		storagePoolService:        services.StoragePoolService,
 		crossModelRelationService: services.CrossModelRelationService,
 
 		logger: logger,
@@ -2236,9 +2239,46 @@ func (api *APIBase) DeployFromRepository(ctx context.Context, args params.Deploy
 	}, nil
 }
 
-func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]params.StorageDirectives, error) {
-	// TODO(storage): implement and add test.
-	return nil, errors.NotImplementedf("GetApplicationStorage")
+func (api *APIBase) getOneApplicationStorage(ctx context.Context, entity params.Entity) (map[string]params.StorageDirectives, error) {
+	appTag, err := names.ParseTag(entity.Tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	appUUID, err := api.applicationService.GetApplicationUUIDByName(ctx, appTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	storageDirectives, err := api.applicationService.GetApplicationStorageDirectives(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	sc := make(map[string]params.StorageDirectives)
+	for _, directive := range storageDirectives {
+		var poolName string
+		var count *uint64
+		var sizeMib *uint64
+
+		pool, err := api.storagePoolService.GetStoragePoolByUUID(ctx, directive.PoolUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		poolName = pool.Name
+		count64 := uint64(directive.Count)
+		count = &count64
+		sizeMib = &directive.Size
+
+		sc[directive.Name.String()] = params.StorageDirectives{
+			Pool:    poolName,
+			Count:   count,
+			SizeMiB: sizeMib,
+		}
+	}
+
+	return sc, nil
 }
 
 // GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
@@ -2250,7 +2290,7 @@ func (api *APIBase) GetApplicationStorage(ctx context.Context, args params.Entit
 		return resp, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		sc, err := api.getOneApplicationStorage(entity)
+		sc, err := api.getOneApplicationStorage(ctx, entity)
 		if err != nil {
 			resp.Results[i].Error = apiservererrors.ServerError(err)
 			continue
