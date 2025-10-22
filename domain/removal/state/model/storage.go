@@ -323,6 +323,49 @@ func (st *State) VolumeScheduleRemoval(
 	}))
 }
 
+// DeleteVolume deletes the volume specified by the input UUID. It also deletes
+// the storage instance volume relation if it still exists.
+func (st *State) DeleteVolume(ctx context.Context, rUUID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	volUUID := entityUUID{UUID: rUUID}
+
+	deleteStorageInstanceVolumeStmt, err := st.Prepare(`
+DELETE FROM storage_instance_volume WHERE storage_volume_uuid = $entityUUID.uuid
+`, volUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing in storage instance volume deletion: %w", err,
+		)
+	}
+
+	deleteVolumeStmt, err := st.Prepare(`
+DELETE FROM storage_volume WHERE uuid = $entityUUID.uuid
+`, volUUID)
+	if err != nil {
+		return errors.Errorf("preparing volumee deletion: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, deleteStorageInstanceVolumeStmt, volUUID).Run()
+		if err != nil {
+			return errors.Errorf(
+				"deleting storage instance volume: %w", err,
+			)
+		}
+		err = tx.Query(ctx, deleteVolumeStmt, volUUID).Run()
+		if err != nil {
+			return errors.Errorf("deleting volume: %w", err)
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
+}
+
 // GetFilesystemLife returns the life of the filesystem with the input UUID.
 //
 // The following errors may be returned:
@@ -397,6 +440,49 @@ func (st *State) FilesystemScheduleRemoval(
 		}
 		return nil
 	}))
+}
+
+// DeleteFilesystem deletes the filesystem specified by the input UUID. It also
+// deletes the storage instance filesystem relation if it still exists.
+func (st *State) DeleteFilesystem(ctx context.Context, rUUID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	fsUUID := entityUUID{UUID: rUUID}
+
+	deleteStorageInstanceFilesystemStmt, err := st.Prepare(`
+DELETE FROM storage_instance_filesystem WHERE storage_filesystem_uuid = $entityUUID.uuid
+`, fsUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing in storage instance filesystem deletion: %w", err,
+		)
+	}
+
+	deleteFilesystemStmt, err := st.Prepare(`
+DELETE FROM storage_filesystem WHERE uuid = $entityUUID.uuid
+`, fsUUID)
+	if err != nil {
+		return errors.Errorf("preparing filesystem deletion: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, deleteStorageInstanceFilesystemStmt, fsUUID).Run()
+		if err != nil {
+			return errors.Errorf(
+				"deleting storage instance filesystem: %w", err,
+			)
+		}
+		err = tx.Query(ctx, deleteFilesystemStmt, fsUUID).Run()
+		if err != nil {
+			return errors.Errorf("deleting filesystem: %w", err)
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
 }
 
 // ensureStorageInstanceNotAliveCascade ensures that the storage instance
