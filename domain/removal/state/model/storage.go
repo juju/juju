@@ -342,6 +342,15 @@ DELETE FROM storage_instance_volume WHERE storage_volume_uuid = $entityUUID.uuid
 		)
 	}
 
+	deleteVolumeStatusStmt, err := st.Prepare(`
+DELETE FROM storage_volume_status WHERE volume_uuid = $entityUUID.uuid
+`, volUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing in volume status deletion: %w", err,
+		)
+	}
+
 	deleteVolumeStmt, err := st.Prepare(`
 DELETE FROM storage_volume WHERE uuid = $entityUUID.uuid
 `, volUUID)
@@ -355,6 +364,10 @@ DELETE FROM storage_volume WHERE uuid = $entityUUID.uuid
 			return errors.Errorf(
 				"deleting storage instance volume: %w", err,
 			)
+		}
+		err = tx.Query(ctx, deleteVolumeStatusStmt, volUUID).Run()
+		if err != nil {
+			return errors.Errorf("deleting volume status: %w", err)
 		}
 		err = tx.Query(ctx, deleteVolumeStmt, volUUID).Run()
 		if err != nil {
@@ -461,6 +474,15 @@ DELETE FROM storage_instance_filesystem WHERE storage_filesystem_uuid = $entityU
 		)
 	}
 
+	deleteFilesystemStatusStmt, err := st.Prepare(`
+DELETE FROM storage_filesystem_status WHERE filesystem_uuid = $entityUUID.uuid
+`, fsUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing in filesystem status deletion: %w", err,
+		)
+	}
+
 	deleteFilesystemStmt, err := st.Prepare(`
 DELETE FROM storage_filesystem WHERE uuid = $entityUUID.uuid
 `, fsUUID)
@@ -474,6 +496,10 @@ DELETE FROM storage_filesystem WHERE uuid = $entityUUID.uuid
 			return errors.Errorf(
 				"deleting storage instance filesystem: %w", err,
 			)
+		}
+		err = tx.Query(ctx, deleteFilesystemStatusStmt, fsUUID).Run()
+		if err != nil {
+			return errors.Errorf("deleting filesystem status: %w", err)
 		}
 		err = tx.Query(ctx, deleteFilesystemStmt, fsUUID).Run()
 		if err != nil {
