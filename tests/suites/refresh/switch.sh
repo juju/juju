@@ -16,7 +16,7 @@ run_refresh_switch_local_to_ch_channel() {
 	wait_for "refresher" "$(idle_condition "refresher")"
 
 	OUT=$(juju refresh refresher --switch ch:juju-qa-refresher --channel edge 2>&1 || true)
-	if echo "${OUT}" | grep -E -vq "Added charm-hub charm"; then
+	if echo "${OUT}" | grep -v "no change" | grep -E -vq "Added charm-hub charm"; then
 		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
 		exit 5
