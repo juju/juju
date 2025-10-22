@@ -982,6 +982,45 @@ func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetApplicationStorageDirectives mocks base method.
+func (m *MockApplicationService) GetApplicationStorageDirectives(arg0 context.Context, arg1 application.UUID) ([]application0.StorageDirective, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationStorageDirectives", arg0, arg1)
+	ret0, _ := ret[0].([]application0.StorageDirective)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationStorageDirectives indicates an expected call of GetApplicationStorageDirectives.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationStorageDirectives(arg0, arg1 any) *MockApplicationServiceGetApplicationStorageDirectivesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStorageDirectives", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationStorageDirectives), arg0, arg1)
+	return &MockApplicationServiceGetApplicationStorageDirectivesCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationStorageDirectivesCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationStorageDirectivesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationStorageDirectivesCall) Return(arg0 []application0.StorageDirective, arg1 error) *MockApplicationServiceGetApplicationStorageDirectivesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationStorageDirectivesCall) Do(f func(context.Context, application.UUID) ([]application0.StorageDirective, error)) *MockApplicationServiceGetApplicationStorageDirectivesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationStorageDirectivesCall) DoAndReturn(f func(context.Context, application.UUID) ([]application0.StorageDirective, error)) *MockApplicationServiceGetApplicationStorageDirectivesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationUUIDByName mocks base method.
 func (m *MockApplicationService) GetApplicationUUIDByName(arg0 context.Context, arg1 string) (application.UUID, error) {
 	m.ctrl.T.Helper()

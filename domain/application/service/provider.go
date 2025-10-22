@@ -251,6 +251,20 @@ func (s *ProviderService) SetApplicationConstraints(
 	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
 }
 
+// GetApplicationStorageDirectives returns the storage directives that are
+// set for an application. If the application does not have any storage
+// directives set then an empty result is returned.
+//
+// The following error types can be expected:
+// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
+// when the application no longer exists.
+func (s *ProviderService) GetApplicationStorageDirectives(
+	ctx context.Context,
+	uuid coreapplication.UUID,
+) ([]application.StorageDirective, error) {
+	return s.storageService.GetApplicationStorageDirectives(ctx, uuid)
+}
+
 // AddIAASUnits adds the specified units to the IAAS application, returning an
 // error satisfying [applicationerrors.ApplicationNotFound] if the
 // application doesn't exist. If no units are provided, it will return nil.
