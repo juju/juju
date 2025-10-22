@@ -269,6 +269,21 @@ func (s *storageSuite) TestFilesystemScheduleRemovalSuccess(c *tc.C) {
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
+func (s *storageSuite) TestDeleteFilesystem(c *tc.C) {
+	fsUUID := s.addFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteFilesystem(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Filesystem is gone.
+	var dummy string
+	row := s.DB().QueryRow(
+		"SELECT uuid FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
 func (s *storageSuite) TestDeleteFilesystemWithInstance(c *tc.C) {
 	siUUID, _ := s.addAppUnitStorage(c)
 	fsUUID := s.addFilesystem(c)
@@ -356,6 +371,11 @@ func (s *storageSuite) addVolume(c *tc.C) string {
 		volUUID, "some-vol", 0, 0,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, ?)",
+		volUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return volUUID
 }
@@ -377,6 +397,11 @@ func (s *storageSuite) addFilesystem(c *tc.C) string {
 	_, err := s.DB().ExecContext(ctx,
 		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
 		fsUUID, "some-fs", 0, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, ?)",
+		fsUUID, 0,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
