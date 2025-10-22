@@ -105,7 +105,7 @@ func (c CascadedRemoteApplicationOffererLives) IsEmpty() bool {
 }
 
 // StorageAttachmentDetachInfo contains the information required to establish
-// if a storage attachment in the model can be detatched.
+// if a storage attachment in the model can be detached.
 type StorageAttachmentDetachInfo struct {
 	// CharmStorageName is the unique name given by the charm for for the
 	// storage.
