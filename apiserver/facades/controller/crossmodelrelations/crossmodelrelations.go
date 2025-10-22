@@ -34,6 +34,7 @@ import (
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	domainlife "github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
@@ -507,21 +508,53 @@ func (api *CrossModelRelationsAPIv3) watchOneRelationChanges(
 	if err != nil {
 		return nil, empty, internalerrors.Errorf("getting offering relation tokens: %w", err)
 	}
-	w, err := api.relationService.WatchRelationUnits(ctx, corerelation.UUID(relationToken), appToken)
+	w, err := api.relationService.WatchRelationUnits(ctx, relationUUID, appToken)
 	if err != nil {
 		return nil, empty, internalerrors.Errorf("watching relation units: %w", err)
 	}
 
-	// TODO: 20-Oct-25
-	// Implement retrieval and return of params.RemoteRelationChangeEvent data
+	change, err := api.getRemoteRelationChangeEvent(ctx, relationUUID, appToken)
+	if err != nil {
+		return nil, empty, internalerrors.Errorf("getting initial change: %w", err)
+	}
 
 	wrapped, err := wrappedRelationChangesWatcher(w, appToken, relationUUID, api.relationService)
 	if err != nil {
 		return nil, empty, internalerrors.Errorf("watching relation changes: %w", err)
 	}
 
-	return wrapped, params.RemoteRelationChangeEvent{
-		RelationToken: arg.Token,
+	return wrapped, change, nil
+}
+
+func (api *CrossModelRelationsAPIv3) getRemoteRelationChangeEvent(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationUUID coreapplication.UUID,
+) (params.RemoteRelationChangeEvent, error) {
+	change, err := api.relationService.GetFullRelationUnitChange(ctx, relationUUID, applicationUUID)
+	if err != nil {
+		return params.RemoteRelationChangeEvent{}, err
+	}
+
+	appSetings := transform.Map(change.ApplicationSettings, func(k string, v string) (string, interface{}) { return k, v })
+
+	unitSettings := transform.Slice(change.UnitsSettings, func(in relation.UnitSettings) params.RemoteRelationUnitChange {
+		return params.RemoteRelationUnitChange{
+			UnitId:   in.UnitID,
+			Settings: transform.Map(in.Settings, func(k string, v string) (string, interface{}) { return k, v }),
+		}
+	})
+	
+	return params.RemoteRelationChangeEvent{
+		RelationToken:           relationUUID.String(),
+		ApplicationOrOfferToken: change.ApplicationOrOfferToken,
+		Life:                    change.Life,
+		Suspended:               ptr(change.Suspended),
+		SuspendedReason:         change.SuspendedReason,
+		ApplicationSettings:     appSetings,
+		ChangedUnits:            unitSettings,
+		InScopeUnits:            change.InScopeUnits,
+		Macaroons:               change.Macaroons,
 	}, nil
 }
 
@@ -768,4 +801,8 @@ func constructRelationTag(key corerelation.Key) (names.RelationTag, error) {
 		return names.RelationTag{}, errors.NotValidf("relation key %q", key)
 	}
 	return names.NewRelationTag(relationKey), nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

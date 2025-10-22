@@ -100,6 +100,13 @@ type RelationService interface {
 		coreapplication.UUID,
 	) (relation.ConsumerRelationUnitsChange, error)
 
+	// GetRelationUnits returns the current state of the relation units.
+	GetFullRelationUnitChange(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationUUID coreapplication.UUID,
+	) (relation.FullRelationUnitChange, error)
+
 	// GetRelationDetails returns relation details for the given relationUUID.
 	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (domainrelation.RelationDetails, error)
 

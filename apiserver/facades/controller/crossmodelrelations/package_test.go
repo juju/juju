@@ -17,7 +17,3 @@ func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
 	c.Assert(err, tc.ErrorIsNil)
 	return mac
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}

@@ -1449,6 +1449,17 @@ func (s *facadeSuite) TestWatchRelationChanges(c *tc.C) {
 	s.relationService.EXPECT().GetConsumerRelationUnitsChange(gomock.Any(), relUUID, appUUID).
 		Return(domainrelation.ConsumerRelationUnitsChange{AppSettingsVersion: map[string]int64{"one": 88}}, nil)
 
+	// Real change data returned from the facade method WatchRelationChanges
+	expected := domainrelation.FullRelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relUUID,
+			Life:         life.Alive,
+		},
+		Suspended:       true,
+		SuspendedReason: "testing",
+	}
+	s.relationService.EXPECT().GetFullRelationUnitChange(gomock.Any(), relUUID, appUUID).Return(expected, nil)
+
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, w worker.Worker) (string, error) {
 			_, ok := w.(RelationChangesWatcher)
@@ -1471,8 +1482,12 @@ func (s *facadeSuite) TestWatchRelationChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained.Results, tc.HasLen, 1)
 	c.Check(obtained.Results[0].RemoteRelationWatcherId, tc.Equals, "42")
-	// TODO: implement when data is filled in.
-	//c.Check(obtained.Results[0].Changes, tc.DeepEquals, )
+	c.Check(obtained.Results[0].Changes, tc.DeepEquals, params.RemoteRelationChangeEvent{
+		RelationToken:   relUUID.String(),
+		Life:            life.Alive,
+		Suspended:       ptr(true),
+		SuspendedReason: "testing",
+	})
 }
 
 // TestWatchRelationChangesAuthError successfully gets data needed to
