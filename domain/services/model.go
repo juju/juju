@@ -56,7 +56,7 @@ import (
 	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	statemodel "github.com/juju/juju/domain/model/state/model"
 	modelagentservice "github.com/juju/juju/domain/modelagent/service"
-	modelagentstate "github.com/juju/juju/domain/modelagent/state"
+	modelagentmodelstate "github.com/juju/juju/domain/modelagent/state/model"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
@@ -252,7 +252,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		storageSvc,
 		domain.NewLeaseService(s.leaseManager),
 		s.modelWatcherFactory("application"),
-		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		modelagentmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.CAASProvider](s.providerFactory, s.modelUUID.String()),
 		charmstore.NewCharmStore(s.modelObjectStoreGetter, logger.Child("charmstore")),
@@ -396,7 +396,7 @@ func (s *ModelServices) ModelSecretBackend() *secretbackendservice.ModelSecretBa
 func (s *ModelServices) Agent() *modelagentservice.WatchableService {
 	return modelagentservice.NewWatchableService(
 		modelagentservice.DefaultAgentBinaryFinder(),
-		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		modelagentmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory("modelagent"),
 	)
 }

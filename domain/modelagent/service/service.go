@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/juju/juju/core/agentbinary"
 	corebase "github.com/juju/juju/core/base"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -38,7 +38,7 @@ type AgentBinaryFinder interface {
 // [AgentBinaryFinder] interface.
 type agentBinaryFinderFunc func(semversion.Number) (bool, error)
 
-type State interface {
+type ModelState interface {
 	// GetMachineCountNotUsingBase returns the number of machines that are not
 	// using one of the supplied bases. If no machines exist in the model or if
 	// no machines exist that are using a base not in the set provided, zero is
@@ -195,6 +195,14 @@ type State interface {
 	SetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID, agentbinary.Version) error
 }
 
+// ControllerState defines the interface for interacting with the
+// underlying model that hosts the current controller(s).
+type ControllerState interface {
+	// GetControllerAgentVersions has the responsibility of
+	// getting the agent versions of all the controllers.
+	GetControllerAgentVersions(context.Context) ([]semversion.Number, error)
+}
+
 // WatcherFactory provides a factory for constructing new watchers.
 type WatcherFactory interface {
 	// NewNotifyWatcher returns a new watcher that filters changes from the
@@ -212,7 +220,8 @@ type WatcherFactory interface {
 // entities.
 type Service struct {
 	agentBinaryFinder AgentBinaryFinder
-	st                State
+	modelSt           ModelState
+	controllerSt      ControllerState
 }
 
 // WatchableService extends Service to provide further interactions with state
@@ -227,22 +236,24 @@ type WatchableService struct {
 // NewService returns a new [Service].
 func NewService(
 	agentBinaryFinder AgentBinaryFinder,
-	st State,
+	modelSt ModelState,
+	controllerSt ControllerState,
 ) *Service {
 	return &Service{
 		agentBinaryFinder: agentBinaryFinder,
-		st:                st,
+		modelSt:           modelSt,
+		controllerSt:      controllerSt,
 	}
 }
 
 // NewWatchableService returns a new [WatchableService].
 func NewWatchableService(
-	agentBinaryFinder AgentBinaryFinder, st State, watcherFactory WatcherFactory,
+	agentBinaryFinder AgentBinaryFinder, st ModelState, watcherFactory WatcherFactory,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
 			agentBinaryFinder: agentBinaryFinder,
-			st:                st,
+			modelSt:           st,
 		},
 		watcherFactory: watcherFactory,
 	}
@@ -259,7 +270,7 @@ func DefaultAgentBinaryFinder() AgentBinaryFinder {
 	})
 }
 
-// GetMachinesNotAtTargetVersion reports all of the machines in the model that
+// GetMachinesNotAtTargetAgentVersion reports all of the machines in the model that
 // are currently not at the desired target version. This also returns machines
 // that have no reported agent version set. If all units are up to the
 // target version or no uints exist in the model a zero length slice is
@@ -270,7 +281,7 @@ func (s *Service) GetMachinesNotAtTargetAgentVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetMachinesNotAtTargetAgentVersion(ctx)
+	return s.modelSt.GetMachinesNotAtTargetAgentVersion(ctx)
 }
 
 // GetMachineReportedAgentVersion returns the agent binary version that was last
@@ -287,7 +298,7 @@ func (s *Service) GetMachineReportedAgentVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	uuid, err := s.st.GetMachineUUIDByName(ctx, machineName)
+	uuid, err := s.modelSt.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return agentbinary.Version{}, errors.Errorf(
 			"machine %q does not exist", machineName,
@@ -299,7 +310,7 @@ func (s *Service) GetMachineReportedAgentVersion(
 		)
 	}
 
-	ver, err := s.st.GetMachineRunningAgentBinaryVersion(ctx, uuid)
+	ver, err := s.modelSt.GetMachineRunningAgentBinaryVersion(ctx, uuid)
 	if err != nil {
 		return agentbinary.Version{}, errors.Capture(err)
 	}
@@ -323,7 +334,7 @@ func (s *Service) GetMachineAgentBinaryMetadata(ctx context.Context, machineName
 		return agentbinary.Metadata{}, errors.Errorf("getting machine agent binary metadata for machine: %w", err)
 	}
 
-	return s.st.GetMachineAgentBinaryMetadata(ctx, machineName.String())
+	return s.modelSt.GetMachineAgentBinaryMetadata(ctx, machineName.String())
 }
 
 // GetMachinesAgentBinaryMetadata returns the agent binary metadata that is
@@ -346,7 +357,7 @@ func (s *Service) GetMachinesAgentBinaryMetadata(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetMachinesAgentBinaryMetadata(ctx)
+	return s.modelSt.GetMachinesAgentBinaryMetadata(ctx)
 }
 
 // GetMachineTargetAgentVersion reports the target agent version that should be
@@ -361,7 +372,7 @@ func (s *Service) GetMachineTargetAgentVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	uuid, err := s.st.GetMachineUUIDByName(ctx, machineName)
+	uuid, err := s.modelSt.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return agentbinary.Version{}, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
@@ -371,7 +382,7 @@ func (s *Service) GetMachineTargetAgentVersion(
 		)
 	}
 
-	return s.st.GetMachineTargetAgentVersion(ctx, uuid)
+	return s.modelSt.GetMachineTargetAgentVersion(ctx, uuid)
 }
 
 // GetUnitsAgentBinaryMetadata returns the agent binary metadata that is running
@@ -392,7 +403,7 @@ func (s *Service) GetUnitsAgentBinaryMetadata(
 ) (map[coreunit.Name]agentbinary.Metadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	return s.st.GetUnitsAgentBinaryMetadata(ctx)
+	return s.modelSt.GetUnitsAgentBinaryMetadata(ctx)
 }
 
 // GetUnitsNotAtTargetAgentVersion reports all of the units in the model that
@@ -406,7 +417,7 @@ func (s *Service) GetUnitsNotAtTargetAgentVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetUnitsNotAtTargetAgentVersion(ctx)
+	return s.modelSt.GetUnitsNotAtTargetAgentVersion(ctx)
 }
 
 // GetUnitReportedAgentVersion returns the agent binary version that was last
@@ -422,7 +433,7 @@ func (s *Service) GetUnitReportedAgentVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	uuid, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	uuid, err := s.modelSt.GetUnitUUIDByName(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return agentbinary.Version{}, errors.Errorf(
 			"unit %q does not exist", unitName,
@@ -434,7 +445,7 @@ func (s *Service) GetUnitReportedAgentVersion(
 		)
 	}
 
-	ver, err := s.st.GetUnitRunningAgentBinaryVersion(ctx, uuid)
+	ver, err := s.modelSt.GetUnitRunningAgentBinaryVersion(ctx, uuid)
 	if err != nil {
 		return agentbinary.Version{}, errors.Capture(err)
 	}
@@ -455,7 +466,7 @@ func (s *Service) GetUnitTargetAgentVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	uuid, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	uuid, err := s.modelSt.GetUnitUUIDByName(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return agentbinary.Version{}, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
@@ -465,7 +476,7 @@ func (s *Service) GetUnitTargetAgentVersion(
 		)
 	}
 
-	return s.st.GetUnitTargetAgentVersion(ctx, uuid)
+	return s.modelSt.GetUnitTargetAgentVersion(ctx, uuid)
 }
 
 // GetModelTargetAgentVersion returns the agent version for the specified model.
@@ -476,7 +487,7 @@ func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (semversion.Nu
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetModelTargetAgentVersion(ctx)
+	return s.modelSt.GetModelTargetAgentVersion(ctx)
 }
 
 // HasBinariesForVersion checks if there exists agent binaries available for the
@@ -516,7 +527,7 @@ func (s *Service) SetMachineReportedAgentVersion(
 		return errors.Errorf("reported agent version %v is not valid: %w", reportedVersion, err)
 	}
 
-	machineUUID, err := s.st.GetMachineUUIDByName(ctx, machineName)
+	machineUUID, err := s.modelSt.GetMachineUUIDByName(ctx, machineName)
 	if err != nil {
 		return errors.Errorf(
 			"getting machine UUID for machine %q: %w",
@@ -525,7 +536,7 @@ func (s *Service) SetMachineReportedAgentVersion(
 		)
 	}
 
-	if err := s.st.SetMachineRunningAgentBinaryVersion(ctx, machineUUID, reportedVersion); err != nil {
+	if err := s.modelSt.SetMachineRunningAgentBinaryVersion(ctx, machineUUID, reportedVersion); err != nil {
 		return errors.Errorf(
 			"setting machine %q reported agent version (%s) in state: %w",
 			machineUUID,
@@ -554,7 +565,7 @@ func (s *Service) SetModelAgentStream(
 		).Add(coreerrors.NotValid)
 	}
 
-	if err := s.st.SetModelAgentStream(ctx, domainAgentStream); err != nil {
+	if err := s.modelSt.SetModelAgentStream(ctx, domainAgentStream); err != nil {
 		return errors.Errorf(
 			"setting model agent stream %q to value %d in state: %w",
 			agentStream, domainAgentStream, err,
@@ -591,7 +602,7 @@ func (s *Service) SetUnitReportedAgentVersion(
 		return errors.Errorf("reported agent version %v is not valid: %w", reportedVersion, err)
 	}
 
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	unitUUID, err := s.modelSt.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return errors.Errorf(
 			"getting unit UUID for unit %q: %w",
@@ -600,7 +611,7 @@ func (s *Service) SetUnitReportedAgentVersion(
 		)
 	}
 
-	if err := s.st.SetUnitRunningAgentBinaryVersion(ctx, unitUUID, reportedVersion); err != nil {
+	if err := s.modelSt.SetUnitRunningAgentBinaryVersion(ctx, unitUUID, reportedVersion); err != nil {
 		return errors.Errorf(
 			"setting unit %q reported agent version (%s) in state: %w",
 			unitUUID,
@@ -631,8 +642,11 @@ func (s *Service) UpgradeModelTargetAgentVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	recommendedVersion := jujuversion.Current
-	err := s.UpgradeModelTargetAgentVersionTo(ctx, recommendedVersion)
+	recommendedVersion, err := s.getRecommendedVersion(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+	err = s.UpgradeModelTargetAgentVersionTo(ctx, recommendedVersion)
 
 	// NOTE (tlm): Because this func uses
 	// [Service.UpgradeModelTargetAgentVersionTo] to compose its
@@ -690,8 +704,11 @@ func (s *Service) UpgradeModelTargetAgentVersionStream(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	recommendedVersion := jujuversion.Current
-	err := s.UpgradeModelTargetAgentVersionStreamTo(
+	recommendedVersion, err := s.getRecommendedVersion(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+	err = s.UpgradeModelTargetAgentVersionStreamTo(
 		ctx, recommendedVersion, agentStream,
 	)
 
@@ -758,7 +775,7 @@ func (s *Service) UpgradeModelTargetAgentVersionTo(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	currentTargetVersion, err := s.st.GetModelTargetAgentVersion(ctx)
+	currentTargetVersion, err := s.modelSt.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"getting current model target agent version: %w", err,
@@ -777,7 +794,7 @@ func (s *Service) UpgradeModelTargetAgentVersionTo(
 		return nil
 	}
 
-	err = s.st.SetModelTargetAgentVersion(
+	err = s.modelSt.SetModelTargetAgentVersion(
 		ctx, currentTargetVersion, desiredTargetVersion,
 	)
 	if err != nil {
@@ -825,7 +842,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStreamTo(
 		return errors.New("agent stream is not valid").Add(coreerrors.NotValid)
 	}
 
-	currentTargetVersion, err := s.st.GetModelTargetAgentVersion(ctx)
+	currentTargetVersion, err := s.modelSt.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"getting current model target agent version: %w", err,
@@ -837,7 +854,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStreamTo(
 		return errors.Capture(err)
 	}
 
-	err = s.st.SetModelTargetAgentVersionAndStream(
+	err = s.modelSt.SetModelTargetAgentVersionAndStream(
 		ctx, currentTargetVersion, desiredTargetVersion, agentStream,
 	)
 	if err != nil {
@@ -850,7 +867,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStreamTo(
 func (s *Service) UpdateLatestAgentVersion(ctx context.Context, version semversion.Number) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	return s.st.UpdateLatestAgentVersion(ctx, version)
+	return s.modelSt.UpdateLatestAgentVersion(ctx, version)
 }
 
 // validateModelCanBeUpgraded checks if the current model is currently in a
@@ -870,7 +887,7 @@ func (s *Service) UpdateLatestAgentVersion(ctx context.Context, version semversi
 func (s *Service) validateModelCanBeUpgraded(
 	ctx context.Context,
 ) error {
-	isControllerModel, err := s.st.IsControllerModel(ctx)
+	isControllerModel, err := s.modelSt.IsControllerModel(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"checking if model is considered the controller's model: %w", err,
@@ -882,7 +899,7 @@ func (s *Service) validateModelCanBeUpgraded(
 		).Add(modelagenterrors.CannotUpgradeControllerModel)
 	}
 
-	failedMachineCount, err := s.st.GetMachineCountNotUsingBase(ctx, corebase.WorkloadBases())
+	failedMachineCount, err := s.modelSt.GetMachineCountNotUsingBase(ctx, corebase.WorkloadBases())
 	if err != nil {
 		return errors.Errorf(
 			"getting count of machines in model not running a supported workload base: %w",
@@ -938,12 +955,17 @@ func (s *Service) validateModelCanBeUpgradedTo(
 		).Add(modelagenterrors.DowngradeNotSupported)
 	}
 
+	currentControllerVersion, err := s.getRecommendedVersion(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Check that the caller is not attempting to upgrade to a version that is
 	// greater than that of the controller.
-	if jujuversion.Current.Compare(desiredTargetVersion.ToPatch()) < 0 {
+	if currentControllerVersion.Compare(desiredTargetVersion.ToPatch()) < 0 {
 		return errors.Errorf(
 			"upgrade model agent version is greated than max supported version %q",
-			jujuversion.Current,
+			currentControllerVersion,
 		).Add(modelagenterrors.AgentVersionNotSupported)
 	}
 
@@ -969,6 +991,31 @@ func (s *Service) validateModelCanBeUpgradedTo(
 	return nil
 }
 
+// getRecommendedVersion has the responsibility of getting the agent versions
+// for all controllers.
+// It is then sorted to find the highest version in which it is returned to the
+// caller.
+func (s *Service) getRecommendedVersion(
+	ctx context.Context,
+) (semversion.Number, error) {
+	versions, err := s.controllerSt.
+		GetControllerAgentVersions(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+
+	if len(versions) == 0 {
+		return semversion.Zero, errors.New("no recommended versions found")
+	}
+
+	// Sort it descendingly so the highest version is the first element.
+	slices.SortFunc(versions, func(a, b semversion.Number) int {
+		return a.Compare(b) * -1
+	})
+
+	return versions[0], nil
+}
+
 // WatchMachineTargetAgentVersion is responsible for watching the target agent
 // version for machine and reporting when there has been a change via a
 // [watcher.NotifyWatcher]. The following errors can be expected:
@@ -980,7 +1027,7 @@ func (s *WatchableService) WatchMachineTargetAgentVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if _, err := s.st.GetMachineUUIDByName(ctx, machineName); errors.Is(err, machineerrors.MachineNotFound) {
+	if _, err := s.modelSt.GetMachineUUIDByName(ctx, machineName); errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
 		return nil, errors.Errorf(
@@ -1005,7 +1052,7 @@ func (s *WatchableService) WatchUnitTargetAgentVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if _, err := s.st.GetUnitUUIDByName(ctx, unitName); errors.Is(err, applicationerrors.UnitNotFound) {
+	if _, err := s.modelSt.GetUnitUUIDByName(ctx, unitName); errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
 		return nil, errors.Errorf("checking if unit %q exists when watching target agent version: %w", unitName, err)
@@ -1028,7 +1075,7 @@ func (s *WatchableService) WatchModelTargetAgentVersion(ctx context.Context) (wa
 	w, err := s.watcherFactory.NewNotifyWatcher(
 		ctx,
 		"model target agent version watcher",
-		eventsource.NamespaceFilter(s.st.NamespaceForWatchAgentVersion(), changestream.All),
+		eventsource.NamespaceFilter(s.modelSt.NamespaceForWatchAgentVersion(), changestream.All),
 	)
 	if err != nil {
 		return nil, errors.Errorf("creating watcher for agent version: %w", err)
