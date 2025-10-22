@@ -14,6 +14,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/offer"
+	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
@@ -396,15 +397,12 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 // for the specified relation UUID. It returns a NotifyWatcher that emits
 // events when there are insertions or deletions in the relation_network_ingress
 // table.
-func (w *WatchableService) WatchRelationIngressNetworks(ctx context.Context, relationUUID string) (watcher.NotifyWatcher, error) {
+func (w *WatchableService) WatchRelationIngressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if relationUUID == "" {
-		return nil, errors.Errorf("relation UUID cannot be empty")
-	}
-	if !uuid.IsValidUUIDString(relationUUID) {
-		return nil, errors.Errorf("relation UUID %q is not a valid UUID", relationUUID).Add(coreerrors.NotValid)
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
 	}
 
 	table := w.modelState.NamespaceForRelationIngressNetworksWatcher()
@@ -412,7 +410,7 @@ func (w *WatchableService) WatchRelationIngressNetworks(ctx context.Context, rel
 	return w.watcherFactory.NewNotifyWatcher(
 		ctx,
 		"relation ingress networks watcher",
-		eventsource.PredicateFilter(table, changestream.All, eventsource.EqualsPredicate(relationUUID)),
+		eventsource.PredicateFilter(table, changestream.All, eventsource.EqualsPredicate(relationUUID.String())),
 	)
 }
 

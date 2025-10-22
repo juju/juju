@@ -34,6 +34,7 @@ import (
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	domainlife "github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
+	relation0 "github.com/juju/juju/domain/relation"
 	config "github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -947,10 +948,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesSuccess(c *tc.C) {
 	networks := []string{"192.0.2.0/24", "198.51.100.0/24"}
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag := names.NewRelationTag(relKey.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+		Key: relKey,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
-		Return(map[string]string{"username": "bob"}, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.SAASIngressAllowKey: strings.Join(saasIngressAllow, ","),
 	}))
@@ -983,10 +991,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesSuccessSingleNetwork(c *tc
 	network := "10.0.0.0/8"
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag := names.NewRelationTag(relKey.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+		Key: relKey,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
-		Return(map[string]string{"username": "alice"}, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.SAASIngressAllowKey: strings.Join(saasIngressAllow, ","),
 	}))
@@ -1022,10 +1037,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesMultipleChanges(c *tc.C) {
 	networks2 := []string{"198.51.100.0/24", "203.0.113.0/24"}
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 
+	relKey1, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag1 := names.NewRelationTag(relKey1.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID1).Return(relation0.RelationDetails{
+		Key: relKey1,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID1).Return(offerUUID1, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID1.String(), gomock.Any(), bakery.LatestVersion).
-		Return(map[string]string{"username": "bob"}, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID1.String(), relationTag1, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.SAASIngressAllowKey: strings.Join(saasIngressAllow, ","),
 	}))
@@ -1033,10 +1055,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesMultipleChanges(c *tc.C) {
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 	s.crossModelRelationService.EXPECT().AddRelationNetworkIngress(gomock.Any(), relUUID1, saasIngressAllow, networks1).Return(nil)
 
+	relKey2, err := corerelation.NewKeyFromString("app3:ep3 app4:ep4")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag2 := names.NewRelationTag(relKey2.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID2).Return(relation0.RelationDetails{
+		Key: relKey2,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID2).Return(offerUUID2, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID2.String(), gomock.Any(), bakery.LatestVersion).
-		Return(map[string]string{"username": "alice"}, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID2.String(), relationTag2, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 	s.crossModelRelationService.EXPECT().AddRelationNetworkIngress(gomock.Any(), relUUID2, saasIngressAllow, networks2).Return(nil)
 
@@ -1071,6 +1100,12 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesOfferNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID := relationtesting.GenRelationUUID(c)
 
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+		Key: relKey,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).
 		Return("", crossmodelrelationerrors.OfferNotFound)
 
@@ -1097,10 +1132,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesAuthError(c *tc.C) {
 	offerUUID := tc.Must(c, offer.NewUUID)
 	relUUID := relationtesting.GenRelationUUID(c)
 
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag := names.NewRelationTag(relKey.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+		Key: relKey,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
-		Return(nil, errors.New("invalid macaroon"))
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
+		Return(errors.New("invalid macaroon"))
 
 	api := s.api(c)
 	results, err := api.PublishIngressNetworkChanges(c.Context(), params.IngressNetworksChanges{
@@ -1127,10 +1169,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesAddIngressError(c *tc.C) {
 	networks := []string{"192.0.2.0/24"}
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag := names.NewRelationTag(relKey.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+		Key: relKey,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
-		Return(map[string]string{"username": "bob"}, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.SAASIngressAllowKey: strings.Join(saasIngressAllow, ","),
 	}))
@@ -1167,10 +1216,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesPartialFailure(c *tc.C) {
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 
 	// First change succeeds
+	relKey1, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag1 := names.NewRelationTag(relKey1.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID1).Return(relation0.RelationDetails{
+		Key: relKey1,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID1).Return(offerUUID1, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID1.String(), gomock.Any(), bakery.LatestVersion).
-		Return(map[string]string{"username": "bob"}, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID1.String(), relationTag1, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.SAASIngressAllowKey: strings.Join(saasIngressAllow, ","),
 	}))
@@ -1179,10 +1235,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesPartialFailure(c *tc.C) {
 	s.crossModelRelationService.EXPECT().AddRelationNetworkIngress(gomock.Any(), relUUID1, saasIngressAllow, networks).Return(nil)
 
 	// Second change fails at auth
+	relKey2, err := corerelation.NewKeyFromString("app3:ep3 app4:ep4")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag2 := names.NewRelationTag(relKey2.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID2).Return(relation0.RelationDetails{
+		Key: relKey2,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID2).Return(offerUUID2, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID2.String(), gomock.Any(), bakery.LatestVersion).
-		Return(nil, errors.New("auth failed"))
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID2.String(), relationTag2, gomock.Any(), bakery.LatestVersion).
+		Return(errors.New("auth failed"))
 
 	api := s.api(c)
 	results, err := api.PublishIngressNetworkChanges(c.Context(), params.IngressNetworksChanges{
@@ -1217,10 +1280,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesEmptyNetworks(c *tc.C) {
 	relUUID := relationtesting.GenRelationUUID(c)
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag := names.NewRelationTag(relKey.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+		Key: relKey,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
-		Return(map[string]string{"username": "bob"}, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.SAASIngressAllowKey: strings.Join(saasIngressAllow, ","),
 	}))
@@ -1253,10 +1323,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesSubnetNotInWhitelist(c *tc
 	networks := []string{"10.0.0.0/8"}
 	saasIngressAllow := []string{"192.168.0.0/16"}
 
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag := names.NewRelationTag(relKey.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+		Key: relKey,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
-		Return(map[string]string{"username": "bob"}, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.SAASIngressAllowKey: strings.Join(saasIngressAllow, ","),
 	}))
@@ -1292,10 +1369,17 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesModelConfigError(c *tc.C) 
 	relUUID := relationtesting.GenRelationUUID(c)
 	networks := []string{"192.0.2.0/24"}
 
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag := names.NewRelationTag(relKey.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation0.RelationDetails{
+		Key: relKey,
+	}, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
-		Return(map[string]string{"username": "bob"}, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, errors.New("config error"))
 
 	api := s.api(c)
@@ -1353,7 +1437,6 @@ func (s *facadeSuite) api(c *tc.C) *CrossModelRelationsAPIv3 {
 		s.modelConfigService,
 		s.relationService,
 		s.removalService,
-		s.statusService,
 		s.secretService,
 		s.statusService,
 		loggertesting.WrapCheckLog(c),

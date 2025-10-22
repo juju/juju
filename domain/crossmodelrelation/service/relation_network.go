@@ -60,10 +60,6 @@ func (s *Service) GetRelationNetworkIngress(ctx context.Context, relationUUID co
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if relationUUID == "" {
-		return nil, errors.Errorf("relation UUID cannot be empty")
-	}
-
 	if err := relationUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -81,11 +77,12 @@ func (s *Service) validateIngressNetworks(saasIngressAllow []string, networks []
 		return nil
 	}
 
-	var whitelistCIDRs, requestedCIDRs []*net.IPNet
-	if err := parseCIDRs(&whitelistCIDRs, saasIngressAllow); err != nil {
+	whitelistCIDRs, err := parseCIDRs(saasIngressAllow)
+	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := parseCIDRs(&requestedCIDRs, networks); err != nil {
+	requestedCIDRs, err := parseCIDRs(networks)
+	if err != nil {
 		return errors.Capture(err)
 	}
 	if len(whitelistCIDRs) > 0 {
@@ -98,13 +95,14 @@ func (s *Service) validateIngressNetworks(saasIngressAllow []string, networks []
 	return nil
 }
 
-func parseCIDRs(cidrs *[]*net.IPNet, values []string) error {
-	for _, cidrStr := range values {
-		if _, ipNet, err := net.ParseCIDR(cidrStr); err != nil {
-			return err
-		} else {
-			*cidrs = append(*cidrs, ipNet)
+func parseCIDRs(values []string) ([]*net.IPNet, error) {
+	res := make([]*net.IPNet, len(values))
+	for i, cidrStr := range values {
+		_, ipNet, err := net.ParseCIDR(cidrStr)
+		if err != nil {
+			return nil, errors.Capture(err)
 		}
+		res[i] = ipNet
 	}
-	return nil
+	return res, nil
 }

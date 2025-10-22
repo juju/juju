@@ -866,7 +866,7 @@ func (s *watcherSuite) TestWatchRelationIngressNetworks(c *tc.C) {
 
 	// Start the watcher.
 	s.modelIdler.AssertChangeStreamIdle(c)
-	w, err := svc.WatchRelationIngressNetworks(c.Context(), remoteRelationUUID.String())
+	w, err := svc.WatchRelationIngressNetworks(c.Context(), remoteRelationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s.modelIdler, watchertest.NewWatcherC(c, w))
@@ -919,7 +919,7 @@ func (s *watcherSuite) TestWatchRelationIngressNetworksEmptyRelationUUID(c *tc.C
 	svc, _ := s.setupService(c, factory)
 
 	_, err := svc.WatchRelationIngressNetworks(c.Context(), "")
-	c.Assert(err, tc.ErrorMatches, "relation UUID cannot be empty")
+	c.Assert(err, tc.ErrorMatches, "relation uuid cannot be empty")
 }
 
 func (s *watcherSuite) TestWatchRelationIngressNetworksInvalidUUID(c *tc.C) {
@@ -927,7 +927,7 @@ func (s *watcherSuite) TestWatchRelationIngressNetworksInvalidUUID(c *tc.C) {
 	svc, _ := s.setupService(c, factory)
 
 	_, err := svc.WatchRelationIngressNetworks(c.Context(), "foo")
-	c.Assert(err, tc.ErrorMatches, "relation UUID \"foo\" is not a valid UUID")
+	c.Assert(err, tc.ErrorMatches, "relation uuid \"foo\": not valid")
 }
 
 func (s *watcherSuite) deleteIngressNetwork(c *tc.C, db database.TxnRunner, relationUUID corerelation.UUID, cidr string) {

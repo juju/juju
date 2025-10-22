@@ -412,7 +412,7 @@ func (s *relationNetworkServiceSuite) TestGetRelationNetworkIngressEmptyRelation
 	obtainedCIDRs, err := s.service(c).GetRelationNetworkIngress(c.Context(), "")
 
 	// Assert
-	c.Assert(err, tc.ErrorMatches, "relation UUID cannot be empty")
+	c.Assert(err, tc.ErrorMatches, "relation uuid cannot be empty")
 	c.Check(obtainedCIDRs, tc.IsNil)
 }
 

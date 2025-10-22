@@ -49,7 +49,6 @@ type CrossModelRelationsAPIv3 struct {
 	modelConfigService        ModelConfigService
 	relationService           RelationService
 	removalService            RemovalService
-	statusService             StatusService
 	secretService             SecretService
 	statusService             StatusService
 
@@ -66,7 +65,6 @@ func NewCrossModelRelationsAPI(
 	modelConfigService ModelConfigService,
 	relationService RelationService,
 	removalService RemovalService,
-	statusService StatusService,
 	secretService SecretService,
 	statusService StatusService,
 	logger logger.Logger,
@@ -80,7 +78,6 @@ func NewCrossModelRelationsAPI(
 		modelConfigService:        modelConfigService,
 		relationService:           relationService,
 		removalService:            removalService,
-		statusService:             statusService,
 		secretService:             secretService,
 		statusService:             statusService,
 		logger:                    logger,
@@ -635,6 +632,12 @@ func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 		api.logger.Debugf(ctx, "publishing ingress network change for relation %q: %+v", change.RelationToken, change)
 
 		relationUUID := corerelation.UUID(change.RelationToken)
+		relationDetails, err := api.relationService.GetRelationDetails(ctx, relationUUID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		relationTag := names.NewRelationTag(relationDetails.Key.String())
 
 		// Ensure the supplied macaroon allows access.
 		offerUUID, err := api.crossModelRelationService.GetOfferUUIDByRelationUUID(ctx, relationUUID)
@@ -645,8 +648,7 @@ func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		_, err = api.auth.Authenticator().CheckOfferMacaroons(ctx, api.modelUUID.String(), offerUUID.String(), change.Macaroons, change.BakeryVersion)
-		if err != nil {
+		if err := api.auth.Authenticator().CheckRelationMacaroons(ctx, api.modelUUID.String(), offerUUID.String(), relationTag, change.Macaroons, change.BakeryVersion); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
