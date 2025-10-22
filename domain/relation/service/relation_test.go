@@ -1239,6 +1239,60 @@ func (s *relationServiceSuite) TestGetConsumerRelationUnitsChangeApplicationIDNo
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
+func (s *relationServiceSuite) TestGetFullRelationUnitChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	expected := relation.FullRelationUnitChange{
+		RelationUnitChange: relation.RelationUnitChange{
+			AllUnits: []int{1},
+			Life:     corelife.Alive,
+		},
+	}
+	s.state.EXPECT().GetFullRelationUnitsChange(gomock.Any(), relUUID, appUUID).Return(expected, nil)
+
+	// Act
+	obtained, err := s.service.GetFullRelationUnitChange(c.Context(), relUUID, appUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, expected)
+}
+
+func (s *relationServiceSuite) TestGetFullRelationUnitChangeFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	boom := errors.Errorf("boom")
+	s.state.EXPECT().GetFullRelationUnitsChange(gomock.Any(), relUUID, appUUID).Return(relation.FullRelationUnitChange{}, boom)
+
+	// Act
+	_, err := s.service.GetFullRelationUnitChange(c.Context(), relUUID, appUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, boom)
+}
+
+func (s *relationServiceSuite) TestGetFullRelationUnitChangeRelationUUIDNotValid(c *tc.C) {
+	// Act
+	_, err := s.service.GetFullRelationUnitChange(c.Context(), "bad-uuid", tc.Must(c, coreapplication.NewUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetFullRelationUnitChangeApplicationIDNotValid(c *tc.C) {
+	// Act
+	_, err := s.service.GetFullRelationUnitChange(c.Context(), corerelationtesting.GenRelationUUID(c), "bad-uuid")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
+}
+
 type relationLeadershipServiceSuite struct {
 	baseServiceSuite
 

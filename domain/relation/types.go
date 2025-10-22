@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"gopkg.in/macaroon.v2"
+
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
@@ -379,6 +382,30 @@ type UnitSettings struct {
 
 	// Settings is the current settings for the relation unit.
 	Settings map[string]string
+}
+
+// FullRelationUnitChange encapsulates a remote relation event,
+// with more data than a RelationUnitChange.
+//
+// Note: unit IDs are used as the name of the application may
+// be different on the other side of a remote relation.
+type FullRelationUnitChange struct {
+	RelationUnitChange
+
+	// ApplicationOrOfferToken is the token of the application or offer.
+	ApplicationOrOfferToken string
+
+	// Suspended is the current suspended status of the relation.
+	Suspended bool
+
+	// SuspendedReason is an optional message to explain why suspended is true.
+	SuspendedReason string
+
+	// Macaroons are used for authentication.
+	Macaroons macaroon.Slice
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version
 }
 
 // ConsumerRelationUnitsChange encapsulates a consumer relation event.
