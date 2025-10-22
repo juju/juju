@@ -27,9 +27,8 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // GetControllerAgentVersions has the responsibility of getting
-// all the controllers agent versions. It is used by upstream to further narrow
-// down to get the highest version. Since we follow semantic versioning, doing a
-// ORDER BY ASC won't give us the correct semantics.
+// all the unique controller agent versions. It is used by upstream to further narrow
+// down to get the highest running agent version.
 // It returns an empty slice if no agent are found.
 func (s *State) GetControllerAgentVersions(ctx context.Context) ([]semversion.Number, error) {
 	db, err := s.DB(ctx)
@@ -61,13 +60,13 @@ GROUP  BY version
 		return []semversion.Number{}, errors.Capture(err)
 	}
 
-	versions := make([]semversion.Number, len(agentVersions))
-	for i, agent := range agentVersions {
+	versions := make([]semversion.Number, 0, len(agentVersions))
+	for _, agent := range agentVersions {
 		version, err := semversion.Parse(agent.Version)
 		if err != nil {
 			return []semversion.Number{}, errors.Capture(err)
 		}
-		versions[i] = version
+		versions = append(versions, version)
 	}
 
 	return versions, nil

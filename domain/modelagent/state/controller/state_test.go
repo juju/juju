@@ -39,19 +39,10 @@ VALUES ('1', '1'),
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rows, tc.Equals, int64(4))
 
+	// The architecture_id for amd64 is 0.
 	res, err = s.DB().Exec(`
 INSERT INTO controller_node_agent_version (controller_id, version, architecture_id)
-SELECT v.controller_id, v.version, a.id
-FROM (
-  SELECT '1' AS controller_id, '4.0.1' AS version
-  UNION ALL
-  SELECT '2', '4.0.2'
-  UNION ALL
-  SELECT '3', '4.0.3'
-  UNION ALL
-  SELECT '4', '4.0.3'
-) AS v
-JOIN architecture a ON a.name = 'amd64'`)
+VALUES (1, '4.0.1', 0), (2, '4.0.2', 0), (3, '4.0.3', 0), (4, '4.0.3', 0)`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	rows, err = res.RowsAffected()
@@ -81,7 +72,7 @@ func (s *controllerStateSuite) TestGetControllerAgentVersions(c *tc.C) {
 		version2,
 		version3,
 	}
-	c.Assert(versions, tc.DeepEquals, expected)
+	c.Assert(versions, tc.SameContents, expected)
 }
 
 // TestGetControllerAgentVersionsNoneFound tests a sad case
