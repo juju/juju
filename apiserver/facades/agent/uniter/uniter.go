@@ -2016,6 +2016,10 @@ func (u *UniterAPI) updateUnitAndApplicationSettings(ctx context.Context, arg pa
 	delete(arg.Settings, "ingress-address")
 	delete(arg.Settings, "egress-subnets")
 
+	if u.logger.IsLevelEnabled(corelogger.TRACE) {
+		u.logger.Tracef(ctx, "relation unit settings for %q: %#v", unitName.String(), arg)
+	}
+
 	err = u.relationService.SetRelationApplicationAndUnitSettings(ctx, unitName, relUUID, arg.ApplicationSettings, arg.Settings)
 	if errors.Is(err, corelease.ErrNotHeld) {
 		return apiservererrors.ErrPerm
@@ -2832,23 +2836,20 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	}
 
 	for _, rus := range changes.RelationUnitSettings {
-		// Ensure the unit in the unit settings matches the root unit name
+		// Ensure the unit in the unit settings matches the root unit name.
 		if rus.Unit != changes.Tag {
 			return apiservererrors.ErrPerm
 		}
 		err := u.updateUnitAndApplicationSettings(ctx, rus, canAccessUnit)
 		if err != nil {
-			annotatedErr := internalerrors.Errorf(
-				"updating unit and application settings for %q: %w",
-				unitTag.Id(), err)
-			return internalerrors.Capture(annotatedErr)
+			return internalerrors.Errorf("updating unit and application settings for %q: %w", unitTag.Id(), err)
 		}
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
 		openPorts := network.GroupedPortRanges{}
 		for _, r := range changes.OpenPorts {
-			// Ensure the tag in the port open request matches the root unit name
+			// Ensure the tag in the port open request matches the root unit name.
 			if r.Tag != changes.Tag {
 				return apiservererrors.ErrPerm
 			}
