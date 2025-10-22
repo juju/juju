@@ -12,6 +12,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
@@ -505,4 +506,47 @@ func splitRelationsByType(relations []charm.Relation) (map[string]charm.Relation
 	}
 
 	return provides, requires, nil
+}
+
+// IsCrossModelRelationValidForApplication checks that the cross model relation is valid for the application.
+// A relation is valid if it is not suspended and the application is involved in the relation.
+func (s *Service) IsCrossModelRelationValidForApplication(ctx context.Context, relationKey corerelation.Key, appName string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationKey.Validate(); err != nil {
+		return false, relationerrors.RelationKeyNotValid
+	}
+
+	eids := relationKey.EndpointIdentifiers()
+	if len(eids) != 2 {
+		// Should never happen.
+		return false, internalerrors.Errorf("internal error: unexpected number of endpoints %d", len(eids))
+	}
+	if eids[0].ApplicationName != appName && eids[1].ApplicationName != appName {
+		return false, internalerrors.Errorf("relation %q not valid for application %q", relationKey, appName).Add(errors.NotValid)
+	}
+
+	isSuspended, err := s.modelState.IsRelationWithEndpointIdentifiersSuspended(ctx, eids[0], eids[1])
+	if err != nil {
+		return false, internalerrors.Errorf("getting relation suspended status by key: %w", err)
+	}
+	return !isSuspended, nil
+}
+
+// CheckIsApplicationConsumer checks if the given application exists in the
+// consuming model. This only returns true if the application is non-synthetic.
+// The lack of returned errors indicate that the application exists in the
+// consuming model and is non-synthetic.
+//
+// It returns [applicationerrors.ApplicationNotFound] if the application is not
+// found.
+func (w *Service) CheckIsApplicationConsumer(ctx context.Context, appName string) error {
+	return internalerrors.Errorf("crossmodelrelation.IsApplicationConsumer").Add(errors.NotImplemented)
+}
+
+// GetOffererModelUUID returns the offering model UUID, based on a given
+// application.
+func (w *Service) GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error) {
+	return coremodel.UUID(""), internalerrors.Errorf("crossmodelrelation.GetOffererModelUUID").Add(errors.NotImplemented)
 }

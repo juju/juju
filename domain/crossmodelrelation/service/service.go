@@ -26,7 +26,6 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/rpc/params"
 )
 
 // StatusHistory records status information into a generalized way.
@@ -222,12 +221,6 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 		return s.modelState.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appUUID.String(), secretIDs...)
 	}
 	return secret.NewSecretStringWatcher(w, s.logger, processChanges)
-}
-
-// RemoteApplications returns the current state for the named remote applications.
-// Not implemented yet in the domain service.
-func (w *WatchableService) RemoteApplications(ctx context.Context, applications []string) ([]params.RemoteApplicationResult, error) {
-	return nil, errors.Errorf("crossmodelrelation.RemoteApplications").Add(coreerrors.NotImplemented)
 }
 
 // WatchRemoteRelations returns a disabled watcher for remote relations for now.

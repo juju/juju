@@ -15,9 +15,11 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
@@ -68,6 +70,16 @@ type CrossModelFirewallerFacadeCloser interface {
 
 // CrossModelRelationService provides access to cross-model relations.
 type CrossModelRelationService interface {
+	// CheckIsApplicationConsumer checks if the given application exists in the
+	// consuming model. This only returns true if the application is non-synthetic.
+	// The lack of returned errors indicate that the application exists in the
+	// consuming model and is non-synthetic.
+	CheckIsApplicationConsumer(ctx context.Context, appName string) error
+
+	// GetOffererModelUUID returns the offering model UUID, based on a given
+	// application.
+	GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error)
+
 	// GetMacaroonForRelation retrieves the macaroon associated with the provided
 	// relation key.
 	GetMacaroonForRelationKey(ctx context.Context, relationKey relation.Key) (*macaroon.Macaroon, error)
@@ -78,10 +90,7 @@ type CrossModelRelationService interface {
 
 	// GetRelationNetworkIngress retrieves all ingress network CIDRs for the
 	// specified relation.
-	GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error)
-
-	// RemoteApplications returns the current state for the named remote applications.
-	RemoteApplications(ctx context.Context, applications []string) ([]params.RemoteApplicationResult, error)
+	GetRelationNetworkIngress(ctx context.Context, relationUUID corerelation.UUID) ([]string, error)
 
 	// WatchConsumerRelations watches the changes to (remote) relations on the
 	// consuming model and notifies the worker of any changes.
