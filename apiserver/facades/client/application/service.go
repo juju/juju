@@ -113,7 +113,7 @@ type ExternalControllerService interface {
 type CrossModelRelationService interface {
 	// AddRelationNetworkEgress adds egress network CIDRs for the specified
 	// relation.
-	AddRelationNetworkEgress(ctx context.Context, relationKey corerelation.Key, cidrs ...string) error
+	AddRelationNetworkEgress(ctx context.Context, ep0, ep1 corerelation.EndpointIdentifier, cidrs []string) error
 
 	// AddRemoteApplicationOfferer adds a new synthetic application representing
 	// an offer from an external model, to this, the consuming model.
@@ -126,13 +126,6 @@ type CrossModelRelationService interface {
 	// GetRemoteApplicationOffererByApplicationName returns the UUID of the remote
 	// application offerer for the given application name.
 	GetRemoteApplicationOffererByApplicationName(context.Context, string) (coreremoteapplication.UUID, error)
-
-	// IsRelationCrossModel determines if the given relation is a cross-model
-	// relation.
-	//
-	// It returns a [relationerrors.RelationNotFound] if the provided relation does
-	// not exist.
-	IsRelationCrossModel(ctx context.Context, relationKey corerelation.Key) (bool, error)
 }
 
 // CredentialService provides access to credentials.

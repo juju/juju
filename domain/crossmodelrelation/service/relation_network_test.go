@@ -510,7 +510,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSuccess(c *tc.
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -521,9 +521,16 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSuccess(c *tc.
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
+	}
+	relationKey, err := corerelation.NewKey(eps)
+
 	c.Assert(err, tc.IsNil)
 	cidrs := []string{"192.0.2.0/24", "198.51.100.0/24"}
+
+	s.modelState.EXPECT().IsRelationCrossModel(
+		gomock.Any(),
+		relationKey,
+	).Return(true, nil)
 
 	s.modelState.EXPECT().AddRelationNetworkEgress(
 		gomock.Any(),
@@ -533,7 +540,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSuccess(c *tc.
 	).Return(nil)
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err = s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -543,42 +550,40 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressEmptyKey(c *tc
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey := corerelation.Key{}
+	ep1 := corerelation.EndpointIdentifier{}
+	ep2 := corerelation.EndpointIdentifier{}
 	cidrs := []string{"192.0.2.0/24"}
 
 	// Act
-	err := s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), ep1, ep2, cidrs)
 
 	// Assert
-	c.Assert(err, tc.ErrorMatches, `.*expected 1 or 2 endpoint identifiers.*`)
+	c.Assert(err, tc.ErrorMatches, `.*two endpoints provided, expected roles.*`)
 }
 
 func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressPeerRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange - peer relation with single endpoint
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
-		{
-			ApplicationName: "test-app",
-			EndpointName:    "peers",
-			Role:            charm.RolePeer,
-		},
-	})
-	c.Assert(err, tc.IsNil)
+	ep := corerelation.EndpointIdentifier{
+		ApplicationName: "test-app",
+		EndpointName:    "peers",
+		Role:            charm.RolePeer,
+	}
 	cidrs := []string{"192.0.2.0/24"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), ep, ep, cidrs)
 
 	// Assert
-	c.Assert(err, tc.ErrorMatches, `.*must have exactly 2 endpoints.*`)
+	c.Assert(err, tc.ErrorMatches, `.*two endpoints provided, expected roles.*`)
 }
 
 func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressNoCIDRs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -589,11 +594,10 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressNoCIDRs(c *tc.
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
+	}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], nil)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `at least one CIDR must be provided`)
@@ -603,7 +607,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressEmptyCIDR(c *t
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -614,12 +618,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressEmptyCIDR(c *t
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
+	}
 	cidrs := []string{"192.0.2.0/24", "", "198.51.100.0/24"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR cannot be empty`)
@@ -629,7 +632,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressInvalidCIDRFor
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -640,12 +643,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressInvalidCIDRFor
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
+	}
 	cidrs := []string{"not-a-valid-cidr"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR "not-a-valid-cidr" is not valid.*`)
@@ -656,7 +658,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressInvalidCIDRInL
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -667,12 +669,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressInvalidCIDRInL
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
+	}
 	cidrs := []string{"192.0.2.0/24", "invalid-cidr", "198.51.100.0/24"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR "invalid-cidr" is not valid.*`)
@@ -683,7 +684,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv4MissingMas
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -694,12 +695,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv4MissingMas
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
-	cidr := "192.0.2.0"
+	}
+	cidrs := []string{"192.0.2.0"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidr)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR .* is not valid.*`)
@@ -710,7 +710,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv4InvalidIP(
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -721,12 +721,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv4InvalidIP(
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
-	cidr := "999.999.999.999/24"
+	}
+	cidrs := []string{"999.999.999.999/24"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidr)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR .* is not valid.*`)
@@ -737,7 +736,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv4InvalidMas
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -748,12 +747,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv4InvalidMas
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
-	cidr := "192.0.2.0/33"
+	}
+	cidrs := []string{"192.0.2.0/33"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidr)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR .* is not valid.*`)
@@ -764,7 +762,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv4NegativeMa
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -775,12 +773,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv4NegativeMa
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
-	cidr := "192.0.2.0/-1"
+	}
+	cidrs := []string{"192.0.2.0/-1"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidr)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR .* is not valid.*`)
@@ -791,7 +788,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv4NoIP(c *tc
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -802,12 +799,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv4NoIP(c *tc
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
-	cidr := "/24"
+	}
+	cidrs := []string{"/24"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidr)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR .* is not valid.*`)
@@ -818,7 +814,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6MissingMas
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -829,12 +825,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6MissingMas
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
-	cidr := "2001:db8::1"
+	}
+	cidrs := []string{"2001:db8::1"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidr)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR .* is not valid.*`)
@@ -845,7 +840,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6InvalidIP(
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -856,12 +851,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6InvalidIP(
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
-	cidr := "gggg::/32"
+	}
+	cidrs := []string{"gggg::/32"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidr)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR .* is not valid.*`)
@@ -872,7 +866,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6InvalidMas
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -883,12 +877,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6InvalidMas
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
-	cidr := "2001:db8::/129"
+	}
+	cidrs := []string{"2001:db8::/129"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidr)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR .* is not valid.*`)
@@ -899,7 +892,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6NegativeMa
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -910,12 +903,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6NegativeMa
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
-	c.Assert(err, tc.IsNil)
-	cidr := "2001:db8::/-1"
+	}
+	cidrs := []string{"2001:db8::/-1"}
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidr)
+	err := s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `CIDR .* is not valid.*`)
@@ -926,7 +918,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSingleCIDR(c *
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -937,18 +929,24 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSingleCIDR(c *
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
+	}
+	relationKey, err := corerelation.NewKey(eps)
 	c.Assert(err, tc.IsNil)
-	cidr := "192.0.2.0/24"
+	cidrs := []string{"192.0.2.0/24"}
+
+	s.modelState.EXPECT().IsRelationCrossModel(
+		gomock.Any(),
+		relationKey,
+	).Return(true, nil)
 
 	s.modelState.EXPECT().AddRelationNetworkEgress(
 		gomock.Any(),
 		relationKey,
-		cidr,
+		cidrs[0],
 	).Return(nil)
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidr)
+	err = s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -958,7 +956,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6(c *tc.C) 
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -969,9 +967,15 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6(c *tc.C) 
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
+	}
+	relationKey, err := corerelation.NewKey(eps)
 	c.Assert(err, tc.IsNil)
 	cidrs := []string{"2001:db8::/32", "2001:db8:1::/48"}
+
+	s.modelState.EXPECT().IsRelationCrossModel(
+		gomock.Any(),
+		relationKey,
+	).Return(true, nil)
 
 	s.modelState.EXPECT().AddRelationNetworkEgress(
 		gomock.Any(),
@@ -981,7 +985,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressIPv6(c *tc.C) 
 	).Return(nil)
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err = s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -991,7 +995,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressMixedIPVersion
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -1002,9 +1006,15 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressMixedIPVersion
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
+	}
+	relationKey, err := corerelation.NewKey(eps)
 	c.Assert(err, tc.IsNil)
 	cidrs := []string{"192.0.2.0/24", "2001:db8::/32", "198.51.100.0/24"}
+
+	s.modelState.EXPECT().IsRelationCrossModel(
+		gomock.Any(),
+		relationKey,
+	).Return(true, nil)
 
 	s.modelState.EXPECT().AddRelationNetworkEgress(
 		gomock.Any(),
@@ -1015,7 +1025,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressMixedIPVersion
 	).Return(nil)
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err = s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -1025,7 +1035,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressStateError(c *
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -1036,10 +1046,16 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressStateError(c *
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
+	}
+	relationKey, err := corerelation.NewKey(eps)
 	c.Assert(err, tc.IsNil)
 	cidrs := []string{"192.0.2.0/24"}
 	stateErr := errors.Errorf("database error")
+
+	s.modelState.EXPECT().IsRelationCrossModel(
+		gomock.Any(),
+		relationKey,
+	).Return(true, nil)
 
 	s.modelState.EXPECT().AddRelationNetworkEgress(
 		gomock.Any(),
@@ -1048,7 +1064,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressStateError(c *
 	).Return(stateErr)
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err = s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `.*database error.*`)
@@ -1058,7 +1074,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressHostBits(c *tc
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -1069,10 +1085,16 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressHostBits(c *tc
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
+	}
+	relationKey, err := corerelation.NewKey(eps)
 	c.Assert(err, tc.IsNil)
 	// CIDR with host bits set (192.168.1.5/24 instead of 192.168.1.0/24)
 	cidrs := []string{"192.0.2.5/24"}
+
+	s.modelState.EXPECT().IsRelationCrossModel(
+		gomock.Any(),
+		relationKey,
+	).Return(true, nil)
 
 	s.modelState.EXPECT().AddRelationNetworkEgress(
 		gomock.Any(),
@@ -1081,7 +1103,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressHostBits(c *tc
 	).Return(nil)
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err = s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -1091,7 +1113,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSingleHostIPv4
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -1102,9 +1124,15 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSingleHostIPv4
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
+	}
+	relationKey, err := corerelation.NewKey(eps)
 	c.Assert(err, tc.IsNil)
 	cidrs := []string{"192.0.2.5/32"}
+
+	s.modelState.EXPECT().IsRelationCrossModel(
+		gomock.Any(),
+		relationKey,
+	).Return(true, nil)
 
 	s.modelState.EXPECT().AddRelationNetworkEgress(
 		gomock.Any(),
@@ -1113,7 +1141,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSingleHostIPv4
 	).Return(nil)
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err = s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -1123,7 +1151,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSingleHostIPv6
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -1134,9 +1162,15 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSingleHostIPv6
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
+	}
+	relationKey, err := corerelation.NewKey(eps)
 	c.Assert(err, tc.IsNil)
 	cidrs := []string{"2001:db8::1/128"}
+
+	s.modelState.EXPECT().IsRelationCrossModel(
+		gomock.Any(),
+		relationKey,
+	).Return(true, nil)
 
 	s.modelState.EXPECT().AddRelationNetworkEgress(
 		gomock.Any(),
@@ -1145,7 +1179,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressSingleHostIPv6
 	).Return(nil)
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err = s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -1155,7 +1189,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressMultipleCIDRs(
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	relationKey, err := corerelation.NewKey([]corerelation.EndpointIdentifier{
+	eps := []corerelation.EndpointIdentifier{
 		{
 			ApplicationName: "wordpress",
 			EndpointName:    "db",
@@ -1166,7 +1200,8 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressMultipleCIDRs(
 			EndpointName:    "server",
 			Role:            charm.RoleProvider,
 		},
-	})
+	}
+	relationKey, err := corerelation.NewKey(eps)
 	c.Assert(err, tc.IsNil)
 	cidrs := []string{
 		"192.0.2.0/24",
@@ -1175,6 +1210,11 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressMultipleCIDRs(
 		"192.0.2.128/25",
 		"2001:db8::/32",
 	}
+
+	s.modelState.EXPECT().IsRelationCrossModel(
+		gomock.Any(),
+		relationKey,
+	).Return(true, nil)
 
 	s.modelState.EXPECT().AddRelationNetworkEgress(
 		gomock.Any(),
@@ -1187,7 +1227,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkEgressMultipleCIDRs(
 	).Return(nil)
 
 	// Act
-	err = s.service(c).AddRelationNetworkEgress(c.Context(), relationKey, cidrs...)
+	err = s.service(c).AddRelationNetworkEgress(c.Context(), eps[0], eps[1], cidrs)
 
 	// Assert
 	c.Assert(err, tc.IsNil)

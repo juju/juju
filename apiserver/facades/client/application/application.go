@@ -40,7 +40,6 @@ import (
 	coreoffer "github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
-	corerelation "github.com/juju/juju/core/relation"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
@@ -1360,31 +1359,7 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 	}
 
 	if len(args.ViaCIDRs) > 0 {
-		// We only support relation networks for CMR, so we need to check that
-		// the newly created relation is indeed a CMR.
-		relationKey, err := corerelation.NewKey(
-			[]corerelation.EndpointIdentifier{
-				ep1.EndpointIdentifier(),
-				ep2.EndpointIdentifier(),
-			})
-		if err != nil {
-			return params.AddRelationResults{}, internalerrors.Errorf(
-				"creating relation key for relation between endpoints %q and %q: %w",
-				args.Endpoints[0], args.Endpoints[1], err,
-			)
-		}
-		isCMR, err := api.crossModelRelationService.IsRelationCrossModel(ctx, relationKey)
-		if err != nil {
-			return params.AddRelationResults{}, internalerrors.Errorf(
-				"checking if relation between endpoints %q and %q is cross-model: %w",
-				args.Endpoints[0], args.Endpoints[1], err,
-			)
-		}
-		if !isCMR {
-			return params.AddRelationResults{}, errors.NotSupportedf("integration via subnets for non cross model relations")
-		}
-
-		if err := api.crossModelRelationService.AddRelationNetworkEgress(ctx, relationKey); err != nil {
+		if err := api.crossModelRelationService.AddRelationNetworkEgress(ctx, ep1.EndpointIdentifier(), ep2.EndpointIdentifier(), args.ViaCIDRs); err != nil {
 			return params.AddRelationResults{}, internalerrors.Errorf(
 				"adding network egress rules for relation between endpoints %q and %q: %w",
 				args.Endpoints[0], args.Endpoints[1], err,

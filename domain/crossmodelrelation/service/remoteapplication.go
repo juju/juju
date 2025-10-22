@@ -457,29 +457,6 @@ func (s *Service) IsCrossModelRelationValidForApplication(ctx context.Context, r
 	return !isSuspended, nil
 }
 
-// IsRelationCrossModel determines if the given relation is a cross-model
-// relation.
-//
-// It returns a [relationerrors.RelationNotFound] if the provided relation does
-// not exist.
-func (s *Service) IsRelationCrossModel(ctx context.Context, relationKey corerelation.Key) (bool, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := relationKey.Validate(); err != nil {
-		return false, internalerrors.Errorf("validating relation key: %w", err)
-	}
-
-	// Cross-model relations are only non-peer relations (2 endpoints).
-	// Peer relations are always local to a model.
-	endpoints := relationKey.EndpointIdentifiers()
-	if len(endpoints) != 2 {
-		return false, nil
-	}
-
-	return s.modelState.IsRelationCrossModel(ctx, relationKey)
-}
-
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {
 	if len(endpoints) == 0 {
 		return charm.Charm{}, internalerrors.New("endpoints cannot be empty").Add(errors.NotValid)

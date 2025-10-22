@@ -1585,7 +1585,7 @@ func (st *State) isRelationCrossModel(ctx context.Context, tx *sqlair.TX, key co
 	}
 
 	// Check if any application in this relation is remote.
-	isRemote, err := st.isApplicationRemote(ctx, tx, relationUUID)
+	isRemote, err := st.relationContainsRemoteApplication(ctx, tx, relationUUID)
 	if err != nil {
 		return false, errors.Errorf("checking if application is remote: %w", err)
 	}
@@ -1593,33 +1593,32 @@ func (st *State) isRelationCrossModel(ctx context.Context, tx *sqlair.TX, key co
 	return isRemote, nil
 }
 
-func (st *State) isApplicationRemote(ctx context.Context, tx *sqlair.TX, relationUUID string) (bool, error) {
+func (st *State) relationContainsRemoteApplication(ctx context.Context, tx *sqlair.TX, relationUUID string) (bool, error) {
 	type relationUUIDArg struct {
 		UUID string `db:"relation_uuid"`
 	}
 
-	relUUID := relationUUIDArg{UUID: relationUUID}
+	ident := uuid{UUID: relationUUID}
 
-	// Check if any application in this relation is in
-	// application_remote_offerer or application_remote_consumer.
 	stmt, err := st.Prepare(`
-	SELECT COUNT(*) AS &countResult.count
-	FROM relation_endpoint AS re
-	JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
-	WHERE re.relation_uuid = $relationUUIDArg.relation_uuid
-	  AND (
-	    ae.application_uuid IN (
-	        SELECT application_uuid FROM application_remote_offerer)
-	    OR ae.application_uuid IN (
-	        SELECT consumer_application_uuid FROM application_remote_consumer)
-	  )
-	`, countResult{}, relationUUIDArg{})
+SELECT COUNT(cs.name) AS &countResult.count
+FROM   charm_source AS cs
+JOIN   charm AS c ON cs.id = c.source_id
+JOIN   application AS a ON c.uuid = a.charm_uuid
+JOIN   application_endpoint AS ae ON a.uuid = ae.application_uuid
+JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
+WHERE  re.relation_uuid = $uuid.uuid
+AND    cs.name = 'cmr'
+	`, countResult{}, ident)
+	if err != nil {
+		return false, errors.Errorf("preparing relation exists query: %w", err)
+	}
 	if err != nil {
 		return false, errors.Errorf("preparing statement: %w", err)
 	}
 
 	var result countResult
-	err = tx.Query(ctx, stmt, relUUID).Get(&result)
+	err = tx.Query(ctx, stmt, ident).Get(&result)
 	if err != nil {
 		return false, errors.Errorf("checking remote applications: %w", err)
 	}

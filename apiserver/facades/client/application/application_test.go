@@ -766,10 +766,7 @@ func (s *applicationSuite) TestAddRelationWithViaCIDRsSuccess(c *tc.C) {
 	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
 		ep1, ep2, nil,
 	)
-	s.crossModelRelationService.EXPECT().IsRelationCrossModel(gomock.Any(), gomock.Any()).Return(
-		true, nil,
-	)
-	s.crossModelRelationService.EXPECT().AddRelationNetworkEgress(gomock.Any(), gomock.Any()).Return(nil)
+	s.crossModelRelationService.EXPECT().AddRelationNetworkEgress(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	// Act:
 	results, err := s.api.AddRelation(c.Context(), params.AddRelation{
@@ -816,9 +813,7 @@ func (s *applicationSuite) TestAddRelationWithViaCIDRsNotCrossModel(c *tc.C) {
 	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
 		ep1, ep2, nil,
 	)
-	s.crossModelRelationService.EXPECT().IsRelationCrossModel(gomock.Any(), gomock.Any()).Return(
-		false, nil,
-	)
+	s.crossModelRelationService.EXPECT().AddRelationNetworkEgress(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.NotSupported)
 
 	// Act:
 	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
@@ -860,9 +855,7 @@ func (s *applicationSuite) TestAddRelationWithViaCIDRsIsRelationCrossModelError(
 	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
 		ep1, ep2, nil,
 	)
-	s.crossModelRelationService.EXPECT().IsRelationCrossModel(gomock.Any(), gomock.Any()).Return(
-		false, boom,
-	)
+	s.crossModelRelationService.EXPECT().AddRelationNetworkEgress(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(boom)
 
 	// Act:
 	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
@@ -906,10 +899,7 @@ func (s *applicationSuite) TestAddRelationWithViaCIDRsAddNetworkEgressError(c *t
 	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
 		ep1, ep2, nil,
 	)
-	s.crossModelRelationService.EXPECT().IsRelationCrossModel(gomock.Any(), gomock.Any()).Return(
-		true, nil,
-	)
-	s.crossModelRelationService.EXPECT().AddRelationNetworkEgress(gomock.Any(), gomock.Any()).Return(boom)
+	s.crossModelRelationService.EXPECT().AddRelationNetworkEgress(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(boom)
 
 	// Act:
 	_, err := s.api.AddRelation(c.Context(), params.AddRelation{

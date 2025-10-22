@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/internal/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/network"
 )
 
@@ -40,26 +41,14 @@ type ModelRelationNetworkState interface {
 //
 // It returns a [relationerrors.RelationNotFound] if the provided relation does
 // not exist.
-func (s *Service) AddRelationNetworkEgress(ctx context.Context, relationKey corerelation.Key, cidrs ...string) error {
+func (s *Service) AddRelationNetworkEgress(ctx context.Context, ep0, ep1 corerelation.EndpointIdentifier, cidrs []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := relationKey.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-
-	// Cross-model relations must have exactly 2 endpoints (requirer and
-	// provider). Peer relations are not allowed.
-	endpoints := relationKey.EndpointIdentifiers()
-	if len(endpoints) != 2 {
-		return errors.Errorf("cross-model relations must have exactly 2 endpoints, got %d", len(endpoints))
-	}
-
+	// Validate CIDRs are not empty and are valid
 	if len(cidrs) == 0 {
 		return errors.Errorf("at least one CIDR must be provided")
 	}
-
-	// Validate CIDRs are not empty and are valid
 	for _, cidr := range cidrs {
 		if cidr == "" {
 			return errors.Errorf("CIDR cannot be empty").Add(coreerrors.NotValid)
@@ -69,6 +58,28 @@ func (s *Service) AddRelationNetworkEgress(ctx context.Context, relationKey core
 		}
 	}
 
+	// We only support relation networks for CMR.
+	relationKey, err := corerelation.NewKey(
+		[]corerelation.EndpointIdentifier{
+			ep0,
+			ep1,
+		})
+	if err != nil {
+		return internalerrors.Errorf(
+			"creating relation key for relation between endpoints %v and %v: %w",
+			ep0, ep1, err,
+		)
+	}
+	isCMR, err := s.modelState.IsRelationCrossModel(ctx, relationKey)
+	if err != nil {
+		return internalerrors.Errorf(
+			"checking if relation %q is cross-model: %w",
+			relationKey.String(), err,
+		)
+	}
+	if !isCMR {
+		return internalerrors.Errorf("integration via subnets for non cross model relations").Add(coreerrors.NotSupported)
+	}
 	if err := s.modelState.AddRelationNetworkEgress(ctx, relationKey, cidrs...); err != nil {
 		return errors.Capture(err)
 	}
