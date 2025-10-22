@@ -22,7 +22,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -558,7 +557,7 @@ WHERE  sa.unit_uuid = $unitUUID.uuid`, unitUUIDInput, storageAttachmentLife{})
 // GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by its ID.
 //
 // The following errors may be returned:
-// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
+// - [storageerrors.StorageInstanceNotFound] when no storage
 // instance exists for the provided ID.
 func (st *State) GetStorageInstanceUUIDByID(
 	ctx context.Context, storageIDStr string,
@@ -582,7 +581,7 @@ WHERE  storage_id = $storageID.storage_id`, input, dbVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"storage instance with ID %q does not exist", storageIDStr,
-			).Add(storageprovisioningerrors.StorageInstanceNotFound)
+			).Add(storageerrors.StorageInstanceNotFound)
 		}
 		return err
 	})
@@ -598,7 +597,7 @@ WHERE  storage_id = $storageID.storage_id`, input, dbVal)
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] when no unit exists for the supplied
 // unit UUID.
-// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
+// - [storageerrors.StorageInstanceNotFound] when no storage
 // instance exists for the provided storage instance UUID.
 // - [storageerrors.StorageAttachmentNotFound] when
 // the storage attachment does not exist for the unit and storage instance.
@@ -635,7 +634,7 @@ AND    storage_instance_uuid = $storageAttachmentIdentifier.storage_instance_uui
 		} else if !exists {
 			return errors.Errorf(
 				"storage instance %q does not exist", storageInstanceUUID,
-			).Add(storageprovisioningerrors.StorageInstanceNotFound)
+			).Add(storageerrors.StorageInstanceNotFound)
 		}
 
 		err := tx.Query(ctx, stmt, input).Get(&attachmentLife)
@@ -669,7 +668,7 @@ func (st *State) InitialWatchStatementForUnitStorageAttachments(
 // a given storage ID and network node UUID.
 //
 // The following errors may be returned:
-// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
+// - [storageerrors.StorageInstanceNotFound] if the storage
 // instance does not exist for the provided storage ID.
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [storageerrors.StorageAttachmentNotFound] if the storage attachment does
@@ -703,7 +702,7 @@ WHERE  si.storage_id = $storageID.storage_id AND sa.unit_uuid = $unitUUIDRef.uni
 		} else if !exists {
 			return errors.Errorf(
 				"storage instance %q does not exist", storageIDInput.ID,
-			).Add(storageprovisioningerrors.StorageInstanceNotFound)
+			).Add(storageerrors.StorageInstanceNotFound)
 		}
 
 		if exists, err := st.checkUnitExists(ctx, tx, unitUUIDInput.UUID); err != nil {

@@ -23,7 +23,6 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -342,7 +341,7 @@ func (s *stateSuite) TestGetStorageInstanceUUIDByID(c *tc.C) {
 func (s *stateSuite) TestGetStorageInstanceUUIDByIDWithStorageInstanceNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageInstanceUUIDByID(c.Context(), "foo/1")
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
 }
 
 func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
@@ -378,7 +377,7 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageInstanceNotFound(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
 }
 
 func (s *stateSuite) TestGetAttachmentLifeWithStorageAttachmentNotFound(c *tc.C) {
@@ -486,7 +485,7 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDWithStorageInstanceNotFound(c *
 	_, err := st.GetStorageAttachmentUUIDForUnit(
 		c.Context(), "foo/1", unitUUID.String(),
 	)
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
 }
 
 func (s *stateSuite) TestNamespaceForStorageAttachment(c *tc.C) {

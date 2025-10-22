@@ -76,6 +76,41 @@ AND    life_id = 0`, attachmentUUID)
 	}))
 }
 
+// EnsureStorageAttachmentNotAliveWithFulfilment ensures that there is no
+// storage attachment identified by the input UUID that is still alive
+// after this call. This condition is only realised when the storage
+// fulfilment for the units charm is met by the removal.
+//
+// Fulfilment expectation exists to assert the state of the world for which
+// the ensure operation was computed on top of.
+//
+// The following errors may be returned:
+// - [removalerrors.StorageFulfilmentNotMet] when the fulfilment requiremnt
+// fails.
+func (st *State) EnsureStorageAttachmentNotAliveWithFulfilment(
+	ctx context.Context,
+	saUUID string,
+	fulfilment int,
+) error {
+	return errors.New("no implemented: coming soon")
+}
+
+// GetDetachInfoForStorageAttachment returns the information required to
+// compute what a units storage requirement will look like after having
+// removed the storage attachment.
+//
+// This information can be used to establish if detaching storage from the
+// unit would violate the expectations of the unit's charm.
+//
+// The following errors may be returned:
+// - [storageerrors.StorageAttachmentNotFound] if the storage attachment
+// no longer exists in the model.
+func (st *State) GetDetachInfoForStorageAttachment(
+	ctx context.Context, saUUID string,
+) (internal.StorageAttachmentDetachInfo, error) {
+	return internal.StorageAttachmentDetachInfo{}, errors.New("no implemented: coming soon")
+}
+
 // StorageAttachmentScheduleRemoval schedules a removal job for the storage
 // attachment with the input UUID, qualified with the input force boolean.
 // We don't care if the attachment does not exist at this point because:

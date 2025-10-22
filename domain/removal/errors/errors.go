@@ -47,4 +47,8 @@ const (
 	// ForceRequired indicates that a removal job requires the force flag to
 	// be set to true in order to proceed.
 	ForceRequired = errors.ConstError("force required for removal job")
+
+	// StorageFulfilmentNotMet indicates that removing a storage entity from
+	// the model the fulfilment expectation was not met.
+	StorageFulfilmentNotMet = errors.ConstError("storage fulfilment not met")
 )
