@@ -173,7 +173,6 @@ const (
 	CodeNoCreds                    = "no credentials provided"
 	CodeCannotEnterScope           = "cannot enter scope"
 	CodeCannotEnterScopeYet        = "cannot enter scope yet"
-	CodeExcessiveContention        = "excessive contention"
 	CodeUnitHasSubordinates        = "unit has subordinates"
 	CodeNotAssigned                = "not assigned"
 	CodeStopped                    = "stopped"
@@ -442,10 +441,6 @@ func IsCodeCannotEnterScope(err error) bool {
 
 func IsCodeCannotEnterScopeYet(err error) bool {
 	return ErrCode(err) == CodeCannotEnterScopeYet
-}
-
-func IsCodeExcessiveContention(err error) bool {
-	return ErrCode(err) == CodeExcessiveContention
 }
 
 func IsCodeUnitHasSubordinates(err error) bool {
