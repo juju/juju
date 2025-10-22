@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
-	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -25,7 +24,7 @@ type ModelOfferState interface {
 	// CreateOffer creates an offer and links the endpoints to it.
 	CreateOffer(
 		context.Context,
-		internal.CreateOfferArgs,
+		crossmodelrelation.CreateOfferArgs,
 	) error
 
 	// DeleteFailedOffer deletes the provided offer, used after adding
@@ -38,7 +37,7 @@ type ModelOfferState interface {
 
 	// GetOfferDetails returns the OfferDetail of every offer in the model.
 	// No error is returned if offers are found.
-	GetOfferDetails(context.Context, internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)
+	GetOfferDetails(context.Context, crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)
 
 	// GetOfferUUID returns the offer uuid for provided name.
 	// Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
@@ -121,7 +120,7 @@ func (s *Service) Offer(
 	if err != nil {
 		return errors.Capture(err)
 	}
-	createArgs := internal.MakeCreateOfferArgs(args, offerUUID)
+	createArgs := crossmodelrelation.MakeCreateOfferArgs(args, offerUUID)
 
 	// Attempt to update the offer, return if successful or an error other than
 	// OfferNotFound is received.
@@ -164,7 +163,7 @@ func (s *Service) Offer(
 // provided filters.
 func (s *Service) GetOffers(
 	ctx context.Context,
-	filters []crossmodelrelation.OfferFilter,
+	filters []OfferFilter,
 ) ([]*crossmodelrelation.OfferDetail, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -241,12 +240,23 @@ func (s *Service) addOfferUsers(
 }
 
 func encodeInternalOfferFilter(
-	filter crossmodelrelation.OfferFilter,
-) internal.OfferFilter {
-	return internal.OfferFilter{
+	filter OfferFilter,
+) crossmodelrelation.OfferFilter {
+	res := crossmodelrelation.OfferFilter{
 		OfferName:              filter.OfferName,
 		ApplicationName:        filter.ApplicationName,
 		ApplicationDescription: filter.ApplicationDescription,
-		Endpoints:              filter.Endpoints,
+	}
+	if len(filter.Endpoints) > 0 {
+		res.Endpoints = transform.Slice(filter.Endpoints, encodeOfferFilterEndpoints)
+	}
+	return res
+}
+
+func encodeOfferFilterEndpoints(in EndpointFilterTerm) crossmodelrelation.EndpointFilterTerm {
+	return crossmodelrelation.EndpointFilterTerm{
+		Name:      in.Name,
+		Interface: in.Interface,
+		Role:      in.Role,
 	}
 }

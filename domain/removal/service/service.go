@@ -53,6 +53,7 @@ type ModelDBState interface {
 	StorageState
 	RemoteApplicationOffererState
 	RemoteRelationState
+	OfferState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
@@ -69,6 +70,13 @@ type ModelDBState interface {
 	// are watching in order to be notified of new removal jobs for specific
 	// entities.
 	NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, map[string]string)
+}
+
+// ControllerDBState describes retrieval and persistence methods for entity
+// removal in the controller database.
+type ControllerDBState interface {
+	ControllerState
+	ControllerOfferState
 }
 
 // WatcherFactory describes methods for creating watchers.

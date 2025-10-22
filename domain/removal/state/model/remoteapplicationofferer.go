@@ -257,21 +257,6 @@ WHERE  uuid = $entityUUID.uuid`, remoteAppOffererUUID)
 		return errors.Capture(err)
 	}
 
-	deleteApplicationEndpointBindingsStmt, err := st.Prepare(`
-DELETE FROM application_endpoint
-WHERE application_uuid = $entityUUID.uuid
-`, entityUUID{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	deleteApplicationStmt, err := st.Prepare(`
-DELETE FROM application
-WHERE  uuid = $entityUUID.uuid`, entityUUID{})
-	if err != nil {
-		return errors.Errorf("preparing application delete: %w", err)
-	}
-
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		aLife, err := st.getRemoteApplicationOffererLife(ctx, tx, rUUID)
 		if err != nil {
@@ -300,16 +285,6 @@ WHERE  uuid = $entityUUID.uuid`, entityUUID{})
 			return errors.Errorf("getting application UUID for remote application offerer: %w", err)
 		}
 
-		// Get the charm UUID before we delete the application.
-		synthCharmUUID, err := st.getCharmUUIDForApplication(ctx, tx, synthApp.UUID)
-		if err != nil {
-			return errors.Errorf("getting charm UUID for application: %w", err)
-		}
-
-		if err := st.deleteRemoteApplicationOffererUnits(ctx, tx, synthApp.UUID); err != nil {
-			return errors.Errorf("deleting remote application offerer units: %w", err)
-		}
-
 		if err := tx.Query(ctx, deleteRemoteApplicationOffererStatusStmt, remoteAppOffererUUID).Run(); err != nil {
 			return errors.Errorf("deleting synthetic application remote relation status: %w", err)
 		}
@@ -318,33 +293,65 @@ WHERE  uuid = $entityUUID.uuid`, entityUUID{})
 			return errors.Errorf("deleting synthetic application remote relation: %w", err)
 		}
 
-		if err := tx.Query(ctx, deleteApplicationEndpointBindingsStmt, synthApp).Run(); err != nil {
-			return errors.Errorf("deleting synthetic application endpoint bindings: %w", err)
-		}
-
-		if err := tx.Query(ctx, deleteApplicationStmt, synthApp).Run(); err != nil {
+		if err := st.deleteSynthApplication(ctx, tx, synthApp); err != nil {
 			return errors.Errorf("deleting synthetic application: %w", err)
-		}
-
-		// Delete the synthetic charm directly, since we know it is not shared
-		// but other applications
-		if err := st.deleteCharm(ctx, tx, synthCharmUUID); err != nil {
-			return errors.Errorf("deleting synthetic charm: %w", err)
 		}
 
 		return nil
 	}))
 }
 
-func (st *State) deleteRemoteApplicationOffererUnits(ctx context.Context, tx *sqlair.TX, appUUID string) error {
-	ident := entityUUID{UUID: appUUID}
+func (st *State) deleteSynthApplication(ctx context.Context, tx *sqlair.TX, synthApp entityUUID) error {
+
+	deleteApplicationEndpointBindingsStmt, err := st.Prepare(`
+DELETE FROM application_endpoint
+WHERE application_uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteApplicationStmt, err := st.Prepare(`
+DELETE FROM application
+WHERE  uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing application delete: %w", err)
+	}
+	// Get the charm UUID before we delete the application.
+	synthCharmUUID, err := st.getCharmUUIDForApplication(ctx, tx, synthApp.UUID)
+	if err != nil {
+		return errors.Errorf("getting charm UUID for application: %w", err)
+	}
+
+	if err := st.deleteSynthApplicationUnits(ctx, tx, synthApp); err != nil {
+		return errors.Errorf("deleting remote application offerer units: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteApplicationEndpointBindingsStmt, synthApp).Run(); err != nil {
+		return errors.Errorf("deleting synthetic application endpoint bindings: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteApplicationStmt, synthApp).Run(); err != nil {
+		return errors.Errorf("deleting synthetic application: %w", err)
+	}
+
+	// Delete the synthetic charm directly, since we know it is not shared
+	// but other applications
+	if err := st.deleteCharm(ctx, tx, synthCharmUUID); err != nil {
+		return errors.Errorf("deleting synthetic charm: %w", err)
+	}
+
+	return nil
+}
+
+func (st *State) deleteSynthApplicationUnits(ctx context.Context, tx *sqlair.TX, synthApp entityUUID) error {
 	selectNetNodesStmt, err := st.Prepare(`
 SELECT DISTINCT nn.uuid AS &entityUUID.uuid
 FROM   net_node AS nn
 JOIN   unit AS u ON nn.uuid = u.net_node_uuid
 JOIN   application AS a ON u.application_uuid = a.uuid
 WHERE  a.uuid = $entityUUID.uuid
-`, ident)
+`, synthApp)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -358,13 +365,13 @@ WHERE uuid IN ($uuids[:])`, uuids{})
 
 	deleteUnitsStmt, err := st.Prepare(`
 DELETE FROM unit
-WHERE application_uuid = $entityUUID.uuid`, ident)
+WHERE application_uuid = $entityUUID.uuid`, synthApp)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	var netNodeEntityUUIDs []entityUUID
-	err = tx.Query(ctx, selectNetNodesStmt, ident).GetAll(&netNodeEntityUUIDs)
+	err = tx.Query(ctx, selectNetNodesStmt, synthApp).GetAll(&netNodeEntityUUIDs)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Capture(err)
 	}
@@ -374,7 +381,7 @@ WHERE application_uuid = $entityUUID.uuid`, ident)
 		return nil
 	}
 
-	if err := tx.Query(ctx, deleteUnitsStmt, ident).Run(); err != nil {
+	if err := tx.Query(ctx, deleteUnitsStmt, synthApp).Run(); err != nil {
 		return errors.Capture(err)
 	}
 

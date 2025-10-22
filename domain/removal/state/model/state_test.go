@@ -25,6 +25,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	corestatus "github.com/juju/juju/core/status"
@@ -342,7 +343,7 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Provi
 	return appID
 }
 
-func (s *baseSuite) createIAASRemoteApplicationOfferer(
+func (s *baseSuite) createRemoteApplicationOfferer(
 	c *tc.C,
 	name string,
 ) (coreapplication.UUID, coreremoteapplication.UUID) {
@@ -395,6 +396,59 @@ func (s *baseSuite) createIAASRemoteApplicationOfferer(
 	return appUUID, remoteAppUUID
 }
 
+func (s *baseSuite) createRemoteApplicationConsumer(
+	c *tc.C,
+	name string,
+	offerUUID offer.UUID,
+) (coreapplication.UUID, coreremoteapplication.UUID) {
+	cmrState := crossmodelrelationstate.NewState(
+		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	)
+
+	ch := charm.Charm{
+		Metadata: charm.Metadata{
+			Name: name,
+			Provides: map[string]charm.Relation{
+				"foo": {
+					Name:      "foo",
+					Interface: "rel",
+					Role:      charm.RoleProvider,
+					Scope:     charm.ScopeGlobal,
+				},
+				"bar": {
+					Name:      "bar",
+					Interface: "rel",
+					Role:      charm.RoleProvider,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+		},
+		Manifest:      s.minimalManifest(c),
+		ReferenceName: name,
+		Source:        charm.CMRSource,
+		Revision:      42,
+		Hash:          "hash",
+		Architecture:  architecture.ARM64,
+	}
+
+	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	relationUUID := tc.Must(c, relation.NewUUID)
+	err := cmrState.AddRemoteApplicationConsumer(c.Context(), name, crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			RemoteApplicationUUID: remoteAppUUID.String(),
+			ApplicationUUID:       appUUID.String(),
+			CharmUUID:             tc.Must(c, uuid.NewUUID).String(),
+			Charm:                 ch,
+			OfferUUID:             offerUUID.String(),
+		},
+		RelationUUID: relationUUID.String(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return appUUID, remoteAppUUID
+}
+
 func (s *baseSuite) minimalManifest(c *tc.C) charm.Manifest {
 	return charm.Manifest{
 		Bases: []charm.Base{
@@ -431,7 +485,7 @@ func (s *baseSuite) createRelation(c *tc.C) relation.UUID {
 // them. We also add some units to the each app for good measure. Returns the
 // relation UUID and the synthetic app UUID.
 func (s *baseSuite) createRemoteRelation(c *tc.C) (relation.UUID, coreapplication.UUID) {
-	synthAppUUID, _ := s.createIAASRemoteApplicationOfferer(c, "foo")
+	synthAppUUID, _ := s.createRemoteApplicationOfferer(c, "foo")
 	s.createIAASApplication(c, s.setupApplicationService(c), "bar",
 		applicationservice.AddIAASUnitArg{},
 		applicationservice.AddIAASUnitArg{},

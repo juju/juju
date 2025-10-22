@@ -22,6 +22,7 @@ import (
 	access "github.com/juju/juju/domain/access"
 	controller "github.com/juju/juju/domain/controller"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
+	service "github.com/juju/juju/domain/crossmodelrelation/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -289,7 +290,7 @@ func (c *MockCrossModelRelationServiceGetOfferUUIDCall) DoAndReturn(f func(conte
 }
 
 // GetOffers mocks base method.
-func (m *MockCrossModelRelationService) GetOffers(arg0 context.Context, arg1 []crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
+func (m *MockCrossModelRelationService) GetOffers(arg0 context.Context, arg1 []service.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOffers", arg0, arg1)
 	ret0, _ := ret[0].([]*crossmodelrelation.OfferDetail)
@@ -316,13 +317,13 @@ func (c *MockCrossModelRelationServiceGetOffersCall) Return(arg0 []*crossmodelre
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceGetOffersCall) Do(f func(context.Context, []crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockCrossModelRelationServiceGetOffersCall {
+func (c *MockCrossModelRelationServiceGetOffersCall) Do(f func(context.Context, []service.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockCrossModelRelationServiceGetOffersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceGetOffersCall) DoAndReturn(f func(context.Context, []crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockCrossModelRelationServiceGetOffersCall {
+func (c *MockCrossModelRelationServiceGetOffersCall) DoAndReturn(f func(context.Context, []service.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockCrossModelRelationServiceGetOffersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

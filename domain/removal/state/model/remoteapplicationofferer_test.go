@@ -30,7 +30,7 @@ func TestRemoteApplicationOffererSuite(t *testing.T) {
 }
 
 func (s *remoteApplicationOffererSuite) TestGetRemoteApplicationOffererUUIDByApplicationUUID(c *tc.C) {
-	appUUID, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	appUUID, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -43,7 +43,7 @@ func (s *remoteApplicationOffererSuite) TestGetRemoteApplicationOffererUUIDByApp
 }
 
 func (s *remoteApplicationOffererSuite) TestRemoteApplicationOffererExists(c *tc.C) {
-	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	_, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -57,7 +57,7 @@ func (s *remoteApplicationOffererSuite) TestRemoteApplicationOffererExists(c *tc
 }
 
 func (s *remoteApplicationOffererSuite) TestEnsureRemoteApplicationOffererNotAliveCascadeNormalSuccess(c *tc.C) {
-	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	_, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -71,7 +71,7 @@ func (s *remoteApplicationOffererSuite) TestEnsureRemoteApplicationOffererNotAli
 }
 
 func (s *remoteApplicationOffererSuite) TestEnsureRemoteApplicationOffererNotAliveCascadeNormalSuccessWithCascadedRelations(c *tc.C) {
-	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	_, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 	s.createIAASApplication(c, s.setupApplicationService(c), "bar")
 
 	relSvc := s.setupRelationService(c)
@@ -96,7 +96,7 @@ func (s *remoteApplicationOffererSuite) TestEnsureRemoteApplicationOffererNotAli
 }
 
 func (s *remoteApplicationOffererSuite) TestRemoteApplicationOffererScheduleRemovalNormalSuccess(c *tc.C) {
-	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	_, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -162,7 +162,7 @@ where  r.uuid = ?`, "removal-uuid",
 }
 
 func (s *remoteApplicationOffererSuite) TestGetRemoteApplicationOffererLifeSuccess(c *tc.C) {
-	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	_, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -172,7 +172,7 @@ func (s *remoteApplicationOffererSuite) TestGetRemoteApplicationOffererLifeSucce
 }
 
 func (s *remoteApplicationOffererSuite) TestGetRemoteApplicationOffererLifeDying(c *tc.C) {
-	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	_, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 
 	_, err := s.DB().Exec(`UPDATE application_remote_offerer SET life_id = 1 WHERE uuid = ?`, remoteAppUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -192,7 +192,7 @@ func (s *remoteApplicationOffererSuite) TestGetRemoteApplicationOffererLifeNotFo
 }
 
 func (s *remoteApplicationOffererSuite) TestDeleteRemoteApplicationOffererStillAlive(c *tc.C) {
-	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	_, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -201,7 +201,7 @@ func (s *remoteApplicationOffererSuite) TestDeleteRemoteApplicationOffererStillA
 }
 
 func (s *remoteApplicationOffererSuite) TestDeleteRemoteApplicationOffererSuccess(c *tc.C) {
-	appUUID, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	appUUID, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 
 	s.advanceRemoteApplicationOffererLife(c, remoteAppUUID.String(), life.Dying)
 
@@ -223,7 +223,7 @@ func (s *remoteApplicationOffererSuite) TestDeleteRemoteApplicationOffererSucces
 }
 
 func (s *remoteApplicationOffererSuite) TestDeleteRemoteApplicationOffererWithRelations(c *tc.C) {
-	appUUID, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	appUUID, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 	s.createIAASApplication(c, s.setupApplicationService(c), "bar")
 
 	relSvc := s.setupRelationService(c)
@@ -262,7 +262,7 @@ func (s *remoteApplicationOffererSuite) TestDeleteRemoteApplicationOffererWithRe
 }
 
 func (s *remoteApplicationOffererSuite) TestDeleteRemoteApplicationOffererWithUnits(c *tc.C) {
-	appUUID, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+	appUUID, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
 
 	cmrState := crossmodelrelationstate.NewState(
 		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),

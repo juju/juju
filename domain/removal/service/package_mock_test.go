@@ -82,6 +82,44 @@ func (c *MockControllerDBStateDeleteModelCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// DeleteOfferAccess mocks base method.
+func (m *MockControllerDBState) DeleteOfferAccess(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteOfferAccess", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteOfferAccess indicates an expected call of DeleteOfferAccess.
+func (mr *MockControllerDBStateMockRecorder) DeleteOfferAccess(arg0, arg1 any) *MockControllerDBStateDeleteOfferAccessCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOfferAccess", reflect.TypeOf((*MockControllerDBState)(nil).DeleteOfferAccess), arg0, arg1)
+	return &MockControllerDBStateDeleteOfferAccessCall{Call: call}
+}
+
+// MockControllerDBStateDeleteOfferAccessCall wrap *gomock.Call
+type MockControllerDBStateDeleteOfferAccessCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerDBStateDeleteOfferAccessCall) Return(arg0 error) *MockControllerDBStateDeleteOfferAccessCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerDBStateDeleteOfferAccessCall) Do(f func(context.Context, string) error) *MockControllerDBStateDeleteOfferAccessCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerDBStateDeleteOfferAccessCall) DoAndReturn(f func(context.Context, string) error) *MockControllerDBStateDeleteOfferAccessCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // EnsureModelNotAliveCascade mocks base method.
 func (m *MockControllerDBState) EnsureModelNotAliveCascade(arg0 context.Context, arg1 string, arg2 bool) error {
 	m.ctrl.T.Helper()
@@ -561,6 +599,44 @@ func (c *MockModelDBStateDeleteModelArtifactsCall) Do(f func(context.Context, st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateDeleteModelArtifactsCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteModelArtifactsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteOffer mocks base method.
+func (m *MockModelDBState) DeleteOffer(arg0 context.Context, arg1 string, arg2 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteOffer", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteOffer indicates an expected call of DeleteOffer.
+func (mr *MockModelDBStateMockRecorder) DeleteOffer(arg0, arg1, arg2 any) *MockModelDBStateDeleteOfferCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOffer", reflect.TypeOf((*MockModelDBState)(nil).DeleteOffer), arg0, arg1, arg2)
+	return &MockModelDBStateDeleteOfferCall{Call: call}
+}
+
+// MockModelDBStateDeleteOfferCall wrap *gomock.Call
+type MockModelDBStateDeleteOfferCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateDeleteOfferCall) Return(arg0 error) *MockModelDBStateDeleteOfferCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateDeleteOfferCall) Do(f func(context.Context, string, bool) error) *MockModelDBStateDeleteOfferCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateDeleteOfferCall) DoAndReturn(f func(context.Context, string, bool) error) *MockModelDBStateDeleteOfferCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2297,6 +2373,45 @@ func (c *MockModelDBStateNamespaceForWatchRemovalsCall) Do(f func() string) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateNamespaceForWatchRemovalsCall) DoAndReturn(f func() string) *MockModelDBStateNamespaceForWatchRemovalsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// OfferExists mocks base method.
+func (m *MockModelDBState) OfferExists(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OfferExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OfferExists indicates an expected call of OfferExists.
+func (mr *MockModelDBStateMockRecorder) OfferExists(arg0, arg1 any) *MockModelDBStateOfferExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferExists", reflect.TypeOf((*MockModelDBState)(nil).OfferExists), arg0, arg1)
+	return &MockModelDBStateOfferExistsCall{Call: call}
+}
+
+// MockModelDBStateOfferExistsCall wrap *gomock.Call
+type MockModelDBStateOfferExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateOfferExistsCall) Return(arg0 bool, arg1 error) *MockModelDBStateOfferExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateOfferExistsCall) Do(f func(context.Context, string) (bool, error)) *MockModelDBStateOfferExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateOfferExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelDBStateOfferExistsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

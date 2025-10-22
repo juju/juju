@@ -15,14 +15,13 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
-	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
 // CreateOffer creates an offer and links the endpoints to it.
 func (st *State) CreateOffer(
 	ctx context.Context,
-	args internal.CreateOfferArgs,
+	args crossmodelrelation.CreateOfferArgs,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -189,7 +188,7 @@ func (st *State) GetOfferUUID(ctx context.Context, name string) (string, error) 
 // No error is returned if offers are found.
 func (st *State) GetOfferDetails(
 	ctx context.Context,
-	filter internal.OfferFilter,
+	filter crossmodelrelation.OfferFilter,
 ) ([]*crossmodelrelation.OfferDetail, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -268,7 +267,7 @@ WHERE  offer_uuid IN ($uuids[:])
 	return offers, nil
 }
 
-func (st *State) getFilteredOfferDetails(ctx context.Context, tx *sqlair.TX, input internal.OfferFilter) (offerDetails, error) {
+func (st *State) getFilteredOfferDetails(ctx context.Context, tx *sqlair.TX, input crossmodelrelation.OfferFilter) (offerDetails, error) {
 	stmt, err := st.Prepare(`
 SELECT &offerDetail.*
 FROM   v_offer_detail
@@ -312,7 +311,7 @@ OR     endpoint_interface = $offerFilter.endpoint_interface
 // Application name and description filter values should be contained with
 // the actual result. Setup their values to use the LIKE operator by adding
 // an `%` before and after the word if provided.
-func encodeOfferFilter(in internal.OfferFilter) ([]offerFilter, error) {
+func encodeOfferFilter(in crossmodelrelation.OfferFilter) ([]offerFilter, error) {
 	result := make([]offerFilter, 0)
 	if !in.EmptyModuloEndpoints() {
 		var (

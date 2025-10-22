@@ -13,6 +13,7 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accessstate "github.com/juju/juju/domain/access/state"
@@ -52,14 +53,36 @@ func (m *baseSuite) SetUpTest(c *tc.C) {
 	userName := usertesting.GenNewName(c, "test-user")
 	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	userUUID := usertesting.GenUserUUID(c)
+	adminUserUUID := usertesting.GenUserUUID(c)
 	err := accessState.AddUser(
+		c.Context(),
+		adminUserUUID,
+		user.AdminUserName,
+		"admin",
+		false,
+		adminUserUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	everyoneExternalUUID := usertesting.GenUserUUID(c)
+	err = accessState.AddUser(
+		c.Context(),
+		everyoneExternalUUID,
+		permission.EveryoneUserName,
+		"",
+		true,
+		adminUserUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	userUUID := usertesting.GenUserUUID(c)
+	err = accessState.AddUser(
 		c.Context(),
 		userUUID,
 		userName,
 		userName.Name(),
 		false,
-		userUUID,
+		everyoneExternalUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 

@@ -61,3 +61,38 @@ type AddRemoteApplicationConsumerArgs struct {
 	// Endpoints is the collection of endpoint relations offered.
 	Endpoints []charm.Relation
 }
+
+// OfferFilter is used to query applications offered
+// by this model.
+type OfferFilter struct {
+	// OfferName is the name of the offer.
+	OfferName string
+
+	// ApplicationName is the name of the application to which the offer pertains.
+	ApplicationName string
+
+	// ApplicationDescription is a description of the application's functionality,
+	// typically copied from the charm metadata.
+	ApplicationDescription string
+
+	// Endpoint contains an endpoint filter criteria.
+	Endpoints []EndpointFilterTerm
+
+	// AllowedConsumers are the users allowed to consume the offer.
+	AllowedConsumers []string
+
+	// ConnectedUsers are the users currently related to the offer.
+	ConnectedUsers []string
+}
+
+// EndpointFilterTerm represents a remote endpoint filter.
+type EndpointFilterTerm struct {
+	// Name is an endpoint name.
+	Name string
+
+	// Interface is an endpoint interface.
+	Interface string
+
+	// Role is an endpoint role.
+	Role charm.RelationRole
+}

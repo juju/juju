@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 )
 
 // AccessService defines the interface for interacting with the access domain.
@@ -55,7 +56,7 @@ type CrossModelRelationService interface {
 	// provided filters.
 	GetOffers(
 		ctx context.Context,
-		filters []crossmodelrelation.OfferFilter,
+		filters []crossmodelrelationservice.OfferFilter,
 	) ([]*crossmodelrelation.OfferDetail, error)
 
 	// Offer updates an existing offer, or creates a new offer if it does not

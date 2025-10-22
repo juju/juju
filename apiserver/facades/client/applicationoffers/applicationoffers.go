@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -281,11 +282,11 @@ func (api *OffersAPI) getApplicationOffersDetails(
 // the model and filter details for each.
 func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag, filters params.OfferFilters) (
 	models map[string]model.Model,
-	filtersPerModel map[string][]crossmodelrelation.OfferFilter,
+	filtersPerModel map[string][]crossmodelrelationservice.OfferFilter,
 	_ error,
 ) {
 	models = make(map[string]model.Model)
-	filtersPerModel = make(map[string][]crossmodelrelation.OfferFilter)
+	filtersPerModel = make(map[string][]crossmodelrelationservice.OfferFilter)
 
 	// Group the filters per model and then query each model with the relevant filters
 	// for that model.
@@ -340,7 +341,7 @@ func (api *OffersAPI) applicationOffersFromModel(
 	apiUser names.UserTag,
 	apiUserDisplayName string,
 	requiredAccess permission.Access,
-	filters []crossmodelrelation.OfferFilter,
+	filters []crossmodelrelationservice.OfferFilter,
 ) ([]params.ApplicationOfferAdminDetailsV5, error) {
 	if err := api.checkModelPermission(ctx, apiUser, model.UUID(modelUUID), requiredAccess); err != nil {
 		return nil, apiservererrors.ErrPerm
@@ -451,22 +452,22 @@ func findOfferUserAccess(userName string, in []crossmodelrelation.OfferUser) per
 	return permission.NoAccess
 }
 
-func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelation.OfferFilter, error) {
+func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelationservice.OfferFilter, error) {
 	offerName, err := resolveOfferName(filter.OfferName)
 	if err != nil {
-		return crossmodelrelation.OfferFilter{}, errors.Errorf("unescaping offer name: %w", err)
+		return crossmodelrelationservice.OfferFilter{}, errors.Errorf("unescaping offer name: %w", err)
 	}
 
-	offerFilter := crossmodelrelation.OfferFilter{
+	offerFilter := crossmodelrelationservice.OfferFilter{
 		OfferName:              offerName,
 		ApplicationName:        filter.ApplicationName,
 		ApplicationDescription: filter.ApplicationDescription,
-		Endpoints:              make([]crossmodelrelation.EndpointFilterTerm, len(filter.Endpoints)),
+		Endpoints:              make([]crossmodelrelationservice.EndpointFilterTerm, len(filter.Endpoints)),
 		AllowedConsumers:       make([]string, len(filter.AllowedConsumerTags)),
 		ConnectedUsers:         make([]string, len(filter.ConnectedUserTags)),
 	}
 	for i, ep := range filter.Endpoints {
-		offerFilter.Endpoints[i] = crossmodelrelation.EndpointFilterTerm{
+		offerFilter.Endpoints[i] = crossmodelrelationservice.EndpointFilterTerm{
 			Name:      ep.Name,
 			Interface: ep.Interface,
 			Role:      domaincharm.RelationRole(ep.Role),
@@ -475,14 +476,14 @@ func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelation.Of
 	for i, tag := range filter.AllowedConsumerTags {
 		u, err := names.ParseUserTag(tag)
 		if err != nil {
-			return crossmodelrelation.OfferFilter{}, errors.Capture(err)
+			return crossmodelrelationservice.OfferFilter{}, errors.Capture(err)
 		}
 		offerFilter.AllowedConsumers[i] = u.Id()
 	}
 	for i, tag := range filter.ConnectedUserTags {
 		u, err := names.ParseUserTag(tag)
 		if err != nil {
-			return crossmodelrelation.OfferFilter{}, errors.Capture(err)
+			return crossmodelrelationservice.OfferFilter{}, errors.Capture(err)
 		}
 		offerFilter.ConnectedUsers[i] = u.Id()
 	}

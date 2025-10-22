@@ -178,7 +178,7 @@ func (s *relationSuite) TestDeleteRemoteRelation(c *tc.C) {
 }
 
 func (s *relationSuite) TestDeleteRemoteRelationWhenRemoteAppHasMultipleRelations(c *tc.C) {
-	synthAppUUID, _ := s.createIAASRemoteApplicationOfferer(c, "foo")
+	synthAppUUID, _ := s.createRemoteApplicationOfferer(c, "foo")
 	s.createIAASApplication(c, s.setupApplicationService(c), "app1",
 		applicationservice.AddIAASUnitArg{},
 	)

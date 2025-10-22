@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	statusservice "github.com/juju/juju/domain/status/service"
 	charm0 "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testhelpers"
@@ -228,7 +229,7 @@ func (s *statusSuite) TestFetchOffers(c *tc.C) {
 			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 		},
 	}
-	cmrService.EXPECT().GetOffers(gomock.Any(), []crossmodelrelation.OfferFilter{{}}).Return(offerDetails, nil)
+	cmrService.EXPECT().GetOffers(gomock.Any(), []crossmodelrelationservice.OfferFilter{{}}).Return(offerDetails, nil)
 
 	// Act
 	output, err := fetchOffers(c.Context(), cmrService)
