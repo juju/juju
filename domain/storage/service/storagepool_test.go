@@ -13,6 +13,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
@@ -53,9 +54,13 @@ func (s *storagePoolServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *storagePoolServiceSuite) service(c *tc.C) *Service {
-	return NewService(s.state, modelStorageRegistryGetter(func() storage.ProviderRegistry {
-		return s.registry
-	}))
+	return NewService(
+		s.state,
+		loggertesting.WrapCheckLog(c),
+		modelStorageRegistryGetter(func() storage.ProviderRegistry {
+			return s.registry
+		}),
+	)
 }
 
 func (s *storagePoolServiceSuite) TestCreateStoragePool(c *tc.C) {

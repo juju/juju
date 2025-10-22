@@ -11,6 +11,7 @@ import (
 
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 // instanceSuite is a test suite for asserting the parts of the [Service]
@@ -49,7 +50,9 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDForIDNotFound(c *tc.C) {
 		"", domainstorageerrors.StorageInstanceNotFound,
 	)
 
-	svc := NewService(s.state, s.storageRegistryGetter)
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+	)
 	_, err := svc.GetStorageInstanceUUIDForID(c.Context(), "id1")
 	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
 }
@@ -65,7 +68,9 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDForID(c *tc.C) {
 		storageInstanceUUID, nil,
 	)
 
-	svc := NewService(s.state, s.storageRegistryGetter)
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+	)
 	uuid, err := svc.GetStorageInstanceUUIDForID(c.Context(), "id1")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, storageInstanceUUID)

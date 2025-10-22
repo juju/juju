@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -53,7 +54,9 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
 	s.storageRegistry = NewMockProviderRegistry(ctrl)
 
-	s.service = NewService(s.state, s.storageRegistryGetter)
+	s.service = NewService(
+		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+	)
 
 	return ctrl
 }

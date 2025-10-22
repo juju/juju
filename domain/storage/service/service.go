@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
@@ -51,11 +52,16 @@ type Service struct {
 	*StoragePoolService
 	*StorageService
 
-	st State
+	logger logger.Logger
+	st     State
 }
 
 // NewService returns a new Service for interacting with the underlying state.
-func NewService(st State, registryGetter corestorage.ModelStorageRegistryGetter) *Service {
+func NewService(
+	st State,
+	logger logger.Logger,
+	registryGetter corestorage.ModelStorageRegistryGetter,
+) *Service {
 	return &Service{
 		StoragePoolService: &StoragePoolService{
 			st:             st,
@@ -65,7 +71,8 @@ func NewService(st State, registryGetter corestorage.ModelStorageRegistryGetter)
 			st:             st,
 			registryGetter: registryGetter,
 		},
-		st: st,
+		logger: logger,
+		st:     st,
 	}
 }
 

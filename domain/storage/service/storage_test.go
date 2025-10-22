@@ -14,6 +14,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
@@ -73,9 +74,13 @@ func (s *storageSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *storageSuite) service(c *tc.C) *Service {
-	return NewService(s.state, modelStorageRegistryGetter(func() storage.ProviderRegistry {
-		return s.registry
-	}))
+	return NewService(
+		s.state,
+		loggertesting.WrapCheckLog(c),
+		modelStorageRegistryGetter(func() storage.ProviderRegistry {
+			return s.registry
+		}),
+	)
 }
 
 func (s *storageSuite) TestImportFilesystemValidate(c *tc.C) {

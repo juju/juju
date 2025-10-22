@@ -15,6 +15,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 // attachmentSuite is a test suite for asserting the parts of the [Service]
@@ -46,7 +47,9 @@ func (s *attachmentSuite) setupMocks(c *tc.C) *gomock.Controller {
 // uuids.
 func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnitInvalidUUIDs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, s.storageRegistryGetter)
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+	)
 
 	c.Run("storage instance uuid", func(t *testing.T) {
 		_, err := svc.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
@@ -89,7 +92,9 @@ func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnitS
 		gomock.Any(), storageInstnaceUUID, gomock.Any(),
 	).Return("", domainstorageerrors.StorageInstanceNotFound)
 
-	svc := NewService(s.state, s.storageRegistryGetter)
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+	)
 	_, err := svc.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 		c.Context(),
 		storageInstnaceUUID,
@@ -111,7 +116,9 @@ func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnitN
 		gomock.Any(), gomock.Any(), unitUUID,
 	).Return("", domainapplicationerrors.UnitNotFound)
 
-	svc := NewService(s.state, s.storageRegistryGetter)
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+	)
 	_, err := svc.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 		c.Context(),
 		tc.Must(c, domainstorage.NewStorageInstanceUUID),
@@ -133,7 +140,9 @@ func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnit(
 		gomock.Any(), storageInstanceUUID, unitUUID,
 	).Return(storageAttachmentUUID, nil)
 
-	svc := NewService(s.state, s.storageRegistryGetter)
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+	)
 	uuid, err := svc.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 		c.Context(),
 		storageInstanceUUID,
