@@ -892,7 +892,7 @@ func (s *Service) GetRelationApplicationSettings(
 }
 
 // RelationUnitInScopeByID returns a boolean to indicate whether the given
-// unit is in scopen of a given relation
+// unit is in scope of a given relation.
 func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

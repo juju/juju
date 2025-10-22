@@ -352,6 +352,9 @@ func (s *facadeSuite) TestPublishRelationChangesSuspended(c *tc.C) {
 			Life: domainlife.Alive,
 			Name: "foo",
 		}, nil)
+	s.crossModelRelationService.EXPECT().
+		SetRemoteRelationSuspendedState(gomock.Any(), relationUUID, true, "front fell off").
+		Return(nil)
 	s.statusService.EXPECT().
 		SetRemoteRelationStatus(gomock.Any(), relationUUID, corestatus.StatusInfo{
 			Status:  corestatus.Suspended,

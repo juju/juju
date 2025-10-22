@@ -192,6 +192,12 @@ func (api *CrossModelRelationsAPIv3) handleSuspendedRelationChange(
 	suspended bool,
 	suspendedReason string,
 ) error {
+	// This will check that the relation can be suspended/unsuspended, it
+	// must be a cross-model relation.
+	if err := api.crossModelRelationService.SetRemoteRelationSuspendedState(ctx, relationUUID, suspended, suspendedReason); err != nil {
+		return errors.Trace(err)
+	}
+
 	var relationStatus status.Status
 	var message string
 	if suspended {
@@ -200,9 +206,6 @@ func (api *CrossModelRelationsAPIv3) handleSuspendedRelationChange(
 	} else {
 		relationStatus = status.Joining
 		message = ""
-
-		// TODO (stickupkid): Check that the relation is still viable for
-		// consumption i.e. you can consume it again.
 	}
 
 	return api.statusService.SetRemoteRelationStatus(

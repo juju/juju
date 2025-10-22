@@ -39,14 +39,19 @@ type CrossModelRelationService interface {
 	// the cross model relation UUID.
 	GetOfferUUIDByRelationUUID(ctx context.Context, relationUUID corerelation.UUID) (offer.UUID, error)
 
-	// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any
-	// unit of the specified app and returns a watcher which notifies of secret URIs
-	// that have had a new revision added.
+	// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by
+	// any unit of the specified app and returns a watcher which notifies of
+	// secret URIs that have had a new revision added.
 	WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID coreapplication.UUID) (watcher.StringsWatcher, error)
 
-	// EnsureUnitsExist ensures that the given synthetic units exist in the local
-	// model.
+	// EnsureUnitsExist ensures that the given synthetic units exist in the
+	// local model.
 	EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error
+
+	// SetRemoteRelationSuspendedState sets the suspended state of the specified
+	// remote relation in the local model. The relation must be a cross-model
+	// relation.
+	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
 }
 
 // ModelConfigService is an interface that provides access to the

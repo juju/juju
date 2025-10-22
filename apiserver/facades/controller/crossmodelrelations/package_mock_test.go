@@ -243,6 +243,44 @@ func (c *MockCrossModelRelationServiceGetOfferUUIDByRelationUUIDCall) DoAndRetur
 	return c
 }
 
+// SetRemoteRelationSuspendedState mocks base method.
+func (m *MockCrossModelRelationService) SetRemoteRelationSuspendedState(arg0 context.Context, arg1 relation.UUID, arg2 bool, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRemoteRelationSuspendedState", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRemoteRelationSuspendedState indicates an expected call of SetRemoteRelationSuspendedState.
+func (mr *MockCrossModelRelationServiceMockRecorder) SetRemoteRelationSuspendedState(arg0, arg1, arg2, arg3 any) *MockCrossModelRelationServiceSetRemoteRelationSuspendedStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteRelationSuspendedState", reflect.TypeOf((*MockCrossModelRelationService)(nil).SetRemoteRelationSuspendedState), arg0, arg1, arg2, arg3)
+	return &MockCrossModelRelationServiceSetRemoteRelationSuspendedStateCall{Call: call}
+}
+
+// MockCrossModelRelationServiceSetRemoteRelationSuspendedStateCall wrap *gomock.Call
+type MockCrossModelRelationServiceSetRemoteRelationSuspendedStateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceSetRemoteRelationSuspendedStateCall) Return(arg0 error) *MockCrossModelRelationServiceSetRemoteRelationSuspendedStateCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceSetRemoteRelationSuspendedStateCall) Do(f func(context.Context, relation.UUID, bool, string) error) *MockCrossModelRelationServiceSetRemoteRelationSuspendedStateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceSetRemoteRelationSuspendedStateCall) DoAndReturn(f func(context.Context, relation.UUID, bool, string) error) *MockCrossModelRelationServiceSetRemoteRelationSuspendedStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchRemoteConsumedSecretsChanges mocks base method.
 func (m *MockCrossModelRelationService) WatchRemoteConsumedSecretsChanges(arg0 context.Context, arg1 application.UUID) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()

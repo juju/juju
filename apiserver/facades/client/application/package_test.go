@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService,ExternalControllerService,CrossModelRelationService
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService,ExternalControllerService,CrossModelRelationService,StatusService
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application CaasBrokerInterface
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
@@ -33,23 +33,24 @@ type baseSuite struct {
 
 	api *APIBase
 
-	externalControllerService *MockExternalControllerService
 	applicationService        *MockApplicationService
-	resolveService            *MockResolveService
+	authorizer                *MockAuthorizer
+	blockChecker              *MockBlockChecker
+	crossModelRelationService *MockCrossModelRelationService
+	deployFromRepo            *MockDeployFromRepository
+	externalControllerService *MockExternalControllerService
+	leadershipReader          *MockLeadership
 	machineService            *MockMachineService
 	modelConfigService        *MockModelConfigService
 	networkService            *MockNetworkService
+	objectStore               *MockObjectStore
 	portService               *MockPortService
-	resourceService           *MockResourceService
-	storageService            *MockStorageService
 	relationService           *MockRelationService
 	removalService            *MockRemovalService
-	authorizer                *MockAuthorizer
-	blockChecker              *MockBlockChecker
-	leadershipReader          *MockLeadership
-	deployFromRepo            *MockDeployFromRepository
-	objectStore               *MockObjectStore
-	crossModelRelationService *MockCrossModelRelationService
+	resolveService            *MockResolveService
+	resourceService           *MockResourceService
+	statusService             *MockStatusService
+	storageService            *MockStorageService
 
 	charmRepository        *MockRepository
 	charmRepositoryFactory *MockRepositoryFactory
@@ -66,18 +67,19 @@ type baseSuite struct {
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
-	s.resolveService = NewMockResolveService(ctrl)
+	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
+	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.portService = NewMockPortService(ctrl)
-	s.resourceService = NewMockResourceService(ctrl)
-	s.storageService = NewMockStorageService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
-	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
+	s.resolveService = NewMockResolveService(ctrl)
+	s.resourceService = NewMockResourceService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
+	s.storageService = NewMockStorageService(ctrl)
 
 	s.authorizer = NewMockAuthorizer(ctrl)
 	s.blockChecker = NewMockBlockChecker(ctrl)
@@ -136,18 +138,19 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 	var err error
 	s.api, err = NewAPIBase(
 		Services{
-			ExternalControllerService: s.externalControllerService,
-			NetworkService:            s.networkService,
-			ModelConfigService:        s.modelConfigService,
-			MachineService:            s.machineService,
 			ApplicationService:        s.applicationService,
-			ResolveService:            s.resolveService,
+			CrossModelRelationService: s.crossModelRelationService,
+			ExternalControllerService: s.externalControllerService,
+			MachineService:            s.machineService,
+			ModelConfigService:        s.modelConfigService,
+			NetworkService:            s.networkService,
 			PortService:               s.portService,
-			ResourceService:           s.resourceService,
-			StorageService:            s.storageService,
 			RelationService:           s.relationService,
 			RemovalService:            s.removalService,
-			CrossModelRelationService: s.crossModelRelationService,
+			ResolveService:            s.resolveService,
+			ResourceService:           s.resourceService,
+			StatusService:             s.statusService,
+			StorageService:            s.storageService,
 		},
 		s.authorizer,
 		s.blockChecker,
