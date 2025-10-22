@@ -238,3 +238,74 @@ func (s *provisioningSuite) TestFilesystemCompositionSupportsVolumeModelScoped(c
 		VolumeRequired:           true,
 	})
 }
+
+func (s *provisioningSuite) TestCheckStorageProviderSupportsFilesystems(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageExp := s.storageProvider.EXPECT()
+	storageExp.Supports(internalstorage.StorageKindFilesystem).Return(true).AnyTimes()
+	storageExp.Supports(internalstorage.StorageKindBlock).Return(false).AnyTimes()
+
+	got := CheckStorageProviderSupportsStorageKind(
+		s.storageProvider, domainstorage.StorageKindFilesystem,
+	)
+	c.Check(got, tc.IsTrue)
+}
+
+func (s *provisioningSuite) TestCheckStorageProviderDoesNotSupportFilesystems(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageExp := s.storageProvider.EXPECT()
+	// Both block and filesystem need to not be supported by the provider to
+	// not support filesystems.
+	storageExp.Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
+	storageExp.Supports(internalstorage.StorageKindBlock).Return(false).AnyTimes()
+
+	got := CheckStorageProviderSupportsStorageKind(
+		s.storageProvider, domainstorage.StorageKindFilesystem,
+	)
+	c.Check(got, tc.IsFalse)
+}
+
+func (s *provisioningSuite) TestCheckStorageProviderSupportVolumeBackedFilesystems(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageExp := s.storageProvider.EXPECT()
+	// Both block and filesystem need to not be supported by the provider to
+	// not support filesystems.
+	storageExp.Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
+	storageExp.Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+
+	got := CheckStorageProviderSupportsStorageKind(
+		s.storageProvider, domainstorage.StorageKindFilesystem,
+	)
+	c.Check(got, tc.IsTrue)
+}
+
+func (s *provisioningSuite) TestCheckStorageProviderSupportsBlockDevice(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageExp := s.storageProvider.EXPECT()
+	// Purposely left filesystem true as it should not be considered.
+	storageExp.Supports(internalstorage.StorageKindFilesystem).Return(true).AnyTimes()
+	storageExp.Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+
+	got := CheckStorageProviderSupportsStorageKind(
+		s.storageProvider, domainstorage.StorageKindBlock,
+	)
+	c.Check(got, tc.IsTrue)
+}
+
+func (s *provisioningSuite) TestCheckStorageProviderDoesNotSupportBlockDevice(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageExp := s.storageProvider.EXPECT()
+	// Purposely left filesystem true as it should not be considered.
+	storageExp.Supports(internalstorage.StorageKindFilesystem).Return(true).AnyTimes()
+	storageExp.Supports(internalstorage.StorageKindBlock).Return(false).AnyTimes()
+
+	got := CheckStorageProviderSupportsStorageKind(
+		s.storageProvider, domainstorage.StorageKindBlock,
+	)
+	c.Check(got, tc.IsFalse)
+}

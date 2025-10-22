@@ -9,9 +9,10 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/application/charm"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	internalcharm "github.com/juju/juju/internal/charm"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -62,7 +63,7 @@ type StoragePoolProvider interface {
 	CheckPoolSupportsCharmStorage(
 		context.Context,
 		domainstorage.StoragePoolUUID,
-		internalcharm.StorageType,
+		charm.StorageType,
 	) (bool, error)
 
 	// GetProviderForPool returns the storage provider that is backing a given
@@ -102,7 +103,7 @@ func NewStoragePoolProvider(
 func (v *DefaultStoragePoolProvider) CheckPoolSupportsCharmStorage(
 	ctx context.Context,
 	poolUUID domainstorage.StoragePoolUUID,
-	storageType internalcharm.StorageType,
+	storageType charm.StorageType,
 ) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -112,16 +113,14 @@ func (v *DefaultStoragePoolProvider) CheckPoolSupportsCharmStorage(
 		return false, errors.Capture(err)
 	}
 
-	switch storageType {
-	case internalcharm.StorageFilesystem:
-		return provider.Supports(storage.StorageKindFilesystem), nil
-	case internalcharm.StorageBlock:
-		return provider.Supports(storage.StorageKindBlock), nil
-	default:
-		return false, errors.Errorf(
-			"unknown charm storage type %q", storageType,
-		)
+	storageKind, err := encodeStorageKindFromCharmStorageType(storageType)
+	if err != nil {
+		return false, err
 	}
+
+	return domainstorageprovisioning.CheckStorageProviderSupportsStorageKind(
+		provider, storageKind,
+	), nil
 }
 
 // GetProviderForPool returns the storage provider associated with the given
