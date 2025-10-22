@@ -11,7 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	caas "github.com/juju/juju/caas"
-	applicationtesting "github.com/juju/juju/core/application/testing"
+	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -91,7 +91,7 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	storageArg := s.makeStorageArg(c)
 
 	app := NewMockApplication(ctrl)
@@ -163,7 +163,7 @@ func (s *registerCAASUnitSuite) TestRegisterExistingCAASUnit(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	unitNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	storageArg := s.makeStorageArg(c)
@@ -249,7 +249,7 @@ func (s *registerCAASUnitSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	app := NewMockApplication(ctrl)
 	app.EXPECT().Units().Return([]caas.Unit{}, nil)

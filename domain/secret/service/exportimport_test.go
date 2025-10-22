@@ -192,7 +192,7 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		CurrentRevision: 666,
 	})
 
-	appUUID, err := coreapplication.NewID()
+	appUUID, err := coreapplication.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)

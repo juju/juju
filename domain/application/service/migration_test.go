@@ -12,7 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/constraints"
@@ -276,7 +275,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidUUID(c *tc.C) {
 func (s *migrationServiceSuite) TestGetApplicationCharmOrigin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), id).Return(application.CharmOrigin{
@@ -295,7 +294,7 @@ func (s *migrationServiceSuite) TestGetApplicationCharmOrigin(c *tc.C) {
 func (s *migrationServiceSuite) TestGetApplicationCharmOriginGetApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(id, errors.Errorf("boom"))
 
@@ -313,7 +312,7 @@ func (s *migrationServiceSuite) TestGetApplicationCharmOriginInvalidID(c *tc.C) 
 func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
@@ -343,7 +342,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 func (s *migrationServiceSuite) TestGetApplicationConfigWithNameError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, errors.Errorf("boom"))
 
@@ -355,7 +354,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigWithNameError(c *tc.C) {
 func (s *migrationServiceSuite) TestGetApplicationConfigWithConfigError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
@@ -369,7 +368,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigWithConfigError(c *tc.C)
 func (s *migrationServiceSuite) TestGetApplicationConfigNoConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
@@ -384,7 +383,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigNoConfig(c *tc.C) {
 func (s *migrationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
@@ -418,7 +417,7 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 func (s *migrationServiceSuite) assertImportApplication(c *tc.C, modelType coremodel.ModelType) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := charmtesting.GenCharmID(c)
 
 	ch := domaincharm.Charm{
@@ -639,7 +638,7 @@ func (s *migrationServiceSuite) TestGetApplicationsForExportNoApplications(c *tc
 func (s *migrationServiceSuite) TestGetApplicationUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	units := []application.ExportUnit{
@@ -659,7 +658,7 @@ func (s *migrationServiceSuite) TestGetApplicationUnits(c *tc.C) {
 func (s *migrationServiceSuite) TestGetApplicationUnitsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appID, applicationerrors.ApplicationNotFound)
 
@@ -670,7 +669,7 @@ func (s *migrationServiceSuite) TestGetApplicationUnitsNotFound(c *tc.C) {
 func (s *migrationServiceSuite) TestGetApplicationUnitsNoUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 
 	units := []application.ExportUnit{}
 

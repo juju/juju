@@ -75,7 +75,7 @@ func (s *WatchableService) WatchOfferStatus(ctx context.Context, offerUUID offer
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	appUUID, err := coreapplication.ParseID(uuid)
+	appUUID, err := coreapplication.ParseUUID(uuid)
 	if err != nil {
 		return nil, errors.Errorf("parsing application UUID: %w", err)
 	}

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
@@ -107,7 +106,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCHarmModifiedVersion(c 
 
 func (s *applicationRefreshSuite) TestSetApplicationCharmNoApplication(c *tc.C) {
 	// Arrange
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	charmID := s.createCharm(c, createCharmArgs{name: "foo"})
 
 	// Act

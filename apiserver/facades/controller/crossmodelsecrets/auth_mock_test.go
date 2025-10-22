@@ -339,3 +339,41 @@ func (c *MockMacaroonAuthenticatorCheckOfferMacaroonsCall) DoAndReturn(f func(co
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// CheckRelationMacaroons mocks base method.
+func (m *MockMacaroonAuthenticator) CheckRelationMacaroons(arg0 context.Context, arg1, arg2 string, arg3 names.RelationTag, arg4 macaroon.Slice, arg5 bakery.Version) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckRelationMacaroons", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckRelationMacaroons indicates an expected call of CheckRelationMacaroons.
+func (mr *MockMacaroonAuthenticatorMockRecorder) CheckRelationMacaroons(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockMacaroonAuthenticatorCheckRelationMacaroonsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckRelationMacaroons", reflect.TypeOf((*MockMacaroonAuthenticator)(nil).CheckRelationMacaroons), arg0, arg1, arg2, arg3, arg4, arg5)
+	return &MockMacaroonAuthenticatorCheckRelationMacaroonsCall{Call: call}
+}
+
+// MockMacaroonAuthenticatorCheckRelationMacaroonsCall wrap *gomock.Call
+type MockMacaroonAuthenticatorCheckRelationMacaroonsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMacaroonAuthenticatorCheckRelationMacaroonsCall) Return(arg0 error) *MockMacaroonAuthenticatorCheckRelationMacaroonsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMacaroonAuthenticatorCheckRelationMacaroonsCall) Do(f func(context.Context, string, string, names.RelationTag, macaroon.Slice, bakery.Version) error) *MockMacaroonAuthenticatorCheckRelationMacaroonsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMacaroonAuthenticatorCheckRelationMacaroonsCall) DoAndReturn(f func(context.Context, string, string, names.RelationTag, macaroon.Slice, bakery.Version) error) *MockMacaroonAuthenticatorCheckRelationMacaroonsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

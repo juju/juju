@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
-	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/application"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets"
@@ -132,7 +132,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 
 func (s *CrossControllerSuite) TestGetSecretAccessScope(c *tc.C) {
 	uri := coresecrets.NewURI()
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 	relUUID := relationtesting.GenRelationUUID(c)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "CrossModelSecrets")

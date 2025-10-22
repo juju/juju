@@ -29,6 +29,19 @@ func TestRemoteApplicationOffererSuite(t *testing.T) {
 	tc.Run(t, &remoteApplicationOffererSuite{})
 }
 
+func (s *remoteApplicationOffererSuite) TestGetRemoteApplicationOffererUUIDByApplicationUUID(c *tc.C) {
+	appUUID, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	uuid, err := st.GetRemoteApplicationOffererUUIDByApplicationUUID(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, remoteAppUUID.String())
+
+	_, err = st.GetRemoteApplicationOffererUUIDByApplicationUUID(c.Context(), "not-today-henry")
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
+}
+
 func (s *remoteApplicationOffererSuite) TestRemoteApplicationOffererExists(c *tc.C) {
 	_, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
 
@@ -36,11 +49,11 @@ func (s *remoteApplicationOffererSuite) TestRemoteApplicationOffererExists(c *tc
 
 	exists, err := st.RemoteApplicationOffererExists(c.Context(), remoteAppUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(exists, tc.Equals, true)
+	c.Check(exists, tc.Equals, true)
 
 	exists, err = st.RemoteApplicationOffererExists(c.Context(), "not-today-henry")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(exists, tc.Equals, false)
+	c.Check(exists, tc.Equals, false)
 }
 
 func (s *remoteApplicationOffererSuite) TestEnsureRemoteApplicationOffererNotAliveCascadeNormalSuccess(c *tc.C) {

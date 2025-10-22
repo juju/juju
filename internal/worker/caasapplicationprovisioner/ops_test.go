@@ -80,7 +80,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	broker := mocks.NewMockCAASBroker(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -207,7 +207,7 @@ func (s *OpsSuite) TestRefreshApplicationStatus(c *tc.C) {
 	defer ctrl.Finish()
 
 	appLife := life.Alive
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
@@ -271,7 +271,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -310,7 +310,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -339,7 +339,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -370,7 +370,7 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -399,7 +399,7 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -431,7 +431,7 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -455,7 +455,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -502,7 +502,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -690,7 +690,7 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -716,7 +716,7 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
 	broker := mocks.NewMockCAASBroker(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
@@ -740,7 +740,7 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewID()
+	appId, _ := application.NewUUID()
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)

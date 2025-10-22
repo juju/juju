@@ -16,7 +16,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
@@ -59,7 +58,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 	s.charmUUID = charmtesting.GenCharmID(c)
 	s.charmRelationUUID = uuid.MustNewUUID()
-	s.appUUID = applicationtesting.GenApplicationUUID(c)
+	s.appUUID = tc.Must(c, coreapplication.NewUUID)
 	s.appEndpointUUID = uuid.MustNewUUID()
 	s.appName = "my-application"
 	s.relationCount = 1
@@ -391,7 +390,7 @@ func (s *watcherSuite) setupSecondAppAndRelate(
 
 	charmTwoUUID := charmtesting.GenCharmID(c)
 	charmRelationTwoUUID := uuid.MustNewUUID()
-	appTwoUUID := applicationtesting.GenApplicationUUID(c)
+	appTwoUUID := tc.Must(c, coreapplication.NewUUID)
 	relationEndpointTwoUUID := relationtesting.GenEndpointUUID(c)
 	appEndpointTwoUUID := uuid.MustNewUUID()
 	s.addCharm(c, charmTwoUUID, appNameTwo)
@@ -411,7 +410,7 @@ func (s *watcherSuite) setupSecondAppAndRelate(
 func (s *watcherSuite) setupSecondRelationNotFound(c *tc.C) relation.UUID {
 	charmOneUUID := charmtesting.GenCharmID(c)
 	charmRelationOneUUID := uuid.MustNewUUID()
-	appOneUUID := applicationtesting.GenApplicationUUID(c)
+	appOneUUID := tc.Must(c, coreapplication.NewUUID)
 	appEndpointOneUUID := uuid.MustNewUUID()
 	s.addCharm(c, charmOneUUID, "foo")
 	s.addCharmRelation(c, charmOneUUID, charmRelationOneUUID, 1)
@@ -420,7 +419,7 @@ func (s *watcherSuite) setupSecondRelationNotFound(c *tc.C) relation.UUID {
 
 	charmTwoUUID := charmtesting.GenCharmID(c)
 	charmRelationTwoUUID := uuid.MustNewUUID()
-	appTwoUUID := applicationtesting.GenApplicationUUID(c)
+	appTwoUUID := tc.Must(c, coreapplication.NewUUID)
 	appEndpointTwoUUID := uuid.MustNewUUID()
 	s.addCharm(c, charmTwoUUID, "bar")
 	s.addCharmRelation(c, charmTwoUUID, charmRelationTwoUUID, 1)
@@ -676,15 +675,6 @@ VALUES (?,?,?),
 		w.AssertChange()
 	})
 
-	// Act: set relation unit departing
-	// Assert: no change seen, per custom trigger
-	harness.AddTest(c, func(c *tc.C) {
-		s.act(c, "UPDATE relation_unit SET departing = true WHERE uuid = ?",
-			relationUnitUUID)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertNoChange()
-	})
-
 	// Act: update the unit settings hash.
 	// Assert: change seen
 	harness.AddTest(c, func(c *tc.C) {
@@ -742,8 +732,8 @@ func (s *watcherSuite) setupTestWatchRelationUnits(c *tc.C) testWatchRelationUni
 	watchedUnit1 := "watched/0"
 	relationUUID := relationtesting.GenRelationUUID(c)
 	charmUUID := charmtesting.GenCharmID(c)
-	watchedAppUUID := applicationtesting.GenApplicationUUID(c)
-	otherAppUUID := applicationtesting.GenApplicationUUID(c)
+	watchedAppUUID := tc.Must(c, coreapplication.NewUUID)
+	otherAppUUID := tc.Must(c, coreapplication.NewUUID)
 	watched0UUID := unittesting.GenUnitUUID(c)
 	watched1UUID := unittesting.GenUnitUUID(c)
 	other0UUID := unittesting.GenUnitUUID(c)
@@ -799,8 +789,8 @@ func (s *watcherSuite) setupTestWatchRelationUnit(c *tc.C) testWatchRelationUnit
 	config.relationUUID = relationtesting.GenRelationUUID(c)
 
 	charmUUID := charmtesting.GenCharmID(c)
-	watchedUUID := applicationtesting.GenApplicationUUID(c)
-	config.otherUUID = applicationtesting.GenApplicationUUID(c)
+	watchedUUID := tc.Must(c, coreapplication.NewUUID)
+	config.otherUUID = tc.Must(c, coreapplication.NewUUID)
 	config.watched0UUID = unittesting.GenUnitUUID(c)
 	config.watched1UUID = unittesting.GenUnitUUID(c)
 	config.other0UUID = unittesting.GenUnitUUID(c)
@@ -850,7 +840,7 @@ func (s *watcherSuite) setupTestWatchPeerRelationUnit(c *tc.C) testWatchPeerRela
 	config.relationUUID = relationtesting.GenRelationUUID(c)
 
 	charmUUID := charmtesting.GenCharmID(c)
-	config.watchedUUID = applicationtesting.GenApplicationUUID(c)
+	config.watchedUUID = tc.Must(c, coreapplication.NewUUID)
 	config.watched0UUID = unittesting.GenUnitUUID(c)
 	config.watched1UUID = unittesting.GenUnitUUID(c)
 	charmRelationPeerUUID := uuid.MustNewUUID()

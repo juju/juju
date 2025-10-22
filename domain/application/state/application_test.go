@@ -17,7 +17,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -975,40 +974,40 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 }
 
 func (s *applicationStateSuite) TestIsControllerApplication(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Dying)
+	appUUID := s.createIAASApplication(c, "foo", life.Dying)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`INSERT INTO application_controller (application_uuid) VALUES (?)`,
-			appID.String())
+			appUUID.String())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isController, err := s.state.IsControllerApplication(c.Context(), appID)
+	isController, err := s.state.IsControllerApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isController, tc.IsTrue)
+	c.Check(isController, tc.IsTrue)
 }
 
 func (s *applicationStateSuite) TestIsControllerApplicationFalse(c *tc.C) {
 	// Existing application:
-	appID := s.createIAASApplication(c, "foo", life.Dying)
-	isController, err := s.state.IsControllerApplication(c.Context(), appID)
+	appUUID := s.createIAASApplication(c, "foo", life.Dying)
+	isController, err := s.state.IsControllerApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isController, tc.IsFalse)
+	c.Check(isController, tc.IsFalse)
 
 	// Non-existing application:
-	missingAppID := applicationtesting.GenApplicationUUID(c)
+	missingAppID := tc.Must(c, coreapplication.NewUUID)
 	isController, err = s.state.IsControllerApplication(c.Context(), missingAppID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
-	c.Assert(isController, tc.IsFalse)
+	c.Check(isController, tc.IsFalse)
 }
 
 func (s *applicationStateSuite) TestGetApplicationLifeByName(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Dying)
+	appUUID := s.createIAASApplication(c, "foo", life.Dying)
 	gotID, appLife, err := s.state.GetApplicationLifeByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotID, tc.Equals, appID)
-	c.Assert(appLife, tc.Equals, life.Dying)
+	c.Check(gotID, tc.Equals, appUUID)
+	c.Check(appLife, tc.Equals, life.Dying)
 }
 
 func (s *applicationStateSuite) TestGetApplicationLifeByNameNotFound(c *tc.C) {
@@ -1017,15 +1016,28 @@ func (s *applicationStateSuite) TestGetApplicationLifeByNameNotFound(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationLife(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Dying)
-	appLife, err := s.state.GetApplicationLife(c.Context(), appID)
+	appUUID := s.createIAASApplication(c, "foo", life.Dying)
+	appLife, err := s.state.GetApplicationLife(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(appLife, tc.Equals, life.Dying)
+	c.Check(appLife, tc.Equals, life.Dying)
 }
 
 func (s *applicationStateSuite) TestGetApplicationLifeNotFound(c *tc.C) {
-	appID := applicationtesting.GenApplicationUUID(c)
-	_, err := s.state.GetApplicationLife(c.Context(), appID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	_, err := s.state.GetApplicationLife(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestGetApplicationDetails(c *tc.C) {
+	appUUID := s.createIAASApplication(c, "foo", life.Dying)
+	details, err := s.state.GetApplicationDetails(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(details.Name, tc.Equals, "foo")
+	c.Check(details.Life, tc.Equals, life.Dying)
+}
+
+func (s *applicationStateSuite) TestGetApplicationDetailsNotFound(c *tc.C) {
+	_, err := s.state.GetApplicationDetails(c.Context(), "blah")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1056,7 +1068,7 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyin
 	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
 
 	// Assert: An error of correct type, mentioning the correct applications, is returned
-	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 	c.Check(err, tc.ErrorMatches, `.*application\(s\) "(bar, foo|foo, bar)" are not alive`)
 }
 
@@ -1079,12 +1091,12 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyin
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
 	var providerID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appID).Scan(&providerID)
+		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appUUID).Scan(&providerID)
 		if err != nil {
 			return err
 		}
@@ -1095,7 +1107,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	s.createSubnetForCAASModel(c)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1103,7 +1115,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	var providerID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appID).Scan(&providerID)
+		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appUUID).Scan(&providerID)
 		if err != nil {
 			return err
 		}
@@ -1114,7 +1126,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	s.createCAASApplication(c, "bar", life.Alive)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1122,7 +1134,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	var providerIds []string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appID)
+		rows, err := tx.QueryContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appUUID)
 		if err != nil {
 			return err
 		}
@@ -1170,7 +1182,7 @@ func (s *applicationStateSuite) TestUpsertAnotherCloudServiceNotWipingIpAddresse
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingEmptyAddresses(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	s.createCAASApplication(c, "bar", life.Alive)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
@@ -1202,7 +1214,7 @@ JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
 JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
 JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
 WHERE application_uuid = ?
-			`, appID)
+			`, appUUID)
 			if err != nil {
 				return err
 			}
@@ -1231,7 +1243,7 @@ WHERE application_uuid = ?
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresses(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	s.createCAASApplication(c, "bar", life.Alive)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
@@ -1263,7 +1275,7 @@ JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
 JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
 JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
 WHERE application_uuid = ?
-			`, appID)
+			`, appUUID)
 			if err != nil {
 				return err
 			}
@@ -1358,14 +1370,14 @@ func (s *applicationStateSuite) TestGetCharmModifiedVersionNull(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetCharmModifiedVersionApplicationNotFound(c *tc.C) {
-	_, err := s.state.GetCharmModifiedVersion(c.Context(), applicationtesting.GenApplicationUUID(c))
+	_, err := s.state.GetCharmModifiedVersion(c.Context(), tc.Must(c, coreapplication.NewUUID))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleState(c *tc.C) {
-	appID, _ := s.createCAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	appUUID, _ := s.createCAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
-	scaleState, err := s.state.GetApplicationScaleState(c.Context(), appID)
+	scaleState, err := s.state.GetApplicationScaleState(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(scaleState, tc.DeepEquals, application.ScaleState{
 		Scale: 1,
@@ -1378,14 +1390,14 @@ func (s *applicationStateSuite) TestGetApplicationScaleStateNotFound(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
-	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var gotScale int
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appID).
+		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appUUID).
 			Scan(&gotScale)
 		return err
 	})
@@ -1394,17 +1406,17 @@ func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationScale(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
-	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
-	newScale, err := s.state.UpdateApplicationScale(c.Context(), appID, 2)
+	newScale, err := s.state.UpdateApplicationScale(c.Context(), appUUID, 2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var gotScale int
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appID).
+		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appUUID).
 			Scan(&gotScale)
 		return err
 	})
@@ -1414,26 +1426,26 @@ func (s *applicationStateSuite) TestUpdateApplicationScale(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationScaleInvalidScale(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
-	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.UpdateApplicationScale(c.Context(), appID, -667)
+	_, err = s.state.UpdateApplicationScale(c.Context(), appUUID, -667)
 	c.Assert(err, tc.ErrorMatches, `scale change invalid: cannot remove more units than currently exist`)
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Dead)
+	appUUID := s.createCAASApplication(c, "foo", life.Dead)
 
 	// Set up the initial scale value.
-	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appID).
+			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
 				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
 			return err
 		})
@@ -1460,10 +1472,10 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
 	// Set up the initial scale value.
-	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Set scaling state but use a target value different than the current
@@ -1473,16 +1485,16 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Dying)
+	appUUID := s.createCAASApplication(c, "foo", life.Dying)
 
 	// Set up the initial scale value.
-	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appID).
+			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
 				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
 			return err
 		})
@@ -1502,16 +1514,16 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) 
 // This test is exactly like TestSetApplicationScalingStateAppDying but the app
 // is dead instead of dying.
 func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Dead)
+	appUUID := s.createCAASApplication(c, "foo", life.Dead)
 
 	// Set up the initial scale value.
-	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appID).
+			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
 				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
 			return err
 		})
@@ -1529,16 +1541,16 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
 	// Set up the initial scale value.
-	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appID).
+			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
 				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
 			return err
 		})
@@ -1604,7 +1616,7 @@ func (s *applicationStateSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
 	})
 
 	_, err = s.state.GetAllUnitLifeForApplication(c.Context(),
-		applicationtesting.GenApplicationUUID(c))
+		tc.Must(c, coreapplication.NewUUID))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1726,7 +1738,7 @@ func (s *applicationStateSuite) TestGetCharmByApplicationUUID(c *tc.C) {
 	}
 	ctx := c.Context()
 
-	appID, _, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
+	appUUID, _, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Charm: charm.Charm{
 				Metadata:      expectedMetadata,
@@ -1752,7 +1764,7 @@ func (s *applicationStateSuite) TestGetCharmByApplicationUUID(c *tc.C) {
 	// Add the implicit juju-info relation inserted with the charm.
 	expectedMetadata.Provides = jujuInfoRelation()
 
-	ch, err := s.state.GetCharmByApplicationUUID(c.Context(), appID)
+	ch, err := s.state.GetCharmByApplicationUUID(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ch, tc.DeepEquals, charm.Charm{
 		Metadata:      expectedMetadata,
@@ -1775,7 +1787,7 @@ func (s *applicationStateSuite) TestGetCharmByApplicationUUID(c *tc.C) {
 SELECT os_id, channel, architecture_id
 FROM application_platform
 WHERE application_uuid = ?
-`, appID.String()).Scan(&gotPlatform.OSType, &gotPlatform.Channel, &gotPlatform.Architecture)
+`, appUUID.String()).Scan(&gotPlatform.OSType, &gotPlatform.Channel, &gotPlatform.Architecture)
 
 		if err != nil {
 			return err
@@ -1825,7 +1837,7 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 	}
 	ctx := c.Context()
 
-	appID, _, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
+	appUUID, _, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Charm: charm.Charm{
 				Metadata:      expectedMetadata,
@@ -1849,7 +1861,7 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 	// Add the implicit juju-info relation inserted with the charm.
 	expectedMetadata.Provides = jujuInfoRelation()
 
-	ch, err := s.state.GetCharmByApplicationUUID(c.Context(), appID)
+	ch, err := s.state.GetCharmByApplicationUUID(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ch, tc.DeepEquals, charm.Charm{
 		Metadata:      expectedMetadata,
@@ -1887,7 +1899,7 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 
 	_, err = s.state.GetCharmByApplicationUUID(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -2032,7 +2044,7 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfo(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoNoApplication(c *tc.C) {
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 
 	_, err := s.state.GetAsyncCharmDownloadInfo(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -2134,7 +2146,7 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *tc.C)
 	}
 	ctx := c.Context()
 
-	appID, _, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
+	appUUID, _, err := s.state.CreateIAASApplication(ctx, "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Channel:  channel,
@@ -2151,7 +2163,7 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *tc.C)
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.GetAsyncCharmDownloadInfo(c.Context(), appID)
+	_, err = s.state.GetAsyncCharmDownloadInfo(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmProvenanceNotValid)
 }
 
@@ -2286,7 +2298,7 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 
 func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	_, _, err := s.state.GetApplicationConfigAndSettings(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -2406,7 +2418,7 @@ func (s *applicationStateSuite) TestGetApplicationConfigWithDefaultsWithMultiple
 
 func (s *applicationStateSuite) TestGetApplicationConfigWithDefaultsNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	_, err := s.state.GetApplicationConfigWithDefaults(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -2468,7 +2480,7 @@ func (s *applicationStateSuite) TestGetApplicationTrustSettingNoRow(c *tc.C) {
 
 func (s *applicationStateSuite) TestGetApplicationTrustSettingNoApplication(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	_, err := s.state.GetApplicationTrustSetting(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -2484,14 +2496,14 @@ func (s *applicationStateSuite) TestGetApplicationConfigHash(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationConfigHashNotFound(c *tc.C) {
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	_, err := s.state.GetApplicationConfigHash(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsNoApplication(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.AddApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
@@ -2762,7 +2774,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	err := s.state.UnsetApplicationConfigKeys(c.Context(), id, []string{"a"})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -2866,7 +2878,7 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 
 func (s *applicationStateSuite) TestGetCharmConfigByApplicationUUIDApplicationNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	_, _, err := s.state.GetCharmConfigByApplicationUUID(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -2901,7 +2913,7 @@ func (s *applicationStateSuite) TestGetApplicationName(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationNameNotFound(c *tc.C) {
-	_, err := s.state.GetApplicationName(c.Context(), applicationtesting.GenApplicationUUID(c))
+	_, err := s.state.GetApplicationName(c.Context(), tc.Must(c, coreapplication.NewUUID))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -3572,9 +3584,9 @@ func (s *applicationStateSuite) TestGetDeviceConstraintsFromCreatedApp(c *tc.C) 
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashEmpty(c *tc.C) {
-	appID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	appUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
-	hash, err := s.state.GetAddressesHash(c.Context(), appID, "net-node-uuid")
+	hash, err := s.state.GetAddressesHash(c.Context(), appUUID, "net-node-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	// The resulting hash is not the empty string because it always contains
 	// the default bindings.
@@ -3582,7 +3594,7 @@ func (s *applicationStateSuite) TestGetAddressesHashEmpty(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAddressesHash(c *tc.C) {
-	appID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	appUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -3619,13 +3631,13 @@ func (s *applicationStateSuite) TestGetAddressesHash(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	hash, err := s.state.GetAddressesHash(c.Context(), appID, "net-node-uuid")
+	hash, err := s.state.GetAddressesHash(c.Context(), appUUID, "net-node-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hash, tc.Equals, "740b8e5ae149e6d2e3d962e2d0f7edca886ab2d16bd6e2374eb6b9bdfa9d2850")
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C) {
-	appID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	appUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -3670,7 +3682,7 @@ func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C
 			return err
 		}
 		insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", appID, "space0-uuid", "charm-relation0-uuid")
+		_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", appUUID, "space0-uuid", "charm-relation0-uuid")
 		if err != nil {
 			return err
 		}
@@ -3678,13 +3690,13 @@ func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	hash, err := s.state.GetAddressesHash(c.Context(), appID, "net-node-uuid")
+	hash, err := s.state.GetAddressesHash(c.Context(), appUUID, "net-node-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hash, tc.Equals, "5e5d6453be08912c0cb0585e9d39e6fe21e154c0495c7f05b61137e7f3eab381")
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
 	network.NewMachineAddress("10.0.0.1/24")
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
@@ -3696,7 +3708,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 
 	var netNodeUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM k8s_service WHERE application_uuid=?", appID).Scan(&netNodeUUID)
+		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM k8s_service WHERE application_uuid=?", appUUID).Scan(&netNodeUUID)
 		if err != nil {
 			return err
 		}
@@ -3704,13 +3716,13 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	hash, err := s.state.GetAddressesHash(c.Context(), appID, netNodeUUID)
+	hash, err := s.state.GetAddressesHash(c.Context(), appUUID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hash, tc.Equals, "6e97876f0c817d2ba3b4d736f3fceb639049997e609803028673eeaeeaa01cf5")
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBindings(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive)
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.NewMachineAddress("10.0.0.1/24"),
@@ -3720,7 +3732,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBind
 
 	var netNodeUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM k8s_service WHERE application_uuid=?", appID).Scan(&netNodeUUID)
+		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM k8s_service WHERE application_uuid=?", appUUID).Scan(&netNodeUUID)
 		if err != nil {
 			return err
 		}
@@ -3742,7 +3754,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBind
 			return err
 		}
 		insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", appID, "space0-uuid", "charm-relation0-uuid")
+		_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", appUUID, "space0-uuid", "charm-relation0-uuid")
 		if err != nil {
 			return err
 		}
@@ -3750,7 +3762,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBind
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	hash, err := s.state.GetAddressesHash(c.Context(), appID, netNodeUUID)
+	hash, err := s.state.GetAddressesHash(c.Context(), appUUID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hash, tc.Equals, "55d79355f44aa2d2799338219e2c2d2e67f61d3de026bf0415093d2de9d01afc")
 }
@@ -4006,20 +4018,20 @@ func (s *applicationStateSuite) assertCAASApplication(
 	}
 }
 
-func (s *applicationStateSuite) addCharmModifiedVersion(c *tc.C, appID coreapplication.UUID, charmModifiedVersion int) {
+func (s *applicationStateSuite) addCharmModifiedVersion(c *tc.C, appUUID coreapplication.UUID, charmModifiedVersion int) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE application SET charm_modified_version = ? WHERE uuid = ?", charmModifiedVersion, appID)
+		_, err := tx.ExecContext(ctx, "UPDATE application SET charm_modified_version = ? WHERE uuid = ?", charmModifiedVersion, appUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationStateSuite) insertApplicationConfigWithDefault(c *tc.C, appID coreapplication.UUID, key, value, defaultValue string, optionType charm.OptionType) {
-	s.insertApplicationConfig(c, appID, key, value, optionType)
-	s.insertCharmConfig(c, appID, key, defaultValue, optionType)
+func (s *applicationStateSuite) insertApplicationConfigWithDefault(c *tc.C, appUUID coreapplication.UUID, key, value, defaultValue string, optionType charm.OptionType) {
+	s.insertApplicationConfig(c, appUUID, key, value, optionType)
+	s.insertCharmConfig(c, appUUID, key, defaultValue, optionType)
 }
 
-func (s *applicationStateSuite) insertCharmConfig(c *tc.C, appID coreapplication.UUID, key, defaultValue string, optionType charm.OptionType) {
+func (s *applicationStateSuite) insertCharmConfig(c *tc.C, appUUID coreapplication.UUID, key, defaultValue string, optionType charm.OptionType) {
 	t, err := encodeConfigType(optionType)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -4029,20 +4041,20 @@ INSERT INTO charm_config (charm_uuid, key, default_value, type_id)
 SELECT charm_uuid, ?, ?, ?
 FROM application
 WHERE uuid = ?
-`, key, defaultValue, t, appID)
+`, key, defaultValue, t, appUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationStateSuite) insertApplicationConfig(c *tc.C, appID coreapplication.UUID, key, value string, optionType charm.OptionType) {
+func (s *applicationStateSuite) insertApplicationConfig(c *tc.C, appUUID coreapplication.UUID, key, value string, optionType charm.OptionType) {
 	t, err := encodeConfigType(optionType)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?, ?, ?, ?)
-`, appID, key, value, t)
+`, appUUID, key, value, t)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

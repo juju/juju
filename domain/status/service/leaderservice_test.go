@@ -12,7 +12,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/model"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
@@ -105,7 +105,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 
 	now := time.Now()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	unitName := coreunit.Name("foo/666")
 
 	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
@@ -135,7 +135,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *t
 
 	now := time.Now()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	unitName := coreunit.Name("foo/666")
 
 	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
@@ -174,7 +174,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c 
 
 	now := time.Now()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := tc.Must(c, application.NewUUID)
 	unitName := coreunit.Name("foo/666")
 
 	s.modelState.EXPECT().GetApplicationUUIDAndNameByUnitName(gomock.Any(), unitName).
@@ -193,7 +193,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := tc.Must(c, application.NewUUID)
 
 	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 
@@ -228,7 +228,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 
 	unitName := coreunit.Name("foo/0")
 	now := time.Now()
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := tc.Must(c, application.NewUUID)
 
 	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
@@ -302,7 +302,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 
 	unitName := coreunit.Name("foo/0")
 	now := time.Now()
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := tc.Must(c, application.NewUUID)
 
 	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {

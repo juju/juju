@@ -375,7 +375,7 @@ func (s *WatchableService) watchApplicationsWithPendingCharmsMapper(ctx context.
 	appChanges := make(map[coreapplication.UUID][]indexedChanged)
 	uuids := make([]coreapplication.UUID, 0)
 	for i, change := range changes {
-		appID, err := coreapplication.ParseID(change.Changed())
+		appID, err := coreapplication.ParseUUID(change.Changed())
 		if err != nil {
 			return nil, err
 		}

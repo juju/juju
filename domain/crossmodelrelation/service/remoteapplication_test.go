@@ -10,7 +10,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/offer"
@@ -646,7 +645,7 @@ func (s *remoteApplicationServiceSuite) TestGetApplicationNameAndUUIDByOfferUUID
 	defer s.setupMocks(c).Finish()
 
 	offerUUID := tc.Must(c, offer.NewUUID)
-	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID.String()).Return("test-app", appUUID, nil)
 
@@ -748,7 +747,7 @@ func (s *remoteApplicationServiceSuite) TestGetOfferingApplicationToken(c *tc.C)
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, corerelation.NewUUID)
-	appUUID := tc.Must(c, coreapplication.NewID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.modelState.EXPECT().GetOfferingApplicationToken(gomock.Any(), relationUUID.String()).Return(appUUID.String(), nil)
 	service := s.service(c)
@@ -780,7 +779,7 @@ func (s *remoteApplicationServiceSuite) TestGetOfferingApplicationTokenError(c *
 func (s *remoteApplicationServiceSuite) TestEnsureUnitsExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	units := []unit.Name{
 		unit.Name("remote-app/0"),
 		unit.Name("remote-app/1"),
@@ -802,7 +801,7 @@ func (s *remoteApplicationServiceSuite) TestEnsureUnitsExist(c *tc.C) {
 func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistNoUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	units := []unit.Name{}
 
 	service := s.service(c)
@@ -829,7 +828,7 @@ func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidAppUUID(c *tc
 func (s *remoteApplicationServiceSuite) TestEnsureUnitsExistInvalidUnitNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	units := []unit.Name{
 		unit.Name("remote-app/0"),
 		unit.Name("remote-app/1"),

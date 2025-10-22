@@ -10,7 +10,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -451,7 +450,7 @@ func (s *filesystemSuite) TestWatchMachineProvisionedFilesystemAttachmentsNotFou
 func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	expectedResult := []storageprovisioning.FilesystemTemplate{{
 		StorageName:  "a",
 		Count:        1,
@@ -478,7 +477,7 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	s.state.EXPECT().GetFilesystemTemplatesForApplication(gomock.Any(), appID).
 		Return(nil, errors.New("oops"))
 

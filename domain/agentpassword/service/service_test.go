@@ -405,7 +405,7 @@ func (s *serviceSuite) TestMatchesControllerNodePasswordHashInvalidPassword(c *t
 func (s *serviceSuite) TestSetApplicationPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID, err := application.NewID()
+	appID, err := application.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	password, err := internalpassword.RandomPassword()
@@ -421,7 +421,7 @@ func (s *serviceSuite) TestSetApplicationPassword(c *tc.C) {
 func (s *serviceSuite) TestSetApplicationPasswordNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID, err := application.NewID()
+	appID, err := application.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	password, err := internalpassword.RandomPassword()
@@ -437,7 +437,7 @@ func (s *serviceSuite) TestSetApplicationPasswordNotFound(c *tc.C) {
 func (s *serviceSuite) TestMatchesApplicationPasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID, err := application.NewID()
+	appID, err := application.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	appName := "foo"
@@ -456,7 +456,7 @@ func (s *serviceSuite) TestMatchesApplicationPasswordHash(c *tc.C) {
 func (s *serviceSuite) TestMatchesApplicationPasswordHashNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID, err := application.NewID()
+	appID, err := application.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	appName := "foo"
@@ -474,7 +474,7 @@ func (s *serviceSuite) TestMatchesApplicationPasswordHashNotFound(c *tc.C) {
 func (s *serviceSuite) TestMatchesApplicationPasswordHashNotMatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID, err := application.NewID()
+	appID, err := application.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	appName := "foo"

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/application/testing"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
@@ -556,7 +555,7 @@ func (s *unitStateSuite) assertUnitStatus(c *tc.C, statusType, unitUUID coreunit
 }
 
 func (s *unitStateSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
-	uuid := testing.GenApplicationUUID(c)
+	uuid := tc.Must(c, coreapplication.NewUUID)
 	_, _, err := s.state.AddIAASUnits(c.Context(), uuid, application.AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }

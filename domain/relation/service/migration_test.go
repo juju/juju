@@ -10,7 +10,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -191,7 +190,7 @@ func (s *migrationServiceSuite) expectImportRelation(
 }
 
 func (s *migrationServiceSuite) expectGetApplicationUUIDByName(c *tc.C, name string) coreapplication.UUID {
-	appID := coreapplicationtesting.GenApplicationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), name).Return(appID, nil)
 	return appID
 }

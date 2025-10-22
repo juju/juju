@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"
 	corebase "github.com/juju/juju/core/base"
@@ -57,7 +56,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	setCreateApplicationNoopStorageExpects(s.storageService)
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	now := ptr(s.clock.Now())
@@ -226,7 +225,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 	defer s.setupMocks(c).Finish()
 	setCreateApplicationNoopStorageExpects(s.storageService)
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	now := ptr(s.clock.Now())
@@ -292,7 +291,7 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	setCreateApplicationNoopStorageExpects(s.storageService)
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	ch := applicationcharm.Charm{
@@ -392,7 +391,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	setCreateApplicationNoopStorageExpects(s.storageService)
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 	machineUUID := tc.Must(c, coremachine.NewUUID)
 	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
@@ -509,7 +508,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
-//	id := applicationtesting.GenApplicationUUID(c)
+//	id := tc.Must(c, coreapplication.NewUUID)
 //	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 //	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
@@ -658,7 +657,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
-//	id := applicationtesting.GenApplicationUUID(c)
+//	id := tc.Must(c, coreapplication.NewUUID)
 //	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 //	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
@@ -884,7 +883,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 	defer s.setupMocks(c).Finish()
 	setCreateApplicationNoopStorageExpects(s.storageService)
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	ch := applicationcharm.Charm{
@@ -1319,7 +1318,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	setCreateApplicationNoopStorageExpects(s.storageService)
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
@@ -1358,7 +1357,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
-//	id := applicationtesting.GenApplicationUUID(c)
+//	id := tc.Must(c, coreapplication.NewUUID)
 //	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //
 //	now := ptr(s.clock.Now())
@@ -1519,7 +1518,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultSource(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 
-//	id := applicationtesting.GenApplicationUUID(c)
+//	id := tc.Must(c, coreapplication.NewUUID)
 //	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 
@@ -1685,7 +1684,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
-//	id := applicationtesting.GenApplicationUUID(c)
+//	id := tc.Must(c, coreapplication.NewUUID)
 //	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //
 //	now := ptr(s.clock.Now())
@@ -1846,7 +1845,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
-//	id := applicationtesting.GenApplicationUUID(c)
+//	id := tc.Must(c, coreapplication.NewUUID)
 //	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //
@@ -2008,7 +2007,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
-//	id := applicationtesting.GenApplicationUUID(c)
+//	id := tc.Must(c, coreapplication.NewUUID)
 //
 //	platform := deployment.Platform{
 //		Channel:      "24.04",
@@ -2356,7 +2355,7 @@ func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, providerNotSupported, providerNotSupported)
 	defer ctrl.Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 
 	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
@@ -2366,7 +2365,7 @@ func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, errors.New("boom"))
 
@@ -2378,7 +2377,7 @@ func (s *providerServiceSuite) TestSetConstraintsValidateError(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 
 	validator := NewMockValidator(ctrl)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
@@ -2392,7 +2391,7 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 
 	validator := NewMockValidator(ctrl)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
@@ -2410,7 +2409,7 @@ func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
 
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := tc.Must(c, coreapplication.NewUUID)
 
 	validator := NewMockValidator(ctrl)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
@@ -2426,7 +2425,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	now := ptr(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
@@ -2471,7 +2470,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	now := ptr(s.clock.Now())
@@ -2542,7 +2541,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	now := ptr(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
@@ -2605,7 +2604,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	now := ptr(s.clock.Now())
@@ -2672,7 +2671,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, applicationerrors.ApplicationNotFound)
 
@@ -2685,7 +2684,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
@@ -2718,7 +2717,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	machineUUID := tc.Must(c, coremachine.NewUUID)
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)

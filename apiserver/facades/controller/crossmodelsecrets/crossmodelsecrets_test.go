@@ -16,7 +16,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
-	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/offer"
@@ -146,8 +146,8 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 
 	uri := coresecrets.NewURI().WithSource(coretesting.ModelTag.Id())
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
-	appUUID2 := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
+	appUUID2 := tc.Must(c, application.NewUUID)
 
 	s.applicationService.EXPECT().GetApplicationName(gomock.Any(), appUUID).Return("mediawiki", nil)
 	s.crossModelRelationService.EXPECT().ProcessRemoteConsumerGetSecret(gomock.Any(), uri, unit.Name("mediawiki/666"), ptr(667), false, true).Return(
@@ -172,7 +172,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 			checkers.DeclaredCaveat("offer-uuid", offerUUID.String()),
 			checkers.DeclaredCaveat("source-model-uuid", uri.SourceUUID),
 			checkers.DeclaredCaveat("relation-key", "mediawkik:server mysql:database"),
-		}, bakery.Op{"consume", "mysql-uuid"})
+		}, bakery.Op{Entity: "consume", Action: "mysql-uuid"})
 	c.Assert(err, tc.ErrorIsNil)
 	mac2, err := s.bakery.NewMacaroon(
 		c.Context(),
@@ -182,7 +182,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 			checkers.DeclaredCaveat("offer-uuid", offerUUID.String()),
 			checkers.DeclaredCaveat("source-model-uuid", uri.SourceUUID),
 			checkers.DeclaredCaveat("relation-key", "wordpress:server mysql:database"),
-		}, bakery.Op{"consume", "mysql-uuid"})
+		}, bakery.Op{Entity: "consume", Action: "mysql-uuid"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	relKey := tc.Must1(c, relation.NewKeyFromString, "mediawkik:server mysql:database")

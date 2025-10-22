@@ -92,7 +92,7 @@ func (st *State) CreateIAASApplication(
 		return "", nil, errors.Capture(err)
 	}
 
-	appUUID, err := coreapplication.NewID()
+	appUUID, err := coreapplication.NewUUID()
 	if err != nil {
 		return "", nil, errors.Capture(err)
 	}
@@ -144,7 +144,7 @@ func (st *State) CreateCAASApplication(
 		return "", errors.Capture(err)
 	}
 
-	appUUID, err := coreapplication.NewID()
+	appUUID, err := coreapplication.NewUUID()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -512,12 +512,12 @@ WHERE application_uuid = $applicationScale.application_uuid
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
 func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication.UUID) (life.Life, error) {
-	ident := entityUUID{UUID: appUUID.String()}
 	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
 
+	ident := entityUUID{UUID: appUUID.String()}
 	stmt, err := st.Prepare(`
 SELECT a.life_id AS &lifeID.life_id 
 FROM application AS a
@@ -540,6 +540,49 @@ WHERE a.uuid = $entityUUID.uuid AND c.source_id < 2;
 		return -1, errors.Capture(err)
 	}
 	return life.LifeID, nil
+}
+
+// GetApplicationDetails returns the details of the specified application,
+// which includes the life and name. Returns an error satisfying
+// [applicationerrors.ApplicationNotFoundError] if the application is not found.
+func (st *State) GetApplicationDetails(ctx context.Context, appUUID coreapplication.UUID) (application.ApplicationDetails, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return application.ApplicationDetails{}, errors.Capture(err)
+	}
+
+	app := applicationDetails{UUID: appUUID}
+	query := `
+SELECT a.uuid AS &applicationDetails.uuid,
+	   a.name AS &applicationDetails.name,
+	   a.charm_uuid AS &applicationDetails.charm_uuid,
+	   a.life_id AS &applicationDetails.life_id,
+	   a.space_uuid AS &applicationDetails.space_uuid
+FROM application a
+JOIN charm AS c ON c.uuid = a.charm_uuid
+WHERE a.uuid = $applicationDetails.uuid AND c.source_id < 2;
+`
+	stmt, err := st.Prepare(query, app)
+	if err != nil {
+		return application.ApplicationDetails{}, errors.Capture(err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, app).Get(&app)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("application %s not found", appUUID).Add(applicationerrors.ApplicationNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return application.ApplicationDetails{}, errors.Capture(err)
+	}
+
+	return application.ApplicationDetails{
+		Life: app.LifeID,
+		Name: app.Name,
+	}, nil
 }
 
 // IsControllerApplication returns true when the application is the controller.

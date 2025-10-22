@@ -123,7 +123,7 @@ func (p *firewaller) loop() error {
 				return errors.New("watcher closed channel")
 			}
 			for _, app := range apps {
-				appUUID, err := application.ParseID(app)
+				appUUID, err := application.ParseUUID(app)
 				if err != nil {
 					return errors.Trace(err)
 				}

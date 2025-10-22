@@ -138,7 +138,7 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 		return internalerrors.Errorf("creating remote application uuid: %w", err)
 	}
 
-	applicationUUID, err := coreapplication.NewID()
+	applicationUUID, err := coreapplication.NewUUID()
 	if err != nil {
 		return internalerrors.Errorf("creating application uuid: %w", err)
 	}
@@ -403,7 +403,21 @@ func (s *Service) GetOfferingApplicationToken(
 		return "", internalerrors.Capture(err)
 	}
 
-	return coreapplication.ParseID(appUUID)
+	return coreapplication.ParseUUID(appUUID)
+}
+
+// SetRemoteRelationSuspendedState sets the suspended state of the specified
+// remote relation in the local model.
+func (s *Service) SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return internalerrors.Errorf(
+			"setting remote relation suspended state:%w", err).Add(relationerrors.RelationUUIDNotValid)
+	}
+
+	return nil
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {

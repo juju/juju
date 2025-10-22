@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/changestream"
 	changestreammock "github.com/juju/juju/core/changestream/mocks"
 	"github.com/juju/juju/core/life"
@@ -47,8 +46,8 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationScopeGlobal(c *tc.C
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
-	principalID := applicationtesting.GenApplicationUUID(c)
-	subordinateID := applicationtesting.GenApplicationUUID(c)
+	principalID := tc.Must(c, coreapplication.NewUUID)
+	subordinateID := tc.Must(c, coreapplication.NewUUID)
 	scope := charm.ScopeGlobal
 
 	s.expectGetRelationEndpointScope(relUUID, subordinateID, scope, nil)
@@ -72,9 +71,9 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(
 	// Arrange:
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
-	principalID := applicationtesting.GenApplicationUUID(c)
-	subordinateID := applicationtesting.GenApplicationUUID(c)
-	anotherSubordinateID := applicationtesting.GenApplicationUUID(c)
+	principalID := tc.Must(c, coreapplication.NewUUID)
+	subordinateID := tc.Must(c, coreapplication.NewUUID)
+	anotherSubordinateID := tc.Must(c, coreapplication.NewUUID)
 	scope := charm.ScopeContainer
 	otherAppData := relation.OtherApplicationForWatcher{
 		ApplicationID: anotherSubordinateID,
@@ -103,8 +102,8 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *tc.C) 
 	// Arrange:
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
-	principalID := applicationtesting.GenApplicationUUID(c)
-	subordinateID := applicationtesting.GenApplicationUUID(c)
+	principalID := tc.Must(c, coreapplication.NewUUID)
+	subordinateID := tc.Must(c, coreapplication.NewUUID)
 	scope := charm.ScopeContainer
 	otherAppData := relation.OtherApplicationForWatcher{
 		ApplicationID: principalID,
@@ -132,9 +131,9 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *tc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
-	principalID := applicationtesting.GenApplicationUUID(c)
-	subordinateID := applicationtesting.GenApplicationUUID(c)
-	anotherID := applicationtesting.GenApplicationUUID(c)
+	principalID := tc.Must(c, coreapplication.NewUUID)
+	subordinateID := tc.Must(c, coreapplication.NewUUID)
+	anotherID := tc.Must(c, coreapplication.NewUUID)
 	scope := charm.ScopeContainer
 	otherAppData := relation.OtherApplicationForWatcher{
 		ApplicationID: anotherID,
@@ -165,8 +164,8 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	principalSubordinateRelUUID := testing.GenRelationUUID(c)
 	newSubordinateRelUUID := testing.GenRelationUUID(c)
 	unrelatedRelUUID := testing.GenRelationUUID(c)
-	principalID := applicationtesting.GenApplicationUUID(c)
-	subordinateID := applicationtesting.GenApplicationUUID(c)
+	principalID := tc.Must(c, coreapplication.NewUUID)
+	subordinateID := tc.Must(c, coreapplication.NewUUID)
 
 	currentRelData := relation.RelationLifeSuspendedData{
 		EndpointIdentifiers: []corerelation.EndpointIdentifier{
@@ -252,7 +251,7 @@ func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatusApplicationNotFoun
 
 	s.state.EXPECT().ApplicationExists(gomock.Any(), gomock.Any()).Return(applicationerrors.ApplicationNotFound)
 
-	_, err := s.service.WatchApplicationLifeSuspendedStatus(c.Context(), applicationtesting.GenApplicationUUID(c))
+	_, err := s.service.WatchApplicationLifeSuspendedStatus(c.Context(), tc.Must(c, coreapplication.NewUUID))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

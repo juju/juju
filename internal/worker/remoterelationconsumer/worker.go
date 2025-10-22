@@ -23,8 +23,16 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/removal"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
+)
+
+const (
+	// RemoteApplicationOffererDeadErr is returned when the remote application
+	// offerer is no longer required because it has been removed. This prevents
+	// the worker from being restarted.
+	RemoteApplicationOffererDeadErr = errors.ConstError("remote application offerer is dead and no longer required")
 )
 
 // ReportableWorker is an interface that allows a worker to be reported
@@ -144,19 +152,15 @@ type CrossModelRelationService interface {
 	// EnsureUnitsExist ensures that the specified units exist in the local
 	// model, creating any that are missing.
 	EnsureUnitsExist(ctx context.Context, appUUID application.UUID, units []unit.Name) error
+
+	// SetRemoteRelationSuspendedState sets the suspended state of the specified
+	// remote relation in the local model.
+	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
 }
 
 // StatusService is an interface that defines the methods for
 // managing status directly on the local model database.
 type StatusService interface {
-	// SetRemoteRelationStatus sets the given relation status and checks that
-	// the transition to the new status from the current status is valid.
-	SetRemoteRelationStatus(
-		ctx context.Context,
-		relationUUID corerelation.UUID,
-		sts status.StatusInfo,
-	) error
-
 	// SetRemoteApplicationOffererStatus sets the status of the specified remote
 	// application in the local model.
 	SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error
@@ -165,12 +169,16 @@ type StatusService interface {
 // RemovalService is an interface that defines the methods for
 // removing relations directly on the local model database.
 type RemovalService interface {
-	// RemoveRelation checks if a relation with the input UUID exists.
-	// If it does, the relation is guaranteed after this call to be:
-	// - No longer alive.
-	// - Removed or scheduled to be removed with the input force qualification.
+	// RemoveRelation sets the relation with the given relation UUID
+	// from the local model to dying.
 	RemoveRemoteRelation(
 		ctx context.Context, relUUID corerelation.UUID) error
+
+	// RemoveRemoteApplicationOffererByApplicationUUID sets the remote
+	// application offerer with the given application UUID from the local model
+	// to dying.
+	RemoveRemoteApplicationOffererByApplicationUUID(
+		ctx context.Context, appUUID application.UUID, force bool, duration time.Duration) (removal.UUID, error)
 
 	// LeaveScope updates the relation to indicate that the unit represented by
 	// the input relation unit UUID is not in the implied relation scope.
@@ -248,6 +256,15 @@ func NewWorker(config Config) (ReportableWorker, error) {
 		// One of the remote application workers failing should not
 		// prevent the others from running.
 		IsFatal: func(error) bool { return false },
+
+		// Only restart if the worker has not indicated that it should not
+		// be restarted.
+		ShouldRestart: func(err error) bool {
+			if internalworker.ShouldRunnerRestart(err) {
+				return true
+			}
+			return !errors.Is(err, RemoteApplicationOffererDeadErr)
+		},
 
 		// For any failures, try again in 15 seconds.
 		RestartDelay: 15 * time.Second,

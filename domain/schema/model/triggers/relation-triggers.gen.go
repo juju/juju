@@ -181,8 +181,7 @@ AFTER UPDATE ON relation_unit FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
 	NEW.relation_endpoint_uuid != OLD.relation_endpoint_uuid OR
-	NEW.unit_uuid != OLD.unit_uuid OR
-	(NEW.departing != OLD.departing OR (NEW.departing IS NOT NULL AND OLD.departing IS NULL) OR (NEW.departing IS NULL AND OLD.departing IS NOT NULL)) 
+	NEW.unit_uuid != OLD.unit_uuid 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));

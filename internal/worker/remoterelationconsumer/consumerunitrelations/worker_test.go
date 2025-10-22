@@ -42,7 +42,7 @@ func TestLocalUnitRelationsWorker(t *testing.T) {
 
 func (s *localUnitRelationsWorker) SetUpTest(c *tc.C) {
 	s.consumerRelationUUID = tc.Must(c, corerelation.NewUUID)
-	s.consumerApplicationUUID = tc.Must(c, coreapplication.NewID)
+	s.consumerApplicationUUID = tc.Must(c, coreapplication.NewUUID)
 
 	s.changes = make(chan RelationUnitChange, 1)
 	s.macaroon = newMacaroon(c, "test")

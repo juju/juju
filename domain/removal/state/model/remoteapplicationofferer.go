@@ -18,6 +18,40 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// GetRemoteApplicationOffererUUIDByApplicationUUID returns the remote
+// application offerer UUID associated with the input application UUID.
+func (st *State) GetRemoteApplicationOffererUUIDByApplicationUUID(ctx context.Context, appUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var remoteAppOffererUUID entityUUID
+	ident := entityUUID{UUID: appUUID}
+	stmt, err := st.Prepare(`
+SELECT aro.uuid AS &entityUUID.uuid
+FROM   application_remote_offerer AS aro
+WHERE  aro.application_uuid = $entityUUID.uuid
+`, ident)
+	if err != nil {
+		return "", errors.Errorf("preparing remote application offerer UUID query: %w", err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).Get(&remoteAppOffererUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return crossmodelrelationerrors.RemoteApplicationNotFound
+		} else if err != nil {
+			return errors.Errorf("running remote application offerer UUID query: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return remoteAppOffererUUID.UUID, nil
+}
+
 // GetRemoteApplicationOfferer returns true if a remote application exists
 // with the input UUID.
 func (st *State) RemoteApplicationOffererExists(ctx context.Context, rUUID string) (bool, error) {

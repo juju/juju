@@ -18,7 +18,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
@@ -100,7 +99,7 @@ func (s *workerSuite) TestWorkerStart(c *tc.C) {
 func (s *workerSuite) TestWorkerCreatesAsyncWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 
 	changes := make(chan []string)
 
@@ -122,7 +121,7 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorker(c *tc.C) {
 
 	go func() {
 		select {
-		case changes <- []string{appID.String()}:
+		case changes <- []string{appUUID.String()}:
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timed out waiting for worker to finish")
 		}
@@ -142,7 +141,7 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppID(c *tc.C) {
 
 	// Using the same App ID should not cause a new worker to be created.
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 
 	changes := make(chan []string)
 
@@ -174,7 +173,7 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppID(c *tc.C) {
 		defer close(sent)
 
 		select {
-		case changes <- []string{appID.String(), appID.String()}:
+		case changes <- []string{appUUID.String(), appUUID.String()}:
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timed out waiting for worker to finish")
 		}
@@ -209,7 +208,7 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppIDOverTwoChangeSet(
 
 	// Using the same App ID should not cause a new worker to be created.
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appUUID := tc.Must(c, application.NewUUID)
 
 	changes := make(chan []string)
 
@@ -234,13 +233,13 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppIDOverTwoChangeSet(
 		defer close(sent)
 
 		select {
-		case changes <- []string{appID.String()}:
+		case changes <- []string{appUUID.String()}:
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timed out waiting for worker to finish")
 		}
 
 		select {
-		case changes <- []string{appID.String()}:
+		case changes <- []string{appUUID.String()}:
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timed out waiting for worker to finish")
 		}
@@ -269,7 +268,7 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithDifferentAppID(c *tc.C) {
 
 	var apps [3]application.UUID
 	for i := range apps {
-		apps[i] = applicationtesting.GenApplicationUUID(c)
+		apps[i] = tc.Must(c, application.NewUUID)
 	}
 
 	changes := make(chan []string)
@@ -349,7 +348,7 @@ func (s *workerSuite) newConfig(c *tc.C) Config {
 		NewDownloader: func(charmhub.HTTPClient, logger.Logger) Downloader {
 			return s.downloader
 		},
-		NewAsyncDownloadWorker: func(appID application.UUID, applicationService ApplicationService, downloader Downloader, clock clock.Clock, logger logger.Logger) worker.Worker {
+		NewAsyncDownloadWorker: func(appUUID application.UUID, applicationService ApplicationService, downloader Downloader, clock clock.Clock, logger logger.Logger) worker.Worker {
 			if s.newAsyncWorker == nil {
 				return workertest.NewErrorWorker(nil)
 			}

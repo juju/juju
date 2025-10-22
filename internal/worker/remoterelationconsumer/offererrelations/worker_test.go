@@ -43,7 +43,7 @@ func TestOffererRelationsWorker(t *testing.T) {
 
 func (s *offererRelationsWorkerSuite) SetUpTest(c *tc.C) {
 	s.consumerRelationUUID = tc.Must(c, corerelation.NewUUID)
-	s.offererApplicationUUID = tc.Must(c, coreapplication.NewID)
+	s.offererApplicationUUID = tc.Must(c, coreapplication.NewUUID)
 
 	s.macaroon = newMacaroon(c, "test")
 

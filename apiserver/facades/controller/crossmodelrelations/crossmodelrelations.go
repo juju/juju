@@ -7,25 +7,34 @@ import (
 	"context"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
+	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
-	"github.com/juju/juju/internal/macaroon"
+	domainlife "github.com/juju/juju/domain/life"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -35,9 +44,12 @@ type CrossModelRelationsAPIv3 struct {
 	auth            facade.CrossModelAuthContext
 	watcherRegistry facade.WatcherRegistry
 
+	applicationService        ApplicationService
 	crossModelRelationService CrossModelRelationService
-	statusService             StatusService
+	relationService           RelationService
+	removalService            RemovalService
 	secretService             SecretService
+	statusService             StatusService
 
 	logger logger.Logger
 }
@@ -47,18 +59,24 @@ func NewCrossModelRelationsAPI(
 	modelUUID model.UUID,
 	auth facade.CrossModelAuthContext,
 	watcherRegistry facade.WatcherRegistry,
+	applicationService ApplicationService,
 	crossModelRelationService CrossModelRelationService,
-	statusService StatusService,
+	relationService RelationService,
+	removalService RemovalService,
 	secretService SecretService,
+	statusService StatusService,
 	logger logger.Logger,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
 		modelUUID:                 modelUUID,
 		auth:                      auth,
 		watcherRegistry:           watcherRegistry,
+		applicationService:        applicationService,
 		crossModelRelationService: crossModelRelationService,
-		statusService:             statusService,
+		relationService:           relationService,
+		removalService:            removalService,
 		secretService:             secretService,
+		statusService:             statusService,
 		logger:                    logger,
 	}, nil
 }
@@ -69,7 +87,262 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 	ctx context.Context,
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
-	return params.ErrorResults{}, nil
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(changes.Changes)),
+	}
+
+	for i, change := range changes.Changes {
+		err := api.publishOneRelationChange(ctx, change)
+		results.Results[i].Error = apiservererrors.ServerError(err)
+	}
+
+	return results, nil
+}
+
+func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Context, change params.RemoteRelationChangeEvent) error {
+	relationUUID, err := corerelation.ParseUUID(change.RelationToken)
+	if err != nil {
+		return err
+	}
+
+	// Ensure that we have a relation and that it isn't dead.
+	// If the relation is not found or dead, we simply skip publishing
+	// for that relation. This shouldn't bring down the whole operation.
+	relationDetails, err := api.relationService.GetRelationDetails(ctx, relationUUID)
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		api.logger.Debugf(ctx, "relation %q not found when publishing relation changes", change.RelationToken)
+		return nil
+	} else if err != nil {
+		return err
+	} else if relationDetails.Life == life.Dead {
+		api.logger.Debugf(ctx, "relation %q is dead when publishing relation changes", change.RelationToken)
+		return nil
+	}
+
+	relationTag, err := constructRelationTag(relationDetails.Key)
+	if err != nil {
+		return errors.Annotatef(err, "constructing relation tag for relation %q", relationUUID)
+	}
+
+	if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, change.Macaroons, change.BakeryVersion); err != nil {
+		return errors.Annotatef(err, "checking macaroons for relation %q", relationUUID)
+	}
+
+	applicationUUID, err := api.getApplicationUUIDFromToken(ctx, change.ApplicationOrOfferToken)
+	if err != nil {
+		return errors.Annotatef(err, "getting application UUID for relation %q", relationUUID)
+	}
+
+	// Ensure that the application is still alive.
+	appDetails, err := api.applicationService.GetApplicationDetails(ctx, applicationUUID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) || appDetails.Life == domainlife.Dead {
+		return errors.NotFoundf("application %q not found or dead when publishing relation changes for relation %q", applicationUUID, relationUUID)
+	} else if err != nil {
+		return err
+	}
+
+	switch {
+	case change.Life != life.Alive:
+		// Relations only transition to dying and are removed, so we can safely
+		// just remove the relation and return early.
+		return api.removalService.RemoveRemoteRelation(ctx, relationUUID)
+
+	case change.Suspended != nil && *change.Suspended != relationDetails.Suspended:
+		if err := api.handleSuspendedRelationChange(ctx, relationUUID, *change.Suspended, change.SuspendedReason); err != nil {
+			return err
+		}
+	}
+
+	if err := api.handlePublishSettings(ctx, relationUUID, applicationUUID, appDetails.Name, change); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (api *CrossModelRelationsAPIv3) getApplicationUUIDFromToken(
+	ctx context.Context,
+	token string,
+) (coreapplication.UUID, error) {
+	// First try as an application UUID.
+	appUUID, err := coreapplication.ParseUUID(token)
+	if err == nil {
+		return appUUID, nil
+	}
+
+	// Next try as an offer UUID.
+	offerUUID, err := offer.ParseUUID(token)
+	if err != nil {
+		return "", errors.NotValidf("token %q is not a valid application or offer UUID", token)
+	}
+
+	_, appUUID, err = api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
+	if err != nil {
+		return "", errors.Annotatef(err, "getting application UUID from offer %q", offerUUID)
+	}
+	return appUUID, nil
+}
+
+func (api *CrossModelRelationsAPIv3) handleSuspendedRelationChange(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	suspended bool,
+	suspendedReason string,
+) error {
+	var relationStatus status.Status
+	var message string
+	if suspended {
+		relationStatus = status.Suspended
+		message = suspendedReason
+	} else {
+		relationStatus = status.Joining
+		message = ""
+
+		// TODO (stickupkid): Check that the relation is still viable for
+		// consumption i.e. you can consume it again.
+	}
+
+	return api.statusService.SetRemoteRelationStatus(
+		ctx,
+		relationUUID,
+		status.StatusInfo{
+			Status:  relationStatus,
+			Message: message,
+		},
+	)
+}
+
+func (api *CrossModelRelationsAPIv3) handlePublishSettings(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationUUID coreapplication.UUID,
+	applicationName string,
+	change params.RemoteRelationChangeEvent,
+) error {
+	unitSettings, err := api.handleUnitSettings(ctx, applicationUUID, applicationName, change.ChangedUnits)
+	if err != nil {
+		return errors.Annotatef(err, "handling unit settings for relation %q", relationUUID)
+	}
+
+	applicationSettings, err := api.handleApplicationSettings(change.ApplicationSettings)
+	if err != nil {
+		return errors.Annotatef(err, "handling application settings for relation %q", relationUUID)
+	}
+
+	// Process the relation application and unit settings changes.
+	if err := api.relationService.SetRelationRemoteApplicationAndUnitSettings(
+		ctx,
+		applicationUUID,
+		relationUUID,
+		applicationSettings,
+		unitSettings,
+	); err != nil {
+		return errors.Annotatef(err, "setting application and unit settings %q", relationUUID)
+	}
+
+	// We've got departed units, these need to leave scope.
+	if err := api.handleDepartedUnits(ctx, relationUUID, change.DepartedUnits, applicationName); err != nil {
+		return errors.Annotatef(err, "handling departed units for relation %q", relationUUID)
+	}
+
+	return nil
+}
+
+func (api *CrossModelRelationsAPIv3) handleUnitSettings(
+	ctx context.Context,
+	applicationUUID coreapplication.UUID,
+	applicationName string,
+	unitChanges []params.RemoteRelationUnitChange,
+) (map[unit.Name]map[string]string, error) {
+	if unitChanges == nil {
+		return nil, nil
+	}
+
+	units, err := transform.SliceOrErr(unitChanges, func(u params.RemoteRelationUnitChange) (unit.Name, error) {
+		return unit.NewNameFromParts(applicationName, u.UnitId)
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing unit names")
+	}
+
+	// Ensure all the units exist in the local model, we'll need these upfront
+	// before we can process the application and unit settings.
+	if err := api.crossModelRelationService.EnsureUnitsExist(ctx, applicationUUID, units); err != nil {
+		return nil, errors.Annotatef(err, "ensuring units exist")
+	}
+
+	// Map the unit settings into a map keyed by unit name.
+	unitSettings := make(map[unit.Name]map[string]string, len(unitChanges))
+	for i, u := range unitChanges {
+		unitName := units[i]
+
+		if u.Settings == nil {
+			unitSettings[units[i]] = nil
+			continue
+		}
+
+		settings := make(map[string]string, len(u.Settings))
+		for k, v := range u.Settings {
+			switch v := v.(type) {
+			case string:
+				settings[k] = v
+			default:
+				return nil, errors.NotValidf("setting value for key %q on unit %q", k, unitName)
+			}
+		}
+
+		unitSettings[unitName] = settings
+	}
+
+	return unitSettings, nil
+}
+
+func (api *CrossModelRelationsAPIv3) handleApplicationSettings(
+	applicationSettings map[string]any,
+) (map[string]string, error) {
+	if applicationSettings == nil {
+		return nil, nil
+	}
+
+	settings := make(map[string]string, len(applicationSettings))
+	for k, v := range applicationSettings {
+		switch v := v.(type) {
+		case string:
+			settings[k] = v
+		default:
+			return nil, errors.NotValidf("application setting value for key %q", k)
+		}
+	}
+
+	return settings, nil
+}
+
+func (api *CrossModelRelationsAPIv3) handleDepartedUnits(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	departedUnits []int,
+	applicationName string,
+) error {
+	for _, u := range departedUnits {
+		unitName, err := unit.NewNameFromParts(applicationName, u)
+		if err != nil {
+			return errors.Annotatef(err, "parsing departed unit name %q", u)
+		}
+
+		// If the relation unit doesn't exist, then it has already been removed,
+		// so we can skip it.
+		relationUnitUUID, err := api.relationService.GetRelationUnitUUID(ctx, relationUUID, unitName)
+		if errors.Is(err, relationerrors.RelationUnitNotFound) {
+			continue
+		} else if err != nil {
+			return errors.Annotatef(err, "querying relation unit UUID for departed unit %q", unitName)
+		}
+
+		if err := api.removalService.LeaveScope(ctx, relationUnitUUID); err != nil {
+			return errors.Annotatef(err, "removing departed unit %q", unitName)
+		}
+	}
+	return nil
 }
 
 // RegisterRemoteRelations sets up the model to participate
@@ -121,8 +394,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	}
 
 	// Insert the remote relation.
-	if err := api.crossModelRelationService.AddRemoteApplicationConsumer(
-		ctx,
+	if err := api.crossModelRelationService.AddRemoteApplicationConsumer(ctx,
 		crossmodelrelationservice.AddRemoteApplicationConsumerArgs{
 			RemoteApplicationUUID: relation.ApplicationToken,
 			OfferUUID:             offerUUID,
@@ -275,7 +547,7 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(ctx context.Con
 		var offerUUIDStr string
 		// Old clients don't pass in the relation token.
 		if arg.RelationToken == "" {
-			declared := checkers.InferDeclared(macaroon.MacaroonNamespace, arg.Macaroons)
+			declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, arg.Macaroons)
 			offerUUIDStr = declared["offer-uuid"]
 		} else {
 			offerUUID, err := api.crossModelRelationService.GetOfferUUIDByRelationUUID(ctx, corerelation.UUID(arg.RelationToken))
@@ -358,4 +630,28 @@ func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 // Each event contains the entire set of addresses which are required for ingress for the relation.
 func (api *CrossModelRelationsAPIv3) WatchEgressAddressesForRelations(ctx context.Context, remoteRelationArgs params.RemoteEntityArgs) (params.StringsWatchResults, error) {
 	return params.StringsWatchResults{}, nil
+}
+
+func (api *CrossModelRelationsAPIv3) checkMacaroonsForRelation(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	relationTag names.RelationTag,
+	mac macaroon.Slice,
+	version bakery.Version,
+) error {
+	offerUUID, err := api.crossModelRelationService.GetOfferUUIDByRelationUUID(ctx, relationUUID)
+	if err != nil {
+		return err
+	}
+
+	auth := api.auth.Authenticator()
+	return auth.CheckRelationMacaroons(ctx, api.modelUUID.String(), offerUUID.String(), relationTag, mac, version)
+}
+
+func constructRelationTag(key corerelation.Key) (names.RelationTag, error) {
+	relationKey := key.String()
+	if !names.IsValidRelation(relationKey) {
+		return names.RelationTag{}, errors.NotValidf("relation key %q", key)
+	}
+	return names.NewRelationTag(relationKey), nil
 }

@@ -519,7 +519,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *tc.C) {
 		RevisionID:     ptr(s.fakeUUID.String()),
 	}
 
-	appUUID, err := coreapplication.NewID()
+	appUUID, err := coreapplication.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensurer.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(goodToken{})
@@ -572,7 +572,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecretFailedLabelExists(c *tc.C
 	exipreTime := s.clock.Now()
 	uri := coresecrets.NewURI()
 
-	appUUID, err := coreapplication.NewID()
+	appUUID, err := coreapplication.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensurer.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(goodToken{})
@@ -763,7 +763,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 
-	appUUID, err := coreapplication.NewID()
+	appUUID, err := coreapplication.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	p := domainsecret.UpsertSecretParams{
@@ -823,7 +823,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwnedFailedLabelExists(c *tc.C
 
 	uri := coresecrets.NewURI()
 
-	appUUID, err := coreapplication.NewID()
+	appUUID, err := coreapplication.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{

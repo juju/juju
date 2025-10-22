@@ -199,7 +199,7 @@ func (w *Worker) loop() error {
 			// further changes to the watcher, so fire off the workers as fast
 			// as possible.
 			for _, change := range changes {
-				appID, err := application.ParseID(change)
+				appID, err := application.ParseUUID(change)
 				if err != nil {
 					logger.Errorf(ctx, "failed to parse application UUID %q: %v", change, err)
 					continue

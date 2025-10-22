@@ -46,7 +46,7 @@ func (s *ApplicationWorkerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	var err error
-	s.appID, err = application.NewID()
+	s.appID, err = application.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.logger = loggertesting.WrapCheckLog(c)
