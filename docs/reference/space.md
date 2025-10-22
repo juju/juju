@@ -69,13 +69,13 @@ LXD automatically detects any subnets belonging to bridge networks that it has a
 
 ### Subnets discovered progressively
 
-This is the case for the Manual provider, as described below.
+This is the case for the Unmanaged provider, as described below.
 
-#### Manual
+#### Unmanaged
 
-For the Manual provider, space support differs somewhat from other providers. The `reload-spaces` command does not discover subnets. Instead, each time a manual machine is provisioned, its discovered network devices are used to update Juju's known subnet list.
+For the Unmanaged provider, space support differs somewhat from other providers. The `reload-spaces` command does not discover subnets. Instead, each time a manual machine is provisioned, its discovered network devices are used to update Juju's known subnet list.
 
-Accordingly, the machines to be used in a manual provider must be provisioned by Juju before their subnets can be grouped into spaces. When provisioning a machine results in discovery of a new subnet, that subnet will reside in the _alpha_ space.
+Accordingly, the machines to be used in an Unmanaged provider must be provisioned by Juju before their subnets can be grouped into spaces. When provisioning a machine results in discovery of a new subnet, that subnet will reside in the _alpha_ space.
 
 
 <!--(2) Subnets inherited from the substrate, to be grouped at the discretion of the Juju administrator. -->

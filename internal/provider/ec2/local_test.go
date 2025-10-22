@@ -2708,7 +2708,7 @@ func (t *localServerSuite) TestStopInstances(c *tc.C) {
 func (t *localServerSuite) TestPrechecker(c *tc.C) {
 	// All implementations of InstancePrechecker should
 	// return nil for empty constraints (excluding the
-	// manual provider).
+	// unmanaged provider).
 	t.Prepare(c)
 	err := t.Env.PrecheckInstance(c.Context(),
 		environs.PrecheckInstanceParams{

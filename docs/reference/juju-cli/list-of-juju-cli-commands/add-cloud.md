@@ -71,8 +71,8 @@ A cloud definition file has the following YAML format:
 Cloud types for private clouds:
  - `lxd`
  - `maas`
- - `manual`
  - `openstack`
+ - `unmanaged`
  - `vsphere`
 
 Cloud types for public clouds:

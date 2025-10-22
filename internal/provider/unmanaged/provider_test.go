@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual_test
+package unmanaged_test
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/internal/provider/manual"
+	"github.com/juju/juju/internal/provider/unmanaged"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -45,14 +45,14 @@ func (s *providerSuite) SetUpTest(c *tc.C) {
 		hc.Arch = &arch
 		return hc, base, s.NextErr()
 	})
-	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, privateKey string, stdin io.Reader, stdout io.Writer) error {
+	s.PatchValue(unmanaged.InitUbuntuUser, func(host, user, keys string, privateKey string, stdin io.Reader, stdout io.Writer) error {
 		s.AddCall("InitUbuntuUser", host, user, keys, privateKey, stdin, stdout)
 		return s.NextErr()
 	})
 }
 
 // TestPrepareForBootstrap verifies that Prepare For bootstrap is a noop for
-// manual provider
+// unmanaged provider
 func (s *providerSuite) TestPrepareForBootstrap(c *tc.C) {
 	_, err := s.testPrepareForBootstrap(c)
 	c.Assert(err, tc.ErrorIsNil)
@@ -64,10 +64,10 @@ func (s *providerSuite) TestPrepareForBootstrap(c *tc.C) {
 func (s *providerSuite) TestBootstrapNoCloudEndpoint(c *tc.C) {
 	_, err := s.testBootstrap(c, testBootstrapArgs{})
 	c.Assert(err, tc.ErrorMatches,
-		`validating cloud spec: missing address of host to bootstrap: please specify "juju bootstrap manual/\[user@\]<host>"`)
+		`validating cloud spec: missing address of host to bootstrap: please specify "juju bootstrap unmanaged/\[user@\]<host>"`)
 }
 
-// TestBootstrap executes the bootstrap process for a manual provider,
+// TestBootstrap executes the bootstrap process for an unmanaged provider,
 // verifying key provisioning behaviors and call logic.
 func (s *providerSuite) TestBootstrap(c *tc.C) {
 	ctx, err := s.testBootstrap(c, testBootstrapArgs{
@@ -79,7 +79,7 @@ func (s *providerSuite) TestBootstrap(c *tc.C) {
 	s.CheckCall(c, 2, "DetectBaseAndHardwareCharacteristics", "hostname", "")
 }
 
-// TestBootstrapUserHost tests the bootstrap process for a manual provider with
+// TestBootstrapUserHost tests the bootstrap process for an unmanaged provider with
 // a "user@host" endpoint configuration.
 func (s *providerSuite) TestBootstrapUserHost(c *tc.C) {
 	ctx, err := s.testBootstrap(c, testBootstrapArgs{
@@ -107,17 +107,17 @@ func (s *providerSuite) TestBootstrapUserHostAuthorizedKeys(c *tc.C) {
 }
 
 func (s *providerSuite) testPrepareForBootstrap(c *tc.C) (environs.BootstrapContext, error) {
-	minimal := manual.MinimalConfigValues()
+	minimal := unmanaged.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, tc.ErrorIsNil)
 	cloudSpec := environscloudspec.CloudSpec{
 		Endpoint: "endpoint",
 	}
-	err = manual.ProviderInstance.ValidateCloud(c.Context(), cloudSpec)
+	err = unmanaged.ProviderInstance.ValidateCloud(c.Context(), cloudSpec)
 	if err != nil {
 		return nil, err
 	}
-	env, err := manual.ProviderInstance.Open(c.Context(), environs.OpenParams{
+	env, err := unmanaged.ProviderInstance.Open(c.Context(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: testConfig,
 	}, environs.NoopCredentialInvalidator())
@@ -134,18 +134,18 @@ type testBootstrapArgs struct {
 }
 
 func (s *providerSuite) testBootstrap(c *tc.C, args testBootstrapArgs) (environs.BootstrapContext, error) {
-	minimal := manual.MinimalConfigValues()
+	minimal := unmanaged.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, tc.ErrorIsNil)
 	cloudSpec := environscloudspec.CloudSpec{
 		Endpoint: args.endpoint,
 		Region:   "region",
 	}
-	err = manual.ProviderInstance.ValidateCloud(c.Context(), cloudSpec)
+	err = unmanaged.ProviderInstance.ValidateCloud(c.Context(), cloudSpec)
 	if err != nil {
 		return nil, err
 	}
-	env, err := manual.ProviderInstance.Open(c.Context(), environs.OpenParams{
+	env, err := unmanaged.ProviderInstance.Open(c.Context(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: testConfig,
 	}, environs.NoopCredentialInvalidator())
@@ -158,7 +158,7 @@ func (s *providerSuite) testBootstrap(c *tc.C, args testBootstrapArgs) (environs
 }
 
 func (s *providerSuite) TestNullAlias(c *tc.C) {
-	p, err := environs.Provider("manual")
+	p, err := environs.Provider("unmanaged")
 	c.Assert(p, tc.NotNil)
 	c.Assert(err, tc.ErrorIsNil)
 	p, err = environs.Provider("null")
@@ -167,10 +167,10 @@ func (s *providerSuite) TestNullAlias(c *tc.C) {
 }
 
 func (s *providerSuite) TestDisablesUpdatesByDefault(c *tc.C) {
-	p, err := environs.Provider("manual")
+	p, err := environs.Provider("unmanaged")
 	c.Assert(err, tc.ErrorIsNil)
 
-	attrs := manual.MinimalConfigValues()
+	attrs := unmanaged.MinimalConfigValues()
 	testConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(testConfig.EnableOSRefreshUpdate(), tc.IsTrue)
@@ -186,10 +186,10 @@ func (s *providerSuite) TestDisablesUpdatesByDefault(c *tc.C) {
 }
 
 func (s *providerSuite) TestDefaultsCanBeOverriden(c *tc.C) {
-	p, err := environs.Provider("manual")
+	p, err := environs.Provider("unmanaged")
 	c.Assert(err, tc.ErrorIsNil)
 
-	attrs := manual.MinimalConfigValues()
+	attrs := unmanaged.MinimalConfigValues()
 	attrs["enable-os-refresh-update"] = true
 	attrs["enable-os-upgrade"] = true
 
@@ -206,7 +206,7 @@ func (s *providerSuite) TestDefaultsCanBeOverriden(c *tc.C) {
 func (s *providerSuite) TestSchema(c *tc.C) {
 	vals := map[string]interface{}{"endpoint": "http://foo.com/bar"}
 
-	p, err := environs.Provider("manual")
+	p, err := environs.Provider("unmanaged")
 	c.Assert(err, tc.ErrorIsNil)
 	err = p.CloudSchema().Validate(vals)
 	c.Assert(err, tc.ErrorIsNil)
@@ -215,12 +215,12 @@ func (s *providerSuite) TestSchema(c *tc.C) {
 func (s *providerSuite) TestPingEndpointWithUser(c *tc.C) {
 	endpoint := "user@IP"
 	called := false
-	s.PatchValue(manual.Echo, func(s string) error {
+	s.PatchValue(unmanaged.Echo, func(s string) error {
 		c.Assert(s, tc.Equals, endpoint)
 		called = true
 		return nil
 	})
-	p, err := environs.Provider("manual")
+	p, err := environs.Provider("unmanaged")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p.Ping(c.Context(), endpoint), tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
@@ -229,7 +229,7 @@ func (s *providerSuite) TestPingEndpointWithUser(c *tc.C) {
 func (s *providerSuite) TestPingIP(c *tc.C) {
 	endpoint := "P"
 	called := 0
-	s.PatchValue(manual.Echo, func(s string) error {
+	s.PatchValue(unmanaged.Echo, func(s string) error {
 		c.Assert(called < 2, tc.IsTrue)
 		if called == 0 {
 			c.Assert(s, tc.Equals, endpoint)
@@ -239,7 +239,7 @@ func (s *providerSuite) TestPingIP(c *tc.C) {
 		called++
 		return nil
 	})
-	p, err := environs.Provider("manual")
+	p, err := environs.Provider("unmanaged")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p.Ping(c.Context(), endpoint), tc.ErrorIsNil)
 	// Expect the call to be made twice.

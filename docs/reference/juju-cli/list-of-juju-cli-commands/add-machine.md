@@ -88,7 +88,7 @@ The command operates in three modes, depending on the options provided:
   - create an operating system container (see "Container creation")
 
 The `add-machine` command is unavailable in Kubernetes clouds. Provisioning
-a new machine is unavailable on the manual cloud provider.
+a new machine is unavailable on the unmanaged cloud provider.
 
 Once the` add-machine` command has finished, the machine's ID can be
 used as a placement directive for deploying applications. Machine IDs

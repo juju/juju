@@ -474,7 +474,7 @@ func (s *deployerSuite) expectStat(name string, err error) {
 func (s *deployerSuite) expectModelGet(c *tc.C) {
 	minimal := map[string]interface{}{
 		"name":            "test",
-		"type":            "manual",
+		"type":            "unmanaged",
 		"uuid":            coretesting.ModelTag.Id(),
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"firewall-mode":   "instance",

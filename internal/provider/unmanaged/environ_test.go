@@ -1,7 +1,7 @@
 // Copyright 2012 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package unmanaged
 
 import (
 	"os"
@@ -27,7 +27,7 @@ type baseEnvironSuite struct {
 
 func (s *baseEnvironSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := ManualProvider{}.Open(c.Context(), environs.OpenParams{
+	env, err := UnmanagedProvider{}.Open(c.Context(), environs.OpenParams{
 		Cloud:  CloudSpec(),
 		Config: MinimalConfig(c),
 	}, environs.NoopCredentialInvalidator())

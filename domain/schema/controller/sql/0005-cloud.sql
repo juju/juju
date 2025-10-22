@@ -17,7 +17,7 @@ INSERT INTO cloud_type VALUES
 (0, 'kubernetes'),
 (1, 'lxd'),
 (2, 'maas'),
-(3, 'manual'),
+(3, 'unmanaged'),
 (4, 'azure'),
 (5, 'ec2'),
 (6, 'gce'),

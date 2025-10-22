@@ -2560,7 +2560,7 @@ func (s *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *tc.C) {
 func (s *localServerSuite) TestPrechecker(c *tc.C) {
 	// All implementations of InstancePrechecker should
 	// return nil for empty constraints (excluding the
-	// manual provider).
+	// unmanaged provider).
 	err := s.env.PrecheckInstance(c.Context(),
 		environs.PrecheckInstanceParams{
 			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
