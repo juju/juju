@@ -1451,7 +1451,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 
 		// This will check that the relation can be suspended/unsuspended, it
 		// must be a cross-model relation.
-		if err := api.crossModelRelationService.SetRemoteRelationSuspendedState(ctx, relUUID, arg.Suspended, arg.Message); err != nil {
+		if err := api.relationService.SetRemoteRelationSuspendedState(ctx, relUUID, arg.Suspended, arg.Message); err != nil {
 			return errors.Trace(err)
 		}
 

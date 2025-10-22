@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
@@ -630,4 +632,188 @@ func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsUni
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateOnNonRemoteRelation(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	err := s.state.SetRemoteRelationSuspendedState(c.Context(),
+		relationUUID.String(),
+		true,
+		"foo reason",
+	)
+	c.Assert(err, tc.ErrorMatches, "relation must be a remote relation to be suspended")
+
+	details, err := s.state.GetRelationDetails(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(details.Suspended, tc.IsFalse)
+}
+
+func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateFirstApplication(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Force the charm source to be a CMR.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = ?`, s.fakeCharmUUID1)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetRemoteRelationSuspendedState(c.Context(),
+		relationUUID.String(),
+		true,
+		"foo reason",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	details, err := s.state.GetRelationDetails(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(details.Suspended, tc.IsTrue)
+}
+
+func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateSecondApplication(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	// Force the charm source to be a CMR.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = ?`, s.fakeCharmUUID2)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetRemoteRelationSuspendedState(c.Context(),
+		relationUUID.String(),
+		true,
+		"foo reason",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	details, err := s.state.GetRelationDetails(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(details.Suspended, tc.IsTrue)
+}
+
+func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateFlipFlop(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Force the charm source to be a CMR.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = ?`, s.fakeCharmUUID1)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetRemoteRelationSuspendedState(c.Context(),
+		relationUUID.String(),
+		true,
+		"foo reason",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	details, err := s.state.GetRelationDetails(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(details.Suspended, tc.IsTrue)
+
+	err = s.state.SetRemoteRelationSuspendedState(c.Context(),
+		relationUUID.String(),
+		false,
+		"foo reason",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	details, err = s.state.GetRelationDetails(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(details.Suspended, tc.IsFalse)
 }

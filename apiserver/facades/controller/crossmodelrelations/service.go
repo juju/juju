@@ -47,11 +47,6 @@ type CrossModelRelationService interface {
 	// EnsureUnitsExist ensures that the given synthetic units exist in the
 	// local model.
 	EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error
-
-	// SetRemoteRelationSuspendedState sets the suspended state of the specified
-	// remote relation in the local model. The relation must be a cross-model
-	// relation.
-	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
 }
 
 // ModelConfigService is an interface that provides access to the
@@ -102,6 +97,11 @@ type RelationService interface {
 		applicationSettings map[string]string,
 		unitSettings map[unit.Name]map[string]string,
 	) error
+
+	// SetRemoteRelationSuspendedState sets the suspended state of the specified
+	// remote relation in the local model. The relation must be a cross-model
+	// relation.
+	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
 
 	// GetRelationUnitUUID returns the relation unit UUID for the given unit for
 	// the given relation.

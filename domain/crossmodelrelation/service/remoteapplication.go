@@ -433,26 +433,6 @@ func (s *Service) GetOfferingApplicationToken(
 	return coreapplication.ParseUUID(appUUID)
 }
 
-// SetRemoteRelationSuspendedState sets the suspended state of the specified
-// remote relation in the local model. The relation must be a cross-model
-// relation.
-func (s *Service) SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := relationUUID.Validate(); err != nil {
-		return internalerrors.Errorf(
-			"setting remote relation suspended state:%w", err).Add(relationerrors.RelationUUIDNotValid)
-	}
-
-	if !suspended {
-		// TODO (stickupkid): Ensure that we can consume the relation if we're
-		// unsuspending it.
-	}
-
-	return nil
-}
-
 // IsCrossModelRelationValidForApplication checks that the cross model relation is valid for the application.
 // A relation is valid if it is not suspended and the application is involved in the relation.
 func (s *Service) IsCrossModelRelationValidForApplication(ctx context.Context, relationKey corerelation.Key, appName string) (bool, error) {

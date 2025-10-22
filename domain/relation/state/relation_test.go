@@ -3672,10 +3672,6 @@ func (s *relationSuite) TestGetConsumerRelationUnitsChangeSettings(c *tc.C) {
 	s.addRelationUnitSettingsHash(c, relUnitUUID, "42")
 	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84")
 
-	s.DumpTable(c, "application", "unit", "application_endpoint",
-		"relation_endpoint", "relation_unit", "relation", "relation_application_settings_hash",
-		"relation_unit_settings_hash")
-
 	// Act
 	changes, err := s.state.GetConsumerRelationUnitsChange(c.Context(),
 		relationUUID.String(),
@@ -3707,9 +3703,6 @@ func (s *relationSuite) TestGetConsumerRelationUnitsChangeNoSettings(c *tc.C) {
 	noSettingUnitUUID := s.addUnit(c, "noSetting/0", noSettingAppUUID, charmUUID)
 	noSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, noSettingAppEndpointUUID)
 	s.addRelationUnit(c, noSettingUnitUUID, noSettingRelationEndpointUUID)
-
-	s.DumpTable(c, "application", "unit", "application_endpoint",
-		"relation_endpoint", "relation_unit", "relation")
 
 	// Act
 	changes, err := s.state.GetConsumerRelationUnitsChange(c.Context(),

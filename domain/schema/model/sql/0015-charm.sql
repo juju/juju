@@ -41,7 +41,8 @@ CREATE TABLE charm (
     source_id INT NOT NULL DEFAULT 1,
     revision INT NOT NULL DEFAULT -1,
 
-    -- architecture_id may be null for local charms.
+    -- architecture_id may be null for local charms, but must be NULL for
+    -- CMR charms as they are architecture agnostic.
     architecture_id INT,
 
     -- reference_name is the name of the charm that was originally supplied.

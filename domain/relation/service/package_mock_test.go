@@ -1333,6 +1333,44 @@ func (c *MockStateSetRelationUnitSettingsCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// SetRemoteRelationSuspendedState mocks base method.
+func (m *MockState) SetRemoteRelationSuspendedState(arg0 context.Context, arg1 string, arg2 bool, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRemoteRelationSuspendedState", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRemoteRelationSuspendedState indicates an expected call of SetRemoteRelationSuspendedState.
+func (mr *MockStateMockRecorder) SetRemoteRelationSuspendedState(arg0, arg1, arg2, arg3 any) *MockStateSetRemoteRelationSuspendedStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteRelationSuspendedState", reflect.TypeOf((*MockState)(nil).SetRemoteRelationSuspendedState), arg0, arg1, arg2, arg3)
+	return &MockStateSetRemoteRelationSuspendedStateCall{Call: call}
+}
+
+// MockStateSetRemoteRelationSuspendedStateCall wrap *gomock.Call
+type MockStateSetRemoteRelationSuspendedStateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetRemoteRelationSuspendedStateCall) Return(arg0 error) *MockStateSetRemoteRelationSuspendedStateCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetRemoteRelationSuspendedStateCall) Do(f func(context.Context, string, bool, string) error) *MockStateSetRemoteRelationSuspendedStateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetRemoteRelationSuspendedStateCall) DoAndReturn(f func(context.Context, string, bool, string) error) *MockStateSetRemoteRelationSuspendedStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatcherApplicationSettingsNamespace mocks base method.
 func (m *MockState) WatcherApplicationSettingsNamespace() string {
 	m.ctrl.T.Helper()

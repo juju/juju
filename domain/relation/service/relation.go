@@ -75,6 +75,10 @@ type State interface {
 		unitSettings map[string]map[string]string,
 	) error
 
+	// SetRemoteRelationSuspendedState sets the suspended state of the specified
+	// remote relation in the local model.
+	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID string, suspended bool, reason string) error
+
 	// GetAllRelationDetails return RelationDetailResults for all relations
 	// for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
@@ -519,6 +523,26 @@ func (s *Service) SetRelationRemoteApplicationAndUnitSettings(
 	}
 
 	return nil
+}
+
+// SetRemoteRelationSuspendedState sets the suspended state of the specified
+// remote relation in the local model. The relation must be a cross-model
+// relation.
+func (s *Service) SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"setting remote relation suspended state:%w", err).Add(relationerrors.RelationUUIDNotValid)
+	}
+
+	if !suspended {
+		// TODO (stickupkid): Ensure that we can consume the relation if we're
+		// unsuspending it.
+	}
+
+	return s.st.SetRemoteRelationSuspendedState(ctx, relationUUID.String(), suspended, reason)
 }
 
 // GetAllRelationDetails return RelationDetailResults of all relation for the

@@ -1664,7 +1664,7 @@ func (s *applicationSuite) TestSetRelationsSuspended(c *tc.C) {
 		UUID:      relationUUID,
 		Suspended: false,
 	}, nil)
-	s.crossModelRelationService.EXPECT().SetRemoteRelationSuspendedState(gomock.Any(), relationUUID, true, "front fell off").Return(nil)
+	s.relationService.EXPECT().SetRemoteRelationSuspendedState(gomock.Any(), relationUUID, true, "front fell off").Return(nil)
 	s.statusService.EXPECT().SetRemoteRelationStatus(gomock.Any(), relationUUID, status.StatusInfo{
 		Status:  status.Suspending,
 		Message: "front fell off",
@@ -1697,7 +1697,7 @@ func (s *applicationSuite) TestSetRelationsSuspendedUnsuspending(c *tc.C) {
 		UUID:      relationUUID,
 		Suspended: true,
 	}, nil)
-	s.crossModelRelationService.EXPECT().SetRemoteRelationSuspendedState(gomock.Any(), relationUUID, false, "ignore me").Return(nil)
+	s.relationService.EXPECT().SetRemoteRelationSuspendedState(gomock.Any(), relationUUID, false, "ignore me").Return(nil)
 	s.statusService.EXPECT().SetRemoteRelationStatus(gomock.Any(), relationUUID, status.StatusInfo{
 		Status:  status.Joining,
 		Message: "",

@@ -16,6 +16,108 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// SetRemoteRelationSuspendedState sets the suspended state of the specified
+// remote relation in the local model. The relation must be a cross-model
+func (st *State) SetRemoteRelationSuspendedState(
+	ctx context.Context,
+	relationUUID string,
+	suspended bool,
+	reason string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkRelationExistsByUUID(ctx, tx, relationUUID)
+		if err != nil {
+			return errors.Errorf("checking relation exists: %w", err)
+		} else if !exists {
+			return relationerrors.RelationNotFound
+		}
+
+		// Check it's a remote relation.
+		remote, err := st.isRemoteRelation(ctx, tx, relationUUID)
+		if err != nil {
+			return errors.Errorf("checking relation is remote: %w", err)
+		} else if !remote {
+			return errors.Errorf("relation must be a remote relation to be suspended")
+		}
+
+		// Set the suspended state.
+		if err := st.updateRemoteRelationSuspendedState(ctx, tx, relationUUID, suspended, reason); err != nil {
+			return errors.Errorf("updating remote relation suspended state: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) isRemoteRelation(ctx context.Context, tx *sqlair.TX, relationUUID string) (bool, error) {
+	type count struct {
+		Count int `db:"count"`
+	}
+
+	selectStmt, err := st.Prepare(`
+SELECT COUNT(cs.name) AS &count.count
+FROM   charm_source AS cs
+JOIN   charm AS c ON cs.id = c.source_id
+JOIN   application AS a ON c.uuid = a.charm_uuid
+JOIN   application_endpoint AS ae ON a.uuid = ae.application_uuid
+JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
+WHERE  re.relation_uuid = $entityUUID.uuid
+AND    cs.name = 'cmr'
+`, count{}, entityUUID{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var counter count
+	if err := tx.Query(ctx, selectStmt, entityUUID{UUID: relationUUID}).Get(&counter); errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return counter.Count > 0, nil
+}
+
+func (st *State) updateRemoteRelationSuspendedState(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID string,
+	suspended bool,
+	reason string,
+) error {
+	type suspension struct {
+		Suspended bool   `db:"suspended"`
+		Reason    string `db:"suspended_reason"`
+	}
+
+	updateStmt, err := st.Prepare(`
+UPDATE relation
+SET    suspended = $suspension.suspended,
+	   suspended_reason = $suspension.suspended_reason
+WHERE  uuid = $entityUUID.uuid
+`, suspension{}, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, updateStmt, suspension{
+		Suspended: suspended,
+		Reason:    reason,
+	}, entityUUID{UUID: relationUUID}).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
 // SetRelationRemoteApplicationAndUnitSettings will set the application and
 // unit settings for a remote relation. If the unit has not yet entered
 // scope, it will force the unit to enter scope. All settings will be
@@ -158,7 +260,7 @@ func (st *State) insertRelationUnitSettings(
 	settings map[string]string,
 ) error {
 	// Get the relation endpoint UUID.
-	exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID)
+	exists, err := st.checkRelationUnitExistsByUUID(ctx, tx, relationUnitUUID)
 	if err != nil {
 		return errors.Errorf("checking relation unit exists: %w", err)
 	} else if !exists {

@@ -620,7 +620,7 @@ AND     application_uuid = $entityUUID.uuid
 	var output scope
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the relation exists.
-		relationFound, err := st.checkExistsByUUID(ctx, tx, "relation", relUUID.String())
+		relationFound, err := st.checkRelationExistsByUUID(ctx, tx, relUUID.String())
 		if err != nil {
 			return errors.Capture(err)
 		} else if !relationFound {
@@ -683,7 +683,7 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 				return errors.Capture(err)
 			}
 			// Check if the relation exists.
-			relationFound, err := st.checkExistsByUUID(ctx, tx, "relation", args.RelationUUID.String())
+			relationFound, err := st.checkRelationExistsByUUID(ctx, tx, args.RelationUUID.String())
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -2014,7 +2014,7 @@ func (st *State) GetRelationUnitSettings(
 
 	var settings []relationSetting
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		relUnitExists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID.String())
+		relUnitExists, err := st.checkRelationUnitExistsByUUID(ctx, tx, relationUnitUUID.String())
 		if err != nil {
 			return errors.Capture(err)
 		} else if !relUnitExists {
@@ -2122,7 +2122,7 @@ func (st *State) setRelationUnitSettings(
 	}
 
 	// Get the relation endpoint UUID.
-	exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID)
+	exists, err := st.checkRelationUnitExistsByUUID(ctx, tx, relationUnitUUID)
 	if err != nil {
 		return errors.Errorf("checking relation unit exists: %w", err)
 	} else if !exists {
@@ -2413,7 +2413,7 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 	err = tx.Query(ctx, stmt, id).Get(&endpointUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// Check if we got no rows because the relation does not exist.
-		relationExists, err := st.checkExistsByUUID(ctx, tx, "relation", relationUUID)
+		relationExists, err := st.checkRelationExistsByUUID(ctx, tx, relationUUID)
 		if err != nil {
 			return "", errors.Capture(err)
 		} else if !relationExists {
@@ -2911,23 +2911,54 @@ WHERE  uuid = $search.uuid
 	return true, nil
 }
 
-// checkExistsByUUID checks if a record with the specified UUID exists in the
-// given table using a transaction and context.
-func (st *State) checkExistsByUUID(
+// checkRelationExistsByUUID checks if a record with the specified relation UUID
+// exists in the given table using a transaction and context.
+func (st *State) checkRelationExistsByUUID(
 	ctx context.Context,
 	tx *sqlair.TX,
-	table, uuid string,
+	uuid string,
 ) (bool, error) {
 	type search struct {
 		UUID string `db:"uuid"`
 	}
 
 	searched := search{UUID: uuid}
-	query := fmt.Sprintf(`
+	query := `
 SELECT &search.* 
-FROM   %s 
+FROM   relation 
 WHERE  uuid = $search.uuid
-`, table)
+`
+	checkStmt, err := st.Prepare(query, searched)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, searched).Get(&searched)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Errorf("query %q: %w", query, err)
+	}
+	return true, nil
+}
+
+// checkRelationUnitExistsByUUID checks if a record with the specified relation
+// unit UUID exists in the given table using a transaction and context.
+func (st *State) checkRelationUnitExistsByUUID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid string,
+) (bool, error) {
+	type search struct {
+		UUID string `db:"uuid"`
+	}
+
+	searched := search{UUID: uuid}
+	query := `
+SELECT &search.* 
+FROM   relation_unit
+WHERE  uuid = $search.uuid
+`
 	checkStmt, err := st.Prepare(query, searched)
 	if err != nil {
 		return false, errors.Capture(err)

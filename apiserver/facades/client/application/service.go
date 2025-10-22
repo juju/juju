@@ -122,11 +122,6 @@ type CrossModelRelationService interface {
 	// GetRemoteApplicationOffererByApplicationName returns the UUID of the remote
 	// application offerer for the given application name.
 	GetRemoteApplicationOffererByApplicationName(context.Context, string) (coreremoteapplication.UUID, error)
-
-	// SetRemoteRelationSuspendedState sets the suspended state of the specified
-	// remote relation in the local model. The relation must be a cross-model
-	// relation.
-	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
 }
 
 // CredentialService provides access to credentials.
@@ -472,6 +467,11 @@ type RelationService interface {
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 	) (relation.RelationDetails, error)
+
+	// SetRemoteRelationSuspendedState sets the suspended state of the specified
+	// remote relation in the local model. The relation must be a cross-model
+	// relation.
+	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
 }
 
 // RemovalService defines operations for removing juju entities.

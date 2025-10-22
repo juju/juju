@@ -128,6 +128,10 @@ type RelationService interface {
 		applicationSettings map[string]string,
 		unitSettings map[unit.Name]map[string]string,
 	) error
+
+	// SetRemoteRelationSuspendedState sets the suspended state of the specified
+	// remote relation in the local model.
+	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
 }
 
 // CrossModelRelationService is an interface that defines the methods for
@@ -152,10 +156,6 @@ type CrossModelRelationService interface {
 	// EnsureUnitsExist ensures that the specified units exist in the local
 	// model, creating any that are missing.
 	EnsureUnitsExist(ctx context.Context, appUUID application.UUID, units []unit.Name) error
-
-	// SetRemoteRelationSuspendedState sets the suspended state of the specified
-	// remote relation in the local model.
-	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
 }
 
 // StatusService is an interface that defines the methods for
