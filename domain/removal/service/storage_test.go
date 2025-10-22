@@ -475,6 +475,57 @@ func (s *storageSuite) TestRemoveDeadFilesystem(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *storageSuite) TestExecuteJobForStorageFilesystemNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageFilesystemJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetFilesystemLife(gomock.Any(), j.EntityUUID).Return(
+		-1, storageprovisioningerrors.FilesystemNotFound)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageFilesystemStillAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageFilesystemJob(c)
+
+	s.modelState.EXPECT().GetFilesystemLife(gomock.Any(), j.EntityUUID).Return(
+		life.Alive, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageFilesystemSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageFilesystemJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetFilesystemLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.DeleteFilesystem(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String())
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func newStorageFilesystemJob(c *tc.C) removal.Job {
+	jUUID, err := removal.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	return removal.Job{
+		UUID:        jUUID,
+		RemovalType: removal.StorageFilesystemJob,
+		EntityUUID:  tc.Must(c, storageprovisioning.NewFilesystemUUID).String(),
+	}
+}
+
 func (s *storageSuite) TestRemoveDeadVolumeNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
