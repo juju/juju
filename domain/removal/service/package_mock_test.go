@@ -413,6 +413,44 @@ func (c *MockModelDBStateDeleteApplicationCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// DeleteFilesystem mocks base method.
+func (m *MockModelDBState) DeleteFilesystem(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteFilesystem", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteFilesystem indicates an expected call of DeleteFilesystem.
+func (mr *MockModelDBStateMockRecorder) DeleteFilesystem(arg0, arg1 any) *MockModelDBStateDeleteFilesystemCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFilesystem", reflect.TypeOf((*MockModelDBState)(nil).DeleteFilesystem), arg0, arg1)
+	return &MockModelDBStateDeleteFilesystemCall{Call: call}
+}
+
+// MockModelDBStateDeleteFilesystemCall wrap *gomock.Call
+type MockModelDBStateDeleteFilesystemCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateDeleteFilesystemCall) Return(arg0 error) *MockModelDBStateDeleteFilesystemCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateDeleteFilesystemCall) Do(f func(context.Context, string) error) *MockModelDBStateDeleteFilesystemCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateDeleteFilesystemCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteFilesystemCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteJob mocks base method.
 func (m *MockModelDBState) DeleteJob(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -713,6 +751,44 @@ func (c *MockModelDBStateDeleteUnitCall) Do(f func(context.Context, string) erro
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateDeleteUnitCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteVolume mocks base method.
+func (m *MockModelDBState) DeleteVolume(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteVolume", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteVolume indicates an expected call of DeleteVolume.
+func (mr *MockModelDBStateMockRecorder) DeleteVolume(arg0, arg1 any) *MockModelDBStateDeleteVolumeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVolume", reflect.TypeOf((*MockModelDBState)(nil).DeleteVolume), arg0, arg1)
+	return &MockModelDBStateDeleteVolumeCall{Call: call}
+}
+
+// MockModelDBStateDeleteVolumeCall wrap *gomock.Call
+type MockModelDBStateDeleteVolumeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateDeleteVolumeCall) Return(arg0 error) *MockModelDBStateDeleteVolumeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateDeleteVolumeCall) Do(f func(context.Context, string) error) *MockModelDBStateDeleteVolumeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateDeleteVolumeCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteVolumeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1026,6 +1102,44 @@ func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) DoAndReturn(f func(conte
 	return c
 }
 
+// FilesystemScheduleRemoval mocks base method.
+func (m *MockModelDBState) FilesystemScheduleRemoval(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FilesystemScheduleRemoval", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// FilesystemScheduleRemoval indicates an expected call of FilesystemScheduleRemoval.
+func (mr *MockModelDBStateMockRecorder) FilesystemScheduleRemoval(arg0, arg1, arg2, arg3, arg4 any) *MockModelDBStateFilesystemScheduleRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilesystemScheduleRemoval", reflect.TypeOf((*MockModelDBState)(nil).FilesystemScheduleRemoval), arg0, arg1, arg2, arg3, arg4)
+	return &MockModelDBStateFilesystemScheduleRemovalCall{Call: call}
+}
+
+// MockModelDBStateFilesystemScheduleRemovalCall wrap *gomock.Call
+type MockModelDBStateFilesystemScheduleRemovalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateFilesystemScheduleRemovalCall) Return(arg0 error) *MockModelDBStateFilesystemScheduleRemovalCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateFilesystemScheduleRemovalCall) Do(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateFilesystemScheduleRemovalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateFilesystemScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateFilesystemScheduleRemovalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllJobs mocks base method.
 func (m *MockModelDBState) GetAllJobs(arg0 context.Context) ([]removal.Job, error) {
 	m.ctrl.T.Helper()
@@ -1179,6 +1293,45 @@ func (c *MockModelDBStateGetDetachInfoForStorageAttachmentCall) Do(f func(contex
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateGetDetachInfoForStorageAttachmentCall) DoAndReturn(f func(context.Context, string) (internal.StorageAttachmentDetachInfo, error)) *MockModelDBStateGetDetachInfoForStorageAttachmentCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetFilesystemLife mocks base method.
+func (m *MockModelDBState) GetFilesystemLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemLife indicates an expected call of GetFilesystemLife.
+func (mr *MockModelDBStateMockRecorder) GetFilesystemLife(arg0, arg1 any) *MockModelDBStateGetFilesystemLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemLife", reflect.TypeOf((*MockModelDBState)(nil).GetFilesystemLife), arg0, arg1)
+	return &MockModelDBStateGetFilesystemLifeCall{Call: call}
+}
+
+// MockModelDBStateGetFilesystemLifeCall wrap *gomock.Call
+type MockModelDBStateGetFilesystemLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetFilesystemLifeCall) Return(arg0 life.Life, arg1 error) *MockModelDBStateGetFilesystemLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetFilesystemLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetFilesystemLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetFilesystemLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetFilesystemLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1569,6 +1722,45 @@ func (c *MockModelDBStateGetUnitLifeCall) Do(f func(context.Context, string) (li
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetVolumeLife mocks base method.
+func (m *MockModelDBState) GetVolumeLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeLife indicates an expected call of GetVolumeLife.
+func (mr *MockModelDBStateMockRecorder) GetVolumeLife(arg0, arg1 any) *MockModelDBStateGetVolumeLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeLife", reflect.TypeOf((*MockModelDBState)(nil).GetVolumeLife), arg0, arg1)
+	return &MockModelDBStateGetVolumeLifeCall{Call: call}
+}
+
+// MockModelDBStateGetVolumeLifeCall wrap *gomock.Call
+type MockModelDBStateGetVolumeLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetVolumeLifeCall) Return(arg0 life.Life, arg1 error) *MockModelDBStateGetVolumeLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetVolumeLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetVolumeLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetVolumeLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetVolumeLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2376,6 +2568,44 @@ func (c *MockModelDBStateUnitScheduleRemovalCall) Do(f func(context.Context, str
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateUnitScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateUnitScheduleRemovalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// VolumeScheduleRemoval mocks base method.
+func (m *MockModelDBState) VolumeScheduleRemoval(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VolumeScheduleRemoval", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// VolumeScheduleRemoval indicates an expected call of VolumeScheduleRemoval.
+func (mr *MockModelDBStateMockRecorder) VolumeScheduleRemoval(arg0, arg1, arg2, arg3, arg4 any) *MockModelDBStateVolumeScheduleRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VolumeScheduleRemoval", reflect.TypeOf((*MockModelDBState)(nil).VolumeScheduleRemoval), arg0, arg1, arg2, arg3, arg4)
+	return &MockModelDBStateVolumeScheduleRemovalCall{Call: call}
+}
+
+// MockModelDBStateVolumeScheduleRemovalCall wrap *gomock.Call
+type MockModelDBStateVolumeScheduleRemovalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateVolumeScheduleRemovalCall) Return(arg0 error) *MockModelDBStateVolumeScheduleRemovalCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateVolumeScheduleRemovalCall) Do(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateVolumeScheduleRemovalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateVolumeScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateVolumeScheduleRemovalCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
