@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application"
@@ -50,6 +51,7 @@ import (
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/environs/bootstrap"
@@ -102,6 +104,7 @@ type APIBase struct {
 	relationService           RelationService
 	removalService            RemovalService
 	resourceService           ResourceService
+	statusService             StatusService
 	storageService            StorageService
 	externalControllerService ExternalControllerService
 	crossModelRelationService CrossModelRelationService
@@ -179,6 +182,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			RelationService:           domainServices.Relation(),
 			RemovalService:            domainServices.Removal(),
 			ResourceService:           domainServices.Resource(),
+			StatusService:             domainServices.Status(),
 			StorageService:            storageService,
 			CrossModelRelationService: domainServices.CrossModelRelation(),
 		},
@@ -255,6 +259,7 @@ func NewAPIBase(
 		relationService:           services.RelationService,
 		removalService:            services.RemovalService,
 		resourceService:           services.ResourceService,
+		statusService:             services.StatusService,
 		storageService:            services.StorageService,
 		crossModelRelationService: services.CrossModelRelationService,
 
@@ -1418,9 +1423,63 @@ func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRela
 
 // SetRelationsSuspended sets the suspended status of the specified relations.
 func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.RelationSuspendedArgs) (params.ErrorResults, error) {
-	// Suspending relation is only available for Cross Model Relations
-	return params.ErrorResults{}, internalerrors.Errorf("cross model relations are disabled until "+
-		"backend functionality is moved to domain: %w", errors.NotImplemented)
+	var statusResults params.ErrorResults
+	if err := api.checkCanWrite(ctx); err != nil {
+		return statusResults, errors.Trace(err)
+	}
+	if err := api.check.ChangeAllowed(ctx); err != nil {
+		return statusResults, errors.Trace(err)
+	}
+	changeOne := func(arg params.RelationSuspendedArg) error {
+		relUUID, err := api.relationService.GetRelationUUIDByID(ctx, arg.RelationId)
+		if errors.Is(err, relationerrors.RelationNotFound) {
+			return errors.NotFoundf("relation %d", arg.RelationId)
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		relDetails, err := api.relationService.GetRelationDetails(ctx, relUUID)
+		if errors.Is(err, relationerrors.RelationNotFound) {
+			return errors.NotFoundf("relation %d", arg.RelationId)
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+
+		// If the relation is already in the desired state, no-op.
+		if relDetails.Suspended == arg.Suspended {
+			return nil
+		}
+
+		// This will check that the relation can be suspended/unsuspended, it
+		// must be a cross-model relation.
+		if err := api.relationService.SetRemoteRelationSuspendedState(ctx, relUUID, arg.Suspended, arg.Message); err != nil {
+			return errors.Trace(err)
+		}
+
+		var relationStatus status.Status
+		var message string
+		if arg.Suspended {
+			relationStatus = status.Suspending
+			message = arg.Message
+		} else {
+			relationStatus = status.Joining
+			message = ""
+		}
+		return api.statusService.SetRemoteRelationStatus(
+			ctx,
+			relDetails.UUID,
+			status.StatusInfo{
+				Status:  relationStatus,
+				Message: message,
+			},
+		)
+	}
+	results := make([]params.ErrorResult, len(args.Args))
+	for i, arg := range args.Args {
+		err := changeOne(arg)
+		results[i].Error = apiservererrors.ServerError(err)
+	}
+	statusResults.Results = results
+	return statusResults, nil
 }
 
 // Consume adds remote applications to the model without creating any

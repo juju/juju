@@ -433,18 +433,30 @@ func (s *Service) GetOfferingApplicationToken(
 	return coreapplication.ParseUUID(appUUID)
 }
 
-// SetRemoteRelationSuspendedState sets the suspended state of the specified
-// remote relation in the local model.
-func (s *Service) SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+// IsCrossModelRelationValidForApplication checks that the cross model relation is valid for the application.
+// A relation is valid if it is not suspended and the application is involved in the relation.
+func (s *Service) IsCrossModelRelationValidForApplication(ctx context.Context, relationKey corerelation.Key, appName string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := relationUUID.Validate(); err != nil {
-		return internalerrors.Errorf(
-			"setting remote relation suspended state:%w", err).Add(relationerrors.RelationUUIDNotValid)
+	if err := relationKey.Validate(); err != nil {
+		return false, relationerrors.RelationKeyNotValid
 	}
 
-	return nil
+	eids := relationKey.EndpointIdentifiers()
+	if len(eids) != 2 {
+		// Should never happen.
+		return false, internalerrors.Errorf("internal error: unexpected number of endpoints %d", len(eids))
+	}
+	if eids[0].ApplicationName != appName && eids[1].ApplicationName != appName {
+		return false, internalerrors.Errorf("relation %q not valid for application %q", relationKey, appName).Add(errors.NotValid)
+	}
+
+	isSuspended, err := s.modelState.IsRelationWithEndpointIdentifiersSuspended(ctx, eids[0], eids[1])
+	if err != nil {
+		return false, internalerrors.Errorf("getting relation suspended status by key: %w", err)
+	}
+	return !isSuspended, nil
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {
@@ -499,30 +511,4 @@ func splitRelationsByType(relations []charm.Relation) (map[string]charm.Relation
 	}
 
 	return provides, requires, nil
-}
-
-// IsCrossModelRelationValidForApplication checks that the cross model relation is valid for the application.
-// A relation is valid if it is not suspended and the application is involved in the relation.
-func (s *Service) IsCrossModelRelationValidForApplication(ctx context.Context, relationKey corerelation.Key, appName string) (bool, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := relationKey.Validate(); err != nil {
-		return false, relationerrors.RelationKeyNotValid
-	}
-
-	eids := relationKey.EndpointIdentifiers()
-	if len(eids) != 2 {
-		// Should never happen.
-		return false, internalerrors.Errorf("internal error: unexpected number of endpoints %d", len(eids))
-	}
-	if eids[0].ApplicationName != appName && eids[1].ApplicationName != appName {
-		return false, internalerrors.Errorf("relation %q not valid for application %q", relationKey, appName).Add(errors.NotValid)
-	}
-
-	isSuspended, err := s.modelState.IsRelationWithEndpointIdentifiersSuspended(ctx, eids[0], eids[1])
-	if err != nil {
-		return false, internalerrors.Errorf("getting relation suspended status by key: %w", err)
-	}
-	return !isSuspended, nil
 }

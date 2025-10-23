@@ -29,6 +29,7 @@ import (
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -56,7 +57,6 @@ type applicationSuite struct {
 func (s *applicationSuite) TestStub(c *tc.C) {
 	c.Skip("Suspending relation requires CMR support, which is not yet implemented.\n" +
 		"Once it will be implemented, at minimum, the following tests should be added:\n" +
-		"- TestSetRelationsSuspended\n" +
 		"- TestSetRelationsReestablished\n" +
 		"- TestSetRelationsSuspendedPermissionError\n" +
 		"- TestSetRelationsSuspendedNoOffer")
@@ -1649,6 +1649,129 @@ func (s *applicationSuite) TestConsumeInvalidEndpointRole(c *tc.C) {
 			Error: &params.Error{
 				Code:    params.CodeBadRequest,
 				Message: `parsing role for endpoint "db": endpoint role must be "provider" or "requirer", got "require"`,
+			},
+		}},
+	})
+}
+
+func (s *applicationSuite) TestSetRelationsSuspended(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.relationService.EXPECT().GetRelationUUIDByID(gomock.Any(), 42).Return(relationUUID, nil)
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relationUUID).Return(relation.RelationDetails{
+		UUID:      relationUUID,
+		Suspended: false,
+	}, nil)
+	s.relationService.EXPECT().SetRemoteRelationSuspendedState(gomock.Any(), relationUUID, true, "front fell off").Return(nil)
+	s.statusService.EXPECT().SetRemoteRelationStatus(gomock.Any(), relationUUID, status.StatusInfo{
+		Status:  status.Suspending,
+		Message: "front fell off",
+	}).Return(nil)
+
+	s.setupAPI(c)
+
+	results, err := s.api.SetRelationsSuspended(c.Context(), params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{
+			{
+				RelationId: 42,
+				Suspended:  true,
+				Message:    "front fell off",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *applicationSuite) TestSetRelationsSuspendedUnsuspending(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.relationService.EXPECT().GetRelationUUIDByID(gomock.Any(), 42).Return(relationUUID, nil)
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relationUUID).Return(relation.RelationDetails{
+		UUID:      relationUUID,
+		Suspended: true,
+	}, nil)
+	s.relationService.EXPECT().SetRemoteRelationSuspendedState(gomock.Any(), relationUUID, false, "ignore me").Return(nil)
+	s.statusService.EXPECT().SetRemoteRelationStatus(gomock.Any(), relationUUID, status.StatusInfo{
+		Status:  status.Joining,
+		Message: "",
+	}).Return(nil)
+
+	s.setupAPI(c)
+
+	results, err := s.api.SetRelationsSuspended(c.Context(), params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{
+			{
+				RelationId: 42,
+				Suspended:  false,
+				Message:    "ignore me",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *applicationSuite) TestSetRelationsSuspendedAlreadySuspended(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.relationService.EXPECT().GetRelationUUIDByID(gomock.Any(), 42).Return(relationUUID, nil)
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relationUUID).Return(relation.RelationDetails{
+		UUID:      relationUUID,
+		Suspended: true,
+	}, nil)
+
+	s.setupAPI(c)
+
+	results, err := s.api.SetRelationsSuspended(c.Context(), params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{
+			{
+				RelationId: 42,
+				Suspended:  true,
+				Message:    "front fell off",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *applicationSuite) TestSetRelationsSuspendedNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.relationService.EXPECT().GetRelationUUIDByID(gomock.Any(), 42).Return(relationUUID, relationerrors.RelationNotFound)
+
+	s.setupAPI(c)
+
+	results, err := s.api.SetRelationsSuspended(c.Context(), params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{
+			{
+				RelationId: 42,
+				Suspended:  true,
+				Message:    "front fell off",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{
+				Code:    params.CodeNotFound,
+				Message: "relation 42 not found",
 			},
 		}},
 	})

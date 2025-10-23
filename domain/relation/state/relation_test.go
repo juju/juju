@@ -1106,7 +1106,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *tc.C) {
 
 	// Arrange: Add unit to relation and set relation status.
 	s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
-	s.setRelationStatus(c, relationUUID, corestatus.Suspended, time.Now())
+	s.setRelationSuspended(c, relationUUID)
 
 	expectedResults := []domainrelation.RelationUnitStatusResult{{
 		Endpoints: []domainrelation.Endpoint{endpoint1, endpoint2},
@@ -1162,8 +1162,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *tc.C) {
 
 	// Arrange: Add unit to both the relation and set their status.
 	s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
-	s.setRelationStatus(c, relationUUID1, corestatus.Joined, time.Now())
-	s.setRelationStatus(c, relationUUID2, corestatus.Suspended, time.Now())
+	s.setRelationSuspended(c, relationUUID2)
 
 	expectedResults := []domainrelation.RelationUnitStatusResult{{
 		Endpoints: []domainrelation.Endpoint{endpoint1},
@@ -1346,7 +1345,7 @@ func (s *relationSuite) TestGetRelationDetailsSuspended(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
-	s.setRelationStatus(c, relationUUID, corestatus.Suspended, time.Now())
+	s.setRelationSuspended(c, relationUUID)
 
 	expectedDetails := domainrelation.RelationDetailsResult{
 		Life:      corelife.Dying,
@@ -1458,7 +1457,7 @@ func (s *relationSuite) TestGetAllRelationDetails(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID1, applicationEndpointUUID2)
 	s.addRelationEndpoint(c, relationUUID2, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID2, applicationEndpointUUID3)
-	s.setRelationStatus(c, relationUUID2, corestatus.Suspended, time.Now())
+	s.setRelationSuspended(c, relationUUID2)
 
 	expectedDetails := map[int]domainrelation.RelationDetailsResult{
 		relationID1: {
@@ -1934,7 +1933,7 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *tc.C) {
 	relationUUID := s.addRelation(c)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
-	s.setRelationStatus(c, relationUUID, corestatus.Suspended, time.Now())
+	s.setRelationSuspended(c, relationUUID)
 
 	// Act:
 	result, err := s.state.GetMapperDataForWatchLifeSuspendedStatus(
@@ -3673,10 +3672,6 @@ func (s *relationSuite) TestGetConsumerRelationUnitsChangeSettings(c *tc.C) {
 	s.addRelationUnitSettingsHash(c, relUnitUUID, "42")
 	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84")
 
-	s.DumpTable(c, "application", "unit", "application_endpoint",
-		"relation_endpoint", "relation_unit", "relation", "relation_application_settings_hash",
-		"relation_unit_settings_hash")
-
 	// Act
 	changes, err := s.state.GetConsumerRelationUnitsChange(c.Context(),
 		relationUUID.String(),
@@ -3708,9 +3703,6 @@ func (s *relationSuite) TestGetConsumerRelationUnitsChangeNoSettings(c *tc.C) {
 	noSettingUnitUUID := s.addUnit(c, "noSetting/0", noSettingAppUUID, charmUUID)
 	noSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, noSettingAppEndpointUUID)
 	s.addRelationUnit(c, noSettingUnitUUID, noSettingRelationEndpointUUID)
-
-	s.DumpTable(c, "application", "unit", "application_endpoint",
-		"relation_endpoint", "relation_unit", "relation")
 
 	// Act
 	changes, err := s.state.GetConsumerRelationUnitsChange(c.Context(),

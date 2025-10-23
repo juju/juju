@@ -108,11 +108,11 @@ AND    life_id = 0`, remoteAppOffererUUID)
 		return res, errors.Errorf("preparing remote application offerer life update: %w", err)
 	}
 
-	// Also ensure that any other entities that are associated with the
-	// remote application offerer are also set to dying. This has to be done in
-	// a single transaction because we want to ensure that the remote application
-	// offerer is not alive, and that no units are alive at the same time. Preventing
-	// any races.
+	// Also ensure that any other entities that are associated with the remote
+	// application offerer are also set to dying. This has to be done in a
+	// single transaction because we want to ensure that the remote application
+	// offerer is not alive, and that no units are alive at the same time.
+	// Preventing any races.
 	selectRelationUUIDsStmt, err := st.Prepare(`
 SELECT r.uuid AS &entityUUID.uuid
 FROM   v_relation_endpoint AS re

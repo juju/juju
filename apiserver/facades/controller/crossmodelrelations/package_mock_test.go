@@ -684,6 +684,44 @@ func (c *MockRelationServiceSetRelationRemoteApplicationAndUnitSettingsCall) DoA
 	return c
 }
 
+// SetRemoteRelationSuspendedState mocks base method.
+func (m *MockRelationService) SetRemoteRelationSuspendedState(arg0 context.Context, arg1 relation.UUID, arg2 bool, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRemoteRelationSuspendedState", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRemoteRelationSuspendedState indicates an expected call of SetRemoteRelationSuspendedState.
+func (mr *MockRelationServiceMockRecorder) SetRemoteRelationSuspendedState(arg0, arg1, arg2, arg3 any) *MockRelationServiceSetRemoteRelationSuspendedStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteRelationSuspendedState", reflect.TypeOf((*MockRelationService)(nil).SetRemoteRelationSuspendedState), arg0, arg1, arg2, arg3)
+	return &MockRelationServiceSetRemoteRelationSuspendedStateCall{Call: call}
+}
+
+// MockRelationServiceSetRemoteRelationSuspendedStateCall wrap *gomock.Call
+type MockRelationServiceSetRemoteRelationSuspendedStateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceSetRemoteRelationSuspendedStateCall) Return(arg0 error) *MockRelationServiceSetRemoteRelationSuspendedStateCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceSetRemoteRelationSuspendedStateCall) Do(f func(context.Context, relation.UUID, bool, string) error) *MockRelationServiceSetRemoteRelationSuspendedStateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceSetRemoteRelationSuspendedStateCall) DoAndReturn(f func(context.Context, relation.UUID, bool, string) error) *MockRelationServiceSetRemoteRelationSuspendedStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockApplicationService is a mock of ApplicationService interface.
 type MockApplicationService struct {
 	ctrl     *gomock.Controller

@@ -25,6 +25,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	coreresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
@@ -51,6 +52,7 @@ type Services struct {
 	RelationService           RelationService
 	RemovalService            RemovalService
 	ResourceService           ResourceService
+	StatusService             StatusService
 	StorageService            StorageService
 	CrossModelRelationService CrossModelRelationService
 }
@@ -81,14 +83,17 @@ func (s Services) Validate() error {
 	if s.ResourceService == nil {
 		return errors.NotValidf("empty ResourceService")
 	}
-	if s.StorageService == nil {
-		return errors.NotValidf("empty StorageService")
-	}
 	if s.RelationService == nil {
 		return errors.NotValidf("empty RelationService")
 	}
 	if s.RemovalService == nil {
 		return errors.NotValidf("empty RemovalService")
+	}
+	if s.StatusService == nil {
+		return errors.NotValidf("empty StatusService")
+	}
+	if s.StorageService == nil {
+		return errors.NotValidf("empty StorageService")
 	}
 	if s.CrossModelRelationService == nil {
 		return errors.NotValidf("empty CrossModelRelationService")
@@ -407,6 +412,13 @@ type StorageService interface {
 	GetStoragePoolUUID(context.Context, string) (domainstorage.StoragePoolUUID, error)
 }
 
+// StatusService provides access to the status service.
+type StatusService interface {
+	// SetRemoteRelationStatus sets the status of the relation to the status
+	// provided.
+	SetRemoteRelationStatus(ctx context.Context, relationUUID corerelation.UUID, statusInfo status.StatusInfo) error
+}
+
 // BlockChecker defines the block-checking functionality required by
 // the application facade. This is implemented by
 // apiserver/common.BlockChecker.
@@ -430,28 +442,36 @@ type Leadership interface {
 type RelationService interface {
 	// AddRelation takes two endpoint identifiers of the form
 	// <application>[:<endpoint>]. The identifiers will be used to infer two
-	// endpoint between applications on the model. A new relation will be created
-	// between these endpoints and the details of the endpoint returned.
-	//
-	// If the identifiers do not uniquely specify a relation, an error will be
-	// returned.
+	// endpoint between applications on the model. A new relation will be
+	// created between these endpoints and the details of the endpoint returned.
 	AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error)
 
-	// ApplicationRelationsInfo returns all EndpointRelationData for an application.
+	// ApplicationRelationsInfo returns all EndpointRelationData for an
+	// application.
 	ApplicationRelationsInfo(ctx context.Context, applicationID coreapplication.UUID) ([]relation.EndpointRelationData, error)
 
 	// GetRelationUUIDForRemoval returns the relation UUID, of the relation
 	// represented in GetRelationUUIDForRemovalArgs, with the understanding
 	// this relation will be removed by an end user. Peer relations cannot be
 	// removed by an end user.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
-	//     found.
 	GetRelationUUIDForRemoval(
 		ctx context.Context,
 		args relation.GetRelationUUIDForRemovalArgs,
 	) (corerelation.UUID, error)
+
+	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
+	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
+
+	// GetRelationDetails returns RelationDetails for the given relation UUID.
+	GetRelationDetails(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+	) (relation.RelationDetails, error)
+
+	// SetRemoteRelationSuspendedState sets the suspended state of the specified
+	// remote relation in the local model. The relation must be a cross-model
+	// relation.
+	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
 }
 
 // RemovalService defines operations for removing juju entities.

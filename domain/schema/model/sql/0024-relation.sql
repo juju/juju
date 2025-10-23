@@ -76,6 +76,8 @@ CREATE TABLE relation (
     uuid TEXT NOT NULL PRIMARY KEY,
     life_id INT NOT NULL,
     relation_id INT NOT NULL,
+    suspended BOOLEAN DEFAULT FALSE,
+    suspended_reason TEXT,
     -- NOTE: the scope of a relation is not just the same as the scope of either
     -- of it's endpoints. It's a property we need to consider as intrinsic to
     -- the relation itself. This is because a relation is considered
@@ -269,7 +271,6 @@ SELECT
     rs.relation_uuid,
     rst.name AS status,
     rs.message,
-    rs.updated_at,
-    (rst.id = 4) AS suspended
+    rs.updated_at
 FROM relation_status AS rs
 JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id;

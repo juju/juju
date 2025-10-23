@@ -70,6 +70,8 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.life_id != OLD.life_id OR
 	NEW.relation_id != OLD.relation_id OR
+	(NEW.suspended != OLD.suspended OR (NEW.suspended IS NOT NULL AND OLD.suspended IS NULL) OR (NEW.suspended IS NULL AND OLD.suspended IS NOT NULL)) OR
+	(NEW.suspended_reason != OLD.suspended_reason OR (NEW.suspended_reason IS NOT NULL AND OLD.suspended_reason IS NULL) OR (NEW.suspended_reason IS NULL AND OLD.suspended_reason IS NOT NULL)) OR
 	NEW.scope_id != OLD.scope_id 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
@@ -114,44 +116,6 @@ END;
 -- delete trigger for RelationApplicationSettingsHash
 CREATE TRIGGER trg_log_relation_application_settings_hash_delete
 AFTER DELETE ON relation_application_settings_hash FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
-	}
-}
-
-// ChangeLogTriggersForRelationStatus generates the triggers for the
-// relation_status table.
-func ChangeLogTriggersForRelationStatus(columnName string, namespaceID int) func() schema.Patch {
-	return func() schema.Patch {
-		return schema.MakePatch(fmt.Sprintf(`
--- insert namespace for RelationStatus
-INSERT INTO change_log_namespace VALUES (%[2]d, 'relation_status', 'RelationStatus changes based on %[1]s');
-
--- insert trigger for RelationStatus
-CREATE TRIGGER trg_log_relation_status_insert
-AFTER INSERT ON relation_status FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
-END;
-
--- update trigger for RelationStatus
-CREATE TRIGGER trg_log_relation_status_update
-AFTER UPDATE ON relation_status FOR EACH ROW
-WHEN 
-	NEW.relation_uuid != OLD.relation_uuid OR
-	NEW.relation_status_type_id != OLD.relation_status_type_id OR
-	(NEW.message != OLD.message OR (NEW.message IS NOT NULL AND OLD.message IS NULL) OR (NEW.message IS NULL AND OLD.message IS NOT NULL)) OR
-	NEW.updated_at != OLD.updated_at 
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;
--- delete trigger for RelationStatus
-CREATE TRIGGER trg_log_relation_status_delete
-AFTER DELETE ON relation_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));

@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// State represents the relation domain state.
 type State struct {
 	*domain.StateBase
 	clock  clock.Clock
@@ -619,7 +620,7 @@ AND     application_uuid = $entityUUID.uuid
 	var output scope
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the relation exists.
-		relationFound, err := st.checkExistsByUUID(ctx, tx, "relation", relUUID.String())
+		relationFound, err := st.checkRelationExistsByUUID(ctx, tx, relUUID.String())
 		if err != nil {
 			return errors.Capture(err)
 		} else if !relationFound {
@@ -682,7 +683,7 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 				return errors.Capture(err)
 			}
 			// Check if the relation exists.
-			relationFound, err := st.checkExistsByUUID(ctx, tx, "relation", args.RelationUUID.String())
+			relationFound, err := st.checkRelationExistsByUUID(ctx, tx, args.RelationUUID.String())
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -720,7 +721,7 @@ func (st *State) GetRelationsStatusForUnit(
 	type relationUnitStatus struct {
 		RelationUUID string `db:"relation_uuid"`
 		InScope      bool   `db:"in_scope"`
-		Status       string `db:"status"`
+		Suspended    bool   `db:"suspended"`
 	}
 	type unitUUIDArg struct {
 		UUID string `db:"unit_uuid"`
@@ -733,11 +734,11 @@ func (st *State) GetRelationsStatusForUnit(
 	stmt, err := st.Prepare(`
 SELECT re.relation_uuid AS &relationUnitStatus.relation_uuid,
        ru.uuid IS NOT NULL AS &relationUnitStatus.in_scope,
-       vrs.status AS &relationUnitStatus.status
+       r.suspended AS &relationUnitStatus.suspended
 FROM      relation_endpoint AS re
+JOIN      relation AS r ON re.relation_uuid = r.uuid
 JOIN      application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN      unit AS u ON ae.application_uuid = u.application_uuid
-JOIN      v_relation_status AS vrs ON re.relation_uuid = vrs.relation_uuid
 LEFT JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
 WHERE     u.uuid = $unitUUIDArg.unit_uuid
 `, uuid, relationUnitStatus{})
@@ -762,7 +763,7 @@ WHERE     u.uuid = $unitUUIDArg.unit_uuid
 			relationUnitStatuses = append(relationUnitStatuses, domainrelation.RelationUnitStatusResult{
 				Endpoints: endpoints,
 				InScope:   status.InScope,
-				Suspended: status.Status == corestatus.Suspended.String(),
+				Suspended: status.Suspended,
 			})
 		}
 
@@ -2013,7 +2014,7 @@ func (st *State) GetRelationUnitSettings(
 
 	var settings []relationSetting
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		relUnitExists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID.String())
+		relUnitExists, err := st.checkRelationUnitExistsByUUID(ctx, tx, relationUnitUUID.String())
 		if err != nil {
 			return errors.Capture(err)
 		} else if !relUnitExists {
@@ -2121,7 +2122,7 @@ func (st *State) setRelationUnitSettings(
 	}
 
 	// Get the relation endpoint UUID.
-	exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID)
+	exists, err := st.checkRelationUnitExistsByUUID(ctx, tx, relationUnitUUID)
 	if err != nil {
 		return errors.Errorf("checking relation unit exists: %w", err)
 	} else if !exists {
@@ -2412,7 +2413,7 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 	err = tx.Query(ctx, stmt, id).Get(&endpointUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// Check if we got no rows because the relation does not exist.
-		relationExists, err := st.checkExistsByUUID(ctx, tx, "relation", relationUUID)
+		relationExists, err := st.checkRelationExistsByUUID(ctx, tx, relationUUID)
 		if err != nil {
 			return "", errors.Capture(err)
 		} else if !relationExists {
@@ -2502,7 +2503,7 @@ func (st *State) ApplicationExists(ctx context.Context, id application.UUID) err
 // InitialWatchLifeSuspendedStatus returns the two tables to watch for a
 // relation's Life and Suspended status when the relation contains the provided
 // application and the initial namespace query.
-func (st *State) InitialWatchLifeSuspendedStatus(id application.UUID) (string, string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchLifeSuspendedStatus(id application.UUID) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
 SELECT  re.relation_uuid AS &relationUUID.uuid
@@ -2531,7 +2532,7 @@ WHERE   ae.application_uuid = $entityUUID.uuid
 		return transform.Slice(results, func(r relationUUID) string { return r.UUID }), nil
 	}
 
-	return "relation", "relation_status", queryFunc
+	return "relation", queryFunc
 }
 
 // WatcherApplicationSettingsNamespace returns the namespace string used for
@@ -2597,8 +2598,8 @@ WHERE  relation_endpoint_uuid = $entityUUID.uuid
 	}), nil
 }
 
-// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a relation
-// uuid as part of WatchLifeSuspendedStatus eventmapper.
+// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a
+// relation uuid as part of WatchLifeSuspendedStatus eventmapper.
 //
 // The following error types can be expected to be returned:
 //   - [applicationerrors.ApplicationNotFoundForRelation] is returned if the
@@ -2631,12 +2632,10 @@ AND     re.relation_uuid = $watcherMapperData.uuid
 		return domainrelation.RelationLifeSuspendedData{}, errors.Capture(err)
 	}
 
-	lifeStatusStmt, err := st.Prepare(`
-SELECT (rst.name, l.value) AS (&watcherMapperData.*)
+	lifeSuspendedStmt, err := st.Prepare(`
+SELECT (r.suspended, l.value) AS (&watcherMapperData.*)
 FROM   relation r
 JOIN   life l ON r.life_id = l.id
-JOIN   relation_status rs ON rs.relation_uuid = r.uuid
-JOIN   relation_status_type rst ON rst.id = rs.relation_status_type_id
 WHERE  r.uuid = $watcherMapperData.uuid
 `, watcherMapperData{})
 	if err != nil {
@@ -2652,11 +2651,11 @@ WHERE  r.uuid = $watcherMapperData.uuid
 			return errors.Errorf("verifying relation application intersection: %w", err)
 		}
 
-		err = tx.Query(ctx, lifeStatusStmt, data).Get(&data)
+		err = tx.Query(ctx, lifeSuspendedStmt, data).Get(&data)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return relationerrors.RelationNotFound
 		} else if err != nil {
-			return errors.Errorf("getting relation life and status: %w", err)
+			return errors.Errorf("getting relation life and suspended state: %w", err)
 		}
 
 		endpoints, err = st.getRelationEndpoints(ctx, tx, data.RelationUUID)
@@ -2676,7 +2675,7 @@ WHERE  r.uuid = $watcherMapperData.uuid
 
 	return domainrelation.RelationLifeSuspendedData{
 		Life:                life.Value(data.Life),
-		Suspended:           data.Suspended == corestatus.Suspended.String(),
+		Suspended:           data.Suspended,
 		EndpointIdentifiers: endpointIdentifiers,
 	}, nil
 }
@@ -2889,21 +2888,17 @@ func (st *State) checkCompatibleBases(ctx context.Context, tx *sqlair.TX, ep1 En
 // checkApplicationExists checks if the application with the specified UUID
 // exists in the given table using a transaction and context.
 func (st *State) checkApplicationExists(ctx context.Context, tx *sqlair.TX, uuid string) (bool, error) {
-	type search struct {
-		UUID string `db:"uuid"`
-	}
-
-	searched := search{UUID: uuid}
+	appUUID := entityUUID{UUID: uuid}
 	checkStmt, err := st.Prepare(`
-SELECT &search.*
+SELECT &entityUUID.*
 FROM   application 
-WHERE  uuid = $search.uuid
-`, searched)
+WHERE  uuid = $entityUUID.uuid
+`, appUUID)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkStmt, searched).Get(&searched)
+	err = tx.Query(ctx, checkStmt, appUUID).Get(&appUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, nil
 	} else if err != nil {
@@ -2912,29 +2907,52 @@ WHERE  uuid = $search.uuid
 	return true, nil
 }
 
-// checkExistsByUUID checks if a record with the specified UUID exists in the
-// given table using a transaction and context.
-func (st *State) checkExistsByUUID(
+// checkRelationExistsByUUID checks if a record with the specified relation UUID
+// exists in the given table using a transaction and context.
+func (st *State) checkRelationExistsByUUID(
 	ctx context.Context,
 	tx *sqlair.TX,
-	table, uuid string,
+	uuid string,
 ) (bool, error) {
-	type search struct {
-		UUID string `db:"uuid"`
-	}
-
-	searched := search{UUID: uuid}
-	query := fmt.Sprintf(`
-SELECT &search.* 
-FROM   %s 
-WHERE  uuid = $search.uuid
-`, table)
-	checkStmt, err := st.Prepare(query, searched)
+	relationUUID := entityUUID{UUID: uuid}
+	query := `
+SELECT &entityUUID.* 
+FROM   relation 
+WHERE  uuid = $entityUUID.uuid
+`
+	checkStmt, err := st.Prepare(query, relationUUID)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkStmt, searched).Get(&searched)
+	err = tx.Query(ctx, checkStmt, relationUUID).Get(&relationUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Errorf("query %q: %w", query, err)
+	}
+	return true, nil
+}
+
+// checkRelationUnitExistsByUUID checks if a record with the specified relation
+// unit UUID exists in the given table using a transaction and context.
+func (st *State) checkRelationUnitExistsByUUID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid string,
+) (bool, error) {
+	relationUnitUUID := entityUUID{UUID: uuid}
+	query := `
+SELECT &entityUUID.* 
+FROM   relation_unit
+WHERE  uuid = $entityUUID.uuid
+`
+	checkStmt, err := st.Prepare(query, relationUnitUUID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, relationUnitUUID).Get(&relationUnitUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, nil
 	} else if err != nil {
@@ -3118,10 +3136,9 @@ func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relation
 		UUID: relationUUID,
 	}
 	stmt, err := st.Prepare(`
-SELECT (r.uuid, r.relation_id, l.value, vrs.suspended) AS (&getRelation.*)
+SELECT (r.uuid, r.relation_id, l.value, r.suspended) AS (&getRelation.*)
 FROM   relation r
 JOIN   life l ON r.life_id = l.id
-JOIN   v_relation_status AS vrs ON r.uuid = vrs.relation_uuid
 WHERE  r.uuid = $getRelation.uuid
 `, rel)
 	if err != nil {

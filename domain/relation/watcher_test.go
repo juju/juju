@@ -105,7 +105,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusPrincipal(c *t
 	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx,
-				"UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID,
+				"UPDATE relation SET suspended = FALSE WHERE uuid=?", relationUUID,
 			); err != nil {
 				return errors.Capture(err)
 			}
@@ -122,7 +122,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusPrincipal(c *t
 	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx,
-				"UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID,
+				"UPDATE relation SET suspended = TRUE WHERE uuid=?", relationUUID,
 			); err != nil {
 				return errors.Capture(err)
 			}
@@ -152,7 +152,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusPrincipal(c *t
 				return errors.Capture(err)
 			}
 			if _, err := tx.ExecContext(
-				ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID,
+				ctx, "UPDATE relation SET suspended = FALSE WHERE uuid=?", relationUUID,
 			); err != nil {
 				return errors.Capture(err)
 			}
@@ -210,7 +210,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusSubordinate(c 
 	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx,
-				"UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID,
+				"UPDATE relation SET suspended = FALSE WHERE uuid=?", relationUUID,
 			); err != nil {
 				return errors.Capture(err)
 			}
@@ -227,7 +227,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusSubordinate(c 
 	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx,
-				"UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID,
+				"UPDATE relation SET suspended = TRUE WHERE uuid=?", relationUUID,
 			); err != nil {
 				return errors.Capture(err)
 			}
@@ -258,7 +258,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusSubordinate(c 
 				return errors.Capture(err)
 			}
 			if _, err := tx.ExecContext(
-				ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID,
+				ctx, "UPDATE relation SET suspended = FALSE WHERE uuid=?", relationUUID,
 			); err != nil {
 				return errors.Capture(err)
 			}
@@ -317,7 +317,7 @@ func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatus(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx,
-				"UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID,
+				"UPDATE relation SET suspended = FALSE WHERE uuid=?", relationUUID,
 			); err != nil {
 				return errors.Capture(err)
 			}
@@ -334,7 +334,7 @@ func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatus(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx,
-				"UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID,
+				"UPDATE relation SET suspended = TRUE WHERE uuid=?", relationUUID,
 			); err != nil {
 				return errors.Capture(err)
 			}
@@ -364,7 +364,7 @@ func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatus(c *tc.C) {
 				return errors.Capture(err)
 			}
 			if _, err := tx.ExecContext(
-				ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID,
+				ctx, "UPDATE relation SET suspended = FALSE WHERE uuid=?", relationUUID,
 			); err != nil {
 				return errors.Capture(err)
 			}

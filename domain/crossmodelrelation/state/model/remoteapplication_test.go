@@ -1888,14 +1888,19 @@ func (s *modelRemoteApplicationSuite) assertApplication(c *tc.C, uuid string) {
 
 func (s *modelRemoteApplicationSuite) assertRelation(c *tc.C, relationUUID string, relationID int) {
 	var (
-		gotUUID    string
-		gotID      int
-		gotLifID   int
-		gotScopeID int
+		gotUUID            string
+		gotID              int
+		gotLifID           int
+		gotScopeID         int
+		gotSuspended       bool
+		gotSuspendedReason sql.Null[string]
 	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT * FROM relation WHERE relation_id=?", relationID).
-			Scan(&gotUUID, &gotID, &gotLifID, &gotScopeID)
+		err := tx.QueryRowContext(ctx, `
+SELECT uuid, relation_id, life_id, scope_id, suspended, suspended_reason
+FROM relation WHERE relation_id=?
+`, relationID).
+			Scan(&gotUUID, &gotID, &gotLifID, &gotScopeID, &gotSuspended, &gotSuspendedReason)
 		if err != nil {
 			return err
 		}
@@ -1906,6 +1911,8 @@ func (s *modelRemoteApplicationSuite) assertRelation(c *tc.C, relationUUID strin
 	c.Check(gotID, tc.Equals, relationID)
 	c.Check(gotLifID, tc.Equals, 0)   // life.Alive
 	c.Check(gotScopeID, tc.Equals, 0) // scope.Global
+	c.Check(gotSuspended, tc.Equals, false)
+	c.Check(gotSuspendedReason.V, tc.Equals, "")
 }
 
 func (s *modelRemoteApplicationSuite) assertCharmMetadata(c *tc.C, appUUID, charmUUID string, expected charm.Charm) {
