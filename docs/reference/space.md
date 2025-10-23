@@ -41,6 +41,11 @@ This is the case for MAAS, as described below.
 
 The concept of spaces is native to MAAS and its API can be used to modify the space/subnet topology. As such, Juju does not permit editing of spaces in a MAAS model. MAAS spaces and subnets are read and loaded into Juju when a new model is created.
 
+By default, Juju applications are bound to the space named `alpha`. In MAAS, the `alpha` space does not exist, so on
+MAAS models, by default, applications won't have any connectivity. To enable connectivity, the deployer needs to either
+bind the application to a space that exists, or use `default-space` in model configuration to specify a space that
+does exist before deploying.
+
 If spaces or subnets are changed in MAAS, they can be reloaded into Juju via Juju's `reload-spaces` command.
 
 ```{important}
