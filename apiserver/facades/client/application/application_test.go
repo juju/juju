@@ -763,10 +763,9 @@ func (s *applicationSuite) TestAddRelationWithViaCIDRsSuccess(c *tc.C) {
 		},
 	}
 
-	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
+	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2, "10.0.0.0/8", "192.168.0.0/16").Return(
 		ep1, ep2, nil,
 	)
-	s.crossModelRelationService.EXPECT().AddRelationNetworkEgress(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	// Act:
 	results, err := s.api.AddRelation(c.Context(), params.AddRelation{
@@ -791,29 +790,10 @@ func (s *applicationSuite) TestAddRelationWithViaCIDRsNotCrossModel(c *tc.C) {
 	s.setupAPI(c)
 	epStr1 := "app1"
 	epStr2 := "app2:db"
-	ep1 := relation.Endpoint{
-		ApplicationName: "app1",
-		Relation: internalcharm.Relation{
-			Name:      "db",
-			Role:      internalcharm.RoleRequirer,
-			Interface: "mysql",
-			Scope:     internalcharm.ScopeGlobal,
-		},
-	}
-	ep2 := relation.Endpoint{
-		ApplicationName: "app2",
-		Relation: internalcharm.Relation{
-			Name:      "db",
-			Role:      internalcharm.RoleProvider,
-			Interface: "mysql",
-			Scope:     internalcharm.ScopeGlobal,
-		},
-	}
 
-	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
-		ep1, ep2, nil,
+	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2, "10.0.0.0/8").Return(
+		relation.Endpoint{}, relation.Endpoint{}, errors.NotSupported,
 	)
-	s.crossModelRelationService.EXPECT().AddRelationNetworkEgress(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.NotSupported)
 
 	// Act:
 	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
@@ -825,37 +805,18 @@ func (s *applicationSuite) TestAddRelationWithViaCIDRsNotCrossModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *applicationSuite) TestAddRelationWithViaCIDRsIsRelationCrossModelError(c *tc.C) {
+func (s *applicationSuite) TestAddRelationWithViaCIDRsStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
 	s.setupAPI(c)
 	epStr1 := "app1"
 	epStr2 := "app2:db"
-	ep1 := relation.Endpoint{
-		ApplicationName: "app1",
-		Relation: internalcharm.Relation{
-			Name:      "db",
-			Role:      internalcharm.RoleRequirer,
-			Interface: "mysql",
-			Scope:     internalcharm.ScopeGlobal,
-		},
-	}
-	ep2 := relation.Endpoint{
-		ApplicationName: "app2",
-		Relation: internalcharm.Relation{
-			Name:      "db",
-			Role:      internalcharm.RoleProvider,
-			Interface: "mysql",
-			Scope:     internalcharm.ScopeGlobal,
-		},
-	}
 	boom := errors.Errorf("boom")
 
-	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
-		ep1, ep2, nil,
+	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2, "10.0.0.0/8").Return(
+		relation.Endpoint{}, relation.Endpoint{}, boom,
 	)
-	s.crossModelRelationService.EXPECT().AddRelationNetworkEgress(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(boom)
 
 	// Act:
 	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
@@ -867,48 +828,26 @@ func (s *applicationSuite) TestAddRelationWithViaCIDRsIsRelationCrossModelError(
 	c.Assert(err, tc.ErrorIs, boom)
 }
 
-func (s *applicationSuite) TestAddRelationWithViaCIDRsAddNetworkEgressError(c *tc.C) {
+func (s *applicationSuite) TestAddRelationWithViaCIDRsInvalidCIDR(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
 	s.setupAPI(c)
 	epStr1 := "local-app"
 	epStr2 := "remote-app:db"
-	appName1 := "local-app"
-	appName2 := "remote-app"
-	ep1 := relation.Endpoint{
-		ApplicationName: appName1,
-		Relation: internalcharm.Relation{
-			Name:      "db",
-			Role:      internalcharm.RoleRequirer,
-			Interface: "mysql",
-			Scope:     internalcharm.ScopeGlobal,
-		},
-	}
-	ep2 := relation.Endpoint{
-		ApplicationName: appName2,
-		Relation: internalcharm.Relation{
-			Name:      "db",
-			Role:      internalcharm.RoleProvider,
-			Interface: "mysql",
-			Scope:     internalcharm.ScopeGlobal,
-		},
-	}
-	boom := errors.Errorf("boom")
 
-	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
-		ep1, ep2, nil,
+	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2, "invalid-cidr").Return(
+		relation.Endpoint{}, relation.Endpoint{}, errors.NotValidf("CIDR \"invalid-cidr\""),
 	)
-	s.crossModelRelationService.EXPECT().AddRelationNetworkEgress(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(boom)
 
 	// Act:
 	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
 		Endpoints: []string{epStr1, epStr2},
-		ViaCIDRs:  []string{"10.0.0.0/8"},
+		ViaCIDRs:  []string{"invalid-cidr"},
 	})
 
 	// Assert:
-	c.Assert(err, tc.ErrorIs, boom)
+	c.Assert(err, tc.ErrorMatches, `.*CIDR.*not valid.*`)
 }
 
 func (s *applicationSuite) TestCharmConfigApplicationNotFound(c *tc.C) {

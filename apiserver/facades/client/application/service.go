@@ -111,10 +111,6 @@ type ExternalControllerService interface {
 
 // CrossModelRelationService provides access to cross-model relations.
 type CrossModelRelationService interface {
-	// AddRelationNetworkEgress adds egress network CIDRs for the specified
-	// relation.
-	AddRelationNetworkEgress(ctx context.Context, ep0, ep1 corerelation.EndpointIdentifier, cidrs []string) error
-
 	// AddRemoteApplicationOfferer adds a new synthetic application representing
 	// an offer from an external model, to this, the consuming model.
 	AddRemoteApplicationOfferer(
@@ -448,7 +444,7 @@ type RelationService interface {
 	// <application>[:<endpoint>]. The identifiers will be used to infer two
 	// endpoint between applications on the model. A new relation will be
 	// created between these endpoints and the details of the endpoint returned.
-	AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error)
+	AddRelation(ctx context.Context, ep1, ep2 string, cidrs ...string) (relation.Endpoint, relation.Endpoint, error)
 
 	// ApplicationRelationsInfo returns all EndpointRelationData for an
 	// application.

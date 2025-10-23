@@ -2338,9 +2338,13 @@ func (m *MockRelationService) EXPECT() *MockRelationServiceMockRecorder {
 }
 
 // AddRelation mocks base method.
-func (m *MockRelationService) AddRelation(arg0 context.Context, arg1, arg2 string) (relation0.Endpoint, relation0.Endpoint, error) {
+func (m *MockRelationService) AddRelation(arg0 context.Context, arg1, arg2 string, arg3 ...string) (relation0.Endpoint, relation0.Endpoint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRelation", arg0, arg1, arg2)
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AddRelation", varargs...)
 	ret0, _ := ret[0].(relation0.Endpoint)
 	ret1, _ := ret[1].(relation0.Endpoint)
 	ret2, _ := ret[2].(error)
@@ -2348,9 +2352,10 @@ func (m *MockRelationService) AddRelation(arg0 context.Context, arg1, arg2 strin
 }
 
 // AddRelation indicates an expected call of AddRelation.
-func (mr *MockRelationServiceMockRecorder) AddRelation(arg0, arg1, arg2 any) *MockRelationServiceAddRelationCall {
+func (mr *MockRelationServiceMockRecorder) AddRelation(arg0, arg1, arg2 any, arg3 ...any) *MockRelationServiceAddRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelation", reflect.TypeOf((*MockRelationService)(nil).AddRelation), arg0, arg1, arg2)
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelation", reflect.TypeOf((*MockRelationService)(nil).AddRelation), varargs...)
 	return &MockRelationServiceAddRelationCall{Call: call}
 }
 
@@ -2366,13 +2371,13 @@ func (c *MockRelationServiceAddRelationCall) Return(arg0, arg1 relation0.Endpoin
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceAddRelationCall) Do(f func(context.Context, string, string) (relation0.Endpoint, relation0.Endpoint, error)) *MockRelationServiceAddRelationCall {
+func (c *MockRelationServiceAddRelationCall) Do(f func(context.Context, string, string, ...string) (relation0.Endpoint, relation0.Endpoint, error)) *MockRelationServiceAddRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceAddRelationCall) DoAndReturn(f func(context.Context, string, string) (relation0.Endpoint, relation0.Endpoint, error)) *MockRelationServiceAddRelationCall {
+func (c *MockRelationServiceAddRelationCall) DoAndReturn(f func(context.Context, string, string, ...string) (relation0.Endpoint, relation0.Endpoint, error)) *MockRelationServiceAddRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2932,44 +2937,6 @@ func NewMockCrossModelRelationService(ctrl *gomock.Controller) *MockCrossModelRe
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCrossModelRelationService) EXPECT() *MockCrossModelRelationServiceMockRecorder {
 	return m.recorder
-}
-
-// AddRelationNetworkEgress mocks base method.
-func (m *MockCrossModelRelationService) AddRelationNetworkEgress(arg0 context.Context, arg1, arg2 relation.EndpointIdentifier, arg3 []string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRelationNetworkEgress", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddRelationNetworkEgress indicates an expected call of AddRelationNetworkEgress.
-func (mr *MockCrossModelRelationServiceMockRecorder) AddRelationNetworkEgress(arg0, arg1, arg2, arg3 any) *MockCrossModelRelationServiceAddRelationNetworkEgressCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelationNetworkEgress", reflect.TypeOf((*MockCrossModelRelationService)(nil).AddRelationNetworkEgress), arg0, arg1, arg2, arg3)
-	return &MockCrossModelRelationServiceAddRelationNetworkEgressCall{Call: call}
-}
-
-// MockCrossModelRelationServiceAddRelationNetworkEgressCall wrap *gomock.Call
-type MockCrossModelRelationServiceAddRelationNetworkEgressCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceAddRelationNetworkEgressCall) Return(arg0 error) *MockCrossModelRelationServiceAddRelationNetworkEgressCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceAddRelationNetworkEgressCall) Do(f func(context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, []string) error) *MockCrossModelRelationServiceAddRelationNetworkEgressCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceAddRelationNetworkEgressCall) DoAndReturn(f func(context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, []string) error) *MockCrossModelRelationServiceAddRelationNetworkEgressCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // AddRemoteApplicationOfferer mocks base method.

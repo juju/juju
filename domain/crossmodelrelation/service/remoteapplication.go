@@ -127,10 +127,6 @@ type ModelRemoteApplicationState interface {
 	// initial query function for watching relation UUIDs that are associated with
 	// remote consumer applications present in this model (i.e. offerer side).
 	InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery)
-
-	// IsRelationCrossModel checks if the relation identified by the given key
-	// is a cross-model relation.
-	IsRelationCrossModel(ctx context.Context, key corerelation.Key) (bool, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing

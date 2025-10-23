@@ -405,8 +405,3 @@ type cidr struct {
 type queryLife struct {
 	Value corelife.Value `db:"value"`
 }
-
-type relationNetworkEgress struct {
-	RelationUUID string `db:"relation_uuid"`
-	CIDR         string `db:"cidr"`
-}

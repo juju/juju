@@ -7,22 +7,16 @@ import (
 	"context"
 	"net"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/internal/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/network"
 )
 
 // ModelRelationNetworkState describes retrieval and persistence methods for
 // relation network ingress in the model database.
 type ModelRelationNetworkState interface {
-	// AddRelationNetworkEgress adds Egress network CIDRs for the specified
-	// relation.
-	AddRelationNetworkEgress(ctx context.Context, relationKey corerelation.Key, cidrs ...string) error
-
 	// AddRelationNetworkIngress adds ingress network CIDRs for the specified
 	// relation.
 	AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs []string) error
@@ -34,57 +28,6 @@ type ModelRelationNetworkState interface {
 	// NamespaceForRelationIngressNetworksWatcher returns the namespace of the
 	// relation_network_ingress table, used for the watcher.
 	NamespaceForRelationIngressNetworksWatcher() string
-}
-
-// AddRelationNetworkEgress adds egress network CIDRs for the specified
-// relation.
-//
-// It returns a [relationerrors.RelationNotFound] if the provided relation does
-// not exist.
-func (s *Service) AddRelationNetworkEgress(ctx context.Context, ep0, ep1 corerelation.EndpointIdentifier, cidrs []string) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// Validate CIDRs are not empty and are valid
-	if len(cidrs) == 0 {
-		return errors.Errorf("at least one CIDR must be provided")
-	}
-	for _, cidr := range cidrs {
-		if cidr == "" {
-			return errors.Errorf("CIDR cannot be empty").Add(coreerrors.NotValid)
-		}
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return errors.Errorf("CIDR %q is not valid: %w", cidr, err).Add(coreerrors.NotValid)
-		}
-	}
-
-	// We only support relation networks for CMR.
-	relationKey, err := corerelation.NewKey(
-		[]corerelation.EndpointIdentifier{
-			ep0,
-			ep1,
-		})
-	if err != nil {
-		return internalerrors.Errorf(
-			"creating relation key for relation between endpoints %v and %v: %w",
-			ep0, ep1, err,
-		)
-	}
-	isCMR, err := s.modelState.IsRelationCrossModel(ctx, relationKey)
-	if err != nil {
-		return internalerrors.Errorf(
-			"checking if relation %q is cross-model: %w",
-			relationKey.String(), err,
-		)
-	}
-	if !isCMR {
-		return internalerrors.Errorf("integration via subnets for non cross model relations").Add(coreerrors.NotSupported)
-	}
-	if err := s.modelState.AddRelationNetworkEgress(ctx, relationKey, cidrs...); err != nil {
-		return errors.Capture(err)
-	}
-
-	return nil
 }
 
 // AddRelationNetworkIngress adds ingress network CIDRs for the specified

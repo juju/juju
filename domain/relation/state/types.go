@@ -332,3 +332,8 @@ type unitUUIDNameLife struct {
 	Name string          `db:"name"`
 	Life domainlife.Life `db:"life_id"`
 }
+
+type relationNetworkEgress struct {
+	RelationUUID string `db:"relation_uuid"`
+	CIDR         string `db:"cidr"`
+}

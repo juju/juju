@@ -6,10 +6,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
@@ -37,7 +39,7 @@ type State interface {
 
 	// AddRelation establishes a relation between two endpoints identified
 	// by ep1 and ep2 and returns the created endpoints.
-	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
+	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier, cidrs ...string) (relation.Endpoint, relation.Endpoint, error)
 
 	// NeedsSubordinateUnit checks if there is a subordinate application
 	// related to the principal unit that needs a subordinate unit created.
@@ -374,7 +376,8 @@ func NewService(
 // <application>[:<endpoint>]. The identifiers will be used to infer two
 // endpoint between applications on the model. A new relation will be created
 // between these endpoints and the details of the endpoint returned.
-func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error) {
+// Egress relation network CIDRs can be provided.
+func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string, cidrs ...string) (relation.Endpoint, relation.Endpoint, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -388,7 +391,19 @@ func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.En
 		return none, none, errors.Errorf("parsing endpoint identifier %q: %w", ep2, err)
 	}
 
-	return s.st.AddRelation(ctx, idep1, idep2)
+	if len(cidrs) > 0 {
+		// Validate CIDRs are not empty and are valid
+		for _, cidr := range cidrs {
+			if cidr == "" {
+				return none, none, errors.Errorf("CIDR cannot be empty").Add(coreerrors.NotValid)
+			}
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return none, none, errors.Errorf("CIDR %q is not valid: %w", cidr, err).Add(coreerrors.NotValid)
+			}
+		}
+	}
+
+	return s.st.AddRelation(ctx, idep1, idep2, cidrs...)
 }
 
 // ApplicationRelationsInfo returns all EndpointRelationData for an application.

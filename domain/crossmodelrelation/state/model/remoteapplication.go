@@ -337,34 +337,6 @@ func (st *State) EnsureUnitsExist(ctx context.Context, appUUID string, units []s
 	return nil
 }
 
-// IsRelationCrossModel checks if the relation identified by the given key
-// is a cross-model relation. A relation is considered cross-model if at least
-// one of its applications is a remote application (i.e., exists in either
-// application_remote_offerer or application_remote_consumer tables).
-//
-// This method expects a non-peer relation (2 endpoints). Peer relations are
-// always local to a model and can never be cross-model relations.
-//
-// It returns a [relationerrors.RelationNotFound] if the provided relation does
-// not exist.
-func (st *State) IsRelationCrossModel(ctx context.Context, relationKey corerelation.Key) (bool, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	var isCrossModel bool
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		isCrossModel, err = st.isRelationCrossModel(ctx, tx, relationKey)
-		return errors.Capture(err)
-	})
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	return isCrossModel, nil
-}
-
 func (st *State) insertApplication(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -1567,61 +1539,4 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 	}
 
 	return relationsSuspended[0].IsSuspended, errors.Capture(err)
-}
-
-func (st *State) isRelationCrossModel(ctx context.Context, tx *sqlair.TX, key corerelation.Key) (bool, error) {
-	// Get the relation UUID from the key (2-endpoint relation).
-	// The key contains endpoint identifiers (application names and endpoint names).
-	endpoints := key.EndpointIdentifiers()
-
-	// Use the existing method to get the relation UUID.
-	// This reuses logic already present in relation_network.go.
-	relationUUID, err := st.getRegularRelationUUIDByEndpointIdentifiers(ctx, tx, endpoints[0], endpoints[1])
-	if err != nil {
-		if errors.Is(err, relationerrors.RelationNotFound) {
-			return false, errors.Errorf("relation not found for key %q: %w", key.String(), relationerrors.RelationNotFound)
-		}
-		return false, errors.Errorf("getting relation UUID: %w", err)
-	}
-
-	// Check if any application in this relation is remote.
-	isRemote, err := st.relationContainsRemoteApplication(ctx, tx, relationUUID)
-	if err != nil {
-		return false, errors.Errorf("checking if application is remote: %w", err)
-	}
-
-	return isRemote, nil
-}
-
-func (st *State) relationContainsRemoteApplication(ctx context.Context, tx *sqlair.TX, relationUUID string) (bool, error) {
-	type relationUUIDArg struct {
-		UUID string `db:"relation_uuid"`
-	}
-
-	ident := uuid{UUID: relationUUID}
-
-	stmt, err := st.Prepare(`
-SELECT COUNT(cs.name) AS &countResult.count
-FROM   charm_source AS cs
-JOIN   charm AS c ON cs.id = c.source_id
-JOIN   application AS a ON c.uuid = a.charm_uuid
-JOIN   application_endpoint AS ae ON a.uuid = ae.application_uuid
-JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
-WHERE  re.relation_uuid = $uuid.uuid
-AND    cs.name = 'cmr'
-	`, countResult{}, ident)
-	if err != nil {
-		return false, errors.Errorf("preparing relation exists query: %w", err)
-	}
-	if err != nil {
-		return false, errors.Errorf("preparing statement: %w", err)
-	}
-
-	var result countResult
-	err = tx.Query(ctx, stmt, ident).Get(&result)
-	if err != nil {
-		return false, errors.Errorf("checking remote applications: %w", err)
-	}
-
-	return result.Count > 0, nil
 }

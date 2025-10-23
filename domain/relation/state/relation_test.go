@@ -15,6 +15,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	corecharmtesting "github.com/juju/juju/core/charm/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -438,6 +440,86 @@ func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *tc.C)
 	c.Assert(err, tc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
 }
 
+func (s *addRelationSuite) TestAddRelationWithCIDRs(c *tc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	// Add a remote application (CMR)
+	remoteAppUUID := s.addRemoteApplication(c, "remote-app")
+	// Add a local application
+	localAppUUID := s.addApplication(c, "local-app")
+
+	s.addApplicationEndpointFromRelation(c, remoteAppUUID, relProvider)
+	s.addApplicationEndpointFromRelation(c, localAppUUID, relRequirer)
+
+	// Act
+	cidrs := []string{"10.0.0.0/8", "192.168.1.0/24"}
+	ep1, ep2, err := s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "remote-app",
+		EndpointName:    "prov",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "local-app",
+		EndpointName:    "req",
+	}, cidrs...)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("unexpected error while adding relation with CIDRs: %s",
+		errors.ErrorStack(err)))
+
+	// Assert
+	c.Check(ep1, tc.Equals, domainrelation.Endpoint{
+		ApplicationName: "remote-app",
+		Relation:        relProvider,
+	})
+	c.Check(ep2, tc.Equals, domainrelation.Endpoint{
+		ApplicationName: "local-app",
+		Relation:        relRequirer,
+	})
+
+	// Verify CIDRs were stored
+	storedCIDRs := s.fetchRelationNetworkEgress(c)
+	c.Check(storedCIDRs, tc.HasLen, 1, tc.Commentf("expected one relation with egress"))
+	c.Check(storedCIDRs[0], tc.SameContents, cidrs, tc.Commentf("CIDRs should match"))
+}
+
+func (s *addRelationSuite) TestAddRelationWithCIDRsNonCMRFails(c *tc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	// Add two local applications (not CMR)
+	appUUID1 := s.addApplication(c, "application-1")
+	appUUID2 := s.addApplication(c, "application-2")
+	s.addApplicationEndpointFromRelation(c, appUUID1, relProvider)
+	s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
+
+	// Act - try to add CIDRs to a non-CMR relation
+	cidrs := []string{"10.0.0.0/8"}
+	_, _, err := s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "prov",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "req",
+	}, cidrs...)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported, tc.Commentf("should fail when adding CIDRs to non-CMR relation"))
+}
+
 func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 	// Arrange:
 	db, err := s.state.DB(c.Context())
@@ -665,6 +747,25 @@ func (s *addRelationSuite) addApplication(
 	applicationName string,
 ) coreapplication.UUID {
 	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
+	s.charmByApp[appUUID] = charmUUID
+	return appUUID
+}
+
+// addRemoteApplication inserts a new remote application (CMR) into the database.
+// This creates an application with a charm that has source_id = 2 ('cmr').
+func (s *addRelationSuite) addRemoteApplication(
+	c *tc.C,
+	applicationName string,
+) coreapplication.UUID {
+	charmUUID := corecharmtesting.GenCharmID(c)
+	// Add charm with CMR source (source_id = 2)
+	// Note: architecture_id must be NULL for CMR charms per chk_charm_architecture constraint
+	s.query(c, `
+INSERT INTO charm (uuid, reference_name, architecture_id, source_id) 
+VALUES (?, ?, NULL, 2)
+`, charmUUID, charmUUID)
 	s.addCharmMetadata(c, charmUUID, false)
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
 	s.charmByApp[appUUID] = charmUUID
@@ -3798,6 +3899,56 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching inserted relation endpoint: %s", errors.ErrorStack(err)))
 	return epUUIDsByRelID
+}
+
+// fetchRelationNetworkEgress retrieves all relation network egress CIDRs
+// grouped by relation. Returns a slice where each element is the list of
+// CIDRs for a relation, ordered by relation_id.
+func (s *addRelationSuite) fetchRelationNetworkEgress(c *tc.C) [][]string {
+	var result [][]string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		query := `
+SELECT r.relation_id, rne.cidr
+FROM relation_network_egress rne
+JOIN relation r ON rne.relation_uuid = r.uuid
+ORDER BY r.relation_id, rne.cidr
+`
+		rows, err := tx.QueryContext(ctx, query)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = rows.Close() }()
+
+		currentRelID := -1
+		var currentCIDRs []string
+
+		for rows.Next() {
+			var relID int
+			var cidr string
+			if err := rows.Scan(&relID, &cidr); err != nil {
+				return errors.Capture(err)
+			}
+
+			if relID != currentRelID {
+				if currentRelID != -1 {
+					result = append(result, currentCIDRs)
+				}
+				currentRelID = relID
+				currentCIDRs = []string{cidr}
+			} else {
+				currentCIDRs = append(currentCIDRs, cidr)
+			}
+		}
+
+		// Add the last group
+		if currentRelID != -1 {
+			result = append(result, currentCIDRs)
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching relation network egress: %s", errors.ErrorStack(err)))
+	return result
 }
 
 func (s *relationSuite) doesRelationUnitExist(c *tc.C, relationUnitUUID string) bool {

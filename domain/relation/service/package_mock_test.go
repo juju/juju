@@ -48,9 +48,13 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddRelation mocks base method.
-func (m *MockState) AddRelation(arg0 context.Context, arg1, arg2 relation0.CandidateEndpointIdentifier) (relation0.Endpoint, relation0.Endpoint, error) {
+func (m *MockState) AddRelation(arg0 context.Context, arg1, arg2 relation0.CandidateEndpointIdentifier, arg3 ...string) (relation0.Endpoint, relation0.Endpoint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRelation", arg0, arg1, arg2)
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AddRelation", varargs...)
 	ret0, _ := ret[0].(relation0.Endpoint)
 	ret1, _ := ret[1].(relation0.Endpoint)
 	ret2, _ := ret[2].(error)
@@ -58,9 +62,10 @@ func (m *MockState) AddRelation(arg0 context.Context, arg1, arg2 relation0.Candi
 }
 
 // AddRelation indicates an expected call of AddRelation.
-func (mr *MockStateMockRecorder) AddRelation(arg0, arg1, arg2 any) *MockStateAddRelationCall {
+func (mr *MockStateMockRecorder) AddRelation(arg0, arg1, arg2 any, arg3 ...any) *MockStateAddRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelation", reflect.TypeOf((*MockState)(nil).AddRelation), arg0, arg1, arg2)
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelation", reflect.TypeOf((*MockState)(nil).AddRelation), varargs...)
 	return &MockStateAddRelationCall{Call: call}
 }
 
@@ -76,13 +81,13 @@ func (c *MockStateAddRelationCall) Return(arg0, arg1 relation0.Endpoint, arg2 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddRelationCall) Do(f func(context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier) (relation0.Endpoint, relation0.Endpoint, error)) *MockStateAddRelationCall {
+func (c *MockStateAddRelationCall) Do(f func(context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier, ...string) (relation0.Endpoint, relation0.Endpoint, error)) *MockStateAddRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddRelationCall) DoAndReturn(f func(context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier) (relation0.Endpoint, relation0.Endpoint, error)) *MockStateAddRelationCall {
+func (c *MockStateAddRelationCall) DoAndReturn(f func(context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier, ...string) (relation0.Endpoint, relation0.Endpoint, error)) *MockStateAddRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

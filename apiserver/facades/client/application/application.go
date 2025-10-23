@@ -1349,22 +1349,13 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 		return params.AddRelationResults{}, errors.BadRequestf("a relation should have exactly two endpoints")
 	}
 	ep1, ep2, err := api.relationService.AddRelation(
-		ctx, args.Endpoints[0], args.Endpoints[1],
+		ctx, args.Endpoints[0], args.Endpoints[1], args.ViaCIDRs...,
 	)
 	if err != nil {
 		return params.AddRelationResults{}, internalerrors.Errorf(
 			"adding relation between endpoints %q and %q: %w",
 			args.Endpoints[0], args.Endpoints[1], err,
 		)
-	}
-
-	if len(args.ViaCIDRs) > 0 {
-		if err := api.crossModelRelationService.AddRelationNetworkEgress(ctx, ep1.EndpointIdentifier(), ep2.EndpointIdentifier(), args.ViaCIDRs); err != nil {
-			return params.AddRelationResults{}, internalerrors.Errorf(
-				"adding network egress rules for relation between endpoints %q and %q: %w",
-				args.Endpoints[0], args.Endpoints[1], err,
-			)
-		}
 	}
 
 	return params.AddRelationResults{Endpoints: map[string]params.CharmRelation{
