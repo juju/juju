@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/transform"
 
-	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -75,7 +74,6 @@ type StoragePoolState interface {
 // StoragePoolService defines a service for interacting with the underlying state.
 type StoragePoolService struct {
 	st             StoragePoolState
-	logger         logger.Logger
 	registryGetter corestorage.ModelStorageRegistryGetter
 }
 

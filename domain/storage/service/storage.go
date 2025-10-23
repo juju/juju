@@ -7,7 +7,6 @@ import (
 	"context"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
@@ -24,7 +23,6 @@ type StorageState interface {
 // StorageService defines a service for storage related behaviour.
 type StorageService struct {
 	st             State
-	logger         logger.Logger
 	registryGetter corestorage.ModelStorageRegistryGetter
 }
 

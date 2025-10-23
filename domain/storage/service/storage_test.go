@@ -74,9 +74,13 @@ func (s *storageSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *storageSuite) service(c *tc.C) *Service {
-	return NewService(s.state, loggertesting.WrapCheckLog(c), modelStorageRegistryGetter(func() storage.ProviderRegistry {
-		return s.registry
-	}))
+	return NewService(
+		s.state,
+		loggertesting.WrapCheckLog(c),
+		modelStorageRegistryGetter(func() storage.ProviderRegistry {
+			return s.registry
+		}),
+	)
 }
 
 func (s *storageSuite) TestImportFilesystemValidate(c *tc.C) {
