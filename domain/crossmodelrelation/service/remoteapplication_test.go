@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/juju/tc"
@@ -350,12 +351,13 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumer(c *tc.C
 	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID).String()
 
-	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
+	name := "remote-" + strings.ReplaceAll(applicationUUID, "-", "")
 
 	syntheticCharm := charm.Charm{
 		Metadata: charm.Metadata{
-			Name:        "remote-deadbeef1bad500d90004b1d0d06f00d",
+			Name:        name,
 			Description: "remote offerer application",
 			Provides: map[string]charm.Relation{
 				"db": {
@@ -369,20 +371,22 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumer(c *tc.C
 			Requires: map[string]charm.Relation{},
 			Peers:    map[string]charm.Relation{},
 		},
-		ReferenceName: "remote-deadbeef1bad500d90004b1d0d06f00d",
+		ReferenceName: name,
 		Source:        charm.CMRSource,
 	}
 
 	var received crossmodelrelation.AddRemoteApplicationConsumerArgs
-	s.modelState.EXPECT().AddRemoteApplicationConsumer(gomock.Any(), "remote-deadbeef1bad500d90004b1d0d06f00d", gomock.Any()).DoAndReturn(func(_ context.Context, _ string, args crossmodelrelation.AddRemoteApplicationConsumerArgs) error {
-		received = args
-		return nil
-	})
+	s.modelState.EXPECT().
+		AddRemoteApplicationConsumer(gomock.Any(), name, gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, args crossmodelrelation.AddRemoteApplicationConsumerArgs) error {
+			received = args
+			return nil
+		})
 
 	service := s.service(c)
 
 	err := service.AddRemoteApplicationConsumer(c.Context(), AddRemoteApplicationConsumerArgs{
-		RemoteApplicationUUID: remoteApplicationUUID,
+		RemoteApplicationUUID: applicationUUID,
 		OfferUUID:             offerUUID,
 		RelationUUID:          relationUUID,
 		ConsumerModelUUID:     consumerModelUUID,
@@ -396,19 +400,16 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumer(c *tc.C
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(received.RemoteApplicationUUID, tc.IsUUID)
-	c.Check(received.ApplicationUUID, tc.IsUUID)
 	c.Check(received.CharmUUID, tc.IsUUID)
-
-	received.RemoteApplicationUUID = ""
-	received.ApplicationUUID = ""
 	received.CharmUUID = ""
 
 	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
-			Charm:             syntheticCharm,
-			OfferUUID:         offerUUID.String(),
-			ConsumerModelUUID: consumerModelUUID,
+			ApplicationUUID:       applicationUUID,
+			RemoteApplicationUUID: applicationUUID,
+			Charm:                 syntheticCharm,
+			OfferUUID:             offerUUID.String(),
+			ConsumerModelUUID:     consumerModelUUID,
 		},
 		RelationUUID: relationUUID,
 	})
