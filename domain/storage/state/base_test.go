@@ -131,7 +131,7 @@ func (s *baseSuite) nextStorageSequenceNumber(c *tc.C) uint64 {
 func (s *baseSuite) newUnit(
 	c *tc.C,
 ) coreunit.UUID {
-	appUUID := tc.Must(c, coreapplication.NewID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, corecharm.NewID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	unitNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
