@@ -1401,6 +1401,44 @@ func (c *MockModelDomainServicesMachineCall) DoAndReturn(f func() *service22.Wat
 	return c
 }
 
+// ModelAgentService mocks base method.
+func (m *MockModelDomainServices) ModelAgentService() *service24.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelAgentService")
+	ret0, _ := ret[0].(*service24.Service)
+	return ret0
+}
+
+// ModelAgentService indicates an expected call of ModelAgentService.
+func (mr *MockModelDomainServicesMockRecorder) ModelAgentService() *MockModelDomainServicesModelAgentServiceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelAgentService", reflect.TypeOf((*MockModelDomainServices)(nil).ModelAgentService))
+	return &MockModelDomainServicesModelAgentServiceCall{Call: call}
+}
+
+// MockModelDomainServicesModelAgentServiceCall wrap *gomock.Call
+type MockModelDomainServicesModelAgentServiceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDomainServicesModelAgentServiceCall) Return(arg0 *service24.Service) *MockModelDomainServicesModelAgentServiceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDomainServicesModelAgentServiceCall) Do(f func() *service24.Service) *MockModelDomainServicesModelAgentServiceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDomainServicesModelAgentServiceCall) DoAndReturn(f func() *service24.Service) *MockModelDomainServicesModelAgentServiceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ModelInfo mocks base method.
 func (m *MockModelDomainServices) ModelInfo() *service23.ProviderModelService {
 	m.ctrl.T.Helper()
@@ -3244,6 +3282,44 @@ func (c *MockDomainServicesModelCall) Do(f func() *service23.WatchableService) *
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDomainServicesModelCall) DoAndReturn(f func() *service23.WatchableService) *MockDomainServicesModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ModelAgentService mocks base method.
+func (m *MockDomainServices) ModelAgentService() *service24.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelAgentService")
+	ret0, _ := ret[0].(*service24.Service)
+	return ret0
+}
+
+// ModelAgentService indicates an expected call of ModelAgentService.
+func (mr *MockDomainServicesMockRecorder) ModelAgentService() *MockDomainServicesModelAgentServiceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelAgentService", reflect.TypeOf((*MockDomainServices)(nil).ModelAgentService))
+	return &MockDomainServicesModelAgentServiceCall{Call: call}
+}
+
+// MockDomainServicesModelAgentServiceCall wrap *gomock.Call
+type MockDomainServicesModelAgentServiceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDomainServicesModelAgentServiceCall) Return(arg0 *service24.Service) *MockDomainServicesModelAgentServiceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDomainServicesModelAgentServiceCall) Do(f func() *service24.Service) *MockDomainServicesModelAgentServiceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDomainServicesModelAgentServiceCall) DoAndReturn(f func() *service24.Service) *MockDomainServicesModelAgentServiceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
