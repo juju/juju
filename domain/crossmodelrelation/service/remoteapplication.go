@@ -208,7 +208,7 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 
 	// The synthetic application name is prefixed with "remote-" to avoid
 	// name clashes with local applications.
-	synthApplicationName := "remote-" + strings.Replace(args.RemoteApplicationUUID, "-", "", -1)
+	synthApplicationName := "remote-" + strings.ReplaceAll(args.RemoteApplicationUUID, "-", "")
 	if !application.IsValidApplicationName(synthApplicationName) {
 		return applicationerrors.ApplicationNameNotValid
 	}
@@ -229,11 +229,6 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 		return internalerrors.Capture(err)
 	}
 
-	remoteApplicationUUID, err := coreremoteapplication.NewUUID()
-	if err != nil {
-		return internalerrors.Errorf("creating remote application uuid: %w", err)
-	}
-
 	charmUUID, err := corecharm.NewID()
 	if err != nil {
 		return internalerrors.Errorf("creating charm uuid: %w", err)
@@ -241,11 +236,10 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 
 	if err := s.modelState.AddRemoteApplicationConsumer(ctx, synthApplicationName, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
-			RemoteApplicationUUID: remoteApplicationUUID.String(),
+			RemoteApplicationUUID: args.RemoteApplicationUUID,
 			// NOTE: We use the same UUID as in the remote (consuming) model for
 			// the synthetic application we are creating in the offering model.
-			// We can do that because we know it's a valid UUID at this point.
-			ApplicationUUID:   remoteApplicationUUID.String(),
+			ApplicationUUID:   args.RemoteApplicationUUID,
 			CharmUUID:         charmUUID.String(),
 			Charm:             syntheticCharm,
 			OfferUUID:         args.OfferUUID.String(),
