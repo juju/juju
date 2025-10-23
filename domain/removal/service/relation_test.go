@@ -124,6 +124,17 @@ func (s *relationSuite) TestExecuteJobForRelationNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *relationSuite) TestProcessRelationRemovalJobInvalidJobType(c *tc.C) {
+	var invalidJobType removal.JobType = 500
+
+	job := removal.Job{
+		RemovalType: invalidJobType,
+	}
+
+	err := s.newService(c).processRelationRemovalJob(c.Context(), job)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobTypeNotValid)
+}
+
 func (s *relationSuite) TestExecuteJobForRelationStillAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

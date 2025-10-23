@@ -18,7 +18,12 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// RelationExists returns true if a relation exists with the input UUID.
+// RelationExists returns true if a relation exists with the input UUID. Returns
+// false (with an error) if the relation is a cross model relation.
+//
+// The following error types can be expected to be returned:
+//   - [removalerrors.RelationIsCrossModel] if the relation is a cross model
+//     relation.
 func (st *State) RelationExists(ctx context.Context, rUUID string) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -34,7 +39,24 @@ WHERE  uuid = $entityUUID.uuid`, relationUUID)
 		return false, errors.Errorf("preparing relation exists query: %w", err)
 	}
 
-	var relationExists bool
+	checkCharmSourcesStmt, err := st.Prepare(`
+SELECT COUNT(cs.name) AS &count.count
+FROM   charm_source AS cs
+JOIN   charm AS c ON cs.id = c.source_id
+JOIN   application AS a ON c.uuid = a.charm_uuid
+JOIN   application_endpoint AS ae ON a.uuid = ae.application_uuid
+JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
+WHERE  re.relation_uuid = $entityUUID.uuid
+AND    cs.name = 'cmr'
+	`, count{}, relationUUID)
+	if err != nil {
+		return false, errors.Errorf("preparing relation exists query: %w", err)
+	}
+
+	var (
+		relationExists bool
+		cmrEpCount     count
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, existsStmt, relationUUID).Get(&relationUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -43,9 +65,19 @@ WHERE  uuid = $entityUUID.uuid`, relationUUID)
 			return errors.Errorf("running relation exists query: %w", err)
 		}
 
+		err = tx.Query(ctx, checkCharmSourcesStmt, relationUUID).Get(&cmrEpCount)
+		if err != nil {
+			return errors.Errorf("running relation exists query: %w", err)
+		}
+
 		relationExists = true
 		return nil
 	})
+
+	if cmrEpCount.Count > 0 {
+		return false, errors.Errorf("relation %q is a cross model relation", rUUID).
+			Add(removalerrors.RelationIsCrossModel)
+	}
 
 	return relationExists, errors.Capture(err)
 }
@@ -147,8 +179,11 @@ WHERE  uuid = $entityUUID.uuid`, relationLife, relationUUID)
 	return life.Life(relationLife.Life), nil
 }
 
-// UnitNamesInScope returns the names of units in
-// the scope of the relation with the input UUID.
+// UnitNamesInScope returns the names of units in the scope of the relation
+// with the input UUID. Does not return synthetic units (i.e. units that
+// represent units in another model, for the purpose of modelling CMRs),
+// since synthetic units are not meaningfully in scope in the context of
+// this model.
 func (st *State) UnitNamesInScope(ctx context.Context, rUUID string) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -162,11 +197,14 @@ func (st *State) UnitNamesInScope(ctx context.Context, rUUID string) ([]string, 
 	relationUUID := entityUUID{UUID: rUUID}
 
 	stmt, err := st.Prepare(`
-SELECT &uName.name 
+SELECT u.name AS &uName.name 
 FROM   relation_endpoint re 
-       JOIN relation_unit ru ON re.uuid = ru.relation_endpoint_uuid
-       JOIN unit u on ru.unit_uuid = u.uuid 
-WHERE  re.relation_uuid = $entityUUID.uuid`, uName{}, relationUUID)
+JOIN   relation_unit ru ON re.uuid = ru.relation_endpoint_uuid
+JOIN   unit u on ru.unit_uuid = u.uuid 
+JOIN   charm c ON u.charm_uuid = c.uuid
+JOIN   charm_source cs ON c.source_id = cs.id
+WHERE  re.relation_uuid = $entityUUID.uuid
+AND    cs.name != 'cmr'`, uName{}, relationUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing relation scopes query: %w", err)
 	}
@@ -268,6 +306,12 @@ func (st *State) DeleteRelation(ctx context.Context, rUUID string) error {
 
 	relationUUID := entityUUID{UUID: rUUID}
 
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.deleteRelation(ctx, tx, relationUUID)
+	}))
+}
+
+func (st *State) deleteRelation(ctx context.Context, tx *sqlair.TX, relationUUID entityUUID) error {
 	settingsStmt, err := st.Prepare(`
 DELETE FROM relation_application_setting
 WHERE  relation_endpoint_uuid IN (
@@ -307,42 +351,40 @@ WHERE  relation_endpoint_uuid IN (
 		return errors.Errorf("preparing relation deletion: %w", err)
 	}
 
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, settingsStmt, relationUUID).Run()
-		if err != nil {
-			return errors.Errorf("running relation app settings deletion: %w", err)
-		}
+	err = tx.Query(ctx, settingsStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation app settings deletion: %w", err)
+	}
 
-		err = tx.Query(ctx, settingsHashStmt, relationUUID).Run()
-		if err != nil {
-			return errors.Errorf("running relation app settings hash deletion: %w", err)
-		}
+	err = tx.Query(ctx, settingsHashStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation app settings hash deletion: %w", err)
+	}
 
-		err = tx.Query(ctx, endpointStmt, relationUUID).Run()
-		if err != nil {
-			if database.IsErrConstraintForeignKey(err) {
-				err = removalerrors.UnitsStillInScope
-			}
-			return errors.Errorf("running relation endpoint deletion: %w", err)
+	err = tx.Query(ctx, endpointStmt, relationUUID).Run()
+	if err != nil {
+		if database.IsErrConstraintForeignKey(err) {
+			err = removalerrors.UnitsStillInScope
 		}
+		return errors.Errorf("running relation endpoint deletion: %w", err)
+	}
 
-		err = tx.Query(ctx, archiveStmt, relationUUID).Run()
-		if err != nil {
-			return errors.Errorf("running relation unit settings archive deletion: %w", err)
-		}
+	err = tx.Query(ctx, archiveStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation unit settings archive deletion: %w", err)
+	}
 
-		err = tx.Query(ctx, statusStmt, relationUUID).Run()
-		if err != nil {
-			return errors.Errorf("running relation status deletion: %w", err)
-		}
+	err = tx.Query(ctx, statusStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation status deletion: %w", err)
+	}
 
-		err = tx.Query(ctx, relStmt, relationUUID).Run()
-		if err != nil {
-			return errors.Errorf("running relation deletion: %w", err)
-		}
+	err = tx.Query(ctx, relStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation deletion: %w", err)
+	}
 
-		return nil
-	}))
+	return nil
 }
 
 // LeaveScope updates the relation to indicate that the unit represented by
@@ -413,7 +455,7 @@ WHERE (relation_uuid, unit_name) IN (
 	}
 
 	copyStmt, err := st.Prepare(`
-INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", value)	
+INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", value)
 SELECT re.relation_uuid, u.name, rus."key", rus.value
 FROM   relation_unit ru
 JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid

@@ -172,7 +172,8 @@ type RemovalService interface {
 	// RemoveRelation sets the relation with the given relation UUID
 	// from the local model to dying.
 	RemoveRemoteRelation(
-		ctx context.Context, relUUID corerelation.UUID) error
+		ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration,
+	) (removal.UUID, error)
 
 	// RemoveRemoteApplicationOffererByApplicationUUID sets the remote
 	// application offerer with the given application UUID from the local model

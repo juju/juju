@@ -43,6 +43,7 @@ import (
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
+	domainrelation "github.com/juju/juju/domain/relation"
 	relationservice "github.com/juju/juju/domain/relation/service"
 	relationstate "github.com/juju/juju/domain/relation/state"
 	"github.com/juju/juju/domain/removal"
@@ -406,6 +407,86 @@ func (s *baseSuite) minimalManifest(c *tc.C) charm.Manifest {
 			},
 		},
 	}
+}
+
+// createRelation creates a relation between two applications.
+func (s *baseSuite) createRelation(c *tc.C) relation.UUID {
+	appSvc := s.setupApplicationService(c)
+	s.createIAASApplication(c, appSvc, "app1")
+	s.createIAASApplication(c, appSvc, "app2")
+
+	relSvc := s.setupRelationService(c)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), "app1:foo", "app2:bar")
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), domainrelation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return relUUID
+}
+
+// createRemoteRelation creates a remote relation. This is done by creating
+// a synthetic app & a regular app, and then establishing a relation between
+// them. We also add some units to the each app for good measure. Returns the
+// relation UUID and the synthetic app UUID.
+func (s *baseSuite) createRemoteRelation(c *tc.C) (relation.UUID, coreapplication.UUID) {
+	synthAppUUID, _ := s.createIAASRemoteApplicationOfferer(c, "foo")
+	s.createIAASApplication(c, s.setupApplicationService(c), "bar",
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+	)
+
+	relSvc := s.setupRelationService(c)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), "foo:foo", "bar:bar")
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), domainrelation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrState := crossmodelrelationstate.NewState(
+		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	)
+	// Call twice to ensure some units share a net node, but not all.
+	cmrState.EnsureUnitsExist(c.Context(), synthAppUUID.String(), []string{"foo/0", "foo/1"})
+	cmrState.EnsureUnitsExist(c.Context(), synthAppUUID.String(), []string{"foo/2"})
+
+	return relUUID, synthAppUUID
+}
+
+func (s *baseSuite) createRemoteRelationBetween(c *tc.C, synthAppName, appName string) relation.UUID {
+	relSvc := s.setupRelationService(c)
+
+	ep1Name := fmt.Sprintf("%s:foo", synthAppName)
+	ep2Name := fmt.Sprintf("%s:bar", appName)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), ep1Name, ep2Name)
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), domainrelation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrState := crossmodelrelationstate.NewState(
+		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	)
+
+	unit0name := fmt.Sprintf("%s/0", synthAppName)
+	unit1name := fmt.Sprintf("%s/1", synthAppName)
+	unit2name := fmt.Sprintf("%s/2", synthAppName)
+
+	var synthAppUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `SELECT uuid FROM application WHERE name = ?`, synthAppName).Scan(&synthAppUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Call twice to ensure some units share a net node, but not all.
+	cmrState.EnsureUnitsExist(c.Context(), synthAppUUID, []string{unit0name, unit1name})
+	cmrState.EnsureUnitsExist(c.Context(), synthAppUUID, []string{unit2name})
+
+	return relUUID
 }
 
 func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {

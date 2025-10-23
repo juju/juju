@@ -925,7 +925,8 @@ func (w *localConsumerWorker) handleOffererRelationRemoved(ctx context.Context, 
 	// Remove the remote relation from the local model. This will ensure that
 	// all the associated data is cleaned up for the relation. The synthetic
 	// unit in the relation will also be removed as part of this process.
-	if err := w.crossModelService.RemoveRemoteRelation(ctx, relationUUID); err != nil {
+	_, err := w.crossModelService.RemoveRemoteRelation(ctx, relationUUID, false, 0)
+	if err != nil && !errors.Is(err, relationerrors.RelationNotFound) {
 		return errors.Annotatef(err, "removing remote relation %q", relationUUID)
 	}
 
@@ -1004,7 +1005,11 @@ func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, c
 	if change.Life != life.Alive {
 		// If the relation is dying or dead, then we're done here. The units
 		// will have already transitioned to departed.
-		return w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID)
+		_, err := w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID, false, 0)
+		if errors.Is(err, relationerrors.RelationNotFound) {
+			return nil
+		}
+		return err
 	}
 
 	// Handle the case where the relation has become (un)suspended.

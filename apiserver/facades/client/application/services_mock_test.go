@@ -2772,6 +2772,45 @@ func (c *MockRemovalServiceRemoveRemoteApplicationOffererCall) DoAndReturn(f fun
 	return c
 }
 
+// RemoveRemoteRelation mocks base method.
+func (m *MockRemovalService) RemoveRemoteRelation(arg0 context.Context, arg1 relation.UUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveRemoteRelation", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(removal.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RemoveRemoteRelation indicates an expected call of RemoveRemoteRelation.
+func (mr *MockRemovalServiceMockRecorder) RemoveRemoteRelation(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveRemoteRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRemoteRelation", reflect.TypeOf((*MockRemovalService)(nil).RemoveRemoteRelation), arg0, arg1, arg2, arg3)
+	return &MockRemovalServiceRemoveRemoteRelationCall{Call: call}
+}
+
+// MockRemovalServiceRemoveRemoteRelationCall wrap *gomock.Call
+type MockRemovalServiceRemoveRemoteRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemovalServiceRemoveRemoteRelationCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveRemoteRelationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemovalServiceRemoveRemoteRelationCall) Do(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRemoteRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemovalServiceRemoveRemoteRelationCall) DoAndReturn(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRemoteRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RemoveUnit mocks base method.
 func (m *MockRemovalService) RemoveUnit(arg0 context.Context, arg1 unit.UUID, arg2, arg3 bool, arg4 time.Duration) (removal.UUID, error) {
 	m.ctrl.T.Helper()

@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	time "time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/names/v6"
@@ -277,8 +278,8 @@ func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 			Name: "foo",
 		}, nil)
 	s.removalService.EXPECT().
-		RemoveRemoteRelation(gomock.Any(), relationUUID).
-		Return(nil)
+		RemoveRemoteRelation(gomock.Any(), relationUUID, true, time.Minute).
+		Return("", nil)
 
 	api := s.api(c)
 	results, err := api.PublishRelationChanges(c.Context(), params.RemoteRelationsChanges{

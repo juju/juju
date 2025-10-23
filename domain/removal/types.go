@@ -43,6 +43,8 @@ const (
 	// RemoteApplicationOffererJob indicates a job to remove a remote
 	// application offerer.
 	RemoteApplicationOffererJob
+	// RemoteRelationJob indicates a job to remove a remote relation.
+	RemoteRelationJob
 )
 
 // String is used in logging output make job type identifiers readable.
