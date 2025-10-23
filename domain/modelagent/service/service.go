@@ -996,6 +996,27 @@ func (s *Service) getRecommendedVersion(
 	return versions[0], nil
 }
 
+// RunPreUpgradeChecks performs a series of pre-upgrade validation checks
+// to ensure that the model can be safely upgraded to the controller’s
+// currently recommended version.
+//
+// This method determines the recommended version from the controller,
+// then calls [Service.RunPreUpgradeChecksToVersion] to validate that the
+// model can be upgraded to that version.
+//
+// The following errors may be returned:
+//   - [modelagenterrors.DowngradeNotSupported] if the upgrade target version
+//     is lower than the model’s current agent version.
+//   - [modelagenterrors.AgentVersionNotSupported] if the target version is
+//     greater than the controller’s supported maximum or is not defined.
+//   - [modelagenterrors.MissingAgentBinaries] if the agent binaries for the
+//     target version cannot be found.
+//   - [modelagenterrors.CannotUpgradeControllerModel] if the model is the
+//     controller model itself.
+//   - [modelagenterrors.ModelUpgradeBlocker] if the model contains blockers
+//     that prevent upgrading (e.g., unsupported machine bases).
+//
+// Returns the controller’s recommended version if all checks pass.
 func (s *Service) RunPreUpgradeChecks(
 	ctx context.Context,
 ) (semversion.Number, error) {
@@ -1012,6 +1033,27 @@ func (s *Service) RunPreUpgradeChecks(
 	return recommendedVersion, nil
 }
 
+// RunPreUpgradeChecksToVersion performs pre-upgrade validation checks
+// to ensure that the model can be safely upgraded to a specific desired
+// target agent version.
+//
+// This function compares the current model’s target version with the
+// desired target version, validates upgrade compatibility and supported
+// ranges, ensures required binaries exist, and checks that the model
+// itself is eligible for upgrade.
+//
+// The following errors may be returned:
+//   - [modelagenterrors.DowngradeNotSupported] if a downgrade is requested.
+//   - [modelagenterrors.AgentVersionNotSupported] if the desired version
+//     exceeds the controller’s supported version or is undefined.
+//   - [modelagenterrors.MissingAgentBinaries] if binaries for the target
+//     version do not exist.
+//   - [modelagenterrors.CannotUpgradeControllerModel] if the model is the
+//     controller model.
+//   - [modelagenterrors.ModelUpgradeBlocker] if there are blockers within
+//     the model preventing an upgrade.
+//
+// Returns the current model target version if validation passes.
 func (s *Service) RunPreUpgradeChecksToVersion(
 	ctx context.Context,
 	desiredTargetVersion semversion.Number,
@@ -1035,6 +1077,26 @@ func (s *Service) RunPreUpgradeChecksToVersion(
 	return currentTargetVersion, nil
 }
 
+// RunPreUpgradeChecksWithStream performs pre-upgrade validation checks
+// similar to [Service.RunPreUpgradeChecks], but additionally validates
+// against a specific [modelagent.AgentStream].
+//
+// It ensures that the provided agent stream is valid, retrieves the
+// controller’s recommended version, and verifies that the model can be
+// upgraded to that version using [Service.RunPreUpgradeChecksToVersionWithStream].
+//
+// The following errors may be returned:
+//   - [coreerrors.NotValid] if the supplied agent stream is invalid.
+//   - [modelagenterrors.DowngradeNotSupported] if a downgrade is requested.
+//   - [modelagenterrors.AgentVersionNotSupported] if the target version
+//     exceeds the controller’s supported version or is undefined.
+//   - [modelagenterrors.MissingAgentBinaries] if binaries for the target
+//     version are missing.
+//   - [modelagenterrors.CannotUpgradeControllerModel] if the model is the
+//     controller model.
+//   - [modelagenterrors.ModelUpgradeBlocker] if upgrade blockers exist.
+//
+// Returns the controller’s recommended version if all checks pass.
 func (s *Service) RunPreUpgradeChecksWithStream(
 	ctx context.Context,
 	stream modelagent.AgentStream,
@@ -1044,7 +1106,11 @@ func (s *Service) RunPreUpgradeChecksWithStream(
 		return semversion.Zero, errors.Capture(err)
 	}
 
-	_, err = s.RunPreUpgradeChecksToVersionWithStream(ctx, desiredTargetVersion, stream)
+	_, err = s.RunPreUpgradeChecksToVersionWithStream(
+		ctx,
+		desiredTargetVersion,
+		stream,
+	)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
@@ -1052,13 +1118,34 @@ func (s *Service) RunPreUpgradeChecksWithStream(
 	return desiredTargetVersion, nil
 }
 
+// RunPreUpgradeChecksToVersionWithStream performs pre-upgrade validation
+// checks for a specific desired target agent version within a given
+// [modelagent.AgentStream].
+//
+// This function validates the supplied agent stream, retrieves the
+// model’s current target agent version, and checks that upgrading to
+// the desired target version is supported, safe, and possible.
+//
+// The following errors may be returned:
+//   - [coreerrors.NotValid] if the provided agent stream is invalid.
+//   - [modelagenterrors.DowngradeNotSupported] if a downgrade is requested.
+//   - [modelagenterrors.AgentVersionNotSupported] if the desired version
+//     exceeds the controller’s supported version or is undefined.
+//   - [modelagenterrors.MissingAgentBinaries] if binaries for the target
+//     version do not exist.
+//   - [modelagenterrors.CannotUpgradeControllerModel] if the model is the
+//     controller model.
+//   - [modelagenterrors.ModelUpgradeBlocker] if upgrade blockers exist.
+//
+// Returns the current model target version if validation succeeds.
 func (s *Service) RunPreUpgradeChecksToVersionWithStream(
 	ctx context.Context,
 	desiredTargetVersion semversion.Number,
 	stream modelagent.AgentStream,
 ) (semversion.Number, error) {
 	if !stream.IsValid() {
-		return semversion.Zero, errors.New("agent stream is not valid").Add(coreerrors.NotValid)
+		return semversion.Zero, errors.New("agent stream is not valid").
+			Add(coreerrors.NotValid)
 	}
 
 	currentTargetVersion, err := s.modelSt.GetModelTargetAgentVersion(ctx)
@@ -1068,7 +1155,11 @@ func (s *Service) RunPreUpgradeChecksToVersionWithStream(
 		)
 	}
 
-	err = s.validateModelCanBeUpgradedTo(ctx, currentTargetVersion, desiredTargetVersion)
+	err = s.validateModelCanBeUpgradedTo(
+		ctx,
+		currentTargetVersion,
+		desiredTargetVersion,
+	)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
