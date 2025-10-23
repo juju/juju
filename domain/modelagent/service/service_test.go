@@ -1073,6 +1073,27 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionTo(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 }
 
+// TestUpgradeModelTargetAgentVersionToSameVersion tests upgrading to a version
+// that is the same as the running version. It should not perform the upgrade
+// because there is no need to.
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToSameVersion(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := semversion.MustParse("4.0.1")
+	desiredVersion := semversion.MustParse("4.0.1")
+	s.controllerState.EXPECT().GetControllerAgentVersions(
+		gomock.Any(),
+	).Return([]semversion.Number{desiredVersion}, nil)
+	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
+	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
+	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), desiredVersion)
+	c.Check(err, tc.ErrorIsNil)
+}
+
 // TestUpgradeModelTargetAgentVersionStreamToDowngrade is a test that asserts if
 // a model upgrade is requested to a specific version and it would be considered
 // a downgrade, the caller gets back an error satisfying
