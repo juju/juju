@@ -40,7 +40,7 @@ func (s *offerSuite) TestDeleteOfferAccess(c *tc.C) {
 
 	var ownerUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, "SELECT uuid FROM user").Scan(&ownerUUID)
+		return tx.QueryRowContext(ctx, `SELECT uuid FROM user WHERE name != 'everyone@external'`).Scan(&ownerUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

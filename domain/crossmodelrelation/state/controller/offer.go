@@ -53,19 +53,24 @@ func (st *State) CreateOfferAccess(
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		everyoneExternalUUID, err := st.getUserUUIDByName(ctx, tx, corepermission.EveryoneUserName)
-		if errors.Is(err, accesserrors.UserNotFound) || errors.Is(err, accesserrors.UserAuthenticationDisabled) {
+		if errors.Is(err, accesserrors.UserNotFound) ||
+			errors.Is(err, accesserrors.UserAuthenticationDisabled) {
 			return errors.Errorf("%q (should be added on bootstrap): %w", corepermission.EveryoneUserName, accesserrors.UserNotFound)
 		} else if err != nil {
 			return errors.Capture(err)
 		}
 
+		// Insert the owner permission.
 		if err := insertPermission(ctx, tx, ownerPermission); err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("inserting owner permission: %w", err)
 		}
 
+		// Insert the everyone permission.
 		everyonePermission.GrantTo = everyoneExternalUUID
-		err = insertPermission(ctx, tx, everyonePermission)
-		return errors.Capture(err)
+		if err := insertPermission(ctx, tx, everyonePermission); err != nil {
+			return errors.Errorf("inserting everyone permission: %w", err)
+		}
+		return nil
 	})
 
 	return errors.Capture(err)
