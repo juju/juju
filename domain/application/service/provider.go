@@ -288,7 +288,7 @@ func (s *ProviderService) GetApplicationStorage(
 		return nil, errors.Errorf("getting application storage directives: %w", err)
 	}
 
-	result := make(map[string]ApplicationStorageInfo)
+	result := make(map[string]ApplicationStorageInfo, len(directives))
 	for _, directive := range directives {
 		count64 := uint64(directive.Count)
 		info := ApplicationStorageInfo{
