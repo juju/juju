@@ -56,7 +56,7 @@ type OffererApplicationWorker interface {
 type RemoteModelRelationsClient interface {
 	// RegisterRemoteRelations sets up the remote model to participate
 	// in the specified relations.
-	RegisterRemoteRelations(_ context.Context, relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error)
+	RegisterRemoteRelations(_ context.Context, relations ...params.RegisterConsumingRelationArg) ([]params.RegisterConsumingRelationResult, error)
 
 	// PublishRelationChange publishes relation changes to the
 	// model hosting the remote application involved in the relation.

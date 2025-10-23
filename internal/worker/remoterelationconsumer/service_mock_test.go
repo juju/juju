@@ -286,14 +286,14 @@ func (c *MockRemoteModelRelationsClientPublishRelationChangeCall) DoAndReturn(f 
 }
 
 // RegisterRemoteRelations mocks base method.
-func (m *MockRemoteModelRelationsClient) RegisterRemoteRelations(arg0 context.Context, relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error) {
+func (m *MockRemoteModelRelationsClient) RegisterRemoteRelations(arg0 context.Context, relations ...params.RegisterConsumingRelationArg) ([]params.RegisterConsumingRelationResult, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0}
 	for _, a := range relations {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "RegisterRemoteRelations", varargs...)
-	ret0, _ := ret[0].([]params.RegisterRemoteRelationResult)
+	ret0, _ := ret[0].([]params.RegisterConsumingRelationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -312,19 +312,19 @@ type MockRemoteModelRelationsClientRegisterRemoteRelationsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRemoteModelRelationsClientRegisterRemoteRelationsCall) Return(arg0 []params.RegisterRemoteRelationResult, arg1 error) *MockRemoteModelRelationsClientRegisterRemoteRelationsCall {
+func (c *MockRemoteModelRelationsClientRegisterRemoteRelationsCall) Return(arg0 []params.RegisterConsumingRelationResult, arg1 error) *MockRemoteModelRelationsClientRegisterRemoteRelationsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoteModelRelationsClientRegisterRemoteRelationsCall) Do(f func(context.Context, ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error)) *MockRemoteModelRelationsClientRegisterRemoteRelationsCall {
+func (c *MockRemoteModelRelationsClientRegisterRemoteRelationsCall) Do(f func(context.Context, ...params.RegisterConsumingRelationArg) ([]params.RegisterConsumingRelationResult, error)) *MockRemoteModelRelationsClientRegisterRemoteRelationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteModelRelationsClientRegisterRemoteRelationsCall) DoAndReturn(f func(context.Context, ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error)) *MockRemoteModelRelationsClientRegisterRemoteRelationsCall {
+func (c *MockRemoteModelRelationsClientRegisterRemoteRelationsCall) DoAndReturn(f func(context.Context, ...params.RegisterConsumingRelationArg) ([]params.RegisterConsumingRelationResult, error)) *MockRemoteModelRelationsClientRegisterRemoteRelationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
