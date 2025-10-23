@@ -51,6 +51,11 @@ type CrossModelRelationService interface {
 	// EnsureUnitsExist ensures that the given synthetic units exist in the
 	// local model.
 	EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error
+
+	// WatchRelationEgressNetworks watches for changes to the egress networks
+	// for the specified relation UUID. It watches changes on the relation-specific
+	// egress networks, model config (egress-subnets), and unit addresses.
+	WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error)
 }
 
 // ModelConfigService is an interface that provides access to the

@@ -597,24 +597,6 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressAfterMultipleAdd
 	c.Check(obtainedCIDRs, tc.SameContents, allCIDRs)
 }
 
-func (s *relationNetworkStateSuite) readRelationNetworkEgress(c *tc.C, relationUUID string) []string {
-	rows, err := s.DB().QueryContext(c.Context(), `
-SELECT cidr FROM relation_network_egress
-WHERE relation_uuid = ?
-ORDER BY cidr`, relationUUID)
-	c.Assert(err, tc.IsNil)
-	defer func() { _ = rows.Close() }()
-
-	var cidrs []string
-	for rows.Next() {
-		var cidr string
-		err = rows.Scan(&cidr)
-		c.Assert(err, tc.IsNil)
-		cidrs = append(cidrs, cidr)
-	}
-	return cidrs
-}
-
 // addRelationNetworkEgress is a test helper that directly inserts CIDRs into
 // the relation_network_egress table for the given relation UUID.
 // This replaces the need to call s.state.AddRelationNetworkEgress which has been removed.
