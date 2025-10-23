@@ -225,7 +225,7 @@ func (st *State) DeleteApplication(ctx context.Context, aUUID string, force bool
 	if err != nil {
 		return errors.Capture(err)
 	}
-
+	var charmUUID string
 	applicationUUID := entityUUID{UUID: aUUID}
 
 	unitsStmt, err := st.Prepare(`
@@ -253,7 +253,7 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 		return errors.Errorf("preparing application delete: %w", err)
 	}
 
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// TODO (stickupkid): We should ensure that the application is not
 		// in a dying state, but nothing calls MarkApplicationAsDead. It is
 		// assumed that, as long as all units are removed then we can
@@ -319,7 +319,7 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 		}
 
 		// Get the charm UUID before we delete the application.
-		charmUUID, err := st.getCharmUUIDForApplication(ctx, tx, aUUID)
+		charmUUID, err = st.getCharmUUIDForApplication(ctx, tx, aUUID)
 		if err != nil {
 			return errors.Errorf("getting charm UUID for application: %w", err)
 		}
@@ -329,6 +329,13 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			return errors.Errorf("deleting application: %w", err)
 		}
 
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("delete application transaction: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.deleteDanglingResources(ctx, tx, charmUUID); err != nil {
 			return errors.Errorf("deleting dangling resource ids: %w", err)
 		}
@@ -337,9 +344,14 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 		if err := st.deleteCharmIfUnusedByUUID(ctx, tx, charmUUID); err != nil {
 			return errors.Errorf("deleting charm if unused: %w", err)
 		}
-
 		return nil
-	}))
+	})
+
+	if err != nil {
+		st.logger.Warningf(ctx, "deleting dangling resources and charm for application %q: %v", aUUID, errors.Capture(err))
+	}
+
+	return nil
 }
 
 func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqlair.TX, aUUID string) error {

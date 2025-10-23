@@ -809,6 +809,59 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	s.checkCharmsCount(c, 1)
 }
 
+// TestDeleteUnitWithDanglingCharmReference ensures that unit removal and
+// charm's cleanup are in two different transactions. So even if the latter fails, the unit
+// is still removed.
+func (s *unitSuite) TestDeleteUnitWithDanglingCharmReference(c *tc.C) {
+	// Arrange: Create an application with a unit, update the application to reference a new charm, and
+	// add a dangling charm_external_reference.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	charmUUID := s.addCharm(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS charm_external_reference (
+			uuid TEXT PRIMARY KEY,
+			charm_uuid TEXT,
+			created_at DATETIME,
+			FOREIGN KEY(charm_uuid) REFERENCES charm(uuid)
+		)`)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+		INSERT INTO charm_external_reference (uuid, charm_uuid, created_at)
+		VALUES (?, ?, ?)`, "dangling-charm-ref-1", charmUUID, time.Now())
+
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `UPDATE application SET charm_uuid = ? WHERE uuid = ?`, charmUUID, appUUID.String())
+		return err
+
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Delete the unit
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The unit is deleted
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+}
+
 // TestDeleteCAASUnitNotAffectingOtherUnits is a regression test where deleting a CAAS unit
 // would remove the k8s pod info for other units.
 func (s *unitSuite) TestDeleteCAASUnitNotAffectingOtherUnits(c *tc.C) {
