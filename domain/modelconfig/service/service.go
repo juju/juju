@@ -373,9 +373,6 @@ func (s *Service) validatorForSetModelConfig(
 ) config.Validator {
 	agg := &config.AggregateValidator{
 		Validators: []config.Validator{
-			validators.SpaceChecker(&spaceValidator{
-				st: s.st,
-			}),
 			validators.ContainerNetworkingMethodValue(),
 			s.modelValidator,
 		},
