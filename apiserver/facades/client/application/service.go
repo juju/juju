@@ -52,7 +52,6 @@ type Services struct {
 	RemovalService            RemovalService
 	ResourceService           ResourceService
 	StorageService            StorageService
-	StoragePoolService        StoragePoolService
 	CrossModelRelationService CrossModelRelationService
 }
 
@@ -418,13 +417,6 @@ type ResourceService interface {
 type StorageService interface {
 	// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 	GetStoragePoolUUID(context.Context, string) (domainstorage.StoragePoolUUID, error)
-}
-
-type StoragePoolService interface {
-	// GetStoragePoolByUUID returns the storage pool with the UUID.
-	// The following errors can be expected:
-	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-	GetStoragePoolByUUID(ctx context.Context, poolUUID domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
