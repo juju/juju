@@ -54,7 +54,6 @@ type Services struct {
 	ResourceService           ResourceService
 	StatusService             StatusService
 	StorageService            StorageService
-	StoragePoolService        StoragePoolService
 	CrossModelRelationService CrossModelRelationService
 }
 
