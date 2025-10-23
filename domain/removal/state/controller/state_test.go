@@ -84,7 +84,7 @@ func (m *baseSuite) SetUpTest(c *tc.C) {
 		false,
 		everyoneExternalUUID,
 	)
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We need to generate a cloud in the database so that we can set the model
 	// cloud.
