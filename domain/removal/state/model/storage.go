@@ -109,7 +109,82 @@ func (st *State) EnsureStorageAttachmentNotAliveWithFulfilment(
 func (st *State) GetDetachInfoForStorageAttachment(
 	ctx context.Context, saUUID string,
 ) (internal.StorageAttachmentDetachInfo, error) {
-	return internal.StorageAttachmentDetachInfo{}, errors.New("no implemented: coming soon")
+	db, err := st.DB(ctx)
+	if err != nil {
+		return internal.StorageAttachmentDetachInfo{}, errors.Capture(err)
+	}
+
+	var (
+		dbVal     storageAttachmentDetachInfo
+		uuidInput = entityUUID{UUID: saUUID}
+	)
+
+	q := `
+WITH
+fulfilment AS (
+    SELECT COUNT(*) AS fulfilment
+    FROM   storage_attachment sa
+    JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+    JOIN   unit u ON sa.unit_uuid = u.uuid
+    JOIN   charm_storage cs ON cs.charm_uuid = u.charm_uuid
+                           AND cs.name = si.storage_name
+    WHERE  si.storage_name = (SELECT si.storage_name
+                              FROM storage_instance si
+                              JOIN storage_attachment sa ON sa.storage_instance_uuid = si.uuid
+                              WHERE sa.uuid = $entityUUID.uuid)
+    AND    sa.unit_uuid = (SELECT unit_uuid
+                            FROM storage_attachment
+                            WHERE uuid = $entityUUID.uuid)
+    AND    sa.life_id = 0 -- we only count alive attachments
+)
+SELECT &storageAttachmentDetachInfo.* FROM (
+    SELECT cs.name AS charm_storage_name,
+           f.fulfilment AS count_fulfilment,
+           cs.count_min AS required_count_min,
+           sa.life_id,
+           u.life_id AS unit_life_id,
+           u.uuid AS unit_uuid
+    FROM   storage_attachment sa, fulfilment f
+    JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+    JOIN   unit u ON sa.unit_uuid = u.uuid
+    JOIN   charm_storage cs ON cs.charm_uuid = u.charm_uuid
+                           AND cs.name = si.storage_name
+    WHERE  sa.uuid = $entityUUID.uuid
+)
+`
+
+	stmt, err := st.Prepare(q, uuidInput, dbVal)
+	if err != nil {
+		return internal.StorageAttachmentDetachInfo{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkStorageAttachmentExists(ctx, tx, saUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking if storage attachment exists: %w", err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"storage attachment %q does not exist in the model", saUUID,
+			).Add(storageerrors.StorageAttachmentNotFound)
+		}
+
+		return tx.Query(ctx, stmt, uuidInput).Get(&dbVal)
+	})
+	if err != nil {
+		return internal.StorageAttachmentDetachInfo{}, errors.Capture(err)
+	}
+
+	return internal.StorageAttachmentDetachInfo{
+		CharmStorageName: dbVal.CharmStorageName,
+		CountFulfilment:  dbVal.CountFulfilment,
+		Life:             dbVal.LifeID,
+		RequiredCountMin: dbVal.RequiredCountMin,
+		UnitLife:         dbVal.UnitLifeID,
+		UnitUUID:         dbVal.UnitUUID,
+	}, nil
 }
 
 // StorageAttachmentScheduleRemoval schedules a removal job for the storage
@@ -830,6 +905,33 @@ WHERE  uuid = $entityUUID.uuid`, vapUUID)
 	}
 
 	return nil
+}
+
+// checkStorageAttachmentExists is a internal transaction helper for verifying
+// if a storage attachment by the supplied uuid exists.
+func (st *State) checkStorageAttachmentExists(
+	ctx context.Context, tx *sqlair.TX, saUUID string,
+) (bool, error) {
+	uuidInput := entityUUID{UUID: saUUID}
+
+	checkQ := `
+SELECT &entityUUID.*
+FROM   storage_attachment
+WHERE  uuid = $entityUUID.uuid
+`
+	stmt, err := st.Prepare(checkQ, uuidInput)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, uuidInput).Get(&uuidInput)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
 }
 
 // ensureStorageInstanceNotAliveCascade ensures that the storage instance

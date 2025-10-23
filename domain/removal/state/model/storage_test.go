@@ -10,10 +10,17 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/network"
+	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
+	corenetwork "github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/removal/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -389,6 +396,205 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 2)
 }
 
+func (s *storageSuite) TestGetDetachInfoForStorageAttachmentNotFound(c *tc.C) {
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetDetachInfoForStorageAttachment(c.Context(), saUUID.String())
+	c.Check(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
+}
+
+// TestGetDetachInfoForStorageAttachmentSuccess tests that when asking for the
+// detach information of a storage attachment state correctly reports backs what
+// we expect and properly counts the fulfilment against the charm storage.
+func (s *storageSuite) TestGetDetachInfoForStorageAttachmentSuccess(c *tc.C) {
+	unitUUID, attachments := s.addAppUnitWithCharmStorage(
+		c, map[string]charmStorage{
+			"data": {CharmMin: 1, Fulfilment: 3},
+		},
+	)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetDetachInfoForStorageAttachment(
+		c.Context(), attachments["data"][2],
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(info, tc.Equals, internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "data",
+		CountFulfilment:  3,
+		RequiredCountMin: 1,
+		Life:             0,
+		UnitUUID:         unitUUID,
+		UnitLife:         0,
+	})
+}
+
+// TestGetDetachInfoForStorageAttachmentMultiple is about testing the correct
+// detach information when the unit has many storage attachments for different
+// chamr storage definitions.
+func (s *storageSuite) TestGetDetachInfoForStorageAttachmentMultiple(c *tc.C) {
+	unitUUID, attachments := s.addAppUnitWithCharmStorage(
+		c, map[string]charmStorage{
+			"data1": {CharmMin: 1, Fulfilment: 1},
+			"data2": {CharmMin: 2, Fulfilment: 2},
+		},
+	)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetDetachInfoForStorageAttachment(
+		c.Context(), attachments["data2"][0],
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(info, tc.Equals, internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "data2",
+		CountFulfilment:  2,
+		RequiredCountMin: 2,
+		Life:             0,
+		UnitUUID:         unitUUID,
+		UnitLife:         0,
+	})
+}
+
+// TestGetDetachInfoForStorageAttachmentExcludeDeadAttachment tests that when
+// the unit has one or more dead storage attachments they are not included in
+// the count under fulfilment.
+func (s *storageSuite) TestGetDetachInfoForStorageAttachmentExcludeDeadAttachment(c *tc.C) {
+	unitUUID, attachments := s.addAppUnitWithCharmStorage(
+		c, map[string]charmStorage{
+			"data": {CharmMin: 1, Fulfilment: 3},
+		},
+	)
+	s.setStorageAttachmentDead(c, attachments["data"][1])
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetDetachInfoForStorageAttachment(
+		c.Context(), attachments["data"][2],
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(info, tc.Equals, internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "data",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             0,
+		UnitUUID:         unitUUID,
+		UnitLife:         0,
+	})
+}
+
+type charmStorage struct {
+	CharmMin   int
+	Fulfilment int
+}
+
+// addAppUnitWithCharmStorage sets up a unit in the model with assoicated charm
+// storage that matches the map key and the minimum count set to the supplied
+// int.
+func (s *storageSuite) addAppUnitWithCharmStorage(
+	c *tc.C, charmStorage map[string]charmStorage,
+) (string, map[string][]string) {
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmUUID := tc.Must(c, corecharm.NewID)
+	storagePoolUUID := tc.Must(c, storage.NewStoragePoolUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitNetNodeUUID := tc.Must(c, network.NewNetNodeUUID)
+
+	ctx := c.Context()
+
+	_, err := s.DB().ExecContext(
+		ctx,
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID.String(), "testcharm",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// create charm storage records
+	for name, cs := range charmStorage {
+		_, err = s.DB().ExecContext(
+			ctx,
+			`
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
+VALUES (?, ?, 1, ?, -1)
+`,
+			charmUUID.String(), name, cs.CharmMin,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	_, err = s.DB().ExecContext(
+		ctx,
+		"INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid) VALUES (?, ?, ?, 0, ?)",
+		appUUID.String(), charmUUID, "testapp", corenetwork.AlphaSpaceId,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		ctx, "INSERT INTO net_node VALUES (?)", unitNetNodeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		ctx,
+		`
+INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
+VALUES (?, ?, ?, ?, ?, 0)
+`,
+		unitUUID.String(),
+		"testapp/0",
+		appUUID.String(),
+		charmUUID.String(),
+		unitNetNodeUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		ctx,
+		`
+INSERT INTO storage_pool (uuid, name, type)
+VALUES (?, 'removal-storage-pool', 'removal-storage-provider')
+`,
+		storagePoolUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	rval := make(map[string][]string, len(charmStorage))
+	createUnitStorage := func(name string) {
+		siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
+		_, err = s.DB().ExecContext(
+			ctx,
+			`
+INSERT INTO storage_instance (uuid, charm_name, storage_name, storage_kind_id,
+                              storage_id, life_id, storage_pool_uuid,
+                              requested_size_mib)
+VALUES (?, 'testcharm', ?, 1, ?, 1, ?, 1024)
+`,
+			siUUID.String(),
+			name,
+			siUUID.String(),
+			storagePoolUUID.String(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+		_, err = s.DB().ExecContext(
+			ctx,
+			`
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES (?, ?, ?, 0)
+			`,
+			saUUID.String(), siUUID.String(), unitUUID.String(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		rval[name] = append(rval[name], saUUID.String())
+	}
+
+	for name, cs := range charmStorage {
+		for range cs.Fulfilment {
+			createUnitStorage(name)
+		}
+	}
+
+	return unitUUID.String(), rval
+}
+
 // addAppUnitStorage sets up a unit with a storage attachment.
 // The storage instance and attachment UUIDs are returned.
 func (s *storageSuite) addAppUnitStorage(c *tc.C) (string, string) {
@@ -402,7 +608,7 @@ func (s *storageSuite) addAppUnitStorage(c *tc.C) (string, string) {
 	app := "some-app-uuid"
 	_, err = s.DB().ExecContext(
 		ctx, "INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)",
-		app, app, 0, charm, network.AlphaSpaceId,
+		app, app, 0, charm, corenetwork.AlphaSpaceId,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -575,4 +781,15 @@ func (s *storageSuite) addAttachedVolumeWithPlan(c *tc.C) (string, string, strin
 	c.Assert(err, tc.ErrorIsNil)
 
 	return volUUID, vaUUID, vapUUID
+}
+
+// setStorageAttachmentDead is a testing helper method for setting the life of
+// a storage attachment to "dead".
+func (s *storageSuite) setStorageAttachmentDead(c *tc.C, saUUID string) {
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		"UPDATE storage_attachment SET life_id = 1 WHERE uuid = ?",
+		saUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 }
