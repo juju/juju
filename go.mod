@@ -72,10 +72,8 @@ require (
 	github.com/juju/ratelimit v1.0.2
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
-	github.com/juju/tc v0.0.0-20251023001638-5d500747abb8
+	github.com/juju/tc v0.0.0-20251023013639-77c6a1d20e5a
 	github.com/juju/testing v1.2.0
-	github.com/juju/txn/v3 v3.0.2
-	github.com/juju/utils/v3 v3.2.2
 	github.com/juju/utils/v4 v4.0.5
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v4 v4.2.0
@@ -214,10 +212,9 @@ require (
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/loggo v1.0.0 // indirect
-	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
-	github.com/juju/mgo/v3 v3.0.4 // indirect
 	github.com/juju/usso v1.0.1 // indirect
+	github.com/juju/utils/v3 v3.2.2 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
@@ -272,7 +269,6 @@ require (
 	github.com/std-uritemplate/std-uritemplate/go v0.0.47 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
-	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/zitadel/logging v0.6.1 // indirect

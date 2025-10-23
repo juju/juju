@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
@@ -198,7 +197,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 
 	s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, params secretbackendservice.BackendConfigParams) (*provider.ModelBackendConfigInfo, error) {
-			c.Assert(params.GrantedSecretsGetter, gc.NotNil)
+			c.Assert(params.GrantedSecretsGetter, tc.NotNil)
 			params.GrantedSecretsGetter = nil
 			c.Assert(params, tc.DeepEquals, secretbackendservice.BackendConfigParams{
 				Accessor: service.SecretAccessor{

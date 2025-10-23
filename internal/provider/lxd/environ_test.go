@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 
 	corebase "github.com/juju/juju/core/base"

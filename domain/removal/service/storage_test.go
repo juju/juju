@@ -350,7 +350,162 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceWaitSucc
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
 
+func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+
+	s.modelState.EXPECT().GetFilesystemAttachmentLife(
+		gomock.Any(), uuid.String(),
+	).Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	svc := s.newService(c)
+	err := svc.MarkFilesystemAttachmentAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
+func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadStillAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+
+	s.modelState.EXPECT().GetFilesystemAttachmentLife(
+		gomock.Any(), uuid.String(),
+	).Return(life.Alive, nil)
+
+	svc := s.newService(c)
+	err := svc.MarkFilesystemAttachmentAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *storageSuite) TestMarkFilesystemAttachmentAsDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+
+	s.modelState.EXPECT().GetFilesystemAttachmentLife(
+		gomock.Any(), uuid.String(),
+	).Return(life.Dying, nil)
+	s.modelState.EXPECT().MarkFilesystemAttachmentAsDead(
+		gomock.Any(), uuid.String(),
+	).Return(nil)
+
+	svc := s.newService(c)
+	err := svc.MarkFilesystemAttachmentAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentAsDeadNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID)
+
+	s.modelState.EXPECT().GetVolumeAttachmentLife(
+		gomock.Any(), uuid.String(),
+	).Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	svc := s.newService(c)
+	err := svc.MarkVolumeAttachmentAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentAsDeadStillAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID)
+
+	s.modelState.EXPECT().GetVolumeAttachmentLife(
+		gomock.Any(), uuid.String(),
+	).Return(life.Alive, nil)
+
+	svc := s.newService(c)
+	err := svc.MarkVolumeAttachmentAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentAsDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID)
+
+	s.modelState.EXPECT().GetVolumeAttachmentLife(
+		gomock.Any(), uuid.String(),
+	).Return(life.Dying, nil)
+	s.modelState.EXPECT().MarkVolumeAttachmentAsDead(
+		gomock.Any(), uuid.String(),
+	).Return(nil)
+
+	svc := s.newService(c)
+	err := svc.MarkVolumeAttachmentAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+
+	s.modelState.EXPECT().GetVolumeAttachmentPlanLife(
+		gomock.Any(), uuid.String(),
+	).Return(-1, storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+
+	svc := s.newService(c)
+	err := svc.MarkVolumeAttachmentPlanAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadStillAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+
+	s.modelState.EXPECT().GetVolumeAttachmentPlanLife(
+		gomock.Any(), uuid.String(),
+	).Return(life.Alive, nil)
+
+	svc := s.newService(c)
+	err := svc.MarkVolumeAttachmentPlanAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+
+	s.modelState.EXPECT().GetVolumeAttachmentPlanLife(
+		gomock.Any(), uuid.String(),
+	).Return(life.Dying, nil)
+	s.modelState.EXPECT().MarkVolumeAttachmentPlanAsDead(
+		gomock.Any(), uuid.String(),
+	).Return(nil)
+
+	svc := s.newService(c)
+	err := svc.MarkVolumeAttachmentPlanAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestRemoveStorageAttachmentNotFound(c *tc.C) {
