@@ -1103,44 +1103,6 @@ ON CONFLICT (key) DO UPDATE SET value = excluded.value`, key, value)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *watcherSuite) addUnitIPAddress(c *tc.C, db database.TxnRunner, relationUUID corerelation.UUID) {
-	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var unitUUID, netNodeUUID string
-		err := tx.QueryRowContext(ctx, `
-SELECT u.uuid, u.net_node_uuid
-FROM unit u
-JOIN relation_unit ru ON ru.unit_uuid = u.uuid
-JOIN relation_endpoint re ON re.uuid = ru.relation_endpoint_uuid
-WHERE re.relation_uuid = ?
-LIMIT 1`, relationUUID.String()).Scan(&unitUUID, &netNodeUUID)
-		if err != nil {
-			return err
-		}
-
-		var deviceUUID string
-		err = tx.QueryRowContext(ctx, `
-SELECT uuid FROM link_layer_device WHERE net_node_uuid = ? LIMIT 1`, netNodeUUID).Scan(&deviceUUID)
-		if err == sql.ErrNoRows {
-			deviceUUID = tc.Must(c, uuid.NewUUID).String()
-			_, err = tx.ExecContext(ctx, `
-INSERT INTO link_layer_device (uuid, net_node_uuid, name, device_type_id, virtual_port_type_id)
-VALUES (?, ?, 'eth0', 2, 0)`, deviceUUID, netNodeUUID)
-			if err != nil {
-				return err
-			}
-		} else if err != nil {
-			return err
-		}
-
-		ipUUID := tc.Must(c, uuid.NewUUID).String()
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, config_type_id, origin_id, scope_id)
-VALUES (?, ?, ?, '192.0.2.100/24', 0, 4, 0, 1)`, ipUUID, netNodeUUID, deviceUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *watcherSuite) createRelation(c *tc.C, db database.TxnRunner, svc *service.WatchableService) corerelation.UUID {
 	var relUUID corerelation.UUID
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

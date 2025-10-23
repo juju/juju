@@ -162,15 +162,16 @@ func (st *State) NamespaceForRelationIngressNetworksWatcher() string {
 	return "relation_network_ingress"
 }
 
-// NamespaceForRelationEgressNetworksWatcher returns the namespace of the
-// relation_network_egress table, used for the watcher.
-func (st *State) NamespaceForRelationEgressNetworksWatcher() string {
-	return "relation_network_egress"
+// NamespaceForRelationEgressNetworksWatcher returns the namespaces of the
+// tables needed for the relation egress networks watcher.
+func (st *State) NamespaceForRelationEgressNetworksWatcher() (string, string, string) {
+	return "relation_network_egress", "model_config", "ip_address"
 }
 
 // InitialWatchStatementForRelationEgressNetworks returns the initial query
 // for watching relation egress networks. It returns the actual egress CIDRs
-// if the relation exists, or an empty slice if no egress networks are configured.
+// if the relation exists, or an empty slice if no egress networks are
+// configured.
 func (st *State) InitialWatchStatementForRelationEgressNetworks(relationUUID string) eventsource.NamespaceQuery {
 	return func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		db, err := st.DB(ctx)
@@ -178,7 +179,6 @@ func (st *State) InitialWatchStatementForRelationEgressNetworks(relationUUID str
 			return nil, errors.Capture(err)
 		}
 
-		// First verify the relation exists
 		checkStmt, err := st.Prepare(`
 SELECT &uuid.*
 FROM   relation
@@ -188,7 +188,6 @@ WHERE  uuid = $uuid.uuid
 			return nil, errors.Capture(err)
 		}
 
-		// Then get the egress CIDRs
 		selectStmt, err := st.Prepare(`
 SELECT &cidr.*
 FROM   relation_network_egress
@@ -237,7 +236,7 @@ func (st *State) GetNetNodeUUIDsForRelation(ctx context.Context, relationUUID st
 	}
 
 	stmt, err := st.Prepare(`
-SELECT DISTINCT &netNodeUUID.*
+SELECT &netNodeUUID.*
 FROM   relation_unit ru
 JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
 JOIN   unit u ON ru.unit_uuid = u.uuid
@@ -271,15 +270,12 @@ func (st *State) GetUnitAddressesForRelation(ctx context.Context, relationUUID s
 	}
 
 	stmt, err := st.Prepare(`
-SELECT DISTINCT ia.address_value AS &ipAddress.address_value
+SELECT ia.address_value AS &ipAddress.address_value
 FROM   relation_unit ru
 JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
 JOIN   unit u ON ru.unit_uuid = u.uuid
 JOIN   ip_address ia ON ia.net_node_uuid = u.net_node_uuid
 WHERE  re.relation_uuid = $uuid.uuid
-  AND  ia.scope_id = 1  -- Public addresses only (scope_id 1 = public)
-  AND  ia.address_value IS NOT NULL
-  AND  ia.address_value != ''
 `, ipAddress{}, uuid{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -289,7 +285,6 @@ WHERE  re.relation_uuid = $uuid.uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, uuid{UUID: relationUUID}).GetAll(&addresses)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			// No addresses found, return empty slice
 			return nil
 		}
 		return err
@@ -305,7 +300,8 @@ WHERE  re.relation_uuid = $uuid.uuid
 	return result, nil
 }
 
-// GetModelEgressSubnets returns the egress-subnets configuration from model config.
+// GetModelEgressSubnets returns the egress-subnets configuration from model
+// config.
 func (st *State) GetModelEgressSubnets(ctx context.Context) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -325,7 +321,6 @@ WHERE  key = 'egress-subnets'
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&configValue)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			// No egress-subnets configured, return empty slice
 			return nil
 		}
 		return err
@@ -334,7 +329,6 @@ WHERE  key = 'egress-subnets'
 		return nil, errors.Capture(err)
 	}
 
-	// Parse the comma-separated list of CIDRs
 	if configValue.Value == "" {
 		return []string{}, nil
 	}

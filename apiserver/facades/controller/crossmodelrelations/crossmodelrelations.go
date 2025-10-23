@@ -785,7 +785,43 @@ func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
 func (api *CrossModelRelationsAPIv3) WatchEgressAddressesForRelations(ctx context.Context, remoteRelationArgs params.RemoteEntityArgs) (params.StringsWatchResults, error) {
-	return params.StringsWatchResults{}, nil
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(remoteRelationArgs.Args)),
+	}
+	for i, arg := range remoteRelationArgs.Args {
+		relationUUID := corerelation.UUID(arg.Token)
+		relationDetails, err := api.relationService.GetRelationDetails(ctx, relationUUID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		relationTag := names.NewRelationTag(relationDetails.Key.String())
+
+		if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
+			if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
+				err = apiservererrors.ErrPerm
+			}
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		w, err := api.crossModelRelationService.WatchRelationEgressNetworks(ctx, relationUUID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		watcherID, changes, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, w)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i] = params.StringsWatchResult{
+			StringsWatcherId: watcherID,
+			Changes:          changes,
+		}
+	}
+
+	return results, nil
 }
 
 func (api *CrossModelRelationsAPIv3) checkMacaroonsForRelation(

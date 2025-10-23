@@ -35,9 +35,9 @@ type ModelRelationNetworkState interface {
 	// relation_network_ingress table, used for the watcher.
 	NamespaceForRelationIngressNetworksWatcher() string
 
-	// NamespaceForRelationEgressNetworksWatcher returns the namespace of the
-	// relation_network_egress table, used for the watcher.
-	NamespaceForRelationEgressNetworksWatcher() string
+	// NamespaceForRelationEgressNetworksWatcher returns the namespaces of the
+	// tables needed for the relation egress networks watcher.
+	NamespaceForRelationEgressNetworksWatcher() (string, string, string)
 
 	// InitialWatchStatementForRelationEgressNetworks returns the initial query
 	// for watching relation egress networks.

@@ -431,12 +431,8 @@ func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, rela
 		return nil, errors.Capture(err)
 	}
 
-	// Get the namespaces we need to watch
-	modelConfigNamespace := "model_config"
-	ipAddressNamespace := "ip_address"
-	relationEgressNamespace := w.modelState.NamespaceForRelationEgressNetworksWatcher()
+	relationEgressNamespace, modelConfigNamespace, ipAddressNamespace := w.modelState.NamespaceForRelationEgressNetworksWatcher()
 
-	// Get the initial query - this now returns actual CIDRs directly
 	initialQuery := w.modelState.InitialWatchStatementForRelationEgressNetworks(relationUUID.String())
 
 	// Helper function to get the current egress CIDRs for the relation.
@@ -451,12 +447,13 @@ func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, rela
 			return nil, err
 		}
 
-		// If there are no units in the relation, return empty regardless of configured CIDRs
+		// If there are no units in the relation, return empty regardless of
+		// configured CIDRs.
 		if len(unitAddresses) == 0 {
 			return []string{}, nil
 		}
 
-		// First, check for relation-specific egress CIDRs
+		// First, check for the user set (relation specific) egress CIDRs.
 		relationCIDRs, err := w.modelState.GetRelationNetworkEgress(ctx, relationUUID.String())
 		if err != nil {
 			w.logger.Errorf(ctx, "getting relation egress networks for relation %q: %v", relationUUID, err)
@@ -467,7 +464,7 @@ func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, rela
 			return relationCIDRs, nil
 		}
 
-		// Second, check model config for egress-subnets
+		// Second, check model config for egress-subnets.
 		modelCIDRs, err := w.modelState.GetModelEgressSubnets(ctx)
 		if err != nil {
 			w.logger.Errorf(ctx, "getting model egress subnets: %v", err)
@@ -478,35 +475,32 @@ func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, rela
 			return modelCIDRs, nil
 		}
 
-		// Third, use unit addresses and convert them to CIDRs
+		// Third, use unit addresses and convert them to CIDRs.
 		return network.SubnetsForAddresses(unitAddresses), nil
 	}
 
-	// Create a mapper that processes changestream events and returns the actual CIDRs
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		if len(changes) == 0 {
 			return nil, nil
 		}
 
-		// Check if any relevant changes occurred
 		hasRelevantChange := false
 
 		for _, change := range changes {
 			switch change.Namespace() {
 			case modelConfigNamespace:
-				// Filter for egress-subnets config key changes
 				if change.Changed() == environsconfig.EgressSubnets {
 					hasRelevantChange = true
 				}
 
 			case ipAddressNamespace:
-				// Accept all ip_address changes as they might belong to units in this relation.
-				// The getEgressCIDRs function will query and filter appropriately.
+				// Accept all ip_address changes as they might belong to units
+				// in this relation.
+				// The getEgressCIDRs function will query and filter
+				// appropriately.
 				hasRelevantChange = true
 
 			case relationEgressNamespace:
-				// Filter for changes to our specific relation only.
-				// The change.Changed() returns the relation_uuid from the change event.
 				if change.Changed() == relationUUID.String() {
 					hasRelevantChange = true
 				}
@@ -514,7 +508,6 @@ func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, rela
 		}
 
 		if hasRelevantChange {
-			// Return the actual egress CIDRs
 			return getEgressCIDRs(ctx)
 		}
 

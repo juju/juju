@@ -57,6 +57,11 @@ type CrossModelRelationService interface {
 	// unit of the specified app and returns a watcher which notifies of secret URIs
 	// that have had a new revision added.
 	WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID coreapplication.UUID) (watcher.StringsWatcher, error)
+
+	// WatchRelationEgressNetworks watches for changes to the egress networks
+	// for the specified relation UUID. It watches changes on the relation-specific
+	// egress networks, model config (egress-subnets), and unit addresses.
+	WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error)
 }
 
 // ModelConfigService is an interface that provides access to the

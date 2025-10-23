@@ -1566,11 +1566,13 @@ func (c *MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall) DoAndRetu
 }
 
 // NamespaceForRelationEgressNetworksWatcher mocks base method.
-func (m *MockModelState) NamespaceForRelationEgressNetworksWatcher() string {
+func (m *MockModelState) NamespaceForRelationEgressNetworksWatcher() (string, string, string) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NamespaceForRelationEgressNetworksWatcher")
 	ret0, _ := ret[0].(string)
-	return ret0
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(string)
+	return ret0, ret1, ret2
 }
 
 // NamespaceForRelationEgressNetworksWatcher indicates an expected call of NamespaceForRelationEgressNetworksWatcher.
@@ -1586,19 +1588,19 @@ type MockModelStateNamespaceForRelationEgressNetworksWatcherCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateNamespaceForRelationEgressNetworksWatcherCall) Return(arg0 string) *MockModelStateNamespaceForRelationEgressNetworksWatcherCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockModelStateNamespaceForRelationEgressNetworksWatcherCall) Return(arg0, arg1, arg2 string) *MockModelStateNamespaceForRelationEgressNetworksWatcherCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateNamespaceForRelationEgressNetworksWatcherCall) Do(f func() string) *MockModelStateNamespaceForRelationEgressNetworksWatcherCall {
+func (c *MockModelStateNamespaceForRelationEgressNetworksWatcherCall) Do(f func() (string, string, string)) *MockModelStateNamespaceForRelationEgressNetworksWatcherCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateNamespaceForRelationEgressNetworksWatcherCall) DoAndReturn(f func() string) *MockModelStateNamespaceForRelationEgressNetworksWatcherCall {
+func (c *MockModelStateNamespaceForRelationEgressNetworksWatcherCall) DoAndReturn(f func() (string, string, string)) *MockModelStateNamespaceForRelationEgressNetworksWatcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2263,11 +2265,13 @@ func (c *MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetw
 }
 
 // NamespaceForRelationEgressNetworksWatcher mocks base method.
-func (m *MockModelRelationNetworkState) NamespaceForRelationEgressNetworksWatcher() string {
+func (m *MockModelRelationNetworkState) NamespaceForRelationEgressNetworksWatcher() (string, string, string) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NamespaceForRelationEgressNetworksWatcher")
 	ret0, _ := ret[0].(string)
-	return ret0
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(string)
+	return ret0, ret1, ret2
 }
 
 // NamespaceForRelationEgressNetworksWatcher indicates an expected call of NamespaceForRelationEgressNetworksWatcher.
@@ -2283,19 +2287,19 @@ type MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall 
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall) Return(arg0 string) *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall) Return(arg0, arg1, arg2 string) *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall) Do(f func() string) *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall {
+func (c *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall) Do(f func() (string, string, string)) *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall) DoAndReturn(f func() string) *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall {
+func (c *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall) DoAndReturn(f func() (string, string, string)) *MockModelRelationNetworkStateNamespaceForRelationEgressNetworksWatcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
