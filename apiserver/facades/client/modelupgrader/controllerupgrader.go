@@ -193,6 +193,13 @@ func (c *ControllerUpgraderAPI) mapError(
 			"controller upgrading is blocked for reason: %s",
 			blockedErr.Reason,
 		)
+	case errors.Is(err, controllerupgradererrors.DowngradeNotSupported):
+		paramsErr = apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"cannot upgrade the controller to version %q because it is "+
+				"lower than the current running version",
+			targetVersion,
+		)
 	case errors.Is(err, controllerupgradererrors.VersionNotSupported):
 		rewrittenErr = errors.New(
 			"cannot upgrade the controller to a version that is more than " +
