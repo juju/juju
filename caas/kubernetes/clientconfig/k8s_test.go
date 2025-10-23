@@ -11,7 +11,7 @@ import (
 	"text/template"
 
 	"github.com/juju/tc"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"

@@ -62,6 +62,7 @@ require (
 	github.com/juju/gomaasapi/v2 v2.2.0
 	github.com/juju/idmclient/v2 v2.0.1
 	github.com/juju/jsonschema v1.0.0
+	github.com/juju/loggo v1.0.0
 	github.com/juju/loggo/v2 v2.2.0
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mutex/v2 v2.0.0
@@ -72,10 +73,8 @@ require (
 	github.com/juju/ratelimit v1.0.2
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
-	github.com/juju/tc v0.0.0-20251023001638-5d500747abb8
+	github.com/juju/tc v0.0.0-20251023013639-77c6a1d20e5a
 	github.com/juju/testing v1.2.0
-	github.com/juju/txn/v3 v3.0.2
-	github.com/juju/utils/v3 v3.2.2
 	github.com/juju/utils/v4 v4.0.5
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v4 v4.2.0
@@ -117,6 +116,7 @@ require (
 	golang.org/x/tools v0.36.0
 	google.golang.org/api v0.246.0
 	google.golang.org/grpc v1.74.2
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/errgo.v1 v1.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.67.0
@@ -213,11 +213,9 @@ require (
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
-	github.com/juju/loggo v1.0.0 // indirect
-	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
-	github.com/juju/mgo/v3 v3.0.4 // indirect
 	github.com/juju/usso v1.0.1 // indirect
+	github.com/juju/utils/v3 v3.2.2 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
@@ -272,7 +270,6 @@ require (
 	github.com/std-uritemplate/std-uritemplate/go v0.0.47 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
-	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/zitadel/logging v0.6.1 // indirect
@@ -293,7 +290,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250804133106-a7a43d27e69b // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250728155136-f173205681a0 // indirect
 	google.golang.org/protobuf v1.36.7 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/juju/environschema.v1 v1.0.1 // indirect
