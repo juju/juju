@@ -22,34 +22,79 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// ModelAgentService mirrors the model agent service
+// so we can easily mock it for unit tests.
+// Func docs are cherry-picked from
+//
+//	[github.com/juju/juju/domain/modelagent/service.Service]. See there for more
+//
+// implementation details.
 type ModelAgentService interface {
+	// UpgradeModelTargetAgentVersion is responsible for upgrading the target
+	// agent version of the current model to latest version available.
+	// The version that is upgraded to is returned.
 	UpgradeModelTargetAgentVersion(
 		ctx context.Context,
 	) (semversion.Number, error)
+
+	// UpgradeModelTargetAgentVersionStream is responsible for upgrading the target
+	// agent version of the current model to the latest version available. While
+	// performing the upgrade the agent stream for the model will also be changed.
+	// The version that is upgraded to is returned.
 	UpgradeModelTargetAgentVersionStream(
 		ctx context.Context,
 		agentStream modelagent.AgentStream,
 	) (semversion.Number, error)
+
+	// UpgradeModelTargetAgentVersionTo upgrades a model to a new target agent
+	// version. All agents that run on behalf of entities within the model will be
+	// eventually upgraded to the new version after this call successfully returns.
 	UpgradeModelTargetAgentVersionTo(
 		ctx context.Context,
 		desiredTargetVersion semversion.Number,
 	) error
+
+	// UpgradeModelTargetAgentVersionStreamTo upgrades a model to a new target agent
+	// version and updates the agent stream that is in use. All agents that run on
+	// behalf of entities within the model will be eventually upgraded to the new
+	// version after this call successfully returns.
 	UpgradeModelTargetAgentVersionStreamTo(
 		ctx context.Context,
 		desiredTargetVersion semversion.Number,
 		agentStream modelagent.AgentStream,
 	) error
+
+	// RunPreUpgradeChecks determines whether the model can be upgraded
+	// to the latest available patch version. It returns the recommended version
+	// to upgrade to.
 	RunPreUpgradeChecks(
 		ctx context.Context,
 	) (semversion.Number, error)
+
+	// RunPreUpgradeChecksToVersion determines whether the controller can be
+	// safely upgraded to the specified version. It performs validation checks
+	// to ensure that the target version is valid and that the upgrade
+	// can proceed.
+	// It returns the currently running version.
 	RunPreUpgradeChecksToVersion(
 		ctx context.Context,
 		desiredTargetVersion semversion.Number,
 	) (semversion.Number, error)
+
+	// RunPreUpgradeChecksWithStream determines whether the model can be
+	// upgraded to the latest available patch version within the specified agent
+	// stream. It returns the desired version that the model can upgrade to
+	// if all validation checks pass.
+	// It returns the recommended version to upgrade to.
 	RunPreUpgradeChecksWithStream(
 		ctx context.Context,
 		stream modelagent.AgentStream,
 	) (semversion.Number, error)
+
+	// RunPreUpgradeChecksToVersionWithStream determines whether the model
+	// can be safely upgraded to the specified version within the given
+	// agent stream.
+	// It returns the currently running version.
 	RunPreUpgradeChecksToVersionWithStream(
 		ctx context.Context,
 		desiredTargetVersion semversion.Number,
@@ -57,6 +102,7 @@ type ModelAgentService interface {
 	) (semversion.Number, error)
 }
 
+// ModelUpgraderAPI upgrades the model.
 type ModelUpgraderAPI struct {
 	authorizer facade.Authorizer
 	check      common.BlockCheckerInterface
@@ -67,6 +113,7 @@ type ModelUpgraderAPI struct {
 	modelTag      names.Tag
 }
 
+// NewModelUpgraderAPI instantiates a new [ModelUpgraderAPI].
 func NewModelUpgraderAPI(
 	controllerTag names.Tag,
 	modelTag names.Tag,
@@ -87,6 +134,8 @@ func NewModelUpgraderAPI(
 	}, nil
 }
 
+// canUpgrade has the responsibility to determine whether there is sufficient
+// permission to perform an upgrade.
 func (m *ModelUpgraderAPI) canUpgrade(
 	ctx context.Context,
 	model names.ModelTag,
@@ -119,6 +168,11 @@ func (m *ModelUpgraderAPI) canUpgrade(
 	return true, nil
 }
 
+// mapError takes in a supplied error from the upgrade service and maps the
+// corresponding error to:
+//   - a [params.Error] in which the call site has to assign to the [Error] field
+//     in [params.UpgradeModelResult] object, OR
+//   - a [error] return value
 func (m *ModelUpgraderAPI) mapError(
 	inErr error,
 	targetVersion semversion.Number,
@@ -167,6 +221,8 @@ func (m *ModelUpgraderAPI) mapError(
 	return paramsErr, outErr
 }
 
+// AbortModelUpgrade returns not supported, as it's not possible to move
+// back to a prior version.
 func (m *ModelUpgraderAPI) AbortModelUpgrade(
 	_ context.Context,
 	_ params.ModelParam,
@@ -175,6 +231,10 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(
 		Add(coreerrors.NotSupported)
 }
 
+// UpgradeModel upgrades the target agent version of the current model.
+// It first validates that the caller has sufficient permissions and that
+// the model is allowed to change. Depending on the provided parameters,
+// it either performs a dry-run validation or executes the actual upgrade.
 func (m *ModelUpgraderAPI) UpgradeModel(
 	ctx context.Context,
 	arg params.UpgradeModelParams,
@@ -204,6 +264,10 @@ func (m *ModelUpgraderAPI) UpgradeModel(
 	return m.runUpgrade(ctx, arg)
 }
 
+// dryRunUpgrade has the responsibility of delegating the validation to the
+// service before an upgrade is performed. We don't perform the real upgrade
+// here but rather validation checks to ensure we are in a good condition before
+// should a real upgrade occur.
 func (m *ModelUpgraderAPI) dryRunUpgrade(
 	ctx context.Context,
 	arg params.UpgradeModelParams,
@@ -275,6 +339,10 @@ func (m *ModelUpgraderAPI) dryRunUpgrade(
 	return result, errors.Capture(err)
 }
 
+// runUpgrade has the responsibility of delegating the upgrade to the service.
+// It determines which func to invoke by interrogating the values set in
+// [params.UpgradeModelParams]. A post-processing step is performed to map the
+// errors returned from the service to ones the existing API conforms to.
 func (m *ModelUpgraderAPI) runUpgrade(
 	ctx context.Context,
 	arg params.UpgradeModelParams,
