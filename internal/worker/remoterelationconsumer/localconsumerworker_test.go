@@ -1198,6 +1198,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDying(c 
 			ApplicationOrOfferToken: s.applicationUUID.String(),
 			Macaroons:               macaroon.Slice{s.macaroon},
 			BakeryVersion:           bakery.LatestVersion,
+			ForceCleanup:            ptr(true),
 		}).
 		Return(nil)
 
@@ -1291,6 +1292,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDis
 			ApplicationOrOfferToken: s.applicationUUID.String(),
 			Macaroons:               macaroon.Slice{s.macaroon},
 			BakeryVersion:           bakery.LatestVersion,
+			ForceCleanup:            ptr(true),
 		}).
 		Return(params.Error{
 			Code:    params.CodeDischargeRequired,
@@ -1424,8 +1426,9 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChange(c *tc.C) {
 
 	// Force the offerer relation worker to be created, so that we can
 	// test the relation dead logic.
-	err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
+	known, err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(known, tc.IsFalse)
 
 	select {
 	case <-s.offererRelationWorkerStarted:
@@ -1492,8 +1495,9 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeNonNilApplication
 
 	// Force the offerer relation worker to be created, so that we can
 	// test the relation dead logic.
-	err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
+	known, err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(known, tc.IsFalse)
 
 	select {
 	case <-s.offererRelationWorkerStarted:
@@ -1557,8 +1561,9 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeNilUnitSettings(c
 
 	// Force the offerer relation worker to be created, so that we can
 	// test the relation dead logic.
-	err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
+	known, err := w.ensureOffererRelationWorker(c.Context(), relationUUID, w.applicationUUID, s.macaroon)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(known, tc.IsFalse)
 
 	select {
 	case <-s.offererRelationWorkerStarted:
