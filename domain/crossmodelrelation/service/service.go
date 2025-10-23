@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/secret"
+	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
@@ -408,6 +410,125 @@ func (w *WatchableService) WatchRelationIngressNetworks(ctx context.Context, rel
 		ctx,
 		"relation ingress networks watcher",
 		eventsource.PredicateFilter(table, changestream.All, eventsource.EqualsPredicate(relationUUID.String())),
+	)
+}
+
+// WatchRelationEgressNetworks watches for changes to the egress networks
+// for the specified relation UUID. It watches changes on the relation-specific
+// egress networks, model config (egress-subnets), and unit addresses.
+//
+// The priority order for egress CIDRs is:
+// 1. Relation-specific egress CIDRs (from relation_network_egress table)
+// 2. Model config egress-subnets
+// 3. Unit addresses (converted to CIDRs)
+//
+// Note: CIDRs are only returned if there are units in the relation.
+func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Get the namespaces we need to watch
+	modelConfigNamespace := "model_config"
+	ipAddressNamespace := "ip_address"
+	relationEgressNamespace := w.modelState.NamespaceForRelationEgressNetworksWatcher()
+
+	// Get the initial query - this now returns actual CIDRs directly
+	initialQuery := w.modelState.InitialWatchStatementForRelationEgressNetworks(relationUUID.String())
+
+	// Helper function to get the current egress CIDRs for the relation.
+	// This implements the priority logic from 3.6:
+	// relation egress > model egress > unit addresses
+	// Only returns CIDRs if there are units in the relation.
+	getEgressCIDRs := func(ctx context.Context) ([]string, error) {
+		// Get unit addresses for this relation to check if there are any units
+		unitAddresses, err := w.modelState.GetUnitAddressesForRelation(ctx, relationUUID.String())
+		if err != nil {
+			w.logger.Errorf(ctx, "getting unit addresses for relation %q: %v", relationUUID, err)
+			return nil, err
+		}
+
+		// If there are no units in the relation, return empty regardless of configured CIDRs
+		if len(unitAddresses) == 0 {
+			return []string{}, nil
+		}
+
+		// First, check for relation-specific egress CIDRs
+		relationCIDRs, err := w.modelState.GetRelationNetworkEgress(ctx, relationUUID.String())
+		if err != nil {
+			w.logger.Errorf(ctx, "getting relation egress networks for relation %q: %v", relationUUID, err)
+			return nil, err
+		}
+
+		if len(relationCIDRs) > 0 {
+			return relationCIDRs, nil
+		}
+
+		// Second, check model config for egress-subnets
+		modelCIDRs, err := w.modelState.GetModelEgressSubnets(ctx)
+		if err != nil {
+			w.logger.Errorf(ctx, "getting model egress subnets: %v", err)
+			return nil, err
+		}
+
+		if len(modelCIDRs) > 0 {
+			return modelCIDRs, nil
+		}
+
+		// Third, use unit addresses and convert them to CIDRs
+		return network.SubnetsForAddresses(unitAddresses), nil
+	}
+
+	// Create a mapper that processes changestream events and returns the actual CIDRs
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+		if len(changes) == 0 {
+			return nil, nil
+		}
+
+		// Check if any relevant changes occurred
+		hasRelevantChange := false
+
+		for _, change := range changes {
+			switch change.Namespace() {
+			case modelConfigNamespace:
+				// Filter for egress-subnets config key changes
+				if change.Changed() == environsconfig.EgressSubnets {
+					hasRelevantChange = true
+				}
+
+			case ipAddressNamespace:
+				// Accept all ip_address changes as they might belong to units in this relation.
+				// The getEgressCIDRs function will query and filter appropriately.
+				hasRelevantChange = true
+
+			case relationEgressNamespace:
+				// Filter for changes to our specific relation only.
+				// The change.Changed() returns the relation_uuid from the change event.
+				if change.Changed() == relationUUID.String() {
+					hasRelevantChange = true
+				}
+			}
+		}
+
+		if hasRelevantChange {
+			// Return the actual egress CIDRs
+			return getEgressCIDRs(ctx)
+		}
+
+		return nil, nil
+	}
+
+	return w.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
+		initialQuery,
+		fmt.Sprintf("relation egress networks watcher for relation %q", relationUUID),
+		mapper,
+		eventsource.NamespaceFilter(modelConfigNamespace, changestream.All),
+		eventsource.NamespaceFilter(ipAddressNamespace, changestream.All),
+		eventsource.NamespaceFilter(relationEgressNamespace, changestream.All),
 	)
 }
 

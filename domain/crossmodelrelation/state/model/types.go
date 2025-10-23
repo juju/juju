@@ -395,3 +395,20 @@ type cidr struct {
 type queryLife struct {
 	Value corelife.Value `db:"value"`
 }
+
+type relationNetworkEgress struct {
+	RelationUUID string `db:"relation_uuid"`
+	CIDR         string `db:"cidr"`
+}
+
+type netNodeUUID struct {
+	NetNodeUUID string `db:"net_node_uuid"`
+}
+
+type ipAddress struct {
+	AddressValue string `db:"address_value"`
+}
+
+type modelConfigValue struct {
+	Value string `db:"value"`
+}
