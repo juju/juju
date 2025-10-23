@@ -10,6 +10,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/watcher/eventsource"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/network"
@@ -26,9 +27,32 @@ type ModelRelationNetworkState interface {
 	// specified relation.
 	GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error)
 
+	// GetRelationNetworkEgress retrieves all egress network CIDRs for the
+	// specified relation.
+	GetRelationNetworkEgress(ctx context.Context, relationUUID string) ([]string, error)
+
 	// NamespaceForRelationIngressNetworksWatcher returns the namespace of the
 	// relation_network_ingress table, used for the watcher.
 	NamespaceForRelationIngressNetworksWatcher() string
+
+	// NamespaceForRelationEgressNetworksWatcher returns the namespace of the
+	// relation_network_egress table, used for the watcher.
+	NamespaceForRelationEgressNetworksWatcher() string
+
+	// InitialWatchStatementForRelationEgressNetworks returns the initial query
+	// for watching relation egress networks.
+	InitialWatchStatementForRelationEgressNetworks(relationUUID string) eventsource.NamespaceQuery
+
+	// GetNetNodeUUIDsForRelation returns all net_node_uuids for units that are
+	// part of the specified relation.
+	GetNetNodeUUIDsForRelation(ctx context.Context, relationUUID string) ([]string, error)
+
+	// GetUnitAddressesForRelation returns all unit addresses for units that are
+	// part of the specified relation. Only public addresses are returned.
+	GetUnitAddressesForRelation(ctx context.Context, relationUUID string) ([]string, error)
+
+	// GetModelEgressSubnets returns the egress-subnets configuration from model config.
+	GetModelEgressSubnets(ctx context.Context) ([]string, error)
 }
 
 // AddRelationNetworkIngress adds ingress network CIDRs for the specified
