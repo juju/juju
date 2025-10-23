@@ -444,7 +444,7 @@ type RelationService interface {
 	// <application>[:<endpoint>]. The identifiers will be used to infer two
 	// endpoint between applications on the model. A new relation will be
 	// created between these endpoints and the details of the endpoint returned.
-	AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error)
+	AddRelation(ctx context.Context, ep1, ep2 string, cidrs ...string) (relation.Endpoint, relation.Endpoint, error)
 
 	// ApplicationRelationsInfo returns all EndpointRelationData for an
 	// application.

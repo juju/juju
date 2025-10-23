@@ -1345,17 +1345,11 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 		return params.AddRelationResults{}, internalerrors.Capture(err)
 	}
 
-	if len(args.ViaCIDRs) > 0 {
-		// Integration via subnets is only for cross model relations.
-		return params.AddRelationResults{}, internalerrors.Errorf("cross model relations are disabled until "+
-			"backend functionality is moved to domain: %w", errors.NotImplemented)
-	}
-
 	if len(args.Endpoints) != 2 {
 		return params.AddRelationResults{}, errors.BadRequestf("a relation should have exactly two endpoints")
 	}
 	ep1, ep2, err := api.relationService.AddRelation(
-		ctx, args.Endpoints[0], args.Endpoints[1],
+		ctx, args.Endpoints[0], args.Endpoints[1], args.ViaCIDRs...,
 	)
 	if err != nil {
 		return params.AddRelationResults{}, internalerrors.Errorf(
@@ -1363,6 +1357,7 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 			args.Endpoints[0], args.Endpoints[1], err,
 		)
 	}
+
 	return params.AddRelationResults{Endpoints: map[string]params.CharmRelation{
 		ep1.ApplicationName: encodeRelation(ep1.Relation),
 		ep2.ApplicationName: encodeRelation(ep2.Relation),

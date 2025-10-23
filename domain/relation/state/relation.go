@@ -72,7 +72,7 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 //     relation already exists.
 //   - [relationerrors.RelationEndpointNotFound] is returned if no endpoint can be
 //     inferred from one of the identifier.
-func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 domainrelation.CandidateEndpointIdentifier) (
+func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 domainrelation.CandidateEndpointIdentifier, cidrs ...string) (
 	domainrelation.Endpoint,
 	domainrelation.Endpoint,
 	error) {
@@ -100,6 +100,20 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 d
 		relUUID, err := st.addRelation(ctx, tx, ep1, ep2, id)
 		if err != nil {
 			return errors.Errorf("cannot add relation %q, %q: %w", epIdentifier1, epIdentifier2, err)
+		}
+
+		if len(cidrs) > 0 {
+			// We only allow adding network egress for CMRs.
+			isCMR, err := st.relationContainsRemoteApplication(ctx, tx, relUUID.String())
+			if err != nil {
+				return errors.Errorf("checking if relation %q is CMR: %w", relUUID, err)
+			}
+			if !isCMR {
+				return errors.Errorf("integration via subnets for non cross model relations").Add(coreerrors.NotSupported)
+			}
+			if err := st.insertRelationNetworkEgress(ctx, tx, relUUID.String(), cidrs...); err != nil {
+				return errors.Errorf("inserting network egress for relation %q: %w", relUUID, err)
+			}
 		}
 
 		// Get endpoints from UUID.
@@ -3637,6 +3651,59 @@ func (st *State) setRelationApplicationSettings(
 		return errors.Errorf("updating relation application settings hash: %w", err)
 	}
 
+	return nil
+}
+
+func (st *State) relationContainsRemoteApplication(ctx context.Context, tx *sqlair.TX, relationUUID string) (bool, error) {
+	ident := entityUUID{UUID: relationUUID}
+
+	stmt, err := st.Prepare(`
+SELECT COUNT(cs.name) AS &rows.count
+FROM   charm_source AS cs
+JOIN   charm AS c ON cs.id = c.source_id
+JOIN   application AS a ON c.uuid = a.charm_uuid
+JOIN   application_endpoint AS ae ON a.uuid = ae.application_uuid
+JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
+WHERE  re.relation_uuid = $entityUUID.uuid
+AND    cs.name = 'cmr'
+	`, rows{}, ident)
+	if err != nil {
+		return false, errors.Errorf("preparing relation exists query: %w", err)
+	}
+	if err != nil {
+		return false, errors.Errorf("preparing statement: %w", err)
+	}
+
+	var result rows
+	err = tx.Query(ctx, stmt, ident).Get(&result)
+	if err != nil {
+		return false, errors.Errorf("checking remote applications: %w", err)
+	}
+
+	return result.Count > 0, nil
+}
+
+func (st *State) insertRelationNetworkEgress(ctx context.Context, tx *sqlair.TX, relUUID string, cidrs ...string) error {
+	insertStmt, err := st.Prepare(`
+INSERT INTO relation_network_egress (relation_uuid, cidr)
+VALUES ($relationNetworkEgress.*)
+ON CONFLICT (relation_uuid, cidr) DO NOTHING
+`, relationNetworkEgress{})
+	if err != nil {
+		return errors.Errorf("preparing insert statement: %w", err)
+	}
+
+	var egress []relationNetworkEgress
+	for _, cidr := range cidrs {
+		egress = append(egress, relationNetworkEgress{
+			RelationUUID: relUUID,
+			CIDR:         cidr,
+		})
+	}
+
+	if err := tx.Query(ctx, insertStmt, egress).Run(); err != nil {
+		return errors.Errorf("inserting CIDRs %v for relation %q: %w", cidrs, relUUID, err)
+	}
 	return nil
 }
 
