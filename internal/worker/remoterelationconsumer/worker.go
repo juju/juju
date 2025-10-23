@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -157,9 +158,9 @@ type CrossModelRelationService interface {
 	// application consumers in the local model.
 	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
 
-	// ConsumeRemoteSecretChanges applies secret changes received
-	// from a remote model to the local model.
-	ConsumeRemoteSecretChanges(context.Context) error
+	// UpdateRemoteSecretRevision records the specified revision for the secret
+	// which has been consumed from a different model.
+	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
 
 	// SaveMacaroonForRelation saves the given macaroon for the specified remote
 	// application.
@@ -181,7 +182,7 @@ type StatusService interface {
 // RemovalService is an interface that defines the methods for
 // removing relations directly on the local model database.
 type RemovalService interface {
-	// RemoveRelation sets the relation with the given relation UUID
+	// RemoveRemoteRelation sets the relation with the given relation UUID
 	// from the local model to dying.
 	RemoveRemoteRelation(
 		ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration,
