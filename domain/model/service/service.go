@@ -146,6 +146,11 @@ type State interface {
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
 
+	// DefaultCloudCredentialNameForOwner returns the owner's default cloud credential name for a given
+	// cloud. If user has multiple (or no) credentials for the specified cloud a NotFound error is returned as
+	// we cannot determine the default credential.
+	DefaultCloudCredentialNameForOwner(ctx context.Context, owner coreuser.Name, cloudName string) (string, error)
+
 	// GetActivatedModelUUIDs returns the subset of model UUIDS from the
 	// supplied list that are activated. If no model uuids are activated then an
 	// empty slice is returned.
@@ -573,6 +578,25 @@ func (s *Service) UpdateCredential(
 	}
 
 	return s.st.UpdateCredential(ctx, uuid, key)
+}
+
+// DefaultCloudCredentialKeyForOwner returns the owner's valid (and non-revoked) credential key for a given cloud
+// if only one credential exists. If owner has multiple valid cloud credentials a NotFound error is returned as
+// we cannot determine the default credential.
+func (s *Service) DefaultCloudCredentialKeyForOwner(ctx context.Context, owner coreuser.Name, cloudName string) (credential.Key, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	name, err := s.st.DefaultCloudCredentialNameForOwner(ctx, owner, cloudName)
+	if err != nil {
+		return credential.Key{}, errors.Capture(err)
+	}
+
+	return credential.Key{
+		Cloud: cloudName,
+		Owner: owner,
+		Name:  name,
+	}, nil
 }
 
 // GetModelLife returns the life associated with the provided uuid.

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/version"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -38,6 +39,7 @@ type dummyState struct {
 	users               map[user.UUID]user.Name
 	secretBackends      []string
 	controllerModelUUID coremodel.UUID
+	credentialName      string
 }
 
 func (d *dummyState) CheckModelExists(ctx context.Context, uuid coremodel.UUID) (bool, error) {
@@ -305,6 +307,13 @@ func (d *dummyState) UpdateCredential(
 	}
 
 	return nil
+}
+
+func (d *dummyState) DefaultCloudCredentialNameForOwner(ctx context.Context, owner user.Name, cloudName string) (string, error) {
+	if d.credentialName != "" {
+		return "", credentialerrors.NotFound
+	}
+	return d.credentialName, nil
 }
 
 func (d *dummyState) GetModelUsers(_ context.Context, _ coremodel.UUID) ([]coremodel.ModelUserInfo, error) {

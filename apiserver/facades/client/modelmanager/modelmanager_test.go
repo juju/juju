@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/user"
+	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
@@ -181,7 +181,7 @@ func (s *modelManagerSuite) expectCreateModel(
 
 	defaultCred := credential.Key{
 		Cloud: "dummy",
-		Owner: user.AdminUserName,
+		Owner: coreuser.AdminUserName,
 		Name:  "some-credential",
 	}
 
@@ -197,7 +197,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	s.modelService.EXPECT().CreateModel(gomock.Any(), domainmodel.GlobalModelCreationArgs{
 		Name:        modelCreateArgs.Name,
 		Qualifier:   "admin",
-		AdminUsers:  []user.UUID{adminUUID},
+		AdminUsers:  []coreuser.UUID{adminUUID},
 		Cloud:       expectedCloudName,
 		CloudRegion: expectedCloudRegion,
 		Credential:  expectedCloudCredential,
@@ -312,7 +312,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 
 	cloudCredental := credential.Key{
 		Cloud: "dummy",
-		Owner: user.AdminUserName,
+		Owner: coreuser.AdminUserName,
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
@@ -342,8 +342,9 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
 		Qualifier: "admin",
 	}
 
-	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
+	s.expectCreateModel(c, ctrl, args, credential.Key{Cloud: "dummy", Owner: coreuser.AdminUserName, Name: "some-credential"}, "dummy", "dummy-region")
 	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
+	s.modelService.EXPECT().DefaultCloudCredentialKeyForOwner(gomock.Any(), usertesting.GenNewName(c, "admin"), "dummy").Return(credential.Key{Name: "some-credential", Cloud: "dummy", Owner: usertesting.GenNewName(c, "admin")}, nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -358,8 +359,9 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
 		Qualifier: "admin",
 	}
 
-	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
+	s.expectCreateModel(c, ctrl, args, credential.Key{Cloud: "dummy", Owner: coreuser.AdminUserName, Name: "some-credential"}, "dummy", "dummy-region")
 	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
+	s.modelService.EXPECT().DefaultCloudCredentialKeyForOwner(gomock.Any(), usertesting.GenNewName(c, "admin"), "dummy").Return(credential.Key{Name: "some-credential", Cloud: "dummy", Owner: usertesting.GenNewName(c, "admin")}, nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -371,7 +373,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 
 	cloudCredental := credential.Key{
 		Cloud: "dummy",
-		Owner: user.AdminUserName,
+		Owner: coreuser.AdminUserName,
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
@@ -399,7 +401,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C
 
 	cloudCredental := credential.Key{
 		Cloud: "dummy",
-		Owner: user.AdminUserName,
+		Owner: coreuser.AdminUserName,
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
@@ -629,7 +631,7 @@ func (s *modelManagerSuite) TestUpdatedModel(c *tc.C) {
 			Access: permission.WriteAccess,
 		},
 		Change:  permission.Grant,
-		Subject: user.NameFromTag(testUser),
+		Subject: coreuser.NameFromTag(testUser),
 	}
 	as.UpdatePermission(gomock.Any(), updateArgs).Return(nil)
 
@@ -771,7 +773,7 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 	modelUUIDNotExist := modeltesting.GenModelUUID(c)
 
 	now := time.Now()
-	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
+	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), coreuser.NameFromTag(userTag)).Return(userUUID, nil)
 	s.modelService.EXPECT().ListAllModels(gomock.Any()).Return([]coremodel.Model{
 		{UUID: modelUUID, Qualifier: "prod"},
 		{UUID: modelUUIDNeverAccessed, Qualifier: "prod"},
@@ -779,11 +781,11 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 	}, nil)
 
 	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), user.NameFromTag(userTag), modelUUID).Return(now, nil)
+		gomock.Any(), coreuser.NameFromTag(userTag), modelUUID).Return(now, nil)
 	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), user.NameFromTag(userTag), modelUUIDNeverAccessed).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
+		gomock.Any(), coreuser.NameFromTag(userTag), modelUUIDNeverAccessed).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
 	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), user.NameFromTag(userTag), modelUUIDNotExist).Return(time.Time{}, modelerrors.NotFound)
+		gomock.Any(), coreuser.NameFromTag(userTag), modelUUIDNotExist).Return(time.Time{}, modelerrors.NotFound)
 
 	results, err := s.api.ListModels(
 		c.Context(),
@@ -820,7 +822,7 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 	modelUUIDNotExist := modeltesting.GenModelUUID(c)
 
 	now := time.Now()
-	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
+	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), coreuser.NameFromTag(userTag)).Return(userUUID, nil)
 	s.modelService.EXPECT().ListModelsForUser(gomock.Any(), userUUID).Return([]coremodel.Model{
 		{UUID: modelUUID, Qualifier: "prod"},
 		{UUID: modelUUIDNeverAccessed, Qualifier: "prod"},
@@ -828,11 +830,11 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 	}, nil)
 
 	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), user.NameFromTag(userTag), modelUUID).Return(now, nil)
+		gomock.Any(), coreuser.NameFromTag(userTag), modelUUID).Return(now, nil)
 	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), user.NameFromTag(userTag), modelUUIDNeverAccessed).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
+		gomock.Any(), coreuser.NameFromTag(userTag), modelUUIDNeverAccessed).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
 	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), user.NameFromTag(userTag), modelUUIDNotExist).Return(time.Time{}, modelerrors.NotFound)
+		gomock.Any(), coreuser.NameFromTag(userTag), modelUUIDNotExist).Return(time.Time{}, modelerrors.NotFound)
 
 	results, err := s.api.ListModels(
 		c.Context(),

@@ -1375,6 +1375,45 @@ func (c *MockStateCreateCall) DoAndReturn(f func(context.Context, model.UUID, mo
 	return c
 }
 
+// DefaultCloudCredentialNameForOwner mocks base method.
+func (m *MockState) DefaultCloudCredentialNameForOwner(arg0 context.Context, arg1 user.Name, arg2 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DefaultCloudCredentialNameForOwner", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DefaultCloudCredentialNameForOwner indicates an expected call of DefaultCloudCredentialNameForOwner.
+func (mr *MockStateMockRecorder) DefaultCloudCredentialNameForOwner(arg0, arg1, arg2 any) *MockStateDefaultCloudCredentialNameForOwnerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultCloudCredentialNameForOwner", reflect.TypeOf((*MockState)(nil).DefaultCloudCredentialNameForOwner), arg0, arg1, arg2)
+	return &MockStateDefaultCloudCredentialNameForOwnerCall{Call: call}
+}
+
+// MockStateDefaultCloudCredentialNameForOwnerCall wrap *gomock.Call
+type MockStateDefaultCloudCredentialNameForOwnerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDefaultCloudCredentialNameForOwnerCall) Return(arg0 string, arg1 error) *MockStateDefaultCloudCredentialNameForOwnerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDefaultCloudCredentialNameForOwnerCall) Do(f func(context.Context, user.Name, string) (string, error)) *MockStateDefaultCloudCredentialNameForOwnerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDefaultCloudCredentialNameForOwnerCall) DoAndReturn(f func(context.Context, user.Name, string) (string, error)) *MockStateDefaultCloudCredentialNameForOwnerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Delete mocks base method.
 func (m *MockState) Delete(arg0 context.Context, arg1 model.UUID) error {
 	m.ctrl.T.Helper()

@@ -347,3 +347,8 @@ type dbModelCredentialInvalidStatus struct {
 type modelUUID struct {
 	UUID coremodel.UUID `db:"uuid"`
 }
+
+type ownerAndCloudName struct {
+	OwnerName string `db:"owner_name"`
+	CloudName string `db:"cloud_name"`
+}

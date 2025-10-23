@@ -29,6 +29,7 @@ import (
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/keymanager"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
@@ -2050,4 +2051,78 @@ func (s *stateSuite) TestHasValidCredentialFalse(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hasValidCredential, tc.IsFalse)
 
+}
+
+func (s *stateSuite) TestDefaultCloudCredentialLabelForOwner(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	user := usertesting.GenNewName(c, "alice")
+	userUUID := usertesting.GenUserUUID(c)
+	err := accessState.AddUser(
+		c.Context(),
+		userUUID,
+		user,
+		user.Name(),
+		false,
+		userUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+
+	credSt := credentialstate.NewState(s.TxnRunnerFactory())
+
+	_, err = st.DefaultCloudCredentialNameForOwner(c.Context(), user, "my-cloud")
+	c.Assert(err, tc.ErrorIs, credentialerrors.NotFound)
+
+	cred := credential.CloudCredentialInfo{
+		Label:    "foobar",
+		AuthType: string(cloud.AccessKeyAuthType),
+		Attributes: map[string]string{
+			"foo": "foo val",
+			"bar": "bar val",
+		},
+	}
+	err = credSt.UpsertCloudCredential(
+		c.Context(), corecredential.Key{
+			Cloud: "my-cloud",
+			Owner: user,
+			Name:  "credential1",
+		},
+		cred,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	name, err := st.DefaultCloudCredentialNameForOwner(c.Context(), user, "my-cloud")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(name, tc.Equals, "credential1")
+
+	err = credSt.UpsertCloudCredential(
+		c.Context(), corecredential.Key{
+			Cloud: "my-cloud",
+			Owner: user,
+			Name:  "credential2",
+		},
+		cred,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.DefaultCloudCredentialNameForOwner(c.Context(), user, "my-cloud")
+	c.Assert(err, tc.ErrorIs, credentialerrors.NotFound)
+
+	cred1UUID, err := credSt.CredentialUUIDForKey(
+		c.Context(),
+		corecredential.Key{
+			Cloud: "my-cloud",
+			Owner: user,
+			Name:  "credential1",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	err = credSt.InvalidateCloudCredential(c.Context(), cred1UUID, "test reason")
+	c.Assert(err, tc.ErrorIsNil)
+
+	name, err = st.DefaultCloudCredentialNameForOwner(c.Context(), user, "my-cloud")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(name, tc.Equals, "credential2")
 }
