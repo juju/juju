@@ -2888,21 +2888,17 @@ func (st *State) checkCompatibleBases(ctx context.Context, tx *sqlair.TX, ep1 En
 // checkApplicationExists checks if the application with the specified UUID
 // exists in the given table using a transaction and context.
 func (st *State) checkApplicationExists(ctx context.Context, tx *sqlair.TX, uuid string) (bool, error) {
-	type search struct {
-		UUID string `db:"uuid"`
-	}
-
-	searched := search{UUID: uuid}
+	appUUID := entityUUID{UUID: uuid}
 	checkStmt, err := st.Prepare(`
-SELECT &search.*
+SELECT &entityUUID.*
 FROM   application 
-WHERE  uuid = $search.uuid
-`, searched)
+WHERE  uuid = $entityUUID.uuid
+`, appUUID)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkStmt, searched).Get(&searched)
+	err = tx.Query(ctx, checkStmt, appUUID).Get(&appUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, nil
 	} else if err != nil {
@@ -2918,22 +2914,18 @@ func (st *State) checkRelationExistsByUUID(
 	tx *sqlair.TX,
 	uuid string,
 ) (bool, error) {
-	type search struct {
-		UUID string `db:"uuid"`
-	}
-
-	searched := search{UUID: uuid}
+	relationUUID := entityUUID{UUID: uuid}
 	query := `
-SELECT &search.* 
+SELECT &entityUUID.* 
 FROM   relation 
-WHERE  uuid = $search.uuid
+WHERE  uuid = $entityUUID.uuid
 `
-	checkStmt, err := st.Prepare(query, searched)
+	checkStmt, err := st.Prepare(query, relationUUID)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkStmt, searched).Get(&searched)
+	err = tx.Query(ctx, checkStmt, relationUUID).Get(&relationUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, nil
 	} else if err != nil {
@@ -2949,22 +2941,18 @@ func (st *State) checkRelationUnitExistsByUUID(
 	tx *sqlair.TX,
 	uuid string,
 ) (bool, error) {
-	type search struct {
-		UUID string `db:"uuid"`
-	}
-
-	searched := search{UUID: uuid}
+	relationUnitUUID := entityUUID{UUID: uuid}
 	query := `
-SELECT &search.* 
+SELECT &entityUUID.* 
 FROM   relation_unit
-WHERE  uuid = $search.uuid
+WHERE  uuid = $entityUUID.uuid
 `
-	checkStmt, err := st.Prepare(query, searched)
+	checkStmt, err := st.Prepare(query, relationUnitUUID)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkStmt, searched).Get(&searched)
+	err = tx.Query(ctx, checkStmt, relationUnitUUID).Get(&relationUnitUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, nil
 	} else if err != nil {

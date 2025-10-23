@@ -271,7 +271,6 @@ SELECT
     rs.relation_uuid,
     rst.name AS status,
     rs.message,
-    rs.updated_at,
-    (rst.id = 4) AS suspended
+    rs.updated_at
 FROM relation_status AS rs
 JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id;
