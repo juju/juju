@@ -9,7 +9,6 @@ import (
 	"net"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -1027,20 +1026,14 @@ func (s *Service) GetConsumerRelationUnitsChange(
 func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUIDStr string) (corerelation.Key, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	h := loggo.GetLogger("hml")
 
-	relationUUID, err := corerelation.ParseUUID(relationUUIDStr)
+	_, err := corerelation.ParseUUID(relationUUIDStr)
 	if err != nil {
-		h.Criticalf("Getting relation key by uuid str %q, parsing error: %w", relationUUIDStr, err)
 		return corerelation.Key{}, errors.Capture(err)
 	}
 
-	h.Criticalf("Getting relation key by uuid string %q", relationUUIDStr)
-	h.Criticalf("Getting relation key by uuid %q", relationUUID)
-
 	relationEndpoints, err := s.st.GetRelationEndpoints(ctx, relationUUIDStr)
 	if err != nil {
-		h.Criticalf("Getting relation key by uuid str %q, GetRelationDetails error: %w", relationUUIDStr, err)
 		return corerelation.Key{}, errors.Capture(err)
 	}
 
@@ -1050,11 +1043,9 @@ func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUIDStr stri
 
 	key, err := corerelation.NewKey(identifiers)
 	if err != nil {
-		h.Criticalf("Getting relation key by uuid str %+v, new key error: %w", identifiers, err)
 		return corerelation.Key{}, errors.Errorf("generating relation key: %w", err)
 	}
 
-	h.Criticalf("Getting relation key by uuid str %q: %q", relationEndpoints, key)
 	return key, nil
 }
 
