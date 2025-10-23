@@ -19,8 +19,7 @@ func Register(registry facade.FacadeRegistry) {
 		return makeStateCrossModelSecretsAPIV1(stdCtx, ctx)
 	}, reflect.TypeOf((*CrossModelSecretsAPIV1)(nil)))
 	registry.MustRegisterForMultiModel("CrossModelSecrets", 2, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-		api, err := makeStateCrossModelSecretsAPI(stdCtx, ctx)
-		return api, fmt.Errorf("creating CrossModelSecrets facade: %w", err)
+		return makeStateCrossModelSecretsAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*CrossModelSecretsAPI)(nil)))
 }
 

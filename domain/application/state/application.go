@@ -2552,7 +2552,7 @@ WHERE  a.uuid = $applicationUUIDAndName.uuid AND c.source_id < 2;
 
 	err = tx.Query(ctx, stmt, arg).Get(&arg)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", applicationerrors.ApplicationNotFound
+		return "", errors.Errorf("application %q not found", id).Add(applicationerrors.ApplicationNotFound)
 	} else if err != nil {
 		return "", errors.Capture(err)
 	}
