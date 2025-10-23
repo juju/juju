@@ -20,7 +20,6 @@ import (
 	user "github.com/juju/juju/core/user"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
-	internal "github.com/juju/juju/domain/crossmodelrelation/internal"
 	secret "github.com/juju/juju/domain/secret"
 	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
@@ -343,7 +342,7 @@ func (c *MockModelStateAddRemoteApplicationOffererCall) DoAndReturn(f func(conte
 }
 
 // CreateOffer mocks base method.
-func (m *MockModelState) CreateOffer(arg0 context.Context, arg1 internal.CreateOfferArgs) error {
+func (m *MockModelState) CreateOffer(arg0 context.Context, arg1 crossmodelrelation.CreateOfferArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateOffer", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -369,13 +368,13 @@ func (c *MockModelStateCreateOfferCall) Return(arg0 error) *MockModelStateCreate
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateCreateOfferCall) Do(f func(context.Context, internal.CreateOfferArgs) error) *MockModelStateCreateOfferCall {
+func (c *MockModelStateCreateOfferCall) Do(f func(context.Context, crossmodelrelation.CreateOfferArgs) error) *MockModelStateCreateOfferCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateCreateOfferCall) DoAndReturn(f func(context.Context, internal.CreateOfferArgs) error) *MockModelStateCreateOfferCall {
+func (c *MockModelStateCreateOfferCall) DoAndReturn(f func(context.Context, crossmodelrelation.CreateOfferArgs) error) *MockModelStateCreateOfferCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -619,7 +618,7 @@ func (c *MockModelStateGetMacaroonForRelationCall) DoAndReturn(f func(context.Co
 }
 
 // GetOfferDetails mocks base method.
-func (m *MockModelState) GetOfferDetails(arg0 context.Context, arg1 internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
+func (m *MockModelState) GetOfferDetails(arg0 context.Context, arg1 crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOfferDetails", arg0, arg1)
 	ret0, _ := ret[0].([]*crossmodelrelation.OfferDetail)
@@ -646,13 +645,13 @@ func (c *MockModelStateGetOfferDetailsCall) Return(arg0 []*crossmodelrelation.Of
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetOfferDetailsCall) Do(f func(context.Context, internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockModelStateGetOfferDetailsCall {
+func (c *MockModelStateGetOfferDetailsCall) Do(f func(context.Context, crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockModelStateGetOfferDetailsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetOfferDetailsCall) DoAndReturn(f func(context.Context, internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockModelStateGetOfferDetailsCall {
+func (c *MockModelStateGetOfferDetailsCall) DoAndReturn(f func(context.Context, crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockModelStateGetOfferDetailsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

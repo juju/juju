@@ -14,7 +14,6 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
-	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/charm"
 )
@@ -51,7 +50,7 @@ func (s *modelOfferSuite) TestCreateOffer(c *tc.C) {
 	endpointUUID := s.addApplicationEndpoint(c, appUUID, relationUUID)
 	endpointUUID2 := s.addApplicationEndpoint(c, appUUID, relationUUID2)
 
-	args := internal.CreateOfferArgs{
+	args := crossmodelrelation.CreateOfferArgs{
 		UUID:            tc.Must(c, offer.NewUUID),
 		ApplicationName: appName,
 		Endpoints:       []string{relation.Name, relation2.Name},
@@ -99,7 +98,7 @@ func (s *modelOfferSuite) TestCreateOfferEndpointFail(c *tc.C) {
 	appUUID := s.addApplication(c, charmUUID, appName)
 	s.addApplicationEndpoint(c, appUUID, relationUUID)
 
-	args := internal.CreateOfferArgs{
+	args := crossmodelrelation.CreateOfferArgs{
 		UUID:            tc.Must(c, offer.NewUUID),
 		ApplicationName: appName,
 		Endpoints:       []string{"fail-me"},
@@ -238,7 +237,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterMultiplePartialResult(c *tc.C
 	expected := s.setupForGetOfferDetails(c)
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{
 		OfferName: expected[0].OfferName,
 		// A charm with this metadata description does not exist,
 		// expect only 1 result.
@@ -257,7 +256,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsNoFilter(c *tc.C) {
 	expected := s.setupForGetOfferDetails(c)
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{})
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{})
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -293,7 +292,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterNoResult(c *tc.C) {
 	s.addApplicationEndpoint(c, appUUID, relationUUID2)
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{})
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{})
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -305,7 +304,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterOfferName(c *tc.C) {
 	expected := s.setupForGetOfferDetails(c)
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{
 		OfferName: expected[0].OfferName,
 	})
 
@@ -319,7 +318,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterOfferUUID(c *tc.C) {
 	expected := s.setupForGetOfferDetails(c)
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{
 		OfferUUIDs: []string{expected[0].OfferUUID},
 	})
 
@@ -333,7 +332,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterPartialApplicationName(c *tc.
 	expected := s.setupForGetOfferDetails(c)
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{
 		ApplicationName: "test",
 	})
 
@@ -347,7 +346,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterPartialApplicationDescription
 	expected := s.setupForGetOfferDetails(c)
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{
 		ApplicationDescription: "app",
 	})
 
@@ -361,7 +360,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterEndpointName(c *tc.C) {
 	expected := s.setupForGetOfferDetails(c)
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{
 		Endpoints: []crossmodelrelation.EndpointFilterTerm{
 			{Name: "db-admin"},
 		},
@@ -377,7 +376,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterEndpointRole(c *tc.C) {
 	expected := s.setupForGetOfferDetails(c)
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{
 		Endpoints: []crossmodelrelation.EndpointFilterTerm{
 			{Role: domaincharm.RoleProvider},
 		},
@@ -394,7 +393,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterEndpointInterface(c *tc.C) {
 	s.setupOfferWithInterface(c, "testing")
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{
 		Endpoints: []crossmodelrelation.EndpointFilterTerm{
 			{Interface: "db"},
 		},
@@ -413,7 +412,7 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterMultiEndpoint(c *tc.C) {
 	c.Check(expected, tc.HasLen, 2)
 
 	// Act
-	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+	results, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{
 		Endpoints: []crossmodelrelation.EndpointFilterTerm{
 			{Interface: "db"},
 		},

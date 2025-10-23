@@ -15,7 +15,7 @@ import (
 
 // ControllerDBState describes retrieval and persistence methods for entity
 // removal in the controller database.
-type ControllerDBState interface {
+type ControllerState interface {
 	// ModelExists returns true if a model exists with the input model
 	// UUID.
 	ModelExists(ctx context.Context, modelUUID string) (bool, error)

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
-	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -50,7 +49,7 @@ func (s *offerServiceSuite) TestOfferCreate(c *tc.C) {
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       ownerName,
 	}
-	createOfferArgs := internal.MakeCreateOfferArgs(args, "")
+	createOfferArgs := crossmodelrelation.MakeCreateOfferArgs(args, "")
 	m := createOfferArgsMatcher{c: c, expected: createOfferArgs}
 	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(nil)
 
@@ -88,7 +87,7 @@ func (s *offerServiceSuite) TestOfferCreateAccessErr(c *tc.C) {
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       ownerName,
 	}
-	createOfferArgs := internal.MakeCreateOfferArgs(args, "")
+	createOfferArgs := crossmodelrelation.MakeCreateOfferArgs(args, "")
 	m := createOfferArgsMatcher{c: c, expected: createOfferArgs}
 	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(nil)
 
@@ -129,7 +128,7 @@ func (s *offerServiceSuite) TestOfferCreateError(c *tc.C) {
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       ownerName,
 	}
-	createOfferArgs := internal.MakeCreateOfferArgs(args, "")
+	createOfferArgs := crossmodelrelation.MakeCreateOfferArgs(args, "")
 	m := createOfferArgsMatcher{c: c, expected: createOfferArgs}
 	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(errors.Errorf("boom"))
 
@@ -170,7 +169,7 @@ func (s *offerServiceSuite) TestGetOffersEmptyFilters(c *tc.C) {
 	// Arrange
 	offerUUIDs := []string{uuid.MustNewUUID().String()}
 
-	inputFilter := internal.OfferFilter{}
+	inputFilter := crossmodelrelation.OfferFilter{}
 	offerDetails := []*crossmodelrelation.OfferDetail{
 		{
 			OfferUUID:              offerUUIDs[0],
@@ -200,7 +199,7 @@ func (s *offerServiceSuite) TestGetOffersEmptyFilters(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
-	filters := []crossmodelrelation.OfferFilter{{}}
+	filters := []OfferFilter{{}}
 
 	// Act
 	result, err := s.service(c).GetOffers(c.Context(), filters)
@@ -238,7 +237,7 @@ func (s *offerServiceSuite) TestGetOffers(c *tc.C) {
 	// Arrange
 	offerUUIDs := []string{uuid.MustNewUUID().String()}
 
-	inputFilter := internal.OfferFilter{ApplicationName: "test-offer"}
+	inputFilter := crossmodelrelation.OfferFilter{ApplicationName: "test-offer"}
 	offerDetails := []*crossmodelrelation.OfferDetail{
 		{
 			OfferUUID:              offerUUIDs[0],
@@ -268,7 +267,7 @@ func (s *offerServiceSuite) TestGetOffers(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
-	filters := []crossmodelrelation.OfferFilter{{
+	filters := []OfferFilter{{
 		ApplicationName: inputFilter.ApplicationName,
 	}}
 
@@ -310,7 +309,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumers(c *tc.C) {
 	offerUUIDs := []string{uuid.MustNewUUID().String(), uuid.MustNewUUID().String()}
 	s.controllerState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(offerUUIDs, nil)
 
-	inputFilter := internal.OfferFilter{
+	inputFilter := crossmodelrelation.OfferFilter{
 		OfferUUIDs: offerUUIDs,
 	}
 	offerDetails := []*crossmodelrelation.OfferDetail{
@@ -358,7 +357,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumers(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
-	filters := []crossmodelrelation.OfferFilter{
+	filters := []OfferFilter{
 		{
 			AllowedConsumers: allowedConsumers,
 		},
@@ -435,7 +434,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFoundMoreInFilte
 			},
 		},
 	}
-	s.modelState.EXPECT().GetOfferDetails(gomock.Any(), internal.OfferFilter{OfferName: "test-offer"}).Return(offerDetails, nil)
+	s.modelState.EXPECT().GetOfferDetails(gomock.Any(), crossmodelrelation.OfferFilter{OfferName: "test-offer"}).Return(offerDetails, nil)
 
 	offerUsers := map[string][]crossmodelrelation.OfferUser{
 		offerUUIDs[0]: {
@@ -447,7 +446,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFoundMoreInFilte
 	}
 	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
-	filters := []crossmodelrelation.OfferFilter{
+	filters := []OfferFilter{
 		{
 			OfferName:        "test-offer",
 			AllowedConsumers: allowedConsumers,
@@ -491,7 +490,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFound(c *tc.C) {
 	allowedConsumers := []string{"fred"}
 	s.controllerState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(nil, nil)
 
-	filters := []crossmodelrelation.OfferFilter{
+	filters := []OfferFilter{
 		{
 			AllowedConsumers: allowedConsumers,
 		},
@@ -539,11 +538,11 @@ func (s *offerServiceSuite) TestGetOfferUUIDError(c *tc.C) {
 
 type createOfferArgsMatcher struct {
 	c        *tc.C
-	expected internal.CreateOfferArgs
+	expected crossmodelrelation.CreateOfferArgs
 }
 
 func (m createOfferArgsMatcher) Matches(x interface{}) bool {
-	obtained, ok := x.(internal.CreateOfferArgs)
+	obtained, ok := x.(crossmodelrelation.CreateOfferArgs)
 	m.c.Assert(ok, tc.IsTrue)
 	if !ok {
 		return false

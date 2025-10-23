@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -620,15 +621,15 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelation.OfferFilter{
+	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
 			OfferName:        "hosted-db2",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		}, {
 			OfferName:        "testing",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
@@ -734,15 +735,15 @@ func (s *offerSuite) TestListApplicationOffersError(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelation.OfferFilter{
+	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
 			OfferName:        "hosted-db2",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		}, {
 			OfferName:        "testing",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
@@ -831,15 +832,15 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelation.OfferFilter{
+	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
 			OfferName:        "hosted-db2",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		}, {
 			OfferName:        "testing",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
@@ -983,15 +984,15 @@ func (s *offerSuite) TestFindApplicationOffersError(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelation.OfferFilter{
+	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
 			OfferName:        "hosted-db2",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		}, {
 			OfferName:        "testing",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
@@ -1106,15 +1107,15 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelation.OfferFilter{
+	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
 			OfferName:        "hosted-db2",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		}, {
 			OfferName:        "testing",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
@@ -1213,10 +1214,10 @@ func (s *offerSuite) TestApplicationOffersMixSuccessAndFail(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelation.OfferFilter{
+	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
 			OfferName:        "testing",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
@@ -1291,10 +1292,10 @@ func (s *offerSuite) TestApplicationOffersNotFound(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelation.OfferFilter{
+	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
 			OfferName:        "testing",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
@@ -1451,10 +1452,10 @@ func (s *offerSuite) testGetConsumeDetails(c *tc.C, userID string) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelation.OfferFilter{
+	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
 			OfferName:        "hosted-mysql",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
@@ -1548,10 +1549,10 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelation.OfferFilter{
+	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
 			OfferName:        "hosted-mysql",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
@@ -1674,10 +1675,10 @@ func (s *offerSuite) TestGetConsumeDetailsNoOffers(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelation.OfferFilter{
+	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
 			OfferName:        "hosted-mysql",
-			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelationservice.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},

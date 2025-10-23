@@ -4,12 +4,14 @@
 package crossmodelrelation
 
 import (
+	"maps"
+	"slices"
+
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
@@ -45,29 +47,6 @@ func (a ApplicationOfferArgs) Validate() error {
 		return errors.Errorf("endpoints cannot be empty").Add(coreerrors.NotValid)
 	}
 	return nil
-}
-
-// OfferFilter is used to query applications offered
-// by this model.
-type OfferFilter struct {
-	// OfferName is the name of the offer.
-	OfferName string
-
-	// ApplicationName is the name of the application to which the offer pertains.
-	ApplicationName string
-
-	// ApplicationDescription is a description of the application's functionality,
-	// typically copied from the charm metadata.
-	ApplicationDescription string
-
-	// Endpoint contains an endpoint filter criteria.
-	Endpoints []EndpointFilterTerm
-
-	// AllowedConsumers are the users allowed to consume the offer.
-	AllowedConsumers []string
-
-	// ConnectedUsers are the users currently related to the offer.
-	ConnectedUsers []string
 }
 
 // EndpointFilterTerm represents a remote endpoint filter.
@@ -256,32 +235,69 @@ type AddRemoteApplicationArgs struct {
 	ConsumerModelUUID string
 }
 
-// RemoteRelationChangedArgs contains the parameters required to process a
-// remote relation change event.
-type RemoteRelationChangedArgs struct {
-	// RelationUUID is used to identify the relation that has changed.
-	RelationUUID relation.UUID
-	// ApplicationUUID is used to identify the remote application that
-	// is connected to the relation.
-	ApplicationUUID application.UUID
-	// Suspended indicates whether the remote application is suspended.
-	Suspended bool
-	// SuspendedReason provides a reason for the suspension, if applicable.
-	SuspendedReason string
+// CreateOfferArgs contains parameters used to create an offer.
+type CreateOfferArgs struct {
+	// UUID is the unique identifier of the new offer.
+	UUID offer.UUID
+
+	// ApplicationName is the name of the application to which the offer pertains.
+	ApplicationName string
+
+	// Endpoints is the collection of endpoint names offered.
+	Endpoints []string
+
+	// OfferName is the name of the offer.
+	OfferName string
 }
 
-// ApplicationRemoteRelation represents a remote relation mapping between the
-// synthetic relation (relation_uuid) created in the offering model and the
-// original consumer relation UUID (consumer_relation_uuid) provided by the
-// consuming model. This is returned by service/state queries that look up
-// remote relations via the consumer relation UUID.
-type ApplicationRemoteRelation struct {
-	// RelationUUID is the UUID of the synthetic relation created in the
-	// offering model that mirrors the consumer model's relation.
-	RelationUUID string
+// MakeCreateOfferArgs returns a CreateOfferArgs from the given
+// ApplicationOfferArgs and uuid.
+func MakeCreateOfferArgs(in ApplicationOfferArgs, offerUUID offer.UUID) CreateOfferArgs {
+	return CreateOfferArgs{
+		UUID:            offerUUID,
+		ApplicationName: in.ApplicationName,
+		// There was an original intention to allow for endpoint aliases,
+		// however it was never implemented. Just use the maps keys from
+		// here.
+		Endpoints: slices.Collect(maps.Keys(in.Endpoints)),
+		OfferName: in.OfferName,
+	}
+}
 
-	// ConsumerRelationUUID is the UUID of the relation as it exists in the
-	// consuming model (the original relation UUID provided to the offering
-	// model when registering the remote relation).
-	ConsumerRelationUUID string
+// OfferFilter is used to query applications offered
+// by this model.
+type OfferFilter struct {
+	// OfferUUIDs is a list of offerUUIDs to find based on the
+	// OfferFilter.AllowedConsumers.
+	OfferUUIDs []string
+
+	// OfferName is the name of the offer.
+	OfferName string
+
+	// ApplicationName is the name of the application to which the offer pertains.
+	ApplicationName string
+
+	// ApplicationDescription is a description of the application's functionality,
+	// typically copied from the charm metadata.
+	ApplicationDescription string
+
+	// Endpoint contains an endpoint filter criteria.
+	Endpoints []EndpointFilterTerm
+}
+
+// Empty checks to see if the filter has any values. An empty
+// filter indicates all offers should be found.
+func (f OfferFilter) Empty() bool {
+	return f.OfferName == "" &&
+		f.ApplicationName == "" &&
+		f.ApplicationDescription == "" &&
+		len(f.Endpoints) == 0 &&
+		len(f.OfferUUIDs) == 0
+}
+
+// EmptyModuloEndpoints does the same as Empty, but not including endpoints.
+func (f OfferFilter) EmptyModuloEndpoints() bool {
+	return f.OfferName == "" &&
+		f.ApplicationName == "" &&
+		f.ApplicationDescription == ""
 }

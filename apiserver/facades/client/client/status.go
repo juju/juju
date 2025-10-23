@@ -32,6 +32,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/deployment"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
@@ -618,7 +619,7 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 }
 
 func fetchOffers(ctx context.Context, service CrossModelRelationService) (map[string]offerStatus, error) {
-	modelOffers, err := service.GetOffers(ctx, []crossmodelrelation.OfferFilter{{}})
+	modelOffers, err := service.GetOffers(ctx, []crossmodelrelationservice.OfferFilter{{}})
 	if err != nil {
 		return nil, err
 	}
