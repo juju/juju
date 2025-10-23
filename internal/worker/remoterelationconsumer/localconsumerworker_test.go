@@ -137,7 +137,7 @@ func (s *localConsumerWorkerSuite) TestStart(c *tc.C) {
 	done := make(chan struct{})
 
 	s.crossModelService.EXPECT().
-		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
 		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			ch := make(chan []string)
 			return watchertest.NewMockStringsWatcher(ch), nil
@@ -179,7 +179,7 @@ func (s *localConsumerWorkerSuite) TestStartFailedWatchApplicationLife(c *tc.C) 
 	done := make(chan struct{})
 
 	s.crossModelService.EXPECT().
-		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
 		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			defer close(done)
 			return nil, applicationerrors.ApplicationNotFound
@@ -205,7 +205,7 @@ func (s *localConsumerWorkerSuite) TestStartNoRemoteClient(c *tc.C) {
 	done := make(chan struct{})
 
 	s.crossModelService.EXPECT().
-		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
 		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			ch := make(chan []string)
 			return watchertest.NewMockStringsWatcher(ch), nil
@@ -245,7 +245,7 @@ func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusFailed(c *tc.C) {
 	done := make(chan struct{})
 
 	s.crossModelService.EXPECT().
-		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
 		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			ch := make(chan []string)
 			return watchertest.NewMockStringsWatcher(ch), nil
@@ -289,7 +289,7 @@ func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChanged(c *tc.C) {
 
 	ch := make(chan []string)
 	s.crossModelService.EXPECT().
-		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
 		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 
 			return watchertest.NewMockStringsWatcher(ch), nil
@@ -352,7 +352,7 @@ func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChangedNotFound(c *
 
 	ch := make(chan []string)
 	s.crossModelService.EXPECT().
-		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
 		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			return watchertest.NewMockStringsWatcher(ch), nil
 		})
@@ -430,7 +430,7 @@ func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChangedError(c *tc.
 
 	ch := make(chan []string)
 	s.crossModelService.EXPECT().
-		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
 		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			return watchertest.NewMockStringsWatcher(ch), nil
 		})
@@ -2583,7 +2583,7 @@ func (s *localConsumerWorkerSuite) expectWorkerStartup() <-chan struct{} {
 
 	ch := make(chan []string)
 	s.crossModelService.EXPECT().
-		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
 		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			return watchertest.NewMockStringsWatcher(ch), nil
 		})

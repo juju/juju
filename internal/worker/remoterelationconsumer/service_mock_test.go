@@ -1007,45 +1007,6 @@ func (c *MockCrossModelServiceSetRemoteRelationSuspendedStateCall) DoAndReturn(f
 	return c
 }
 
-// WatchApplicationLifeSuspendedStatus mocks base method.
-func (m *MockCrossModelService) WatchApplicationLifeSuspendedStatus(arg0 context.Context, arg1 application.UUID) (watcher0.StringsWatcher, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplicationLifeSuspendedStatus", arg0, arg1)
-	ret0, _ := ret[0].(watcher0.StringsWatcher)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchApplicationLifeSuspendedStatus indicates an expected call of WatchApplicationLifeSuspendedStatus.
-func (mr *MockCrossModelServiceMockRecorder) WatchApplicationLifeSuspendedStatus(arg0, arg1 any) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationLifeSuspendedStatus", reflect.TypeOf((*MockCrossModelService)(nil).WatchApplicationLifeSuspendedStatus), arg0, arg1)
-	return &MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall{Call: call}
-}
-
-// MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall wrap *gomock.Call
-type MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) Return(arg0 watcher0.StringsWatcher, arg1 error) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) Do(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchRelationUnits mocks base method.
 func (m *MockCrossModelService) WatchRelationUnits(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (watcher0.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
@@ -1081,6 +1042,45 @@ func (c *MockCrossModelServiceWatchRelationUnitsCall) Do(f func(context.Context,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, relation.UUID, application.UUID) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRelationUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchRelationsLifeSuspendedStatusForApplication mocks base method.
+func (m *MockCrossModelService) WatchRelationsLifeSuspendedStatusForApplication(arg0 context.Context, arg1 application.UUID) (watcher0.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchRelationsLifeSuspendedStatusForApplication", arg0, arg1)
+	ret0, _ := ret[0].(watcher0.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchRelationsLifeSuspendedStatusForApplication indicates an expected call of WatchRelationsLifeSuspendedStatusForApplication.
+func (mr *MockCrossModelServiceMockRecorder) WatchRelationsLifeSuspendedStatusForApplication(arg0, arg1 any) *MockCrossModelServiceWatchRelationsLifeSuspendedStatusForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationsLifeSuspendedStatusForApplication", reflect.TypeOf((*MockCrossModelService)(nil).WatchRelationsLifeSuspendedStatusForApplication), arg0, arg1)
+	return &MockCrossModelServiceWatchRelationsLifeSuspendedStatusForApplicationCall{Call: call}
+}
+
+// MockCrossModelServiceWatchRelationsLifeSuspendedStatusForApplicationCall wrap *gomock.Call
+type MockCrossModelServiceWatchRelationsLifeSuspendedStatusForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelServiceWatchRelationsLifeSuspendedStatusForApplicationCall) Return(arg0 watcher0.StringsWatcher, arg1 error) *MockCrossModelServiceWatchRelationsLifeSuspendedStatusForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelServiceWatchRelationsLifeSuspendedStatusForApplicationCall) Do(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockCrossModelServiceWatchRelationsLifeSuspendedStatusForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelServiceWatchRelationsLifeSuspendedStatusForApplicationCall) DoAndReturn(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockCrossModelServiceWatchRelationsLifeSuspendedStatusForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1340,45 +1340,6 @@ func (c *MockRelationServiceSetRemoteRelationSuspendedStateCall) DoAndReturn(f f
 	return c
 }
 
-// WatchApplicationLifeSuspendedStatus mocks base method.
-func (m *MockRelationService) WatchApplicationLifeSuspendedStatus(arg0 context.Context, arg1 application.UUID) (watcher0.StringsWatcher, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplicationLifeSuspendedStatus", arg0, arg1)
-	ret0, _ := ret[0].(watcher0.StringsWatcher)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchApplicationLifeSuspendedStatus indicates an expected call of WatchApplicationLifeSuspendedStatus.
-func (mr *MockRelationServiceMockRecorder) WatchApplicationLifeSuspendedStatus(arg0, arg1 any) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationLifeSuspendedStatus", reflect.TypeOf((*MockRelationService)(nil).WatchApplicationLifeSuspendedStatus), arg0, arg1)
-	return &MockRelationServiceWatchApplicationLifeSuspendedStatusCall{Call: call}
-}
-
-// MockRelationServiceWatchApplicationLifeSuspendedStatusCall wrap *gomock.Call
-type MockRelationServiceWatchApplicationLifeSuspendedStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) Return(arg0 watcher0.StringsWatcher, arg1 error) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) Do(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchRelationUnits mocks base method.
 func (m *MockRelationService) WatchRelationUnits(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (watcher0.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
@@ -1414,6 +1375,45 @@ func (c *MockRelationServiceWatchRelationUnitsCall) Do(f func(context.Context, r
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRelationServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, relation.UUID, application.UUID) (watcher0.NotifyWatcher, error)) *MockRelationServiceWatchRelationUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchRelationsLifeSuspendedStatusForApplication mocks base method.
+func (m *MockRelationService) WatchRelationsLifeSuspendedStatusForApplication(arg0 context.Context, arg1 application.UUID) (watcher0.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchRelationsLifeSuspendedStatusForApplication", arg0, arg1)
+	ret0, _ := ret[0].(watcher0.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchRelationsLifeSuspendedStatusForApplication indicates an expected call of WatchRelationsLifeSuspendedStatusForApplication.
+func (mr *MockRelationServiceMockRecorder) WatchRelationsLifeSuspendedStatusForApplication(arg0, arg1 any) *MockRelationServiceWatchRelationsLifeSuspendedStatusForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationsLifeSuspendedStatusForApplication", reflect.TypeOf((*MockRelationService)(nil).WatchRelationsLifeSuspendedStatusForApplication), arg0, arg1)
+	return &MockRelationServiceWatchRelationsLifeSuspendedStatusForApplicationCall{Call: call}
+}
+
+// MockRelationServiceWatchRelationsLifeSuspendedStatusForApplicationCall wrap *gomock.Call
+type MockRelationServiceWatchRelationsLifeSuspendedStatusForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceWatchRelationsLifeSuspendedStatusForApplicationCall) Return(arg0 watcher0.StringsWatcher, arg1 error) *MockRelationServiceWatchRelationsLifeSuspendedStatusForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceWatchRelationsLifeSuspendedStatusForApplicationCall) Do(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockRelationServiceWatchRelationsLifeSuspendedStatusForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceWatchRelationsLifeSuspendedStatusForApplicationCall) DoAndReturn(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockRelationServiceWatchRelationsLifeSuspendedStatusForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

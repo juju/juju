@@ -2391,7 +2391,7 @@ func (u *UniterAPI) watchOneUnitRelations(ctx context.Context, tag names.UnitTag
 		return nothing, err
 	}
 
-	watch, err := u.relationService.WatchUnitApplicationLifeSuspendedStatus(ctx, unitUUID)
+	watch, err := u.relationService.WatchRelationUnitApplicationLifeSuspendedStatus(ctx, unitUUID)
 	if err != nil {
 		updatedError := internalerrors.Errorf("WatchUnitRelations for %q: %w",
 			unitName, err)

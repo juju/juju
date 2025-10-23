@@ -92,10 +92,10 @@ type CrossModelService interface {
 // RelationService is an interface that defines the methods for
 // managing relations directly on the local model database.
 type RelationService interface {
-	// WatchApplicationLifeSuspendedStatus watches the changes to the
+	// WatchRelationsLifeSuspendedStatusForApplication watches the changes to the
 	// life suspended status of the specified application and notifies
 	// the worker of any changes.
-	WatchApplicationLifeSuspendedStatus(context.Context, application.UUID) (watcher.StringsWatcher, error)
+	WatchRelationsLifeSuspendedStatusForApplication(context.Context, application.UUID) (watcher.StringsWatcher, error)
 
 	// GetRelationDetails returns RelationDetails for the given relationID.
 	GetRelationDetails(context.Context, corerelation.UUID) (relation.RelationDetails, error)
