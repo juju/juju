@@ -564,10 +564,10 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 		GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID).
 		Return(appName, application.UUID(appUUIDStr), nil)
 
-	var received crossmodelrelationservice.AddRemoteApplicationConsumerArgs
+	var received crossmodelrelationservice.AddConsumedRelationArgs
 	s.crossModelRelationService.EXPECT().
 		AddRemoteApplicationConsumer(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, args crossmodelrelationservice.AddRemoteApplicationConsumerArgs) error {
+		DoAndReturn(func(_ context.Context, args crossmodelrelationservice.AddConsumedRelationArgs) error {
 			received = args
 			return nil
 		})
@@ -595,10 +595,9 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 
 	c.Check(received.OfferUUID, tc.Equals, offerUUID)
 	c.Check(received.RelationUUID, tc.Equals, relationUUID)
-	c.Check(received.RemoteApplicationUUID, tc.Equals, remoteAppToken)
-	c.Check(received.Endpoints, tc.HasLen, 1)
-	c.Check(received.Endpoints[0].Name, tc.Equals, "remoteapp:db")
-	c.Check(received.Endpoints[0].Role, tc.Equals, domaincharm.RelationRole(internalcharm.RoleProvider))
+	c.Check(received.ConsumerApplicationUUID, tc.Equals, remoteAppToken)
+	c.Check(received.ConsumerApplicationEndpoint.Name, tc.Equals, "remoteapp:db")
+	c.Check(received.ConsumerApplicationEndpoint.Role, tc.Equals, domaincharm.RelationRole(internalcharm.RoleProvider))
 }
 
 func (s *facadeSuite) TestRegisterRemoteRelationsGetApplicationError(c *tc.C) {

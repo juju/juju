@@ -35,7 +35,7 @@ type CrossModelRelationService interface {
 	// AddRemoteApplicationConsumer adds a new synthetic application
 	// representing a remote relation on the consuming model, to this, the
 	// offering model.
-	AddRemoteApplicationConsumer(ctx context.Context, args crossmodelrelationservice.AddRemoteApplicationConsumerArgs) error
+	AddRemoteApplicationConsumer(ctx context.Context, args crossmodelrelationservice.AddConsumedRelationArgs) error
 
 	// GetOfferUUIDByRelationUUID returns the offer UUID corresponding to
 	// the cross model relation UUID.

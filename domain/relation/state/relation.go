@@ -790,7 +790,7 @@ WHERE     u.uuid = $unitUUIDArg.unit_uuid
 	return relationUnitStatuses, nil
 }
 
-// getRelationEndpoints retrieves the relation.Endpoints of the specified relation.
+// getRelationEndpoints retrieves the relation.ConsumerApplicationEndpoint of the specified relation.
 func (st *State) getRelationEndpoints(
 	ctx context.Context,
 	tx *sqlair.TX,
