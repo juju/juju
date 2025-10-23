@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/application"
@@ -274,7 +273,7 @@ VALUES (?, ?, "test", "prod", "iaas", "fluffy", "ec2")
 }
 
 func (s *watcherSuite) createSecret(c *tc.C, db database.TxnRunner, uri *coresecrets.URI, content map[string]string) {
-	c.Assert(content, gc.Not(gc.HasLen), 0)
+	c.Assert(content, tc.Not(tc.HasLen), 0)
 
 	now := time.Now().UTC()
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
