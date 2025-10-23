@@ -191,6 +191,31 @@ func (o objectStoreFacade) GetBySHA256Prefix(ctx context.Context, sha256Prefix s
 	return reader, size, nil
 }
 
+// ListFiles returns a list of all files in the object store, namespaced
+// to the model.
+// The method will block until the fortress is drained or the context
+// is cancelled. If the fortress is draining, the method will return
+// [objectstore.ErrTimeoutWaitingForDraining] error.
+func (o objectStoreFacade) ListFiles(ctx context.Context) ([]string, error) {
+	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
+	defer cancel()
+
+	var files []string
+	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
+		var err error
+		files, err = o.ObjectStore.ListFiles(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}); errors.Is(visitErr, fortress.ErrAborted) {
+		return nil, coreobjectstore.ErrTimeoutWaitingForDraining
+	} else if visitErr != nil {
+		return nil, errors.Trace(visitErr)
+	}
+	return files, nil
+}
+
 // Put stores data from reader at path, namespaced to the model.
 // The method will block until the fortress is drained or the context
 // is cancelled. If the fortress is draining, the method will return
@@ -249,6 +274,26 @@ func (o objectStoreFacade) Remove(ctx context.Context, path string) error {
 
 	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
 		return o.ObjectStore.Remove(ctx, path)
+	}); errors.Is(visitErr, fortress.ErrAborted) {
+		return coreobjectstore.ErrTimeoutWaitingForDraining
+	} else if visitErr != nil {
+		return errors.Trace(visitErr)
+	}
+	return nil
+}
+
+// PruneFile removes the file at path, but doesn't check the metadata. This
+// just removes the file from the file system, and is used by the pruner to
+// remove files that are not referenced in the metadata.
+// The method will block until the fortress is drained or the context
+// is cancelled. If the fortress is draining, the method will return
+// [objectstore.ErrTimeoutWaitingForDraining] error.
+func (o objectStoreFacade) PruneFile(ctx context.Context, path string) error {
+	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
+	defer cancel()
+
+	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
+		return o.ObjectStore.PruneFile(ctx, path)
 	}); errors.Is(visitErr, fortress.ErrAborted) {
 		return coreobjectstore.ErrTimeoutWaitingForDraining
 	} else if visitErr != nil {
