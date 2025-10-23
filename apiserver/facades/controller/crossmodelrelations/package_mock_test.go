@@ -52,6 +52,44 @@ func (m *MockCrossModelRelationService) EXPECT() *MockCrossModelRelationServiceM
 	return m.recorder
 }
 
+// AddConsumedRelation mocks base method.
+func (m *MockCrossModelRelationService) AddConsumedRelation(arg0 context.Context, arg1 service.AddConsumedRelationArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddConsumedRelation", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddConsumedRelation indicates an expected call of AddConsumedRelation.
+func (mr *MockCrossModelRelationServiceMockRecorder) AddConsumedRelation(arg0, arg1 any) *MockCrossModelRelationServiceAddConsumedRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddConsumedRelation", reflect.TypeOf((*MockCrossModelRelationService)(nil).AddConsumedRelation), arg0, arg1)
+	return &MockCrossModelRelationServiceAddConsumedRelationCall{Call: call}
+}
+
+// MockCrossModelRelationServiceAddConsumedRelationCall wrap *gomock.Call
+type MockCrossModelRelationServiceAddConsumedRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceAddConsumedRelationCall) Return(arg0 error) *MockCrossModelRelationServiceAddConsumedRelationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceAddConsumedRelationCall) Do(f func(context.Context, service.AddConsumedRelationArgs) error) *MockCrossModelRelationServiceAddConsumedRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceAddConsumedRelationCall) DoAndReturn(f func(context.Context, service.AddConsumedRelationArgs) error) *MockCrossModelRelationServiceAddConsumedRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddRelationNetworkIngress mocks base method.
 func (m *MockCrossModelRelationService) AddRelationNetworkIngress(arg0 context.Context, arg1 relation.UUID, arg2, arg3 []string) error {
 	m.ctrl.T.Helper()
@@ -86,44 +124,6 @@ func (c *MockCrossModelRelationServiceAddRelationNetworkIngressCall) Do(f func(c
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelRelationServiceAddRelationNetworkIngressCall) DoAndReturn(f func(context.Context, relation.UUID, []string, []string) error) *MockCrossModelRelationServiceAddRelationNetworkIngressCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AddRemoteApplicationConsumer mocks base method.
-func (m *MockCrossModelRelationService) AddRemoteApplicationConsumer(arg0 context.Context, arg1 service.AddConsumedRelationArgs) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRemoteApplicationConsumer", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddRemoteApplicationConsumer indicates an expected call of AddRemoteApplicationConsumer.
-func (mr *MockCrossModelRelationServiceMockRecorder) AddRemoteApplicationConsumer(arg0, arg1 any) *MockCrossModelRelationServiceAddRemoteApplicationConsumerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteApplicationConsumer", reflect.TypeOf((*MockCrossModelRelationService)(nil).AddRemoteApplicationConsumer), arg0, arg1)
-	return &MockCrossModelRelationServiceAddRemoteApplicationConsumerCall{Call: call}
-}
-
-// MockCrossModelRelationServiceAddRemoteApplicationConsumerCall wrap *gomock.Call
-type MockCrossModelRelationServiceAddRemoteApplicationConsumerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceAddRemoteApplicationConsumerCall) Return(arg0 error) *MockCrossModelRelationServiceAddRemoteApplicationConsumerCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceAddRemoteApplicationConsumerCall) Do(f func(context.Context, service.AddConsumedRelationArgs) error) *MockCrossModelRelationServiceAddRemoteApplicationConsumerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceAddRemoteApplicationConsumerCall) DoAndReturn(f func(context.Context, service.AddConsumedRelationArgs) error) *MockCrossModelRelationServiceAddRemoteApplicationConsumerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

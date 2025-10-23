@@ -508,7 +508,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOffererByApplicati
 	c.Check(result, tc.Equals, "")
 }
 
-func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumer(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
@@ -550,7 +550,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumer(c *tc.C) 
 			Peers: map[string]charm.Relation{},
 		},
 	}
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       applicationUUID,
 			CharmUUID:             charmUUID,
@@ -578,7 +578,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumer(c *tc.C) 
 	s.assertRelation(c, relationUUID, 0)
 }
 
-func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwiceSameApp(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelationTwiceSameApp(c *tc.C) {
 	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
@@ -621,7 +621,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwiceSameA
 			Peers: map[string]charm.Relation{},
 		},
 	}
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       applicationUUID,
 			CharmUUID:             charmUUID,
@@ -637,7 +637,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwiceSameA
 	s.assertApplication(c, applicationUUID)
 	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm)
 
-	err = s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err = s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       applicationUUID,
 			CharmUUID:             charmUUID,
@@ -650,7 +650,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwiceSameA
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationAlreadyExists)
 }
 
-func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwoApps(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelationTwoApps(c *tc.C) {
 	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
@@ -721,7 +721,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwoApps(c 
 		},
 	}
 
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       applicationUUID,
 			CharmUUID:             charmUUID,
@@ -737,7 +737,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwoApps(c 
 	s.assertApplication(c, applicationUUID)
 	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm1)
 
-	err = s.state.AddRemoteApplicationConsumer(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err = s.state.AddConsumedRelation(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       tc.Must(c, internaluuid.NewUUID).String(),
 			CharmUUID:             tc.Must(c, internaluuid.NewUUID).String(),
@@ -750,7 +750,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerTwoApps(c 
 	c.Assert(err, tc.ErrorIsNil) // Should succeed since different applications can consume same offer
 }
 
-func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerCheckVersion(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelationCheckVersion(c *tc.C) {
 	applicationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
 	applicationUUID2 := tc.Must(c, internaluuid.NewUUID).String()
 	charmUUID1 := tc.Must(c, internaluuid.NewUUID).String()
@@ -787,7 +787,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerCheckVersi
 		},
 	}
 
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       applicationUUID1,
 			CharmUUID:             charmUUID1,
@@ -799,7 +799,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationConsumerCheckVersi
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.AddRemoteApplicationConsumer(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err = s.state.AddConsumedRelation(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       applicationUUID2,
 			CharmUUID:             charmUUID2,
@@ -868,7 +868,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersSingle(c 
 		},
 	}
 
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID,
 			CharmUUID:             charmUUID,
@@ -920,7 +920,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersMultiple(
 		}
 	}
 
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID1,
 			CharmUUID:             charmUUID1,
@@ -932,7 +932,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersMultiple(
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.AddRemoteApplicationConsumer(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err = s.state.AddConsumedRelation(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID2,
 			CharmUUID:             charmUUID2,
@@ -1001,7 +1001,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersFiltersDe
 		},
 	}
 
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "dead-one", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "dead-one", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID,
 			CharmUUID:             charmUUID,
@@ -1054,7 +1054,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersSin
 		},
 	}
 
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "test-app", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "test-app", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID,
 			CharmUUID:             charmUUID,
@@ -1194,7 +1194,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMul
 	}
 
 	// Add first consumer
-	err = s.state.AddRemoteApplicationConsumer(c.Context(), "test-app-1", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err = s.state.AddConsumedRelation(c.Context(), "test-app-1", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID1,
 			CharmUUID:             charmUUID1,
@@ -1207,7 +1207,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMul
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add second consumer
-	err = s.state.AddRemoteApplicationConsumer(c.Context(), "test-app-2", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err = s.state.AddConsumedRelation(c.Context(), "test-app-2", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID2,
 			CharmUUID:             charmUUID2,
@@ -1322,7 +1322,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersSam
 	}
 
 	// Add first consumer
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "consumer-app-1", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "consumer-app-1", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID1,
 			CharmUUID:             charmUUID1,
@@ -1335,7 +1335,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersSam
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add second consumer to the same offer
-	err = s.state.AddRemoteApplicationConsumer(c.Context(), "consumer-app-2", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err = s.state.AddConsumedRelation(c.Context(), "consumer-app-2", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID2,
 			CharmUUID:             charmUUID2,
@@ -1429,7 +1429,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMix
 		},
 	}
 
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "test-app", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "test-app", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID,
 			CharmUUID:             charmUUID,
@@ -1491,7 +1491,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersDup
 		},
 	}
 
-	err := s.state.AddRemoteApplicationConsumer(c.Context(), "test-app", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := s.state.AddConsumedRelation(c.Context(), "test-app", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			ApplicationUUID:       appUUID,
 			CharmUUID:             charmUUID,

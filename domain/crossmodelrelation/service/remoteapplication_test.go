@@ -345,7 +345,7 @@ func (s *remoteApplicationServiceSuite) TestSaveMacaroonForRelationInvalidMacaro
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumer(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestAddConsumedRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	offerUUID := tc.Must(c, offer.NewUUID)
@@ -377,7 +377,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumer(c *tc.C
 
 	var received crossmodelrelation.AddRemoteApplicationConsumerArgs
 	s.modelState.EXPECT().
-		AddRemoteApplicationConsumer(gomock.Any(), name, gomock.Any()).
+		AddConsumedRelation(gomock.Any(), name, gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ string, args crossmodelrelation.AddRemoteApplicationConsumerArgs) error {
 			received = args
 			return nil
@@ -385,7 +385,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumer(c *tc.C
 
 	service := s.service(c)
 
-	err := service.AddRemoteApplicationConsumer(c.Context(), AddConsumedRelationArgs{
+	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		ConsumerApplicationUUID: applicationUUID,
 		OfferUUID:               offerUUID,
 		RelationUUID:            relationUUID,
@@ -415,26 +415,26 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumer(c *tc.C
 	})
 }
 
-func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidRemoteApplicationUUID(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestAddConsumedRelationInvalidRemoteApplicationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	service := s.service(c)
 
-	err := service.AddRemoteApplicationConsumer(c.Context(), AddConsumedRelationArgs{
+	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		ConsumerApplicationUUID: "invalid-uuid",
 	})
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "remote application UUID \"invalid-uuid\" is not a valid UUID")
 }
 
-func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidOfferUUID(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestAddConsumedRelationInvalidOfferUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
 
 	service := s.service(c)
 
-	err := service.AddRemoteApplicationConsumer(c.Context(), AddConsumedRelationArgs{
+	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		ConsumerApplicationUUID: remoteApplicationUUID,
 		OfferUUID:               "!!",
 	})
@@ -442,7 +442,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidO
 	c.Assert(err, tc.ErrorMatches, `.*uuid "!!" not valid`)
 }
 
-func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidRelationUUID(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestAddConsumedRelationInvalidRelationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
@@ -450,7 +450,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidR
 
 	service := s.service(c)
 
-	err := service.AddRemoteApplicationConsumer(c.Context(), AddConsumedRelationArgs{
+	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		ConsumerApplicationUUID: remoteApplicationUUID,
 		OfferUUID:               offerUUID,
 		RelationUUID:            "!!",
@@ -459,7 +459,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidR
 	c.Assert(err, tc.ErrorMatches, "relation UUID \"!!\" is not a valid UUID")
 }
 
-func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerNoEndpoints(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestAddConsumedRelationNoEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
@@ -469,17 +469,17 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerNoEndpoi
 
 	service := s.service(c)
 
-	err := service.AddRemoteApplicationConsumer(c.Context(), AddConsumedRelationArgs{
+	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		ConsumerApplicationUUID: remoteApplicationUUID,
 		OfferUUID:               offerUUID,
 		RelationUUID:            relationUUID,
 		ConsumerModelUUID:       consumerModelUUID,
 	})
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
-	c.Assert(err, tc.ErrorMatches, "endpoints cannot be empty")
+	c.Assert(err, tc.ErrorMatches, "endpoint cannot be empty")
 }
 
-func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidEndpointScope(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestAddConsumedRelationInvalidEndpointScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
@@ -489,7 +489,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidE
 
 	service := s.service(c)
 
-	err := service.AddRemoteApplicationConsumer(c.Context(), AddConsumedRelationArgs{
+	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		ConsumerApplicationUUID: remoteApplicationUUID,
 		OfferUUID:               offerUUID,
 		RelationUUID:            relationUUID,
@@ -506,7 +506,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidE
 	c.Assert(err, tc.ErrorMatches, "endpoint \"db\" has non-global scope \"container\"")
 }
 
-func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidConsumerModel(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestAddConsumedRelationInvalidConsumerModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
@@ -515,7 +515,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidC
 
 	service := s.service(c)
 
-	err := service.AddRemoteApplicationConsumer(c.Context(), AddConsumedRelationArgs{
+	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		ConsumerApplicationUUID: remoteApplicationUUID,
 		OfferUUID:               offerUUID,
 		RelationUUID:            relationUUID,
@@ -532,7 +532,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerInvalidC
 	c.Assert(err, tc.ErrorMatches, "consumer model UUID \"!!\" is not a valid UUID")
 }
 
-func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerStateError(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestAddConsumedRelationStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
@@ -540,11 +540,11 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationConsumerStateErr
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
 
-	s.modelState.EXPECT().AddRemoteApplicationConsumer(gomock.Any(), "remote-deadbeef1bad500d90004b1d0d06f00d", gomock.Any()).Return(internalerrors.Errorf("boom"))
+	s.modelState.EXPECT().AddConsumedRelation(gomock.Any(), "remote-deadbeef1bad500d90004b1d0d06f00d", gomock.Any()).Return(internalerrors.Errorf("boom"))
 
 	service := s.service(c)
 
-	err := service.AddRemoteApplicationConsumer(c.Context(), AddConsumedRelationArgs{
+	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		ConsumerApplicationUUID: remoteApplicationUUID,
 		OfferUUID:               offerUUID,
 		RelationUUID:            relationUUID,

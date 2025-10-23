@@ -566,7 +566,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 
 	var received crossmodelrelationservice.AddConsumedRelationArgs
 	s.crossModelRelationService.EXPECT().
-		AddRemoteApplicationConsumer(gomock.Any(), gomock.Any()).
+		AddConsumedRelation(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, args crossmodelrelationservice.AddConsumedRelationArgs) error {
 			received = args
 			return nil
@@ -679,7 +679,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsAddConsumerError(c *tc.C) {
 		GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID).
 		Return(appName, application.UUID(appUUIDStr), nil)
 	s.crossModelRelationService.EXPECT().
-		AddRemoteApplicationConsumer(gomock.Any(), gomock.Any()).
+		AddConsumedRelation(gomock.Any(), gomock.Any()).
 		Return(errors.New("insert failed"))
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
@@ -707,7 +707,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsRelationKeyParseError(c *tc.C) 
 		Return(appName, application.UUID(appUUIDStr), nil)
 
 	s.crossModelRelationService.EXPECT().
-		AddRemoteApplicationConsumer(gomock.Any(), gomock.Any()).
+		AddConsumedRelation(gomock.Any(), gomock.Any()).
 		Return(nil)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
@@ -736,7 +736,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsCreateMacaroonError(c *tc.C) {
 		Return(appName, application.UUID(appUUIDStr), nil)
 
 	s.crossModelRelationService.EXPECT().
-		AddRemoteApplicationConsumer(gomock.Any(), gomock.Any()).
+		AddConsumedRelation(gomock.Any(), gomock.Any()).
 		Return(nil)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)

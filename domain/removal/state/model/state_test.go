@@ -434,7 +434,7 @@ func (s *baseSuite) createRemoteApplicationConsumer(
 	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	relationUUID := tc.Must(c, relation.NewUUID)
-	err := cmrState.AddRemoteApplicationConsumer(c.Context(), name, crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	err := cmrState.AddConsumedRelation(c.Context(), name, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			RemoteApplicationUUID: remoteAppUUID.String(),
 			ApplicationUUID:       appUUID.String(),

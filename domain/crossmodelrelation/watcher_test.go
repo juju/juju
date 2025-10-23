@@ -128,7 +128,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationConsumers(c *tc.C) {
 	harness := watchertest.NewHarness(s.modelIdler, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(c, func(c *tc.C) {
-		err := svc.AddRemoteApplicationConsumer(c.Context(), service.AddConsumedRelationArgs{
+		err := svc.AddConsumedRelation(c.Context(), service.AddConsumedRelationArgs{
 			ConsumerApplicationUUID: uuid.MustNewUUID().String(),
 			OfferUUID:               offerUUID,
 			RelationUUID:            relationUUID,
@@ -571,7 +571,7 @@ func (s *watcherSuite) TestWatchOffererRelationsCaching(c *tc.C) {
 		consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
 		consumerRelationUUID1 = tc.Must(c, uuid.NewUUID).String()
 
-		err := svc.AddRemoteApplicationConsumer(c.Context(), service.AddConsumedRelationArgs{
+		err := svc.AddConsumedRelation(c.Context(), service.AddConsumedRelationArgs{
 			ConsumerApplicationUUID: remoteApplicationUUID1,
 			OfferUUID:               localOfferUUID,
 			RelationUUID:            consumerRelationUUID1,
@@ -597,7 +597,7 @@ func (s *watcherSuite) TestWatchOffererRelationsCaching(c *tc.C) {
 		consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
 		consumerRelationUUID2 = tc.Must(c, uuid.NewUUID).String()
 
-		err := svc.AddRemoteApplicationConsumer(c.Context(), service.AddConsumedRelationArgs{
+		err := svc.AddConsumedRelation(c.Context(), service.AddConsumedRelationArgs{
 			ConsumerApplicationUUID: remoteApplicationUUID,
 			OfferUUID:               localOfferUUID,
 			RelationUUID:            consumerRelationUUID2,
@@ -676,7 +676,7 @@ func (s *watcherSuite) setupLocalOfferRemoteConsumerAndRelation(c *tc.C, db data
 	consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
 	consumerRelationUUID := tc.Must(c, uuid.NewUUID)
 
-	err := svc.AddRemoteApplicationConsumer(c.Context(), service.AddConsumedRelationArgs{
+	err := svc.AddConsumedRelation(c.Context(), service.AddConsumedRelationArgs{
 		ConsumerApplicationUUID: remoteApplicationUUID,
 		OfferUUID:               localOfferUUID,
 		RelationUUID:            consumerRelationUUID.String(),

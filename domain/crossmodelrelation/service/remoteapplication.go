@@ -41,9 +41,12 @@ type ModelRemoteApplicationState interface {
 		crossmodelrelation.AddRemoteApplicationOffererArgs,
 	) error
 
-	// AddRemoteApplicationConsumer adds a new synthetic application representing
-	// the remote relation on the consuming model, to this, the offering model.
-	AddRemoteApplicationConsumer(
+	// AddConsumedRelation adds a new synthetic application representing
+	// the application on the consuming model, to this, the offering model.
+	// The synthetic application is used to create a relation with the
+	// provided charm.Relation from the consuming side and the offering
+	// application endpoint name in the current model.
+	AddConsumedRelation(
 		context.Context,
 		string,
 		crossmodelrelation.AddRemoteApplicationConsumerArgs,
@@ -196,9 +199,12 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	return nil
 }
 
-// AddRemoteApplicationConsumer adds a new synthetic application representing
-// a remote relation on the consuming model, to this, the offering model.
-func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddConsumedRelationArgs) error {
+// AddConsumedRelation adds a new synthetic application representing
+// the application on the consuming model, to this, the offering model.
+// The synthetic application is used to create a relation with the
+// provided charm.Relation from the consuming side and the offering
+// application endpoint name in the current model.
+func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelationArgs) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -222,6 +228,10 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddCons
 		return internalerrors.Errorf("consumer model UUID %q is not a valid UUID", args.ConsumerModelUUID).Add(errors.NotValid)
 	}
 
+	if args.ConsumerApplicationEndpoint.Name == "" {
+		return internalerrors.Errorf("endpoint cannot be empty").Add(errors.NotValid)
+	}
+
 	// Construct a synthetic charm to represent the remote application charm,
 	// so we can track the endpoints it offers.
 	syntheticCharm, err := constructSyntheticCharm(synthApplicationName, []charm.Relation{args.ConsumerApplicationEndpoint})
@@ -234,7 +244,7 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddCons
 		return internalerrors.Errorf("creating charm uuid: %w", err)
 	}
 
-	if err := s.modelState.AddRemoteApplicationConsumer(ctx, synthApplicationName, crossmodelrelation.AddRemoteApplicationConsumerArgs{
+	if err := s.modelState.AddConsumedRelation(ctx, synthApplicationName, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
 			RemoteApplicationUUID: args.ConsumerApplicationUUID,
 			// NOTE: We use the same UUID as in the remote (consuming) model for

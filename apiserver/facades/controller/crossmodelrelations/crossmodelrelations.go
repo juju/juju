@@ -405,7 +405,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	}
 
 	// Insert the remote relation.
-	if err := api.crossModelRelationService.AddRemoteApplicationConsumer(ctx,
+	if err := api.crossModelRelationService.AddConsumedRelation(ctx,
 		crossmodelrelationservice.AddConsumedRelationArgs{
 			ConsumerApplicationUUID: relation.ConsumerApplicationToken,
 			OfferUUID:               offerUUID,
