@@ -12,6 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade/mocks"
+	modelupgradermocks "github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
@@ -20,9 +22,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-
-	"github.com/juju/juju/apiserver/facade/mocks"
-	modelupgradermocks "github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
 )
 
 type modelUpgradeSuite struct {

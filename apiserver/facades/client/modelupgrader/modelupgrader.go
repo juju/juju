@@ -6,6 +6,8 @@ package modelupgrader
 import (
 	"context"
 
+	"github.com/juju/names/v6"
+
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -18,7 +20,6 @@ import (
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v6"
 )
 
 type ModelAgentService interface {

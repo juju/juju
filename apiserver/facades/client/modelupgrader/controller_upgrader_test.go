@@ -6,12 +6,12 @@ package modelupgrader
 import (
 	"testing"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/mocks"
 	modelupgradermocks "github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
 	coreerrors "github.com/juju/juju/core/errors"
