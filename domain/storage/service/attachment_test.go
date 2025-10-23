@@ -55,7 +55,7 @@ func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnitI
 		_, err := svc.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 			c.Context(),
 			"invalid-storage-id",
-			tc.Must(c, coreunit.NewUUID),
+			tc.Must(t, coreunit.NewUUID),
 		)
 		tc.Check(t, err, tc.ErrorIs, coreerrors.NotValid)
 	})
@@ -63,7 +63,7 @@ func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnitI
 	c.Run("unit uuid", func(t *testing.T) {
 		_, err := svc.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 			c.Context(),
-			tc.Must(c, domainstorage.NewStorageInstanceUUID),
+			tc.Must(t, domainstorage.NewStorageInstanceUUID),
 			"invalid-unit-id",
 		)
 		tc.Check(t, err, tc.ErrorIs, coreerrors.NotValid)
