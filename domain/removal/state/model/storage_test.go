@@ -577,7 +577,7 @@ type charmStorage struct {
 	Fulfilment int
 }
 
-// addAppUnitWithCharmStorage sets up a unit in the model with assoicated charm
+// addAppUnitWithCharmStorage sets up a unit in the model with associated charm
 // storage that matches the map key and the minimum count set to the supplied
 // int.
 func (s *storageSuite) addAppUnitWithCharmStorage(
