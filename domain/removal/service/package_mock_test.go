@@ -1297,6 +1297,45 @@ func (c *MockModelDBStateGetDetachInfoForStorageAttachmentCall) DoAndReturn(f fu
 	return c
 }
 
+// GetFilesystemAttachmentLife mocks base method.
+func (m *MockModelDBState) GetFilesystemAttachmentLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemAttachmentLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemAttachmentLife indicates an expected call of GetFilesystemAttachmentLife.
+func (mr *MockModelDBStateMockRecorder) GetFilesystemAttachmentLife(arg0, arg1 any) *MockModelDBStateGetFilesystemAttachmentLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemAttachmentLife", reflect.TypeOf((*MockModelDBState)(nil).GetFilesystemAttachmentLife), arg0, arg1)
+	return &MockModelDBStateGetFilesystemAttachmentLifeCall{Call: call}
+}
+
+// MockModelDBStateGetFilesystemAttachmentLifeCall wrap *gomock.Call
+type MockModelDBStateGetFilesystemAttachmentLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetFilesystemAttachmentLifeCall) Return(arg0 life.Life, arg1 error) *MockModelDBStateGetFilesystemAttachmentLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetFilesystemAttachmentLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetFilesystemAttachmentLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetFilesystemAttachmentLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetFilesystemAttachmentLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetFilesystemLife mocks base method.
 func (m *MockModelDBState) GetFilesystemLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()
@@ -1726,6 +1765,84 @@ func (c *MockModelDBStateGetUnitLifeCall) DoAndReturn(f func(context.Context, st
 	return c
 }
 
+// GetVolumeAttachmentLife mocks base method.
+func (m *MockModelDBState) GetVolumeAttachmentLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeAttachmentLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeAttachmentLife indicates an expected call of GetVolumeAttachmentLife.
+func (mr *MockModelDBStateMockRecorder) GetVolumeAttachmentLife(arg0, arg1 any) *MockModelDBStateGetVolumeAttachmentLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeAttachmentLife", reflect.TypeOf((*MockModelDBState)(nil).GetVolumeAttachmentLife), arg0, arg1)
+	return &MockModelDBStateGetVolumeAttachmentLifeCall{Call: call}
+}
+
+// MockModelDBStateGetVolumeAttachmentLifeCall wrap *gomock.Call
+type MockModelDBStateGetVolumeAttachmentLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetVolumeAttachmentLifeCall) Return(arg0 life.Life, arg1 error) *MockModelDBStateGetVolumeAttachmentLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetVolumeAttachmentLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetVolumeAttachmentLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetVolumeAttachmentLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetVolumeAttachmentLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetVolumeAttachmentPlanLife mocks base method.
+func (m *MockModelDBState) GetVolumeAttachmentPlanLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeAttachmentPlanLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeAttachmentPlanLife indicates an expected call of GetVolumeAttachmentPlanLife.
+func (mr *MockModelDBStateMockRecorder) GetVolumeAttachmentPlanLife(arg0, arg1 any) *MockModelDBStateGetVolumeAttachmentPlanLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeAttachmentPlanLife", reflect.TypeOf((*MockModelDBState)(nil).GetVolumeAttachmentPlanLife), arg0, arg1)
+	return &MockModelDBStateGetVolumeAttachmentPlanLifeCall{Call: call}
+}
+
+// MockModelDBStateGetVolumeAttachmentPlanLifeCall wrap *gomock.Call
+type MockModelDBStateGetVolumeAttachmentPlanLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetVolumeAttachmentPlanLifeCall) Return(arg0 life.Life, arg1 error) *MockModelDBStateGetVolumeAttachmentPlanLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetVolumeAttachmentPlanLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetVolumeAttachmentPlanLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetVolumeAttachmentPlanLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetVolumeAttachmentPlanLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetVolumeLife mocks base method.
 func (m *MockModelDBState) GetVolumeLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()
@@ -1919,6 +2036,44 @@ func (c *MockModelDBStateMachineScheduleRemovalCall) DoAndReturn(f func(context.
 	return c
 }
 
+// MarkFilesystemAttachmentAsDead mocks base method.
+func (m *MockModelDBState) MarkFilesystemAttachmentAsDead(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkFilesystemAttachmentAsDead", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkFilesystemAttachmentAsDead indicates an expected call of MarkFilesystemAttachmentAsDead.
+func (mr *MockModelDBStateMockRecorder) MarkFilesystemAttachmentAsDead(arg0, arg1 any) *MockModelDBStateMarkFilesystemAttachmentAsDeadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkFilesystemAttachmentAsDead", reflect.TypeOf((*MockModelDBState)(nil).MarkFilesystemAttachmentAsDead), arg0, arg1)
+	return &MockModelDBStateMarkFilesystemAttachmentAsDeadCall{Call: call}
+}
+
+// MockModelDBStateMarkFilesystemAttachmentAsDeadCall wrap *gomock.Call
+type MockModelDBStateMarkFilesystemAttachmentAsDeadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateMarkFilesystemAttachmentAsDeadCall) Return(arg0 error) *MockModelDBStateMarkFilesystemAttachmentAsDeadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateMarkFilesystemAttachmentAsDeadCall) Do(f func(context.Context, string) error) *MockModelDBStateMarkFilesystemAttachmentAsDeadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateMarkFilesystemAttachmentAsDeadCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateMarkFilesystemAttachmentAsDeadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MarkInstanceAsDead mocks base method.
 func (m *MockModelDBState) MarkInstanceAsDead(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -2067,6 +2222,82 @@ func (c *MockModelDBStateMarkUnitAsDeadCall) Do(f func(context.Context, string) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateMarkUnitAsDeadCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateMarkUnitAsDeadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MarkVolumeAttachmentAsDead mocks base method.
+func (m *MockModelDBState) MarkVolumeAttachmentAsDead(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkVolumeAttachmentAsDead", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkVolumeAttachmentAsDead indicates an expected call of MarkVolumeAttachmentAsDead.
+func (mr *MockModelDBStateMockRecorder) MarkVolumeAttachmentAsDead(arg0, arg1 any) *MockModelDBStateMarkVolumeAttachmentAsDeadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkVolumeAttachmentAsDead", reflect.TypeOf((*MockModelDBState)(nil).MarkVolumeAttachmentAsDead), arg0, arg1)
+	return &MockModelDBStateMarkVolumeAttachmentAsDeadCall{Call: call}
+}
+
+// MockModelDBStateMarkVolumeAttachmentAsDeadCall wrap *gomock.Call
+type MockModelDBStateMarkVolumeAttachmentAsDeadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateMarkVolumeAttachmentAsDeadCall) Return(arg0 error) *MockModelDBStateMarkVolumeAttachmentAsDeadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateMarkVolumeAttachmentAsDeadCall) Do(f func(context.Context, string) error) *MockModelDBStateMarkVolumeAttachmentAsDeadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateMarkVolumeAttachmentAsDeadCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateMarkVolumeAttachmentAsDeadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MarkVolumeAttachmentPlanAsDead mocks base method.
+func (m *MockModelDBState) MarkVolumeAttachmentPlanAsDead(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkVolumeAttachmentPlanAsDead", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkVolumeAttachmentPlanAsDead indicates an expected call of MarkVolumeAttachmentPlanAsDead.
+func (mr *MockModelDBStateMockRecorder) MarkVolumeAttachmentPlanAsDead(arg0, arg1 any) *MockModelDBStateMarkVolumeAttachmentPlanAsDeadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkVolumeAttachmentPlanAsDead", reflect.TypeOf((*MockModelDBState)(nil).MarkVolumeAttachmentPlanAsDead), arg0, arg1)
+	return &MockModelDBStateMarkVolumeAttachmentPlanAsDeadCall{Call: call}
+}
+
+// MockModelDBStateMarkVolumeAttachmentPlanAsDeadCall wrap *gomock.Call
+type MockModelDBStateMarkVolumeAttachmentPlanAsDeadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateMarkVolumeAttachmentPlanAsDeadCall) Return(arg0 error) *MockModelDBStateMarkVolumeAttachmentPlanAsDeadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateMarkVolumeAttachmentPlanAsDeadCall) Do(f func(context.Context, string) error) *MockModelDBStateMarkVolumeAttachmentPlanAsDeadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateMarkVolumeAttachmentPlanAsDeadCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateMarkVolumeAttachmentPlanAsDeadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
