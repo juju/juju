@@ -20,6 +20,10 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+func TestWatcherConvertSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherConvertSuite{})
+}
+
 type relationUnitsWatcherSuite struct {
 	service *MockRelationService
 }
@@ -194,6 +198,93 @@ func (s *relationUnitsWatcherSuite) receive(c *tc.C, w common.RelationUnitsWatch
 	// Can't actually happen, but the go compiler can't tell that
 	// c.Fatalf panics.
 	return params.RelationUnitsChange{}
+}
+
+type watcherConvertSuite struct {
+}
+
+func (s *watcherConvertSuite) TestConvert(c *tc.C) {
+	// Arrange
+	w := &relationChangesWatcher{
+		data: relation.ConsumerRelationUnitsChange{},
+	}
+	newData := relation.ConsumerRelationUnitsChange{
+		AppSettingsVersion:    map[string]int64{"app": 42},
+		DepartedUnits:         []string{"urge", "for", "going"},
+		UnitsSettingsVersions: map[string]int64{"joni/1": 23},
+	}
+
+	// Act
+	change, send := w.convert(newData)
+
+	// Assert
+	c.Assert(send, tc.IsTrue)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.Departed", tc.SameContents, newData.DepartedUnits)
+	c.Check(change, mc, params.RelationUnitsChange{
+		AppChanged: newData.AppSettingsVersion,
+		Changed: map[string]params.UnitSettings{
+			"joni/1": {Version: 23},
+		},
+		Departed: newData.DepartedUnits,
+	})
+
+	mc.AddExpr("_.DepartedUnits", tc.SameContents, newData.DepartedUnits)
+	c.Assert(w.data, mc, newData)
+}
+
+func (s *watcherConvertSuite) TestConvertPartial(c *tc.C) {
+	// Arrange
+	w := &relationChangesWatcher{
+		data: relation.ConsumerRelationUnitsChange{
+			AppSettingsVersion:    map[string]int64{"app": 42},
+			DepartedUnits:         []string{"urge", "for", "going"},
+			UnitsSettingsVersions: map[string]int64{"joni/1": 23},
+		},
+	}
+	newData := relation.ConsumerRelationUnitsChange{
+		AppSettingsVersion:    map[string]int64{"app": 42},
+		DepartedUnits:         []string{"urge", "newdeparted", "for", "going"},
+		UnitsSettingsVersions: map[string]int64{"joni/1": 23, "joni/2": 38},
+	}
+
+	// Act
+	change, send := w.convert(newData)
+
+	// Assert
+	c.Assert(send, tc.IsTrue)
+
+	c.Check(change, tc.DeepEquals, params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"joni/2": {Version: 38},
+		},
+		Departed: []string{"newdeparted"},
+	})
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.DepartedUnits", tc.SameContents, newData.DepartedUnits)
+	c.Assert(w.data, mc, newData)
+}
+
+func (s *watcherConvertSuite) TestConvertNoChange(c *tc.C) {
+	// Arrange
+	w := &relationChangesWatcher{
+		data: relation.ConsumerRelationUnitsChange{
+			AppSettingsVersion:    map[string]int64{"app": 42},
+			DepartedUnits:         []string{"urge", "for", "going"},
+			UnitsSettingsVersions: map[string]int64{"joni/1": 23},
+		},
+	}
+	newData := relation.ConsumerRelationUnitsChange{
+		AppSettingsVersion:    map[string]int64{"app": 42},
+		DepartedUnits:         []string{"urge", "for", "going"},
+		UnitsSettingsVersions: map[string]int64{"joni/1": 23},
+	}
+
+	// Act
+	_, send := w.convert(newData)
+
+	// Assert
+	c.Assert(send, tc.IsFalse)
 }
 
 type mockRUWatcher struct {

@@ -70,6 +70,21 @@ type relationChangesWatcher struct {
 	data                 relation.ConsumerRelationUnitsChange
 }
 
+// Changes is part of RelationUnitsWatcher.
+func (w *relationChangesWatcher) Changes() <-chan params.RelationUnitsChange {
+	return w.out
+}
+
+// Kill is part of worker.Worker.
+func (w *relationChangesWatcher) Kill() {
+	w.catacomb.Kill(nil)
+}
+
+// Wait is part of worker.Worker.
+func (w *relationChangesWatcher) Wait() error {
+	return w.catacomb.Wait()
+}
+
 func (w *relationChangesWatcher) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
@@ -106,8 +121,6 @@ func (w *relationChangesWatcher) loop() error {
 				continue
 			}
 
-			w.data = unitRelationInfo
-
 			// Send in lockstep so we don't drop events.
 			select {
 			case <-w.catacomb.Dying():
@@ -125,6 +138,9 @@ func (w *relationChangesWatcher) convert(
 	if changes.Empty() {
 		return params.RelationUnitsChange{}, false
 	}
+
+	// If there are changes, keep the latest version for next time.
+	w.data = newChange
 
 	unitsChanged := transform.Map(changes.UnitsSettingsVersions, func(key string, val int64) (string, params.UnitSettings) {
 		return key, params.UnitSettings{Version: val}
@@ -148,12 +164,12 @@ func (w *relationChangesWatcher) dataChanges(event relation.ConsumerRelationUnit
 	}
 
 	appChanges := w.mapDifference(w.data.AppSettingsVersion, event.AppSettingsVersion)
-	if appChanges != nil {
+	if len(appChanges) > 0 {
 		changedEvent.AppSettingsVersion = appChanges
 	}
 
 	unitChanges := w.mapDifference(w.data.UnitsSettingsVersions, event.UnitsSettingsVersions)
-	if unitChanges != nil {
+	if len(unitChanges) > 0 {
 		changedEvent.UnitsSettingsVersions = unitChanges
 	}
 
@@ -169,19 +185,4 @@ func (w *relationChangesWatcher) mapDifference(oldMap, newMap map[string]int64) 
 		}
 	}
 	return difference
-}
-
-// Changes is part of RelationUnitsWatcher.
-func (w *relationChangesWatcher) Changes() <-chan params.RelationUnitsChange {
-	return w.out
-}
-
-// Kill is part of worker.Worker.
-func (w *relationChangesWatcher) Kill() {
-	w.catacomb.Kill(nil)
-}
-
-// Wait is part of worker.Worker.
-func (w *relationChangesWatcher) Wait() error {
-	return w.catacomb.Wait()
 }

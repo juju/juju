@@ -493,9 +493,9 @@ func (api *CrossModelRelationsAPIv3) watchOneRelationChanges(
 	// relationToken is the relation UUID.
 	relationToken := arg.Token
 
-	relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, arg.Token)
+	relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, relationToken)
 	if err != nil {
-		return nil, empty, internalerrors.Errorf("getting relation key for %q: %w", arg.Token, err)
+		return nil, empty, internalerrors.Errorf("getting relation key for %q: %w", relationToken, err)
 	}
 	relationTag := names.NewRelationTag(relationKey.String())
 
@@ -504,21 +504,22 @@ func (api *CrossModelRelationsAPIv3) watchOneRelationChanges(
 		return nil, empty, internalerrors.Capture(err)
 	}
 
-	appToken, err := api.crossModelRelationService.GetOfferingApplicationToken(ctx, relationUUID)
+	applicationUUID, err := api.crossModelRelationService.GetOfferingApplicationToken(ctx, relationUUID)
 	if err != nil {
 		return nil, empty, internalerrors.Errorf("getting offering relation tokens: %w", err)
 	}
-	w, err := api.relationService.WatchRelationUnits(ctx, relationUUID, appToken)
+
+	w, err := api.relationService.WatchRelationUnits(ctx, relationUUID, applicationUUID)
 	if err != nil {
 		return nil, empty, internalerrors.Errorf("watching relation units: %w", err)
 	}
 
-	change, err := api.getRemoteRelationChangeEvent(ctx, relationUUID, appToken)
+	change, err := api.getRemoteRelationChangeEvent(ctx, relationUUID, applicationUUID)
 	if err != nil {
 		return nil, empty, internalerrors.Errorf("getting initial change: %w", err)
 	}
 
-	wrapped, err := wrappedRelationChangesWatcher(w, appToken, relationUUID, api.relationService)
+	wrapped, err := wrappedRelationChangesWatcher(w, applicationUUID, relationUUID, api.relationService)
 	if err != nil {
 		return nil, empty, internalerrors.Errorf("watching relation changes: %w", err)
 	}
@@ -536,22 +537,29 @@ func (api *CrossModelRelationsAPIv3) getRemoteRelationChangeEvent(
 		return params.RemoteRelationChangeEvent{}, err
 	}
 
-	appSetings := transform.Map(change.ApplicationSettings, func(k string, v string) (string, interface{}) { return k, v })
+	var (
+		appSettings  map[string]interface{}
+		unitSettings []params.RemoteRelationUnitChange
+	)
+	if change.ApplicationSettings != nil {
+		appSettings = transform.Map(change.ApplicationSettings, func(k string, v string) (string, interface{}) { return k, v })
+	}
+	if change.UnitsSettings != nil {
+		unitSettings = transform.Slice(change.UnitsSettings, func(in relation.UnitSettings) params.RemoteRelationUnitChange {
+			return params.RemoteRelationUnitChange{
+				UnitId:   in.UnitID,
+				Settings: transform.Map(in.Settings, func(k string, v string) (string, interface{}) { return k, v }),
+			}
+		})
+	}
 
-	unitSettings := transform.Slice(change.UnitsSettings, func(in relation.UnitSettings) params.RemoteRelationUnitChange {
-		return params.RemoteRelationUnitChange{
-			UnitId:   in.UnitID,
-			Settings: transform.Map(in.Settings, func(k string, v string) (string, interface{}) { return k, v }),
-		}
-	})
-	
 	return params.RemoteRelationChangeEvent{
 		RelationToken:           relationUUID.String(),
-		ApplicationOrOfferToken: change.ApplicationOrOfferToken,
+		ApplicationOrOfferToken: applicationUUID.String(),
 		Life:                    change.Life,
 		Suspended:               ptr(change.Suspended),
 		SuspendedReason:         change.SuspendedReason,
-		ApplicationSettings:     appSetings,
+		ApplicationSettings:     appSettings,
 		ChangedUnits:            unitSettings,
 		InScopeUnits:            change.InScopeUnits,
 		Macaroons:               change.Macaroons,

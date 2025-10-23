@@ -1483,10 +1483,11 @@ func (s *facadeSuite) TestWatchRelationChanges(c *tc.C) {
 	c.Check(obtained.Results, tc.HasLen, 1)
 	c.Check(obtained.Results[0].RemoteRelationWatcherId, tc.Equals, "42")
 	c.Check(obtained.Results[0].Changes, tc.DeepEquals, params.RemoteRelationChangeEvent{
-		RelationToken:   relUUID.String(),
-		Life:            life.Alive,
-		Suspended:       ptr(true),
-		SuspendedReason: "testing",
+		RelationToken:           relUUID.String(),
+		ApplicationOrOfferToken: appUUID.String(),
+		Life:                    life.Alive,
+		Suspended:               ptr(true),
+		SuspendedReason:         "testing",
 	})
 }
 
