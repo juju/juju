@@ -388,7 +388,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 		return nil, errors.Trace(err)
 	}
 
-	appName, appUUID, err := api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
+	offererAppName, offererAppUUID, err := api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -407,10 +407,11 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	// Insert the remote relation.
 	if err := api.crossModelRelationService.AddRemoteApplicationConsumer(ctx,
 		crossmodelrelationservice.AddRemoteApplicationConsumerArgs{
-			RemoteApplicationUUID: relation.ApplicationToken,
-			OfferUUID:             offerUUID,
-			RelationUUID:          relation.RelationToken,
-			ConsumerModelUUID:     sourceModelTag.Id(),
+			ConsumerApplicationUUID: relation.ApplicationToken,
+			OffererApplicationUUID:  offererAppUUID,
+			OfferUUID:               offerUUID,
+			RelationUUID:            relation.RelationToken,
+			ConsumerModelUUID:       sourceModelTag.Id(),
 			// We only have the actual consumed endpoint.
 			Endpoints: []charm.Relation{
 				{
@@ -427,7 +428,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	// Create the relation tag for the remote relation.
 	// The relation tag is based on the relation key, which is of the form
 	// "app1:epName1 app2:epName2".
-	localEndpoint := appName + ":" + relation.LocalEndpointName
+	localEndpoint := offererAppName + ":" + relation.LocalEndpointName
 
 	relationKey, err := corerelation.NewKeyFromString(
 		strings.Join([]string{localEndpoint, relation.RemoteEndpoint.Name}, " "),
@@ -447,7 +448,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	return &params.RemoteRelationDetails{
 		// The offering model application UUID is used as the token for the
 		// remote model.
-		Token:    appUUID.String(),
+		Token:    offererAppUUID.String(),
 		Macaroon: relationMacaroon.M(),
 	}, nil
 }

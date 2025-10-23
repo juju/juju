@@ -110,9 +110,22 @@ func (st *State) AddRemoteApplicationConsumer(
 			return errors.Capture(err)
 		}
 
+		// If the relation already exists, then we can not create the relation
+		// again. In this scenario, we return relation already exists.
+		exists, err := st.checkRelationExists(ctx, tx, args.ConsumerRelationUUID)
+		if err != nil {
+			return errors.Capture(err)
+		} else if exists {
+			return relationerrors.RelationAlreadyExists
+		}
+
 		// Make sure we don't have the remote application consumer already
 		// inserted in the db.
-		if err := st.checkRemoteApplicationExists(ctx, tx, args.OfferUUID, args.RemoteApplicationUUID, args.RelationUUID); err != nil {
+		if err := st.checkRemoteApplicationExists(ctx, tx, args.OfferUUID, args.RemoteApplicationUUID); errors.Is(err, crossmodelrelationerrors.RemoteRelationAlreadyRegistered) {
+			// If the remote application is already registered, check to see
+			// if we need to update the endpoints.
+			return st.mergeCharmEndpointsForRemoteApplicationConsumer(ctx, tx, args)
+		} else if err != nil {
 			return errors.Capture(err)
 		}
 
@@ -127,19 +140,19 @@ func (st *State) AddRemoteApplicationConsumer(
 		}
 
 		// Create the synthetic relation for this consumer.
-		if err := st.insertSyntheticRelation(ctx, tx, args.RelationUUID); err != nil {
+		if err := st.insertSyntheticRelation(ctx, tx, args.ConsumerRelationUUID); err != nil {
 			return errors.Capture(err)
 		}
 
 		// Create an offer connection for this consumer.
-		offerConnectionUUID, err := st.insertOfferConnection(ctx, tx, args.OfferUUID, args.RelationUUID)
+		offerConnectionUUID, err := st.insertOfferConnection(ctx, tx, args.OfferUUID, args.ConsumerRelationUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
 		// Insert the remote application consumer record, this allows us to find
 		// the synthetic application later.
-		if err := st.insertRemoteApplicationConsumer(ctx, tx, offerConnectionUUID, localApplicationUUID, args.ApplicationUUID, args.ConsumerModelUUID, args.OfferUUID); err != nil {
+		if err := st.insertRemoteApplicationConsumer(ctx, tx, offerConnectionUUID, localApplicationUUID, args.ConsumerApplicationUUID, args.ConsumerModelUUID, args.OfferUUID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -147,6 +160,24 @@ func (st *State) AddRemoteApplicationConsumer(
 	}); err != nil {
 		return errors.Capture(err)
 	}
+
+	return nil
+}
+
+func (st *State) mergeCharmEndpointsForRemoteApplicationConsumer(
+	ctx context.Context,
+	tx *sqlair.TX,
+	args crossmodelrelation.AddRemoteApplicationConsumerArgs,
+) error {
+	// Get the existing charm endpoints for the remote application consumer.
+
+	// Insert a new charm with the merged endpoints.
+
+	// Update and add application endpoints to point to the new charm.
+
+	// Update the synthetic application's charm UUID to point to the new charm.
+
+	// Remove the old charm.
 
 	return nil
 }
@@ -727,18 +758,7 @@ func (st *State) checkRemoteApplicationExists(
 	tx *sqlair.TX,
 	offerUUID string,
 	remoteApplicationUUID string,
-	remoteRelationUUID string,
 ) error {
-	synthRelationIdent := uuid{UUID: remoteRelationUUID}
-	syntheticRelationExistsStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &countResult.count
-FROM  relation
-WHERE uuid = $uuid.uuid
-`, countResult{}, synthRelationIdent)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	offerConnectionOfferUUID := offerConnectionQuery{OfferUUID: offerUUID}
 	consumerAppUUID := consumerApplicationUUID{ConsumerApplicationUUID: remoteApplicationUUID}
 	consumerApplicationExistsStmt, err := st.Prepare(`
@@ -753,14 +773,6 @@ AND   oc.offer_uuid = $offerConnectionQuery.offer_uuid
 	}
 
 	var result countResult
-	// First check if the synthetic relation already exists.
-	if err := tx.Query(ctx, syntheticRelationExistsStmt, synthRelationIdent).Get(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("checking if consumer relation %q exists: %w", remoteRelationUUID, err)
-	}
-	if result.Count > 0 {
-		return crossmodelrelationerrors.RemoteRelationAlreadyRegistered
-	}
-
 	// Now check if the consumer application, related with the offer UUID
 	// already exists.
 	if err := tx.Query(ctx, consumerApplicationExistsStmt, consumerAppUUID, offerConnectionOfferUUID).Get(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {

@@ -530,20 +530,32 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	details relation.RelationDetails,
 ) error {
 	// Relation key is derived from the endpoint identifiers.
-	var synthEndpoint relation.Endpoint
-	var otherEndpointName string
+	var (
+		consumingEndpoint        relation.Endpoint
+		consumingApplicationName string
+		offerEndpointName        string
+	)
 	for _, e := range details.Endpoints {
 		if e.ApplicationName == w.applicationName {
-			synthEndpoint = e
+			offerEndpointName = e.Name
 		} else {
-			otherEndpointName = e.Name
+			consumingEndpoint = e
+			consumingApplicationName = e.ApplicationName
 		}
 	}
 
 	// If the relation does not have an endpoint for either the local
 	// application or the remote application, then we cannot proceed.
-	if otherEndpointName == "" || synthEndpoint.Name == "" {
+	if offerEndpointName == "" || consumingEndpoint.Name == "" {
 		return errors.NotValidf("relation %v does not have endpoints for local application %q and remote application", details.UUID, w.applicationName)
+	}
+
+	// Get the real application uuid from the relation.
+	consumingApplicationUUID, err := w.crossModelService.GetApplicationUUIDByName(ctx, consumingApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return errors.NotFoundf("remote application %q for relation %q", consumingApplicationName, details.UUID)
+	} else if err != nil {
+		return errors.Annotatef(err, "querying remote application uuid for %q", consumingApplicationName)
 	}
 
 	// We have not seen the relation before, or the relation was suspended, make
@@ -551,7 +563,9 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	result, err := w.registerConsumerRelation(
 		ctx,
 		details.UUID, w.offerUUID,
-		synthEndpoint, otherEndpointName,
+		consumingApplicationUUID,
+		consumingEndpoint,
+		offerEndpointName,
 	)
 	if err != nil {
 		if statusErr := w.setApplicationOffererStatusMacaroonError(ctx, err); statusErr != nil {
@@ -694,24 +708,25 @@ func (w *localConsumerWorker) ensureUnitRelationWorkers(
 func (w *localConsumerWorker) registerConsumerRelation(
 	ctx context.Context,
 	relationUUID corerelation.UUID, offerUUID string,
-	applicationEndpointIdent relation.Endpoint, remoteEndpointName string,
+	consumingApplicationUUID application.UUID,
+	consumingEndpointIdent relation.Endpoint, offerEndpointName string,
 ) (consumerRelationResult, error) {
 	w.logger.Debugf(ctx, "register consumer relation %q to synthetic offerer application %q", relationUUID, w.applicationName)
 
 	// This data goes to the remote model so we map local info
 	// from this model to the remote arg values and visa versa.
 	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: w.applicationUUID.String(),
+		ApplicationToken: consumingApplicationUUID.String(),
 		SourceModelTag:   names.NewModelTag(w.consumerModelUUID.String()).String(),
 		RelationToken:    relationUUID.String(),
 		OfferUUID:        offerUUID,
 		RemoteEndpoint: params.RemoteEndpoint{
-			Name:      applicationEndpointIdent.String(),
-			Role:      applicationEndpointIdent.Role,
-			Interface: applicationEndpointIdent.Interface,
-			Limit:     applicationEndpointIdent.Limit,
+			Name:      consumingEndpointIdent.String(),
+			Role:      consumingEndpointIdent.Role,
+			Interface: consumingEndpointIdent.Interface,
+			Limit:     consumingEndpointIdent.Limit,
 		},
-		LocalEndpointName: remoteEndpointName,
+		LocalEndpointName: offerEndpointName,
 		ConsumeVersion:    w.consumeVersion,
 		Macaroons:         macaroon.Slice{w.offerMacaroon},
 		BakeryVersion:     defaultBakeryVersion,
@@ -740,7 +755,7 @@ func (w *localConsumerWorker) registerConsumerRelation(
 	// anything that the remote model is running.
 	//
 	// See: https://github.com/juju/juju/blob/43e381811d9e330ee2d095c1e0562300bd78b68a/state/remoteentities.go#L110-L115
-	offererAppUUID, err := application.ParseUUID(registerResult.Token)
+	offererRelationUUID, err := application.ParseUUID(registerResult.Token)
 	if err != nil {
 		return consumerRelationResult{}, errors.Annotatef(err, "parsing offering application token %q", registerResult.Token)
 	}
@@ -752,7 +767,7 @@ func (w *localConsumerWorker) registerConsumerRelation(
 	}
 
 	return consumerRelationResult{
-		offererApplicationUUID: offererAppUUID,
+		offererApplicationUUID: offererRelationUUID,
 		macaroon:               registerResult.Macaroon,
 	}, nil
 }

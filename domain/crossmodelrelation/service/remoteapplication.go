@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
-	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -236,17 +235,18 @@ func (s *Service) AddRemoteApplicationConsumer(ctx context.Context, args AddRemo
 
 	if err := s.modelState.AddRemoteApplicationConsumer(ctx, synthApplicationName, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
-			RemoteApplicationUUID: args.RemoteApplicationUUID,
 			// NOTE: We use the same UUID as in the remote (consuming) model for
 			// the synthetic application we are creating in the offering model.
-			ApplicationUUID:   args.RemoteApplicationUUID,
-			CharmUUID:         charmUUID.String(),
-			Charm:             syntheticCharm,
-			OfferUUID:         args.OfferUUID.String(),
-			ConsumerModelUUID: args.ConsumerModelUUID,
+			ConsumerApplicationUUID: args.ConsumerApplicationUUID,
+			OfferingApplicationUUID: args.OfferingApplicationUUID,
+			CharmUUID:               charmUUID.String(),
+			Charm:                   syntheticCharm,
+			OfferUUID:               args.OfferUUID.String(),
+			ConsumerModelUUID:       args.ConsumerModelUUID,
+			Endpoints:               args.Endpoints,
 		},
-		RelationUUID: args.RelationUUID,
-	}); internalerrors.Is(err, crossmodelrelationerrors.RemoteRelationAlreadyRegistered) {
+		ConsumerRelationUUID: args.RelationUUID,
+	}); internalerrors.Is(err, relationerrors.RelationAlreadyExists) {
 		// This can happen if the remote relation was already registered.
 		// The method is idempotent, so we just return nil with a debug log.
 		s.logger.Debugf(ctx, "remote relation with consumer relation UUID %q already registered", args.RelationUUID)

@@ -202,9 +202,9 @@ type AddRemoteApplicationOffererArgs struct {
 type AddRemoteApplicationConsumerArgs struct {
 	AddRemoteApplicationArgs
 
-	// RelationUUID is the UUID of the relation created to connect the remote
-	// application to a local application, on the consuming model.
-	RelationUUID string
+	// ConsumerRelationUUID is the UUID of the relation created to connect the
+	// remote application to a local application, on the consuming model.
+	ConsumerRelationUUID string
 }
 
 // AddRemoteApplicationArgs contains the parameters required to add a new remote

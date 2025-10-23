@@ -511,6 +511,7 @@ func (e *IngressNetworksChangeEvent) GoString() string {
 // RegisterRemoteRelationArg holds attributes used to register a remote relation.
 type RegisterRemoteRelationArg struct {
 	// ApplicationToken is the application token on the remote model.
+	// Consuming Application UUID.
 	ApplicationToken string `json:"application-token"`
 
 	// SourceModelTag is the tag of the model hosting the application.
