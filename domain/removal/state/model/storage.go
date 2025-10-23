@@ -511,6 +511,327 @@ DELETE FROM storage_filesystem WHERE uuid = $entityUUID.uuid
 	return errors.Capture(err)
 }
 
+// GetFilesystemAttachmentLife returns the life of the filesystem attachment
+// indicated by the supplied UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] there is no
+// filesystem attachment for the provided UUID.
+func (st *State) GetFilesystemAttachmentLife(
+	ctx context.Context, rUUID string,
+) (life.Life, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var fsaLife entityLife
+	fsaUUID := entityUUID{UUID: rUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   storage_filesystem_attachment
+WHERE  uuid = $entityUUID.uuid`, fsaLife, fsaUUID)
+	if err != nil {
+		return -1, errors.Errorf(
+			"preparing filesystem attachment life query: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, fsaUUID).Get(&fsaLife)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.FilesystemAttachmentNotFound
+		} else if err != nil {
+			return errors.Errorf(
+				"running filesystem attachment life query: %w", err,
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	return life.Life(fsaLife.Life), nil
+}
+
+// MarkFilesystemAttachmentAsDead updates the life to dead of the filesystem
+// attachment indicated by the supplied UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] there is no
+// filesystem attachment for the provided UUID.
+func (st *State) MarkFilesystemAttachmentAsDead(
+	ctx context.Context, rUUID string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	fsaUUID := entityUUID{UUID: rUUID}
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   storage_filesystem_attachment
+WHERE  uuid = $entityUUID.uuid`, fsaUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing filesystem attachment exists query: %w", err,
+		)
+	}
+
+	markDeadStmt, err := st.Prepare(`
+UPDATE storage_filesystem_attachment
+SET    life_id = 2
+WHERE  uuid = $entityUUID.uuid`, fsaUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing filesystem attachment exists query: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, existsStmt, fsaUUID).Get(&fsaUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.FilesystemAttachmentNotFound
+		} else if err != nil {
+			return errors.Errorf(
+				"running filesystem attachment exists query: %w", err,
+			)
+		}
+
+		err = tx.Query(ctx, markDeadStmt, fsaUUID).Run()
+		if err != nil {
+			return errors.Errorf(
+				"running mark filesystem attachment dead query: %w", err,
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// GetVolumeAttachmentLife returns the life of the volume attachment indicated
+// by the supplied UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] there is no volume
+// attachment for the provided UUID.
+func (st *State) GetVolumeAttachmentLife(
+	ctx context.Context, rUUID string,
+) (life.Life, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var vaLife entityLife
+	vaUUID := entityUUID{UUID: rUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   storage_volume_attachment
+WHERE  uuid = $entityUUID.uuid`, vaLife, vaUUID)
+	if err != nil {
+		return -1, errors.Errorf(
+			"preparing volume attachment life query: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, vaUUID).Get(&vaLife)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.VolumeAttachmentNotFound
+		} else if err != nil {
+			return errors.Errorf(
+				"running volume attachment life query: %w", err,
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	return life.Life(vaLife.Life), nil
+}
+
+// MarkVolumeAttachmentAsDead updates the life to dead of the volume attachment
+// indicated by the supplied UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] there is no
+// filesystem attachment for the provided UUID.
+func (st *State) MarkVolumeAttachmentAsDead(
+	ctx context.Context, rUUID string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	vaUUID := entityUUID{UUID: rUUID}
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   storage_volume_attachment
+WHERE  uuid = $entityUUID.uuid`, vaUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing volume attachment exists query: %w", err,
+		)
+	}
+
+	markDeadStmt, err := st.Prepare(`
+UPDATE storage_volume_attachment
+SET    life_id = 2
+WHERE  uuid = $entityUUID.uuid`, vaUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing volume attachment exists query: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, existsStmt, vaUUID).Get(&vaUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.VolumeAttachmentNotFound
+		} else if err != nil {
+			return errors.Errorf(
+				"running volume attachment exists query: %w", err,
+			)
+		}
+
+		err = tx.Query(ctx, markDeadStmt, vaUUID).Run()
+		if err != nil {
+			return errors.Errorf(
+				"running mark volume attachment dead query: %w", err,
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// GetVolumeAttachmentPlanLife returns the life of the volume attachment plan
+// indicated by the supplied UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] there is no
+// volume attachment plan for the provided UUID.
+func (st *State) GetVolumeAttachmentPlanLife(
+	ctx context.Context, rUUID string,
+) (life.Life, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var vapLife entityLife
+	vapUUID := entityUUID{UUID: rUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   storage_volume_attachment_plan
+WHERE  uuid = $entityUUID.uuid`, vapLife, vapUUID)
+	if err != nil {
+		return -1, errors.Errorf(
+			"preparing volume attachment plan life query: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, vapUUID).Get(&vapLife)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.VolumeAttachmentPlanNotFound
+		} else if err != nil {
+			return errors.Errorf(
+				"running volume attachment plan life query: %w", err,
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	return life.Life(vapLife.Life), nil
+}
+
+// MarkVolumeAttachmentPlanAsDead updates the life to dead of the volume
+// attachment plan indicated by the supplied UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] there is no
+// filesystem attachment for the provided UUID.
+func (st *State) MarkVolumeAttachmentPlanAsDead(
+	ctx context.Context, rUUID string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	vapUUID := entityUUID{UUID: rUUID}
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   storage_volume_attachment_plan
+WHERE  uuid = $entityUUID.uuid`, vapUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing volume attachment plan exists query: %w", err,
+		)
+	}
+
+	markDeadStmt, err := st.Prepare(`
+UPDATE storage_volume_attachment_plan
+SET    life_id = 2
+WHERE  uuid = $entityUUID.uuid`, vapUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing volume attachment plan exists query: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, existsStmt, vapUUID).Get(&vapUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.VolumeAttachmentPlanNotFound
+		} else if err != nil {
+			return errors.Errorf(
+				"running volume attachment plan exists query: %w", err,
+			)
+		}
+
+		err = tx.Query(ctx, markDeadStmt, vapUUID).Run()
+		if err != nil {
+			return errors.Errorf(
+				"running mark volume attachment plan dead query: %w", err,
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
 // ensureStorageInstanceNotAliveCascade ensures that the storage instance
 // identitied by the input UUID is no longer alive.
 // If any of the instance's volumes or file-systems have a provisioning scope
