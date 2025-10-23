@@ -41,6 +41,7 @@ import (
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
+	environsconfig "github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -203,20 +204,27 @@ func (st *State) insertApplication(
 		return errors.Capture(err)
 	}
 
+	// the default space is either the one defined in the model config, or the
+	// alpha space if the model config is not set.
+	defaultSpaceUUID, err := st.getDefaultSpaceUUID(ctx, tx)
+	if err != nil {
+		return errors.Errorf("getting default space: %w", err)
+	}
+
 	appDetails := applicationDetails{
 		UUID:      appUUID,
 		Name:      name,
 		CharmUUID: charmID,
 		LifeID:    life.Alive,
-
-		// The space is defaulted to Alpha, which is guaranteed to exist.
+		// We return either the default space from model config or the alpha space
+		// if the model config is not set.
 		// However, if there is default space defined in endpoints bindings
 		// (through a binding with an empty endpoint), the application space
 		// will be updated later in the transaction, during the insertion
 		// of application_endpoints.
 		// The space defined here will be used as default space when creating
 		// relation where application_endpoint doesn't have a defined space.
-		SpaceUUID: network.AlphaSpaceId,
+		SpaceUUID: defaultSpaceUUID,
 	}
 
 	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
@@ -364,6 +372,33 @@ func (st *State) insertApplication(
 		}
 	}
 	return nil
+}
+
+// getDefaultSpaceUUID retrieves the default space UUID from the model config
+// or defaults to the alpha space UUID if undefined.
+func (st *State) getDefaultSpaceUUID(ctx context.Context, tx *sqlair.TX) (string, error) {
+	// The space is defaulted to Alpha, which is guaranteed to exist.
+	result := network.AlphaSpaceId.String()
+
+	key := KeyValue{
+		Key: environsconfig.DefaultSpaceKey,
+	}
+	stmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM space
+JOIN model_config ON model_config.key = $KeyValue.key AND model_config.value = space.name`, key, entityUUID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var space entityUUID
+	if err := tx.Query(ctx, stmt, key).Get(&space); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("getting default space: %w", err)
+	}
+	if space.UUID != "" {
+		result = space.UUID
+	}
+	return result, nil
 }
 
 func (st *State) insertApplicationController(

@@ -174,13 +174,16 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		LifeID:    life.Alive,
 
 		// The space is defaulted to Alpha, which is guaranteed to exist.
-		// However, if there is default space defined in endpoints bindings
-		// (through a binding with an empty endpoint), the application space
-		// will be updated later in the transaction, during the insertion
-		// of application_endpoints.
-		// The space defined here will be used as default space when creating
+		// However, if there is a default space defined in endpoint bindings
+		// (through a binding with an empty endpoint or by default-space model
+		// config), the application space will be updated later in the
+		// transaction, during the insertion of application_endpoints.
+		// The space defined here will be used as the default space when creating a
 		// relation where application_endpoint doesn't have a defined space.
-		SpaceUUID: network.AlphaSpaceId,
+		// There is no need to set the space to the default space defined during
+		// migration import, because an application always has a default space
+		// which is passed through endpoint bindings in migration.
+		SpaceUUID: network.AlphaSpaceId.String(),
 	}
 
 	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
