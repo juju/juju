@@ -190,20 +190,20 @@ type ApplicationService interface {
 	// amount, returning the new amount. This is used on CAAS models.
 	ChangeApplicationScale(ctx context.Context, name string, scaleChange int) (int, error)
 
-	// GetApplicationStorageDirectives returns the storage directives that are
-	// set for an application. If the application does not have any storage
-	// directives set then an empty result is returned.
+	// GetApplicationLife looks up the life of the specified application.
+	GetApplicationLife(context.Context, coreapplication.UUID) (life.Value, error)
+
+	// GetApplicationStorage returns the storage information for an application.
+	// If the application does not have any storage information set then an empty
+	// map result is returned.
 	//
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
 	// when the application no longer exists.
-	GetApplicationStorageDirectives(
+	GetApplicationStorage(
 		ctx context.Context,
 		uuid coreapplication.UUID,
-	) ([]application.StorageDirective, error)
-
-	// GetApplicationLife looks up the life of the specified application.
-	GetApplicationLife(context.Context, coreapplication.UUID) (life.Value, error)
+	) (map[string]applicationservice.ApplicationStorageInfo, error)
 
 	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)

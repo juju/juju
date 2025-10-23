@@ -358,20 +358,6 @@ func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name stri
 	return pool, nil
 }
 
-// GetStoragePoolByUUID returns the storage pool with the UUID.
-// The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-func (s *StoragePoolService) GetStoragePoolByUUID(ctx context.Context, poolUUID domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	pool, err := s.st.GetStoragePool(ctx, poolUUID)
-	if err != nil {
-		return domainstorage.StoragePool{}, errors.Capture(err)
-	}
-	return pool, nil
-}
-
 func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) error {
 	if err := s.validateProviderCriteria(ctx, providers); err != nil {
 		return errors.Capture(err)

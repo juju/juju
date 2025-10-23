@@ -251,18 +251,55 @@ func (s *ProviderService) SetApplicationConstraints(
 	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
 }
 
-// GetApplicationStorageDirectives returns the storage directives that are
-// set for an application. If the application does not have any storage
-// directives set then an empty result is returned.
+// ApplicationStorageInfo contains information about an instance of an application's storage.
+// It is to be keyed by storage directive name.
+type ApplicationStorageInfo struct {
+	// Pool is the name of the storage pool from which the storage instance
+	// was provisioned.
+	StoragePoolName string
+
+	// SizeMiB is the size of the storage instance, in MiB.
+	SizeMiB *uint64
+
+	// Count is the number of storage instances.
+	Count *uint64
+}
+
+// GetApplicationStorage returns the storage information for an application.
+// If the application does not have any storage information set then an empty
+// map result is returned.
 //
 // The following error types can be expected:
 // - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
 // when the application no longer exists.
-func (s *ProviderService) GetApplicationStorageDirectives(
+func (s *ProviderService) GetApplicationStorage(
 	ctx context.Context,
 	uuid coreapplication.UUID,
-) ([]application.StorageDirective, error) {
-	return s.storageService.GetApplicationStorageDirectives(ctx, uuid)
+) (map[string]ApplicationStorageInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return nil, errors.Errorf("application UUID: %w", err)
+	}
+
+	directives, err := s.storageService.GetApplicationStorageDirectives(ctx, uuid)
+	if err != nil {
+		return nil, errors.Errorf("getting application storage directives: %w", err)
+	}
+
+	result := make(map[string]ApplicationStorageInfo)
+	for _, directive := range directives {
+		count64 := uint64(directive.Count)
+		info := ApplicationStorageInfo{
+			StoragePoolName: directive.PoolUUID.String(), // TODO: Need to resolve UUID -> Name
+			SizeMiB:         &directive.Size,
+			Count:           &count64,
+		}
+		result[directive.Name.String()] = info
+	}
+
+	return result, nil
 }
 
 // AddIAASUnits adds the specified units to the IAAS application, returning an

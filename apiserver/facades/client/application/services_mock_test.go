@@ -982,41 +982,41 @@ func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(contex
 	return c
 }
 
-// GetApplicationStorageDirectives mocks base method.
-func (m *MockApplicationService) GetApplicationStorageDirectives(arg0 context.Context, arg1 application.UUID) ([]application0.StorageDirective, error) {
+// GetApplicationStorage mocks base method.
+func (m *MockApplicationService) GetApplicationStorage(arg0 context.Context, arg1 application.UUID) (map[string]service.ApplicationStorageInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationStorageDirectives", arg0, arg1)
-	ret0, _ := ret[0].([]application0.StorageDirective)
+	ret := m.ctrl.Call(m, "GetApplicationStorage", arg0, arg1)
+	ret0, _ := ret[0].(map[string]service.ApplicationStorageInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetApplicationStorageDirectives indicates an expected call of GetApplicationStorageDirectives.
-func (mr *MockApplicationServiceMockRecorder) GetApplicationStorageDirectives(arg0, arg1 any) *MockApplicationServiceGetApplicationStorageDirectivesCall {
+// GetApplicationStorage indicates an expected call of GetApplicationStorage.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationStorage(arg0, arg1 any) *MockApplicationServiceGetApplicationStorageCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStorageDirectives", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationStorageDirectives), arg0, arg1)
-	return &MockApplicationServiceGetApplicationStorageDirectivesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStorage", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationStorage), arg0, arg1)
+	return &MockApplicationServiceGetApplicationStorageCall{Call: call}
 }
 
-// MockApplicationServiceGetApplicationStorageDirectivesCall wrap *gomock.Call
-type MockApplicationServiceGetApplicationStorageDirectivesCall struct {
+// MockApplicationServiceGetApplicationStorageCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationStorageCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetApplicationStorageDirectivesCall) Return(arg0 []application0.StorageDirective, arg1 error) *MockApplicationServiceGetApplicationStorageDirectivesCall {
+func (c *MockApplicationServiceGetApplicationStorageCall) Return(arg0 map[string]service.ApplicationStorageInfo, arg1 error) *MockApplicationServiceGetApplicationStorageCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationStorageDirectivesCall) Do(f func(context.Context, application.UUID) ([]application0.StorageDirective, error)) *MockApplicationServiceGetApplicationStorageDirectivesCall {
+func (c *MockApplicationServiceGetApplicationStorageCall) Do(f func(context.Context, application.UUID) (map[string]service.ApplicationStorageInfo, error)) *MockApplicationServiceGetApplicationStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationStorageDirectivesCall) DoAndReturn(f func(context.Context, application.UUID) ([]application0.StorageDirective, error)) *MockApplicationServiceGetApplicationStorageDirectivesCall {
+func (c *MockApplicationServiceGetApplicationStorageCall) DoAndReturn(f func(context.Context, application.UUID) (map[string]service.ApplicationStorageInfo, error)) *MockApplicationServiceGetApplicationStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
