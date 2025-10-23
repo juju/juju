@@ -429,79 +429,41 @@ func (m *MockCrossModelRelationService) EXPECT() *MockCrossModelRelationServiceM
 	return m.recorder
 }
 
-// CheckIsApplicationConsumer mocks base method.
-func (m *MockCrossModelRelationService) CheckIsApplicationConsumer(arg0 context.Context, arg1 string) error {
+// GetMacaroonForRelation mocks base method.
+func (m *MockCrossModelRelationService) GetMacaroonForRelation(arg0 context.Context, arg1 relation.UUID) (*macaroon.Macaroon, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckIsApplicationConsumer", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CheckIsApplicationConsumer indicates an expected call of CheckIsApplicationConsumer.
-func (mr *MockCrossModelRelationServiceMockRecorder) CheckIsApplicationConsumer(arg0, arg1 any) *MockCrossModelRelationServiceCheckIsApplicationConsumerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckIsApplicationConsumer", reflect.TypeOf((*MockCrossModelRelationService)(nil).CheckIsApplicationConsumer), arg0, arg1)
-	return &MockCrossModelRelationServiceCheckIsApplicationConsumerCall{Call: call}
-}
-
-// MockCrossModelRelationServiceCheckIsApplicationConsumerCall wrap *gomock.Call
-type MockCrossModelRelationServiceCheckIsApplicationConsumerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceCheckIsApplicationConsumerCall) Return(arg0 error) *MockCrossModelRelationServiceCheckIsApplicationConsumerCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceCheckIsApplicationConsumerCall) Do(f func(context.Context, string) error) *MockCrossModelRelationServiceCheckIsApplicationConsumerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceCheckIsApplicationConsumerCall) DoAndReturn(f func(context.Context, string) error) *MockCrossModelRelationServiceCheckIsApplicationConsumerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetMacaroonForRelationKey mocks base method.
-func (m *MockCrossModelRelationService) GetMacaroonForRelationKey(arg0 context.Context, arg1 relation.Key) (*macaroon.Macaroon, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMacaroonForRelationKey", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetMacaroonForRelation", arg0, arg1)
 	ret0, _ := ret[0].(*macaroon.Macaroon)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetMacaroonForRelationKey indicates an expected call of GetMacaroonForRelationKey.
-func (mr *MockCrossModelRelationServiceMockRecorder) GetMacaroonForRelationKey(arg0, arg1 any) *MockCrossModelRelationServiceGetMacaroonForRelationKeyCall {
+// GetMacaroonForRelation indicates an expected call of GetMacaroonForRelation.
+func (mr *MockCrossModelRelationServiceMockRecorder) GetMacaroonForRelation(arg0, arg1 any) *MockCrossModelRelationServiceGetMacaroonForRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMacaroonForRelationKey", reflect.TypeOf((*MockCrossModelRelationService)(nil).GetMacaroonForRelationKey), arg0, arg1)
-	return &MockCrossModelRelationServiceGetMacaroonForRelationKeyCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMacaroonForRelation", reflect.TypeOf((*MockCrossModelRelationService)(nil).GetMacaroonForRelation), arg0, arg1)
+	return &MockCrossModelRelationServiceGetMacaroonForRelationCall{Call: call}
 }
 
-// MockCrossModelRelationServiceGetMacaroonForRelationKeyCall wrap *gomock.Call
-type MockCrossModelRelationServiceGetMacaroonForRelationKeyCall struct {
+// MockCrossModelRelationServiceGetMacaroonForRelationCall wrap *gomock.Call
+type MockCrossModelRelationServiceGetMacaroonForRelationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceGetMacaroonForRelationKeyCall) Return(arg0 *macaroon.Macaroon, arg1 error) *MockCrossModelRelationServiceGetMacaroonForRelationKeyCall {
+func (c *MockCrossModelRelationServiceGetMacaroonForRelationCall) Return(arg0 *macaroon.Macaroon, arg1 error) *MockCrossModelRelationServiceGetMacaroonForRelationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceGetMacaroonForRelationKeyCall) Do(f func(context.Context, relation.Key) (*macaroon.Macaroon, error)) *MockCrossModelRelationServiceGetMacaroonForRelationKeyCall {
+func (c *MockCrossModelRelationServiceGetMacaroonForRelationCall) Do(f func(context.Context, relation.UUID) (*macaroon.Macaroon, error)) *MockCrossModelRelationServiceGetMacaroonForRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceGetMacaroonForRelationKeyCall) DoAndReturn(f func(context.Context, relation.Key) (*macaroon.Macaroon, error)) *MockCrossModelRelationServiceGetMacaroonForRelationKeyCall {
+func (c *MockCrossModelRelationServiceGetMacaroonForRelationCall) DoAndReturn(f func(context.Context, relation.UUID) (*macaroon.Macaroon, error)) *MockCrossModelRelationServiceGetMacaroonForRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -619,6 +581,45 @@ func (c *MockCrossModelRelationServiceGetRelationNetworkIngressCall) Do(f func(c
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelRelationServiceGetRelationNetworkIngressCall) DoAndReturn(f func(context.Context, relation.UUID) ([]string, error)) *MockCrossModelRelationServiceGetRelationNetworkIngressCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsApplicationConsumer mocks base method.
+func (m *MockCrossModelRelationService) IsApplicationConsumer(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsApplicationConsumer", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsApplicationConsumer indicates an expected call of IsApplicationConsumer.
+func (mr *MockCrossModelRelationServiceMockRecorder) IsApplicationConsumer(arg0, arg1 any) *MockCrossModelRelationServiceIsApplicationConsumerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationConsumer", reflect.TypeOf((*MockCrossModelRelationService)(nil).IsApplicationConsumer), arg0, arg1)
+	return &MockCrossModelRelationServiceIsApplicationConsumerCall{Call: call}
+}
+
+// MockCrossModelRelationServiceIsApplicationConsumerCall wrap *gomock.Call
+type MockCrossModelRelationServiceIsApplicationConsumerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceIsApplicationConsumerCall) Return(arg0 bool, arg1 error) *MockCrossModelRelationServiceIsApplicationConsumerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceIsApplicationConsumerCall) Do(f func(context.Context, string) (bool, error)) *MockCrossModelRelationServiceIsApplicationConsumerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceIsApplicationConsumerCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockCrossModelRelationServiceIsApplicationConsumerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

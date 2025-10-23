@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/internal/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -223,12 +222,6 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 	return secret.NewSecretStringWatcher(w, s.logger, processChanges)
 }
 
-// WatchRemoteRelations returns a disabled watcher for remote relations for now.
-// Not implemented yet in the domain service.
-func (w *WatchableService) WatchRemoteRelations(ctx context.Context) (watcher.StringsWatcher, error) {
-	return nil, errors.Errorf("crossmodelrelation.WatchRemoteRelations").Add(coreerrors.NotImplemented)
-}
-
 // WatchConsumerRelations watches the changes to (remote) relations on the
 // consuming model and notifies the worker of any changes.
 // NOTE(nvinuesa): This watcher is less efficient than WatchOffererRelations,
@@ -392,7 +385,7 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 // events when there are insertions or deletions in the relation_network_egress
 // table.
 func (c *Service) WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.NotifyWatcher, error) {
-	return nil, internalerrors.Errorf("crossmodelrelation.WatchRelationEgressNetworks").Add(coreerrors.NotImplemented)
+	return nil, errors.Errorf("crossmodelrelation.WatchRelationEgressNetworks").Add(coreerrors.NotImplemented)
 }
 
 // WatchRelationIngressNetworks watches for changes to the ingress networks

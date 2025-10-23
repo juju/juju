@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
-	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
@@ -70,19 +69,14 @@ type CrossModelFirewallerFacadeCloser interface {
 
 // CrossModelRelationService provides access to cross-model relations.
 type CrossModelRelationService interface {
-	// CheckIsApplicationConsumer checks if the given application exists in the
-	// consuming model. This only returns true if the application is non-synthetic.
-	// The lack of returned errors indicate that the application exists in the
-	// consuming model and is non-synthetic.
-	CheckIsApplicationConsumer(ctx context.Context, appName string) error
-
 	// GetOffererModelUUID returns the offering model UUID, based on a given
 	// application.
 	GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error)
 
-	// GetMacaroonForRelation retrieves the macaroon associated with the provided
-	// relation key.
-	GetMacaroonForRelationKey(ctx context.Context, relationKey relation.Key) (*macaroon.Macaroon, error)
+	// GetMacaroonForRelation gets the macaroon for the specified remote relation,
+	// returning an error satisfying [crossmodelrelationerrors.MacaroonNotFound]
+	// if the macaroon is not found.
+	GetMacaroonForRelation(ctx context.Context, relationUUID relation.UUID) (*macaroon.Macaroon, error)
 
 	// GetRelationNetworkEgress retrieves all egress network CIDRs for the
 	// specified relation.
@@ -90,7 +84,11 @@ type CrossModelRelationService interface {
 
 	// GetRelationNetworkIngress retrieves all ingress network CIDRs for the
 	// specified relation.
-	GetRelationNetworkIngress(ctx context.Context, relationUUID corerelation.UUID) ([]string, error)
+	GetRelationNetworkIngress(ctx context.Context, relationUUID relation.UUID) ([]string, error)
+
+	// IsApplicationConsumer checks if the given application exists in the model and
+	// is a non-synthetic application, in the consumer model.
+	IsApplicationConsumer(ctx context.Context, appName string) (bool, error)
 
 	// WatchConsumerRelations watches the changes to (remote) relations on the
 	// consuming model and notifies the worker of any changes.

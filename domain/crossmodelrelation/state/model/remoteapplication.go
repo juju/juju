@@ -12,6 +12,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -1539,4 +1540,73 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 	}
 
 	return relationsSuspended[0].IsSuspended, errors.Capture(err)
+}
+
+// GetOffererModelUUID returns the offering model UUID for a remote application
+// offerer, based on the given application name.
+// The following error types can be expected:
+//   - [crossmodelrelationerrors.RemoteApplicationNotFound]: when the
+//     application is not a remote offerer application.
+func (st *State) GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT aro.offerer_model_uuid AS &modelUUID.uuid
+FROM application_remote_offerer AS aro
+JOIN application AS a ON aro.application_uuid = a.uuid
+WHERE a.name = $name.name`, modelUUID{}, name{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result modelUUID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, name{Name: appName}).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return crossmodelrelationerrors.RemoteApplicationNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return coremodel.UUID(result.UUID), nil
+}
+
+// IsApplicationConsumer checks if the given application exists in the model and
+// is a non-synthetic application, in the consumer model.
+func (st *State) IsApplicationConsumer(ctx context.Context, appName string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM   application AS a
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+JOIN   charm_source AS cs ON cs.id = c.source_id
+WHERE  a.name = $name.name 
+AND    cs.name != 'cmr'`, countResult{}, name{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result countResult
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, name{Name: appName}).Get(&result)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return result.Count > 0, nil
 }

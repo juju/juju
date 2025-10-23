@@ -1625,10 +1625,11 @@ func (fw *Firewaller) startConsumerRelation(ctx context.Context, rel domainrelat
 
 	// We only have to check one of the endpoints to see if it's local.
 	// If it's not local, the other one must be.
-	err := fw.crossModelRelationService.CheckIsApplicationConsumer(ctx, rel.Endpoints[0].ApplicationName)
-	if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
+	isConsumer, err := fw.crossModelRelationService.IsApplicationConsumer(ctx, rel.Endpoints[0].ApplicationName)
+	if err != nil {
 		return errors.Trace(err)
-	} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
+	}
+	if !isConsumer {
 		localEndpoint = rel.Endpoints[1]
 		remoteEndpoint = rel.Endpoints[0]
 	} else {
@@ -1884,7 +1885,11 @@ func (rd *remoteRelationData) watchRemoteEgressApplyLocal() error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot parse relation key for %v", rd.tag.Id())
 	}
-	mac, err := rd.fw.crossModelRelationService.GetMacaroonForRelationKey(ctx, relKey)
+	relationUUID, err := rd.fw.relationService.GetRelationUUIDByKey(ctx, relKey)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get relation UUID for %v", rd.tag.Id())
+	}
+	mac, err := rd.fw.crossModelRelationService.GetMacaroonForRelation(ctx, relationUUID)
 	if err != nil {
 		return errors.Annotatef(err, "cannot get macaroon for %v", rd.tag.Id())
 	}
@@ -1933,7 +1938,11 @@ func (rd *remoteRelationData) publishIngressToRemote(ctx context.Context, cidrs 
 	if err != nil {
 		return errors.Annotatef(err, "cannot parse relation key for %v", rd.tag.Id())
 	}
-	mac, err := rd.fw.crossModelRelationService.GetMacaroonForRelationKey(ctx, relKey)
+	relationUUID, err := rd.fw.relationService.GetRelationUUIDByKey(ctx, relKey)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get relation UUID for %v", rd.tag.Id())
+	}
+	mac, err := rd.fw.crossModelRelationService.GetMacaroonForRelation(ctx, relationUUID)
 	if params.IsCodeNotFound(err) {
 		// Relation has gone, nothing to do.
 		return nil

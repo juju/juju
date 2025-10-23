@@ -128,6 +128,17 @@ type ModelRemoteApplicationState interface {
 	// initial query function for watching relation UUIDs that are associated with
 	// remote consumer applications present in this model (i.e. offerer side).
 	InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery)
+
+	// GetOffererModelUUID returns the offering model UUID for a remote application
+	// offerer, based on the given application name.
+	// The following error types can be expected:
+	//   - [crossmodelrelationerrors.RemoteApplicationNotFound]: when the application
+	//     is not a remote offerer application.
+	GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error)
+
+	// IsApplicationConsumer checks if the given application exists in the model and
+	// is a non-synthetic application, in the consumer model.
+	IsApplicationConsumer(ctx context.Context, appName string) (bool, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -370,12 +381,6 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 	return s.modelState.SaveMacaroonForRelation(ctx, relationUUID.String(), bytes)
 }
 
-// GetMacaroonForRelation retrieves the macaroon associated with the provided
-// relation key.
-func (s *Service) GetMacaroonForRelationKey(ctx context.Context, relationKey corerelation.Key) (*macaroon.Macaroon, error) {
-	return nil, internalerrors.Errorf("crossmodelrelation.GetMacaroonForRelation").Add(errors.NotImplemented)
-}
-
 // GetMacaroonForRelation gets the macaroon for the specified remote relation,
 // returning an error satisfying [crossmodelrelationerrors.MacaroonNotFound]
 // if the macaroon is not found.
@@ -508,45 +513,24 @@ func splitRelationsByType(relations []charm.Relation) (map[string]charm.Relation
 	return provides, requires, nil
 }
 
-// IsCrossModelRelationValidForApplication checks that the cross model relation is valid for the application.
-// A relation is valid if it is not suspended and the application is involved in the relation.
-func (s *Service) IsCrossModelRelationValidForApplication(ctx context.Context, relationKey corerelation.Key, appName string) (bool, error) {
+// IsApplicationConsumer checks if the given application exists in the model and
+// is a non-synthetic application, in the consumer model.
+func (s *Service) IsApplicationConsumer(ctx context.Context, appName string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := relationKey.Validate(); err != nil {
-		return false, relationerrors.RelationKeyNotValid
-	}
-
-	eids := relationKey.EndpointIdentifiers()
-	if len(eids) != 2 {
-		// Should never happen.
-		return false, internalerrors.Errorf("internal error: unexpected number of endpoints %d", len(eids))
-	}
-	if eids[0].ApplicationName != appName && eids[1].ApplicationName != appName {
-		return false, internalerrors.Errorf("relation %q not valid for application %q", relationKey, appName).Add(errors.NotValid)
-	}
-
-	isSuspended, err := s.modelState.IsRelationWithEndpointIdentifiersSuspended(ctx, eids[0], eids[1])
-	if err != nil {
-		return false, internalerrors.Errorf("getting relation suspended status by key: %w", err)
-	}
-	return !isSuspended, nil
-}
-
-// CheckIsApplicationConsumer checks if the given application exists in the
-// consuming model. This only returns true if the application is non-synthetic.
-// The lack of returned errors indicate that the application exists in the
-// consuming model and is non-synthetic.
-//
-// It returns [applicationerrors.ApplicationNotFound] if the application is not
-// found.
-func (w *Service) CheckIsApplicationConsumer(ctx context.Context, appName string) error {
-	return internalerrors.Errorf("crossmodelrelation.IsApplicationConsumer").Add(errors.NotImplemented)
+	return s.modelState.IsApplicationConsumer(ctx, appName)
 }
 
 // GetOffererModelUUID returns the offering model UUID, based on a given
 // application.
-func (w *Service) GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error) {
-	return coremodel.UUID(""), internalerrors.Errorf("crossmodelrelation.GetOffererModelUUID").Add(errors.NotImplemented)
+func (s *Service) GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	modelUUID, err := s.modelState.GetOffererModelUUID(ctx, appName)
+	if err != nil {
+		return coremodel.UUID(""), internalerrors.Capture(err)
+	}
+	return modelUUID, nil
 }

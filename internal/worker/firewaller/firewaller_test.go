@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
@@ -1416,7 +1415,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *tc.C
 
 	offererModelUUID := tc.Must(c, coremodel.NewUUID)
 
-	s.crossModelRelationService.EXPECT().CheckIsApplicationConsumer(gomock.Any(), "wordpress").Return(nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().IsApplicationConsumer(gomock.Any(), "wordpress").Return(true, nil).MinTimes(1)
 	s.crossModelRelationService.EXPECT().GetOffererModelUUID(gomock.Any(), "remote-mysql").Return(offererModelUUID, nil).MinTimes(1)
 	relTag := names.NewRelationTag("wordpress:db remote-mysql:server")
 	relKey, err := relation.NewKeyFromString(relTag.Id())
@@ -1453,7 +1452,8 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *tc.C
 			Addrs:  []string{"1.2.3.4:1234"},
 			CACert: coretesting.CACert,
 		}, nil).AnyTimes()
-	s.crossModelRelationService.EXPECT().GetMacaroonForRelationKey(gomock.Any(), relKey).Return(mac, nil).MinTimes(1)
+	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), relKey).Return(relUUID, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().GetMacaroonForRelation(gomock.Any(), relUUID).Return(mac, nil).MinTimes(1)
 
 	localEgressCh := make(chan []string, 1)
 	notifyCh := make(chan struct{}, 1)
@@ -1614,7 +1614,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 
 	offererModelUUID := tc.Must(c, coremodel.NewUUID)
 
-	s.crossModelRelationService.EXPECT().CheckIsApplicationConsumer(gomock.Any(), "remote-wordpress").Return(applicationerrors.ApplicationNotFound).MinTimes(1)
+	s.crossModelRelationService.EXPECT().IsApplicationConsumer(gomock.Any(), "remote-wordpress").Return(false, nil).MinTimes(1)
 	s.crossModelRelationService.EXPECT().GetOffererModelUUID(gomock.Any(), "remote-wordpress").Return(offererModelUUID, nil).MinTimes(1)
 
 	relTag := names.NewRelationTag("remote-wordpress:db mysql:server")
@@ -1652,7 +1652,8 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 			Addrs:  []string{"1.2.3.4:1234"},
 			CACert: coretesting.CACert,
 		}, nil).AnyTimes()
-	s.crossModelRelationService.EXPECT().GetMacaroonForRelationKey(gomock.Any(), relKey).Return(mac, nil).MinTimes(1)
+	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), relKey).Return(relUUID, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().GetMacaroonForRelation(gomock.Any(), relUUID).Return(mac, nil).MinTimes(1)
 
 	watched := make(chan bool, 2)
 
@@ -1699,7 +1700,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 
 	offererModelUUID := tc.Must(c, coremodel.NewUUID)
 
-	s.crossModelRelationService.EXPECT().CheckIsApplicationConsumer(gomock.Any(), "wordpress").Return(nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().IsApplicationConsumer(gomock.Any(), "wordpress").Return(true, nil).MinTimes(1)
 	s.crossModelRelationService.EXPECT().GetOffererModelUUID(gomock.Any(), "remote-mysql").Return(offererModelUUID, nil).MinTimes(1)
 
 	relTag := names.NewRelationTag("wordpress:db remote-mysql:server")
@@ -1738,7 +1739,8 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 			Addrs:  []string{"1.2.3.4:1234"},
 			CACert: coretesting.CACert,
 		}, nil).AnyTimes()
-	s.crossModelRelationService.EXPECT().GetMacaroonForRelationKey(gomock.Any(), relKey).Return(mac, nil).MinTimes(1)
+	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), relKey).Return(relUUID, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().GetMacaroonForRelation(gomock.Any(), relUUID).Return(mac, nil).MinTimes(1)
 
 	localEgressCh := make(chan []string, 1)
 	notifyCh := make(chan struct{}, 1)
