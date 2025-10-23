@@ -392,9 +392,6 @@ type UnitSettings struct {
 type FullRelationUnitChange struct {
 	RelationUnitChange
 
-	// ApplicationOrOfferToken is the token of the application or offer.
-	ApplicationOrOfferToken string
-
 	// Suspended is the current suspended status of the relation.
 	Suspended bool
 
