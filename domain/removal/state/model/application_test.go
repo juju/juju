@@ -739,6 +739,54 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`, "1", charmUUID, "buzz", 1, 0, 0, time.Now())
 	c.Check(exists, tc.IsFalse)
 }
 
+// TestDeleteApplicationWithDanlingCharmReference ensures that application removal and
+// charm's cleanup are in two different transactions. So even if the latter fails, the application
+// is still removed.
+func (s *applicationSuite) TestDeleteApplicationWithDanlingCharmReference(c *tc.C) {
+	// Arrange: Create an application with a dangling charm reference.
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
+	var charmUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT charm_uuid
+FROM application
+WHERE uuid=?`, appUUID).Scan(&charmUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS charm_external_reference (
+			uuid TEXT PRIMARY KEY,
+			charm_uuid TEXT,
+			created_at DATETIME,
+			FOREIGN KEY(charm_uuid) REFERENCES charm(uuid)
+		)`)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+		INSERT INTO charm_external_reference (uuid, charm_uuid, created_at)
+		VALUES (?, ?, ?)`, "dangling-charm-ref-1", charmUUID, time.Now())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Delete the application
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteApplication(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The application is deleted
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
 func (s *applicationSuite) TestDeleteApplicationWithSharedObjectstoreResource(c *tc.C) {
 	// Arrange: Two apps that share a resource object store entry
 	appSvc := s.setupApplicationService(c)
