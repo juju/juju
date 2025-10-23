@@ -306,6 +306,89 @@ func (s *storageSuite) TestDeleteFilesystemWithInstance(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkFilesystemAttachmentAsDead(ctx, "some-fsa-uuid")
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
+func (s *storageSuite) TestMarkFilesystemAttachmentAsDead(c *tc.C) {
+	ctx := c.Context()
+
+	_, fsaUUID := s.addAttachedFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkFilesystemAttachmentAsDead(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Filesystem Attachment should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_filesystem_attachment WHERE uuid = ?",
+		fsaUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentAsDeadNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentAsDead(ctx, "some-va-uuid")
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentAsDead(c *tc.C) {
+	ctx := c.Context()
+
+	_, vaUUID := s.addAttachedVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentAsDead(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment WHERE uuid = ?", vaUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentPlanAsDead(ctx, "some-vap-uuid")
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
+	ctx := c.Context()
+
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentPlanAsDead(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment Plan should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment_plan WHERE uuid = ?",
+		vapUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+}
+
 // addAppUnitStorage sets up a unit with a storage attachment.
 // The storage instance and attachment UUIDs are returned.
 func (s *storageSuite) addAppUnitStorage(c *tc.C) (string, string) {
@@ -416,4 +499,80 @@ func (s *storageSuite) bindFilesystemToStorageInstance(c *tc.C, siUUID, fsUUID s
 		siUUID, fsUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// addAttachedFilesystem adds a filesystem, a net node and attaches the two.
+// It returns the filesystem UUID and the filesystem attachment UUID.
+func (s *storageSuite) addAttachedFilesystem(c *tc.C) (string, string) {
+	ctx := c.Context()
+
+	netNodeUUID := "some-net-node-uuid"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)",
+		netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fsUUID := "some-fs-uuid"
+	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		fsUUID, "some-fs", 0, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fsaUUID := "some-fsa-uuid"
+	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
+		fsaUUID, fsUUID, netNodeUUID, 0, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID, fsaUUID
+}
+
+// addAttachedVolume adds a volume, a net node and attaches the two.
+// It returns the volume UUID and the volume attachment UUID.
+func (s *storageSuite) addAttachedVolume(c *tc.C) (string, string) {
+	ctx := c.Context()
+
+	netNodeUUID := "some-net-node-uuid"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)",
+		netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	volUUID := "some-vol-uuid"
+	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		volUUID, "some-vol", 0, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	vaUUID := "some-va-uuid"
+	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
+		vaUUID, volUUID, netNodeUUID, 0, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volUUID, vaUUID
+}
+
+// addAttachedVolumeWithPlan adds a volume, a net node and attaches the two with
+// an attachment plan as well.
+// It returns the volume UUID, the volume attachment UUID and the volume
+// attachment plan UUID.
+func (s *storageSuite) addAttachedVolumeWithPlan(c *tc.C) (string, string, string) {
+	ctx := c.Context()
+
+	netNodeUUID := "some-net-node-uuid"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)",
+		netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	volUUID := "some-vol-uuid"
+	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		volUUID, "some-vol", 0, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	vaUUID := "some-va-uuid"
+	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
+		vaUUID, volUUID, netNodeUUID, 0, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	vapUUID := "some-vap-uuid"
+	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume_attachment_plan (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
+		vapUUID, volUUID, netNodeUUID, 0, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volUUID, vaUUID, vapUUID
 }
