@@ -16,6 +16,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/network"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/storage"
@@ -478,6 +479,97 @@ func (s *storageSuite) TestGetDetachInfoForStorageAttachmentExcludeDeadAttachmen
 		UnitUUID:         unitUUID,
 		UnitLife:         0,
 	})
+}
+
+// TestEnsureStorageAttachmentNotAliveWithFulfilment tests the happy path of
+// removing a single storage attachment off a unit with a correct fulfilment.
+func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilment(c *tc.C) {
+	_, attachments := s.addAppUnitWithCharmStorage(
+		c, map[string]charmStorage{
+			"data": {CharmMin: 1, Fulfilment: 3},
+		},
+	)
+	ctx := c.Context()
+	attachmentUUID := attachments["data"][1]
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
+		ctx, attachmentUUID, 2,
+	)
+
+	c.Check(err, tc.ErrorIsNil)
+	row := s.DB().QueryRowContext(ctx, "SELECT life_id FROM storage_attachment WHERE uuid = ?", attachmentUUID)
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+}
+
+// TestEnsureStorageAttachmentNotAliveWithFulfilmentNotMet tests the scenario
+// where the expected fulfilment of the caller is not met. This would be due to
+// a unit's storage changing. The caller should expect a error back that
+// satisfies [removalerrors.StorageFulfilmentNotMet] and the attachment MUST
+// have no life change.
+func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentNotMet(c *tc.C) {
+	_, attachments := s.addAppUnitWithCharmStorage(
+		c, map[string]charmStorage{
+			"data": {CharmMin: 1, Fulfilment: 3},
+		},
+	)
+	ctx := c.Context()
+	attachmentUUID := attachments["data"][1]
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
+		ctx, attachmentUUID, 1,
+	)
+	c.Check(err, tc.ErrorIs, removalerrors.StorageFulfilmentNotMet)
+
+	// Check that the attachment is still alive.
+	row := s.DB().QueryRowContext(ctx, "SELECT life_id FROM storage_attachment WHERE uuid = ?", attachmentUUID)
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 0)
+}
+
+// TestEnsureStorageAttachmentNotAliveWithFulfilmentOnlyAlive tests that when
+// calculating fulfilment for a storage attachment removal only attachments
+// which are alive are considered.
+func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentOnlyAlive(c *tc.C) {
+	_, attachments := s.addAppUnitWithCharmStorage(
+		c, map[string]charmStorage{
+			"data": {CharmMin: 1, Fulfilment: 3},
+		},
+	)
+	s.setStorageAttachmentDead(c, attachments["data"][0])
+	ctx := c.Context()
+	attachmentUUID := attachments["data"][1]
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
+		ctx, attachmentUUID, 1,
+	)
+	c.Check(err, tc.ErrorIsNil)
+
+	// Check that the attachment is still alive.
+	row := s.DB().QueryRowContext(ctx, "SELECT life_id FROM storage_attachment WHERE uuid = ?", attachmentUUID)
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+}
+
+// TestEnsureStorageAttachmentNotAliveWithFulfilmentNoop tests that when the
+// storage attachment does exist the operation just becomes a noop and the
+// fulfilment is ignored.
+func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentNoop(c *tc.C) {
+	notFoundUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
+		c.Context(), notFoundUUID.String(), 100,
+	)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 type charmStorage struct {
