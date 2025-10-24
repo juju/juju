@@ -111,7 +111,7 @@ if [ ! -z "$has_juju_db_snap" ]; then
 fi
 `
 	// We look to see if the proxy line is there already as
-	// the manual provider may have had it already.
+	// the unmanaged provider may have had it already.
 	// We write this file out whether we are using the legacy proxy
 	// or the juju proxy to deal with runtime changes. The proxy updater worker
 	// only modifies /etc/juju-proxy.conf, so if changes are written to that file

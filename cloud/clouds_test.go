@@ -306,8 +306,8 @@ func (s *cloudSuite) TestMalformedYAMLNoPanic(_ *tc.C) {
 	// Note the bad indentation. This case was reported under LP:2039322.
 	metadata := `
 clouds:
-manual-cloud:
-    type: manual
+unmanaged-cloud:
+    type: unmanaged
     endpoint: ubuntu@some-host-fqdn
 `[1:]
 

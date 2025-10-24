@@ -17,12 +17,12 @@ INSERT INTO cloud_type VALUES
 (0, 'kubernetes'),
 (1, 'lxd'),
 (2, 'maas'),
-(3, 'manual'),
-(4, 'azure'),
-(5, 'ec2'),
-(6, 'gce'),
-(7, 'oci'),
-(8, 'openstack'),
+(3, 'azure'),
+(4, 'ec2'),
+(5, 'gce'),
+(6, 'oci'),
+(7, 'openstack'),
+(8, 'unmanaged'),
 (9, 'vsphere');
 
 CREATE TABLE auth_type (

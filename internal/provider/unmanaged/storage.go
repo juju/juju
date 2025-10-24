@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package unmanaged
 
 import (
 	"github.com/juju/juju/internal/provider/common"

@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package unmanaged
 
 import (
 	"testing"
@@ -23,8 +23,8 @@ func TestConfigSuite(t *testing.T) {
 
 func CloudSpec() environscloudspec.CloudSpec {
 	return environscloudspec.CloudSpec{
-		Name:     "manual",
-		Type:     "manual",
+		Name:     "unmanaged",
+		Type:     "unmanaged",
 		Endpoint: "hostname",
 	}
 }
@@ -32,7 +32,7 @@ func CloudSpec() environscloudspec.CloudSpec {
 func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
 		"name":            "test",
-		"type":            "manual",
+		"type":            "unmanaged",
 		"uuid":            coretesting.ModelTag.Id(),
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"firewall-mode":   "instance",

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
-	_ "github.com/juju/juju/internal/provider/manual"
+	_ "github.com/juju/juju/internal/provider/unmanaged"
 	"github.com/juju/juju/internal/testing"
 )
 
