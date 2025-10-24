@@ -323,13 +323,11 @@ type filesystemTemplate struct {
 // machineVolumeProvisioningParams represents the provisioning params for a
 // volume from that is to be attached or is attached to a machine in the model.
 type machineVolumeProvisioningParams struct {
-	AttachmentProvisionScopeID int            `db:"attachment_provision_scope_id"`
-	AttachmentReadOnly         sql.Null[bool] `db:"attachment_read_only"`
-	ProviderType               string         `db:"provider_type"`
-	RequestedSizeMiB           uint64         `db:"requested_size_mib"`
-	SizeMiB                    uint64         `db:"size_mib"`
-	StoragePoolUUID            string         `db:"storage_pool_uuid"`
-	VolumeID                   string         `db:"volume_id"`
+	ProviderType     string `db:"provider_type"`
+	RequestedSizeMiB uint64 `db:"requested_size_mib"`
+	SizeMiB          uint64 `db:"size_mib"`
+	StoragePoolUUID  string `db:"storage_pool_uuid"`
+	VolumeID         string `db:"volume_id"`
 }
 
 // volumeProvisioningParams represents the provisioning params for a volume from the model

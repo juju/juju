@@ -17,7 +17,6 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
-	"github.com/juju/juju/domain/storageprovisioning/internal"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
@@ -1109,12 +1108,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 		c.Context(), machineUUID,
 	)
 
-	expected := []internal.MachineVolumeProvisioningParams{
+	expected := []domainstorageprovisioning.MachineVolumeProvisioningParams{
 		{
-			MachineVolumeAttachmentProvisioningParams: internal.MachineVolumeAttachmentProvisioningParams{
-				ReadOnly:          false,
-				ProvisioningScope: domainstorageprovisioning.ProvisionScopeModel,
-			},
 			Attributes: map[string]string{
 				"foo": "bar",
 			},
@@ -1124,10 +1119,6 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 			SizeMiB:          0,
 		},
 		{
-			MachineVolumeAttachmentProvisioningParams: internal.MachineVolumeAttachmentProvisioningParams{
-				ReadOnly:          false,
-				ProvisioningScope: domainstorageprovisioning.ProvisionScopeMachine,
-			},
 			Attributes: map[string]string{
 				"foo": "bar",
 			},
@@ -1173,12 +1164,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsIgnores(c *tc.C)
 		c.Context(), machineUUID,
 	)
 
-	expected := []internal.MachineVolumeProvisioningParams{
+	expected := []domainstorageprovisioning.MachineVolumeProvisioningParams{
 		{
-			MachineVolumeAttachmentProvisioningParams: internal.MachineVolumeAttachmentProvisioningParams{
-				ReadOnly:          false,
-				ProvisioningScope: domainstorageprovisioning.ProvisionScopeModel,
-			},
 			Attributes: map[string]string{
 				"foo": "bar",
 			},

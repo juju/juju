@@ -34,10 +34,6 @@ type MachineVolumeProvisioningParams struct {
 	// when being provisioned. A value of 0 here means the volume has not been
 	// provisioned yet and the final size is not known.
 	SizeMiB uint64
-
-	// VolumeAttachmentUUID is the uuid of the volume attachment that attaches
-	// this volume to the machine.
-	VolumeAttachmentUUID VolumeAttachmentUUID
 }
 
 // VolumeAttachmentID is a struct that provides the IDs and names associated
