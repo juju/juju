@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/mocks"
 	modelupgradermocks "github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -63,7 +62,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionAndStream(c *tc.C) {
 	version, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -73,12 +71,11 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionAndStream(c *tc.C) {
 
 	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersionStreamTo(gomock.Any(), version, modelagent.AgentStreamReleased).Return(nil)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService,
 	)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
@@ -104,7 +101,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionAndStreamDryRun(c *tc.C) 
 	desiredTargetVersion, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -118,11 +114,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionAndStreamDryRun(c *tc.C) 
 		modelagent.AgentStreamReleased,
 	).Return(currentTargetVersion, nil)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
@@ -146,7 +141,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersion(c *tc.C) {
 	version, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -158,11 +152,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersion(c *tc.C) {
 		version,
 	).Return(nil)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
@@ -187,7 +180,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionDryRun(c *tc.C) {
 	desiredTargetVersion, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -199,11 +191,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionDryRun(c *tc.C) {
 		desiredTargetVersion,
 	).Return(currentTargetVersion, nil)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
@@ -226,7 +217,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithStream(c *tc.C) {
 	version, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -239,11 +229,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithStream(c *tc.C) {
 		modelagent.AgentStreamReleased,
 	).Return(version, nil)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:    u.modelTag.String(),
@@ -265,7 +254,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
 	version, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -277,11 +265,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
 		gomock.Any(), modelagent.AgentStreamReleased,
 	).Return(version, nil)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:    u.modelTag.String(),
@@ -304,7 +291,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithoutVersionAndStream(c *tc.C) {
 	version, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -314,11 +300,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithoutVersionAndStream(c *tc.C) {
 	u.modelAgentService.EXPECT().
 		UpgradeModelTargetAgentVersion(gomock.Any()).Return(version, nil)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -339,7 +324,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithoutVersionAndStreamDryRun(c *tc.
 	version, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -349,11 +333,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithoutVersionAndStreamDryRun(c *tc.
 	u.modelAgentService.EXPECT().
 		RunPreUpgradeChecks(gomock.Any()).Return(version, nil)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -374,7 +357,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrMissingAgentBinariesToNotFound
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -387,11 +369,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrMissingAgentBinariesToNotFound
 			Add(modelagenterrors.MissingAgentBinaries),
 	)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -414,7 +395,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrModelUpgradeBlockerToNotSuppor
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -428,11 +408,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrModelUpgradeBlockerToNotSuppor
 		},
 	)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -456,7 +435,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrDowngradeNotSupportedToNotSupp
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -468,11 +446,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrDowngradeNotSupportedToNotSupp
 		modelagenterrors.DowngradeNotSupported,
 	)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -496,7 +473,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrAgentVersionNotSupportedToNotV
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -508,13 +484,12 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrAgentVersionNotSupportedToNotV
 		modelagenterrors.AgentVersionNotSupported,
 	)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = api.UpgradeModel(c.Context(), params.UpgradeModelParams{
+	_, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -530,7 +505,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrInvalidStreamToNotValid(c *tc.
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -542,13 +516,12 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrInvalidStreamToNotValid(c *tc.
 		modelagenterrors.AgentVersionNotSupported,
 	)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = api.UpgradeModel(c.Context(), params.UpgradeModelParams{
+	_, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
 	})
 
@@ -562,7 +535,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapOtherErrorsToServerError(c *tc.C)
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -576,11 +548,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapOtherErrorsToServerError(c *tc.C)
 		errors.New("crazy error occurred"),
 	)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -598,7 +569,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelNoWriteAccess(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -616,11 +586,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelNoWriteAccess(c *tc.C) {
 				Add(authentication.ErrorEntityMissingPermission),
 		)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -637,7 +606,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelChangeNotAllowed(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -645,11 +613,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelChangeNotAllowed(c *tc.C) {
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.New("not allowed"))
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -666,13 +633,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrorBecauseOfDifferentModel(c *tc.C
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
-
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: names.NewModelTag(uuid.MustNewUUID().String()).String(),
@@ -689,13 +653,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrorModelTag(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
-
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: names.NewModelTag("broken-uuid").String(),
@@ -713,18 +674,16 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrorCanUpgrade(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
 		u.controllerTag,
 	).Return(errors.New("unknown failure"))
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -741,7 +700,6 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrUnknownStreamMapToNotValid(c *tc.
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	u.authorizer.EXPECT().AuthClient().Return(true)
 	u.authorizer.EXPECT().HasPermission(
 		gomock.Any(),
 		permission.SuperuserAccess,
@@ -749,11 +707,10 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrUnknownStreamMapToNotValid(c *tc.
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	api, err := NewModelUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:    u.modelTag.String(),
@@ -762,20 +719,4 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrUnknownStreamMapToNotValid(c *tc.
 
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{})
-}
-
-// TestNewModelUpgraderAPIAuthError tests that an error is returned
-// if the entity is not a client user while instantiating the
-// model upgrader API.
-func (u *modelUpgradeSuite) TestNewModelUpgraderAPIAuthError(c *tc.C) {
-	ctrl := u.setup(c)
-	defer ctrl.Finish()
-
-	u.authorizer.EXPECT().AuthClient().Return(false)
-
-	_, err := NewModelUpgraderAPI(
-		u.controllerTag,
-		u.modelTag,
-		u.authorizer, u.check, u.modelAgentService)
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
