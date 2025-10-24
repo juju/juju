@@ -48,6 +48,15 @@ type ApplicationState interface {
 
 	// DeleteApplication removes a application from the database completely.
 	DeleteApplication(ctx context.Context, appUUID string, force bool) error
+
+	// DeleteCharmIfUnused deletes the charm with the input UUID if it is not
+	// used by any other application/unit.
+	DeleteCharmIfUnused(ctx context.Context, charmUUID string, applicationDeletion bool) error
+
+	// GetChamrForApplication returns the charm UUID for the application with
+	// the input application UUID.
+	// If the application does not exist, it returns an empty string.
+	GetCharmForApplication(ctx context.Context, appUUID string) (string, error)
 }
 
 // RemoveApplication checks if a application with the input application UUID
@@ -179,6 +188,12 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 		return errors.Errorf("application %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
+	// Get the CharmUUID before deleting the application, because after deletion
+	// we won't be able to look it up.
+	charmUUID, err := s.modelState.GetCharmForApplication(ctx, job.EntityUUID)
+	if err != nil {
+		return errors.Errorf("getting charm for application %q: %w", job.EntityUUID, err)
+	}
 	if err := s.modelState.DeleteApplication(ctx, job.EntityUUID, job.Force); errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// The application has already been removed.
 		// Indicate success so that this job will be deleted.
@@ -186,5 +201,12 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 	} else if err != nil {
 		return errors.Errorf("deleting application %q: %w", job.EntityUUID, err)
 	}
+
+	// Try to delete the charm if it is unused.
+	if err := s.modelState.DeleteCharmIfUnused(ctx, charmUUID, true); err != nil {
+		// Log the error but do not fail the removal job.
+		s.logger.Warningf(ctx, "deleting charm for application %q: %v", job.EntityUUID, err)
+	}
+
 	return nil
 }

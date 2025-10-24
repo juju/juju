@@ -225,7 +225,6 @@ func (st *State) DeleteApplication(ctx context.Context, aUUID string, force bool
 	if err != nil {
 		return errors.Capture(err)
 	}
-	var charmUUID string
 	applicationUUID := entityUUID{UUID: aUUID}
 
 	unitsStmt, err := st.Prepare(`
@@ -252,7 +251,6 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 	if err != nil {
 		return errors.Errorf("preparing application delete: %w", err)
 	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// TODO (stickupkid): We should ensure that the application is not
 		// in a dying state, but nothing calls MarkApplicationAsDead. It is
@@ -318,12 +316,6 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			}
 		}
 
-		// Get the charm UUID before we delete the application.
-		charmUUID, err = st.getCharmUUIDForApplication(ctx, tx, aUUID)
-		if err != nil {
-			return errors.Errorf("getting charm UUID for application: %w", err)
-		}
-
 		// Delete the application itself.
 		if err := tx.Query(ctx, deleteApplicationStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("deleting application: %w", err)
@@ -335,23 +327,26 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 		return errors.Errorf("delete application transaction: %w", err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.deleteDanglingResources(ctx, tx, charmUUID); err != nil {
-			return errors.Errorf("deleting dangling resource ids: %w", err)
-		}
-
-		// See if it's possible to delete the charm any more.
-		if err := st.deleteCharmIfUnusedByUUID(ctx, tx, charmUUID); err != nil {
-			return errors.Errorf("deleting charm if unused: %w", err)
-		}
-		return nil
-	})
-
-	if err != nil {
-		st.logger.Warningf(ctx, "deleting dangling resources and charm for application %q: %v", aUUID, errors.Capture(err))
-	}
-
 	return nil
+}
+
+// DeleteCharmIfUnused deletes the charm with the input UUID if it is not used
+// by any application or unit.
+// If applicationDeletion is true we also delete dangling resources.
+func (st *State) DeleteCharmIfUnused(ctx context.Context, charmUUID string, applicationDeletion bool) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if applicationDeletion {
+			err := st.deleteDanglingResources(ctx, tx, charmUUID)
+			if err != nil {
+				return errors.Errorf("deleting dangling resources: %w", err)
+			}
+		}
+		return st.deleteCharmIfUnusedByUUID(ctx, tx, charmUUID)
+	}))
 }
 
 func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqlair.TX, aUUID string) error {
@@ -550,6 +545,26 @@ WHERE  uuid = $entityUUID.uuid`, appID)
 		return errors.Errorf("removing application annotations: %w", err)
 	}
 	return nil
+}
+
+// GetCharmForApplication returns the charm UUID for the application with
+// the input application UUID.
+// It returns an empty string if there is no charm associated with the application.
+func (st *State) GetCharmForApplication(ctx context.Context, appUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var charmUUID string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		charmUUID, err = st.getCharmUUIDForApplication(ctx, tx, appUUID)
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return charmUUID, nil
 }
 
 func (st *State) getCharmUUIDForApplication(ctx context.Context, tx *sqlair.TX, aUUID string) (string, error) {
