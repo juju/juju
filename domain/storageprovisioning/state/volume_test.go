@@ -8,9 +8,11 @@ import (
 
 	"github.com/juju/tc"
 
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/blockdevice"
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
+	domainmachineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
@@ -1062,6 +1064,122 @@ func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 		ProviderID:        "provider-id",
 		ReadOnly:          true,
 	})
+}
+
+// TestGetMachineModelProvisionedVolumeParamsMachineNotFound tests that asking
+// for the volume provisioning params of a machine that doesn't exists returns
+// to the caller an error satisfying [domainmachineerrors.MachineNotFound].
+func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsMachineNotFound(c *tc.C) {
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetMachineModelProvisionedVolumeParams(c.Context(), machineUUID)
+	c.Check(err, tc.ErrorIs, domainmachineerrors.MachineNotFound)
+}
+
+// TestGetMachineModelProvisionedVolumeParams tests the happy path of getting
+// volume provisioning params for a machine in the model.
+func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
+	machineNetNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, machineNetNodeUUID)
+	_, charmUUID := s.newApplication(c, "testapp")
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+	s.newCharmStorage(c, charmUUID, "myblock", "block", true, "/var/block")
+	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, "/var/filesystem")
+
+	siUUID1 := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "myblock",
+	)
+	siUUID2 := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "myblock",
+	)
+	volumeUUID1, volumeID1 := s.newModelVolume(c)
+	filesystemUUID1, _ := s.newModelFilesystem(c)
+	volumeUUID2, volumeID2 := s.newModelVolume(c)
+	volumeAUUID1 := s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
+	volumeAUUID2 := s.newModelVolumeAttachment(c, volumeUUID2, machineNetNodeUUID)
+	s.newStorageInstanceVolume(c, siUUID1, volumeUUID1)
+	s.newStorageInstanceFilesystem(c, siUUID1, filesystemUUID1)
+	s.newStorageInstanceVolume(c, siUUID2, volumeUUID2)
+
+	st := NewState(s.TxnRunnerFactory())
+	volumeParams, err := st.GetMachineModelProvisionedVolumeParams(
+		c.Context(), machineUUID,
+	)
+
+	expected := []domainstorageprovisioning.MachineVolumeProvisioningParams{
+		{
+			Attributes: map[string]string{
+				"foo": "bar",
+			},
+			ID:                   volumeID1,
+			Provider:             "canonical",
+			RequestedSizeMiB:     100,
+			SizeMiB:              0,
+			VolumeAttachmentUUID: volumeAUUID1,
+		},
+		{
+			Attributes: map[string]string{
+				"foo": "bar",
+			},
+			ID:                   volumeID2,
+			Provider:             "canonical",
+			RequestedSizeMiB:     100,
+			SizeMiB:              0,
+			VolumeAttachmentUUID: volumeAUUID2,
+		},
+	}
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(volumeParams, tc.SameContents, expected)
+}
+
+// TestGetMachineModelProvisionedVolumeParamsIgnores tests that the machine
+// provisioning params ignores volumes that have a provider scope of machine.
+func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsIgnores(c *tc.C) {
+	machineNetNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, machineNetNodeUUID)
+	_, charmUUID := s.newApplication(c, "testapp")
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+	s.newCharmStorage(c, charmUUID, "myblock", "block", true, "/var/block")
+	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, "/var/filesystem")
+
+	siUUID1 := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "myblock",
+	)
+	siUUID2 := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "myblock",
+	)
+	volumeUUID1, volumeID1 := s.newModelVolume(c)
+	filesystemUUID1, _ := s.newModelFilesystem(c)
+	volumeUUID2, _ := s.newMachineVolume(c)
+	volumeAUUID1 := s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
+	s.newModelVolumeAttachment(c, volumeUUID2, machineNetNodeUUID)
+	s.newStorageInstanceVolume(c, siUUID1, volumeUUID1)
+	s.newStorageInstanceFilesystem(c, siUUID1, filesystemUUID1)
+	s.newStorageInstanceVolume(c, siUUID2, volumeUUID2)
+
+	st := NewState(s.TxnRunnerFactory())
+	volumeParams, err := st.GetMachineModelProvisionedVolumeParams(
+		c.Context(), machineUUID,
+	)
+
+	expected := []domainstorageprovisioning.MachineVolumeProvisioningParams{
+		{
+			Attributes: map[string]string{
+				"foo": "bar",
+			},
+			ID:                   volumeID1,
+			Provider:             "canonical",
+			RequestedSizeMiB:     100,
+			SizeMiB:              0,
+			VolumeAttachmentUUID: volumeAUUID1,
+		},
+	}
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(volumeParams, tc.SameContents, expected)
 }
 
 func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
