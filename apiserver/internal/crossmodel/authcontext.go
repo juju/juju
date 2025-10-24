@@ -170,7 +170,7 @@ func (a *AuthContext) CreateRemoteRelationMacaroon(
 ) (*bakery.Macaroon, error) {
 	return a.bakery.NewMacaroon(
 		ctx, version,
-		a.bakery.GetRemoteRelationCaveats(offerUUID, modelUUID.String(), username, rel.String()),
+		a.bakery.GetRemoteRelationCaveats(offerUUID, modelUUID.String(), username, rel.Id()),
 		crossModelRelateOp(rel.String()),
 	)
 }

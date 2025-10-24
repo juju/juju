@@ -304,12 +304,12 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *tc.C) {
 
 	expected := &bakery.Macaroon{}
 
-	s.bakery.EXPECT().GetRemoteRelationCaveats("mysql-uuid", s.modelUUID.String(), "mary", "relation-mediawiki.db#mysql.server").Return(s.caveatWithRelation(now))
+	s.bakery.EXPECT().GetRemoteRelationCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server").Return(s.caveatWithRelation(now))
 	s.bakery.EXPECT().NewMacaroon(
 		gomock.Any(),
 		bakery.LatestVersion,
 		s.caveatWithRelation(now),
-		crossModelRelateOp("relation-mediawiki.db#mysql.server"),
+		crossModelRelateOp("mediawiki:db mysql:server"),
 	).Return(expected, nil)
 
 	authContext := s.newAuthContext(c)
