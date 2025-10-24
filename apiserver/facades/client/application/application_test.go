@@ -2003,6 +2003,58 @@ func (s *applicationSuite) TestSetRelationsSuspendedNotFound(c *tc.C) {
 	})
 }
 
+func (s *applicationSuite) TestGetApplicationStorageInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	appUUID := tc.Must(c, application.NewUUID)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(
+		gomock.Any(),
+		"kafka",
+	).Return(
+		appUUID,
+		nil,
+	)
+
+	poolName := "my-loop"
+	size := uint64(20)
+	count := uint64(1)
+	s.applicationService.EXPECT().GetApplicationStorage(
+		gomock.Any(),
+		appUUID,
+	).Return(
+		domainapplication.ApplicationStorage{
+			"logs": domainapplication.ApplicationStorageInfo{
+				StoragePoolName: poolName,
+				SizeMiB:         &size,
+				Count:           &count,
+			},
+		},
+		nil,
+	)
+
+	res, err := s.api.GetApplicationStorage(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: "application-kafka"}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
+	constraints := res.Results[0].StorageConstraints
+
+	c.Assert(constraints, tc.HasLen, 1)
+	logConstraints := constraints["logs"]
+	c.Assert(
+		logConstraints,
+		tc.DeepEquals,
+		params.StorageDirectives{
+			Pool:    poolName,
+			SizeMiB: &size,
+			Count:   &count,
+		},
+	)
+}
+
 func (s *applicationSuite) setupAPI(c *tc.C) {
 	s.expectAuthClient()
 	s.expectAnyPermissions()
