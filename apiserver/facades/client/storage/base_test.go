@@ -15,6 +15,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -64,6 +65,7 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerUUID,
 		s.modelUUID,
 		s.authorizer,
+		loggertesting.WrapCheckLog(c),
 		s.applicationService,
 		s.blockDeviceService,
 		s.removalService,

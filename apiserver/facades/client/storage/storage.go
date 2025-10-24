@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/blockdevice"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -167,12 +168,14 @@ type StorageAPI struct {
 	authorizer     facade.Authorizer
 	controllerUUID string
 	modelUUID      coremodel.UUID
+	logger         corelogger.Logger
 }
 
 func NewStorageAPI(
 	controllerUUID string,
 	modelUUID coremodel.UUID,
 	authorizer facade.Authorizer,
+	logger corelogger.Logger,
 	applicationService ApplicationService,
 	blockDeviceService BlockDeviceService,
 	removalService RemovalService,
@@ -187,6 +190,7 @@ func NewStorageAPI(
 		authorizer:     authorizer,
 		controllerUUID: controllerUUID,
 		modelUUID:      modelUUID,
+		logger:         logger,
 	}
 }
 
