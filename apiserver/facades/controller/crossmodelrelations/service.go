@@ -32,10 +32,12 @@ type CrossModelRelationService interface {
 	// The CIDRs are added to the relation_network_ingress table.
 	AddRelationNetworkIngress(ctx context.Context, relationUUID corerelation.UUID, saasIngressAllow []string, cidrs []string) error
 
-	// AddRemoteApplicationConsumer adds a new synthetic application
-	// representing a remote relation on the consuming model, to this, the
-	// offering model.
-	AddRemoteApplicationConsumer(ctx context.Context, args crossmodelrelationservice.AddRemoteApplicationConsumerArgs) error
+	// AddConsumedRelation adds a new synthetic application representing
+	// the application on the consuming model, to this, the offering model.
+	// The synthetic application is used to create a relation with the
+	// provided charm.Relation from the consuming side and the offering
+	// application endpoint name in the current model.
+	AddConsumedRelation(ctx context.Context, args crossmodelrelationservice.AddConsumedRelationArgs) error
 
 	// GetOfferUUIDByRelationUUID returns the offer UUID corresponding to
 	// the cross model relation UUID.

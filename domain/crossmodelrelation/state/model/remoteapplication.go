@@ -90,11 +90,14 @@ func (st *State) AddRemoteApplicationOfferer(
 	return nil
 }
 
-// AddRemoteApplicationConsumer adds a new synthetic application representing
-// the remote relation on the consuming model, to this, the offering model.
+// AddConsumedRelation adds a new synthetic application representing
+// the application on the consuming model, to this, the offering model.
+// The synthetic application is used to create a relation with the
+// provided charm.Relation from the consuming side and the offering
+// application endpoint name in the current model.
 // If no local application exists for which the given offer UUID was created,
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) AddRemoteApplicationConsumer(
+func (st *State) AddConsumedRelation(
 	ctx context.Context,
 	applicationName string,
 	args crossmodelrelation.AddRemoteApplicationConsumerArgs,

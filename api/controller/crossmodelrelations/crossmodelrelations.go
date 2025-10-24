@@ -181,13 +181,13 @@ func (c *Client) PublishIngressNetworkChange(ctx context.Context, change params.
 
 // RegisterRemoteRelations sets up the remote model to participate
 // in the specified relations.
-func (c *Client) RegisterRemoteRelations(ctx context.Context, relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error) {
+func (c *Client) RegisterRemoteRelations(ctx context.Context, relations ...params.RegisterConsumingRelationArg) ([]params.RegisterConsumingRelationResult, error) {
 	var (
-		args         params.RegisterRemoteRelationArgs
+		args         params.RegisterConsumingRelationArgs
 		retryIndices []int
 	)
 
-	args = params.RegisterRemoteRelationArgs{Relations: relations}
+	args = params.RegisterConsumingRelationArgs{Relations: relations}
 	// Use any previously cached discharge macaroons.
 	for i, arg := range relations {
 		if ms, ok := c.getCachedMacaroon("register remote relation", arg.RelationToken); ok {
@@ -198,10 +198,10 @@ func (c *Client) RegisterRemoteRelations(ctx context.Context, relations ...param
 		}
 	}
 
-	var results params.RegisterRemoteRelationResults
+	var results params.RegisterConsumingRelationResults
 	apiCall := func() error {
 		// Reset the results struct before each api call.
-		results = params.RegisterRemoteRelationResults{}
+		results = params.RegisterConsumingRelationResults{}
 		err := c.facade.FacadeCall(ctx, "RegisterRemoteRelations", args, &results)
 		if err != nil {
 			return errors.Trace(err)
@@ -218,7 +218,7 @@ func (c *Client) RegisterRemoteRelations(ctx context.Context, relations ...param
 	}
 	// On error, possibly discharge the macaroon and retry.
 	result := results.Results
-	args = params.RegisterRemoteRelationArgs{}
+	args = params.RegisterConsumingRelationArgs{}
 	// Separate the successful calls from those needing a retry.
 	for i, res := range results.Results {
 		if res.Error == nil {

@@ -508,10 +508,10 @@ func (e *IngressNetworksChangeEvent) GoString() string {
 	return pretty.Sprint(eCopy)
 }
 
-// RegisterRemoteRelationArg holds attributes used to register a remote relation.
-type RegisterRemoteRelationArg struct {
-	// ApplicationToken is the application token on the remote model.
-	ApplicationToken string `json:"application-token"`
+// RegisterConsumingRelationArg holds attributes used to register a consuming relation.
+type RegisterConsumingRelationArg struct {
+	// ConsumerApplicationToken is the application token on the consuming model.
+	ConsumerApplicationToken string `json:"application-token"`
 
 	// SourceModelTag is the tag of the model hosting the application.
 	SourceModelTag string `json:"source-model-tag"`
@@ -519,14 +519,14 @@ type RegisterRemoteRelationArg struct {
 	// RelationToken is the relation token on the remote model.
 	RelationToken string `json:"relation-token"`
 
-	// RemoteEndpoint contains info about the endpoint in the remote model.
-	RemoteEndpoint RemoteEndpoint `json:"remote-endpoint"`
+	// ConsumerApplicationEndpoint contains info about the endpoint in the remote model.
+	ConsumerApplicationEndpoint RemoteEndpoint `json:"remote-endpoint"`
 
 	// OfferUUID is the UUID of the offer.
 	OfferUUID string `json:"offer-uuid"`
 
-	// LocalEndpointName is the name of the endpoint in the local model.
-	LocalEndpointName string `json:"local-endpoint-name"`
+	// OfferEndpointName is the name of the endpoint in the offer which is used.
+	OfferEndpointName string `json:"local-endpoint-name"`
 
 	// ConsumeVersion is incremented each time a new consumer
 	// proxy is created for an offer.
@@ -539,24 +539,24 @@ type RegisterRemoteRelationArg struct {
 	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
-// RegisterRemoteRelationArgs holds args used to add remote relations.
-type RegisterRemoteRelationArgs struct {
-	Relations []RegisterRemoteRelationArg `json:"relations"`
+// RegisterConsumingRelationArgs holds args used to add consuming relations.
+type RegisterConsumingRelationArgs struct {
+	Relations []RegisterConsumingRelationArg `json:"relations"`
 }
 
-// RegisterRemoteRelationResult holds a remote relation details and an error.
-type RegisterRemoteRelationResult struct {
-	Result *RemoteRelationDetails `json:"result,omitempty"`
-	Error  *Error                 `json:"error,omitempty"`
+// RegisterConsumingRelationResult holds a remote relation details and an error.
+type RegisterConsumingRelationResult struct {
+	Result *ConsumingRelationDetails `json:"result,omitempty"`
+	Error  *Error                    `json:"error,omitempty"`
 }
 
-// RegisterRemoteRelationResults has a set of remote relation results.
-type RegisterRemoteRelationResults struct {
-	Results []RegisterRemoteRelationResult `json:"results,omitempty"`
+// RegisterConsumingRelationResults has a set of consuming relation results.
+type RegisterConsumingRelationResults struct {
+	Results []RegisterConsumingRelationResult `json:"results,omitempty"`
 }
 
-// RemoteRelationDetails holds a remote relation token and corresponding macaroon.
-type RemoteRelationDetails struct {
+// ConsumingRelationDetails holds a remote relation token and corresponding macaroon.
+type ConsumingRelationDetails struct {
 	Token         string             `json:"relation-token"`
 	Macaroon      *macaroon.Macaroon `json:"macaroon,omitempty"`
 	BakeryVersion bakery.Version     `json:"bakery-version,omitempty"`

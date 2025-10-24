@@ -490,26 +490,26 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChange(c *tc.C) {
 
 	done := s.expectWorkerStartup()
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      "foo:db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
 
 	s.remoteModelRelationClient.EXPECT().
 		RegisterRemoteRelations(gomock.Any(), arg).
-		Return([]params.RegisterRemoteRelationResult{{
-			Result: &params.RemoteRelationDetails{
+		Return([]params.RegisterConsumingRelationResult{{
+			Result: &params.ConsumingRelationDetails{
 				Token:         tc.Must(c, uuid.NewUUID).String(),
 				Macaroon:      mac,
 				BakeryVersion: bakery.LatestVersion,
@@ -666,26 +666,26 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
 
 	done := s.expectWorkerStartup()
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      "foo:db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
 
 	s.remoteModelRelationClient.EXPECT().
 		RegisterRemoteRelations(gomock.Any(), arg).
-		Return([]params.RegisterRemoteRelationResult{{
-			Result: &params.RemoteRelationDetails{
+		Return([]params.RegisterConsumingRelationResult{{
+			Result: &params.ConsumingRelationDetails{
 				Token:         token.String(),
 				Macaroon:      mac,
 				BakeryVersion: bakery.LatestVersion,
@@ -731,18 +731,18 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequest(c *
 
 	done := s.expectWorkerStartup()
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      "foo:db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
@@ -783,25 +783,25 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationInvalidResultLeng
 
 	done := s.expectWorkerStartup()
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      "foo:db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
 
 	s.remoteModelRelationClient.EXPECT().
 		RegisterRemoteRelations(gomock.Any(), arg).
-		Return([]params.RegisterRemoteRelationResult{}, nil)
+		Return([]params.RegisterConsumingRelationResult{}, nil)
 
 	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -835,25 +835,25 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequestErro
 
 	done := s.expectWorkerStartup()
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      "foo:db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
 
 	s.remoteModelRelationClient.EXPECT().
 		RegisterRemoteRelations(gomock.Any(), arg).
-		Return([]params.RegisterRemoteRelationResult{{
+		Return([]params.RegisterConsumingRelationResult{{
 			Error: &params.Error{
 				Code:    params.CodeBadRequest,
 				Message: "bad request",
@@ -894,26 +894,26 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacar
 
 	done := s.expectWorkerStartup()
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      "foo:db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
 
 	s.remoteModelRelationClient.EXPECT().
 		RegisterRemoteRelations(gomock.Any(), arg).
-		Return([]params.RegisterRemoteRelationResult{{
-			Result: &params.RemoteRelationDetails{
+		Return([]params.RegisterConsumingRelationResult{{
+			Result: &params.ConsumingRelationDetails{
 				Token:         token.String(),
 				Macaroon:      mac,
 				BakeryVersion: bakery.LatestVersion,
@@ -957,26 +957,26 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 
 	done := s.expectWorkerStartup()
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      "foo:db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
 
 	s.remoteModelRelationClient.EXPECT().
 		RegisterRemoteRelations(gomock.Any(), arg).
-		Return([]params.RegisterRemoteRelationResult{{
-			Result: &params.RemoteRelationDetails{
+		Return([]params.RegisterConsumingRelationResult{{
+			Result: &params.ConsumingRelationDetails{
 				Token:         token.String(),
 				Macaroon:      mac,
 				BakeryVersion: bakery.LatestVersion,
@@ -1040,26 +1040,26 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c
 
 	done := s.expectWorkerStartup()
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      "foo:db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
 
 	s.remoteModelRelationClient.EXPECT().
 		RegisterRemoteRelations(gomock.Any(), arg).
-		Return([]params.RegisterRemoteRelationResult{{
-			Result: &params.RemoteRelationDetails{
+		Return([]params.RegisterConsumingRelationResult{{
+			Result: &params.ConsumingRelationDetails{
 				Token:         token.String(),
 				Macaroon:      mac,
 				BakeryVersion: bakery.LatestVersion,
@@ -1162,26 +1162,26 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDying(c 
 
 	done := s.expectWorkerStartup()
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      "foo:db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
 
 	s.remoteModelRelationClient.EXPECT().
 		RegisterRemoteRelations(gomock.Any(), arg).
-		Return([]params.RegisterRemoteRelationResult{{
-			Result: &params.RemoteRelationDetails{
+		Return([]params.RegisterConsumingRelationResult{{
+			Result: &params.ConsumingRelationDetails{
 				Token:         token.String(),
 				Macaroon:      mac,
 				BakeryVersion: bakery.LatestVersion,
@@ -1256,26 +1256,26 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDis
 
 	done := s.expectWorkerStartup()
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      "foo:db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
 
 	s.remoteModelRelationClient.EXPECT().
 		RegisterRemoteRelations(gomock.Any(), arg).
-		Return([]params.RegisterRemoteRelationResult{{
-			Result: &params.RemoteRelationDetails{
+		Return([]params.RegisterConsumingRelationResult{{
+			Result: &params.ConsumingRelationDetails{
 				Token:         token.String(),
 				Macaroon:      mac,
 				BakeryVersion: bakery.LatestVersion,
@@ -1651,26 +1651,26 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 	relationUUID := tc.Must(c, relation.NewUUID)
 	token := tc.Must(c, application.NewUUID)
 
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: s.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(s.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        s.offerUUID,
-		Macaroons:        macaroon.Slice{s.macaroon},
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      s.applicationName + ":db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
-		LocalEndpointName: "blog",
+		OfferEndpointName: "blog",
 		ConsumeVersion:    1,
 		BakeryVersion:     bakery.LatestVersion,
 	}
 
 	s.remoteModelRelationClient.EXPECT().
 		RegisterRemoteRelations(gomock.Any(), arg).
-		Return([]params.RegisterRemoteRelationResult{{
-			Result: &params.RemoteRelationDetails{
+		Return([]params.RegisterConsumingRelationResult{{
+			Result: &params.ConsumingRelationDetails{
 				Token:         token.String(),
 				Macaroon:      s.macaroon,
 				BakeryVersion: bakery.LatestVersion,

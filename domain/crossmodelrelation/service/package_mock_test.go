@@ -228,6 +228,44 @@ func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
 }
 
+// AddConsumedRelation mocks base method.
+func (m *MockModelState) AddConsumedRelation(arg0 context.Context, arg1 string, arg2 crossmodelrelation.AddRemoteApplicationConsumerArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddConsumedRelation", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddConsumedRelation indicates an expected call of AddConsumedRelation.
+func (mr *MockModelStateMockRecorder) AddConsumedRelation(arg0, arg1, arg2 any) *MockModelStateAddConsumedRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddConsumedRelation", reflect.TypeOf((*MockModelState)(nil).AddConsumedRelation), arg0, arg1, arg2)
+	return &MockModelStateAddConsumedRelationCall{Call: call}
+}
+
+// MockModelStateAddConsumedRelationCall wrap *gomock.Call
+type MockModelStateAddConsumedRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateAddConsumedRelationCall) Return(arg0 error) *MockModelStateAddConsumedRelationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateAddConsumedRelationCall) Do(f func(context.Context, string, crossmodelrelation.AddRemoteApplicationConsumerArgs) error) *MockModelStateAddConsumedRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateAddConsumedRelationCall) DoAndReturn(f func(context.Context, string, crossmodelrelation.AddRemoteApplicationConsumerArgs) error) *MockModelStateAddConsumedRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddRelationNetworkIngress mocks base method.
 func (m *MockModelState) AddRelationNetworkIngress(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
@@ -262,44 +300,6 @@ func (c *MockModelStateAddRelationNetworkIngressCall) Do(f func(context.Context,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateAddRelationNetworkIngressCall) DoAndReturn(f func(context.Context, string, []string) error) *MockModelStateAddRelationNetworkIngressCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AddRemoteApplicationConsumer mocks base method.
-func (m *MockModelState) AddRemoteApplicationConsumer(arg0 context.Context, arg1 string, arg2 crossmodelrelation.AddRemoteApplicationConsumerArgs) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRemoteApplicationConsumer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddRemoteApplicationConsumer indicates an expected call of AddRemoteApplicationConsumer.
-func (mr *MockModelStateMockRecorder) AddRemoteApplicationConsumer(arg0, arg1, arg2 any) *MockModelStateAddRemoteApplicationConsumerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteApplicationConsumer", reflect.TypeOf((*MockModelState)(nil).AddRemoteApplicationConsumer), arg0, arg1, arg2)
-	return &MockModelStateAddRemoteApplicationConsumerCall{Call: call}
-}
-
-// MockModelStateAddRemoteApplicationConsumerCall wrap *gomock.Call
-type MockModelStateAddRemoteApplicationConsumerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelStateAddRemoteApplicationConsumerCall) Return(arg0 error) *MockModelStateAddRemoteApplicationConsumerCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelStateAddRemoteApplicationConsumerCall) Do(f func(context.Context, string, crossmodelrelation.AddRemoteApplicationConsumerArgs) error) *MockModelStateAddRemoteApplicationConsumerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateAddRemoteApplicationConsumerCall) DoAndReturn(f func(context.Context, string, crossmodelrelation.AddRemoteApplicationConsumerArgs) error) *MockModelStateAddRemoteApplicationConsumerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

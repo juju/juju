@@ -711,18 +711,18 @@ func (w *localConsumerWorker) registerConsumerRelation(
 
 	// This data goes to the remote model so we map local info
 	// from this model to the remote arg values and visa versa.
-	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: w.applicationUUID.String(),
-		SourceModelTag:   names.NewModelTag(w.consumerModelUUID.String()).String(),
-		RelationToken:    relationUUID.String(),
-		OfferUUID:        offerUUID,
-		RemoteEndpoint: params.RemoteEndpoint{
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: w.applicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(w.consumerModelUUID.String()).String(),
+		RelationToken:            relationUUID.String(),
+		OfferUUID:                offerUUID,
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
 			Name:      applicationEndpointIdent.String(),
 			Role:      applicationEndpointIdent.Role,
 			Interface: applicationEndpointIdent.Interface,
 			Limit:     applicationEndpointIdent.Limit,
 		},
-		LocalEndpointName: remoteEndpointName,
+		OfferEndpointName: remoteEndpointName,
 		ConsumeVersion:    w.consumeVersion,
 		Macaroons:         macaroon.Slice{w.offerMacaroon},
 		BakeryVersion:     defaultBakeryVersion,

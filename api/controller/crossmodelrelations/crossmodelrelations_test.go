@@ -176,16 +176,16 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "RegisterRemoteRelations")
-		c.Check(arg, tc.DeepEquals, params.RegisterRemoteRelationArgs{
-			Relations: []params.RegisterRemoteRelationArg{{
+		c.Check(arg, tc.DeepEquals, params.RegisterConsumingRelationArgs{
+			Relations: []params.RegisterConsumingRelationArg{{
 				RelationToken: "token",
 				OfferUUID:     "offer-uuid",
 				Macaroons:     macaroon.Slice{mac},
 				BakeryVersion: bakery.LatestVersion,
 			}}})
-		c.Assert(result, tc.FitsTypeOf, &params.RegisterRemoteRelationResults{})
-		*(result.(*params.RegisterRemoteRelationResults)) = params.RegisterRemoteRelationResults{
-			Results: []params.RegisterRemoteRelationResult{{
+		c.Assert(result, tc.FitsTypeOf, &params.RegisterConsumingRelationResults{})
+		*(result.(*params.RegisterConsumingRelationResults)) = params.RegisterConsumingRelationResults{
+			Results: []params.RegisterConsumingRelationResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -193,7 +193,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *tc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	result, err := client.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArg{
+	result, err := client.RegisterRemoteRelations(c.Context(), params.RegisterConsumingRelationArg{
 		RelationToken: "token",
 		OfferUUID:     "offer-uuid",
 		Macaroons:     macaroon.Slice{mac},
@@ -207,7 +207,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *tc.C) {
 	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, tc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
-	result, err = client.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArg{
+	result, err = client.RegisterRemoteRelations(c.Context(), params.RegisterConsumingRelationArg{
 		RelationToken: "token",
 		OfferUUID:     "offer-uuid",
 		Macaroons:     macaroon.Slice{different},
@@ -221,8 +221,8 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *tc.C) {
 
 func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationCount(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.RegisterRemoteRelationResults)) = params.RegisterRemoteRelationResults{
-			Results: []params.RegisterRemoteRelationResult{
+		*(result.(*params.RegisterConsumingRelationResults)) = params.RegisterConsumingRelationResults{
+			Results: []params.RegisterConsumingRelationResult{
 				{Error: &params.Error{Message: "FAIL"}},
 				{Error: &params.Error{Message: "FAIL"}},
 			},
@@ -230,7 +230,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationCount(c *tc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	_, err := client.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArg{})
+	_, err := client.RegisterRemoteRelations(c.Context(), params.RegisterConsumingRelationArg{})
 	c.Check(err, tc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 
@@ -250,10 +250,10 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 				}.AsMap(),
 			}
 		}
-		argParam := arg.(params.RegisterRemoteRelationArgs)
+		argParam := arg.(params.RegisterConsumingRelationArgs)
 		dischargeMac = argParam.Relations[0].Macaroons
-		resp := params.RegisterRemoteRelationResults{
-			Results: []params.RegisterRemoteRelationResult{{Error: resultErr}},
+		resp := params.RegisterConsumingRelationResults{
+			Results: []params.RegisterConsumingRelationResult{{Error: resultErr}},
 		}
 		s.fillResponse(c, result, resp)
 		callCount++
@@ -262,7 +262,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	result, err := client.RegisterRemoteRelations(c.Context(), params.RegisterRemoteRelationArg{
+	result, err := client.RegisterRemoteRelations(c.Context(), params.RegisterConsumingRelationArg{
 		RelationToken: "token",
 		OfferUUID:     "offer-uuid"})
 	c.Check(err, tc.ErrorIsNil)
