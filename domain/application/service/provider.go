@@ -97,6 +97,16 @@ func NewProviderService(
 	}
 }
 
+// GetApplicationStorage returns the storage directives set for an application,
+// keyed to the storage name. If the application does not have any storage
+// directives set then an empty result is returned.
+//
+// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
+// error is returned.
+func (s *ProviderService) GetApplicationStorage(ctx context.Context, uuid coreapplication.UUID) (application.ApplicationStorage, error) {
+	return s.storageService.GetApplicationStorage(ctx, uuid)
+}
+
 // CreateIAASApplication creates the specified IAAS application and units if
 // required, returning an error satisfying
 // [applicationerrors.ApplicationAlreadyExists] if the application already
@@ -249,57 +259,6 @@ func (s *ProviderService) SetApplicationConstraints(
 	}
 
 	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
-}
-
-// ApplicationStorageInfo contains information about an instance of an application's storage.
-// It is to be keyed by storage directive name.
-type ApplicationStorageInfo struct {
-	// Pool is the name of the storage pool from which the storage instance
-	// was provisioned.
-	StoragePoolName string
-
-	// SizeMiB is the size of the storage instance, in MiB.
-	SizeMiB *uint64
-
-	// Count is the number of storage instances.
-	Count *uint64
-}
-
-// GetApplicationStorage returns the storage information for an application.
-// If the application does not have any storage information set then an empty
-// map result is returned.
-//
-// The following error types can be expected:
-// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
-// when the application no longer exists.
-func (s *ProviderService) GetApplicationStorage(
-	ctx context.Context,
-	uuid coreapplication.UUID,
-) (map[string]ApplicationStorageInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := uuid.Validate(); err != nil {
-		return nil, errors.Errorf("application UUID: %w", err)
-	}
-
-	directives, err := s.storageService.GetApplicationStorageDirectives(ctx, uuid)
-	if err != nil {
-		return nil, errors.Errorf("getting application storage directives: %w", err)
-	}
-
-	result := make(map[string]ApplicationStorageInfo, len(directives))
-	for _, directive := range directives {
-		count64 := uint64(directive.Count)
-		info := ApplicationStorageInfo{
-			StoragePoolName: directive.PoolUUID.String(), // TODO: Need to resolve UUID -> Name
-			SizeMiB:         &directive.Size,
-			Count:           &count64,
-		}
-		result[directive.Name.String()] = info
-	}
-
-	return result, nil
 }
 
 // AddIAASUnits adds the specified units to the IAAS application, returning an

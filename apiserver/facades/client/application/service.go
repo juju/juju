@@ -192,17 +192,13 @@ type ApplicationService interface {
 	// GetApplicationLife looks up the life of the specified application.
 	GetApplicationLife(context.Context, coreapplication.UUID) (life.Value, error)
 
-	// GetApplicationStorage returns the storage information for an application.
-	// If the application does not have any storage information set then an empty
-	// map result is returned.
+	// GetApplicationStorage returns the storage directives set for an application,
+	// keyed to the storage name. If the application does not have any storage
+	// directives set then an empty result is returned.
 	//
-	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
-	// when the application no longer exists.
-	GetApplicationStorage(
-		ctx context.Context,
-		uuid coreapplication.UUID,
-	) (map[string]applicationservice.ApplicationStorageInfo, error)
+	// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
+	// error is returned.
+	GetApplicationStorage(ctx context.Context, uuid coreapplication.UUID) (application.ApplicationStorage, error)
 
 	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
