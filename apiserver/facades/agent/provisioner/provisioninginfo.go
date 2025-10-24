@@ -71,7 +71,6 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	machineName coremachine.Name,
 	allSpaces network.SpaceInfos,
 ) (*params.ProvisioningInfo, error) {
-	// Cache information about the model for the duration of this facade call
 	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting model info: %w", err)
@@ -97,7 +96,8 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	}
 
 	var result params.ProvisioningInfo
-	if result, err = api.getProvisioningInfoBase(ctx, machineName, unitNames, spaceBindings, modelConfig, modelInfo); err != nil {
+	result, err = api.getProvisioningInfoBase(ctx, machineName, unitNames, spaceBindings, modelConfig)
+	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
@@ -119,7 +119,6 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	unitNames []coreunit.Name,
 	endpointBindings map[string]string,
 	modelConfig *config.Config,
-	modelInfo model.ModelInfo,
 ) (params.ProvisioningInfo, error) {
 	base, err := api.machineService.GetMachineBase(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
@@ -171,7 +170,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 
 	if result.CharmLXDProfiles, err =
 		api.machineService.UpdateLXDProfiles(
-			ctx, modelInfo.Name, modelInfo.UUID, machineName.String(),
+			ctx, api.modelName, api.modelUUID, machineName.String(),
 		); err != nil {
 		return result, errors.Errorf("cannot write lxd profiles: %w", err)
 	}
@@ -199,7 +198,8 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	}
 	result.Jobs = jobs
 
-	if result.Tags, err = api.machineTags(ctx, unitNames, machineName, isController, modelConfig, modelInfo); err != nil {
+	result.Tags, err = api.machineTags(ctx, unitNames, machineName, isController, modelConfig)
+	if err != nil {
 		return result, errors.Capture(err)
 	}
 
@@ -213,7 +213,6 @@ func (api *ProvisionerAPI) machineTags(
 	machineName coremachine.Name,
 	isController bool,
 	modelConfig *config.Config,
-	modelInfo model.ModelInfo,
 ) (map[string]string, error) {
 	// Names of all units deployed to the machine.
 	//
@@ -232,12 +231,12 @@ func (api *ProvisionerAPI) machineTags(
 	}
 	sort.Strings(principalUnitNames)
 
-	machineTags := instancecfg.InstanceTags(string(modelInfo.UUID), api.controllerUUID, modelConfig, isController)
+	machineTags := instancecfg.InstanceTags(api.modelUUID.String(), api.controllerUUID, modelConfig, isController)
 	if len(unitNames) > 0 {
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(principalUnitNames, " ")
 	}
 
-	machineID := fmt.Sprintf("%s-%s", modelInfo.Name, names.NewMachineTag(machineName.String()).String())
+	machineID := fmt.Sprintf("%s-%s", api.modelName, names.NewMachineTag(machineName.String()).String())
 	machineTags[tags.JujuMachine] = machineID
 
 	return machineTags, nil

@@ -72,6 +72,7 @@ type ProvisionerAPI struct {
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
 	controllerUUID string
+	modelName      string
 	modelUUID      coremodel.UUID
 }
 
@@ -176,6 +177,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		getAuthFunc:               getAuthFunc,
 		getCanModify:              getCanModify,
 		controllerUUID:            ctx.ControllerUUID(),
+		modelName:                 modelInfo.Name,
 		modelUUID:                 ctx.ModelUUID(),
 		watcherRegistry:           watcherRegistry,
 		logger:                    ctx.Logger().Child("provisioner"),
@@ -1149,12 +1151,8 @@ func (api *ProvisionerAPI) GetContainerProfileInfo(ctx context.Context, args par
 		logger: api.logger,
 	}
 
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return c.result, errors.Trace(err)
-	}
-	c.modelName = modelInfo.Name
-	c.modelTag = names.NewModelTag(modelInfo.UUID.String())
+	c.modelName = api.modelName
+	c.modelTag = names.NewModelTag(api.modelUUID.String())
 
 	if err := api.processEachContainer(ctx, args, c); err != nil {
 		return c.result, errors.Trace(err)
