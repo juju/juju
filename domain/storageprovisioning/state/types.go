@@ -195,9 +195,9 @@ type storagePoolAttribute struct {
 // If you only expect attributes for a single storage pool then use
 // [storagePoolAtribute].
 type storagePoolAttributeWithUUID struct {
-	UUID  string `db:"uuid"`
-	Key   string `db:"key"`
-	Value string `db:"value"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+	Key             string `db:"key"`
+	Value           string `db:"value"`
 }
 
 // volumeAttachmentPlanLife represents the life of a volume attachment plan in
@@ -323,11 +323,12 @@ type filesystemTemplate struct {
 // machineVolumeProvisioningParams represents the provisioning params for a
 // volume from that is to be attached or is attached to a machine in the model.
 type machineVolumeProvisioningParams struct {
-	VolumeID             string           `db:"volume_id"`
-	ProviderType         string           `db:"provider_type"`
-	RequestedSizeMiB     uint64           `db:"requested_size_mib"`
-	StoragePoolUUID      string           `db:"storage_pool_uuid"`
-	VolumeAttachmentUUID sql.Null[string] `db:"volume_attachment_uuid"`
+	VolumeID             string `db:"volume_id"`
+	ProviderType         string `db:"provider_type"`
+	RequestedSizeMiB     uint64 `db:"requested_size_mib"`
+	SizeMiB              uint64 `db:"size_mib"`
+	StoragePoolUUID      string `db:"storage_pool_uuid"`
+	VolumeAttachmentUUID string `db:"volume_attachment_uuid"`
 }
 
 // volumeProvisioningParams represents the provisioning params for a volume from the model

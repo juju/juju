@@ -1047,7 +1047,7 @@ WHERE  uuid = $volumeProvisionedInfo.uuid
 // - [domainmachineerrors.MachineNotFound] when no machine exists for the uuid.
 func (st *State) GetMachineModelProvisionedVolumeParams(
 	ctx context.Context, uuid coremachine.UUID,
-) ([]storageprovisioning.VolumeParams, error) {
+) ([]storageprovisioning.MachineVolumeProvisioningParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1056,8 +1056,9 @@ func (st *State) GetMachineModelProvisionedVolumeParams(
 	input := entityUUID{UUID: uuid.String()}
 
 	paramsStmt, err := st.Prepare(`
-SELECT &machineVolumePorvisioningParams.* FROM (
+SELECT &machineVolumeProvisioningParams.* FROM (
     SELECT    sv.volume_id,
+              sv.size_mib,
               si.requested_size_mib,
               sp.type AS provider_type,
               sp.uuid AS storage_pool_uuid,
@@ -1068,9 +1069,8 @@ SELECT &machineVolumePorvisioningParams.* FROM (
     JOIN      storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
     JOIN      storage_instance si ON siv.storage_instance_uuid = si.uuid
     JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
-    LEFT JOIN storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
     WHERE     m.uuid = $entityUUID.uuid
-    AND       sv.provision_scope = 0
+    AND       sv.provision_scope_id = 0
 )
 `,
 		machineVolumeProvisioningParams{}, input,
@@ -1083,17 +1083,19 @@ SELECT &machineVolumePorvisioningParams.* FROM (
 	// or may not share the same volume. If they do share a volume then we have
 	// a group by clause to make sure we only get each attribute once.
 	poolAttributesStmt, err := st.Prepare(`
-SELECT &storagePoolAttributeWithUUID.*
-FROM   storage_pool_attribute spa
-JOIN   storage_pool sp ON spa.storage_pool_uuid = sp.uuid
-JOIN   storage_instance si ON sp.uuid = si.storage_pool_uuid
-JOIN   storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
-JOIN   storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-JOIN   storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
-JOIN   machine m ON sva.net_node_uuid = m.net_node_uuid
-WHERE  m = $entityUUID.uuid
-AND    sv.provision_scope = 0
-GROUP  BY spa.uuid, spa.key
+SELECT &storagePoolAttributeWithUUID.* FROM (
+    SELECT spa.storage_pool_uuid, spa.key, spa.value
+    FROM   storage_pool_attribute spa
+    JOIN   storage_pool sp ON spa.storage_pool_uuid = sp.uuid
+    JOIN   storage_instance si ON sp.uuid = si.storage_pool_uuid
+    JOIN   storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    JOIN   storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    JOIN   storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
+    JOIN   machine m ON sva.net_node_uuid = m.net_node_uuid
+    WHERE  m.uuid = $entityUUID.uuid
+    AND    sv.provision_scope_id = 0
+    GROUP  BY spa.storage_pool_uuid, spa.key
+)
 `,
 		storagePoolAttributeWithUUID{}, input,
 	)
@@ -1116,7 +1118,7 @@ GROUP  BY spa.uuid, spa.key
 			).Add(domainmachineerrors.MachineNotFound)
 		}
 
-		err = tx.Query(ctx, paramsStmt, input).Get(&volumeDBParams)
+		err = tx.Query(ctx, paramsStmt, input).GetAll(&volumeDBParams)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// There are no volume parameters for this machine.
 			return nil
@@ -1144,29 +1146,27 @@ GROUP  BY spa.uuid, spa.key
 
 	poolAttributeMap := make(map[string][]storagePoolAttributeWithUUID)
 	for _, attr := range attributeDBVals {
-		attrs := poolAttributeMap[attr.UUID]
-		poolAttributeMap[attr.UUID] = append(attrs, attr)
+		attrs := poolAttributeMap[attr.StoragePoolUUID]
+		poolAttributeMap[attr.StoragePoolUUID] = append(attrs, attr)
 	}
 
-	retVal := make([]storageprovisioning.VolumeParams, 0, len(volumeDBParams))
+	retVal := make([]storageprovisioning.MachineVolumeProvisioningParams, 0, len(volumeDBParams))
 	for _, dbParams := range volumeDBParams {
 		attributes := make(map[string]string, len(poolAttributeMap[dbParams.StoragePoolUUID]))
 		for _, attr := range poolAttributeMap[dbParams.StoragePoolUUID] {
 			attributes[attr.Key] = attr.Value
 		}
 
-		params := storageprovisioning.VolumeParams{
-			Attributes: attributes,
-			ID:         dbParams.VolumeID,
-			Provider:   dbParams.ProviderType,
-			SizeMiB:    dbParams.RequestedSizeMiB,
-		}
-
-		if dbParams.VolumeAttachmentUUID.Valid {
-			vaUUID := storageprovisioning.VolumeAttachmentUUID(
-				dbParams.VolumeAttachmentUUID.V,
-			)
-			params.VolumeAttachmentUUID = &vaUUID
+		vaUUID := storageprovisioning.VolumeAttachmentUUID(
+			dbParams.VolumeAttachmentUUID,
+		)
+		params := storageprovisioning.MachineVolumeProvisioningParams{
+			Attributes:           attributes,
+			ID:                   dbParams.VolumeID,
+			Provider:             dbParams.ProviderType,
+			RequestedSizeMiB:     dbParams.RequestedSizeMiB,
+			SizeMiB:              dbParams.SizeMiB,
+			VolumeAttachmentUUID: vaUUID,
 		}
 		retVal = append(retVal, params)
 	}
