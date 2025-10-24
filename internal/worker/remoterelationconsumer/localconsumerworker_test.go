@@ -498,7 +498,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChange(c *tc.C) {
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "bar:blog",
+			Name:      "blog",
 			Role:      charm.RoleRequirer,
 			Interface: "blog",
 		},
@@ -721,7 +721,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelation(c *tc.C) {
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "foo:db",
+			Name:      "db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
@@ -788,7 +788,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequest(c *
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "foo:db",
+			Name:      "db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
@@ -842,7 +842,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationInvalidResultLeng
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "foo:db",
+			Name:      "db",
 			Role:      charm.RoleProvider,
 			Interface: "db",
 		},
@@ -896,7 +896,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedRequestErro
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "bar:blog",
+			Name:      "blog",
 			Role:      charm.RoleRequirer,
 			Interface: "blog",
 		},
@@ -957,7 +957,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacar
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "bar:blog",
+			Name:      "blog",
 			Role:      charm.RoleRequirer,
 			Interface: "blog",
 		},
@@ -1022,7 +1022,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "bar:blog",
+			Name:      "blog",
 			Role:      charm.RoleRequirer,
 			Interface: "blog",
 		},
@@ -1109,7 +1109,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "bar:blog",
+			Name:      "blog",
 			Role:      charm.RoleRequirer,
 			Interface: "blog",
 		},
@@ -1235,7 +1235,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDying(c 
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "bar:blog",
+			Name:      "blog",
 			Role:      charm.RoleRequirer,
 			Interface: "blog",
 		},
@@ -1333,7 +1333,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDis
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "bar:blog",
+			Name:      "blog",
 			Role:      charm.RoleRequirer,
 			Interface: "blog",
 		},
@@ -1732,7 +1732,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 		OfferUUID:                s.offerUUID,
 		Macaroons:                macaroon.Slice{s.macaroon},
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			Name:      "bar:blog",
+			Name:      "blog",
 			Role:      charm.RoleRequirer,
 			Interface: "blog",
 		},
