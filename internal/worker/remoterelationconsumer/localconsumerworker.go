@@ -565,7 +565,8 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	// Start the remote relation worker to watch for offerer relation changes.
 	// The aim is to ensure that we can track the suspended status of the
 	// relation so we can correctly react to that.
-	if err := w.ensureOffererRelationWorker(ctx, details.UUID, result.offererApplicationUUID, result.macaroon); err != nil {
+	relationKnown, err := w.ensureOffererRelationWorker(ctx, details.UUID, result.offererApplicationUUID, result.macaroon)
+	if err != nil {
 		return errors.Annotatef(err, "creating offerer relation worker for %q", details.UUID)
 	}
 
@@ -579,7 +580,7 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	// Handle the case where the relation is dying, and ensure we have no
 	// workers still running for it.
 	if details.Life != life.Alive {
-		return w.handleRelationDying(ctx, details.UUID, result.macaroon)
+		return w.handleRelationDying(ctx, details.UUID, result.macaroon, !relationKnown)
 	}
 
 	return nil
@@ -587,7 +588,12 @@ func (w *localConsumerWorker) handleRelationConsumption(
 
 // handleRelationDying "notifies the offering model that the relation is dying,
 // so it can clean up any resources associated with it.
-func (w *localConsumerWorker) handleRelationDying(ctx context.Context, relationUUID corerelation.UUID, mac *macaroon.Macaroon) error {
+func (w *localConsumerWorker) handleRelationDying(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	mac *macaroon.Macaroon,
+	forceCleanup bool,
+) error {
 	w.logger.Debugf(ctx, "relation %q is dying", relationUUID)
 
 	change := params.RemoteRelationChangeEvent{
@@ -596,13 +602,14 @@ func (w *localConsumerWorker) handleRelationDying(ctx context.Context, relationU
 		ApplicationOrOfferToken: w.applicationUUID.String(),
 		Macaroons:               macaroon.Slice{mac},
 		BakeryVersion:           defaultBakeryVersion,
-
-		// NOTE (stickupkid): Work out if we need to pass ForceCleanup here.
-		// I suspect that because the relation never transitions to dead, and
-		// if we restart the worker, then we'll get a RelationNotFound error.
-		// Thus ForceCleanup will never be true.
 	}
 
+	// forceCleanup will be true if the worker has restarted and because the
+	// relation had already been removed, we won't get any more unit departed
+	// events.
+	if forceCleanup {
+		change.ForceCleanup = ptr(true)
+	}
 	if err := w.remoteModelClient.PublishRelationChange(ctx, change); isNotFound(err) {
 		w.logger.Debugf(ctx, "relation %q dying, but offerer side already removed", relationUUID)
 		return nil
@@ -623,12 +630,15 @@ func (w *localConsumerWorker) handleRelationDying(ctx context.Context, relationU
 // information, along with the offering application UUID and macaroon used to
 // access the relation in the offering model. If we have this information, we
 // should be able to pin point the relation in the offering model.
+//
+// The boolean indicates if the worker was newly created (true), or already
+// existed (false).
 func (w *localConsumerWorker) ensureOffererRelationWorker(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	offererApplicationUUID application.UUID,
 	mac *macaroon.Macaroon,
-) error {
+) (known bool, _ error) {
 	if err := w.runner.StartWorker(ctx, offererRelationWorkerName(relationUUID), func(ctx context.Context) (worker.Worker, error) {
 		return w.newOffererRelationsWorker(offererrelations.Config{
 			Client:                 w.remoteModelClient,
@@ -639,12 +649,13 @@ func (w *localConsumerWorker) ensureOffererRelationWorker(
 			Clock:                  w.clock,
 			Logger:                 w.logger.Child("offerer-relation"),
 		})
-
-	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
-		return errors.Annotatef(err, "starting offerer relation worker for %q", relationUUID)
+	}); errors.Is(err, errors.AlreadyExists) {
+		return true, nil
+	} else if err != nil {
+		return false, errors.Annotatef(err, "starting offerer relation worker for %q", relationUUID)
 	}
 
-	return nil
+	return false, nil
 }
 
 // Ensure the unit relation workers for both the consumer and offerer sides
@@ -1060,4 +1071,8 @@ func convertSettingsMap(in map[string]string) map[string]any {
 	return transform.Map(in, func(k, v string) (string, any) {
 		return k, v
 	})
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
