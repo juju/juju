@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/eventsource"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -308,18 +309,22 @@ func (st *State) GetModelEgressSubnets(ctx context.Context) ([]string, error) {
 		return nil, errors.Capture(err)
 	}
 
+	egressSubnetsConfigKey := modelConfigKey{
+		Key: config.EgressSubnets,
+	}
+
 	stmt, err := st.Prepare(`
 SELECT &modelConfigValue.value
 FROM   model_config
-WHERE  key = 'egress-subnets'
-`, modelConfigValue{})
+WHERE  key = $modelConfigKey.key
+`, modelConfigValue{}, egressSubnetsConfigKey)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var configValue modelConfigValue
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&configValue)
+		err := tx.Query(ctx, stmt, egressSubnetsConfigKey).Get(&configValue)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}

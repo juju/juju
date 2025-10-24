@@ -404,6 +404,10 @@ type ipAddress struct {
 	AddressValue string `db:"address_value"`
 }
 
+type modelConfigKey struct {
+	Key string `db:"key"`
+}
+
 type modelConfigValue struct {
 	Value string `db:"value"`
 }
