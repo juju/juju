@@ -417,14 +417,16 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 
 	// Offer resources needed:
-	offerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
 	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
 	// Create a charm in the database.
 	s.createCharm(c, offerCharmUUID)
+	charmRelationUUID := s.createCharmRelation(c, offerCharmUUID, "offer-endpoint")
 	// Create an application in the database.
-	s.createApplication(c, offerApplicationUUID, offerCharmUUID, offerUUID)
+	s.createApplication(c, offerApplicationUUID.String(), offerCharmUUID, offerUUID)
+	s.addApplicationEndpoint(c, offerApplicationUUID, charmRelationUUID)
 
 	charm := charm.Charm{
 		ReferenceName: "bar",
@@ -441,19 +443,13 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 					Scope:     charm.ScopeGlobal,
 				},
 			},
-			Requires: map[string]charm.Relation{
-				"cache": {
-					Name:      "cache",
-					Role:      charm.RoleRequirer,
-					Interface: "cacher",
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-			Peers: map[string]charm.Relation{},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
 		},
 	}
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		OfferUUID:               offerUUID,
+		OfferEndpointName:       "offer-endpoint",
 		RelationUUID:            relationUUID,
 		ConsumerModelUUID:       consumerModelUUID,
 		ConsumerApplicationUUID: consumerApplicationUUID,
@@ -469,11 +465,10 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 	s.assertCharmMetadata(c, synthApplicationUUID, charmUUID, charm)
 
 	endpoints := s.fetchApplicationEndpoints(c, synthApplicationUUID)
-	c.Assert(endpoints, tc.HasLen, 3)
+	c.Assert(endpoints, tc.HasLen, 2)
 
-	c.Check(endpoints[0].charmRelationName, tc.Equals, "cache")
-	c.Check(endpoints[1].charmRelationName, tc.Equals, "db")
-	c.Check(endpoints[2].charmRelationName, tc.Equals, "juju-info")
+	c.Check(endpoints[0].charmRelationName, tc.Equals, "db")
+	c.Check(endpoints[1].charmRelationName, tc.Equals, "juju-info")
 
 	// Check that the synthetic relation has been created with the expected
 	// UUID and ID 0 (the first relation created in the model).
@@ -513,15 +508,8 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationTwice(c *tc.C) {
 					Scope:     charm.ScopeGlobal,
 				},
 			},
-			Requires: map[string]charm.Relation{
-				"cache": {
-					Name:      "cache",
-					Role:      charm.RoleRequirer,
-					Interface: "cacher",
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-			Peers: map[string]charm.Relation{},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
 		},
 	}
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
@@ -593,15 +581,8 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationMultiple(c *tc.C) {
 					Scope:     charm.ScopeGlobal,
 				},
 			},
-			Requires: map[string]charm.Relation{
-				"cache": {
-					Name:      "cache",
-					Role:      charm.RoleRequirer,
-					Interface: "cacher",
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-			Peers: map[string]charm.Relation{},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
 		},
 	}
 
@@ -611,15 +592,7 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationMultiple(c *tc.C) {
 		Metadata: charm.Metadata{
 			Name:        "bar",
 			Description: "remote consumer application 2",
-			Provides: map[string]charm.Relation{
-				"db": {
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "db",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
+			Provides:    map[string]charm.Relation{},
 			Requires: map[string]charm.Relation{
 				"cache": {
 					Name:      "cache",
@@ -1583,6 +1556,17 @@ VALUES (?, ?, 1)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelRemoteApplicationSuite) createCharmRelation(c *tc.C, charmUUID, endpointName string) string {
+	charmRelUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, 0, 0, ?)`,
+			charmRelUUID1, charmUUID, endpointName)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return charmRelUUID1
 }
 
 func (s *modelRemoteApplicationSuite) assertApplicationRemoteOfferer(c *tc.C, uuid string) {

@@ -252,6 +252,21 @@ type relation struct {
 	RelationID uint64 `db:"relation_id"`
 }
 
+type relationEndpoint struct {
+	UUID            string `db:"uuid"`
+	RelationUUID    string `db:"relation_uuid"`
+	ApplicationUUID string `db:"application_uuid"`
+	EndpointName    string `db:"endpoint_name"`
+}
+
+type addRelationEndpointArgs struct {
+	RelationUUID       string
+	ApplicationOneUUID string
+	EndpointOneName    string
+	ApplicationTwoUUID string
+	EndpointTwoName    string
+}
+
 type charmScope struct {
 	Name string `db:"name"`
 }

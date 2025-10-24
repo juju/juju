@@ -72,6 +72,14 @@ WHERE  offer_uuid = $entityUUID.uuid
 		return errors.Errorf("preparing synthetic relations query: %w", err)
 	}
 
+	deleteRelationEndpointsStmt, err := st.Prepare(`
+DELETE FROM relation_endpoint
+WHERE relation_uuid IN ($uuids[:])
+`, uuids{})
+	if err != nil {
+		return errors.Errorf("preparing delete relation endpoint query: %w", err)
+	}
+
 	deleteRelationsStmt, err := st.Prepare(`
 DELETE FROM relation
 WHERE uuid IN ($uuids[:])
@@ -135,12 +143,16 @@ WHERE uuid = $entityUUID.uuid
 			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("getting synthetic relation UUIDs: %w", err)
 			}
-			relUUIDS := uuids(transform.Slice(synthRelationUUIDs, func(e entityUUID) string { return e.UUID }))
+			relUUIDs := uuids(transform.Slice(synthRelationUUIDs, func(e entityUUID) string { return e.UUID }))
 
 			var synthAppUUIDs []consumerApplicationUUID
 			err = tx.Query(ctx, getSynthAppsStmt, offerUUID).GetAll(&synthAppUUIDs)
 			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("getting synthetic application UUIDs: %w", err)
+			}
+
+			if err := tx.Query(ctx, deleteRelationEndpointsStmt, relUUIDs).Run(); err != nil {
+				return errors.Errorf("deleting relation endpoints: %w", err)
 			}
 
 			for _, uuids := range synthAppUUIDs {
@@ -153,7 +165,7 @@ WHERE uuid = $entityUUID.uuid
 				return errors.Errorf("deleting offer connection: %w", err)
 			}
 
-			if err := tx.Query(ctx, deleteRelationsStmt, relUUIDS).Run(); err != nil {
+			if err := tx.Query(ctx, deleteRelationsStmt, relUUIDs).Run(); err != nil {
 				return errors.Errorf("deleting synthetic relations: %w", err)
 			}
 		}

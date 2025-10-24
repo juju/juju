@@ -142,6 +142,19 @@ func (st *State) AddConsumedRelation(
 			return errors.Capture(err)
 		}
 
+		// Create relation_Endpoints for the relation, maps relations to
+		// application_endpoints.
+		relEndpointArgs := addRelationEndpointArgs{
+			RelationUUID:       args.RelationUUID,
+			ApplicationOneUUID: args.SynthApplicationUUID,
+			EndpointOneName:    getEndpointName(args.Charm),
+			ApplicationTwoUUID: offerApplicationUUID,
+			EndpointTwoName:    args.OfferEndpointName,
+		}
+		if err := st.insertRelationEndpoints(ctx, tx, relEndpointArgs); err != nil {
+			return errors.Capture(err)
+		}
+
 		// Create an offer connection for this consumer.
 		offerConnectionUUID, err := st.insertOfferConnection(ctx, tx,
 			args.SynthApplicationUUID,
@@ -170,6 +183,18 @@ func (st *State) AddConsumedRelation(
 	}
 
 	return nil
+}
+
+// getEndpointName returns the name of the endpoint as part of this
+// charm. It's guaranteed to have only one.
+func getEndpointName(charm charm.Charm) string {
+	for k := range charm.Metadata.Provides {
+		return k
+	}
+	for k := range charm.Metadata.Requires {
+		return k
+	}
+	return ""
 }
 
 // GetRemoteApplicationOfferers returns all the current non-dead remote
@@ -524,6 +549,53 @@ WHERE  name = $charmScope.name;`
 	if err := tx.Query(ctx, insertRelationStmt, rel, charmScope).Run(); err != nil {
 		return errors.Errorf("inserting remote relation record: %w", err)
 	}
+	return nil
+}
+
+func (st *State) insertRelationEndpoints(
+	ctx context.Context,
+	tx *sqlair.TX,
+	args addRelationEndpointArgs,
+) error {
+
+	insertRelationEndpointStmt, err := st.Prepare(`
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+SELECT $relationEndpoint.uuid, $relationEndpoint.relation_uuid, ae.uuid
+FROM   application_endpoint AS ae
+JOIN   application AS a ON ae.application_uuid = a.uuid
+JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+WHERE  a.uuid = $relationEndpoint.application_uuid
+AND    cr.name = $relationEndpoint.endpoint_name
+`, relationEndpoint{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertData := []relationEndpoint{
+		{
+			RelationUUID:    args.RelationUUID,
+			ApplicationUUID: args.ApplicationOneUUID,
+			EndpointName:    args.EndpointOneName,
+		}, {
+			RelationUUID:    args.RelationUUID,
+			ApplicationUUID: args.ApplicationTwoUUID,
+			EndpointName:    args.EndpointTwoName,
+		},
+	}
+
+	for _, data := range insertData {
+		// Create an offer connection for this consumer.
+		relationEndpointUUID, err := internaluuid.NewUUID()
+		if err != nil {
+			return errors.Errorf("generating relation endpoint  UUID: %w", err)
+		}
+		data.UUID = relationEndpointUUID.String()
+
+		if err := tx.Query(ctx, insertRelationEndpointStmt, data).Run(); err != nil {
+			return errors.Errorf("inserting relation endpoint record: %w", err)
+		}
+	}
+
 	return nil
 }
 
