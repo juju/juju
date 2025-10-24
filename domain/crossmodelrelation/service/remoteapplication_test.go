@@ -13,6 +13,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
@@ -866,4 +867,65 @@ func (s *remoteApplicationServiceSuite) TestIsRelationWithEndpointIdentifiersSus
 
 	_, err := service.IsCrossModelRelationValidForApplication(c.Context(), key, "wordpress")
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetOffererModelUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedModelUUID := tc.Must(c, coremodel.NewUUID)
+
+	s.modelState.EXPECT().GetOffererModelUUID(gomock.Any(), "remote-app").Return(expectedModelUUID, nil)
+
+	service := s.service(c)
+
+	modelUUID, err := service.GetOffererModelUUID(c.Context(), "remote-app")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelUUID, tc.Equals, expectedModelUUID)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetOffererModelUUIDNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetOffererModelUUID(gomock.Any(), "non-existent").Return("", crossmodelrelationerrors.RemoteApplicationNotFound)
+
+	service := s.service(c)
+
+	_, err := service.GetOffererModelUUID(c.Context(), "non-existent")
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
+}
+
+func (s *remoteApplicationServiceSuite) TestCheckIsApplicationConsumer(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().IsApplicationConsumer(gomock.Any(), "wordpress").Return(true, nil)
+
+	service := s.service(c)
+
+	isConsumer, err := service.IsApplicationConsumer(c.Context(), "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isConsumer, tc.IsTrue)
+}
+
+func (s *remoteApplicationServiceSuite) TestCheckIsApplicationConsumerNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().IsApplicationConsumer(gomock.Any(), "non-existent").Return(false, nil)
+
+	service := s.service(c)
+
+	isConsumer, err := service.IsApplicationConsumer(c.Context(), "non-existent")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isConsumer, tc.IsFalse)
+}
+
+func (s *remoteApplicationServiceSuite) TestCheckIsApplicationConsumerError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().IsApplicationConsumer(gomock.Any(), "remote-app").Return(false, internalerrors.Errorf("boom"))
+
+	service := s.service(c)
+
+	isConsumer, err := service.IsApplicationConsumer(c.Context(), "remote-app")
+	c.Assert(err, tc.ErrorMatches, "boom")
+	c.Check(isConsumer, tc.IsFalse)
 }

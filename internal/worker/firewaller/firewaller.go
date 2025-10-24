@@ -20,11 +20,11 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
@@ -133,6 +133,11 @@ type Firewaller struct {
 	portsWatcher         watcher.StringsWatcher
 	subnetWatcher        watcher.StringsWatcher
 	modelFirewallWatcher watcher.NotifyWatcher
+	// Watch the remote relations, only emits in the consuming model.
+	consumerRelationsWatcher watcher.StringsWatcher
+	// Watch the remote relations, only emits in the offering model.
+	offererRelationsWatcher watcher.StringsWatcher
+
 	machineds            map[machine.Name]*machineData
 	unitsChange          chan *unitsChange
 	unitds               map[coreunit.Name]*unitData
@@ -149,7 +154,6 @@ type Firewaller struct {
 
 	modelUUID                  string
 	newRemoteFirewallerAPIFunc newCrossModelFacadeFunc
-	remoteRelationsWatcher     watcher.StringsWatcher
 	localRelationsChange       chan *remoteRelationNetworkChange
 	relationIngress            map[names.RelationTag]*remoteRelationData
 	relationWorkerRunner       *worker.Runner
@@ -256,16 +260,20 @@ func (fw *Firewaller) setUp(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 
-	fw.remoteRelationsWatcher, err = fw.crossModelRelationService.WatchRemoteRelations(ctx)
+	// Remote relations on the consuming model.
+	fw.consumerRelationsWatcher, err = fw.crossModelRelationService.WatchConsumerRelations(ctx)
 	if err != nil {
-		if errors.Is(err, errors.NotImplemented) {
-			// Fall back to a disabled watcher when remote relations are not implemented.
-			fw.remoteRelationsWatcher = common.NewDisabledWatcher()
-		} else {
-			return errors.Trace(err)
-		}
+		return errors.Trace(err)
 	}
-	if err := fw.catacomb.Add(fw.remoteRelationsWatcher); err != nil {
+	if err := fw.catacomb.Add(fw.consumerRelationsWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	// Remote relations on the offering model.
+	fw.offererRelationsWatcher, err = fw.crossModelRelationService.WatchOffererRelations(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := fw.catacomb.Add(fw.offererRelationsWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -371,28 +379,12 @@ func (fw *Firewaller) loop() error {
 					return errors.Trace(err)
 				}
 			}
-		case change, ok := <-fw.remoteRelationsWatcher.Changes():
-			if !ok {
-				return errors.New("remote relations watcher closed")
-			}
-			for _, relationKey := range change {
-				if err := fw.relationLifeChanged(ctx, names.NewRelationTag(relationKey)); err != nil {
-					return err
-				}
-			}
 		case _, ok := <-fw.subnetWatcher.Changes():
 			if !ok {
 				return errors.New("subnet watcher closed")
 			}
 
 			if err := fw.subnetsChanged(ctx); err != nil {
-				return errors.Trace(err)
-			}
-		case change := <-fw.localRelationsChange:
-			// We have a notification that the remote (consuming) model
-			// has changed egress networks so need to update the local
-			// model to allow those networks through the firewall.
-			if err := fw.relationIngressChanged(ctx, change); err != nil {
 				return errors.Trace(err)
 			}
 		case change := <-fw.unitsChange:
@@ -408,6 +400,32 @@ func (fw *Firewaller) loop() error {
 			}
 			if err := fw.flushUnits(ctx, unitds); err != nil {
 				return errors.Annotate(err, "cannot change firewall ports")
+			}
+
+		case change, ok := <-fw.consumerRelationsWatcher.Changes():
+			if !ok {
+				return errors.New("consumer relations watcher closed")
+			}
+			for _, relationUUID := range change {
+				if err := fw.consumerRelationLifeChanged(ctx, relation.UUID(relationUUID)); err != nil {
+					return err
+				}
+			}
+		case change, ok := <-fw.offererRelationsWatcher.Changes():
+			if !ok {
+				return errors.New("offerer relations watcher closed")
+			}
+			for _, relationUUID := range change {
+				if err := fw.offererRelationLifeChanged(ctx, relation.UUID(relationUUID)); err != nil {
+					return err
+				}
+			}
+		case change := <-fw.localRelationsChange:
+			// We have a notification that the remote (consuming) model
+			// has changed egress networks so need to update the local
+			// model to allow those networks through the firewall.
+			if err := fw.relationIngressChanged(ctx, change); err != nil {
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -455,10 +473,16 @@ func (fw *Firewaller) subnetsChanged(ctx context.Context) error {
 func (fw *Firewaller) relationIngressChanged(ctx context.Context, change *remoteRelationNetworkChange) error {
 	fw.logger.Debugf(ctx, "process remote relation ingress change for %v", change.relationTag)
 	relData, ok := fw.relationIngress[change.relationTag]
-	if ok {
-		relData.networks = change.networks
-		relData.ingressRequired = change.ingressRequired
+	if !ok {
+		relData = &remoteRelationData{
+			fw:                  fw,
+			tag:                 change.relationTag,
+			localApplicationTag: change.localApplicationTag,
+		}
+		fw.relationIngress[change.relationTag] = relData
 	}
+	relData.networks = change.networks
+	relData.ingressRequired = change.ingressRequired
 	appData, ok := fw.applicationids[change.localApplicationTag]
 	if !ok {
 		fw.logger.Debugf(ctx, "ignoring unknown application: %v", change.localApplicationTag)
@@ -1501,36 +1525,71 @@ func (ad *applicationData) scopedContext() (context.Context, context.CancelFunc)
 	return context.WithCancel(ad.catacomb.Context(context.Background()))
 }
 
-// relationLifeChanged manages the workers to process ingress changes for
-// the specified relation.
-func (fw *Firewaller) relationLifeChanged(ctx context.Context, tag names.RelationTag) error {
-	relationKey, err := relation.NewKeyFromString(tag.Id())
+// RelationType identifies which side of a cross-model relation we're handling.
+type RelationType string
+
+const (
+	relationTypeConsumer RelationType = "consumer"
+	relationTypeOfferer  RelationType = "offerer"
+)
+
+// consumerRelationLifeChanged manages watching for ingress/egress changes on the
+// consuming side. The behavior depends on the local endpoint role:
+// - If requirer: watch local egress changes and publish to remote offering model
+// - If provider: watch remote egress changes and apply ingress locally
+func (fw *Firewaller) consumerRelationLifeChanged(ctx context.Context, relationUUID relation.UUID) error {
+	shouldStart, rel, err := fw.handleRelationLifeChange(ctx, relationUUID, relationTypeConsumer)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if shouldStart {
+		return fw.startConsumerRelation(ctx, rel)
+	}
+	return nil
+}
+
+// offererRelationLifeChanged manages watching for ingress changes on the
+// offering side, where we only watch locally for ingress changes.
+func (fw *Firewaller) offererRelationLifeChanged(ctx context.Context, relationUUID relation.UUID) error {
+	shouldStart, rel, err := fw.handleRelationLifeChange(ctx, relationUUID, relationTypeOfferer)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if shouldStart {
+		return fw.startOffererRelation(ctx, rel)
+	}
+	return nil
+}
+
+// handleRelationLifeChange handles the common logic for consumer and offerer
+// relation life changes.
+// It returns a boolean indicating whether to start a new relation watcher,
+// along with the relation tag and details needed to start it.
+func (fw *Firewaller) handleRelationLifeChange(
+	ctx context.Context,
+	relationUUID relation.UUID,
+	relationType RelationType,
+) (bool, domainrelation.RelationDetails, error) {
 	var (
-		rel  domainrelation.RelationDetails
 		gone bool
+		rel  domainrelation.RelationDetails
+		tag  names.RelationTag
 	)
-	relationUUID, err := fw.relationService.GetRelationUUIDByKey(ctx, relationKey)
+	var err error
+	rel, err = fw.relationService.GetRelationDetails(ctx, relationUUID)
 	if errors.Is(err, relationerrors.RelationNotFound) {
 		gone = true
 	} else if err != nil {
-		return errors.Trace(err)
-	} else {
-		var err error
-		rel, err = fw.relationService.GetRelationDetails(ctx, relationUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		return false, rel, errors.Trace(err)
 	}
+
 	gone = gone || rel.Life == life.Dead || rel.Suspended
+
+	tag = names.NewRelationTag(rel.Key.String())
 	data, known := fw.relationIngress[tag]
 	if known && gone {
-		fw.logger.Debugf(ctx, "relation %v was known but has died or been suspended", tag.Id())
+		fw.logger.Debugf(ctx, "%s relation %q was known but has died or been suspended", relationType, relationUUID)
 		// If relation is suspended, shut off ingress immediately.
-		// Units will also eventually leave scope which would cause
-		// ingress to be shut off, but best to do it up front.
 		if rel.Suspended {
 			change := &remoteRelationNetworkChange{
 				relationTag:         tag,
@@ -1538,95 +1597,236 @@ func (fw *Firewaller) relationLifeChanged(ctx context.Context, tag names.Relatio
 				ingressRequired:     false,
 			}
 			if err := fw.relationIngressChanged(ctx, change); err != nil {
-				return errors.Trace(err)
+				return false, rel, errors.Trace(err)
 			}
 		}
-		return fw.forgetRelation(ctx, data)
+		return false, rel, fw.forgetRelation(ctx, data)
 	}
 	if !known && !gone {
-		// NOTE: startRelation is being reworked, for the moment it's just a
-		// placeholder
-		_ = fw.startRelation(ctx, &params.RemoteRelation{
-			RemoteApplicationName: "",
-		}, "")
+		return true, rel, nil
 	}
-	return nil
+	return false, rel, nil
 }
 
-type remoteRelationInfo struct {
-	relationToken string
-}
+// startConsumerRelation creates a watcher for egress changes on the consuming
+// side. The behavior depends on the local endpoint role:
+// - If requirer: watch local egress and publish to remote.
+// - If provider: watch remote egress and apply ingress locally.
+func (fw *Firewaller) startConsumerRelation(ctx context.Context, rel domainrelation.RelationDetails) error {
+	// For consuming side, we need to identify which endpoint is local and which
+	// is remote.
+	if len(rel.Endpoints) != 2 {
+		return errors.Errorf("relation %v has %d endpoints, expected 2", rel.Key.String(), len(rel.Endpoints))
+	}
 
-type remoteRelationData struct {
-	catacomb      catacomb.Catacomb
-	fw            *Firewaller
-	relationReady chan remoteRelationInfo
+	// Try to identify the remote application by querying both endpoints.
+	var localEndpoint domainrelation.Endpoint
+	var remoteEndpoint domainrelation.Endpoint
 
-	tag                 names.RelationTag
-	localApplicationTag names.ApplicationTag
-	relationToken       string
-	remoteModelUUID     string
-	endpointRole        charm.RelationRole
-	isOffer             bool
-
-	crossModelFirewallerFacade CrossModelFirewallerFacadeCloser
-
-	// These values are updated when ingress information on the
-	// relation changes in the model.
-	ingressRequired bool
-	networks        set.Strings
-}
-
-// startRelation creates a new data value for tracking details of the
-// relation and starts watching the related models for subnets added or removed.
-func (fw *Firewaller) startRelation(ctx context.Context, rel *params.RemoteRelation, role charm.RelationRole) error {
-	remoteApps, err := fw.crossModelRelationService.RemoteApplications(ctx, []string{rel.RemoteApplicationName})
+	// We only have to check one of the endpoints to see if it's local.
+	// If it's not local, the other one must be.
+	isConsumer, err := fw.crossModelRelationService.IsApplicationConsumer(ctx, rel.Endpoints[0].ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	remoteAppResult := remoteApps[0]
-	if remoteAppResult.Error != nil {
-		return errors.Trace(err)
+	if !isConsumer {
+		localEndpoint = rel.Endpoints[1]
+		remoteEndpoint = rel.Endpoints[0]
+	} else {
+		localEndpoint = rel.Endpoints[0]
+		remoteEndpoint = rel.Endpoints[1]
 	}
 
-	tag := names.NewRelationTag(rel.Key)
-	data := &remoteRelationData{
-		fw:                  fw,
-		tag:                 tag,
-		remoteModelUUID:     rel.SourceModelUUID,
-		localApplicationTag: names.NewApplicationTag(rel.ApplicationName),
-		endpointRole:        role,
-		isOffer:             remoteAppResult.Result.IsConsumerProxy,
-		relationReady:       make(chan remoteRelationInfo),
+	// Get the remote model UUID for the remote application.
+	remoteModelUUID, err := fw.crossModelRelationService.GetOffererModelUUID(ctx, remoteEndpoint.ApplicationName)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get remote model UUID for %v", remoteEndpoint.ApplicationName)
 	}
 
-	// Start the worker which will watch the remote relation for things like new networks.
+	localApplicationTag := names.NewApplicationTag(localEndpoint.ApplicationName)
+
+	// Dispatch to the appropriate method based on local endpoint role.
+	if localEndpoint.Role == charm.RoleRequirer {
+		return fw.startConsumerRelationRequirer(ctx, rel, localApplicationTag, remoteModelUUID)
+	}
+	return fw.startConsumerRelationProvider(ctx, rel, localApplicationTag, remoteModelUUID)
+}
+
+// startConsumerRelationRequirer starts a worker for a consumer relation where
+// the local endpoint is a requirer. It watches local egress and publishes to
+// the remote offering model.
+func (fw *Firewaller) startConsumerRelationRequirer(
+	ctx context.Context,
+	rel domainrelation.RelationDetails,
+	localApplicationTag names.ApplicationTag,
+	remoteModelUUID coremodel.UUID,
+) error {
+	tag := names.NewRelationTag(rel.Key.String())
+	fw.logger.Debugf(ctx, "starting consumer relation requirer watcher for %v", tag.Id())
+
 	if err := fw.relationWorkerRunner.StartWorker(ctx, tag.Id(), func(ctx context.Context) (worker.Worker, error) {
-		// This may be a restart after an api error, so ensure any previous
-		// worker is killed and the catacomb is reset.
-		data.Kill()
-		data.catacomb = catacomb.Catacomb{}
-
+		data := &remoteRelationData{
+			fw:                  fw,
+			tag:                 tag,
+			localApplicationTag: localApplicationTag,
+			relationUUID:        rel.UUID,
+			remoteModelUUID:     remoteModelUUID,
+		}
 		if err := catacomb.Invoke(catacomb.Plan{
-			Name: "firewaller-relation",
+			Name: "firewaller-consumer-relation-requirer",
 			Site: &data.catacomb,
-			Work: data.watchLoop,
+			Work: data.watchLocalEgressPublishRemote,
 		}); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return data, nil
 	}); err != nil {
-		return errors.Annotate(err, "error starting remote relation worker")
+		return errors.Annotate(err, "error starting consumer relation requirer worker")
 	}
-	fw.relationIngress[tag] = data
 
-	return fw.startRelationPoller(rel.Key, rel.RemoteApplicationName, data.relationReady)
+	return nil
 }
 
-// watchLoop watches the relation for networks added or removed.
-func (rd *remoteRelationData) watchLoop() error {
+// startConsumerRelationProvider starts a worker for a consumer relation where
+// the local endpoint is a provider. It watches remote egress and applies
+// ingress locally.
+func (fw *Firewaller) startConsumerRelationProvider(
+	ctx context.Context,
+	rel domainrelation.RelationDetails,
+	localApplicationTag names.ApplicationTag,
+	remoteModelUUID coremodel.UUID,
+) error {
+	tag := names.NewRelationTag(rel.Key.String())
+	fw.logger.Debugf(ctx, "starting consumer relation provider watcher for %v", tag.Id())
+
+	if err := fw.relationWorkerRunner.StartWorker(ctx, tag.Id(), func(ctx context.Context) (worker.Worker, error) {
+		data := &remoteRelationData{
+			fw:                  fw,
+			tag:                 tag,
+			localApplicationTag: localApplicationTag,
+			relationUUID:        rel.UUID,
+			remoteModelUUID:     remoteModelUUID,
+		}
+		if err := catacomb.Invoke(catacomb.Plan{
+			Name: "firewaller-consumer-relation-provider",
+			Site: &data.catacomb,
+			Work: data.watchRemoteEgressApplyLocal,
+		}); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return data, nil
+	}); err != nil {
+		return errors.Annotate(err, "error starting consumer relation provider worker")
+	}
+
+	return nil
+}
+
+// startOffererRelation creates a watcher for ingress changes on the offering
+// side.
+// On the offering side, we watch the local model for ingress changes which will
+// have been published from the consuming model.
+// We only watch if the local endpoint role is provider.
+func (fw *Firewaller) startOffererRelation(ctx context.Context, rel domainrelation.RelationDetails) error {
+	tag := names.NewRelationTag(rel.Key.String())
+	fw.logger.Debugf(ctx, "starting offerer relation watcher for %v", tag.Id())
+
+	// For offering side, get the local application name from the first
+	// endpoint.
+	if len(rel.Endpoints) == 0 {
+		return errors.Errorf("relation %v has no endpoints", tag.Id())
+	}
+	localEndpoint := rel.Endpoints[0]
+
+	// On the offering side, only watch for ingress changes if the endpoint is a
+	// provider.
+	if localEndpoint.Role == charm.RoleRequirer {
+		fw.logger.Debugf(ctx, "skipping offerer relation %v: local endpoint is requirer", tag.Id())
+		return nil
+	}
+
+	localApplicationName := localEndpoint.ApplicationName
+
+	// Start the worker which watches for ingress address changes
+	if err := fw.relationWorkerRunner.StartWorker(ctx, tag.Id(), func(ctx context.Context) (worker.Worker, error) {
+		// Create a fresh relation worker instance for each (re)start to avoid reusing catacombs.
+		data := &remoteRelationData{
+			fw:                  fw,
+			tag:                 tag,
+			localApplicationTag: names.NewApplicationTag(localApplicationName),
+			relationUUID:        rel.UUID,
+		}
+		if err := catacomb.Invoke(catacomb.Plan{
+			Name: "firewaller-offerer-relation",
+			Site: &data.catacomb,
+			Work: data.watchLocalIngress,
+		}); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return data, nil
+	}); err != nil {
+		return errors.Annotate(err, "error starting offerer relation worker")
+	}
+
+	return nil
+}
+
+// watchLocalIngress watches for ingress address changes on the offering
+// side.
+func (rd *remoteRelationData) watchLocalIngress() error {
 	ctx, cancel := rd.scopedContext()
 	defer cancel()
+
+	fw := rd.fw
+	fw.logger.Debugf(ctx, "starting offerer watch loop for relation %v on %v", rd.tag.Id(), rd.localApplicationTag.Id())
+
+	// Watch the local model for ingress changes published from the consuming
+	// model.
+	ingressAddressWatcher, err := fw.crossModelRelationService.WatchRelationIngressNetworks(ctx, rd.relationUUID)
+	if err != nil {
+		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
+			return errors.Trace(err)
+		}
+		fw.logger.Infof(ctx, "no ingress required for %v", rd.localApplicationTag)
+		rd.ingressRequired = false
+		return nil
+	}
+	if err := rd.catacomb.Add(ingressAddressWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	for {
+		select {
+		case <-rd.catacomb.Dying():
+			return rd.catacomb.ErrDying()
+		case <-ingressAddressWatcher.Changes():
+			cidrs, err := fw.crossModelRelationService.GetRelationNetworkIngress(ctx, rd.relationUUID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			fw.logger.Debugf(ctx, "offerer relation ingress addresses for %v changed: %v", rd.tag, cidrs)
+			change := &remoteRelationNetworkChange{
+				relationTag:         rd.tag,
+				localApplicationTag: rd.localApplicationTag,
+				networks:            set.NewStrings(cidrs...),
+				ingressRequired:     len(cidrs) > 0,
+			}
+			select {
+			case <-rd.catacomb.Dying():
+				return rd.catacomb.ErrDying()
+			case rd.fw.localRelationsChange <- change:
+			}
+		}
+	}
+}
+
+// watchLocalEgressPublishRemote watches local egress addresses and publishes them
+// to the remote offering model.
+func (rd *remoteRelationData) watchLocalEgressPublishRemote() error {
+	ctx, cancel := rd.scopedContext()
+	defer cancel()
+
+	rd.fw.logger.Debugf(ctx, "watching local egress for %v to publish to remote", rd.tag.Id())
 
 	defer func() {
 		if rd.crossModelFirewallerFacade != nil {
@@ -1634,38 +1834,7 @@ func (rd *remoteRelationData) watchLoop() error {
 		}
 	}()
 
-	// First, wait for relation to become ready.
-	for rd.relationToken == "" {
-		select {
-		case <-rd.catacomb.Dying():
-			return rd.catacomb.ErrDying()
-		case remoteRelationInfo := <-rd.relationReady:
-			rd.relationToken = remoteRelationInfo.relationToken
-			rd.fw.logger.Debugf(ctx,
-				"relation %v in model %v is ready",
-				rd.relationToken, rd.remoteModelUUID)
-		}
-	}
-
-	if rd.endpointRole == charm.RoleRequirer {
-		return rd.requirerEndpointLoop(ctx)
-	}
-	return rd.providerEndpointLoop(ctx)
-}
-
-func (rd *remoteRelationData) requirerEndpointLoop(ctx context.Context) error {
-	// If the requirer end of the relation is on the offering model,
-	// there's nothing to do here because the provider end on the
-	// consuming model will be watching for changes.
-	// TODO(wallyworld) - this will change if we want to allow bidirectional traffic.
-	if rd.isOffer {
-		return nil
-	}
-
-	rd.fw.logger.Debugf(ctx, "starting requirer endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
-	// Now watch for updates to egress addresses so we can inform the offering
-	// model what firewall ingress to allow.
-	egressAddressWatcher, err := rd.fw.firewallerApi.WatchEgressAddressesForRelation(ctx, rd.tag)
+	egressAddressWatcher, err := rd.fw.crossModelRelationService.WatchRelationEgressNetworks(ctx, rd.relationUUID)
 	if err != nil {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
@@ -1677,24 +1846,59 @@ func (rd *remoteRelationData) requirerEndpointLoop(ctx context.Context) error {
 	if err := rd.catacomb.Add(egressAddressWatcher); err != nil {
 		return errors.Trace(err)
 	}
+
 	for {
 		select {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
-		case cidrs := <-egressAddressWatcher.Changes():
-			rd.fw.logger.Debugf(ctx, "relation egress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID,
-				cidrs)
-			if err := rd.updateProviderModel(ctx, cidrs); err != nil {
+		case <-egressAddressWatcher.Changes():
+			cidrs, err := rd.fw.crossModelRelationService.GetRelationNetworkEgress(ctx, string(rd.relationUUID))
+			if err != nil {
+				return errors.Trace(err)
+			}
+			rd.fw.logger.Debugf(ctx, "local egress addresses for %v changed: %v", rd.tag, cidrs)
+			if err := rd.publishIngressToRemote(ctx, cidrs); err != nil {
 				return errors.Trace(err)
 			}
 		}
 	}
 }
 
-func (rd *remoteRelationData) providerEndpointLoop(ctx context.Context) error {
-	rd.fw.logger.Debugf(ctx, "starting provider endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
-	// Watch for ingress changes requested by the consuming model.
-	ingressAddressWatcher, err := rd.ingressAddressWatcher(ctx)
+// watchRemoteEgressApplyLocal watches remote egress addresses and applies them
+// as local ingress rules.
+func (rd *remoteRelationData) watchRemoteEgressApplyLocal() error {
+	ctx, cancel := rd.scopedContext()
+	defer cancel()
+
+	rd.fw.logger.Debugf(ctx, "watching remote egress for %v to apply local ingress", rd.tag.Id())
+
+	apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(ctx, rd.remoteModelUUID.String())
+	if err != nil {
+		return errors.Annotatef(err, "cannot get api info for model %q", rd.remoteModelUUID)
+	}
+	rd.crossModelFirewallerFacade, err = rd.fw.newRemoteFirewallerAPIFunc(ctx, apiInfo)
+	if err != nil {
+		return errors.Annotate(err, "cannot open facade to remote model to watch egress addresses")
+	}
+
+	relKey, err := relation.NewKeyFromString(rd.tag.Id())
+	if err != nil {
+		return errors.Annotatef(err, "cannot parse relation key for %v", rd.tag.Id())
+	}
+	relationUUID, err := rd.fw.relationService.GetRelationUUIDByKey(ctx, relKey)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get relation UUID for %v", rd.tag.Id())
+	}
+	mac, err := rd.fw.crossModelRelationService.GetMacaroonForRelation(ctx, relationUUID)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get macaroon for %v", rd.tag.Id())
+	}
+	arg := params.RemoteEntityArg{
+		Token:         rd.relationUUID.String(),
+		Macaroons:     macaroon.Slice{mac},
+		BakeryVersion: bakery.LatestVersion,
+	}
+	egressAddressWatcher, err := rd.crossModelFirewallerFacade.WatchEgressAddressesForRelation(ctx, arg)
 	if err != nil {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
@@ -1703,16 +1907,16 @@ func (rd *remoteRelationData) providerEndpointLoop(ctx context.Context) error {
 		rd.ingressRequired = false
 		return nil
 	}
-	if err := rd.catacomb.Add(ingressAddressWatcher); err != nil {
+	if err := rd.catacomb.Add(egressAddressWatcher); err != nil {
 		return errors.Trace(err)
 	}
+
 	for {
 		select {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
-		case cidrs := <-ingressAddressWatcher.Changes():
-			rd.fw.logger.Debugf(ctx, "relation ingress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID,
-				cidrs)
+		case cidrs := <-egressAddressWatcher.Changes():
+			rd.fw.logger.Debugf(ctx, "remote egress addresses for %v changed: %v", rd.tag, cidrs)
 			if err := rd.updateIngressNetworks(ctx, cidrs); err != nil {
 				return errors.Trace(err)
 			}
@@ -1720,62 +1924,25 @@ func (rd *remoteRelationData) providerEndpointLoop(ctx context.Context) error {
 	}
 }
 
-func (rd *remoteRelationData) ingressAddressWatcher(ctx context.Context) (watcher.StringsWatcher, error) {
-	if rd.isOffer {
-		// On the offering side we watch the local model for ingress changes
-		// which will have been published from the consuming model.
-		return rd.fw.firewallerApi.WatchIngressAddressesForRelation(ctx, rd.tag)
-	} else {
-		// On the consuming side, if this is the provider end of the relation,
-		// we watch the remote model's egress changes to get our ingress changes.
-		apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(ctx, rd.remoteModelUUID)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot get api info for model %v", rd.remoteModelUUID)
-		}
-		rd.crossModelFirewallerFacade, err = rd.fw.newRemoteFirewallerAPIFunc(ctx, apiInfo)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot open facade to remote model to watch ingress addresses")
-		}
+// publishIngressToRemote publishes ingress network changes to the offering
+// model.
+func (rd *remoteRelationData) publishIngressToRemote(ctx context.Context, cidrs []string) error {
+	rd.fw.logger.Debugf(ctx, "publishing ingress cidrs for %v: %+v", rd.tag, cidrs)
 
-		mac, err := rd.fw.firewallerApi.MacaroonForRelation(ctx, rd.tag.Id())
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot get macaroon for %v", rd.tag.Id())
-		}
-		arg := params.RemoteEntityArg{
-			Token:     rd.relationToken,
-			Macaroons: macaroon.Slice{mac},
-		}
-		return rd.crossModelFirewallerFacade.WatchEgressAddressesForRelation(ctx, arg)
-	}
-}
-
-func (rd *remoteRelationData) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(rd.catacomb.Context(context.Background()))
-}
-
-type remoteRelationNetworkChange struct {
-	relationTag         names.RelationTag
-	localApplicationTag names.ApplicationTag
-	networks            set.Strings
-	ingressRequired     bool
-}
-
-// updateProviderModel gathers the ingress CIDRs for the relation and notifies
-// that a change has occurred.
-func (rd *remoteRelationData) updateProviderModel(ctx context.Context, cidrs []string) error {
-	rd.fw.logger.Debugf(ctx, "ingress cidrs for %v: %+v", rd.tag, cidrs)
-	change := &remoteRelationNetworkChange{
-		relationTag:         rd.tag,
-		localApplicationTag: rd.localApplicationTag,
-		networks:            set.NewStrings(cidrs...),
-		ingressRequired:     len(cidrs) > 0,
-	}
-
-	apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(ctx, rd.remoteModelUUID)
+	apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(ctx, rd.remoteModelUUID.String())
 	if err != nil {
-		return errors.Annotatef(err, "cannot get api info for model %v", rd.remoteModelUUID)
+		return errors.Annotatef(err, "cannot get api info for model %q", rd.remoteModelUUID)
 	}
-	mac, err := rd.fw.firewallerApi.MacaroonForRelation(ctx, rd.tag.Id())
+
+	relKey, err := relation.NewKeyFromString(rd.tag.Id())
+	if err != nil {
+		return errors.Annotatef(err, "cannot parse relation key for %v", rd.tag.Id())
+	}
+	relationUUID, err := rd.fw.relationService.GetRelationUUIDByKey(ctx, relKey)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get relation UUID for %v", rd.tag.Id())
+	}
+	mac, err := rd.fw.crossModelRelationService.GetMacaroonForRelation(ctx, relationUUID)
 	if params.IsCodeNotFound(err) {
 		// Relation has gone, nothing to do.
 		return nil
@@ -1788,26 +1955,58 @@ func (rd *remoteRelationData) updateProviderModel(ctx context.Context, cidrs []s
 		return errors.Annotate(err, "cannot open facade to remote model to publish network change")
 	}
 	defer remoteModelAPI.Close()
+
 	event := params.IngressNetworksChangeEvent{
-		RelationToken:   rd.relationToken,
-		Networks:        change.networks.Values(),
-		IngressRequired: change.ingressRequired,
+		RelationToken:   rd.relationUUID.String(),
+		Networks:        cidrs,
+		IngressRequired: len(cidrs) > 0,
 		Macaroons:       macaroon.Slice{mac},
 		BakeryVersion:   bakery.LatestVersion,
 	}
-	err = remoteModelAPI.PublishIngressNetworkChange(ctx, event)
-	if errors.Is(err, errors.NotFound) {
-		rd.fw.logger.Debugf(ctx, "relation id not found publishing %+v", event)
-		return nil
+	if err := remoteModelAPI.PublishIngressNetworkChange(ctx, event); err != nil {
+		// If the requested ingress is not permitted on the offering side,
+		// mark the relation as in error. It's not an error that requires a
+		// worker restart though.
+		if params.IsCodeForbidden(err) {
+			return rd.fw.relationService.SetRelationStatus(ctx, rd.relationUUID, relation.Error, err.Error())
+		}
+		return errors.Trace(err)
 	}
 
-	// If the requested ingress is not permitted on the offering side,
-	// mark the relation as in error. It's not an error that requires a
-	// worker restart though.
-	if params.IsCodeForbidden(err) {
-		return rd.fw.firewallerApi.SetRelationStatus(ctx, rd.tag.Id(), relation.Error, err.Error())
-	}
-	return errors.Annotate(err, "cannot publish ingress network change")
+	rd.ingressRequired = len(cidrs) > 0
+	rd.networks = set.NewStrings(cidrs...)
+	return nil
+}
+
+type remoteRelationData struct {
+	catacomb catacomb.Catacomb
+	fw       *Firewaller
+
+	tag                 names.RelationTag
+	localApplicationTag names.ApplicationTag
+	// relationUUID is the relation UUID both in the consuming and offering
+	// model. It's used as relationToken when communicating with the remote
+	// model.
+	relationUUID    relation.UUID
+	remoteModelUUID coremodel.UUID
+
+	crossModelFirewallerFacade CrossModelFirewallerFacadeCloser
+
+	// These values are updated when ingress information on the
+	// relation changes in the model.
+	ingressRequired bool
+	networks        set.Strings
+}
+
+func (rd *remoteRelationData) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(rd.catacomb.Context(context.Background()))
+}
+
+type remoteRelationNetworkChange struct {
+	relationTag         names.RelationTag
+	localApplicationTag names.ApplicationTag
+	networks            set.Strings
+	ingressRequired     bool
 }
 
 // updateIngressNetworks processes the changed ingress networks on the relation.
@@ -1848,81 +2047,4 @@ func (fw *Firewaller) forgetRelation(ctx context.Context, data *remoteRelationDa
 	}
 	fw.logger.Debugf(ctx, "stopped watching %q", data.tag)
 	return nil
-}
-
-type remoteRelationPoller struct {
-	catacomb       catacomb.Catacomb
-	fw             *Firewaller
-	relationTag    names.RelationTag
-	applicationTag names.ApplicationTag
-	relationReady  chan remoteRelationInfo
-}
-
-// startRelationPoller creates a new worker which waits until a remote
-// relation is registered in both models.
-func (fw *Firewaller) startRelationPoller(relationKey, remoteAppName string,
-	relationReady chan remoteRelationInfo) error {
-	poller := &remoteRelationPoller{
-		fw:             fw,
-		relationTag:    names.NewRelationTag(relationKey),
-		applicationTag: names.NewApplicationTag(remoteAppName),
-		relationReady:  relationReady,
-	}
-
-	err := catacomb.Invoke(catacomb.Plan{
-		Name: "firewaller-relation-poller",
-		Site: &poller.catacomb,
-		Work: poller.pollLoop,
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// register poller with the firewaller's catacomb.
-	return fw.catacomb.Add(poller)
-}
-
-// pollLoop waits for a remote relation to be registered.
-// It does this by waiting for the relation and app tokens to be created.
-func (p *remoteRelationPoller) pollLoop() error {
-	ctx, cancel := p.scopedContext()
-	defer cancel()
-
-	p.fw.logger.Debugf(ctx, "polling for relation %v on %v to be ready", p.relationTag, p.applicationTag)
-	for {
-		select {
-		case <-p.catacomb.Dying():
-			return p.catacomb.ErrDying()
-		case <-p.fw.clk.After(3 * time.Second):
-			// Relation is exported with the consuming model UUID.
-			relToken, err := p.fw.crossModelRelationService.GetRelationToken(ctx, p.relationTag.Id())
-			if err != nil {
-				continue
-			}
-			p.fw.logger.Debugf(ctx, "token %v for relation id: %v in model %v", relToken, p.relationTag.Id(), p.fw.modelUUID)
-			relationInfo := remoteRelationInfo{
-				relationToken: relToken,
-			}
-			select {
-			case <-p.catacomb.Dying():
-				return p.catacomb.ErrDying()
-			case p.relationReady <- relationInfo:
-			}
-			return nil
-		}
-	}
-}
-
-// Kill is part of the worker.Worker interface.
-func (p *remoteRelationPoller) Kill() {
-	p.catacomb.Kill(nil)
-}
-
-// Wait is part of the worker.Worker interface.
-func (p *remoteRelationPoller) Wait() error {
-	return p.catacomb.Wait()
-}
-
-func (p *remoteRelationPoller) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(p.catacomb.Context(context.Background()))
 }

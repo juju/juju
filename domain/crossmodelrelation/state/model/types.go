@@ -282,6 +282,7 @@ type charmRelationName struct {
 type modelUUID struct {
 	UUID string `db:"uuid"`
 }
+
 type applicationUUID struct {
 	UUID string `db:"uuid"`
 }

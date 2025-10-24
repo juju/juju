@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
+	model "github.com/juju/juju/core/model"
 	offer "github.com/juju/juju/core/offer"
 	relation "github.com/juju/juju/core/relation"
 	secrets "github.com/juju/juju/core/secrets"
@@ -734,6 +735,45 @@ func (c *MockModelStateGetOfferUUIDByRelationUUIDCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetOffererModelUUID mocks base method.
+func (m *MockModelState) GetOffererModelUUID(arg0 context.Context, arg1 string) (model.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOffererModelUUID", arg0, arg1)
+	ret0, _ := ret[0].(model.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOffererModelUUID indicates an expected call of GetOffererModelUUID.
+func (mr *MockModelStateMockRecorder) GetOffererModelUUID(arg0, arg1 any) *MockModelStateGetOffererModelUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOffererModelUUID", reflect.TypeOf((*MockModelState)(nil).GetOffererModelUUID), arg0, arg1)
+	return &MockModelStateGetOffererModelUUIDCall{Call: call}
+}
+
+// MockModelStateGetOffererModelUUIDCall wrap *gomock.Call
+type MockModelStateGetOffererModelUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetOffererModelUUIDCall) Return(arg0 model.UUID, arg1 error) *MockModelStateGetOffererModelUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetOffererModelUUIDCall) Do(f func(context.Context, string) (model.UUID, error)) *MockModelStateGetOffererModelUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetOffererModelUUIDCall) DoAndReturn(f func(context.Context, string) (model.UUID, error)) *MockModelStateGetOffererModelUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetOffererRelationUUIDsForConsumers mocks base method.
 func (m *MockModelState) GetOffererRelationUUIDsForConsumers(arg0 context.Context, arg1 ...string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -1249,6 +1289,45 @@ func (c *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromO
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall) DoAndReturn(f func(string) (string, eventsource.NamespaceQuery)) *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsApplicationConsumer mocks base method.
+func (m *MockModelState) IsApplicationConsumer(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsApplicationConsumer", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsApplicationConsumer indicates an expected call of IsApplicationConsumer.
+func (mr *MockModelStateMockRecorder) IsApplicationConsumer(arg0, arg1 any) *MockModelStateIsApplicationConsumerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationConsumer", reflect.TypeOf((*MockModelState)(nil).IsApplicationConsumer), arg0, arg1)
+	return &MockModelStateIsApplicationConsumerCall{Call: call}
+}
+
+// MockModelStateIsApplicationConsumerCall wrap *gomock.Call
+type MockModelStateIsApplicationConsumerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateIsApplicationConsumerCall) Return(arg0 bool, arg1 error) *MockModelStateIsApplicationConsumerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateIsApplicationConsumerCall) Do(f func(context.Context, string) (bool, error)) *MockModelStateIsApplicationConsumerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateIsApplicationConsumerCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelStateIsApplicationConsumerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

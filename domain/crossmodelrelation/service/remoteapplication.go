@@ -12,6 +12,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
@@ -127,6 +128,17 @@ type ModelRemoteApplicationState interface {
 	// initial query function for watching relation UUIDs that are associated with
 	// remote consumer applications present in this model (i.e. offerer side).
 	InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery)
+
+	// GetOffererModelUUID returns the offering model UUID for a remote application
+	// offerer, based on the given application name.
+	// The following error types can be expected:
+	//   - [crossmodelrelationerrors.RemoteApplicationNotFound]: when the application
+	//     is not a remote offerer application.
+	GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error)
+
+	// IsApplicationConsumer checks if the given application exists in the model and
+	// is a non-synthetic application, in the consumer model.
+	IsApplicationConsumer(ctx context.Context, appName string) (bool, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -369,12 +381,6 @@ func (s *Service) SaveMacaroonForRelation(ctx context.Context, relationUUID core
 	return s.modelState.SaveMacaroonForRelation(ctx, relationUUID.String(), bytes)
 }
 
-// GetRelationToken returns the token associated with the provided relation Key.
-// Not implemented yet in the domain service.
-func (w *Service) GetRelationToken(ctx context.Context, relationKey string) (string, error) {
-	return "", internalerrors.Errorf("crossmodelrelation.GetToken").Add(errors.NotImplemented)
-}
-
 // GetMacaroonForRelation gets the macaroon for the specified remote relation,
 // returning an error satisfying [crossmodelrelationerrors.MacaroonNotFound]
 // if the macaroon is not found.
@@ -505,4 +511,26 @@ func splitRelationsByType(relations []charm.Relation) (map[string]charm.Relation
 	}
 
 	return provides, requires, nil
+}
+
+// IsApplicationConsumer checks if the given application exists in the model and
+// is a non-synthetic application, in the consumer model.
+func (s *Service) IsApplicationConsumer(ctx context.Context, appName string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.modelState.IsApplicationConsumer(ctx, appName)
+}
+
+// GetOffererModelUUID returns the offering model UUID, based on a given
+// application.
+func (s *Service) GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	modelUUID, err := s.modelState.GetOffererModelUUID(ctx, appName)
+	if err != nil {
+		return coremodel.UUID(""), internalerrors.Capture(err)
+	}
+	return modelUUID, nil
 }

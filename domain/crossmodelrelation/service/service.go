@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/rpc/params"
 )
 
 // StatusHistory records status information into a generalized way.
@@ -223,18 +222,6 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 	return secret.NewSecretStringWatcher(w, s.logger, processChanges)
 }
 
-// RemoteApplications returns the current state for the named remote applications.
-// Not implemented yet in the domain service.
-func (w *WatchableService) RemoteApplications(ctx context.Context, applications []string) ([]params.RemoteApplicationResult, error) {
-	return nil, errors.Errorf("crossmodelrelation.RemoteApplications").Add(coreerrors.NotImplemented)
-}
-
-// WatchRemoteRelations returns a disabled watcher for remote relations for now.
-// Not implemented yet in the domain service.
-func (w *WatchableService) WatchRemoteRelations(ctx context.Context) (watcher.StringsWatcher, error) {
-	return nil, errors.Errorf("crossmodelrelation.WatchRemoteRelations").Add(coreerrors.NotImplemented)
-}
-
 // WatchConsumerRelations watches the changes to (remote) relations on the
 // consuming model and notifies the worker of any changes.
 // NOTE(nvinuesa): This watcher is less efficient than WatchOffererRelations,
@@ -391,6 +378,14 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 		eventsource.NamespaceFilter(relationTable, changestream.All),
 		eventsource.NamespaceFilter(applicationRemoteConsumer, changestream.All),
 	)
+}
+
+// WatchRelationEgressNetworks watches for changes to the egress networks
+// for the specified relation UUID. It returns a NotifyWatcher that emits
+// events when there are insertions or deletions in the relation_network_egress
+// table.
+func (c *Service) WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.NotifyWatcher, error) {
+	return nil, errors.Errorf("crossmodelrelation.WatchRelationEgressNetworks").Add(coreerrors.NotImplemented)
 }
 
 // WatchRelationIngressNetworks watches for changes to the ingress networks

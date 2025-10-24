@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
@@ -34,8 +35,10 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application"
+	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -65,7 +68,8 @@ type firewallerBaseSuite struct {
 
 	machinesCh     chan []string
 	openedPortsCh  chan []string
-	remoteRelCh    chan []string
+	consumerRelCh  chan []string
+	offererRelCh   chan []string
 	subnetsCh      chan []string
 	modelFwRulesCh chan struct{}
 
@@ -138,7 +142,8 @@ func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 
 	s.machinesCh = make(chan []string, 5)
 	s.openedPortsCh = make(chan []string, 10)
-	s.remoteRelCh = make(chan []string, 5)
+	s.consumerRelCh = make(chan []string, 5)
+	s.offererRelCh = make(chan []string, 5)
 	s.subnetsCh = make(chan []string, 5)
 	s.modelFwRulesCh = make(chan struct{}, 5)
 
@@ -190,7 +195,8 @@ func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 
 		s.machinesCh = nil
 		s.openedPortsCh = nil
-		s.remoteRelCh = nil
+		s.consumerRelCh = nil
+		s.offererRelCh = nil
 		s.subnetsCh = nil
 		s.modelFwRulesCh = nil
 	})
@@ -217,7 +223,8 @@ func (s *firewallerBaseSuite) ensureMocksWithoutMachine(ctrl *gomock.Controller)
 
 	s.machinesCh = make(chan []string, 5)
 	s.openedPortsCh = make(chan []string, 10)
-	s.remoteRelCh = make(chan []string, 5)
+	s.consumerRelCh = make(chan []string, 5)
+	s.offererRelCh = make(chan []string, 5)
 	s.subnetsCh = make(chan []string, 5)
 	s.modelFwRulesCh = make(chan struct{}, 5)
 
@@ -240,7 +247,8 @@ func (s *firewallerBaseSuite) ensureMocksWithoutMachine(ctrl *gomock.Controller)
 
 		s.machinesCh = nil
 		s.openedPortsCh = nil
-		s.remoteRelCh = nil
+		s.consumerRelCh = nil
+		s.offererRelCh = nil
 		s.subnetsCh = nil
 		s.modelFwRulesCh = nil
 	})
@@ -484,8 +492,11 @@ func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) wo
 	opWatcher := watchertest.NewMockStringsWatcher(s.openedPortsCh)
 	s.portService.EXPECT().WatchMachineOpenedPorts(gomock.Any()).Return(opWatcher, nil)
 
-	remoteRelWatcher := watchertest.NewMockStringsWatcher(s.remoteRelCh)
-	s.crossModelRelationService.EXPECT().WatchRemoteRelations(gomock.Any()).Return(remoteRelWatcher, nil)
+	consumerRelWatcher := watchertest.NewMockStringsWatcher(s.consumerRelCh)
+	s.crossModelRelationService.EXPECT().WatchConsumerRelations(gomock.Any()).Return(consumerRelWatcher, nil)
+
+	offererRelWatcher := watchertest.NewMockStringsWatcher(s.offererRelCh)
+	s.crossModelRelationService.EXPECT().WatchOffererRelations(gomock.Any()).Return(offererRelWatcher, nil)
 
 	subnetsWatcher := watchertest.NewMockStringsWatcher(s.subnetsCh)
 	s.firewaller.EXPECT().WatchSubnets(gomock.Any()).Return(subnetsWatcher, nil)
@@ -1402,41 +1413,83 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *tc.C
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.crossModelRelationService.EXPECT().RemoteApplications(gomock.Any(), []string{"remote-mysql"}).Return(
-		[]params.RemoteApplicationResult{{
-			Result: &params.RemoteApplication{
-				Name:            "remote-mysql",
-				OfferUUID:       "offer-uuid",
-				Life:            "alive",
-				Status:          "active",
-				ModelUUID:       coretesting.ModelTag.Id(),
-				IsConsumerProxy: false,
-				ConsumeVersion:  66,
-				Macaroon:        mac,
-			},
-		}}, nil).MinTimes(1)
-	relTag := names.NewRelationTag("wordpress:db remote-mysql:server")
-	s.crossModelRelationService.EXPECT().GetRelationToken(gomock.Any(), relTag.Id()).Return("rel-token", nil).MinTimes(1)
+	offererModelUUID := tc.Must(c, coremodel.NewUUID)
 
-	s.firewaller.EXPECT().ControllerAPIInfoForModel(gomock.Any(), coretesting.ModelTag.Id()).Return(
+	s.crossModelRelationService.EXPECT().IsApplicationConsumer(gomock.Any(), "wordpress").Return(true, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().GetOffererModelUUID(gomock.Any(), "remote-mysql").Return(offererModelUUID, nil).MinTimes(1)
+	relTag := names.NewRelationTag("wordpress:db remote-mysql:server")
+	relKey, err := relation.NewKeyFromString(relTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID := relation.UUID("rel-token")
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(
+		domainrelation.RelationDetails{
+			Life: life.Alive,
+			UUID: relUUID,
+			Key:  relKey,
+			Endpoints: []domainrelation.Endpoint{
+				{
+					ApplicationName: "wordpress",
+					Relation: charm.Relation{
+						Name:      "db",
+						Role:      charm.RoleRequirer,
+						Interface: "mysql",
+					},
+				},
+				{
+					ApplicationName: "remote-mysql",
+					Relation: charm.Relation{
+						Name:      "server",
+						Role:      charm.RoleProvider,
+						Interface: "mysql",
+					},
+				},
+			},
+		}, nil).MinTimes(1)
+
+	s.firewaller.EXPECT().ControllerAPIInfoForModel(gomock.Any(), offererModelUUID.String()).Return(
 		&api.Info{
 			Addrs:  []string{"1.2.3.4:1234"},
 			CACert: coretesting.CACert,
 		}, nil).AnyTimes()
-	s.firewaller.EXPECT().MacaroonForRelation(gomock.Any(), relTag.Id()).Return(mac, nil).MinTimes(1)
+	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), relKey).Return(relUUID, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().GetMacaroonForRelation(gomock.Any(), relUUID).Return(mac, nil).MinTimes(1)
 
 	localEgressCh := make(chan []string, 1)
-	remoteEgressWatch := watchertest.NewMockStringsWatcher(localEgressCh)
-	s.firewaller.EXPECT().WatchEgressAddressesForRelation(gomock.Any(), relTag).Return(remoteEgressWatch, nil).MinTimes(1)
+	notifyCh := make(chan struct{}, 1)
+	remoteEgressWatch := watchertest.NewMockNotifyWatcher(notifyCh)
+	s.crossModelRelationService.EXPECT().WatchRelationEgressNetworks(gomock.Any(), relUUID).Return(remoteEgressWatch, nil).MinTimes(1)
+
+	var mu sync.Mutex
+	var currentCIDRs []string
+	s.crossModelRelationService.EXPECT().GetRelationNetworkEgress(gomock.Any(), string(relUUID)).DoAndReturn(
+		func(_ context.Context, _ string) ([]string, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			return currentCIDRs, nil
+		}).AnyTimes()
+
+	// Helper goroutine to bridge test control channel to watcher notifications
+	go func() {
+		for cidrs := range localEgressCh {
+			mu.Lock()
+			currentCIDRs = cidrs
+			mu.Unlock()
+			select {
+			case notifyCh <- struct{}{}:
+			default:
+			}
+		}
+	}()
+
 	s.crossmodelFirewaller.EXPECT().Close().Return(nil).MinTimes(1)
 
-	s.remoteRelCh <- []string{"wordpress:db remote-mysql:server"}
+	s.consumerRelCh <- []string{relUUID.String()}
 
 	return localEgressCh, mac
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *tc.C) {
-	c.Skip(c, "skipping remote relation tests pending worker rework")
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1492,7 +1545,6 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *tc.C)
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *tc.C) {
-	c.Skip(c, "skipping remote relation tests pending worker rework")
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1544,7 +1596,6 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *tc.C) {
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C) {
-	c.Skip(c, "skipping remote relation tests pending worker rework")
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1561,36 +1612,57 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.crossModelRelationService.EXPECT().RemoteApplications(gomock.Any(), []string{"remote-wordpress"}).Return(
-		[]params.RemoteApplicationResult{{
-			Result: &params.RemoteApplication{
-				Name:            "remote-wordpress",
-				OfferUUID:       "offer-uuid",
-				Life:            "alive",
-				Status:          "active",
-				ModelUUID:       coretesting.ModelTag.Id(),
-				IsConsumerProxy: false,
-				ConsumeVersion:  66,
-				Macaroon:        mac,
-			},
-		}}, nil)
-	relTag := names.NewRelationTag("remote-wordpress:db mysql:server")
-	s.crossModelRelationService.EXPECT().GetRelationToken(gomock.Any(), relTag.Id()).Return("rel-token", nil)
+	offererModelUUID := tc.Must(c, coremodel.NewUUID)
 
-	s.firewaller.EXPECT().ControllerAPIInfoForModel(gomock.Any(), coretesting.ModelTag.Id()).Return(
+	s.crossModelRelationService.EXPECT().IsApplicationConsumer(gomock.Any(), "remote-wordpress").Return(false, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().GetOffererModelUUID(gomock.Any(), "remote-wordpress").Return(offererModelUUID, nil).MinTimes(1)
+
+	relTag := names.NewRelationTag("remote-wordpress:db mysql:server")
+	relKey, err := relation.NewKeyFromString(relTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID := relation.UUID("rel-token")
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(
+		domainrelation.RelationDetails{
+			Life: life.Alive,
+			UUID: relUUID,
+			Key:  relKey,
+			Endpoints: []domainrelation.Endpoint{
+				{
+					ApplicationName: "remote-wordpress",
+					Relation: charm.Relation{
+						Name:      "db",
+						Role:      charm.RoleRequirer,
+						Interface: "mysql",
+					},
+				},
+				{
+					ApplicationName: "mysql",
+					Relation: charm.Relation{
+						Name:      "server",
+						Role:      charm.RoleProvider,
+						Interface: "mysql",
+					},
+				},
+			},
+		}, nil).MinTimes(1)
+
+	s.firewaller.EXPECT().ControllerAPIInfoForModel(gomock.Any(), offererModelUUID.String()).Return(
 		&api.Info{
 			Addrs:  []string{"1.2.3.4:1234"},
 			CACert: coretesting.CACert,
 		}, nil).AnyTimes()
-	s.firewaller.EXPECT().MacaroonForRelation(gomock.Any(), relTag.Id()).Return(mac, nil)
+	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), relKey).Return(relUUID, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().GetMacaroonForRelation(gomock.Any(), relUUID).Return(mac, nil).MinTimes(1)
 
 	watched := make(chan bool, 2)
 
 	localEgressCh := make(chan []string, 1)
 	remoteEgressWatch := watchertest.NewMockStringsWatcher(localEgressCh)
 	arg := params.RemoteEntityArg{
-		Token:     "rel-token",
-		Macaroons: macaroon.Slice{mac},
+		Token:         relUUID.String(),
+		Macaroons:     macaroon.Slice{mac},
+		BakeryVersion: bakery.LatestVersion,
 	}
 	s.crossmodelFirewaller.EXPECT().WatchEgressAddressesForRelation(gomock.Any(), arg).DoAndReturn(func(_ context.Context, _ params.RemoteEntityArg) (watcher.StringsWatcher, error) {
 		watched <- true
@@ -1598,7 +1670,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 	})
 	s.crossmodelFirewaller.EXPECT().Close().AnyTimes()
 
-	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
+	s.consumerRelCh <- []string{relUUID.String()}
 	localEgressCh <- []string{"10.0.0.0/24"}
 
 	select {
@@ -1609,7 +1681,6 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
-	c.Skip(c, "skipping remote relation tests pending worker rework")
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1619,47 +1690,115 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, _ := s.addApplication(ctrl, "mysql", true)
+	published := make(chan bool)
+	app, _ := s.addApplication(ctrl, "wordpress", true)
 	_, m, _ := s.addUnit(c, ctrl, app)
 	s.machinesCh <- []string{m.Tag().Id()}
 
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.crossModelRelationService.EXPECT().RemoteApplications(gomock.Any(), []string{"remote-mysql"}).Return(
-		[]params.RemoteApplicationResult{{
-			Result: &params.RemoteApplication{
-				Name:            "remote-mysql",
-				OfferUUID:       "offer-uuid",
-				Life:            "alive",
-				Status:          "active",
-				ModelUUID:       coretesting.ModelTag.Id(),
-				IsConsumerProxy: false,
-				ConsumeVersion:  66,
-				Macaroon:        mac,
-			},
-		}}, nil).MinTimes(1)
-	relTag := names.NewRelationTag("wordpress:db remote-mysql:server")
-	s.crossModelRelationService.EXPECT().GetRelationToken(gomock.Any(), relTag.Id()).Return("rel-token", nil).MinTimes(1)
+	offererModelUUID := tc.Must(c, coremodel.NewUUID)
 
-	s.firewaller.EXPECT().ControllerAPIInfoForModel(gomock.Any(), coretesting.ModelTag.Id()).Return(
+	s.crossModelRelationService.EXPECT().IsApplicationConsumer(gomock.Any(), "wordpress").Return(true, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().GetOffererModelUUID(gomock.Any(), "remote-mysql").Return(offererModelUUID, nil).MinTimes(1)
+
+	relTag := names.NewRelationTag("wordpress:db remote-mysql:server")
+	relKey, err := relation.NewKeyFromString(relTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID := relation.UUID("rel-token")
+
+	// Mock GetRelationDetails - this is called when processing the consumer relation event
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(
+		domainrelation.RelationDetails{
+			Life: life.Alive,
+			UUID: relUUID,
+			Key:  relKey,
+			Endpoints: []domainrelation.Endpoint{
+				{
+					ApplicationName: "wordpress",
+					Relation: charm.Relation{
+						Name:      "db",
+						Role:      charm.RoleRequirer,
+						Interface: "mysql",
+					},
+				},
+				{
+					ApplicationName: "remote-mysql",
+					Relation: charm.Relation{
+						Name:      "server",
+						Role:      charm.RoleProvider,
+						Interface: "mysql",
+					},
+				},
+			},
+		}, nil).MinTimes(1)
+
+	s.firewaller.EXPECT().ControllerAPIInfoForModel(gomock.Any(), offererModelUUID.String()).Return(
 		&api.Info{
 			Addrs:  []string{"1.2.3.4:1234"},
 			CACert: coretesting.CACert,
 		}, nil).AnyTimes()
-	s.firewaller.EXPECT().MacaroonForRelation(gomock.Any(), relTag.Id()).Return(mac, nil).MinTimes(1)
+	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), relKey).Return(relUUID, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().GetMacaroonForRelation(gomock.Any(), relUUID).Return(mac, nil).MinTimes(1)
 
 	localEgressCh := make(chan []string, 1)
-	remoteEgressWatch := watchertest.NewMockStringsWatcher(localEgressCh)
-	s.firewaller.EXPECT().WatchEgressAddressesForRelation(gomock.Any(), relTag).Return(remoteEgressWatch, nil).MinTimes(1)
+	notifyCh := make(chan struct{}, 1)
+	remoteEgressWatch := watchertest.NewMockNotifyWatcher(notifyCh)
+	s.crossModelRelationService.EXPECT().WatchRelationEgressNetworks(gomock.Any(), relUUID).Return(remoteEgressWatch, nil).MinTimes(1)
+
+	var mu sync.Mutex
+	var currentCIDRs []string
+	s.crossModelRelationService.EXPECT().GetRelationNetworkEgress(gomock.Any(), string(relUUID)).DoAndReturn(
+		func(_ context.Context, _ string) ([]string, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			return currentCIDRs, nil
+		}).AnyTimes()
+
+	// Helper goroutine to bridge test control channel to watcher notifications
+	go func() {
+		for cidrs := range localEgressCh {
+			mu.Lock()
+			currentCIDRs = cidrs
+			mu.Unlock()
+			select {
+			case notifyCh <- struct{}{}:
+			default:
+			}
+		}
+	}()
+
 	s.crossmodelFirewaller.EXPECT().Close().Return(nil).MinTimes(1)
 
-	s.remoteRelCh <- []string{"wordpress:db remote-mysql:server"}
+	s.consumerRelCh <- []string{relUUID.String()}
+
+	// Send initial watcher event - expect the initial empty publish.
+	initialEvent := params.IngressNetworksChangeEvent{
+		RelationToken:   "rel-token",
+		Networks:        []string{},
+		IngressRequired: false,
+		Macaroons:       macaroon.Slice{mac},
+		BakeryVersion:   bakery.LatestVersion,
+	}
+	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), initialEvent).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
+		published <- true
+		return nil
+	})
+
+	localEgressCh <- []string{}
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for initial ingress change to be published")
+	case <-published:
+	}
 
 	updated := make(chan bool)
 
 	// Have a unit on the consuming app enter the relation scope.
-	// This will trigger the firewaller to publish the changes.
+	// This will trigger the firewaller to publish the changes, but it will be
+	// rejected.
 	event := params.IngressNetworksChangeEvent{
 		RelationToken:   "rel-token",
 		Networks:        []string{"10.0.0.0/24"},
@@ -1670,7 +1809,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
 		return &params.Error{Code: params.CodeForbidden, Message: "error"}
 	})
-	s.firewaller.EXPECT().SetRelationStatus(gomock.Any(), relTag.Id(), relation.Error, "error").DoAndReturn(func(context.Context, string, relation.Status, string) error {
+	s.relationService.EXPECT().SetRelationStatus(gomock.Any(), relUUID, relation.Error, "error").DoAndReturn(func(context.Context, relation.UUID, relation.Status, string) error {
 		updated <- true
 		return nil
 	})
@@ -1699,8 +1838,6 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 	})
 
 	// Set up the offering model - create the remote app.
-	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, tc.ErrorIsNil)
 	remoteRelParams := params.RemoteRelation{
 		Life:            "alive",
 		Suspended:       false,
@@ -1716,32 +1853,74 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 		SourceModelUUID:       coretesting.ModelTag.Id(),
 	}
 
-	s.crossModelRelationService.EXPECT().RemoteApplications(gomock.Any(), []string{"remote-wordpress"}).Return(
-		[]params.RemoteApplicationResult{{
-			Result: &params.RemoteApplication{
-				Name:            "remote-wordpress",
-				OfferUUID:       "offer-uuid",
-				Life:            "alive",
-				Status:          "active",
-				ModelUUID:       coretesting.ModelTag.Id(),
-				IsConsumerProxy: true,
-				ConsumeVersion:  66,
-				Macaroon:        mac,
-			},
-		}}, nil).MinTimes(1)
 	relTag := names.NewRelationTag("remote-wordpress:db mysql:server")
-	s.crossModelRelationService.EXPECT().GetRelationToken(gomock.Any(), relTag.Id()).Return("rel-token", nil).MinTimes(1)
+	relKey, err := relation.NewKeyFromString(relTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID := relation.UUID("rel-token")
+
+	// Mock GetRelationDetails - this is called when processing the offerer relation event
+	// We need to return different states for suspended/resumed/alive
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).DoAndReturn(
+		func(_ context.Context, _ relation.UUID) (domainrelation.RelationDetails, error) {
+			return domainrelation.RelationDetails{
+				Life:      life.Alive,
+				UUID:      relUUID,
+				Key:       relKey,
+				Suspended: remoteRelParams.Suspended,
+				Endpoints: []domainrelation.Endpoint{
+					{
+						ApplicationName: "mysql",
+						Relation: charm.Relation{
+							Name:      "server",
+							Role:      charm.RoleProvider,
+							Interface: "mysql",
+						},
+					},
+					{
+						ApplicationName: "remote-wordpress",
+						Relation: charm.Relation{
+							Name:      "db",
+							Role:      charm.RoleRequirer,
+							Interface: "mysql",
+						},
+					},
+				},
+			}, nil
+		}).AnyTimes()
 
 	localIngressCh := make(chan []string, 1)
-	remoteIngressWatch := watchertest.NewMockStringsWatcher(localIngressCh)
-	s.firewaller.EXPECT().WatchIngressAddressesForRelation(gomock.Any(), relTag).Return(remoteIngressWatch, nil).MinTimes(1)
+	notifyCh := make(chan struct{}, 1)
+	remoteIngressWatch := watchertest.NewMockNotifyWatcher(notifyCh)
+	s.crossModelRelationService.EXPECT().WatchRelationIngressNetworks(gomock.Any(), relUUID).Return(remoteIngressWatch, nil).MinTimes(1)
+
+	var mu sync.Mutex
+	var currentCIDRs []string
+	s.crossModelRelationService.EXPECT().GetRelationNetworkIngress(gomock.Any(), relUUID).DoAndReturn(
+		func(_ context.Context, _ relation.UUID) ([]string, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			return currentCIDRs, nil
+		}).AnyTimes()
+
+	// Helper goroutine to bridge test control channel to watcher notifications
+	go func() {
+		for cidrs := range localIngressCh {
+			mu.Lock()
+			currentCIDRs = cidrs
+			mu.Unlock()
+			select {
+			case notifyCh <- struct{}{}:
+			default:
+			}
+		}
+	}()
 
 	// No port changes yet.
 	s.waitForMachineFlush(c)
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
 	// Save a new ingress network against the relation.
-	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
+	s.offererRelCh <- []string{relUUID.String()}
 	localIngressCh <- ingress
 
 	// Ports opened.
@@ -1761,13 +1940,13 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 	// And again when relation is suspended.
 	remoteRelParams.Suspended = true
 
-	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
+	s.offererRelCh <- []string{relUUID.String()}
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
 	// And again when relation is resumed.
 	remoteRelParams.Suspended = false
 
-	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
+	s.offererRelCh <- []string{relUUID.String()}
 	localIngressCh <- ingress
 	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
@@ -1777,12 +1956,9 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 	localIngressCh <- nil
 	s.waitForMachineFlush(c)
 	s.assertIngressRules(c, m.Tag().Id(), nil)
-
-	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *tc.C) {
-	c.Skip(c, "skipping remote relation tests pending worker rework")
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1792,7 +1968,6 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *tc.C) {
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *tc.C) {
-	c.Skip(c, "skipping remote relation tests pending worker rework")
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1815,7 +1990,6 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *tc.C
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *tc.C) {
-	c.Skip(c, "skipping remote relation tests pending worker rework")
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
