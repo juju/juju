@@ -37,7 +37,7 @@ func (s *baseSuite) newService(c *tc.C) *Service {
 		modelState:        s.modelState,
 		leadershipRevoker: s.revoker,
 		modelUUID:         s.modelUUID,
-		provider: func(ctx context.Context) (Provider, error) {
+		providerGetter: func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
 		},
 		clock:  s.clock,

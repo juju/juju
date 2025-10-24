@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // Provider describes methods for interacting with the provider.
@@ -106,7 +107,13 @@ type Service struct {
 	modelState      ModelDBState
 
 	leadershipRevoker leadership.Revoker
-	provider          providertracker.ProviderGetter[Provider]
+	providerGetter    providertracker.ProviderGetter[Provider]
+
+	// secretBackendProviderGetter allows us to acquire access
+	// to the secret back-end for the model we are working in.
+	// We need this to process secret removals associated with
+	// applications and units.
+	secretBackendProviderGetter func(backendType string) (provider.SecretBackendProvider, error)
 
 	modelUUID model.UUID
 
@@ -277,20 +284,21 @@ func NewWatchableService(
 	modelState ModelDBState,
 	watcherFactory WatcherFactory,
 	leadershipRevoker leadership.Revoker,
-	provider providertracker.ProviderGetter[Provider],
+	providerGetter providertracker.ProviderGetter[Provider],
 	modelUUID model.UUID,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
-			controllerState:   controllerState,
-			modelState:        modelState,
-			leadershipRevoker: leadershipRevoker,
-			provider:          provider,
-			modelUUID:         modelUUID,
-			clock:             clock,
-			logger:            logger,
+			controllerState:             controllerState,
+			modelState:                  modelState,
+			leadershipRevoker:           leadershipRevoker,
+			providerGetter:              providerGetter,
+			secretBackendProviderGetter: provider.Provider,
+			modelUUID:                   modelUUID,
+			clock:                       clock,
+			logger:                      logger,
 		},
 		watcherFactory: watcherFactory,
 	}

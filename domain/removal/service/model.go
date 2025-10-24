@@ -227,7 +227,7 @@ func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID) error {
 
 	// Attempt to destroy the provider of the model. This is best effort,
 	// because we might not have all the model information available to do so.
-	provider, err := s.provider(ctx)
+	provider, err := s.providerGetter(ctx)
 	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
 		s.logger.Errorf(ctx, "failed to get model provider: %v", err)
 	} else if err == nil {

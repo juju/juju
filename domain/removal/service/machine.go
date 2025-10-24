@@ -276,7 +276,7 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 func (s *Service) releaseContainerAddresses(ctx context.Context, machineUUID string) error {
 	// Get the provider for releasing the machine addresses. If the provider
 	// does not support releasing addresses, we can return early.
-	provider, err := s.provider(ctx)
+	provider, err := s.providerGetter(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return nil
 	} else if err != nil {
