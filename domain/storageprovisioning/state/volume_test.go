@@ -1066,6 +1066,112 @@ func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 	})
 }
 
+// TestGetMachineModelProvisionedVolumeAttachmentParamsMachineNotFound tests
+// that asking for volume attachment params for a machine that doesn't exist
+// returns to the caller an error satisfying
+// [domainmachineerrors.MachineNotFound].
+func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParamsMachineNotFound(c *tc.C) {
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetMachineModelProvisionedVolumeAttachmentParams(
+		c.Context(), machineUUID,
+	)
+	c.Check(err, tc.ErrorIs, domainmachineerrors.MachineNotFound)
+}
+
+// TestGetMachineModelProvisionedVolumeAttachmentParams tests the happy path of
+// getting volume attachment provisioning params for a machine in the model.
+func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParams(c *tc.C) {
+	machineNetNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, machineNetNodeUUID)
+	_, charmUUID := s.newApplication(c, "testapp")
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+	s.newCharmStorage(c, charmUUID, "myblock", "block", true, "/var/block")
+	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, "/var/filesystem")
+
+	siUUID1 := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "myblock",
+	)
+	siUUID2 := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "myblock",
+	)
+	volumeUUID1, volumeID1 := s.newModelVolume(c)
+	filesystemUUID1, _ := s.newModelFilesystem(c)
+	volumeUUID2, volumeID2 := s.newModelVolume(c)
+	s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
+	s.newModelVolumeAttachment(c, volumeUUID2, machineNetNodeUUID)
+	s.newStorageInstanceVolume(c, siUUID1, volumeUUID1)
+	s.newStorageInstanceFilesystem(c, siUUID1, filesystemUUID1)
+	s.newStorageInstanceVolume(c, siUUID2, volumeUUID2)
+
+	st := NewState(s.TxnRunnerFactory())
+	volumeAttachParams, err :=
+		st.GetMachineModelProvisionedVolumeAttachmentParams(
+			c.Context(), machineUUID,
+		)
+
+	expected := []domainstorageprovisioning.MachineVolumeAttachmentProvisioningParams{
+		{
+			Provider: "canonical",
+			ReadOnly: false,
+			VolumeID: volumeID1,
+		},
+		{
+			Provider: "canonical",
+			ReadOnly: false,
+			VolumeID: volumeID2,
+		},
+	}
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(volumeAttachParams, tc.SameContents, expected)
+}
+
+// TestGetMachineModelProvisionedVolumeAttachmentParams tests that machine
+// volume attachments which are machine provisioned are ignored.
+func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParamsIgnores(c *tc.C) {
+	machineNetNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, machineNetNodeUUID)
+	_, charmUUID := s.newApplication(c, "testapp")
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+	s.newCharmStorage(c, charmUUID, "myblock", "block", true, "/var/block")
+	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, "/var/filesystem")
+
+	siUUID1 := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "myblock",
+	)
+	siUUID2 := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "myblock",
+	)
+	volumeUUID1, volumeID1 := s.newModelVolume(c)
+	filesystemUUID1, _ := s.newModelFilesystem(c)
+	volumeUUID2, _ := s.newModelVolume(c)
+	s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
+	s.newMachineVolumeAttachment(c, volumeUUID2, machineNetNodeUUID)
+	s.newStorageInstanceVolume(c, siUUID1, volumeUUID1)
+	s.newStorageInstanceFilesystem(c, siUUID1, filesystemUUID1)
+	s.newStorageInstanceVolume(c, siUUID2, volumeUUID2)
+
+	st := NewState(s.TxnRunnerFactory())
+	volumeAttachParams, err :=
+		st.GetMachineModelProvisionedVolumeAttachmentParams(
+			c.Context(), machineUUID,
+		)
+
+	expected := []domainstorageprovisioning.MachineVolumeAttachmentProvisioningParams{
+		{
+			Provider: "canonical",
+			ReadOnly: false,
+			VolumeID: volumeID1,
+		},
+	}
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(volumeAttachParams, tc.SameContents, expected)
+}
+
 // TestGetMachineModelProvisionedVolumeParamsMachineNotFound tests that asking
 // for the volume provisioning params of a machine that doesn't exists returns
 // to the caller an error satisfying [domainmachineerrors.MachineNotFound].
