@@ -36,6 +36,18 @@ type State interface {
 		coreunit.UUID,
 	) (domainstorageprovisioning.StorageAttachmentUUID, error)
 
+	// GetStorageInstanceAttachments returns the set of attachments a storage
+	// instance has. If the storage instance has no attachments then an empty
+	// slice.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound]
+	// if the storage instance for the supplied uuid does not exist.
+	GetStorageInstanceAttachments(
+		context.Context,
+		domainstorage.StorageInstanceUUID,
+	) ([]domainstorageprovisioning.StorageAttachmentUUID, error)
+
 	// GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by
 	// its ID.
 	//
