@@ -714,15 +714,8 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersSingle(c 
 					Scope:     charm.ScopeGlobal,
 				},
 			},
-			Requires: map[string]charm.Relation{
-				"cache": {
-					Name:      "cache",
-					Role:      charm.RoleRequirer,
-					Interface: "cacher",
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-			Peers: map[string]charm.Relation{},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
 		},
 	}
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
@@ -776,15 +769,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersMultiple(
 		Metadata: charm.Metadata{
 			Name:        "foo",
 			Description: "remote consumer application",
-			Provides: map[string]charm.Relation{
-				"db": {
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "db",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
+			Provides:    map[string]charm.Relation{},
 			Requires: map[string]charm.Relation{
 				"cache": {
 					Name:      "cache",
@@ -812,15 +797,8 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersMultiple(
 					Scope:     charm.ScopeGlobal,
 				},
 			},
-			Requires: map[string]charm.Relation{
-				"cache": {
-					Name:      "cache",
-					Role:      charm.RoleRequirer,
-					Interface: "cacher",
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-			Peers: map[string]charm.Relation{},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
 		},
 	}
 
@@ -896,15 +874,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersFiltersDe
 		Metadata: charm.Metadata{
 			Name:        "foo",
 			Description: "remote consumer application",
-			Provides: map[string]charm.Relation{
-				"db": {
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "db",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
+			Provides:    map[string]charm.Relation{},
 			Requires: map[string]charm.Relation{
 				"cache": {
 					Name:      "cache",
@@ -967,15 +937,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersSin
 		Metadata: charm.Metadata{
 			Name:        "foo",
 			Description: "remote consumer application",
-			Provides: map[string]charm.Relation{
-				"db": {
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "db",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
+			Provides:    map[string]charm.Relation{},
 			Requires: map[string]charm.Relation{
 				"cache": {
 					Name:      "cache",
@@ -1097,15 +1059,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMul
 		Metadata: charm.Metadata{
 			Name:        "bar",
 			Description: "remote consumer application 2",
-			Provides: map[string]charm.Relation{
-				"db": {
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "db",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
+			Provides:    map[string]charm.Relation{},
 			Requires: map[string]charm.Relation{
 				"cache": {
 					Name:      "cache",
@@ -1219,15 +1173,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMix
 		Metadata: charm.Metadata{
 			Name:        "foo",
 			Description: "remote consumer application",
-			Provides: map[string]charm.Relation{
-				"db": {
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "db",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
+			Provides:    map[string]charm.Relation{},
 			Requires: map[string]charm.Relation{
 				"cache": {
 					Name:      "cache",
@@ -1302,15 +1248,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersDup
 		Metadata: charm.Metadata{
 			Name:        "foo",
 			Description: "remote consumer application",
-			Provides: map[string]charm.Relation{
-				"db": {
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "db",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
+			Provides:    map[string]charm.Relation{},
 			Requires: map[string]charm.Relation{
 				"cache": {
 					Name:      "cache",
