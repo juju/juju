@@ -7,7 +7,6 @@ import (
 	"context"
 	"net"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -76,13 +75,6 @@ func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID co
 	}
 
 	return nil
-}
-
-// GetRelationNetworkEgress retrieves all egress network CIDRs for the
-// specified relation.
-// The CIDRs are retrieved from the relation_network_egress table.
-func (s *Service) GetRelationNetworkEgress(ctx context.Context, relationUUID string) ([]string, error) {
-	return nil, errors.Errorf("crossmodelrelation.GetRelationNetworkEgress").Add(coreerrors.NotImplemented)
 }
 
 // GetRelationNetworkIngress retrieves all ingress network CIDRs for the
