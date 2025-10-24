@@ -10,6 +10,21 @@ import (
 	"github.com/juju/juju/domain/life"
 )
 
+// MachineVolumeAttachmentProvisioningParams defines the set of parameters
+// required for attaching a volume a machine during machine provisioning.
+type MachineVolumeAttachmentProvisioningParams struct {
+	// Provider is the storage provider to use when provisioning the volume.
+	Provider string
+
+	// ReadOnly indicates if the volume should be attached to the machine as
+	// read only.
+	ReadOnly bool
+
+	// VolumeID is the unique id given to the volume in the controller. This is
+	// not the volume uuid.
+	VolumeID string
+}
+
 // MachineVolumeProvisioningParams defines the set of parameters required to
 // provision volumes alongside machines in the environ.
 type MachineVolumeProvisioningParams struct {

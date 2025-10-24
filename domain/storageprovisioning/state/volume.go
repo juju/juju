@@ -1037,6 +1037,81 @@ WHERE  uuid = $volumeProvisionedInfo.uuid
 	return nil
 }
 
+// GetMachineModelProvisionedVolumeAttachmentParams returns the volume
+// attachment parameters for all attachments onto a machine that are provisioned
+// by the model. Should the machine have no volumes thar are machine provisioned
+// then an empty result is returned.
+//
+// The following errors may be returned:
+// - [domainmachineerrors.MachineNotFound] when no machine exists for the uuid.
+func (st *State) GetMachineModelProvisionedVolumeAttachmentParams(
+	ctx context.Context, uuid coremachine.UUID,
+) ([]storageprovisioning.MachineVolumeAttachmentProvisioningParams, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	input := entityUUID{UUID: uuid.String()}
+
+	paramsStmt, err := st.Prepare(`
+SELECT &machineVolumeAttachmentProvisioningParams.* FROM (
+    SELECT    sv.volume_id,
+              sp.type AS provider_type,
+              sva.read_only
+    FROM      storage_volume_attachment sva
+    JOIN      storage_volume sv ON sv.uuid = sva.storage_volume_uuid
+    JOIN      machine m ON sva.net_node_uuid = m.net_node_uuid
+    JOIN      storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
+    JOIN      storage_instance si ON siv.storage_instance_uuid = si.uuid
+    JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    WHERE     m.uuid = $entityUUID.uuid
+    AND       sva.provision_scope_id = 0
+)
+`,
+		machineVolumeAttachmentProvisioningParams{}, input)
+	if err != nil {
+		return nil, errors.Errorf("preparing machine volume attachment params statment: %w", err)
+	}
+
+	var volumeAttachDBParams []machineVolumeAttachmentProvisioningParams
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkMachineExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf("checking if machine %q exists: %w", uuid, err)
+		}
+		if !exists {
+			return errors.Errorf(
+				"machine %q does not exist in the model", uuid,
+			).Add(domainmachineerrors.MachineNotFound)
+		}
+
+		err = tx.Query(ctx, paramsStmt, input).GetAll(&volumeAttachDBParams)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	retVal := make(
+		[]storageprovisioning.MachineVolumeAttachmentProvisioningParams,
+		0, len(volumeAttachDBParams),
+	)
+	for _, dbVal := range volumeAttachDBParams {
+		params := storageprovisioning.MachineVolumeAttachmentProvisioningParams{
+			Provider: dbVal.ProviderType,
+			ReadOnly: dbVal.ReadOnly.V,
+			VolumeID: dbVal.VolumeID,
+		}
+		retVal = append(retVal, params)
+	}
+
+	return retVal, nil
+}
+
 // GetMachineModelProvisionedVolumeParams returns the volume parameters for all
 // volumes of a machine that are provisioned by the model. The decision of if a
 // volume in the model is for a machine is made by checking if the volume has an
