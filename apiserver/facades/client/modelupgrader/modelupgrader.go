@@ -144,11 +144,10 @@ func (m *ModelUpgraderAPI) canUpgrade(
 		permission.SuperuserAccess,
 		m.controllerTag,
 	)
-	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-		return false, errors.Capture(err)
-	}
 	if err == nil {
 		return true, nil
+	} else if !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return false, errors.Capture(err)
 	}
 
 	err = m.authorizer.HasPermission(
