@@ -159,17 +159,17 @@ func (c *MockApplicationEnsureCall) DoAndReturn(f func(caas.ApplicationConfig) e
 }
 
 // EnsurePVCs mocks base method.
-func (m *MockApplication) EnsurePVCs(arg0 []storage.KubernetesFilesystemParams, arg1 map[string][]storage.KubernetesFilesystemUnitAttachmentParams) error {
+func (m *MockApplication) EnsurePVCs(arg0 []storage.KubernetesFilesystemParams, arg1 map[string][]storage.KubernetesFilesystemUnitAttachmentParams, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsurePVCs", arg0, arg1)
+	ret := m.ctrl.Call(m, "EnsurePVCs", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnsurePVCs indicates an expected call of EnsurePVCs.
-func (mr *MockApplicationMockRecorder) EnsurePVCs(arg0, arg1 any) *MockApplicationEnsurePVCsCall {
+func (mr *MockApplicationMockRecorder) EnsurePVCs(arg0, arg1, arg2 any) *MockApplicationEnsurePVCsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsurePVCs", reflect.TypeOf((*MockApplication)(nil).EnsurePVCs), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsurePVCs", reflect.TypeOf((*MockApplication)(nil).EnsurePVCs), arg0, arg1, arg2)
 	return &MockApplicationEnsurePVCsCall{Call: call}
 }
 
@@ -185,13 +185,13 @@ func (c *MockApplicationEnsurePVCsCall) Return(arg0 error) *MockApplicationEnsur
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationEnsurePVCsCall) Do(f func([]storage.KubernetesFilesystemParams, map[string][]storage.KubernetesFilesystemUnitAttachmentParams) error) *MockApplicationEnsurePVCsCall {
+func (c *MockApplicationEnsurePVCsCall) Do(f func([]storage.KubernetesFilesystemParams, map[string][]storage.KubernetesFilesystemUnitAttachmentParams, string) error) *MockApplicationEnsurePVCsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationEnsurePVCsCall) DoAndReturn(f func([]storage.KubernetesFilesystemParams, map[string][]storage.KubernetesFilesystemUnitAttachmentParams) error) *MockApplicationEnsurePVCsCall {
+func (c *MockApplicationEnsurePVCsCall) DoAndReturn(f func([]storage.KubernetesFilesystemParams, map[string][]storage.KubernetesFilesystemUnitAttachmentParams, string) error) *MockApplicationEnsurePVCsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -202,7 +202,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(x, "test").Return(applicationservice.ScalingState{}, nil),
 		facade.EXPECT().WatchProvisioningInfo(x, "test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
-		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x, s.appID.String()).Return(nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 			scaleChan <- struct{}{}
@@ -244,12 +244,18 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		}),
 
 		// provisioningInfoChan fired
-		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Alive, nil),
-		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
-		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).DoAndReturn(func(ctx context.Context, s1 string, a caas.Application, s2 string, ac *caas.ApplicationConfig, pi *ProvisioningInfo, ss StatusService, c clock.Clock, l logger.Logger) error {
-			provisioningInfoChan <- struct{}{}
-			return nil
-		}),
+		applicationService.EXPECT().GetApplicationLife(x, s.appID).
+			Return(life.Alive, nil),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).
+			Return(&ProvisioningInfo{}, nil),
+		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x, s.appID.String()).
+			DoAndReturn(func(ctx context.Context, s1 string, a caas.Application,
+				s2 string, ac *caas.ApplicationConfig, pi *ProvisioningInfo,
+				ss StatusService, c clock.Clock, l logger.Logger, appID string,
+			) error {
+				provisioningInfoChan <- struct{}{}
+				return nil
+			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Dying, nil),
 		ops.EXPECT().AppDying(x, "test", s.appID, app, life.Dying, x, x, x, x).DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application, v life.Value, cf CAASProvisionerFacade, as ApplicationService, ss StatusService, l logger.Logger) error {
 			provisioningInfoChan <- struct{}{}
@@ -399,7 +405,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		// retry handleChange
 		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Alive, nil),
 		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
-		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x, s.appID.String()).Return(nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 			scaleChan <- struct{}{}
@@ -442,11 +448,16 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 
 		// provisioningInfoChan fired
 		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Alive, nil),
-		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
-		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).DoAndReturn(func(ctx context.Context, s1 string, a caas.Application, s2 string, ac *caas.ApplicationConfig, pi *ProvisioningInfo, ss StatusService, c clock.Clock, l logger.Logger) error {
-			provisioningInfoChan <- struct{}{}
-			return nil
-		}),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).
+			Return(&ProvisioningInfo{}, nil),
+		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x, s.appID.String()).
+			DoAndReturn(func(ctx context.Context, s1 string, a caas.Application,
+				s2 string, ac *caas.ApplicationConfig, pi *ProvisioningInfo,
+				ss StatusService, c clock.Clock, l logger.Logger, appID string,
+			) error {
+				provisioningInfoChan <- struct{}{}
+				return nil
+			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Dying, nil),
 		ops.EXPECT().AppDying(x, "test", s.appID, app, life.Dying, x, x, x, x).DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application, v life.Value, cf CAASProvisionerFacade, as ApplicationService, ss StatusService, l logger.Logger) error {
 			provisioningInfoChan <- struct{}{}

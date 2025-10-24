@@ -47,13 +47,15 @@ type Application interface {
 	Service() (*Service, error)
 
 	// EnsurePVCs ensures that Persistent Volume Claims (PVCs) are created for the given
-	// filesystems and unit attachments. It creates PVCs based on the provided filesystem
-	// parameters and handles volume attachments for StatefulSet applications. Returns a
-	// cleanup function that can be used to delete the created PVCs if rollback is needed,
+	// filesystems, unit attachments, and storage unique ID. It creates PVCs
+	// based on the provided filesystem parameters and handles volume
+	// attachments for StatefulSet applications. Returns a cleanup function
+	// that can be used to delete the created PVCs if rollback is needed,
 	// and any error encountered during the process.
 	EnsurePVCs(
 		[]storage.KubernetesFilesystemParams,
 		map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
+		string,
 	) error
 
 	ServiceInterface
@@ -149,6 +151,9 @@ type ApplicationConfig struct {
 
 	// CharmUser controls what user the charm/unit agent runs as.
 	CharmUser RunAs
+
+	// StorageUniqueID is used to construct the PVC name for an application.
+	StorageUniqueID string
 }
 
 // ContainerConfig describes a container that is deployed alonside the uniter/charm container.

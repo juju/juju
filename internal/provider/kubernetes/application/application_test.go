@@ -140,9 +140,6 @@ func (s *applicationSuite) getApp(c *tc.C, deploymentType caas.DeploymentType, m
 		s.dynamicClient,
 		watcherFn,
 		s.clock,
-		func() (string, error) {
-			return "appuuid", nil
-		},
 		func() resources.Applier {
 			if mockApplier {
 				return s.applier
@@ -153,7 +150,10 @@ func (s *applicationSuite) getApp(c *tc.C, deploymentType caas.DeploymentType, m
 	), ctrl
 }
 
-func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application, isPrivateImageRepo bool, cons constraints.Value, trust bool, rootless bool, agentVersion string, checkMainResource func()) {
+func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
+	isPrivateImageRepo bool, cons constraints.Value, trust bool, rootless bool,
+	agentVersion string, checkMainResource func(),
+) {
 	if agentVersion == "" {
 		agentVersion = defaultAgentVersion
 	}
@@ -409,6 +409,7 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application, isPrivate
 			}
 			return caas.RunAsDefault
 		}(),
+		StorageUniqueID: "uniqid",
 	}
 
 	c.Assert(app.Ensure(appConfig), tc.ErrorIsNil)
@@ -552,7 +553,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 					},
 					Annotations: map[string]string{
 						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "appuuid",
+						"app.juju.is/uuid": "uniqid",
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
@@ -572,7 +573,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database-appuuid",
+								Name: "gitlab-database-uniqid",
 								Labels: map[string]string{
 									"storage.juju.is/name":         "database",
 									"app.kubernetes.io/managed-by": "juju",
@@ -598,8 +599,11 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 			})
 
 			// No pvc is created.
-			_, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "gitlab-database-appuuid-gitlab-0", metav1.GetOptions{})
-			c.Assert(err, tc.ErrorMatches, "persistentvolumeclaims \"gitlab-database-appuuid-gitlab-0\" not found")
+			_, err = s.client.CoreV1().PersistentVolumeClaims("test").
+				Get(c.Context(), "gitlab-database-uniqid-gitlab-0",
+					metav1.GetOptions{})
+			c.Assert(err, tc.ErrorMatches,
+				"persistentvolumeclaims \"gitlab-database-uniqid-gitlab-0\" not found")
 		},
 	)
 	s.assertDelete(c, app)
@@ -645,7 +649,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 					},
 					Annotations: map[string]string{
 						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "appuuid",
+						"app.juju.is/uuid": "uniqid",
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
@@ -665,7 +669,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database-appuuid",
+								Name: "gitlab-database-uniqid",
 								Labels: map[string]string{
 									"storage.juju.is/name":         "database",
 									"app.kubernetes.io/managed-by": "juju",
@@ -734,7 +738,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *tc.C) {
 					},
 					Annotations: map[string]string{
 						"juju.is/version":  "3.6-beta3",
-						"app.juju.is/uuid": "appuuid",
+						"app.juju.is/uuid": "uniqid",
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
@@ -754,7 +758,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *tc.C) {
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database-appuuid",
+								Name: "gitlab-database-uniqid",
 								Labels: map[string]string{
 									"storage.juju.is/name":         "database",
 									"app.kubernetes.io/managed-by": "juju",
@@ -846,7 +850,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 					},
 					Annotations: map[string]string{
 						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "appuuid",
+						"app.juju.is/uuid": "uniqid",
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
@@ -866,7 +870,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database-appuuid",
+								Name: "gitlab-database-uniqid",
 								Labels: map[string]string{
 									"storage.juju.is/name":         "database",
 									"app.kubernetes.io/managed-by": "juju",
@@ -902,11 +906,12 @@ func (s *applicationSuite) TestEnsureStateless(c *tc.C) {
 			ss, err := s.client.AppsV1().Deployments("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 
-			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "gitlab-database-appuuid", metav1.GetOptions{})
+			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").
+				Get(c.Context(), "gitlab-database-uniqid", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(pvc, tc.DeepEquals, &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab-database-appuuid",
+					Name:      "gitlab-database-uniqid",
 					Namespace: "test",
 					Labels: map[string]string{
 						"storage.juju.is/name":         "database",
@@ -930,10 +935,10 @@ func (s *applicationSuite) TestEnsureStateless(c *tc.C) {
 
 			podSpec := getPodSpec31()
 			podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
-				Name: "gitlab-database-appuuid",
+				Name: "gitlab-database-uniqid",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "gitlab-database-appuuid",
+						ClaimName: "gitlab-database-uniqid",
 					}},
 			})
 			c.Assert(ss, tc.DeepEquals, &appsv1.Deployment{
@@ -946,7 +951,7 @@ func (s *applicationSuite) TestEnsureStateless(c *tc.C) {
 					},
 					Annotations: map[string]string{
 						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "appuuid",
+						"app.juju.is/uuid": "uniqid",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -975,11 +980,12 @@ func (s *applicationSuite) TestEnsureDaemon(c *tc.C) {
 			ss, err := s.client.AppsV1().DaemonSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 
-			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "gitlab-database-appuuid", metav1.GetOptions{})
+			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").
+				Get(c.Context(), "gitlab-database-uniqid", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(pvc, tc.DeepEquals, &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab-database-appuuid",
+					Name:      "gitlab-database-uniqid",
 					Namespace: "test",
 					Labels: map[string]string{
 						"storage.juju.is/name":         "database",
@@ -1003,10 +1009,10 @@ func (s *applicationSuite) TestEnsureDaemon(c *tc.C) {
 
 			podSpec := getPodSpec31()
 			podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
-				Name: "gitlab-database-appuuid",
+				Name: "gitlab-database-uniqid",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "gitlab-database-appuuid",
+						ClaimName: "gitlab-database-uniqid",
 					}},
 			})
 			c.Assert(ss, tc.DeepEquals, &appsv1.DaemonSet{
@@ -1019,7 +1025,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *tc.C) {
 					},
 					Annotations: map[string]string{
 						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "appuuid",
+						"app.juju.is/uuid": "uniqid",
 					},
 				},
 				Spec: appsv1.DaemonSetSpec{
@@ -1490,7 +1496,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *tc.C)
 				},
 				Annotations: map[string]string{
 					"juju.is/version":  "2.9.37",
-					"app.juju.is/uuid": "appuuid",
+					"app.juju.is/uuid": "uniqid",
 				},
 			},
 			Spec: appsv1.DeploymentSpec{
@@ -1619,7 +1625,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *tc.C) 
 				},
 				Annotations: map[string]string{
 					"juju.is/version":  "2.9.37",
-					"app.juju.is/uuid": "appuuid",
+					"app.juju.is/uuid": "uniqid",
 				},
 			},
 			Spec: appsv1.StatefulSetSpec{
@@ -1748,7 +1754,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *tc.C) {
 				},
 				Annotations: map[string]string{
 					"juju.is/version":  "2.9.37",
-					"app.juju.is/uuid": "appuuid",
+					"app.juju.is/uuid": "uniqid",
 				},
 			},
 			Spec: appsv1.DaemonSetSpec{
@@ -2039,10 +2045,10 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 		podSpec := getPodSpec31()
 		podSpec.Volumes = append(podSpec.Volumes,
 			corev1.Volume{
-				Name: "gitlab-database-appuuid",
+				Name: "gitlab-database-uniqid",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: fmt.Sprintf("gitlab-database-appuuid-gitlab-%d", i),
+						ClaimName: fmt.Sprintf("gitlab-database-uniqid-gitlab-%d", i),
 					},
 				},
 			},
@@ -2225,7 +2231,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: s.namespace,
-				Name:      fmt.Sprintf("gitlab-database-appuuid-gitlab-%d", i),
+				Name:      fmt.Sprintf("gitlab-database-uniqid-gitlab-%d", i),
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -2793,7 +2799,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 					},
 					Annotations: map[string]string{
 						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "appuuid",
+						"app.juju.is/uuid": "uniqid",
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
@@ -2813,7 +2819,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database-appuuid",
+								Name: "gitlab-database-uniqid",
 								Labels: map[string]string{
 									"storage.juju.is/name":         "database",
 									"app.kubernetes.io/managed-by": "juju",

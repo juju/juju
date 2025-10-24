@@ -86,7 +86,7 @@ func (s *applicationSuite) TestEnsurePVCs(c *tc.C) {
 		},
 	}
 
-	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments)
+	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments, "uniqid")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify PVC was created
@@ -96,5 +96,5 @@ func (s *applicationSuite) TestEnsurePVCs(c *tc.C) {
 
 	pvc := pvcList.Items[0]
 	c.Assert(pvc.Spec.VolumeName, tc.Equals, "test-volume-id")
-	c.Assert(pvc.Name, tc.Matches, "gitlab-database-.*-gitlab-0")
+	c.Assert(pvc.Name, tc.Matches, "gitlab-database-uniqid-gitlab-0")
 }
