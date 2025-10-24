@@ -369,7 +369,7 @@ func (s *baseSuite) createRemoteApplicationOfferer(
 				},
 			},
 		},
-		Manifest:      s.minimalManifest(c),
+		Manifest:      s.minimalManifest(),
 		ReferenceName: name,
 		Source:        charm.CMRSource,
 		Revision:      42,
@@ -380,16 +380,14 @@ func (s *baseSuite) createRemoteApplicationOfferer(
 	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	err := cmrState.AddRemoteApplicationOfferer(c.Context(), name, crossmodelrelation.AddRemoteApplicationOffererArgs{
-		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
-			RemoteApplicationUUID: remoteAppUUID.String(),
-			ApplicationUUID:       appUUID.String(),
-			CharmUUID:             tc.Must(c, uuid.NewUUID).String(),
-			Charm:                 ch,
-			OfferUUID:             tc.Must(c, uuid.NewUUID).String(),
-		},
-		OfferURL:         tc.Must1(c, crossmodel.ParseOfferURL, fmt.Sprintf("controller:qualifier/model.%s", name)).String(),
-		OffererModelUUID: tc.Must(c, uuid.NewUUID).String(),
-		EncodedMacaroon:  []byte("macaroon"),
+		RemoteApplicationUUID: remoteAppUUID.String(),
+		ApplicationUUID:       appUUID.String(),
+		CharmUUID:             tc.Must(c, uuid.NewUUID).String(),
+		Charm:                 ch,
+		OfferUUID:             tc.Must(c, uuid.NewUUID).String(),
+		OfferURL:              tc.Must1(c, crossmodel.ParseOfferURL, fmt.Sprintf("controller:qualifier/model.%s", name)).String(),
+		OffererModelUUID:      tc.Must(c, uuid.NewUUID).String(),
+		EncodedMacaroon:       []byte("macaroon"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -423,7 +421,7 @@ func (s *baseSuite) createRemoteApplicationConsumer(
 				},
 			},
 		},
-		Manifest:      s.minimalManifest(c),
+		Manifest:      s.minimalManifest(),
 		ReferenceName: name,
 		Source:        charm.CMRSource,
 		Revision:      42,
@@ -435,21 +433,19 @@ func (s *baseSuite) createRemoteApplicationConsumer(
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	relationUUID := tc.Must(c, relation.NewUUID)
 	err := cmrState.AddConsumedRelation(c.Context(), name, crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
-			RemoteApplicationUUID: remoteAppUUID.String(),
-			ApplicationUUID:       appUUID.String(),
-			CharmUUID:             tc.Must(c, uuid.NewUUID).String(),
-			Charm:                 ch,
-			OfferUUID:             offerUUID.String(),
-		},
-		RelationUUID: relationUUID.String(),
+		SynthApplicationUUID:    remoteAppUUID.String(),
+		ConsumerApplicationUUID: appUUID.String(),
+		CharmUUID:               tc.Must(c, uuid.NewUUID).String(),
+		Charm:                   ch,
+		OfferUUID:               offerUUID.String(),
+		RelationUUID:            relationUUID.String(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return appUUID, remoteAppUUID
 }
 
-func (s *baseSuite) minimalManifest(c *tc.C) charm.Manifest {
+func (s *baseSuite) minimalManifest() charm.Manifest {
 	return charm.Manifest{
 		Bases: []charm.Base{
 			{

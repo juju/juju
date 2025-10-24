@@ -68,6 +68,9 @@ type AddConsumedRelationArgs struct {
 	// OfferingEndpointName is the name of the endpoint on the offering
 	// application to use in the relation.
 	OfferingEndpointName string
+
+	// Username is the name of the user making the request.
+	Username string
 }
 
 // OfferFilter is used to query applications offered

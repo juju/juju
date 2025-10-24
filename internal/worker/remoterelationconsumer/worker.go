@@ -385,7 +385,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 				ApplicationUUID:                application.UUID(remoteApp.ApplicationUUID),
 				ConsumerModelUUID:              w.config.ModelUUID,
 				OffererModelUUID:               remoteApp.OffererModelUUID,
-				ConsumeVersion:                 remoteApp.ConsumeVersion,
+				ConsumeVersion:                 0,
 				Macaroon:                       remoteApp.Macaroon,
 				CrossModelService:              w.crossModelService,
 				RemoteRelationClientGetter:     w.config.RemoteRelationClientGetter,
@@ -435,7 +435,7 @@ func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicat
 		return false, errors.Errorf("worker %q is not a OffererApplicationWorker", remoteApp.ApplicationName)
 	}
 
-	return appWorker.ConsumeVersion() != remoteApp.ConsumeVersion, nil
+	return appWorker.ConsumeVersion() != 0, nil
 }
 
 // Report provides information for the engine report.

@@ -179,8 +179,6 @@ type remoteApplicationOfferer struct {
 	// OfferURL is the URL of the offer that the remote application is
 	// consuming.
 	OfferURL string `db:"offer_url"`
-	// Version is the version of the remote application offerer.
-	Version uint64 `db:"version"`
 	// OffererControllerUUID is the unique identifier for the controller
 	// that is offering this application.
 	OffererControllerUUID sql.Null[string] `db:"offerer_controller_uuid"`
@@ -206,8 +204,6 @@ type remoteApplicationOffererInfo struct {
 	// OfferURL is the URL of the offer that the remote application is
 	// consuming.
 	OfferURL string `db:"offer_url"`
-	// Version is the version of the remote application offerer.
-	Version uint64 `db:"version"`
 	// OffererControllerUUID is the unique identifier for the controller
 	// that is offering this application.
 	OffererControllerUUID sql.Null[string] `db:"offerer_controller_uuid"`
@@ -228,12 +224,10 @@ type remoteApplicationStatus struct {
 }
 
 type remoteApplicationConsumer struct {
-	UUID                    string    `db:"uuid"`
 	OffererApplicationUUID  string    `db:"offerer_application_uuid"`
 	ConsumerApplicationUUID string    `db:"consumer_application_uuid"`
 	OfferConnectionUUID     string    `db:"offer_connection_uuid"`
 	ConsumerModelUUID       string    `db:"consumer_model_uuid"`
-	Version                 uint64    `db:"version"`
 	LifeID                  life.Life `db:"life_id"`
 }
 
@@ -256,10 +250,6 @@ type relation struct {
 	UUID       string `db:"uuid"`
 	LifeID     int    `db:"life_id"`
 	RelationID uint64 `db:"relation_id"`
-}
-
-type consumerApplicationUUID struct {
-	ConsumerApplicationUUID string `db:"consumer_application_uuid"`
 }
 
 type charmScope struct {
@@ -344,7 +334,6 @@ type remoteApplicationConsumerInfo struct {
 	ApplicationName string    `db:"application_name"`
 	LifeID          life.Life `db:"life_id"`
 	OfferUUID       string    `db:"offer_uuid"`
-	Version         uint64    `db:"version"`
 }
 
 type secretAccessor struct {

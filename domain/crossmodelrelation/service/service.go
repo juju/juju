@@ -306,9 +306,11 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 		}
 
 		// Separate changes by namespace.
-		var consumerDeleted bool
-		var consumerCreatedOrUpdated []string
-		var relationChanges []string
+		var (
+			consumerDeleted          bool
+			consumerCreatedOrUpdated []string
+			relationChanges          []string
+		)
 
 		for _, change := range changes {
 			switch change.Namespace() {

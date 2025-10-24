@@ -191,13 +191,11 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	}
 
 	if err := s.modelState.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelation.AddRemoteApplicationOffererArgs{
-		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
-			RemoteApplicationUUID: remoteApplicationUUID.String(),
-			ApplicationUUID:       applicationUUID.String(),
-			CharmUUID:             charmUUID.String(),
-			Charm:                 syntheticCharm,
-			OfferUUID:             args.OfferUUID.String(),
-		},
+		RemoteApplicationUUID: remoteApplicationUUID.String(),
+		ApplicationUUID:       applicationUUID.String(),
+		CharmUUID:             charmUUID.String(),
+		Charm:                 syntheticCharm,
+		OfferUUID:             args.OfferUUID.String(),
 		OfferURL:              args.OfferURL.String(),
 		OffererControllerUUID: args.OffererControllerUUID,
 		OffererModelUUID:      args.OffererModelUUID,
@@ -224,9 +222,14 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 		return internalerrors.Errorf("remote application UUID %q is not a valid UUID", args.ConsumerApplicationUUID).Add(errors.NotValid)
 	}
 
+	synthApplicationUUID, err := coreapplication.NewUUID()
+	if err != nil {
+		return internalerrors.Errorf("creating application uuid: %w", err)
+	}
+
 	// The synthetic application name is prefixed with "remote-" to avoid
 	// name clashes with local applications.
-	synthApplicationName := "remote-" + strings.ReplaceAll(args.ConsumerApplicationUUID, "-", "")
+	synthApplicationName := "remote-" + strings.ReplaceAll(synthApplicationUUID.String(), "-", "")
 	if !application.IsValidApplicationName(synthApplicationName) {
 		return applicationerrors.ApplicationNameNotValid
 	}
@@ -257,17 +260,26 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 	}
 
 	if err := s.modelState.AddConsumedRelation(ctx, synthApplicationName, crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
-			RemoteApplicationUUID: args.ConsumerApplicationUUID,
-			// NOTE: We use the same UUID as in the remote (consuming) model for
-			// the synthetic application we are creating in the offering model.
-			ApplicationUUID:   args.ConsumerApplicationUUID,
-			CharmUUID:         charmUUID.String(),
-			Charm:             syntheticCharm,
-			OfferUUID:         args.OfferUUID.String(),
-			ConsumerModelUUID: args.ConsumerModelUUID,
-		},
-		RelationUUID: args.RelationUUID,
+		OfferUUID:         args.OfferUUID.String(),
+		ConsumerModelUUID: args.ConsumerModelUUID,
+		RelationUUID:      args.RelationUUID,
+
+		// ConsumerApplicationUUID is the application UUID in the consuming
+		// model.
+		ConsumerApplicationUUID: args.ConsumerApplicationUUID,
+
+		// SynthApplicationUUID is the application UUID created
+		// to represent the synthetic application in the offering model. This
+		// is randomly generated and can be looked up via the offer and relation
+		// uuid.
+		SynthApplicationUUID: synthApplicationUUID.String(),
+
+		// CharmUUID and Charm represent the synthetic charm created to
+		// represent the remote application on the offering model.
+		CharmUUID: charmUUID.String(),
+		Charm:     syntheticCharm,
+
+		Username: args.Username,
 	}); internalerrors.Is(err, crossmodelrelationerrors.RemoteRelationAlreadyRegistered) {
 		// This can happen if the remote relation was already registered.
 		// The method is idempotent, so we just return nil with a debug log.

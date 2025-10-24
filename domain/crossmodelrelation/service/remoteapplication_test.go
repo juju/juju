@@ -107,10 +107,8 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 	received.CharmUUID = ""
 
 	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationOffererArgs{
-		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
-			Charm:     syntheticCharm,
-			OfferUUID: offerUUID.String(),
-		},
+		Charm:                 syntheticCharm,
+		OfferUUID:             offerUUID.String(),
 		OfferURL:              "controller:qualifier/model.offername",
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      offererModelUUID,
@@ -201,13 +199,11 @@ func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOfferers(c *tc.C
 		ApplicationName: "foo",
 		Life:            life.Alive,
 		OfferUUID:       "offer-uuid",
-		ConsumeVersion:  1,
 	}, {
 		ApplicationUUID: "app-uuid-2",
 		ApplicationName: "bar",
 		Life:            life.Dead,
 		OfferUUID:       "offer-uuid-2",
-		ConsumeVersion:  2,
 	}}
 
 	s.modelState.EXPECT().GetRemoteApplicationOfferers(gomock.Any()).Return(expected, nil)
@@ -352,44 +348,51 @@ func (s *remoteApplicationServiceSuite) TestAddConsumedRelation(c *tc.C) {
 	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
-	applicationUUID := tc.Must(c, coreapplication.NewUUID).String()
+	consumerApplicationUUID := tc.Must(c, coreapplication.NewUUID).String()
 
-	name := "remote-" + strings.ReplaceAll(applicationUUID, "-", "")
-
-	syntheticCharm := charm.Charm{
-		Metadata: charm.Metadata{
-			Name:        name,
-			Description: "remote offerer application",
-			Provides: map[string]charm.Relation{
-				"db": {
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "database",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
+	var (
+		syntheticCharm           charm.Charm
+		syntheticApplicationName string
+	)
+	syntheticCharmFn := func(uuid string) charm.Charm {
+		name := "remote-" + strings.ReplaceAll(uuid, "-", "")
+		return charm.Charm{
+			Metadata: charm.Metadata{
+				Name:        name,
+				Description: "remote offerer application",
+				Provides: map[string]charm.Relation{
+					"db": {
+						Name:      "db",
+						Role:      charm.RoleProvider,
+						Interface: "database",
+						Limit:     1,
+						Scope:     charm.ScopeGlobal,
+					},
 				},
+				Requires: map[string]charm.Relation{},
+				Peers:    map[string]charm.Relation{},
 			},
-			Requires: map[string]charm.Relation{},
-			Peers:    map[string]charm.Relation{},
-		},
-		ReferenceName: name,
-		Source:        charm.CMRSource,
+			ReferenceName: name,
+			Source:        charm.CMRSource,
+		}
 	}
 
 	var received crossmodelrelation.AddRemoteApplicationConsumerArgs
 	s.modelState.EXPECT().
-		AddConsumedRelation(gomock.Any(), name, gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ string, args crossmodelrelation.AddRemoteApplicationConsumerArgs) error {
+		AddConsumedRelation(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, name string, args crossmodelrelation.AddRemoteApplicationConsumerArgs) error {
 			received = args
+			syntheticApplicationName = name
+			syntheticCharm = syntheticCharmFn(args.SynthApplicationUUID)
 			return nil
 		})
 
 	service := s.service(c)
 
 	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
-		ConsumerApplicationUUID: applicationUUID,
 		OfferUUID:               offerUUID,
 		RelationUUID:            relationUUID,
+		ConsumerApplicationUUID: consumerApplicationUUID,
 		ConsumerModelUUID:       consumerModelUUID,
 		ConsumerApplicationEndpoint: charm.Relation{
 			Name:      "db",
@@ -400,19 +403,18 @@ func (s *remoteApplicationServiceSuite) TestAddConsumedRelation(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(syntheticApplicationName, tc.Equals, "remote-"+strings.ReplaceAll(received.SynthApplicationUUID, "-", ""))
 
 	c.Check(received.CharmUUID, tc.IsUUID)
 	received.CharmUUID = ""
+	received.SynthApplicationUUID = ""
 
 	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
-			ApplicationUUID:       applicationUUID,
-			RemoteApplicationUUID: applicationUUID,
-			Charm:                 syntheticCharm,
-			OfferUUID:             offerUUID.String(),
-			ConsumerModelUUID:     consumerModelUUID,
-		},
-		RelationUUID: relationUUID,
+		OfferUUID:               offerUUID.String(),
+		ConsumerModelUUID:       consumerModelUUID,
+		RelationUUID:            relationUUID,
+		ConsumerApplicationUUID: consumerApplicationUUID,
+		Charm:                   syntheticCharm,
 	})
 }
 
@@ -536,19 +538,21 @@ func (s *remoteApplicationServiceSuite) TestAddConsumedRelationInvalidConsumerMo
 func (s *remoteApplicationServiceSuite) TestAddConsumedRelationStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	remoteApplicationUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
 	offerUUID := tc.Must(c, offer.NewUUID)
 	relationUUID := tc.Must(c, uuid.NewUUID).String()
 	consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
+	consumerApplicationUUID := tc.Must(c, coreapplication.NewUUID).String()
 
-	s.modelState.EXPECT().AddConsumedRelation(gomock.Any(), "remote-deadbeef1bad500d90004b1d0d06f00d", gomock.Any()).Return(internalerrors.Errorf("boom"))
+	s.modelState.EXPECT().
+		AddConsumedRelation(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(internalerrors.New("boom"))
 
 	service := s.service(c)
 
 	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
-		ConsumerApplicationUUID: remoteApplicationUUID,
 		OfferUUID:               offerUUID,
 		RelationUUID:            relationUUID,
+		ConsumerApplicationUUID: consumerApplicationUUID,
 		ConsumerModelUUID:       consumerModelUUID,
 		ConsumerApplicationEndpoint: charm.Relation{
 			Name:      "db",
@@ -558,7 +562,7 @@ func (s *remoteApplicationServiceSuite) TestAddConsumedRelationStateError(c *tc.
 			Scope:     charm.ScopeGlobal,
 		},
 	})
-	c.Assert(err, tc.ErrorMatches, "inserting remote application consumer: boom")
+	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
 func (s *remoteApplicationServiceSuite) TestGetApplicationNameAndUUIDByOfferUUID(c *tc.C) {
@@ -621,12 +625,10 @@ func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationConsumers(c *tc.
 		ApplicationName: "remote-app-1",
 		Life:            life.Alive,
 		OfferUUID:       "offer-uuid-1",
-		ConsumeVersion:  0,
 	}, {
 		ApplicationName: "remote-app-2",
 		Life:            life.Dying,
 		OfferUUID:       "offer-uuid-2",
-		ConsumeVersion:  3,
 	}}
 
 	s.modelState.EXPECT().GetRemoteApplicationConsumers(gomock.Any()).Return(expected, nil)
