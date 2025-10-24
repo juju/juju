@@ -1851,11 +1851,11 @@ func (rd *remoteRelationData) watchLocalEgressPublishRemote() error {
 		select {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
-		case <-egressAddressWatcher.Changes():
-			cidrs, err := rd.fw.crossModelRelationService.GetRelationNetworkEgress(ctx, string(rd.relationUUID))
-			if err != nil {
-				return errors.Trace(err)
+		case cidrs, ok := <-egressAddressWatcher.Changes():
+			if !ok {
+				return errors.New("local relation network egress watcher closed")
 			}
+
 			rd.fw.logger.Debugf(ctx, "local egress addresses for %v changed: %v", rd.tag, cidrs)
 			if err := rd.publishIngressToRemote(ctx, cidrs); err != nil {
 				return errors.Trace(err)
