@@ -397,7 +397,12 @@ func (s *ModelServices) ModelSecretBackend() *secretbackendservice.ModelSecretBa
 func (s *ModelServices) Agent() *modelagentservice.WatchableService {
 	return modelagentservice.NewWatchableService(
 		modelagentservice.DefaultAgentBinaryFinder(),
-		modelagentmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		modelagentmodelstate.NewState(
+			changestream.NewTxnRunnerFactory(s.modelDB),
+		),
+		modelagentctrlstate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+		),
 		s.modelWatcherFactory("modelagent"),
 	)
 }
@@ -610,17 +615,5 @@ func (s *ModelServices) ControllerUpgraderService() *controllerupgraderservice.S
 		agentBinaryFinder,
 		controllerSt,
 		controllerModelSt,
-	)
-}
-
-func (s *ModelServices) ModelAgentService() *modelagentservice.Service {
-	return modelagentservice.NewService(
-		modelagentservice.DefaultAgentBinaryFinder(),
-		modelagentmodelstate.NewState(
-			changestream.NewTxnRunnerFactory(s.modelDB),
-		),
-		modelagentctrlstate.NewState(
-			changestream.NewTxnRunnerFactory(s.controllerDB),
-		),
 	)
 }
