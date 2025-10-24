@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
+	corerelation "github.com/juju/juju/core/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -608,4 +609,65 @@ VALUES (?, ?)
 ON CONFLICT (relation_uuid, cidr) DO NOTHING
 `, relationUUID, cidr)
 	}
+}
+
+func (s *relationNetworkStateSuite) TestGetUnitAddressesForRelation(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+
+	// Act
+	addressMap, err := s.state.GetUnitAddressesForRelation(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addressMap, tc.NotNil)
+}
+
+func (s *relationNetworkStateSuite) TestGetUnitAddressesForRelationNoUnits(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelationWithoutUnits(c)
+
+	// Act
+	addressMap, err := s.state.GetUnitAddressesForRelation(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addressMap, tc.HasLen, 0)
+}
+
+func (s *relationNetworkStateSuite) TestGetUnitAddressesForRelationInvalidRelation(c *tc.C) {
+	// Arrange
+	nonExistentRelationUUID := internaluuid.MustNewUUID().String()
+
+	// Act
+	addressMap, err := s.state.GetUnitAddressesForRelation(c.Context(), nonExistentRelationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addressMap, tc.HasLen, 0)
+}
+
+func (s *relationNetworkStateSuite) createTestRelationWithoutUnits(c *tc.C) corerelation.UUID {
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadataWithDescription(c, charmUUID, "test charm")
+
+	rel := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, rel)
+
+	appUUID1 := s.addApplication(c, charmUUID, "app1")
+	appUUID2 := s.addApplication(c, charmUUID, "app2")
+
+	endpoint1UUID := s.addApplicationEndpoint(c, appUUID1, relationUUID)
+	endpoint2UUID := s.addApplicationEndpoint(c, appUUID2, relationUUID)
+
+	relUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID.String(), endpoint1UUID)
+	s.addRelationEndpoint(c, relUUID.String(), endpoint2UUID)
+
+	return relUUID
 }

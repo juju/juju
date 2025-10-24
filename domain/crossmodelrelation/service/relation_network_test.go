@@ -211,14 +211,14 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressSubnetNotInWh
 
 	// Arrange
 	relationUUID := tc.Must(c, corerelation.NewUUID)
-	cidrs := []string{"10.0.0.0/8"}
-	saasIngressAllow := []string{"192.168.0.0/16"}
+	cidrs := []string{"203.0.113.0/24"}
+	saasIngressAllow := []string{"192.0.2.0/24"}
 
 	// Act - No mock expectations needed as validation happens before state call
 	err := s.service(c).AddRelationNetworkIngress(c.Context(), relationUUID, saasIngressAllow, cidrs)
 
 	// Assert
-	c.Assert(err, tc.ErrorMatches, `subnet 10.0.0.0/8 not in firewall whitelist`)
+	c.Assert(err, tc.ErrorMatches, `subnet 203.0.113.0/24 not in firewall whitelist`)
 	c.Assert(errors.Is(err, crossmodelrelationerrors.SubnetNotInWhitelist), tc.Equals, true)
 }
 
@@ -227,8 +227,8 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressSubnetInWhite
 
 	// Arrange
 	relationUUID := tc.Must(c, corerelation.NewUUID)
-	cidrs := []string{"192.168.1.0/24"}
-	saasIngressAllow := []string{"192.168.0.0/16"}
+	cidrs := []string{"192.0.2.128/25"}
+	saasIngressAllow := []string{"192.0.2.0/24"}
 
 	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID.String(), cidrs).Return(nil)
 
@@ -244,14 +244,14 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressMultipleSubne
 
 	// Arrange
 	relationUUID := tc.Must(c, corerelation.NewUUID)
-	cidrs := []string{"192.168.1.0/24", "10.0.0.0/8"}
-	saasIngressAllow := []string{"192.168.0.0/16"}
+	cidrs := []string{"192.0.2.128/25", "203.0.113.0/24"}
+	saasIngressAllow := []string{"192.0.2.0/24"}
 
 	// Act - No mock expectations needed as validation happens before state call
 	err := s.service(c).AddRelationNetworkIngress(c.Context(), relationUUID, saasIngressAllow, cidrs)
 
 	// Assert
-	c.Assert(err, tc.ErrorMatches, `subnet 10.0.0.0/8 not in firewall whitelist`)
+	c.Assert(err, tc.ErrorMatches, `subnet 203.0.113.0/24 not in firewall whitelist`)
 	c.Assert(errors.Is(err, crossmodelrelationerrors.SubnetNotInWhitelist), tc.Equals, true)
 }
 
@@ -260,7 +260,7 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressEmptyWhitelis
 
 	// Arrange
 	relationUUID := tc.Must(c, corerelation.NewUUID)
-	cidrs := []string{"192.0.2.0/24", "10.0.0.0/8"}
+	cidrs := []string{"192.0.2.0/24", "198.51.100.0/24"}
 	saasIngressAllow := []string{}
 
 	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID.String(), cidrs).Return(nil)
@@ -292,8 +292,8 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressMultipleWhite
 
 	// Arrange
 	relationUUID := tc.Must(c, corerelation.NewUUID)
-	cidrs := []string{"192.168.1.0/24", "10.1.0.0/24"}
-	saasIngressAllow := []string{"192.168.0.0/16", "10.0.0.0/8"}
+	cidrs := []string{"192.0.2.128/25", "198.51.100.128/25"}
+	saasIngressAllow := []string{"192.0.2.0/24", "198.51.100.0/24"}
 
 	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID.String(), cidrs).Return(nil)
 
@@ -342,8 +342,8 @@ func (s *relationNetworkServiceSuite) TestAddRelationNetworkIngressMixedIPv4IPv6
 
 	// Arrange
 	relationUUID := tc.Must(c, corerelation.NewUUID)
-	cidrs := []string{"192.168.1.0/24", "2001:db8:1::/48"}
-	saasIngressAllow := []string{"192.168.0.0/16", "2001:db8::/32"}
+	cidrs := []string{"192.0.2.0/25", "2001:db8:1::/48"}
+	saasIngressAllow := []string{"192.0.2.0/24", "2001:db8::/32"}
 
 	s.modelState.EXPECT().AddRelationNetworkIngress(gomock.Any(), relationUUID.String(), cidrs).Return(nil)
 

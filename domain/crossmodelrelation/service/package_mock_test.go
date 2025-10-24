@@ -15,6 +15,7 @@ import (
 
 	application "github.com/juju/juju/core/application"
 	model "github.com/juju/juju/core/model"
+	network "github.com/juju/juju/core/network"
 	offer "github.com/juju/juju/core/offer"
 	relation "github.com/juju/juju/core/relation"
 	secrets "github.com/juju/juju/core/secrets"
@@ -657,45 +658,6 @@ func (c *MockModelStateGetModelEgressSubnetsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// GetNetNodeUUIDsForRelation mocks base method.
-func (m *MockModelState) GetNetNodeUUIDsForRelation(arg0 context.Context, arg1 string) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetNetNodeUUIDsForRelation", arg0, arg1)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetNetNodeUUIDsForRelation indicates an expected call of GetNetNodeUUIDsForRelation.
-func (mr *MockModelStateMockRecorder) GetNetNodeUUIDsForRelation(arg0, arg1 any) *MockModelStateGetNetNodeUUIDsForRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetNodeUUIDsForRelation", reflect.TypeOf((*MockModelState)(nil).GetNetNodeUUIDsForRelation), arg0, arg1)
-	return &MockModelStateGetNetNodeUUIDsForRelationCall{Call: call}
-}
-
-// MockModelStateGetNetNodeUUIDsForRelationCall wrap *gomock.Call
-type MockModelStateGetNetNodeUUIDsForRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetNetNodeUUIDsForRelationCall) Return(arg0 []string, arg1 error) *MockModelStateGetNetNodeUUIDsForRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetNetNodeUUIDsForRelationCall) Do(f func(context.Context, string) ([]string, error)) *MockModelStateGetNetNodeUUIDsForRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetNetNodeUUIDsForRelationCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelStateGetNetNodeUUIDsForRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetOfferDetails mocks base method.
 func (m *MockModelState) GetOfferDetails(arg0 context.Context, arg1 crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
 	m.ctrl.T.Helper()
@@ -1294,10 +1256,10 @@ func (c *MockModelStateGetSecretValueCall) DoAndReturn(f func(context.Context, *
 }
 
 // GetUnitAddressesForRelation mocks base method.
-func (m *MockModelState) GetUnitAddressesForRelation(arg0 context.Context, arg1 string) ([]string, error) {
+func (m *MockModelState) GetUnitAddressesForRelation(arg0 context.Context, arg1 string) (map[string]network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitAddressesForRelation", arg0, arg1)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].(map[string]network.SpaceAddresses)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1315,19 +1277,19 @@ type MockModelStateGetUnitAddressesForRelationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetUnitAddressesForRelationCall) Return(arg0 []string, arg1 error) *MockModelStateGetUnitAddressesForRelationCall {
+func (c *MockModelStateGetUnitAddressesForRelationCall) Return(arg0 map[string]network.SpaceAddresses, arg1 error) *MockModelStateGetUnitAddressesForRelationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetUnitAddressesForRelationCall) Do(f func(context.Context, string) ([]string, error)) *MockModelStateGetUnitAddressesForRelationCall {
+func (c *MockModelStateGetUnitAddressesForRelationCall) Do(f func(context.Context, string) (map[string]network.SpaceAddresses, error)) *MockModelStateGetUnitAddressesForRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetUnitAddressesForRelationCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelStateGetUnitAddressesForRelationCall {
+func (c *MockModelStateGetUnitAddressesForRelationCall) DoAndReturn(f func(context.Context, string) (map[string]network.SpaceAddresses, error)) *MockModelStateGetUnitAddressesForRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2070,45 +2032,6 @@ func (c *MockModelRelationNetworkStateGetModelEgressSubnetsCall) DoAndReturn(f f
 	return c
 }
 
-// GetNetNodeUUIDsForRelation mocks base method.
-func (m *MockModelRelationNetworkState) GetNetNodeUUIDsForRelation(arg0 context.Context, arg1 string) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetNetNodeUUIDsForRelation", arg0, arg1)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetNetNodeUUIDsForRelation indicates an expected call of GetNetNodeUUIDsForRelation.
-func (mr *MockModelRelationNetworkStateMockRecorder) GetNetNodeUUIDsForRelation(arg0, arg1 any) *MockModelRelationNetworkStateGetNetNodeUUIDsForRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetNodeUUIDsForRelation", reflect.TypeOf((*MockModelRelationNetworkState)(nil).GetNetNodeUUIDsForRelation), arg0, arg1)
-	return &MockModelRelationNetworkStateGetNetNodeUUIDsForRelationCall{Call: call}
-}
-
-// MockModelRelationNetworkStateGetNetNodeUUIDsForRelationCall wrap *gomock.Call
-type MockModelRelationNetworkStateGetNetNodeUUIDsForRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelRelationNetworkStateGetNetNodeUUIDsForRelationCall) Return(arg0 []string, arg1 error) *MockModelRelationNetworkStateGetNetNodeUUIDsForRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelRelationNetworkStateGetNetNodeUUIDsForRelationCall) Do(f func(context.Context, string) ([]string, error)) *MockModelRelationNetworkStateGetNetNodeUUIDsForRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelRelationNetworkStateGetNetNodeUUIDsForRelationCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelRelationNetworkStateGetNetNodeUUIDsForRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetRelationNetworkEgress mocks base method.
 func (m *MockModelRelationNetworkState) GetRelationNetworkEgress(arg0 context.Context, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -2188,10 +2111,10 @@ func (c *MockModelRelationNetworkStateGetRelationNetworkIngressCall) DoAndReturn
 }
 
 // GetUnitAddressesForRelation mocks base method.
-func (m *MockModelRelationNetworkState) GetUnitAddressesForRelation(arg0 context.Context, arg1 string) ([]string, error) {
+func (m *MockModelRelationNetworkState) GetUnitAddressesForRelation(arg0 context.Context, arg1 string) (map[string]network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitAddressesForRelation", arg0, arg1)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].(map[string]network.SpaceAddresses)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2209,19 +2132,19 @@ type MockModelRelationNetworkStateGetUnitAddressesForRelationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelRelationNetworkStateGetUnitAddressesForRelationCall) Return(arg0 []string, arg1 error) *MockModelRelationNetworkStateGetUnitAddressesForRelationCall {
+func (c *MockModelRelationNetworkStateGetUnitAddressesForRelationCall) Return(arg0 map[string]network.SpaceAddresses, arg1 error) *MockModelRelationNetworkStateGetUnitAddressesForRelationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelRelationNetworkStateGetUnitAddressesForRelationCall) Do(f func(context.Context, string) ([]string, error)) *MockModelRelationNetworkStateGetUnitAddressesForRelationCall {
+func (c *MockModelRelationNetworkStateGetUnitAddressesForRelationCall) Do(f func(context.Context, string) (map[string]network.SpaceAddresses, error)) *MockModelRelationNetworkStateGetUnitAddressesForRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelRelationNetworkStateGetUnitAddressesForRelationCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelRelationNetworkStateGetUnitAddressesForRelationCall {
+func (c *MockModelRelationNetworkStateGetUnitAddressesForRelationCall) DoAndReturn(f func(context.Context, string) (map[string]network.SpaceAddresses, error)) *MockModelRelationNetworkStateGetUnitAddressesForRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

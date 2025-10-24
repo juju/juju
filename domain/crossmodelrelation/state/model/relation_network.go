@@ -5,12 +5,14 @@ package state
 
 import (
 	"context"
+	"net"
 	"strings"
 
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/eventsource"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/environs/config"
@@ -228,61 +230,34 @@ WHERE  relation_uuid = $uuid.uuid
 	}
 }
 
-// GetNetNodeUUIDsForRelation returns all net_node_uuids for units that are
-// part of the specified relation.
-func (st *State) GetNetNodeUUIDsForRelation(ctx context.Context, relationUUID string) ([]string, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	stmt, err := st.Prepare(`
-SELECT &netNodeUUID.*
-FROM   relation_unit ru
-JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
-JOIN   unit u ON ru.unit_uuid = u.uuid
-WHERE  re.relation_uuid = $uuid.uuid
-`, netNodeUUID{}, uuid{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var netNodeUUIDs []netNodeUUID
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, uuid{UUID: relationUUID}).GetAll(&netNodeUUIDs)
-	})
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	result := make([]string, len(netNodeUUIDs))
-	for i, n := range netNodeUUIDs {
-		result[i] = n.NetNodeUUID
-	}
-	return result, nil
-}
-
 // GetUnitAddressesForRelation returns all unit addresses for units that are
-// part of the specified relation. Only public addresses are returned.
-func (st *State) GetUnitAddressesForRelation(ctx context.Context, relationUUID string) ([]string, error) {
+// part of the specified relation, grouped by unit UUID.
+func (st *State) GetUnitAddressesForRelation(ctx context.Context, relationUUID string) (map[string]network.SpaceAddresses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	stmt, err := st.Prepare(`
-SELECT ia.address_value AS &ipAddress.address_value
+SELECT u.uuid AS &unitAddress.unit_uuid,
+       ua.address_value AS &unitAddress.address_value,
+       ua.config_type_name AS &unitAddress.config_type_name,
+       ua.type_name AS &unitAddress.type_name,
+       ua.origin_name AS &unitAddress.origin_name,
+       ua.scope_name AS &unitAddress.scope_name,
+       ua.space_uuid AS &unitAddress.space_uuid,
+       ua.cidr AS &unitAddress.cidr
 FROM   relation_unit ru
 JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
 JOIN   unit u ON ru.unit_uuid = u.uuid
-JOIN   ip_address ia ON ia.net_node_uuid = u.net_node_uuid
+JOIN   v_all_unit_address AS ua ON u.uuid = ua.unit_uuid
 WHERE  re.relation_uuid = $uuid.uuid
-`, ipAddress{}, uuid{})
+`, unitAddress{}, uuid{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var addresses []ipAddress
+	var addresses []unitAddress
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, uuid{UUID: relationUUID}).GetAll(&addresses)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -294,9 +269,14 @@ WHERE  re.relation_uuid = $uuid.uuid
 		return nil, errors.Capture(err)
 	}
 
-	result := make([]string, len(addresses))
-	for i, addr := range addresses {
-		result[i] = addr.AddressValue
+	// Group addresses by unit UUID
+	result := make(map[string]network.SpaceAddresses)
+	for _, addr := range addresses {
+		spaceAddr, err := encodeIPAddress(addr)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		result[addr.UnitUUID] = append(result[addr.UnitUUID], spaceAddr)
 	}
 	return result, nil
 }
@@ -374,4 +354,41 @@ WHERE  t.uuid = $uuid.uuid
 	}
 
 	return relationLife.Value, nil
+}
+
+// encodeIPAddress converts a unitAddress to a network.SpaceAddress.
+// This is the same logic used in the network domain state layer.
+func encodeIPAddress(address unitAddress) (network.SpaceAddress, error) {
+	spaceUUID := network.AlphaSpaceId
+	if address.SpaceUUID.Valid {
+		spaceUUID = network.SpaceUUID(address.SpaceUUID.String)
+	}
+	// The saved address value is in the form 192.0.2.1/24,
+	// parse the parts for the MachineAddress
+	ipAddr, ipNet, err := net.ParseCIDR(address.Value)
+	if err != nil {
+		// Note: IP addresses from Kubernetes do not contain subnet
+		// mask suffixes yet. Handle that scenario here. Eventually
+		// an error should be returned instead.
+		ipAddr = net.ParseIP(address.Value)
+	}
+	cidr := ""
+	if ipNet != nil {
+		cidr = ipNet.String()
+	}
+	// Prefer the subnet cidr if one exists.
+	if address.CIDR.Valid {
+		cidr = address.CIDR.String
+	}
+	return network.SpaceAddress{
+		SpaceID: spaceUUID,
+		Origin:  network.Origin(address.Origin),
+		MachineAddress: network.MachineAddress{
+			Value:      ipAddr.String(),
+			CIDR:       cidr,
+			Type:       network.AddressType(address.Type),
+			Scope:      network.Scope(address.Scope),
+			ConfigType: network.AddressConfigType(address.ConfigType),
+		},
+	}, nil
 }
