@@ -48,3 +48,27 @@ func (s *Service) GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 		ctx, uuid, unitUUID,
 	)
 }
+
+// GetStorageInstanceAttachments returns the set of attachments a storage
+// instance has. If the storage instance has no attachments then an empty slice
+// is returned.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied uuid did not pass validation.
+// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound] if the
+// storage instance for the supplied uuid does not exist.
+func (s *Service) GetStorageInstanceAttachments(
+	ctx context.Context,
+	uuid domainstorage.StorageInstanceUUID,
+) ([]domainstorageprovisioning.StorageAttachmentUUID, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if uuid.Validate() != nil {
+		return nil, errors.New("invalid storage instance uuid").Add(
+			coreerrors.NotValid,
+		)
+	}
+
+	return s.st.GetStorageInstanceAttachments(ctx, uuid)
+}
