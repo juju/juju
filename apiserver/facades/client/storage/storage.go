@@ -88,6 +88,18 @@ type StorageService interface {
 		unitUUID coreunit.UUID,
 	) (domainstorageprovisioning.StorageAttachmentUUID, error)
 
+	// GetStorageInstanceAttachments returns the set of attachments a storage
+	// instance has. If the storage instance has no attachments then an empty
+	// slice is returned.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the supplied uuid did not pass validation.
+	// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound] if
+	// the storage instance for the supplied uuid does not exist.
+	GetStorageInstanceAttachments(
+		context.Context, domainstorage.StorageInstanceUUID,
+	) ([]domainstorageprovisioning.StorageAttachmentUUID, error)
+
 	// GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
 	// storage ID.
 	//
@@ -348,6 +360,19 @@ func (a *StorageAPI) Remove(ctx context.Context, args params.RemoveStorage) (par
 // are already Dying or Dead. Any associated, persistent storage will remain
 // alive. This call can be forced to only remove the attachment. Force will not
 // bypass business logic or safety checks.
+//
+// For long term Juju version reasons this facade endpoint can be used in
+// with different compositions. A caller can choose to specify a storage id and
+// a unit for which the storage is to be removed from.
+//
+// Alternatively the called is free to not provide a specific unit for the
+// storage to be detached from. In this case all attachments of the storage
+// instances will be removed with the end result being the storage is not used
+// by any unit in the model.
+//
+// NOTE (tlm): As of this writing the Juju client will not supply a unit for the
+// detach operation. Other known Juju clients like python-libjuju will supply
+// a unit for the removal.
 func (a *StorageAPI) DetachStorage(
 	ctx context.Context,
 	args params.StorageDetachmentParams,
@@ -379,6 +404,15 @@ func (a *StorageAPI) DetachStorage(
 			).Add(coreerrors.NotValid)
 		}
 
+		if id.UnitTag == "" {
+			// If the caller did not specify a unit tag, then we detach the
+			// storage instance from all units it is attached to. The Juju
+			// client does this and never supplied a unit tag.
+			return a.detatchStorageInstance(ctx, storageTag.Id(), force, waitTime)
+		}
+
+		// If the caller supplied a unit tag then we only detach the storage
+		// instance for this unit. We see this value supplied in python-libjuju
 		unitTag, err := names.ParseUnitTag(id.UnitTag)
 		if err != nil {
 			return errors.Errorf(
@@ -386,7 +420,7 @@ func (a *StorageAPI) DetachStorage(
 			).Add(coreerrors.NotValid)
 		}
 
-		return a.detachStorageAttachment(
+		return a.detachStorageInstanceFromUnit(
 			ctx,
 			storageTag.Id(),
 			coreunit.Name(unitTag.Id()),
@@ -406,10 +440,60 @@ func (a *StorageAPI) DetachStorage(
 	return params.ErrorResults{Results: result}, nil
 }
 
-// detachStorageAttachment detaches exactly one storage attachment for a
-// request. It expects that the caller has processed the supplied tags and can
-// now provide string values representing the entities.
+// detachStorageAttachment takes a single storage attachment uuid to remove
+// in the model and actions the removal through the removal service. This func
+// acts as a final aggregator of actions to perform for
+// [StorageAPI.detachStorageInstanceFromUnit] and
+// [StorageAPI.detachStorageAttachment].
+//
+// The returned errors are gaurantted to have been processed for returning to
+// the client. The errors are devoid of context for how the client started the
+// operation.
 func (a *StorageAPI) detachStorageAttachment(
+	ctx context.Context,
+	storageAttachment domainstorageprovisioning.StorageAttachmentUUID,
+	force bool,
+	wait time.Duration,
+) error {
+	removalUUID, err := a.removalService.RemoveStorageAttachmentFromAliveUnit(
+		ctx, storageAttachment, force, wait,
+	)
+
+	// Early exit path. Everything below this point can now be considered error
+	// handling.
+	if err == nil {
+		a.logger.Debugf(
+			ctx, "storage attachment %q removed with uuid %q",
+			storageAttachment, removalUUID,
+		)
+		return nil
+	}
+
+	switch {
+	case errors.HasType[applicationerrors.UnitStorageMinViolation](err):
+		viErr, _ := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
+		return errors.Errorf(
+			"removing storage from unit would violate charm storage %q requirements of having minimum %d storage instances",
+			viErr.CharmStorageName, viErr.RequiredMinimum,
+		).Add(coreerrors.NotValid)
+	case errors.Is(err, applicationerrors.UnitNotAlive):
+		return errors.New(
+			"storage's attached unit must be alive to remove",
+		).Add(coreerrors.NotValid)
+	case errors.Is(err, storageerrors.StorageAttachmentNotFound):
+		// The storage attachment has already been removed. We had already
+		// resolved that it existed above and so we can safely ignore this
+		// error.
+		return nil
+	default:
+		return errors.Errorf("removing storage: %w", err)
+	}
+}
+
+// detachStorageInstanceFromUnit detaches exactly one storage instance for a
+// request from the supplied unit. It expects that the caller has processed the
+// supplied tags and can now provide string values representing the entities.
+func (a *StorageAPI) detachStorageInstanceFromUnit(
 	ctx context.Context,
 	storageID string,
 	unitName coreunit.Name,
@@ -467,38 +551,71 @@ func (a *StorageAPI) detachStorageAttachment(
 		)
 	}
 
-	_, err = a.removalService.RemoveStorageAttachmentFromAliveUnit(
-		ctx, storageAttachmentUUID, force, wait,
+	a.logger.Debugf(
+		ctx, "detaching storage %q from unit %q",
+		storageID, unitName,
 	)
-	// Early exit path. Everything below this point can now be considered error
-	// handling.
-	if err == nil {
-		return nil
-	}
-
-	switch {
-	case errors.HasType[applicationerrors.UnitStorageMinViolation](err):
-		viErr, _ := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
+	err = a.detachStorageAttachment(ctx, storageAttachmentUUID, force, wait)
+	if err != nil {
 		return errors.Errorf(
-			"removing storage %q from unit %q would violate charm storage %q requirements of having minimum %d storage instances",
-			storageID, unitName, viErr.CharmStorageName, viErr.RequiredMinimum,
-		).Add(coreerrors.NotValid)
-	case errors.Is(err, applicationerrors.UnitNotAlive):
-		return errors.Errorf(
-			"unit %q must be alive in order to remove storage %q",
-			unitName, storageID,
-		).Add(coreerrors.NotValid)
-	case errors.Is(err, storageerrors.StorageAttachmentNotFound):
-		// The storage attachment has already been removed. We had already
-		// resolved that it existed above and so we can safely ignore this
-		// error.
-		return nil
-	default:
-		return errors.Errorf(
-			"removing storage %q attachment to unit %q: %w",
-			storageID, unitName, err,
+			"detaching storage %q on unit %q: %w", storageID, unitName, err,
 		)
 	}
+	return nil
+}
+
+// detachStorageInstance detaches a storage instance from all units that it is
+// attached to. It expects that the caller has processed the supplied tags and
+// can now provide string values representing the entities.
+func (a *StorageAPI) detatchStorageInstance(
+	ctx context.Context,
+	storageID string,
+	force bool,
+	wait time.Duration,
+) error {
+	storageInstanceUUID, err := a.storageService.GetStorageInstanceUUIDForID(
+		ctx, storageID,
+	)
+	switch {
+	case errors.Is(err, storageerrors.StorageInstanceNotFound):
+		return errors.Errorf("storage %q does not exist", storageID).Add(
+			coreerrors.NotFound,
+		)
+	case err != nil:
+		return errors.Errorf(
+			"getting storage instance uuid for storage id %q: %w", storageID, err,
+		)
+	}
+
+	storageAttachmentUUIDs, err := a.storageService.
+		GetStorageInstanceAttachments(ctx, storageInstanceUUID)
+	// We purposely ignore not valid errors for the uuids supplied. We have
+	// received these uuids from the domain and not the caller so they can
+	// safely be considered valid.
+	switch {
+	case errors.Is(err, storageerrors.StorageInstanceNotFound):
+		return errors.Errorf("storage %q does not exist", storageID).Add(coreerrors.NotFound)
+	case err != nil:
+		return errors.Errorf(
+			"getting storage attachments for storage %q: %w",
+			storageID, err,
+		)
+	}
+
+	a.logger.Debugf(
+		ctx, "detaching storage %q from %d attachments",
+		storageID, len(storageAttachmentUUIDs),
+	)
+	for i, saUUID := range storageAttachmentUUIDs {
+		err := a.detachStorageAttachment(ctx, saUUID, force, wait)
+		if err != nil {
+			return errors.Errorf(
+				"detaching storage %q attachment %d: %w",
+				storageID, i, err,
+			)
+		}
+	}
+	return nil
 }
 
 // Attach attaches existing storage instances to units.

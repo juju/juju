@@ -388,6 +388,45 @@ func (c *MockStorageServiceGetStorageAttachmentUUIDForStorageInstanceAndUnitCall
 	return c
 }
 
+// GetStorageInstanceAttachments mocks base method.
+func (m *MockStorageService) GetStorageInstanceAttachments(arg0 context.Context, arg1 storage.StorageInstanceUUID) ([]storageprovisioning.StorageAttachmentUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageInstanceAttachments", arg0, arg1)
+	ret0, _ := ret[0].([]storageprovisioning.StorageAttachmentUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageInstanceAttachments indicates an expected call of GetStorageInstanceAttachments.
+func (mr *MockStorageServiceMockRecorder) GetStorageInstanceAttachments(arg0, arg1 any) *MockStorageServiceGetStorageInstanceAttachmentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageInstanceAttachments", reflect.TypeOf((*MockStorageService)(nil).GetStorageInstanceAttachments), arg0, arg1)
+	return &MockStorageServiceGetStorageInstanceAttachmentsCall{Call: call}
+}
+
+// MockStorageServiceGetStorageInstanceAttachmentsCall wrap *gomock.Call
+type MockStorageServiceGetStorageInstanceAttachmentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageServiceGetStorageInstanceAttachmentsCall) Return(arg0 []storageprovisioning.StorageAttachmentUUID, arg1 error) *MockStorageServiceGetStorageInstanceAttachmentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageServiceGetStorageInstanceAttachmentsCall) Do(f func(context.Context, storage.StorageInstanceUUID) ([]storageprovisioning.StorageAttachmentUUID, error)) *MockStorageServiceGetStorageInstanceAttachmentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageServiceGetStorageInstanceAttachmentsCall) DoAndReturn(f func(context.Context, storage.StorageInstanceUUID) ([]storageprovisioning.StorageAttachmentUUID, error)) *MockStorageServiceGetStorageInstanceAttachmentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStorageInstanceUUIDForID mocks base method.
 func (m *MockStorageService) GetStorageInstanceUUIDForID(arg0 context.Context, arg1 string) (storage.StorageInstanceUUID, error) {
 	m.ctrl.T.Helper()
