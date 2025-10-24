@@ -81,7 +81,7 @@ type ApplicationOps interface {
 		password string, lastApplied *caas.ApplicationConfig,
 		provisioningInfo *ProvisioningInfo,
 		statusService StatusService,
-		clk clock.Clock, logger logger.Logger) error
+		clk clock.Clock, logger logger.Logger, appUUID string) error
 
 	AppDying(ctx context.Context, appName string, appID coreapplication.UUID, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade,
@@ -139,8 +139,11 @@ func (applicationOps) AppAlive(
 	provisioningInfo *ProvisioningInfo,
 	statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
+	appUUID string,
 ) error {
-	return appAlive(ctx, appName, app, password, lastApplied, provisioningInfo, statusService, clk, logger)
+	return appAlive(ctx, appName, app, password,
+		lastApplied, provisioningInfo, statusService,
+		clk, logger, appUUID)
 }
 
 func (applicationOps) AppDying(
@@ -227,6 +230,7 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 	pi *ProvisioningInfo,
 	statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
+	appUUID string,
 ) error {
 	logger.Debugf(ctx, "ensuring application %q exists", appName)
 
@@ -276,6 +280,14 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 		containers[k] = container
 	}
 
+	storageUniqueID := ""
+	if len(appUUID) < 6 {
+		return errors.NotValidf(
+			"app UUID is not well formed to derive a storage unique ID",
+		)
+	}
+	storageUniqueID = appUUID[:6]
+
 	filesystems := []internalstorage.KubernetesFilesystemParams{}
 	for _, fst := range pi.FilesystemTemplates {
 		for i := range fst.Count {
@@ -321,7 +333,8 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 		// TODO(jneo8): Now units scaling from 0->N follow the same flow.
 		// The provisionInfo.Scale is no longer used, so in theory we
 		// could delete this field. Should investigate refactoring.
-		InitialScale: 0,
+		InitialScale:    0,
+		StorageUniqueID: storageUniqueID,
 	}
 	switch pi.CharmMeta.CharmUser {
 	case charm.RunAsDefault:
@@ -636,7 +649,11 @@ func reconcileDeadUnitScale(
 		return nil
 	}
 
-	if err := ensureScaleWithFsAttachments(ctx, appName, app, desiredScale, facade, logger); err != nil && !errors.Is(err, errors.NotFound) {
+	storageUniqueID := appID.String()[:6]
+	if err := ensureScaleWithFsAttachments(
+		ctx, appName, app, desiredScale,
+		facade, logger, storageUniqueID,
+	); err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf(
 			"scaling application %q to scale %d: %w",
 			appName,
@@ -716,7 +733,16 @@ func ensureScale(
 	}
 
 	if ps.ScaleTarget >= unitScale {
-		err := ensureScaleWithFsAttachments(ctx, appName, app, ps.ScaleTarget, facade, logger)
+		storageUniqueID := appID.String()[:6]
+		err := ensureScaleWithFsAttachments(
+			ctx,
+			appName,
+			app,
+			ps.ScaleTarget,
+			facade,
+			logger,
+			storageUniqueID,
+		)
 
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof(ctx, "dying application %q is already removed from k8s", appName)
@@ -797,8 +823,10 @@ func updateProvisioningState(
 }
 
 // ensureScaleWithFsAttachments scales an application while ensuring required PVCs are created.
-func ensureScaleWithFsAttachments(ctx context.Context, appName string, app caas.Application, scaleTarget int,
-	facade CAASProvisionerFacade, logger logger.Logger,
+func ensureScaleWithFsAttachments(
+	ctx context.Context, appName string,
+	app caas.Application, scaleTarget int,
+	facade CAASProvisionerFacade, logger logger.Logger, storageUniqueID string,
 ) error {
 	logger.Infof(ctx, "scaling application %q to desired scale %d", appName, scaleTarget)
 
@@ -809,7 +837,11 @@ func ensureScaleWithFsAttachments(ctx context.Context, appName string, app caas.
 	}
 
 	// Ensure PVCs exist.
-	if err := app.EnsurePVCs(info.Filesystems, info.FilesystemUnitAttachments); err != nil {
+	if err := app.EnsurePVCs(
+		info.Filesystems,
+		info.FilesystemUnitAttachments,
+		storageUniqueID,
+	); err != nil {
 		return err
 	}
 	return app.Scale(scaleTarget)

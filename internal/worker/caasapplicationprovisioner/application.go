@@ -282,7 +282,9 @@ func (a *appWorker) loop() error {
 				} else if err != nil {
 					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
 				}
-				err = a.ops.AppAlive(ctx, name, app, a.password, &a.lastApplied, a.provisioningInfo, a.statusService, a.clock, a.logger)
+				err = a.ops.AppAlive(ctx, name, app, a.password,
+					&a.lastApplied, a.provisioningInfo, a.statusService,
+					a.clock, a.logger, a.appID.String())
 				if err != nil {
 					return errors.Trace(err)
 				}
