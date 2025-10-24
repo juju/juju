@@ -183,8 +183,8 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	return service.NewWatchableService(
 		controllerState,
 		modelState,
-		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	), modelState
@@ -805,7 +805,7 @@ VALUES (?, ?, 'eth0', 2, 0)`, deviceUUID, netNodeUUID); err != nil {
 		ipUUID := tc.Must(c, uuid.NewUUID).String()
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, config_type_id, origin_id, scope_id)
-VALUES (?, ?, ?, '10.0.0.1', 0, 4, 1, 1)`, ipUUID, netNodeUUID, deviceUUID); err != nil {
+VALUES (?, ?, ?, '198.51.100.1', 0, 4, 1, 1)`, ipUUID, netNodeUUID, deviceUUID); err != nil {
 			return err
 		}
 
@@ -1010,7 +1010,7 @@ func (s *watcherSuite) TestWatchRelationEgressNetworks(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		s.deleteEgressNetwork(c, db, remoteRelationUUID, "192.0.2.0/24")
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert("10.0.0.1/32"))
+		w.Check(watchertest.StringSliceAssert("198.51.100.1/32"))
 	})
 
 	// Adding an egress network overrides the unit address fallback.
@@ -1041,7 +1041,7 @@ func (s *watcherSuite) TestWatchRelationEgressNetworks(c *tc.C) {
 		s.deleteEgressNetwork(c, db, remoteRelationUUID, "203.0.113.0/24")
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Falls back to unit address CIDR.
-		w.Check(watchertest.StringSliceAssert("10.0.0.1/32"))
+		w.Check(watchertest.StringSliceAssert("198.51.100.1/32"))
 	})
 
 	// Changes to unrelated model config keys should be ignored.

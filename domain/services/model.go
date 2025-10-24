@@ -578,8 +578,8 @@ func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.Watchabl
 			s.clock,
 			logger.Child("state.model"),
 		),
-		s.modelWatcherFactory("crossmodelrelation"),
 		domain.NewStatusHistory(logger, s.clock),
+		s.modelWatcherFactory("crossmodelrelation"),
 		s.clock,
 		logger.Child("service"),
 	)

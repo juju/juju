@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/juju/clock"
 
@@ -148,8 +149,8 @@ type WatchableService struct {
 func NewWatchableService(
 	controllerState ControllerState,
 	modelState ModelState,
-	watcherFactory WatcherFactory,
 	statusHistory StatusHistory,
+	watcherFactory WatcherFactory,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
@@ -412,8 +413,6 @@ func (w *WatchableService) WatchRelationIngressNetworks(ctx context.Context, rel
 // 1. Relation-specific egress CIDRs (from relation_network_egress table)
 // 2. Model config egress-subnets
 // 3. Unit addresses (converted to CIDRs)
-//
-// Note: CIDRs are only returned if there are units in the relation.
 func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -425,50 +424,6 @@ func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, rela
 	relationEgressNamespace, modelConfigNamespace, ipAddressNamespace := w.modelState.NamespaceForRelationEgressNetworksWatcher()
 
 	initialQuery := w.modelState.InitialWatchStatementForRelationEgressNetworks(relationUUID.String())
-
-	// Helper function to get the current egress CIDRs for the relation.
-	// This implements the priority logic from 3.6:
-	// relation egress > model egress > unit addresses
-	// Only returns CIDRs if there are units in the relation.
-	getEgressCIDRs := func(ctx context.Context) ([]string, error) {
-		// Get unit addresses for this relation to check if there are any units
-		unitAddresses, err := w.modelState.GetUnitAddressesForRelation(ctx, relationUUID.String())
-		if err != nil {
-			w.logger.Errorf(ctx, "getting unit addresses for relation %q: %v", relationUUID, err)
-			return nil, err
-		}
-
-		// If there are no units in the relation, return empty regardless of
-		// configured CIDRs.
-		if len(unitAddresses) == 0 {
-			return []string{}, nil
-		}
-
-		// First, check for the user set (relation specific) egress CIDRs.
-		relationCIDRs, err := w.modelState.GetRelationNetworkEgress(ctx, relationUUID.String())
-		if err != nil {
-			w.logger.Errorf(ctx, "getting relation egress networks for relation %q: %v", relationUUID, err)
-			return nil, err
-		}
-
-		if len(relationCIDRs) > 0 {
-			return relationCIDRs, nil
-		}
-
-		// Second, check model config for egress-subnets.
-		modelCIDRs, err := w.modelState.GetModelEgressSubnets(ctx)
-		if err != nil {
-			w.logger.Errorf(ctx, "getting model egress subnets: %v", err)
-			return nil, err
-		}
-
-		if len(modelCIDRs) > 0 {
-			return modelCIDRs, nil
-		}
-
-		// Third, use unit addresses and convert them to CIDRs.
-		return network.SubnetsForAddresses(unitAddresses), nil
-	}
 
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		if len(changes) == 0 {
@@ -499,7 +454,7 @@ func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, rela
 		}
 
 		if hasRelevantChange {
-			return getEgressCIDRs(ctx)
+			return w.getEgressCIDRs(ctx, relationUUID.String())
 		}
 
 		return nil, nil
@@ -514,6 +469,70 @@ func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, rela
 		eventsource.NamespaceFilter(ipAddressNamespace, changestream.All),
 		eventsource.NamespaceFilter(relationEgressNamespace, changestream.All),
 	)
+}
+
+// getEgressCIDRs returns the current egress CIDRs for the relation.
+// The priority for egress addresses is:
+// Relation egress (user-set with --via) > model egress > unit public addresses.
+func (w *WatchableService) getEgressCIDRs(ctx context.Context, relationUUID string) ([]string, error) {
+	// Get unit addresses grouped by unit UUID for this relation.
+	unitAddressesMap, err := w.modelState.GetUnitAddressesForRelation(ctx, relationUUID)
+	if err != nil {
+		w.logger.Errorf(ctx, "getting unit addresses for relation %q: %v", relationUUID, err)
+		return nil, err
+	}
+
+	// If there are no units in the relation, return empty regardless of
+	// configured CIDRs.
+	if len(unitAddressesMap) == 0 {
+		return []string{}, nil
+	}
+
+	// First, check for the user set (relation specific) egress CIDRs.
+	relationCIDRs, err := w.modelState.GetRelationNetworkEgress(ctx, relationUUID)
+	if err != nil {
+		w.logger.Errorf(ctx, "getting relation egress networks for relation %q: %v", relationUUID, err)
+		return nil, err
+	}
+
+	if len(relationCIDRs) > 0 {
+		return relationCIDRs, nil
+	}
+
+	// Second, check model config for egress-subnets.
+	modelCIDRs, err := w.modelState.GetModelEgressSubnets(ctx)
+	if err != nil {
+		w.logger.Errorf(ctx, "getting model egress subnets: %v", err)
+		return nil, err
+	}
+
+	if len(modelCIDRs) > 0 {
+		return modelCIDRs, nil
+	}
+
+	// Third, use unit public addresses and convert them to CIDRs.
+	unitPublicAddresses := w.filterPublicAddresses(unitAddressesMap)
+	// Only send the minimum possible subnet, so SubnetsForAddresses adds /32
+	// (or /128 if IPv6).
+	return network.SubnetsForAddresses(unitPublicAddresses), nil
+}
+
+func (w *WatchableService) filterPublicAddresses(unitAddresses map[string]network.SpaceAddresses) []string {
+	var allPublicAddresses []string
+
+	for _, addrs := range unitAddresses {
+		// First match the scope, then sort by origin.
+		matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
+		if len(matchedAddrs) == 0 {
+			continue
+		}
+		sort.Sort(matchedAddrs)
+
+		// Take the first address (highest priority origin).
+		allPublicAddresses = append(allPublicAddresses, matchedAddrs[0].Value)
+	}
+
+	return allPublicAddresses
 }
 
 func ptr[T any](v T) *T {

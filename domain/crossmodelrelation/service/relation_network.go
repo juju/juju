@@ -7,12 +7,13 @@ import (
 	"context"
 	"net"
 
+	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher/eventsource"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/network"
+	internalnetwork "github.com/juju/juju/internal/network"
 )
 
 // ModelRelationNetworkState describes retrieval and persistence methods for
@@ -42,13 +43,9 @@ type ModelRelationNetworkState interface {
 	// for watching relation egress networks.
 	InitialWatchStatementForRelationEgressNetworks(relationUUID string) eventsource.NamespaceQuery
 
-	// GetNetNodeUUIDsForRelation returns all net_node_uuids for units that are
-	// part of the specified relation.
-	GetNetNodeUUIDsForRelation(ctx context.Context, relationUUID string) ([]string, error)
-
 	// GetUnitAddressesForRelation returns all unit addresses for units that are
-	// part of the specified relation. Only public addresses are returned.
-	GetUnitAddressesForRelation(ctx context.Context, relationUUID string) ([]string, error)
+	// part of the specified relation, grouped by unit UUID.
+	GetUnitAddressesForRelation(ctx context.Context, relationUUID string) (map[string]network.SpaceAddresses, error)
 
 	// GetModelEgressSubnets returns the egress-subnets configuration from model config.
 	GetModelEgressSubnets(ctx context.Context) ([]string, error)
@@ -111,7 +108,7 @@ func (s *Service) validateIngressNetworks(saasIngressAllow []string, networks []
 	}
 	if len(whitelistCIDRs) > 0 {
 		for _, n := range requestedCIDRs {
-			if !network.SubnetInAnyRange(whitelistCIDRs, n) {
+			if !internalnetwork.SubnetInAnyRange(whitelistCIDRs, n) {
 				return errors.Errorf("subnet %v not in firewall whitelist", n).Add(crossmodelrelationerrors.SubnetNotInWhitelist)
 			}
 		}

@@ -400,14 +400,21 @@ type netNodeUUID struct {
 	NetNodeUUID string `db:"net_node_uuid"`
 }
 
-type ipAddress struct {
-	AddressValue string `db:"address_value"`
-}
-
 type modelConfigKey struct {
 	Key string `db:"key"`
 }
 
 type modelConfigValue struct {
 	Value string `db:"value"`
+}
+
+type unitAddress struct {
+	UnitUUID   string         `db:"unit_uuid"`
+	Value      string         `db:"address_value"`
+	ConfigType string         `db:"config_type_name"`
+	Type       string         `db:"type_name"`
+	Origin     string         `db:"origin_name"`
+	Scope      string         `db:"scope_name"`
+	SpaceUUID  sql.NullString `db:"space_uuid"`
+	CIDR       sql.NullString `db:"cidr"`
 }
