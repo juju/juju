@@ -865,14 +865,6 @@ func (a *app) getDeployment() (*resources.Deployment, error) {
 	return ss, nil
 }
 
-func (a *app) getDaemonSet() (*resources.DaemonSet, error) {
-	ss := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
-	if err := ss.Get(context.TODO()); err != nil {
-		return nil, err
-	}
-	return ss, nil
-}
-
 func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
 	err = ss.Get(context.TODO())
@@ -2100,10 +2092,6 @@ func (a *app) matchImagePullSecret(name string) bool {
 		return false
 	}
 	return strings.HasPrefix(name, a.name+"-") && strings.HasSuffix(name, "-secret")
-}
-
-type annotationGetter interface {
-	GetAnnotations() map[string]string
 }
 
 type handleVolumeFunc func(vol corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
