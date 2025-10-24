@@ -38,12 +38,13 @@ type baseSuite struct {
 
 // changeMachineLife is a utility function for updating the life value of a
 // machine.
-func (s *baseSuite) changeMachineLife(c *tc.C, machineUUID string, lifeID domainlife.Life) {
+func (s *baseSuite) changeMachineLife(
+	c *tc.C, machineUUID coremachine.UUID, lifeID domainlife.Life) {
 	_, err := s.DB().ExecContext(
 		c.Context(),
 		"UPDATE machine SET life_id = ? WHERE uuid = ?",
 		int(lifeID),
-		machineUUID,
+		machineUUID.String(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -100,7 +101,7 @@ VALUES (?, 'myapp')
 // name.
 func (s *baseSuite) newMachineWithNetNode(
 	c *tc.C, netNodeUUID domainnetwork.NetNodeUUID,
-) (string, coremachine.Name) {
+) (coremachine.UUID, coremachine.Name) {
 	machineUUID := machinetesting.GenUUID(c)
 	name := "mfoo-" + machineUUID.String()
 
@@ -113,11 +114,11 @@ func (s *baseSuite) newMachineWithNetNode(
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return machineUUID.String(), coremachine.Name(name)
+	return machineUUID, coremachine.Name(name)
 }
 
 func (s *baseSuite) newMachineCloudInstanceWithID(
-	c *tc.C, machineUUID, id string,
+	c *tc.C, machineUUID coremachine.UUID, id string,
 ) {
 	_, err := s.DB().ExecContext(
 		c.Context(),
@@ -125,7 +126,7 @@ func (s *baseSuite) newMachineCloudInstanceWithID(
 INSERT INTO machine_cloud_instance (machine_uuid, life_id, instance_id)
 VALUES (?, 0, ?)
 `,
-		machineUUID,
+		machineUUID.String(),
 		id,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -597,7 +598,7 @@ VALUES (?, ?, 1, false, ?, ?, ?)
 // newBlockDevice creates a new block device for the given machine.
 func (s *baseSuite) newBlockDevice(
 	c *tc.C,
-	machineUUID string,
+	machineUUID coremachine.UUID,
 	name string,
 	hardwareID string,
 	busAddress string,
@@ -606,12 +607,12 @@ func (s *baseSuite) newBlockDevice(
 	uuid := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	_, err := s.DB().Exec(
 		`INSERT INTO block_device(uuid, machine_uuid, name, hardware_id, bus_address) VALUES(?, ?, ?, ?, ?)`,
-		uuid, machineUUID, name, hardwareID, busAddress)
+		uuid, machineUUID.String(), name, hardwareID, busAddress)
 	c.Assert(err, tc.ErrorIsNil)
 	for _, deviceLink := range deviceLinks {
 		_, err := s.DB().Exec(
 			`INSERT INTO block_device_link_device(block_device_uuid, machine_uuid, name) VALUES(?, ?, ?)`,
-			uuid, machineUUID, deviceLink)
+			uuid, machineUUID.String(), deviceLink)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 	return uuid
