@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
+	corerelation "github.com/juju/juju/core/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -375,8 +376,6 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressMultipleCIDRs(c
 	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
 }
 
-// TestGetRelationNetworkIngressSortedOrder tests that GetRelationNetworkIngress
-// returns CIDRs in sorted order.
 func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSortedOrder(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -394,8 +393,6 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSortedOrder(c *
 	c.Check(obtainedCIDRs, tc.DeepEquals, expectedSorted)
 }
 
-// TestGetRelationNetworkIngressMultipleRelations tests that GetRelationNetworkIngress
-// only returns CIDRs for the specified relation.
 func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressMultipleRelations(c *tc.C) {
 	// Arrange
 	relationUUID1 := s.createTestRelationWithNames(c, "app1", "app2")
@@ -422,8 +419,6 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressMultipleRelatio
 	c.Check(obtainedCIDRs2, tc.SameContents, cidrs2)
 }
 
-// TestGetRelationNetworkIngressAfterMultipleAdds tests that GetRelationNetworkIngress
-// retrieves all accumulated CIDRs after multiple add operations.
 func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressAfterMultipleAdds(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
@@ -445,8 +440,6 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressAfterMultipleAd
 	c.Check(obtainedCIDRs, tc.SameContents, allCIDRs)
 }
 
-// readRelationNetworkIngress reads all CIDRs for a given relation from the
-// relation_network_ingress table.
 func (s *relationNetworkStateSuite) readRelationNetworkIngress(c *tc.C, relationUUID string) []string {
 	rows, err := s.DB().QueryContext(c.Context(), `
 SELECT cidr FROM relation_network_ingress
@@ -463,4 +456,218 @@ ORDER BY cidr`, relationUUID)
 		cidrs = append(cidrs, cidr)
 	}
 	return cidrs
+}
+
+func (s *relationNetworkStateSuite) TestGetRelationNetworkEgress(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidrs := []string{"192.0.2.0/24", "198.51.100.0/24"}
+
+	// Add egress CIDRs directly to the database
+	s.addRelationNetworkEgress(c, relationUUID.String(), cidrs...)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkEgress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
+}
+
+func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressSingleCIDR(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidr := []string{"192.0.2.0/24"}
+
+	s.addRelationNetworkEgress(c, relationUUID.String(), cidr...)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkEgress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.DeepEquals, cidr)
+}
+
+func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressEmpty(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+
+	// Act - No CIDRs added
+	obtainedCIDRs, err := s.state.GetRelationNetworkEgress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.HasLen, 0)
+}
+
+func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressInvalidRelation(c *tc.C) {
+	// Arrange
+	nonExistentRelationUUID := internaluuid.MustNewUUID().String()
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkEgress(c.Context(), nonExistentRelationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+	c.Check(obtainedCIDRs, tc.IsNil)
+}
+
+func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressDyingRelation(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestDyingRelation(c)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkEgress(c.Context(), relationUUID.String())
+
+	// Assert - Should succeed and return empty slice (no CIDRs added)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.HasLen, 0)
+}
+
+func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressDeadRelation(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestDeadRelation(c)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkEgress(c.Context(), relationUUID.String())
+
+	// Assert - Should succeed and return empty slice (no CIDRs added)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.HasLen, 0)
+}
+
+func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressMultipleCIDRs(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidrs := []string{
+		"192.0.2.0/24",
+		"198.51.100.0/24",
+		"203.0.113.0/24",
+		"2001:db8::/32",
+	}
+
+	s.addRelationNetworkEgress(c, relationUUID.String(), cidrs...)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkEgress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
+}
+
+func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressMultipleRelations(c *tc.C) {
+	// Arrange
+	relationUUID1 := s.createTestRelationWithNames(c, "app1", "app2")
+	relationUUID2 := s.createTestRelationWithNames(c, "app3", "app4")
+
+	cidrs1 := []string{"192.0.2.0/24"}
+	cidrs2 := []string{"198.51.100.0/24", "203.0.113.0/24"}
+
+	s.addRelationNetworkEgress(c, relationUUID1.String(), cidrs1...)
+	s.addRelationNetworkEgress(c, relationUUID2.String(), cidrs2...)
+
+	// Act
+	obtainedCIDRs1, err := s.state.GetRelationNetworkEgress(c.Context(), relationUUID1.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	obtainedCIDRs2, err := s.state.GetRelationNetworkEgress(c.Context(), relationUUID2.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert
+	c.Check(obtainedCIDRs1, tc.DeepEquals, cidrs1)
+	c.Check(obtainedCIDRs2, tc.SameContents, cidrs2)
+}
+
+func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressAfterMultipleAdds(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	firstCIDRs := []string{"192.0.2.0/24"}
+	secondCIDRs := []string{"198.51.100.0/24", "203.0.113.0/24"}
+
+	s.addRelationNetworkEgress(c, relationUUID.String(), firstCIDRs...)
+	s.addRelationNetworkEgress(c, relationUUID.String(), secondCIDRs...)
+
+	// Act
+	obtainedCIDRs, err := s.state.GetRelationNetworkEgress(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	allCIDRs := append(firstCIDRs, secondCIDRs...)
+	c.Check(obtainedCIDRs, tc.SameContents, allCIDRs)
+}
+
+// addRelationNetworkEgress is a test helper that directly inserts CIDRs into
+// the relation_network_egress table for the given relation UUID.
+// This replaces the need to call s.state.AddRelationNetworkEgress which has been removed.
+func (s *relationNetworkStateSuite) addRelationNetworkEgress(c *tc.C, relationUUID string, cidrs ...string) {
+	for _, cidr := range cidrs {
+		s.query(c, `
+INSERT INTO relation_network_egress (relation_uuid, cidr)
+VALUES (?, ?)
+ON CONFLICT (relation_uuid, cidr) DO NOTHING
+`, relationUUID, cidr)
+	}
+}
+
+func (s *relationNetworkStateSuite) TestGetUnitAddressesForRelation(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+
+	// Act
+	addressMap, err := s.state.GetUnitAddressesForRelation(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addressMap, tc.NotNil)
+}
+
+func (s *relationNetworkStateSuite) TestGetUnitAddressesForRelationNoUnits(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelationWithoutUnits(c)
+
+	// Act
+	addressMap, err := s.state.GetUnitAddressesForRelation(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addressMap, tc.HasLen, 0)
+}
+
+func (s *relationNetworkStateSuite) TestGetUnitAddressesForRelationInvalidRelation(c *tc.C) {
+	// Arrange
+	nonExistentRelationUUID := internaluuid.MustNewUUID().String()
+
+	// Act
+	addressMap, err := s.state.GetUnitAddressesForRelation(c.Context(), nonExistentRelationUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addressMap, tc.HasLen, 0)
+}
+
+func (s *relationNetworkStateSuite) createTestRelationWithoutUnits(c *tc.C) corerelation.UUID {
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadataWithDescription(c, charmUUID, "test charm")
+
+	rel := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, rel)
+
+	appUUID1 := s.addApplication(c, charmUUID, "app1")
+	appUUID2 := s.addApplication(c, charmUUID, "app2")
+
+	endpoint1UUID := s.addApplicationEndpoint(c, appUUID1, relationUUID)
+	endpoint2UUID := s.addApplicationEndpoint(c, appUUID2, relationUUID)
+
+	relUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID.String(), endpoint1UUID)
+	s.addRelationEndpoint(c, relUUID.String(), endpoint2UUID)
+
+	return relUUID
 }
