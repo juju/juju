@@ -46,6 +46,7 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
 		authorizer,
+		ctx.Logger().Child("storage"),
 		domainServices.Application(),
 		domainServices.BlockDevice(),
 		domainServices.Removal(),
