@@ -76,6 +76,7 @@ type ProvisionerAPI struct {
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
 	controllerUUID string
+	modelUUID      coremodel.UUID
 }
 
 // MakeProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -189,6 +190,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		getAuthFunc:               getAuthFunc,
 		getCanModify:              getCanModify,
 		controllerUUID:            ctx.ControllerUUID(),
+		modelUUID:                 ctx.ModelUUID(),
 		watcherRegistry:           watcherRegistry,
 		logger:                    ctx.Logger().Child("provisioner"),
 		clock:                     ctx.Clock(),
@@ -1489,11 +1491,7 @@ func (api *ProvisionerAPI) setOneMachineCharmProfiles(ctx context.Context, machi
 
 // ModelUUID returns the model UUID that the current connection is for.
 func (api *ProvisionerAPI) ModelUUID(ctx context.Context) params.StringResult {
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return params.StringResult{Error: apiservererrors.ServerError(err)}
-	}
-	return params.StringResult{Result: string(modelInfo.UUID)}
+	return params.StringResult{Result: api.modelUUID.String()}
 }
 
 // Remove removes every given machine from state.
