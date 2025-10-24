@@ -459,8 +459,6 @@ func (st *State) DeleteUnit(ctx context.Context, unitUUID string) error {
 		return errors.Capture(err)
 	}
 
-	var charmUUID string
-
 	// Get the net node UUID for the unit.
 	selectNetNodeStmt, err := st.Prepare(`
 SELECT    nn.uuid AS &entityUUID.uuid
@@ -539,12 +537,6 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 			return errors.Errorf("deleting unit references for unit %q: %w", unitUUID, err)
 		}
 
-		// Get the charm UUID before we delete the unit.
-		charmUUID, err = st.getCharmUUIDForUnit(ctx, tx, unitUUID)
-		if err != nil {
-			return errors.Errorf("getting charm UUID for application: %w", err)
-		}
-
 		if err := tx.Query(ctx, deleteUnitStmt, unitUUIDRec).Run(); err != nil {
 			return errors.Errorf("deleting unit for unit %q: %w", unitUUID, err)
 		}
@@ -554,18 +546,6 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 	if err != nil {
 		return errors.Errorf("delete unit transaction: %w", err)
 	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// See if it's possible to delete the charm any more.
-		if err := st.deleteCharmIfUnusedByUUID(ctx, tx, charmUUID); err != nil {
-			return errors.Errorf("deleting charm if unused: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		st.logger.Warningf(ctx, "deleting charm for unit %q: %v", unitUUID, errors.Capture(err))
-	}
-
 	return nil
 }
 
@@ -726,6 +706,23 @@ func (st *State) deleteForeignKeyUnitReferences(ctx context.Context, tx *sqlair.
 		}
 	}
 	return nil
+}
+
+// GetCharmForUnit retrieves the charm UUID associated with the unit
+// identified by the input unit UUID.
+// If no charm is associated with the unit, an empty string is returned.
+func (st *State) GetCharmForUnit(ctx context.Context, uUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var charmUUID string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		charmUUID, err = st.getCharmUUIDForUnit(ctx, tx, uUUID)
+		return errors.Capture(err)
+	})
+	return charmUUID, errors.Capture(err)
 }
 
 func (st *State) getCharmUUIDForUnit(ctx context.Context, tx *sqlair.TX, uUUID string) (string, error) {
