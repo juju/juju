@@ -17,7 +17,6 @@ import (
 	domainapplication "github.com/juju/juju/domain/application"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/relation"
-	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/environs/config"
 )
@@ -108,7 +107,7 @@ type RelationService interface {
 	) (relation.FullRelationUnitChange, error)
 
 	// GetRelationDetails returns relation details for the given relationUUID.
-	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (domainrelation.RelationDetails, error)
+	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetails, error)
 
 	// GetRelationKeyByUUID returns the relation key for the given UUID.
 	GetRelationKeyByUUID(ctx context.Context, relationUUID string) (corerelation.Key, error)
