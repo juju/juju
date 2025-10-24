@@ -188,6 +188,18 @@ type storagePoolAttribute struct {
 	Value string `db:"value"`
 }
 
+// storagePoolAttributeWithUUID represents a single attribute from the
+// storage_pool_attribute table including the storage pool UUID. This value
+// is useful when expecting multiple storage pool parameters.
+//
+// If you only expect attributes for a single storage pool then use
+// [storagePoolAtribute].
+type storagePoolAttributeWithUUID struct {
+	UUID  string `db:"uuid"`
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
 // volumeAttachmentPlanLife represents the life of a volume attachment plan in
 // the model and the volume id for the volume the attachment plan is for.
 type volumeAttachmentPlanLife struct {
@@ -306,6 +318,16 @@ type filesystemTemplate struct {
 	ProviderType string `db:"storage_type"`
 	ReadOnly     bool   `db:"read_only"`
 	Location     string `db:"location"`
+}
+
+// machineVolumeProvisioningParams represents the provisioning params for a
+// volume from that is to be attached or is attached to a machine in the model.
+type machineVolumeProvisioningParams struct {
+	VolumeID             string           `db:"volume_id"`
+	ProviderType         string           `db:"provider_type"`
+	RequestedSizeMiB     uint64           `db:"requested_size_mib"`
+	StoragePoolUUID      string           `db:"storage_pool_uuid"`
+	VolumeAttachmentUUID sql.Null[string] `db:"volume_attachment_uuid"`
 }
 
 // volumeProvisioningParams represents the provisioning params for a volume from the model

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/blockdevice"
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
+	domainmachineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -1034,6 +1035,143 @@ WHERE  uuid = $volumeProvisionedInfo.uuid
 		return errors.Capture(err)
 	}
 	return nil
+}
+
+// GetMachineModelProvisionedVolumeParams returns the volume parameters for all
+// volumes of a machine that are provisioned by the model. The decision of if a
+// volume in the model is for a machine is made by checking if the volume has an
+// attachment onto the machine. Should the machine have no volumes thar are
+// machine provisioned then an empty result is returned.
+//
+// The following errors may be returned:
+// - [domainmachineerrors.MachineNotFound] when no machine exists for the uuid.
+func (st *State) GetMachineModelProvisionedVolumeParams(
+	ctx context.Context, uuid coremachine.UUID,
+) ([]storageprovisioning.VolumeParams, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	input := entityUUID{UUID: uuid.String()}
+
+	paramsStmt, err := st.Prepare(`
+SELECT &machineVolumePorvisioningParams.* FROM (
+    SELECT    sv.volume_id,
+              si.requested_size_mib,
+              sp.type AS provider_type,
+              sp.uuid AS storage_pool_uuid,
+              sva.uuid AS volume_attachment_uuid
+    FROM      storage_volume sv
+    JOIN      storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
+    JOIN      machine m ON sva.net_node_uuid = m.net_node_uuid
+    JOIN      storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
+    JOIN      storage_instance si ON siv.storage_instance_uuid = si.uuid
+    JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    LEFT JOIN storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
+    WHERE     m.uuid = $entityUUID.uuid
+    AND       sv.provision_scope = 0
+)
+`,
+		machineVolumeProvisioningParams{}, input,
+	)
+	if err != nil {
+		return nil, errors.Errorf("preparing machine volume params statment: %w", err)
+	}
+
+	// Because we are getting storage pool attributes for many volumes they may
+	// or may not share the same volume. If they do share a volume then we have
+	// a group by clause to make sure we only get each attribute once.
+	poolAttributesStmt, err := st.Prepare(`
+SELECT &storagePoolAttributeWithUUID.*
+FROM   storage_pool_attribute spa
+JOIN   storage_pool sp ON spa.storage_pool_uuid = sp.uuid
+JOIN   storage_instance si ON sp.uuid = si.storage_pool_uuid
+JOIN   storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+JOIN   storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+JOIN   storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
+JOIN   machine m ON sva.net_node_uuid = m.net_node_uuid
+WHERE  m = $entityUUID.uuid
+AND    sv.provision_scope = 0
+GROUP  BY spa.uuid, spa.key
+`,
+		storagePoolAttributeWithUUID{}, input,
+	)
+	if err != nil {
+		return nil, errors.Errorf("preparing ")
+	}
+
+	var (
+		attributeDBVals []storagePoolAttributeWithUUID
+		volumeDBParams  []machineVolumeProvisioningParams
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkMachineExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf("checking if machine %q exists: %w", uuid, err)
+		}
+		if !exists {
+			return errors.Errorf(
+				"machine %q does not exist in the model", uuid,
+			).Add(domainmachineerrors.MachineNotFound)
+		}
+
+		err = tx.Query(ctx, paramsStmt, input).Get(&volumeDBParams)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// There are no volume parameters for this machine.
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		// It is ok to get no results. Not all storage pools have attributes.
+		err = tx.Query(ctx, poolAttributesStmt, input).GetAll(&attributeDBVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf(
+				"getting storage pool attributes for machine %q volume params: %w",
+				uuid, err,
+			)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	poolAttributeMap := make(map[string][]storagePoolAttributeWithUUID)
+	for _, attr := range attributeDBVals {
+		attrs := poolAttributeMap[attr.UUID]
+		poolAttributeMap[attr.UUID] = append(attrs, attr)
+	}
+
+	retVal := make([]storageprovisioning.VolumeParams, 0, len(volumeDBParams))
+	for _, dbParams := range volumeDBParams {
+		attributes := make(map[string]string, len(poolAttributeMap[dbParams.StoragePoolUUID]))
+		for _, attr := range poolAttributeMap[dbParams.StoragePoolUUID] {
+			attributes[attr.Key] = attr.Value
+		}
+
+		params := storageprovisioning.VolumeParams{
+			Attributes: attributes,
+			ID:         dbParams.VolumeID,
+			Provider:   dbParams.ProviderType,
+			SizeMiB:    dbParams.RequestedSizeMiB,
+		}
+
+		if dbParams.VolumeAttachmentUUID.Valid {
+			vaUUID := storageprovisioning.VolumeAttachmentUUID(
+				dbParams.VolumeAttachmentUUID.V,
+			)
+			params.VolumeAttachmentUUID = &vaUUID
+		}
+		retVal = append(retVal, params)
+	}
+
+	return retVal, nil
 }
 
 // GetVolumeParams returns the volume params for the supplied uuid.
