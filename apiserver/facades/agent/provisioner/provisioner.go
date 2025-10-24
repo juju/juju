@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	corecontainer "github.com/juju/juju/core/container"
-	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
@@ -33,8 +32,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/ssh"
@@ -65,7 +62,6 @@ type ProvisionerAPI struct {
 	removalService            RemovalService
 	authorizer                facade.Authorizer
 	storagePoolGetter         StoragePoolGetter
-	configGetter              environs.EnvironConfigGetter
 	getAuthFunc               common.GetAuthFunc
 	getCanModify              common.GetAuthFunc
 	toolsFinder               common.ToolsFinder
@@ -127,10 +123,8 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	agentService := domainServices.Agent()
 	applicationService := domainServices.Application()
 	cloudImageMetadataService := domainServices.CloudImageMetadata()
-	cloudService := domainServices.Cloud()
 	controllerNodeService := domainServices.ControllerNode()
 	controllerConfigService := domainServices.ControllerConfig()
-	credentialService := domainServices.Credential()
 	externalControllerService := domainServices.ExternalController()
 	keyUpdaterService := domainServices.KeyUpdater()
 	machineService := domainServices.Machine()
@@ -141,13 +135,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	removalService := domainServices.Removal()
 	statusService := domainServices.Status()
 	storageService := domainServices.Storage()
-
-	configGetter := environConfigGetter{
-		modelInfoService:   modelInfoService,
-		cloudService:       cloudService,
-		credentialService:  credentialService,
-		modelConfigService: modelConfigService,
-	}
 
 	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
@@ -185,7 +172,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		applicationService:        applicationService,
 		removalService:            removalService,
 		authorizer:                authorizer,
-		configGetter:              configGetter,
 		storagePoolGetter:         storageService,
 		getAuthFunc:               getAuthFunc,
 		getCanModify:              getCanModify,
@@ -1538,59 +1524,4 @@ func (api *ProvisionerAPI) Remove(ctx context.Context, args params.Entities) (pa
 		}
 	}
 	return result, nil
-}
-
-type environConfigGetter struct {
-	modelInfoService   ModelInfoService
-	cloudService       CloudService
-	credentialService  CredentialService
-	modelConfigService ModelConfigService
-}
-
-// ControllerUUID returns the universally unique identifier of the controller.
-func (g environConfigGetter) ControllerUUID(ctx context.Context) (string, error) {
-	modelInfo, err := g.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return modelInfo.ControllerUUID.String(), nil
-}
-
-// ModelConfig implements environs.EnvironConfigGetter.
-func (g environConfigGetter) ModelConfig(ctx context.Context) (*config.Config, error) {
-	return g.modelConfigService.ModelConfig(ctx)
-}
-
-// CloudSpec implements environs.EnvironConfigGetter.
-func (g environConfigGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
-	return CloudSpecForModel(ctx, g.modelInfoService, g.cloudService, g.credentialService)
-}
-
-// CloudSpecForModel returns a CloudSpec for the specified model.
-func CloudSpecForModel(
-	ctx context.Context,
-	modelInfoService ModelInfoService,
-	cloudService CloudService,
-	credentialService CredentialService,
-) (environscloudspec.CloudSpec, error) {
-	modelInfo, err := modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return environscloudspec.CloudSpec{}, errors.Trace(err)
-	}
-
-	cld, err := cloudService.Cloud(ctx, modelInfo.Cloud)
-	if err != nil {
-		return environscloudspec.CloudSpec{}, errors.Trace(err)
-	}
-	regionName := modelInfo.CloudRegion
-	credentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: coremodel.ControllerModelOwnerUsername,
-		Name:  modelInfo.CredentialName,
-	}
-	cred, err := credentialService.CloudCredential(ctx, credentialKey)
-	if err != nil {
-		return environscloudspec.CloudSpec{}, errors.Trace(err)
-	}
-	return environscloudspec.MakeCloudSpec(*cld, regionName, &cred)
 }
