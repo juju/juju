@@ -148,8 +148,6 @@ type ModelDomainServices interface {
 	ModelMigration() *modelmigrationservice.Service
 	// ModelSecretBackend returns the model secret backend service.
 	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
-	// ModelAgentService returns the model agent service.
-	ModelAgentService() *modelagentservice.Service
 	// Operation returns the operation service.
 	Operation() *operationservice.WatchableService
 	// Proxy returns the proxy service.

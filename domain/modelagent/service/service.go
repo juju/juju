@@ -248,12 +248,16 @@ func NewService(
 
 // NewWatchableService returns a new [WatchableService].
 func NewWatchableService(
-	agentBinaryFinder AgentBinaryFinder, st ModelState, watcherFactory WatcherFactory,
+	agentBinaryFinder AgentBinaryFinder,
+	modelSt ModelState,
+	controllerSt ControllerState,
+	watcherFactory WatcherFactory,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
 			agentBinaryFinder: agentBinaryFinder,
-			modelSt:           st,
+			modelSt:           modelSt,
+			controllerSt:      controllerSt,
 		},
 		watcherFactory: watcherFactory,
 	}
