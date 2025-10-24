@@ -83,10 +83,22 @@ type RemoteModelRelationsClient interface {
 // CrossModelService is an interface that groups together the local
 // relation service and the cross-model relation service.
 type CrossModelService interface {
-	RelationService
+	ApplicationService
 	CrossModelRelationService
-	StatusService
+	RelationService
 	RemovalService
+	StatusService
+}
+
+// ApplicationService is an interface that defines the methods for
+// managing applications directly on the local model database.
+type ApplicationService interface {
+	// GetApplicationUUIDByName returns an application UUID by application name. It
+	// returns an error if the application can not be found by the name.
+	//
+	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
+	// and [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error)
 }
 
 // RelationService is an interface that defines the methods for
