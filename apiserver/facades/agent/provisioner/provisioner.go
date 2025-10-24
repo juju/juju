@@ -5,7 +5,6 @@ package provisioner
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -395,12 +394,12 @@ func (api *ProvisionerAPI) ContainerManagerConfig(ctx context.Context, args para
 
 	cfg, err := api.agentProvisionerService.ContainerManagerConfigForType(ctx, args.Type)
 	if err != nil {
-		return result, fmt.Errorf("cannot get container manager config: %w", err)
+		return result, errors.Errorf("cannot get container manager config: %w", err)
 	}
 
 	containerNetworkingMethod, err := api.agentProvisionerService.ContainerNetworkingMethod(ctx)
 	if err != nil {
-		return result, fmt.Errorf("cannot get container networking method: %w", err)
+		return result, errors.Errorf("cannot get container networking method: %w", err)
 	}
 
 	result.ManagerConfig = make(map[string]string)
@@ -423,13 +422,13 @@ func (api *ProvisionerAPI) ContainerManagerConfig(ctx context.Context, args para
 func (api *ProvisionerAPI) ContainerConfig(ctx context.Context) (params.ContainerConfig, error) {
 	containerConfig, err := api.agentProvisionerService.ContainerConfig(ctx)
 	if err != nil {
-		return params.ContainerConfig{}, fmt.Errorf("cannot get container config: %w", err)
+		return params.ContainerConfig{}, errors.Errorf("cannot get container config: %w", err)
 	}
 
 	// Add authorised keys to container config
 	containerKeys, err := api.keyUpdaterService.GetInitialAuthorisedKeysForContainer(ctx)
 	if err != nil {
-		return params.ContainerConfig{}, fmt.Errorf("cannot get authorised keys for container config: %w", err)
+		return params.ContainerConfig{}, errors.Errorf("cannot get authorised keys for container config: %w", err)
 	}
 	authorizedKeys := ssh.MakeAuthorizedKeysString(containerKeys)
 
@@ -528,7 +527,7 @@ func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Ent
 		}
 		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(tag.Id()))
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("%w: %w", err, errors.NotFound))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("%w: %w", err, errors.NotFound))
 			continue
 		}
 

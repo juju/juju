@@ -73,11 +73,11 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 ) (*params.ProvisioningInfo, error) {
 	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("getting model info: %w", err)
+		return nil, errors.Errorf("getting model info: %w", err)
 	}
 	modelConfig, err := api.modelConfigService.ModelConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("getting model config: %w", err)
+		return nil, errors.Errorf("getting model config: %w", err)
 	}
 
 	unitNames, err := api.applicationService.GetUnitNamesOnMachine(ctx, machineName)
