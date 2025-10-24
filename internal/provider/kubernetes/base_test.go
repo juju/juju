@@ -44,7 +44,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/internal/provider/kubernetes/mocks"
-	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -197,21 +196,17 @@ func (s *BaseSuite) setupController(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 
 	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
 		Return(nil, s.k8sNotFoundError())
 
-	return s.setupBroker(c, ctrl, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "")
+	return s.setupBroker(c, ctrl, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, "")
 }
 
 func (s *BaseSuite) setupBroker(
 	c *tc.C, ctrl *gomock.Controller, controllerUUID string,
 	newK8sClientFunc k8sprovider.NewK8sClientFunc,
 	newK8sRestFunc k8sprovider.NewK8sRestClientFunc,
-	randomPrefixFunc utils.RandomPrefixFunc,
 	expectErr string,
 ) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Time{})
@@ -237,8 +232,11 @@ func (s *BaseSuite) setupBroker(
 	})
 
 	var err error
-	s.broker, err = k8sprovider.NewK8sBroker(c.Context(), controllerUUID, s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
-		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
+	s.broker, err = k8sprovider.NewK8sBroker(
+		c.Context(), controllerUUID, s.k8sRestConfig, s.cfg,
+		s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
+		watcherFn, stringsWatcherFn, s.clock,
+	)
 	if expectErr == "" {
 		c.Assert(err, tc.ErrorIsNil)
 	} else {
@@ -498,10 +496,7 @@ func (s *fakeClientSuite) SetUpTest(c *tc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
-	s.setupBroker(c, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, nil)
+	s.setupBroker(c, newK8sClientFunc, newK8sRestFunc, nil)
 }
 
 func (s *fakeClientSuite) getNamespace() string {
@@ -515,7 +510,6 @@ func (s *fakeClientSuite) setupBroker(
 	c *tc.C,
 	newK8sClientFunc k8sprovider.NewK8sClientFunc,
 	newK8sRestFunc k8sprovider.NewK8sRestClientFunc,
-	randomPrefixFunc utils.RandomPrefixFunc,
 	watchers *[]k8swatcher.KubernetesNotifyWatcher,
 ) {
 	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
@@ -539,8 +533,11 @@ func (s *fakeClientSuite) setupBroker(
 	})
 
 	var err error
-	s.broker, err = k8sprovider.NewK8sBroker(c.Context(), coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
-		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
+	s.broker, err = k8sprovider.NewK8sBroker(
+		c.Context(), coretesting.ControllerTag.Id(), s.k8sRestConfig,
+		s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
+		watcherFn, stringsWatcherFn, s.clock,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

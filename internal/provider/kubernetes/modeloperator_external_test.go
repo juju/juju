@@ -46,9 +46,6 @@ func (m *ModelOperatorExternalSuite) setupBroker(c *tc.C) *gomock.Controller {
 	m.clock = testclock.NewClock(time.Time{})
 
 	newK8sClientFunc, newK8sRestFunc := m.setupK8sRestClient(c, ctrl, "")
-	randomPrefixFunc := func() (string, error) {
-		return "", nil
-	}
 
 	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
 		return nil, errors.NewNotFound(nil, "undefined k8sWatcherFn")
@@ -59,8 +56,11 @@ func (m *ModelOperatorExternalSuite) setupBroker(c *tc.C) *gomock.Controller {
 	})
 
 	var err error
-	m.broker, err = kubernetes.NewK8sBroker(c.Context(), testing.ControllerTag.Id(), m.k8sRestConfig, m.cfg, "", newK8sClientFunc, newK8sRestFunc,
-		watcherFn, stringsWatcherFn, randomPrefixFunc, m.clock)
+	m.broker, err = kubernetes.NewK8sBroker(
+		c.Context(), testing.ControllerTag.Id(), m.k8sRestConfig, m.cfg,
+		"", newK8sClientFunc, newK8sRestFunc, watcherFn,
+		stringsWatcherFn, m.clock,
+	)
 
 	c.Assert(err, tc.ErrorIsNil)
 	return ctrl
