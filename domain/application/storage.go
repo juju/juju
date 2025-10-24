@@ -47,3 +47,23 @@ type StorageDirective struct {
 	// Size defines the size of the storage directive in MiB.
 	Size uint64
 }
+
+// StorageName is a type alias for storage names.
+type StorageName = string
+
+// ApplicationStorage is a map of storage names to their corresponding storage info.
+type ApplicationStorage map[StorageName]ApplicationStorageInfo
+
+// ApplicationStorageInfo defines the storage information for a given storage
+// name. It does not include the name as it is expected to be mapped via [ApplicationStorage].
+type ApplicationStorageInfo struct {
+	// Pool is the name of the storage pool from which the storage instance
+	// was provisioned.
+	StoragePoolName string
+
+	// SizeMiB is the size of the storage instance, in MiB.
+	SizeMiB *uint64
+
+	// Count is the number of storage instances.
+	Count *uint64
+}

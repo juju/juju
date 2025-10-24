@@ -22,6 +22,17 @@ import (
 type StorageDirectiveOverrides = storage.StorageDirectiveOverride
 
 type StorageService interface {
+	// GetApplicationStorage returns the storage directives set for an application,
+	// keyed to the storage name. If the application does not have any storage
+	// directives set then an empty result is returned.
+	//
+	// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
+	// error is returned.
+	GetApplicationStorage(
+		ctx context.Context,
+		uuid coreapplication.UUID,
+	) (application.ApplicationStorage, error)
+
 	// GetApplicationStorageDirectives returns the storage directives that are
 	// set for an application. If the application does not have any storage
 	// directives set then an empty result is returned.

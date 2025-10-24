@@ -118,6 +118,15 @@ type insertStorageVolumeStatus struct {
 // either a volume or filesystem in the model.
 type storageProviderIDs []string
 
+// applicationStorageInfo is used to retrieve storage information for an
+// application.
+type applicationStorageInfo struct {
+	StoragePoolName string `db:"storage_pool_name"`
+	StorageName     string `db:"storage_name"`
+	Count           uint64 `db:"count"`
+	SizeMiB         uint64 `db:"size_mib"`
+}
+
 // storageDirective represents either a storage directive from a unit in the
 // model or an application.
 type storageDirective struct {

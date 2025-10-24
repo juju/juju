@@ -983,10 +983,10 @@ func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(contex
 }
 
 // GetApplicationStorage mocks base method.
-func (m *MockApplicationService) GetApplicationStorage(arg0 context.Context, arg1 application.UUID) (map[string]service.ApplicationStorageInfo, error) {
+func (m *MockApplicationService) GetApplicationStorage(arg0 context.Context, arg1 application.UUID) (application0.ApplicationStorage, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationStorage", arg0, arg1)
-	ret0, _ := ret[0].(map[string]service.ApplicationStorageInfo)
+	ret0, _ := ret[0].(application0.ApplicationStorage)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1004,19 +1004,19 @@ type MockApplicationServiceGetApplicationStorageCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetApplicationStorageCall) Return(arg0 map[string]service.ApplicationStorageInfo, arg1 error) *MockApplicationServiceGetApplicationStorageCall {
+func (c *MockApplicationServiceGetApplicationStorageCall) Return(arg0 application0.ApplicationStorage, arg1 error) *MockApplicationServiceGetApplicationStorageCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationStorageCall) Do(f func(context.Context, application.UUID) (map[string]service.ApplicationStorageInfo, error)) *MockApplicationServiceGetApplicationStorageCall {
+func (c *MockApplicationServiceGetApplicationStorageCall) Do(f func(context.Context, application.UUID) (application0.ApplicationStorage, error)) *MockApplicationServiceGetApplicationStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationStorageCall) DoAndReturn(f func(context.Context, application.UUID) (map[string]service.ApplicationStorageInfo, error)) *MockApplicationServiceGetApplicationStorageCall {
+func (c *MockApplicationServiceGetApplicationStorageCall) DoAndReturn(f func(context.Context, application.UUID) (application0.ApplicationStorage, error)) *MockApplicationServiceGetApplicationStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

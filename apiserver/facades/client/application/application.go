@@ -2322,7 +2322,7 @@ func (api *APIBase) getOneApplicationStorage(ctx context.Context, entity params.
 		return nil, errors.Trace(err)
 	}
 
-	storageInfo, err := api.applicationService.GetApplicationStorage(ctx, appUUID)
+	storage, err := api.applicationService.GetApplicationStorage(ctx, appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %q", appTag.Id())
 	} else if err != nil {
@@ -2330,11 +2330,11 @@ func (api *APIBase) getOneApplicationStorage(ctx context.Context, entity params.
 	}
 
 	sc := make(map[string]params.StorageDirectives)
-	for directiveName, info := range storageInfo {
-		sc[directiveName] = params.StorageDirectives{
-			Pool:    info.StoragePoolName,
-			Count:   info.Count,
-			SizeMiB: info.SizeMiB,
+	for name, storageInfo := range storage {
+		sc[name] = params.StorageDirectives{
+			Pool:    storageInfo.StoragePoolName,
+			SizeMiB: storageInfo.SizeMiB,
+			Count:   storageInfo.Count,
 		}
 	}
 
