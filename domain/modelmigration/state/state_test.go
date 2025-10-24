@@ -15,12 +15,12 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/model"
 	statemodel "github.com/juju/juju/domain/model/state/model"
-	"github.com/juju/juju/domain/modelagent"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -46,7 +46,7 @@ func (s *migrationSuite) SetUpTest(c *tc.C) {
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
 		UUID:               id,
-		AgentStream:        modelagent.AgentStreamReleased,
+		AgentStream:        domainagentbinary.AgentStreamReleased,
 		AgentVersion:       jujuversion.Current,
 		LatestAgentVersion: jujuversion.Current,
 		ControllerUUID:     s.controllerUUID,

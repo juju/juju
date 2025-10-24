@@ -235,7 +235,7 @@ func (s *ImportSuite) TestBinariesMigration(c *tc.C) {
 	dataStream := ioutil.NopCloser(strings.NewReader("test agent data"))
 
 	for sha := range toolsMap {
-		s.agentBinaryStore.EXPECT().GetAgentBinaryForSHA256(gomock.Any(), sha).Return(dataStream, 15, nil)
+		s.agentBinaryStore.EXPECT().GetAgentBinaryUsingSHA256(gomock.Any(), sha).Return(dataStream, 15, nil)
 	}
 
 	app0Res := resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource

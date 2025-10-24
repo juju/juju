@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	semversion "github.com/juju/juju/core/semversion"
-	modelagent "github.com/juju/juju/domain/modelagent"
+	agentbinary "github.com/juju/juju/domain/agentbinary"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -119,7 +119,7 @@ func (c *MockControllerUpgraderServiceRunPreUpgradeChecksToVersionCall) DoAndRet
 }
 
 // RunPreUpgradeChecksToVersionWithStream mocks base method.
-func (m *MockControllerUpgraderService) RunPreUpgradeChecksToVersionWithStream(arg0 context.Context, arg1 semversion.Number, arg2 modelagent.AgentStream) error {
+func (m *MockControllerUpgraderService) RunPreUpgradeChecksToVersionWithStream(arg0 context.Context, arg1 semversion.Number, arg2 agentbinary.Stream) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunPreUpgradeChecksToVersionWithStream", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -145,19 +145,19 @@ func (c *MockControllerUpgraderServiceRunPreUpgradeChecksToVersionWithStreamCall
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerUpgraderServiceRunPreUpgradeChecksToVersionWithStreamCall) Do(f func(context.Context, semversion.Number, modelagent.AgentStream) error) *MockControllerUpgraderServiceRunPreUpgradeChecksToVersionWithStreamCall {
+func (c *MockControllerUpgraderServiceRunPreUpgradeChecksToVersionWithStreamCall) Do(f func(context.Context, semversion.Number, agentbinary.Stream) error) *MockControllerUpgraderServiceRunPreUpgradeChecksToVersionWithStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerUpgraderServiceRunPreUpgradeChecksToVersionWithStreamCall) DoAndReturn(f func(context.Context, semversion.Number, modelagent.AgentStream) error) *MockControllerUpgraderServiceRunPreUpgradeChecksToVersionWithStreamCall {
+func (c *MockControllerUpgraderServiceRunPreUpgradeChecksToVersionWithStreamCall) DoAndReturn(f func(context.Context, semversion.Number, agentbinary.Stream) error) *MockControllerUpgraderServiceRunPreUpgradeChecksToVersionWithStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RunPreUpgradeChecksWithStream mocks base method.
-func (m *MockControllerUpgraderService) RunPreUpgradeChecksWithStream(arg0 context.Context, arg1 modelagent.AgentStream) (semversion.Number, error) {
+func (m *MockControllerUpgraderService) RunPreUpgradeChecksWithStream(arg0 context.Context, arg1 agentbinary.Stream) (semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunPreUpgradeChecksWithStream", arg0, arg1)
 	ret0, _ := ret[0].(semversion.Number)
@@ -184,13 +184,13 @@ func (c *MockControllerUpgraderServiceRunPreUpgradeChecksWithStreamCall) Return(
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerUpgraderServiceRunPreUpgradeChecksWithStreamCall) Do(f func(context.Context, modelagent.AgentStream) (semversion.Number, error)) *MockControllerUpgraderServiceRunPreUpgradeChecksWithStreamCall {
+func (c *MockControllerUpgraderServiceRunPreUpgradeChecksWithStreamCall) Do(f func(context.Context, agentbinary.Stream) (semversion.Number, error)) *MockControllerUpgraderServiceRunPreUpgradeChecksWithStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerUpgraderServiceRunPreUpgradeChecksWithStreamCall) DoAndReturn(f func(context.Context, modelagent.AgentStream) (semversion.Number, error)) *MockControllerUpgraderServiceRunPreUpgradeChecksWithStreamCall {
+func (c *MockControllerUpgraderServiceRunPreUpgradeChecksWithStreamCall) DoAndReturn(f func(context.Context, agentbinary.Stream) (semversion.Number, error)) *MockControllerUpgraderServiceRunPreUpgradeChecksWithStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -273,7 +273,7 @@ func (c *MockControllerUpgraderServiceUpgradeControllerToVersionCall) DoAndRetur
 }
 
 // UpgradeControllerToVersionWithStream mocks base method.
-func (m *MockControllerUpgraderService) UpgradeControllerToVersionWithStream(arg0 context.Context, arg1 semversion.Number, arg2 modelagent.AgentStream) error {
+func (m *MockControllerUpgraderService) UpgradeControllerToVersionWithStream(arg0 context.Context, arg1 semversion.Number, arg2 agentbinary.Stream) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeControllerToVersionWithStream", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -299,19 +299,19 @@ func (c *MockControllerUpgraderServiceUpgradeControllerToVersionWithStreamCall) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerUpgraderServiceUpgradeControllerToVersionWithStreamCall) Do(f func(context.Context, semversion.Number, modelagent.AgentStream) error) *MockControllerUpgraderServiceUpgradeControllerToVersionWithStreamCall {
+func (c *MockControllerUpgraderServiceUpgradeControllerToVersionWithStreamCall) Do(f func(context.Context, semversion.Number, agentbinary.Stream) error) *MockControllerUpgraderServiceUpgradeControllerToVersionWithStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerUpgraderServiceUpgradeControllerToVersionWithStreamCall) DoAndReturn(f func(context.Context, semversion.Number, modelagent.AgentStream) error) *MockControllerUpgraderServiceUpgradeControllerToVersionWithStreamCall {
+func (c *MockControllerUpgraderServiceUpgradeControllerToVersionWithStreamCall) DoAndReturn(f func(context.Context, semversion.Number, agentbinary.Stream) error) *MockControllerUpgraderServiceUpgradeControllerToVersionWithStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UpgradeControllerWithStream mocks base method.
-func (m *MockControllerUpgraderService) UpgradeControllerWithStream(arg0 context.Context, arg1 modelagent.AgentStream) (semversion.Number, error) {
+func (m *MockControllerUpgraderService) UpgradeControllerWithStream(arg0 context.Context, arg1 agentbinary.Stream) (semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeControllerWithStream", arg0, arg1)
 	ret0, _ := ret[0].(semversion.Number)
@@ -338,13 +338,13 @@ func (c *MockControllerUpgraderServiceUpgradeControllerWithStreamCall) Return(ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerUpgraderServiceUpgradeControllerWithStreamCall) Do(f func(context.Context, modelagent.AgentStream) (semversion.Number, error)) *MockControllerUpgraderServiceUpgradeControllerWithStreamCall {
+func (c *MockControllerUpgraderServiceUpgradeControllerWithStreamCall) Do(f func(context.Context, agentbinary.Stream) (semversion.Number, error)) *MockControllerUpgraderServiceUpgradeControllerWithStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerUpgraderServiceUpgradeControllerWithStreamCall) DoAndReturn(f func(context.Context, modelagent.AgentStream) (semversion.Number, error)) *MockControllerUpgraderServiceUpgradeControllerWithStreamCall {
+func (c *MockControllerUpgraderServiceUpgradeControllerWithStreamCall) DoAndReturn(f func(context.Context, agentbinary.Stream) (semversion.Number, error)) *MockControllerUpgraderServiceUpgradeControllerWithStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

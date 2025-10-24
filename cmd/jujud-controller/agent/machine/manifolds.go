@@ -46,6 +46,7 @@ import (
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/s3client"
+	"github.com/juju/juju/internal/simplestreams"
 	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/upgrades"
 	jupgradesteps "github.com/juju/juju/internal/upgradesteps"
@@ -848,6 +849,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				case corehttp.MacaroonPurpose:
 					macaroonLogger := internallogger.GetLogger("juju.macaroon", corelogger.MACAROON)
 					return macaroon.DefaultHTTPClient(macaroonLogger)
+
+				case corehttp.SimpleStreamPurpose:
+					simplestreamLogger := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
+					return simplestreams.DefaultHTTPClient(simplestreamLogger)
 
 				default:
 					return internalhttp.NewClient(opts...)

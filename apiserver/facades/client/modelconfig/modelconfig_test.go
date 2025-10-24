@@ -20,6 +20,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -220,7 +221,7 @@ func (s *modelconfigSuite) TestSetModelConfigAgentStream(c *tc.C) {
 
 	s.mockModelAgentService.EXPECT().SetModelAgentStream(
 		gomock.Any(),
-		coreagentbinary.AgentStreamReleased,
+		domainagentbinary.AgentStreamReleased,
 	).Return(nil)
 	s.mockModelConfigService.EXPECT().UpdateModelConfig(
 		gomock.Any(),
@@ -248,12 +249,11 @@ func (s *modelconfigSuite) TestSetModelConfigAgentStreamInvalid(c *tc.C) {
 	s.expectNoControllerAdminAccess()
 	s.expectNoBlocks()
 
-	s.mockModelAgentService.EXPECT().SetModelAgentStream(
-		gomock.Any(),
-		coreagentbinary.AgentStream("invalid"),
-	).Return(coreerrors.NotValid)
+	invalidStream := coreagentbinary.AgentStream("invalid")
+	_, err := domainagentbinary.StreamFromCoreAgentBinaryStream(invalidStream)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 
-	err := api.ModelSet(c.Context(), params.ModelSet{
+	err = api.ModelSet(c.Context(), params.ModelSet{
 		Config: map[string]any{
 			"agent-stream": "invalid",
 		},

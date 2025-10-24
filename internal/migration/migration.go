@@ -215,7 +215,7 @@ type AgentBinaryStore interface {
 	// given SHA256 sum. The following errors can be expected:
 	// - [github.com/juju/juju/domain/agentbinary/errors.NotFound] when no agent
 	// binaries exist for the provided sha.
-	GetAgentBinaryForSHA256(context.Context, string) (io.ReadCloser, int64, error)
+	GetAgentBinaryUsingSHA256(context.Context, string) (io.ReadCloser, int64, error)
 }
 
 // ToolsUploader defines a single method that is used to upload tools
@@ -373,7 +373,7 @@ func uploadTools(
 			sha256Sum, version,
 		)
 
-		reader, _, err := config.AgentBinaryStore.GetAgentBinaryForSHA256(ctx, sha256Sum)
+		reader, _, err := config.AgentBinaryStore.GetAgentBinaryUsingSHA256(ctx, sha256Sum)
 		if err != nil {
 			return internalerrors.Errorf(
 				"getting agent binaries for sha %q to upload in migration: %w",

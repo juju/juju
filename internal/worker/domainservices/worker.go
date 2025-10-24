@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -65,6 +66,9 @@ type Config struct {
 
 	// NewModelDomainServices is used to get model domain services.
 	NewModelDomainServices ModelDomainServicesFn
+
+	// SimpleStreamsClient is used to interact with simplestreams.
+	SimpleStreamsClient http.HTTPClient
 }
 
 // Validate validates the domain services configuration.
@@ -83,6 +87,9 @@ func (config Config) Validate() error {
 	}
 	if config.PublicKeyImporter == nil {
 		return errors.NotValidf("nil PublicKeyImporter")
+	}
+	if config.SimpleStreamsClient == nil {
+		return errors.NotValidf("nil SimpleStreamsClient")
 	}
 	if config.LeaseManager == nil {
 		return errors.NotValidf("nil LeaseManager")
@@ -139,6 +146,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.PublicKeyImporter,
 			config.LeaseManager,
 			config.LogDir,
+			config.SimpleStreamsClient,
 			config.Clock,
 			config.LoggerContextGetter,
 		),
@@ -204,6 +212,7 @@ type domainServicesGetter struct {
 	publicKeyImporter      domainservices.PublicKeyImporter
 	leaseManager           lease.Manager
 	logDir                 string
+	httpClient             http.HTTPClient
 	clock                  clock.Clock
 	loggerContextGetter    logger.LoggerContextGetter
 }
@@ -221,6 +230,9 @@ func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID c
 		ModelDomainServices: s.newModelDomainServices(
 			modelUUID, s.dbGetter,
 			s.providerFactory,
+			controllerObjectStoreGetter{
+				objectStoreGetter: s.objectStoreGetter,
+			},
 			modelObjectStoreGetter{
 				modelUUID:         modelUUID,
 				objectStoreGetter: s.objectStoreGetter,
@@ -235,6 +247,7 @@ func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID c
 				manager:   s.leaseManager,
 			},
 			s.logDir,
+			s.httpClient,
 			s.clock,
 			loggerContext.GetLogger("juju.services"),
 		),

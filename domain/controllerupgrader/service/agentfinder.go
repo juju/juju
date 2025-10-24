@@ -10,7 +10,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
-	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -31,7 +30,7 @@ type AgentFinderControllerState interface {
 		context context.Context,
 		version semversion.Number,
 		architectures []agentbinary.Architecture,
-		stream modelagent.AgentStream,
+		stream agentbinary.Stream,
 	) (map[agentbinary.Architecture]bool, error)
 }
 
@@ -47,7 +46,7 @@ type AgentFinderControllerModelState interface {
 	) (map[agentbinary.Architecture]bool, error)
 
 	// GetModelAgentStream returns the currently used stream for the agent.
-	GetModelAgentStream(ctx context.Context) (modelagent.AgentStream, error)
+	GetModelAgentStream(ctx context.Context) (agentbinary.Stream, error)
 }
 
 type GetPreferredSimpleStreamsFunc func(
@@ -171,7 +170,7 @@ func (a *StreamAgentBinaryFinder) getMissingArchitectures(
 func (a *StreamAgentBinaryFinder) getBinaryAgentInStreams(
 	ctx context.Context,
 	version semversion.Number,
-	stream *modelagent.AgentStream,
+	stream *agentbinary.Stream,
 	filter coretools.Filter,
 ) (coretools.List, error) {
 	provider, err := a.agentFinder.GetProvider(ctx)
@@ -206,7 +205,7 @@ func (a *StreamAgentBinaryFinder) getBinaryAgentInStreams(
 // returns the highest patch.
 func (a *StreamAgentBinaryFinder) getHighestPatchVersionAvailableForStream(
 	ctx context.Context,
-	stream *modelagent.AgentStream,
+	stream *agentbinary.Stream,
 ) (semversion.Number, error) {
 	ctrlVersion, err := a.ctrlSt.GetControllerTargetVersion(ctx)
 	if err != nil {
@@ -233,7 +232,7 @@ func (a *StreamAgentBinaryFinder) getHighestPatchVersionAvailableForStream(
 func (a *StreamAgentBinaryFinder) hasBinaryAgentInStreams(
 	ctx context.Context,
 	number semversion.Number,
-	stream *modelagent.AgentStream,
+	stream *agentbinary.Stream,
 	filter coretools.Filter,
 ) (bool, error) {
 	tools, err := a.getBinaryAgentInStreams(ctx, number, stream, filter)
@@ -271,7 +270,7 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionAndArchitectures(
 func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 	ctx context.Context,
 	version semversion.Number,
-	stream modelagent.AgentStream,
+	stream agentbinary.Stream,
 	architectures []agentbinary.Architecture,
 ) (bool, error) {
 	streamInModel, err := a.modelSt.GetModelAgentStream(ctx)
@@ -342,7 +341,7 @@ func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailable(ctx context.Co
 // controller given a stream.
 func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailableForStream(
 	ctx context.Context,
-	stream modelagent.AgentStream,
+	stream agentbinary.Stream,
 ) (semversion.Number, error) {
 	return a.getHighestPatchVersionAvailableForStream(ctx, &stream)
 }

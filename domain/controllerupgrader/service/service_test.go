@@ -12,9 +12,8 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/agentbinary"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
-	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -59,7 +58,7 @@ func (s *serviceSuite) TestUpgradeController(c *tc.C) {
 	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailable(gomock.Any()).
 		Return(highestVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
-		gomock.Any(), highestVersion, []agentbinary.Architecture{agentbinary.AMD64},
+		gomock.Any(), highestVersion, []domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(true, nil)
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
@@ -131,8 +130,9 @@ func (s *serviceSuite) TestUpgradeControllerWithInvalidStream(c *tc.C) {
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
 	_, err := svc.UpgradeControllerWithStream(
 		c.Context(),
-		modelagent.AgentStream(-1),
+		domainagentbinary.Stream(-1),
 	)
+
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentStreamNotValid)
 }
 
@@ -200,7 +200,7 @@ func (s *serviceSuite) TestUpgradeControllerWithMissingControllerBinaries(c *tc.
 	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailable(gomock.Any()).
 		Return(highestVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
-		gomock.Any(), highestVersion, []agentbinary.Architecture{agentbinary.AMD64},
+		gomock.Any(), highestVersion, []domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(false, nil)
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
@@ -237,7 +237,7 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamNodeBlocker(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(
-		gomock.Any(), modelagent.AgentStreamDevel,
+		gomock.Any(), domainagentbinary.AgentStreamDevel,
 	).Return(highestVersion, nil)
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
@@ -251,7 +251,7 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamNodeBlocker(c *tc.C) {
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	_, err = svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStreamDevel)
+	_, err = svc.UpgradeControllerWithStream(c.Context(), domainagentbinary.AgentStreamDevel)
 	blocker, is := errors.AsType[controllerupgradererrors.ControllerUpgradeBlocker](err)
 	c.Check(is, tc.IsTrue)
 	c.Check(blocker.Reason, tc.Matches, "controller nodes \\[(3 1|1 3)\\] are not running controller version \"4\\.0\\.4\"")
@@ -268,14 +268,14 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamErrorDowngrade(c *tc.C) {
 	currentControllerVersion, err := semversion.Parse("4.0.8")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(gomock.Any(), modelagent.AgentStreamDevel).
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(gomock.Any(), domainagentbinary.AgentStreamDevel).
 		Return(downGradeVersion, nil)
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	_, err = svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStreamDevel)
+	_, err = svc.UpgradeControllerWithStream(c.Context(), domainagentbinary.AgentStreamDevel)
 	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
 		"upgrading controller to recommended version %q is considered a downgrade",
 		downGradeVersion),
@@ -293,14 +293,14 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamErrorVersionNotSupported(c
 	currentControllerVersion, err := semversion.Parse("4.0.8")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(gomock.Any(), modelagent.AgentStreamDevel).
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(gomock.Any(), domainagentbinary.AgentStreamDevel).
 		Return(majorVersionChange, nil)
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	_, err = svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStreamDevel)
+	_, err = svc.UpgradeControllerWithStream(c.Context(), domainagentbinary.AgentStreamDevel)
 	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
 		"upgrading controller to recommended version %q is not supported",
 		majorVersionChange),
@@ -320,13 +320,13 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamMissingControllerBinaries(
 
 	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(
 		gomock.Any(),
-		modelagent.AgentStreamDevel,
+		domainagentbinary.AgentStreamDevel,
 	).Return(highestVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionStreamAndArchitectures(
 		gomock.Any(),
 		highestVersion,
-		modelagent.AgentStreamDevel,
-		[]agentbinary.Architecture{agentbinary.AMD64},
+		domainagentbinary.AgentStreamDevel,
+		[]domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(false, nil)
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
@@ -340,7 +340,7 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamMissingControllerBinaries(
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
-	_, err = svc.UpgradeControllerWithStream(c.Context(), modelagent.AgentStreamDevel)
+	_, err = svc.UpgradeControllerWithStream(c.Context(), domainagentbinary.AgentStreamDevel)
 	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
 		"updating controller to recommended version %q is missing agent binaries",
 		highestVersion),
@@ -359,10 +359,10 @@ func (s *serviceSuite) TestUpgradeControllerWithStream(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(
-		gomock.Any(), modelagent.AgentStreamProposed,
+		gomock.Any(), domainagentbinary.AgentStreamProposed,
 	).Return(highestVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionStreamAndArchitectures(
-		gomock.Any(), highestVersion, modelagent.AgentStreamProposed, []agentbinary.Architecture{agentbinary.AMD64},
+		gomock.Any(), highestVersion, domainagentbinary.AgentStreamProposed, []domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(true, nil)
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
@@ -379,13 +379,13 @@ func (s *serviceSuite) TestUpgradeControllerWithStream(c *tc.C) {
 		gomock.Any(),
 		currentControllerVersion,
 		highestVersion,
-		modelagent.AgentStreamProposed,
+		domainagentbinary.AgentStreamProposed,
 	).Return(nil)
 	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), highestVersion).Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
 	upgradedVer, err := svc.UpgradeControllerWithStream(
-		c.Context(), modelagent.AgentStreamProposed,
+		c.Context(), domainagentbinary.AgentStreamProposed,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(upgradedVer, tc.Equals, highestVersion)
@@ -450,7 +450,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNoChange(c *tc.C) {
 		currentControllerVersion, nil,
 	)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
-		gomock.Any(), upgradeVersion, []agentbinary.Architecture{agentbinary.AMD64},
+		gomock.Any(), upgradeVersion, []domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(true, nil)
 	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
 		map[string]semversion.Number{
@@ -513,7 +513,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionMissingBinaries(c *tc.C) {
 		}, nil,
 	)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
-		gomock.Any(), upgradeVersion, []agentbinary.Architecture{agentbinary.AMD64},
+		gomock.Any(), upgradeVersion, []domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(false, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
@@ -576,7 +576,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
-		gomock.Any(), upgradeVersion, []agentbinary.Architecture{agentbinary.AMD64},
+		gomock.Any(), upgradeVersion, []domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(true, nil).AnyTimes()
 
 	// Step 1. Setup the failure case where the model write succeeds but the
@@ -648,7 +648,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersion(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
-		gomock.Any(), upgradeVersion, []agentbinary.Architecture{agentbinary.AMD64},
+		gomock.Any(), upgradeVersion, []domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(true, nil).AnyTimes()
 
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
@@ -690,7 +690,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamZero(c *tc.C) {
 	err := svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		semversion.Zero,
-		modelagent.AgentStreamProposed,
+		domainagentbinary.AgentStreamProposed,
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -716,7 +716,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamDowngrade(c *tc.C)
 	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		downGradeVersion,
-		modelagent.AgentStreamProposed,
+		domainagentbinary.AgentStreamProposed,
 	)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.DowngradeNotSupported)
 }
@@ -749,8 +749,8 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNoChange(c *tc.C) 
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionStreamAndArchitectures(
 		gomock.Any(),
 		upgradeVersion,
-		modelagent.AgentStreamDevel,
-		[]agentbinary.Architecture{agentbinary.AMD64},
+		domainagentbinary.AgentStreamDevel,
+		[]domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(true, nil)
 	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
 		map[string]semversion.Number{
@@ -761,7 +761,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNoChange(c *tc.C) 
 		gomock.Any(),
 		currentControllerVersion,
 		upgradeVersion,
-		modelagent.AgentStreamDevel,
+		domainagentbinary.AgentStreamDevel,
 	).Return(nil)
 	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).
 		Return(nil)
@@ -770,7 +770,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNoChange(c *tc.C) 
 	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
-		modelagent.AgentStreamDevel,
+		domainagentbinary.AgentStreamDevel,
 	)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -797,7 +797,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamGreaterThanPatch(c
 	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
-		modelagent.AgentStreamProposed,
+		domainagentbinary.AgentStreamProposed,
 	)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.VersionNotSupported)
 }
@@ -826,15 +826,15 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamMissingBinaries(c 
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionStreamAndArchitectures(
 		gomock.Any(),
 		upgradeVersion,
-		modelagent.AgentStreamProposed,
-		[]agentbinary.Architecture{agentbinary.AMD64},
+		domainagentbinary.AgentStreamProposed,
+		[]domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(false, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
 	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
-		modelagent.AgentStreamProposed,
+		domainagentbinary.AgentStreamProposed,
 	)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.MissingControllerBinaries)
 }
@@ -853,7 +853,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamInvalidStream(c *t
 	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
-		modelagent.AgentStream(-1),
+		domainagentbinary.Stream(-1),
 	)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentStreamNotValid)
 }
@@ -888,7 +888,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNodeBlocker(c *tc.
 	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
-		modelagent.AgentStreamProposed,
+		domainagentbinary.AgentStreamProposed,
 	)
 	blocker, is := errors.AsType[controllerupgradererrors.ControllerUpgradeBlocker](err)
 	c.Check(is, tc.IsTrue)
@@ -919,8 +919,8 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionStreamAndArchitectures(
 		gomock.Any(),
 		upgradeVersion,
-		modelagent.AgentStreamDevel,
-		[]agentbinary.Architecture{agentbinary.AMD64},
+		domainagentbinary.AgentStreamDevel,
+		[]domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(true, nil).AnyTimes()
 
 	// Step 1. Setup the failure case where the model write succeeds but the
@@ -944,7 +944,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 		gomock.Any(),
 		currentControllerVersion,
 		upgradeVersion,
-		modelagent.AgentStreamDevel,
+		domainagentbinary.AgentStreamDevel,
 	).Return(nil)
 	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).Return(
 		errors.New("boom"),
@@ -954,7 +954,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
-		modelagent.AgentStreamDevel,
+		domainagentbinary.AgentStreamDevel,
 	)
 	c.Check(err, tc.NotNil)
 
@@ -981,7 +981,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 		gomock.Any(),
 		upgradeVersion,
 		upgradeVersion,
-		modelagent.AgentStreamDevel,
+		domainagentbinary.AgentStreamDevel,
 	).Return(nil)
 	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).Return(
 		nil,
@@ -990,7 +990,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
-		modelagent.AgentStreamDevel,
+		domainagentbinary.AgentStreamDevel,
 	)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -1008,8 +1008,8 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionStreamAndArchitectures(
 		gomock.Any(),
 		upgradeVersion,
-		modelagent.AgentStreamTesting,
-		[]agentbinary.Architecture{agentbinary.AMD64},
+		domainagentbinary.AgentStreamTesting,
+		[]domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(true, nil).AnyTimes()
 
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
@@ -1029,7 +1029,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 		gomock.Any(),
 		currentControllerVersion,
 		upgradeVersion,
-		modelagent.AgentStreamTesting,
+		domainagentbinary.AgentStreamTesting,
 	).Return(nil)
 	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).Return(
 		nil,
@@ -1039,7 +1039,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 	err = svc.UpgradeControllerToVersionWithStream(
 		c.Context(),
 		upgradeVersion,
-		modelagent.AgentStreamTesting,
+		domainagentbinary.AgentStreamTesting,
 	)
 	c.Check(err, tc.ErrorIsNil)
 }

@@ -101,6 +101,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.SSHImporterPurpose).Return(s.httpClient, nil)
+	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.SimpleStreamPurpose).Return(s.simpleStreamClient, nil)
 
 	getter := map[string]any{
 		"changestream":    s.dbGetter,
@@ -152,6 +153,7 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *tc.C) {
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
 		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
+		SimpleStreamsClient:         s.httpClient,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -178,6 +180,7 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *tc.C) {
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
+		SimpleStreamsClient:         s.httpClient,
 		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
 	})
@@ -206,6 +209,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
+		SimpleStreamsClient:         s.httpClient,
 		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
 	})
@@ -228,11 +232,13 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *tc.C) {
 	factory := NewModelDomainServices(
 		"model",
 		s.dbGetter,
+		s.controllerObjectStoreGetter,
 		s.modelObjectStoreGetter,
 		s.modelStorageRegistryGetter,
 		s.publicKeyImporter,
 		s.modelLeaseManagerGetter,
 		c.MkDir(),
+		s.httpClient,
 		s.clock,
 		s.logger,
 	)
@@ -256,6 +262,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *tc.C) {
 		s.publicKeyImporter,
 		s.leaseManager,
 		c.MkDir(),
+		s.httpClient,
 		s.clock,
 		s.loggerContextGetter,
 	)
@@ -297,6 +304,7 @@ func noopDomainServicesGetter(
 	domainservices.PublicKeyImporter,
 	lease.Manager,
 	string,
+	corehttp.HTTPClient,
 	clock.Clock,
 	logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
@@ -317,11 +325,13 @@ func noopModelDomainServices(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
+	objectstore.NamespacedObjectStoreGetter,
 	objectstore.ModelObjectStoreGetter,
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.ModelLeaseManagerGetter,
 	string,
+	corehttp.HTTPClient,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices {

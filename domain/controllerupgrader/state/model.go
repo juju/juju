@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/agentbinary"
-	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -204,7 +203,7 @@ func (s *ControllerModelState) SetModelTargetAgentVersionAndStream(
 	ctx context.Context,
 	preCondition semversion.Number,
 	toVersion semversion.Number,
-	stream modelagent.AgentStream,
+	stream agentbinary.Stream,
 ) error {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -321,7 +320,7 @@ AND    architecture_id IN ($ids[:])
 }
 
 // GetModelAgentStream returns the existing stream in use for the agent.
-func (s *ControllerModelState) GetModelAgentStream(ctx context.Context) (modelagent.AgentStream, error) {
+func (s *ControllerModelState) GetModelAgentStream(ctx context.Context) (agentbinary.Stream, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
@@ -352,5 +351,5 @@ FROM   agent_version
 		return -1, errors.Capture(err)
 	}
 
-	return modelagent.AgentStream(stream.StreamID), errors.Capture(err)
+	return agentbinary.Stream(stream.StreamID), errors.Capture(err)
 }

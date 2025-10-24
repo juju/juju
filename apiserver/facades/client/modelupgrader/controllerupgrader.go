@@ -16,8 +16,8 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
-	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -36,7 +36,7 @@ type ControllerUpgraderService interface {
 	// controller's major and minor version.
 	UpgradeControllerWithStream(
 		ctx context.Context,
-		stream modelagent.AgentStream,
+		stream domainagentbinary.Stream,
 	) (semversion.Number, error)
 	// UpgradeControllerToVersion upgrades the current clusters set of
 	// controllers to the specified version.
@@ -50,7 +50,7 @@ type ControllerUpgraderService interface {
 	UpgradeControllerToVersionWithStream(
 		ctx context.Context,
 		desiredVersion semversion.Number,
-		stream modelagent.AgentStream,
+		stream domainagentbinary.Stream,
 	) error
 
 	// RunPreUpgradeChecks determines whether the controller can be upgraded
@@ -72,7 +72,7 @@ type ControllerUpgraderService interface {
 	// if all validation checks pass.
 	RunPreUpgradeChecksWithStream(
 		ctx context.Context,
-		stream modelagent.AgentStream,
+		stream domainagentbinary.Stream,
 	) (semversion.Number, error)
 
 	// RunPreUpgradeChecksToVersionWithStream determines whether the controller
@@ -81,7 +81,7 @@ type ControllerUpgraderService interface {
 	RunPreUpgradeChecksToVersionWithStream(
 		ctx context.Context,
 		desiredVersion semversion.Number,
-		stream modelagent.AgentStream,
+		stream domainagentbinary.Stream,
 	) error
 }
 
@@ -217,7 +217,7 @@ func (c *ControllerUpgraderAPI) runUpgrade(
 	var (
 		hasStreamChange  = arg.AgentStream != ""
 		hasTargetVersion = arg.TargetVersion != semversion.Zero
-		targetStream     modelagent.AgentStream
+		targetStream     domainagentbinary.Stream
 		targetVersion    = arg.TargetVersion
 		upgrader         func(context.Context) error
 		result           params.UpgradeModelResult
@@ -226,7 +226,7 @@ func (c *ControllerUpgraderAPI) runUpgrade(
 
 	// Parse the agent stream.
 	if arg.AgentStream != "" {
-		targetStream, err = modelagent.AgentStreamFromCoreAgentStream(
+		targetStream, err = domainagentbinary.StreamFromCoreAgentBinaryStream(
 			agentbinary.AgentStream(arg.AgentStream),
 		)
 		if err != nil {
@@ -291,7 +291,7 @@ func (c *ControllerUpgraderAPI) dryRunUpgrade(
 	var (
 		hasStreamChange  = arg.AgentStream != ""
 		hasTargetVersion = arg.TargetVersion != semversion.Zero
-		targetStream     modelagent.AgentStream
+		targetStream     domainagentbinary.Stream
 		targetVersion    = arg.TargetVersion
 		dryRunValidate   func(context.Context) (semversion.Number, error)
 		result           params.UpgradeModelResult
@@ -300,7 +300,7 @@ func (c *ControllerUpgraderAPI) dryRunUpgrade(
 
 	// Parse the agent stream.
 	if arg.AgentStream != "" {
-		targetStream, err = modelagent.AgentStreamFromCoreAgentStream(
+		targetStream, err = domainagentbinary.StreamFromCoreAgentBinaryStream(
 			agentbinary.AgentStream(arg.AgentStream),
 		)
 		if err != nil {

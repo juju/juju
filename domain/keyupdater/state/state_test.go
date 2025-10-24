@@ -15,10 +15,10 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	statemodel "github.com/juju/juju/domain/model/state/model"
-	"github.com/juju/juju/domain/modelagent"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -106,7 +106,7 @@ func (s *stateSuite) TestGetModelId(c *tc.C) {
 		UUID:               modelUUID,
 		LatestAgentVersion: jujuversion.Current,
 		AgentVersion:       jujuversion.Current,
-		AgentStream:        modelagent.AgentStreamReleased,
+		AgentStream:        domainagentbinary.AgentStreamReleased,
 		ControllerUUID:     uuid.MustNewUUID(),
 		Name:               "my-awesome-model",
 		Qualifier:          "prod",

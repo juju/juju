@@ -18,9 +18,9 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -159,7 +159,7 @@ type ModelState interface {
 
 	// SetModelAgentStream is responsible for setting the agent stream that is
 	// in use by the current model.
-	SetModelAgentStream(context.Context, modelagent.AgentStream) error
+	SetModelAgentStream(context.Context, domainagentbinary.Stream) error
 
 	// SetModelTargetAgentVersion is responsible for setting the current target
 	// agent version of the model. This function expects a precondition version
@@ -180,7 +180,7 @@ type ModelState interface {
 		ctx context.Context,
 		preCondition semversion.Number,
 		toVersion semversion.Number,
-		stream modelagent.AgentStream,
+		stream domainagentbinary.Stream,
 	) error
 
 	// UpdateLatestAgentVersion persists the latest available agent version.
@@ -553,22 +553,20 @@ func (s *Service) SetMachineReportedAgentVersion(
 // value an error satisfying [coreerrors.NotValid] is returned.
 func (s *Service) SetModelAgentStream(
 	ctx context.Context,
-	agentStream agentbinary.AgentStream,
+	agentStream domainagentbinary.Stream,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-
-	domainAgentStream, err := modelagent.AgentStreamFromCoreAgentStream(agentStream)
-	if errors.Is(err, coreerrors.NotValid) {
+	if !agentStream.IsValid() {
 		return errors.Errorf(
 			"agent stream %q is not valid or understood", agentStream,
 		).Add(coreerrors.NotValid)
 	}
 
-	if err := s.modelSt.SetModelAgentStream(ctx, domainAgentStream); err != nil {
+	if err := s.modelSt.SetModelAgentStream(ctx, agentStream); err != nil {
 		return errors.Errorf(
 			"setting model agent stream %q to value %d in state: %w",
-			agentStream, domainAgentStream, err,
+			agentStream, agentStream, err,
 		)
 	}
 
@@ -699,7 +697,7 @@ func (s *Service) UpgradeModelTargetAgentVersion(
 // model that prevents the model from being upgraded.
 func (s *Service) UpgradeModelTargetAgentVersionStream(
 	ctx context.Context,
-	agentStream modelagent.AgentStream,
+	agentStream domainagentbinary.Stream,
 ) (semversion.Number, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -830,7 +828,7 @@ func (s *Service) UpgradeModelTargetAgentVersionTo(
 func (s *Service) UpgradeModelTargetAgentVersionStreamTo(
 	ctx context.Context,
 	desiredTargetVersion semversion.Number,
-	agentStream modelagent.AgentStream,
+	agentStream domainagentbinary.Stream,
 ) error {
 	// NOTE (tlm): We don't try and short circuit version upgrading if the model
 	// is already at the current desired version. This is because this

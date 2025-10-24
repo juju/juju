@@ -16,8 +16,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/agentbinary"
-	"github.com/juju/juju/domain/modelagent"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -94,7 +93,7 @@ VALUES (?, ?, ?, ?)
 // It is dependent upon architecture and object store metadata for its foreign keys.
 // Architecture is auto seeded in the DDL. However, addObjectStore must be invoked prior to
 // addAgentBinaryStore.
-func (s *controllerStateSuite) addAgentBinaryStore(c *tc.C, version semversion.Number, architecture agentbinary.Architecture, storeUUID objectstore.UUID) {
+func (s *controllerStateSuite) addAgentBinaryStore(c *tc.C, version semversion.Number, architecture domainagentbinary.Architecture, storeUUID objectstore.UUID) {
 	_, err := s.DB().Exec(`
 INSERT INTO agent_binary_store(version, architecture_id, object_store_uuid) VALUES(?, ?, ?)
 `, version.String(), int(architecture), storeUUID.String())
@@ -199,17 +198,17 @@ func (s *controllerStateSuite) TestHasAgentBinaryForVersionArchitecturesAndStrea
 	version, err := semversion.Parse("4.0.0")
 	c.Assert(err, tc.ErrorIsNil)
 	storeUUID := s.addObjectStore(c)
-	s.addAgentBinaryStore(c, version, agentbinary.AMD64, storeUUID)
-	s.addAgentBinaryStore(c, version, agentbinary.ARM64, storeUUID)
+	s.addAgentBinaryStore(c, version, domainagentbinary.AMD64, storeUUID)
+	s.addAgentBinaryStore(c, version, domainagentbinary.ARM64, storeUUID)
 
 	st := NewControllerState(s.TxnRunnerFactory())
 
-	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64}, modelagent.AgentStreamReleased)
+	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.ARM64}, domainagentbinary.AgentStreamReleased)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(agents, tc.DeepEquals, map[agentbinary.Architecture]bool{
-		agentbinary.AMD64: true,
-		agentbinary.ARM64: true,
+	c.Assert(agents, tc.DeepEquals, map[domainagentbinary.Architecture]bool{
+		domainagentbinary.AMD64: true,
+		domainagentbinary.ARM64: true,
 	})
 }
 
@@ -219,17 +218,17 @@ func (s *controllerStateSuite) TestHasAgentBinaryForVersionArchitecturesAndStrea
 	version, err := semversion.Parse("4.0.0")
 	c.Assert(err, tc.ErrorIsNil)
 	storeUUID := s.addObjectStore(c)
-	s.addAgentBinaryStore(c, version, agentbinary.AMD64, storeUUID)
-	s.addAgentBinaryStore(c, version, agentbinary.ARM64, storeUUID)
+	s.addAgentBinaryStore(c, version, domainagentbinary.AMD64, storeUUID)
+	s.addAgentBinaryStore(c, version, domainagentbinary.ARM64, storeUUID)
 
 	st := NewControllerState(s.TxnRunnerFactory())
 
-	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []agentbinary.Architecture{agentbinary.AMD64, agentbinary.PPC64EL, agentbinary.RISCV64}, modelagent.AgentStreamReleased)
+	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.PPC64EL, domainagentbinary.RISCV64}, domainagentbinary.AgentStreamReleased)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(agents, tc.DeepEquals, map[agentbinary.Architecture]bool{
-		agentbinary.AMD64:   true,
-		agentbinary.PPC64EL: false,
-		agentbinary.RISCV64: false,
+	c.Assert(agents, tc.DeepEquals, map[domainagentbinary.Architecture]bool{
+		domainagentbinary.AMD64:   true,
+		domainagentbinary.PPC64EL: false,
+		domainagentbinary.RISCV64: false,
 	})
 }

@@ -30,7 +30,7 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/agentbinary"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	agentbinarystate "github.com/juju/juju/domain/agentbinary/state"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -42,7 +42,6 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
-	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
@@ -195,9 +194,9 @@ VALUES ($dbMetadataPath.*)`, pathRecord)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = agentbinarystate.NewState(s.TxnRunnerFactory()).RegisterAgentBinary(
+	err = agentbinarystate.NewModelState(s.TxnRunnerFactory()).RegisterAgentBinary(
 		c.Context(),
-		agentbinary.RegisterAgentBinaryArg{
+		domainagentbinary.RegisterAgentBinaryArg{
 			Arch:            version.Arch,
 			ObjectStoreUUID: objectstore.UUID(storeUUID),
 			Version:         version.Number.String(),
@@ -216,13 +215,13 @@ VALUES ($dbMetadataPath.*)`, pathRecord)
 // setModelTargetAgentVersion is a testing utility for establishing an initial
 // target agent version for the model.
 func (s *modelStateSuite) setModelTargetAgentVersion(c *tc.C, vers string) {
-	s.setModelTargetAgentVersionInfo(c, vers, vers, modelagent.AgentStreamReleased)
+	s.setModelTargetAgentVersionInfo(c, vers, vers, domainagentbinary.AgentStreamReleased)
 }
 
 // setModelTargetAgentVersion is a testing utility for establishing an initial
 // target agent version and stream for the model.
 func (s *modelStateSuite) setModelTargetAgentVersionInfo(
-	c *tc.C, latestVersion, targetVersion string, stream modelagent.AgentStream,
+	c *tc.C, latestVersion, targetVersion string, stream domainagentbinary.Stream,
 ) {
 	db, err := domain.NewStateBase(s.TxnRunnerFactory()).DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -364,7 +363,7 @@ func (s *modelStateSuite) createTestingApplicationWithName(
 	return appID
 }
 
-// TestGetModelAgentVersionSuccess tests that State.GetModelAgentVersion is
+// TestGetModelAgentVersionSuccess tests that ControllerState.GetModelAgentVersion is
 // correct in the expected case when the model exists.
 func (s *modelStateSuite) TestGetModelAgentVersionSuccess(c *tc.C) {
 	expectedVersion, err := semversion.Parse("4.21.54")
@@ -378,7 +377,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionSuccess(c *tc.C) {
 	c.Check(obtainedVersion, tc.DeepEquals, expectedVersion)
 }
 
-// TestGetModelAgentVersionModelNotFound tests that State.GetModelAgentVersion
+// TestGetModelAgentVersionModelNotFound tests that ControllerState.GetModelAgentVersion
 // returns modelerrors.NotFound when the model does not exist in the DB.
 func (s *modelStateSuite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
@@ -387,7 +386,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
-// TestGetModelAgentVersionCantParseVersion tests that State.GetModelAgentVersion
+// TestGetModelAgentVersionCantParseVersion tests that ControllerState.GetModelAgentVersion
 // returns an appropriate error when the agent version in the DB is invalid.
 func (s *modelStateSuite) TestGetModelAgentVersionCantParseVersion(c *tc.C) {
 	s.setModelTargetAgentVersion(c, "invalid-version")
@@ -1270,20 +1269,20 @@ INSERT INTO agent_version (stream_id, target_version, latest_version) VALUES (1,
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
-	err = st.SetModelAgentStream(c.Context(), modelagent.AgentStreamTesting)
+	err = st.SetModelAgentStream(c.Context(), domainagentbinary.AgentStreamTesting)
 	c.Check(err, tc.ErrorIsNil)
 
 	agentStream, err := st.GetModelAgentStream(c.Context())
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(agentStream, tc.Equals, modelagent.AgentStreamTesting)
+	c.Check(agentStream, tc.Equals, domainagentbinary.AgentStreamTesting)
 
 	// One more change for good measure.
-	err = st.SetModelAgentStream(c.Context(), modelagent.AgentStreamProposed)
+	err = st.SetModelAgentStream(c.Context(), domainagentbinary.AgentStreamProposed)
 	c.Check(err, tc.ErrorIsNil)
 
 	agentStream, err = st.GetModelAgentStream(c.Context())
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(agentStream, tc.Equals, modelagent.AgentStreamProposed)
+	c.Check(agentStream, tc.Equals, domainagentbinary.AgentStreamProposed)
 }
 
 // TestGetMachineCountNotUsingBaseNilMachines tests that when no machines
@@ -1413,7 +1412,7 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamNotSet(c *tc.C)
 	st := NewState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
-		c.Context(), preCondition, toVersion, modelagent.AgentStreamTesting,
+		c.Context(), preCondition, toVersion, domainagentbinary.AgentStreamTesting,
 	)
 	c.Check(err, tc.NotNil)
 }
@@ -1426,11 +1425,11 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamPreconditionFai
 	c.Assert(err, tc.ErrorIsNil)
 	toVersion, err := semversion.Parse("4.2.0")
 	c.Assert(err, tc.ErrorIsNil)
-	s.setModelTargetAgentVersionInfo(c, "4.1.1", "4.1.1", modelagent.AgentStreamTesting)
+	s.setModelTargetAgentVersionInfo(c, "4.1.1", "4.1.1", domainagentbinary.AgentStreamTesting)
 	st := NewState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
-		c.Context(), preCondition, toVersion, modelagent.AgentStreamDevel,
+		c.Context(), preCondition, toVersion, domainagentbinary.AgentStreamDevel,
 	)
 	c.Check(err, tc.NotNil)
 
@@ -1440,7 +1439,7 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamPreconditionFai
 
 	stream, err := st.GetModelAgentStream(c.Context())
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(stream, tc.Equals, modelagent.AgentStreamTesting)
+	c.Check(stream, tc.Equals, domainagentbinary.AgentStreamTesting)
 }
 
 // TestSetModelTargetAgentVersionAndStream is a happy path test for
@@ -1450,11 +1449,11 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStream(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	toVersion, err := semversion.Parse("4.2.0")
 	c.Assert(err, tc.ErrorIsNil)
-	s.setModelTargetAgentVersionInfo(c, "4.1.0", "4.1.0", modelagent.AgentStreamReleased)
+	s.setModelTargetAgentVersionInfo(c, "4.1.0", "4.1.0", domainagentbinary.AgentStreamReleased)
 	st := NewState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
-		c.Context(), preCondition, toVersion, modelagent.AgentStreamDevel,
+		c.Context(), preCondition, toVersion, domainagentbinary.AgentStreamDevel,
 	)
 	c.Check(err, tc.ErrorIsNil)
 
@@ -1464,7 +1463,7 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStream(c *tc.C) {
 
 	stream, err := st.GetModelAgentStream(c.Context())
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(stream, tc.Equals, modelagent.AgentStreamDevel)
+	c.Check(stream, tc.Equals, domainagentbinary.AgentStreamDevel)
 }
 
 // TestSetModelTargetAgentVersionAndStreamNoStreamChange is a happy path test
@@ -1476,11 +1475,11 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamNoStreamChange(
 	c.Assert(err, tc.ErrorIsNil)
 	toVersion, err := semversion.Parse("4.2.0")
 	c.Assert(err, tc.ErrorIsNil)
-	s.setModelTargetAgentVersionInfo(c, "4.1.0", "4.1.0", modelagent.AgentStreamReleased)
+	s.setModelTargetAgentVersionInfo(c, "4.1.0", "4.1.0", domainagentbinary.AgentStreamReleased)
 	st := NewState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
-		c.Context(), preCondition, toVersion, modelagent.AgentStreamReleased,
+		c.Context(), preCondition, toVersion, domainagentbinary.AgentStreamReleased,
 	)
 	c.Check(err, tc.ErrorIsNil)
 
@@ -1490,11 +1489,11 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamNoStreamChange(
 
 	stream, err := st.GetModelAgentStream(c.Context())
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(stream, tc.Equals, modelagent.AgentStreamReleased)
+	c.Check(stream, tc.Equals, domainagentbinary.AgentStreamReleased)
 }
 
 func (s *modelStateSuite) TestUpdateLatestAgentVersion(c *tc.C) {
-	s.setModelTargetAgentVersionInfo(c, "4.1.0", "4.1.0", modelagent.AgentStreamReleased)
+	s.setModelTargetAgentVersionInfo(c, "4.1.0", "4.1.0", domainagentbinary.AgentStreamReleased)
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.UpdateLatestAgentVersion(c.Context(), semversion.MustParse("9.10.11"))
@@ -1510,7 +1509,7 @@ func (s *modelStateSuite) TestUpdateLatestAgentVersion(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestUpdateLatestAgentVersionLessThanCurrentLatest(c *tc.C) {
-	s.setModelTargetAgentVersionInfo(c, "4.2.0", "4.0.0", modelagent.AgentStreamReleased)
+	s.setModelTargetAgentVersionInfo(c, "4.2.0", "4.0.0", domainagentbinary.AgentStreamReleased)
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.UpdateLatestAgentVersion(c.Context(), semversion.MustParse("4.1.0"))
@@ -1518,7 +1517,7 @@ func (s *modelStateSuite) TestUpdateLatestAgentVersionLessThanCurrentLatest(c *t
 }
 
 func (s *modelStateSuite) TestUpdateLatestAgentVersionLessThanCurrentTarget(c *tc.C) {
-	s.setModelTargetAgentVersionInfo(c, "4.0.0", "4.2.0", modelagent.AgentStreamReleased)
+	s.setModelTargetAgentVersionInfo(c, "4.0.0", "4.2.0", domainagentbinary.AgentStreamReleased)
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.UpdateLatestAgentVersion(c.Context(), semversion.MustParse("4.1.0"))

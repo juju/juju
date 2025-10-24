@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/agentbinary"
-	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -177,7 +176,12 @@ SET    target_version = $setControllerTargetVersion.target_version
 // to grab the agent.
 // TODO(adisazhar123): at the moment, `stream` isn't modeled in the controller DB so it's a noop. This is for a
 // future effort to match the given `stream` when grabbing the agents.
-func (s *ControllerState) HasAgentBinariesForVersionArchitecturesAndStream(ctx context.Context, version semversion.Number, architectures []agentbinary.Architecture, stream modelagent.AgentStream) (map[agentbinary.Architecture]bool, error) {
+func (s *ControllerState) HasAgentBinariesForVersionArchitecturesAndStream(
+	ctx context.Context,
+	version semversion.Number,
+	architectures []agentbinary.Architecture,
+	stream agentbinary.Stream,
+) (map[agentbinary.Architecture]bool, error) {
 	if len(architectures) == 0 {
 		return map[agentbinary.Architecture]bool{}, nil
 	}

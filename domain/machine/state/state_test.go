@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/network"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	statemodel "github.com/juju/juju/domain/model/state/model"
-	"github.com/juju/juju/domain/modelagent"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkstate "github.com/juju/juju/domain/network/state"
 	"github.com/juju/juju/internal/errors"
@@ -677,13 +677,13 @@ func (s *stateSuite) createApplicationWithUnitAndMachine(c *tc.C, controller, su
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, reference_name, source_id) 
+INSERT INTO charm (uuid, reference_name, source_id)
 VALUES (?, 'foo', 0)`, "charm-uuid")
 		if err != nil {
 			return errors.Capture(err)
 		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_metadata (charm_uuid, name, subordinate) 
+INSERT INTO charm_metadata (charm_uuid, name, subordinate)
 VALUES (?, 'foo', ?)`, "charm-uuid", subordinate)
 		if err != nil {
 			return errors.Capture(err)
@@ -1196,7 +1196,7 @@ func (s *stateSuite) createTestModel(c *tc.C) coremodel.UUID {
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
 		UUID:               id,
-		AgentStream:        modelagent.AgentStreamReleased,
+		AgentStream:        domainagentbinary.AgentStreamReleased,
 		AgentVersion:       jujuversion.Current,
 		LatestAgentVersion: jujuversion.Current,
 		ControllerUUID:     uuid.MustNewUUID(),

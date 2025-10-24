@@ -21,11 +21,11 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelinternal "github.com/juju/juju/domain/model/internal"
-	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
@@ -468,7 +468,7 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 		return err
 	}
 
-	argAgentStream, err := modelagent.AgentStreamFromCoreAgentStream(agentStream)
+	argAgentStream, err := domainagentbinary.StreamFromCoreAgentBinaryStream(agentStream)
 	if errors.Is(err, coreerrors.NotValid) {
 		return errors.New(
 			"agent stream %q is not a valid agent stream identifier for a model",

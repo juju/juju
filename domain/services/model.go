@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -117,14 +118,16 @@ type PublicKeyImporter interface {
 type ModelServices struct {
 	modelServiceFactoryBase
 
-	modelUUID              model.UUID
-	providerFactory        providertracker.ProviderFactory
-	modelObjectStoreGetter objectstore.ModelObjectStoreGetter
-	storageRegistry        corestorage.ModelStorageRegistryGetter
-	publicKeyImporter      PublicKeyImporter
-	leaseManager           lease.ModelLeaseManagerGetter
-	logDir                 string
-	clock                  clock.Clock
+	modelUUID                   model.UUID
+	providerFactory             providertracker.ProviderFactory
+	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter
+	modelObjectStoreGetter      objectstore.ModelObjectStoreGetter
+	storageRegistry             corestorage.ModelStorageRegistryGetter
+	publicKeyImporter           PublicKeyImporter
+	simplestreamsClient         http.HTTPClient
+	leaseManager                lease.ModelLeaseManagerGetter
+	logDir                      string
+	clock                       clock.Clock
 }
 
 // NewModelServices returns a new registry which uses the provided modelDB
@@ -134,11 +137,13 @@ func NewModelServices(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
+	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter,
 	modelObjectStoreGetter objectstore.ModelObjectStoreGetter,
 	storageRegistry corestorage.ModelStorageRegistryGetter,
 	publicKeyImporter PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
 	logDir string,
+	simpleStreamsClient http.HTTPClient,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ModelServices {
@@ -150,14 +155,16 @@ func NewModelServices(
 			},
 			modelDB: modelDB,
 		},
-		modelUUID:              modelUUID,
-		providerFactory:        providerFactory,
-		modelObjectStoreGetter: modelObjectStoreGetter,
-		storageRegistry:        storageRegistry,
-		publicKeyImporter:      publicKeyImporter,
-		leaseManager:           leaseManager,
-		logDir:                 logDir,
-		clock:                  clock,
+		modelUUID:                   modelUUID,
+		providerFactory:             providerFactory,
+		modelObjectStoreGetter:      modelObjectStoreGetter,
+		storageRegistry:             storageRegistry,
+		publicKeyImporter:           publicKeyImporter,
+		leaseManager:                leaseManager,
+		simplestreamsClient:         simpleStreamsClient,
+		logDir:                      logDir,
+		clock:                       clock,
+		controllerObjectStoreGetter: controllerObjectStoreGetter,
 	}
 }
 
@@ -165,8 +172,8 @@ func NewModelServices(
 // for the current model.
 func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
 	return agentbinaryservice.NewAgentBinaryStore(
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.logger.Child("modelagentbinary"),
+		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.logger.Child("agentbinary"),
 		s.modelObjectStoreGetter,
 	)
 }
@@ -174,13 +181,22 @@ func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore 
 // AgentBinary returns the model's [agentbinaryservice.AgentBinaryService].
 func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
 	return agentbinaryservice.NewAgentBinaryService(
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
 			s.providerFactory, s.modelUUID.String(),
+		), envtools.PreferredStreams, envtools.FindTools,
+		agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.AgentBinaryStore(),
+		agentbinaryservice.NewAgentBinaryStore(
+			agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+			s.logger.Child("controlleragentbinary"),
+			s.controllerObjectStoreGetter,
 		),
-		envtools.PreferredStreams, envtools.FindTools,
-	)
+		agentbinaryservice.NewSimpleStreamAgentBinaryStore(
+			providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
+				s.providerFactory, s.modelUUID.String(),
+			), envtools.FindTools, s.simplestreamsClient,
+		))
 }
 
 // AgentProvisioner returns the agent provisioner service.

@@ -15,7 +15,6 @@ import (
 
 	semversion "github.com/juju/juju/core/semversion"
 	agentbinary "github.com/juju/juju/domain/agentbinary"
-	modelagent "github.com/juju/juju/domain/modelagent"
 	environs "github.com/juju/juju/environs"
 	tools "github.com/juju/juju/environs/tools"
 	tools0 "github.com/juju/juju/internal/tools"
@@ -85,7 +84,7 @@ func (c *MockAgentBinaryFinderGetHighestPatchVersionAvailableCall) DoAndReturn(f
 }
 
 // GetHighestPatchVersionAvailableForStream mocks base method.
-func (m *MockAgentBinaryFinder) GetHighestPatchVersionAvailableForStream(arg0 context.Context, arg1 modelagent.AgentStream) (semversion.Number, error) {
+func (m *MockAgentBinaryFinder) GetHighestPatchVersionAvailableForStream(arg0 context.Context, arg1 agentbinary.Stream) (semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHighestPatchVersionAvailableForStream", arg0, arg1)
 	ret0, _ := ret[0].(semversion.Number)
@@ -112,13 +111,13 @@ func (c *MockAgentBinaryFinderGetHighestPatchVersionAvailableForStreamCall) Retu
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentBinaryFinderGetHighestPatchVersionAvailableForStreamCall) Do(f func(context.Context, modelagent.AgentStream) (semversion.Number, error)) *MockAgentBinaryFinderGetHighestPatchVersionAvailableForStreamCall {
+func (c *MockAgentBinaryFinderGetHighestPatchVersionAvailableForStreamCall) Do(f func(context.Context, agentbinary.Stream) (semversion.Number, error)) *MockAgentBinaryFinderGetHighestPatchVersionAvailableForStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentBinaryFinderGetHighestPatchVersionAvailableForStreamCall) DoAndReturn(f func(context.Context, modelagent.AgentStream) (semversion.Number, error)) *MockAgentBinaryFinderGetHighestPatchVersionAvailableForStreamCall {
+func (c *MockAgentBinaryFinderGetHighestPatchVersionAvailableForStreamCall) DoAndReturn(f func(context.Context, agentbinary.Stream) (semversion.Number, error)) *MockAgentBinaryFinderGetHighestPatchVersionAvailableForStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -163,7 +162,7 @@ func (c *MockAgentBinaryFinderHasBinariesForVersionAndArchitecturesCall) DoAndRe
 }
 
 // HasBinariesForVersionStreamAndArchitectures mocks base method.
-func (m *MockAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(arg0 context.Context, arg1 semversion.Number, arg2 modelagent.AgentStream, arg3 []agentbinary.Architecture) (bool, error) {
+func (m *MockAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(arg0 context.Context, arg1 semversion.Number, arg2 agentbinary.Stream, arg3 []agentbinary.Architecture) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HasBinariesForVersionStreamAndArchitectures", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(bool)
@@ -190,13 +189,13 @@ func (c *MockAgentBinaryFinderHasBinariesForVersionStreamAndArchitecturesCall) R
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentBinaryFinderHasBinariesForVersionStreamAndArchitecturesCall) Do(f func(context.Context, semversion.Number, modelagent.AgentStream, []agentbinary.Architecture) (bool, error)) *MockAgentBinaryFinderHasBinariesForVersionStreamAndArchitecturesCall {
+func (c *MockAgentBinaryFinderHasBinariesForVersionStreamAndArchitecturesCall) Do(f func(context.Context, semversion.Number, agentbinary.Stream, []agentbinary.Architecture) (bool, error)) *MockAgentBinaryFinderHasBinariesForVersionStreamAndArchitecturesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentBinaryFinderHasBinariesForVersionStreamAndArchitecturesCall) DoAndReturn(f func(context.Context, semversion.Number, modelagent.AgentStream, []agentbinary.Architecture) (bool, error)) *MockAgentBinaryFinderHasBinariesForVersionStreamAndArchitecturesCall {
+func (c *MockAgentBinaryFinderHasBinariesForVersionStreamAndArchitecturesCall) DoAndReturn(f func(context.Context, semversion.Number, agentbinary.Stream, []agentbinary.Architecture) (bool, error)) *MockAgentBinaryFinderHasBinariesForVersionStreamAndArchitecturesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -441,7 +440,7 @@ func (c *MockControllerModelStateSetModelTargetAgentVersionCall) DoAndReturn(f f
 }
 
 // SetModelTargetAgentVersionAndStream mocks base method.
-func (m *MockControllerModelState) SetModelTargetAgentVersionAndStream(arg0 context.Context, arg1, arg2 semversion.Number, arg3 modelagent.AgentStream) error {
+func (m *MockControllerModelState) SetModelTargetAgentVersionAndStream(arg0 context.Context, arg1, arg2 semversion.Number, arg3 agentbinary.Stream) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetModelTargetAgentVersionAndStream", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -467,13 +466,13 @@ func (c *MockControllerModelStateSetModelTargetAgentVersionAndStreamCall) Return
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerModelStateSetModelTargetAgentVersionAndStreamCall) Do(f func(context.Context, semversion.Number, semversion.Number, modelagent.AgentStream) error) *MockControllerModelStateSetModelTargetAgentVersionAndStreamCall {
+func (c *MockControllerModelStateSetModelTargetAgentVersionAndStreamCall) Do(f func(context.Context, semversion.Number, semversion.Number, agentbinary.Stream) error) *MockControllerModelStateSetModelTargetAgentVersionAndStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerModelStateSetModelTargetAgentVersionAndStreamCall) DoAndReturn(f func(context.Context, semversion.Number, semversion.Number, modelagent.AgentStream) error) *MockControllerModelStateSetModelTargetAgentVersionAndStreamCall {
+func (c *MockControllerModelStateSetModelTargetAgentVersionAndStreamCall) DoAndReturn(f func(context.Context, semversion.Number, semversion.Number, agentbinary.Stream) error) *MockControllerModelStateSetModelTargetAgentVersionAndStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -680,7 +679,7 @@ func (c *MockAgentFinderControllerStateGetControllerTargetVersionCall) DoAndRetu
 }
 
 // HasAgentBinariesForVersionArchitecturesAndStream mocks base method.
-func (m *MockAgentFinderControllerState) HasAgentBinariesForVersionArchitecturesAndStream(arg0 context.Context, arg1 semversion.Number, arg2 []agentbinary.Architecture, arg3 modelagent.AgentStream) (map[agentbinary.Architecture]bool, error) {
+func (m *MockAgentFinderControllerState) HasAgentBinariesForVersionArchitecturesAndStream(arg0 context.Context, arg1 semversion.Number, arg2 []agentbinary.Architecture, arg3 agentbinary.Stream) (map[agentbinary.Architecture]bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HasAgentBinariesForVersionArchitecturesAndStream", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(map[agentbinary.Architecture]bool)
@@ -707,13 +706,13 @@ func (c *MockAgentFinderControllerStateHasAgentBinariesForVersionArchitecturesAn
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentFinderControllerStateHasAgentBinariesForVersionArchitecturesAndStreamCall) Do(f func(context.Context, semversion.Number, []agentbinary.Architecture, modelagent.AgentStream) (map[agentbinary.Architecture]bool, error)) *MockAgentFinderControllerStateHasAgentBinariesForVersionArchitecturesAndStreamCall {
+func (c *MockAgentFinderControllerStateHasAgentBinariesForVersionArchitecturesAndStreamCall) Do(f func(context.Context, semversion.Number, []agentbinary.Architecture, agentbinary.Stream) (map[agentbinary.Architecture]bool, error)) *MockAgentFinderControllerStateHasAgentBinariesForVersionArchitecturesAndStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentFinderControllerStateHasAgentBinariesForVersionArchitecturesAndStreamCall) DoAndReturn(f func(context.Context, semversion.Number, []agentbinary.Architecture, modelagent.AgentStream) (map[agentbinary.Architecture]bool, error)) *MockAgentFinderControllerStateHasAgentBinariesForVersionArchitecturesAndStreamCall {
+func (c *MockAgentFinderControllerStateHasAgentBinariesForVersionArchitecturesAndStreamCall) DoAndReturn(f func(context.Context, semversion.Number, []agentbinary.Architecture, agentbinary.Stream) (map[agentbinary.Architecture]bool, error)) *MockAgentFinderControllerStateHasAgentBinariesForVersionArchitecturesAndStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -742,10 +741,10 @@ func (m *MockAgentFinderControllerModelState) EXPECT() *MockAgentFinderControlle
 }
 
 // GetModelAgentStream mocks base method.
-func (m *MockAgentFinderControllerModelState) GetModelAgentStream(arg0 context.Context) (modelagent.AgentStream, error) {
+func (m *MockAgentFinderControllerModelState) GetModelAgentStream(arg0 context.Context) (agentbinary.Stream, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelAgentStream", arg0)
-	ret0, _ := ret[0].(modelagent.AgentStream)
+	ret0, _ := ret[0].(agentbinary.Stream)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -763,19 +762,19 @@ type MockAgentFinderControllerModelStateGetModelAgentStreamCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAgentFinderControllerModelStateGetModelAgentStreamCall) Return(arg0 modelagent.AgentStream, arg1 error) *MockAgentFinderControllerModelStateGetModelAgentStreamCall {
+func (c *MockAgentFinderControllerModelStateGetModelAgentStreamCall) Return(arg0 agentbinary.Stream, arg1 error) *MockAgentFinderControllerModelStateGetModelAgentStreamCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentFinderControllerModelStateGetModelAgentStreamCall) Do(f func(context.Context) (modelagent.AgentStream, error)) *MockAgentFinderControllerModelStateGetModelAgentStreamCall {
+func (c *MockAgentFinderControllerModelStateGetModelAgentStreamCall) Do(f func(context.Context) (agentbinary.Stream, error)) *MockAgentFinderControllerModelStateGetModelAgentStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentFinderControllerModelStateGetModelAgentStreamCall) DoAndReturn(f func(context.Context) (modelagent.AgentStream, error)) *MockAgentFinderControllerModelStateGetModelAgentStreamCall {
+func (c *MockAgentFinderControllerModelStateGetModelAgentStreamCall) DoAndReturn(f func(context.Context) (agentbinary.Stream, error)) *MockAgentFinderControllerModelStateGetModelAgentStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

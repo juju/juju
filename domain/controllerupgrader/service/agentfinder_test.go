@@ -10,8 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/agentbinary"
-	"github.com/juju/juju/domain/modelagent"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
@@ -63,14 +62,14 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitectures(c *tc.C) {
 
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
-	architectures := []agentbinary.Architecture{agentbinary.AMD64}
+	architectures := []domainagentbinary.Architecture{domainagentbinary.AMD64}
 
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	s.modelSt.EXPECT().HasAgentBinariesForVersionAndArchitectures(gomock.Any(), version, architectures).
-		Return(map[agentbinary.Architecture]bool{agentbinary.AMD64: true}, nil)
+		Return(map[domainagentbinary.Architecture]bool{domainagentbinary.AMD64: true}, nil)
 
 	ok, err := binaryFinder.HasBinariesForVersionAndArchitectures(
 		c.Context(),
@@ -96,21 +95,25 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesWithMissingA
 
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
-	architectures := []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64}
+	architectures := []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.ARM64}
 
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	s.modelSt.EXPECT().HasAgentBinariesForVersionAndArchitectures(gomock.Any(), version, architectures).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: true,
-			agentbinary.ARM64: false,
+		Return(map[domainagentbinary.Architecture]bool{
+			domainagentbinary.AMD64: true,
+			domainagentbinary.ARM64: false,
 		}, nil)
-	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(gomock.Any(), version, []agentbinary.Architecture{agentbinary.ARM64}, modelagent.AgentStreamReleased).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.ARM64: true,
-		}, nil)
+	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(
+		gomock.Any(),
+		version,
+		[]domainagentbinary.Architecture{domainagentbinary.ARM64},
+		domainagentbinary.AgentStreamReleased,
+	).Return(map[domainagentbinary.Architecture]bool{
+		domainagentbinary.ARM64: true,
+	}, nil)
 
 	ok, err := binaryFinder.HasBinariesForVersionAndArchitectures(
 		c.Context(),
@@ -135,23 +138,28 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesFallbackToSi
 
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
-	architectures := []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64}
+	architectures := []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.ARM64}
 
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	// Model state doesn't have the agents we're looking for.
 	s.modelSt.EXPECT().HasAgentBinariesForVersionAndArchitectures(gomock.Any(), version, architectures).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: false,
-			agentbinary.ARM64: false,
+		Return(map[domainagentbinary.Architecture]bool{
+			domainagentbinary.AMD64: false,
+			domainagentbinary.ARM64: false,
 		}, nil)
 	// Sadly the controller state doesn't have them as well.
-	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(gomock.Any(), version, gomock.InAnyOrder(architectures), modelagent.AgentStreamReleased).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: false,
-			agentbinary.ARM64: false,
+	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(
+		gomock.Any(),
+		version,
+		gomock.InAnyOrder(architectures),
+		domainagentbinary.AgentStreamReleased,
+	).
+		Return(map[domainagentbinary.Architecture]bool{
+			domainagentbinary.AMD64: false,
+			domainagentbinary.ARM64: false,
 		}, nil)
 
 	// We now have to resort to simplestreams.
@@ -209,22 +217,26 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesNoneAvailabl
 
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
-	architectures := []agentbinary.Architecture{agentbinary.AMD64}
+	architectures := []domainagentbinary.Architecture{domainagentbinary.AMD64}
 
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	// Model state doesn't have the agents we're looking for.
 	s.modelSt.EXPECT().HasAgentBinariesForVersionAndArchitectures(gomock.Any(), version, architectures).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: false,
+		Return(map[domainagentbinary.Architecture]bool{
+			domainagentbinary.AMD64: false,
 		}, nil)
 	// Sadly the controller state doesn't have them as well.
-	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(gomock.Any(), version, gomock.InAnyOrder(architectures), modelagent.AgentStreamReleased).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: false,
-		}, nil)
+	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(
+		gomock.Any(),
+		version,
+		gomock.InAnyOrder(architectures),
+		domainagentbinary.AgentStreamReleased,
+	).Return(map[domainagentbinary.Architecture]bool{
+		domainagentbinary.AMD64: false,
+	}, nil)
 
 	// We now have to resort to simplestreams.
 	// Look for amd64 agent. Unfortunately, it doesn't exist here.
@@ -255,17 +267,17 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitectures(c *tc
 
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
-	architectures := []agentbinary.Architecture{agentbinary.AMD64}
+	architectures := []domainagentbinary.Architecture{domainagentbinary.AMD64}
 
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	s.modelSt.EXPECT().HasAgentBinariesForVersionAndArchitectures(gomock.Any(), version, architectures).
-		Return(map[agentbinary.Architecture]bool{agentbinary.AMD64: true}, nil)
+		Return(map[domainagentbinary.Architecture]bool{domainagentbinary.AMD64: true}, nil)
 
 	ok, err := binaryFinder.HasBinariesForVersionStreamAndArchitectures(
 		c.Context(),
 		version,
-		modelagent.AgentStreamReleased,
+		domainagentbinary.AgentStreamReleased,
 		architectures,
 	)
 
@@ -286,24 +298,28 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesWithMi
 
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
-	architectures := []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64}
+	architectures := []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.ARM64}
 
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	s.modelSt.EXPECT().HasAgentBinariesForVersionAndArchitectures(gomock.Any(), version, architectures).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: true,
-			agentbinary.ARM64: false,
+		Return(map[domainagentbinary.Architecture]bool{
+			domainagentbinary.AMD64: true,
+			domainagentbinary.ARM64: false,
 		}, nil)
-	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(gomock.Any(), version, []agentbinary.Architecture{agentbinary.ARM64}, modelagent.AgentStreamReleased).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.ARM64: true,
-		}, nil)
+	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(
+		gomock.Any(),
+		version,
+		[]domainagentbinary.Architecture{domainagentbinary.ARM64},
+		domainagentbinary.AgentStreamReleased,
+	).Return(map[domainagentbinary.Architecture]bool{
+		domainagentbinary.ARM64: true,
+	}, nil)
 
 	ok, err := binaryFinder.HasBinariesForVersionStreamAndArchitectures(
 		c.Context(),
 		version,
-		modelagent.AgentStreamReleased,
+		domainagentbinary.AgentStreamReleased,
 		architectures,
 	)
 
@@ -323,20 +339,24 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesWithDi
 
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
-	architectures := []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64}
+	architectures := []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.ARM64}
 
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamDevel, nil)
-	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(gomock.Any(), version, gomock.InAnyOrder(architectures), modelagent.AgentStreamReleased).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: true,
-			agentbinary.ARM64: true,
-		}, nil)
+		Return(domainagentbinary.AgentStreamDevel, nil)
+	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(
+		gomock.Any(),
+		version,
+		gomock.InAnyOrder(architectures),
+		domainagentbinary.AgentStreamReleased,
+	).Return(map[domainagentbinary.Architecture]bool{
+		domainagentbinary.AMD64: true,
+		domainagentbinary.ARM64: true,
+	}, nil)
 
 	ok, err := binaryFinder.HasBinariesForVersionStreamAndArchitectures(
 		c.Context(),
 		version,
-		modelagent.AgentStreamReleased,
+		domainagentbinary.AgentStreamReleased,
 		architectures,
 	)
 
@@ -357,22 +377,26 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesFallba
 
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
-	architectures := []agentbinary.Architecture{agentbinary.AMD64, agentbinary.ARM64}
+	architectures := []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.ARM64}
 
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	// Model state doesn't have the agents we're looking for.
 	s.modelSt.EXPECT().HasAgentBinariesForVersionAndArchitectures(gomock.Any(), version, gomock.InAnyOrder(architectures)).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: false,
-			agentbinary.ARM64: false,
+		Return(map[domainagentbinary.Architecture]bool{
+			domainagentbinary.AMD64: false,
+			domainagentbinary.ARM64: false,
 		}, nil)
 	// Sadly the controller state doesn't have them as well.
-	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(gomock.Any(), version, gomock.InAnyOrder(architectures), modelagent.AgentStreamReleased).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: false,
-			agentbinary.ARM64: false,
-		}, nil)
+	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(
+		gomock.Any(),
+		version,
+		gomock.InAnyOrder(architectures),
+		domainagentbinary.AgentStreamReleased,
+	).Return(map[domainagentbinary.Architecture]bool{
+		domainagentbinary.AMD64: false,
+		domainagentbinary.ARM64: false,
+	}, nil)
 
 	// We now have to resort to simplestreams.
 	gomock.InOrder(
@@ -410,7 +434,7 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesFallba
 	ok, err := binaryFinder.HasBinariesForVersionStreamAndArchitectures(
 		c.Context(),
 		version,
-		modelagent.AgentStreamReleased,
+		domainagentbinary.AgentStreamReleased,
 		architectures,
 	)
 
@@ -431,20 +455,24 @@ func (s *agentFinderSuite) TestTestHasBinariesForVersionStreamAndArchitecturesNo
 
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
-	architectures := []agentbinary.Architecture{agentbinary.AMD64}
+	architectures := []domainagentbinary.Architecture{domainagentbinary.AMD64}
 
 	s.modelSt.EXPECT().GetModelAgentStream(gomock.Any()).
-		Return(modelagent.AgentStreamReleased, nil)
+		Return(domainagentbinary.AgentStreamReleased, nil)
 	// Model state doesn't have the agents we're looking for.
 	s.modelSt.EXPECT().HasAgentBinariesForVersionAndArchitectures(gomock.Any(), version, architectures).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: false,
+		Return(map[domainagentbinary.Architecture]bool{
+			domainagentbinary.AMD64: false,
 		}, nil)
 	// Sadly the controller state doesn't have them as well.
-	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(gomock.Any(), version, gomock.InAnyOrder(architectures), modelagent.AgentStreamReleased).
-		Return(map[agentbinary.Architecture]bool{
-			agentbinary.AMD64: false,
-		}, nil)
+	s.ctrlSt.EXPECT().HasAgentBinariesForVersionArchitecturesAndStream(
+		gomock.Any(),
+		version,
+		gomock.InAnyOrder(architectures),
+		domainagentbinary.AgentStreamReleased,
+	).Return(map[domainagentbinary.Architecture]bool{
+		domainagentbinary.AMD64: false,
+	}, nil)
 
 	// We now have to resort to simplestreams.
 	// Look for amd64 agent. Unfortunately, it doesn't exist here.
@@ -456,7 +484,7 @@ func (s *agentFinderSuite) TestTestHasBinariesForVersionStreamAndArchitecturesNo
 	ok, err := binaryFinder.HasBinariesForVersionStreamAndArchitectures(
 		c.Context(),
 		version,
-		modelagent.AgentStreamReleased,
+		domainagentbinary.AgentStreamReleased,
 		architectures,
 	)
 
@@ -624,7 +652,7 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableForStream(c *tc.C)
 			},
 		}, nil)
 
-	highestPatch, err := binaryFinder.GetHighestPatchVersionAvailableForStream(c.Context(), modelagent.AgentStreamReleased)
+	highestPatch, err := binaryFinder.GetHighestPatchVersionAvailableForStream(c.Context(), domainagentbinary.AgentStreamReleased)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(highestPatch, tc.DeepEquals, highestVersion)
 }
@@ -648,6 +676,6 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableForStreamNoBinarie
 	s.agentFinder.EXPECT().AgentBinaryFilter(gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major, version.Minor, []string{"released"}, coretools.Filter{}).
 		Return(coretools.List{}, nil)
 
-	_, err = binaryFinder.GetHighestPatchVersionAvailableForStream(c.Context(), modelagent.AgentStreamReleased)
+	_, err = binaryFinder.GetHighestPatchVersionAvailableForStream(c.Context(), domainagentbinary.AgentStreamReleased)
 	c.Assert(err, tc.ErrorMatches, "no binary agent found for version 4.0.7")
 }

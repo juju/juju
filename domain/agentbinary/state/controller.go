@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/objectstore"
@@ -18,16 +19,16 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// State represents a type for interacting with the underlying state.
+// ControllerState represents a type for interacting with the underlying state.
 // It works with both controller and model databases.
-type State struct {
+type ControllerState struct {
 	*domain.StateBase
 }
 
-// NewState returns a new State for interacting with agent binaries stored in
+// NewControllerState returns a new ControllerState for interacting with agent binaries stored in
 // the database.
-func NewState(factory database.TxnRunnerFactory) *State {
-	return &State{
+func NewControllerState(factory database.TxnRunnerFactory) *ControllerState {
+	return &ControllerState{
 		StateBase: domain.NewStateBase(factory),
 	}
 }
@@ -36,7 +37,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // agent binary in the object store. This sha256 sum could exist as an object in
 // the object store but unless the association has been made this will always
 // return false.
-func (s *State) CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum string) (bool, error) {
+func (s *ControllerState) CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum string) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -78,7 +79,7 @@ WHERE sha_256 = $objectStoreSHA256Sum.sha_256
 // GetObjectUUID returns the object store UUID for the given file path.
 // The following errors can be returned:
 // - [agentbinaryerrors.ObjectNotFound] when no object exists that matches this path.
-func (s *State) GetObjectUUID(
+func (s *ControllerState) GetObjectUUID(
 	ctx context.Context,
 	path string,
 ) (objectstore.UUID, error) {
@@ -128,7 +129,7 @@ WHERE  path = $objectStorePath.path`, objectStore)
 // [agentbinaryerrors.AgentBinaryImmutable] if an existing agent binary
 // already exists with the same version and architecture but a different
 // SHA.
-func (s *State) RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error {
+func (s *ControllerState) RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -220,14 +221,14 @@ VALUES ($agentBinaryRecord.*)
 
 	if err != nil {
 		return errors.Errorf(
-			"adding agent binary for version %q and arch %q to state: %w",
+			"adding agent binary for version %q and arch %q to controller state: %w",
 			arg.Version, arg.Arch, err,
 		)
 	}
 	return nil
 }
 
-func (s *State) getAgentBinary(
+func (s *ControllerState) getAgentBinary(
 	ctx context.Context,
 	tx *sqlair.TX,
 	version string,
@@ -264,7 +265,7 @@ AND    architecture_id = $agentBinaryRecord.architecture_id
 
 // checkObjectExists checks if an object exists for the given UUID. True and
 // false will be returned with no error indicating if the object exists or not.
-func (s *State) checkObjectExists(
+func (s *ControllerState) checkObjectExists(
 	ctx context.Context,
 	tx *sqlair.TX,
 	objectUUID objectstore.UUID,
@@ -296,7 +297,7 @@ WHERE  uuid = $objectStoreUUID.uuid
 // ListAgentBinaries lists all agent binaries in the state.
 // It returns a slice of agent binary metadata.
 // An empty slice is returned if no agent binaries are found.
-func (s *State) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
+func (s *ControllerState) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -321,4 +322,46 @@ FROM   v_agent_binary_store`, metadataRecord{})
 		return nil, errors.Errorf("listing agent binary metadata: %w", err)
 	}
 	return records.toMetadata(), nil
+}
+
+// GetAgentBinarySHA256 retrieves the SHA256 value for the specified agent binary version.
+// It returns false and an empty string if no matching record exists.
+func (s *ControllerState) GetAgentBinarySHA256(ctx context.Context, version coreagentbinary.Version, stream agentbinary.Stream) (bool, string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, "", errors.Capture(err)
+	}
+
+	record := metadataRecord{
+		Version: version.Number.String(),
+	}
+
+	stmt, err := s.Prepare(`
+SELECT &metadataRecord.*
+FROM   v_agent_binary_store
+WHERE version = $metadataRecord.version`, record)
+	if err != nil {
+		return false, "", errors.Capture(err)
+	}
+
+	exists := false
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, record).Get(&record)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf(
+				"checking database to see if agent binary for version %q exists: %w",
+				version.Number.String(), err,
+			)
+		}
+		exists = true
+		return nil
+	})
+
+	if err != nil {
+		return false, "", errors.Capture(err)
+	}
+
+	return exists, record.SHA256, nil
 }
