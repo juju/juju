@@ -114,3 +114,65 @@ AND    unit_uuid = $unitUUID.uuid`,
 
 	return domainstorageprovisioning.StorageAttachmentUUID(dbVal.UUID), nil
 }
+
+// GetStorageInstanceAttachments returns the set of attachments a storage
+// instance has. If the storage instance has no attachments then an empty
+// slice.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound]
+// if the storage instance for the supplied uuid does not exist.
+func (s *State) GetStorageInstanceAttachments(
+	ctx context.Context,
+	uuid domainstorage.StorageInstanceUUID,
+) ([]domainstorageprovisioning.StorageAttachmentUUID, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	uuidInput := storageInstanceUUID{UUID: uuid.String()}
+
+	attachQ := `
+SELECT &entityUUID.*
+FROM storage_attachment
+WHERE storage_instance_uuid = $storageInstanceUUID.uuid
+`
+
+	stmt, err := s.Prepare(attachQ, uuidInput, entityUUID{})
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing storage instance attachments statement: %w", err,
+		)
+	}
+
+	dbVals := []entityUUID{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := s.checkStorageInstanceExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf(
+				"checking storage instance %q exists: %w", uuid, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"storage instance %q does not exist in the model", uuid,
+			).Add(domainstorageerrors.StorageInstanceNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, uuidInput).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make([]domainstorageprovisioning.StorageAttachmentUUID, 0, len(dbVals))
+	for _, dbVal := range dbVals {
+		rval = append(rval, domainstorageprovisioning.StorageAttachmentUUID(dbVal.UUID))
+	}
+	return rval, nil
+}
