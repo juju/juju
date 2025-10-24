@@ -35,7 +35,6 @@ func TestStorageSuite(t *stdtesting.T) {
 	suite.storageHelper.dbGetter = &suite.ModelSuite
 	tc.Run(t, suite)
 }
-
 func (s *storageSuite) TestGetStorageUUIDByID(c *tc.C) {
 	ctx := c.Context()
 
@@ -92,6 +91,77 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return poolUUID
+}
+
+func (s *applicationStateSuite) TestGetApplicationStorage(c *tc.C) {
+	ctx := c.Context()
+
+	ebsPoolUUID := s.createStoragePool(c, "my-ebs", "ebs")
+	rootFsPoolUUID := s.createStoragePool(c, "my-rootfs", "rootfs")
+	fastPoolUUID := s.createStoragePool(c, "my-fast", "ebs")
+
+	chStorage := []charm.Storage{{
+		Name: "database",
+		Type: "block",
+	}, {
+		Name: "logs",
+		Type: "filesystem",
+	}, {
+		Name: "cache",
+		Type: "block",
+	}}
+
+	directives := []internal.CreateApplicationStorageDirectiveArg{
+		{
+			Name:     "database",
+			PoolUUID: ebsPoolUUID,
+			Size:     10,
+			Count:    2,
+		},
+		{
+			Name:     "logs",
+			PoolUUID: rootFsPoolUUID,
+			Size:     20,
+			Count:    1,
+		},
+		{
+			Name:     "cache",
+			PoolUUID: fastPoolUUID,
+			Size:     30,
+			Count:    1,
+		},
+	}
+
+	appName := "test-app-storage"
+	appUUID, _, err := s.state.CreateIAASApplication(
+		ctx,
+		appName,
+		s.addIAASApplicationArgForStorage(
+			c,
+			appName,
+			chStorage,
+			directives,
+		),
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appUUID.IsEmpty(), tc.Equals, false)
+
+	foundDirectives, err := s.state.GetApplicationStorage(ctx, appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	d0count := uint64(directives[0].Count)
+	d1count := uint64(directives[1].Count)
+	d2count := uint64(directives[2].Count)
+	c.Assert(
+		foundDirectives,
+		tc.DeepEquals,
+		application.ApplicationStorage{
+			"database": {StoragePoolName: "my-ebs", SizeMiB: &directives[0].Size, Count: &d0count},
+			"logs":     {StoragePoolName: "my-rootfs", SizeMiB: &directives[1].Size, Count: &d1count},
+			"cache":    {StoragePoolName: "my-fast", SizeMiB: &directives[2].Size, Count: &d2count},
+		},
+	)
 }
 
 // TestCreateApplicationWithResources tests creation of an application with

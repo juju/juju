@@ -97,6 +97,16 @@ func NewProviderService(
 	}
 }
 
+// GetApplicationStorage returns the storage directives set for an application,
+// keyed to the storage name. If the application does not have any storage
+// directives set then an empty result is returned.
+//
+// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
+// error is returned.
+func (s *ProviderService) GetApplicationStorage(ctx context.Context, uuid coreapplication.UUID) (application.ApplicationStorage, error) {
+	return s.storageService.GetApplicationStorage(ctx, uuid)
+}
+
 // CreateIAASApplication creates the specified IAAS application and units if
 // required, returning an error satisfying
 // [applicationerrors.ApplicationAlreadyExists] if the application already
