@@ -146,15 +146,15 @@ func (s *watcherSuite) TestWatchRemoteApplicationConsumers(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			var consumerUUID, offerConnUUID string
+			var offerConnUUID string
 			if err := tx.QueryRowContext(ctx, `
-	SELECT arc.uuid, arc.offer_connection_uuid
-	FROM application_remote_consumer arc
-	JOIN offer_connection oc ON oc.uuid = arc.offer_connection_uuid
-	WHERE oc.offer_uuid = ?`, offerUUID).Scan(&consumerUUID, &offerConnUUID); err != nil {
+SELECT arc.offer_connection_uuid
+FROM application_remote_consumer arc
+JOIN offer_connection oc ON oc.uuid = arc.offer_connection_uuid
+WHERE oc.offer_uuid = ?`, offerUUID).Scan(&offerConnUUID); err != nil {
 				return err
 			}
-			if _, err := tx.ExecContext(ctx, `DELETE FROM application_remote_consumer WHERE uuid=?`, consumerUUID); err != nil {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM application_remote_consumer WHERE offer_connection_uuid=?`, offerConnUUID); err != nil {
 				return err
 			}
 			if _, err := tx.ExecContext(ctx, `DELETE FROM offer_connection WHERE uuid=?`, offerConnUUID); err != nil {
@@ -619,15 +619,15 @@ func (s *watcherSuite) TestWatchOffererRelationsCaching(c *tc.C) {
 	// this relation.
 	harness.AddTest(c, func(c *tc.C) {
 		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			var consumerUUID, offerConnUUID string
+			var offerConnUUID string
 			if err := tx.QueryRowContext(ctx, `
-SELECT arc.uuid, oc.uuid
+SELECT oc.uuid
 FROM application_remote_consumer arc
 JOIN offer_connection oc ON oc.uuid = arc.offer_connection_uuid
-WHERE oc.remote_relation_uuid = ?`, consumerRelationUUID1).Scan(&consumerUUID, &offerConnUUID); err != nil {
+WHERE oc.remote_relation_uuid = ?`, consumerRelationUUID1).Scan(&offerConnUUID); err != nil {
 				return err
 			}
-			if _, err := tx.ExecContext(ctx, `DELETE FROM application_remote_consumer WHERE uuid=?`, consumerUUID); err != nil {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM application_remote_consumer WHERE offer_connection_uuid=?`, offerConnUUID); err != nil {
 				return err
 			}
 			if _, err := tx.ExecContext(ctx, `DELETE FROM offer_connection WHERE uuid=?`, offerConnUUID); err != nil {
