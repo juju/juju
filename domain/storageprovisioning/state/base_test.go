@@ -174,6 +174,38 @@ VALUES (?, ?, ?, 0, 1)
 	return attachmentUUID
 }
 
+func (s *baseSuite) newModelFilesystemAttachmentWithMount(
+	c *tc.C,
+	fsUUID storageprovisioning.FilesystemUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	mountPoint string,
+	readOnly bool,
+) storageprovisioning.FilesystemAttachmentUUID {
+	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem_attachment (uuid,
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           mount_point,
+                                           read_only,
+                                           provision_scope_id)
+VALUES (?, ?, ?, 0, ?, ?, 0)
+`,
+		attachmentUUID.String(),
+		fsUUID,
+		netNodeUUID.String(),
+		mountPoint,
+		readOnly,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID
+}
+
 // newModelFilesystem creates a new filesystem in the model with model
 // provision scope. Return is the uuid and filesystem id of the entity.
 func (s *baseSuite) newModelFilesystem(c *tc.C) (
