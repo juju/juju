@@ -17,6 +17,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -790,6 +792,31 @@ WHERE     u.uuid = $unitUUIDArg.unit_uuid
 	return relationUnitStatuses, nil
 }
 
+// GetRelationEndpoints returns the relation's endpoints.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+func (st *State) GetRelationEndpoints(
+	ctx context.Context,
+	relationUUID string,
+) ([]domainrelation.Endpoint, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var endpoints []domainrelation.Endpoint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		endpoints, err = st.getRelationEndpoints(ctx, tx, relationUUID)
+		if err != nil {
+			return errors.Errorf("getting relation endpoints: %w", err)
+		}
+		return errors.Capture(err)
+	})
+	return endpoints, errors.Capture(err)
+}
+
 // getRelationEndpoints retrieves the relation.ConsumerApplicationEndpoint of the specified relation.
 func (st *State) getRelationEndpoints(
 	ctx context.Context,
@@ -1133,6 +1160,132 @@ func (st *State) GetRelationUnitUUID(
 		return err
 	})
 	return result, errors.Capture(err)
+}
+
+// GetFullRelationUnitsChange returns RelationUnitChange for the given relation
+// application pair.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] if the relation  cannot be
+//     found.
+func (st *State) GetFullRelationUnitsChange(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationUUID application.UUID,
+) (domainrelation.FullRelationUnitChange, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return domainrelation.FullRelationUnitChange{}, errors.Capture(err)
+	}
+
+	var settings []relationSetting
+	var unitRelationData map[string]domainrelation.RelationData
+	var relationLifeSuspended lifeAndSuspended
+	var relationMacaroon *macaroon.Macaroon
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		relationLifeSuspended, err = st.getRelationLifeAndSuspended(ctx, tx, relationUUID.String())
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		settings, err = st.getApplicationSettingsByRelAndApp(ctx, tx, relationUUID.String(), applicationUUID.String())
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		unitRelationData, err = st.getUnitsRelationData(ctx, tx, relationUUID.String(), applicationUUID.String())
+		if err != nil {
+			return errors.Errorf("getting unit relation data: %w", err)
+		}
+
+		relationMacaroon, err = st.getMacaroonForRelation(ctx, tx, relationUUID.String())
+		if err != nil {
+			return errors.Errorf("getting relation macaroon: %w", err)
+		}
+
+		return nil
+	})
+	if errors.Is(err, coreerrors.NotFound) {
+		return domainrelation.FullRelationUnitChange{}, errors.Capture(relationerrors.RelationNotFound)
+	} else if err != nil {
+		return domainrelation.FullRelationUnitChange{}, errors.Capture(err)
+	}
+
+	// Transform the data into RelationUnitChange.
+	appSettings := transform.SliceToMap(settings, func(s relationSetting) (string, string) {
+		return s.Key, s.Value
+	})
+	inScopeUnits := make([]int, 0)
+	allUnits := make([]int, 0, len(unitRelationData))
+	unitSettings := make([]domainrelation.UnitSettings, 0)
+	for unitName, data := range unitRelationData {
+		id := unit.Name(unitName).Number()
+		allUnits = append(allUnits, id)
+		if !data.InScope {
+			continue
+		}
+		inScopeUnits = append(inScopeUnits, id)
+		if len(data.UnitData) == 0 {
+			continue
+		}
+		unitSettings = append(unitSettings, domainrelation.UnitSettings{
+			UnitID:   id,
+			Settings: data.UnitData,
+		})
+	}
+	return domainrelation.FullRelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID:        relationUUID,
+			Life:                relationLifeSuspended.Life,
+			UnitsSettings:       unitSettings,
+			AllUnits:            allUnits,
+			InScopeUnits:        inScopeUnits,
+			ApplicationSettings: appSettings,
+		},
+		Suspended:       relationLifeSuspended.Suspended,
+		SuspendedReason: relationLifeSuspended.Reason,
+		Macaroons:       []*macaroon.Macaroon{relationMacaroon},
+		// TODO: find bakery version and ApplicationOrOfferToken value.
+	}, nil
+}
+
+func (st *State) getMacaroonForRelation(ctx context.Context, tx *sqlair.TX, relationUUID string) (*macaroon.Macaroon, error) {
+	type relationMacaroon struct {
+		Macaroon []byte `db:"macaroon"`
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &relationMacaroon.macaroon
+FROM   application_remote_offerer_relation_macaroon
+WHERE  relation_uuid = $entityUUID.uuid
+`, entityUUID{}, relationMacaroon{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result relationMacaroon
+	err = tx.Query(ctx, stmt, entityUUID{UUID: relationUUID}).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("macaroon for relation %q not found", relationUUID).
+			Add(crossmodelrelationerrors.MacaroonNotFound)
+	}
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return decodeMacaroon(result.Macaroon)
+}
+
+func decodeMacaroon(data []byte) (*macaroon.Macaroon, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	var m macaroon.Macaroon
+	if err := m.UnmarshalJSON(data); err != nil {
+		return nil, errors.Errorf("unmarshalling macaroon: %w", err)
+	}
+	return &m, nil
 }
 
 // GetRelationUnitsChanges returns RelationUnitChange for the given relation
@@ -1620,6 +1773,30 @@ WHERE  t.uuid = $getLife.uuid
 	}
 
 	return args.Life, nil
+}
+
+func (st *State) getRelationLifeAndSuspended(ctx context.Context, tx *sqlair.TX, uuid string) (lifeAndSuspended, error) {
+	arg := entityUUID{
+		UUID: uuid,
+	}
+	stmt, err := st.Prepare(`
+SELECT &lifeAndSuspended.*
+FROM   relation t
+JOIN   life l ON t.life_id = l.id
+WHERE  t.uuid = $entityUUID.uuid
+`, arg, lifeAndSuspended{})
+	if err != nil {
+		return lifeAndSuspended{}, errors.Capture(err)
+	}
+	var result lifeAndSuspended
+	err = tx.Query(ctx, stmt, arg).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return lifeAndSuspended{}, coreerrors.NotFound
+	} else if err != nil {
+		return lifeAndSuspended{}, errors.Capture(err)
+	}
+
+	return result, nil
 }
 
 func (st *State) getUnitLife(ctx context.Context, tx *sqlair.TX, uuid string) (life.Value, error) {
@@ -3159,7 +3336,6 @@ WHERE  r.uuid = $getRelation.uuid
 		return domainrelation.RelationDetailsResult{}, errors.Capture(err)
 	}
 
-	var endpoints []domainrelation.Endpoint
 	err = tx.Query(ctx, stmt, rel).Get(&rel)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return domainrelation.RelationDetailsResult{}, relationerrors.RelationNotFound
@@ -3167,6 +3343,7 @@ WHERE  r.uuid = $getRelation.uuid
 		return domainrelation.RelationDetailsResult{}, errors.Capture(err)
 	}
 
+	var endpoints []domainrelation.Endpoint
 	endpoints, err = st.getRelationEndpoints(ctx, tx, rel.UUID)
 	if err != nil {
 		return domainrelation.RelationDetailsResult{}, errors.Errorf("getting relation endpoints: %w", err)
@@ -3177,14 +3354,15 @@ WHERE  r.uuid = $getRelation.uuid
 		return domainrelation.RelationDetailsResult{}, errors.Errorf("counting in-scope relations: %w", err)
 	}
 
-	return domainrelation.RelationDetailsResult{
+	f := domainrelation.RelationDetailsResult{
 		Life:         rel.Life,
 		UUID:         corerelation.UUID(rel.UUID),
 		ID:           rel.ID,
 		Suspended:    rel.Suspended,
 		Endpoints:    endpoints,
 		InScopeUnits: inScopeCount,
-	}, nil
+	}
+	return f, nil
 }
 
 // countInScopeRelations counts the number of units in the relation that are in

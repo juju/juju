@@ -92,6 +92,14 @@ type State interface {
 		relationUUID, applicationUUID string,
 	) (relation.ConsumerRelationUnitsChange, error)
 
+	// GetFullRelationUnitsChange returns RelationUnitChange for the given relation
+	// application pair.
+	GetFullRelationUnitsChange(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationUUID application.UUID,
+	) (relation.FullRelationUnitChange, error)
+
 	// GetGoalStateRelationDataForApplication returns GoalStateRelationData for
 	// all relations the given application is in, modulo peer relations.
 	GetGoalStateRelationDataForApplication(
@@ -116,6 +124,12 @@ type State interface {
 
 	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
+
+	// GetRelationEndpoints returns the relation's endpoints.
+	GetRelationEndpoints(
+		ctx context.Context,
+		relationUUID string,
+	) ([]relation.Endpoint, error)
 
 	// GetRelationEndpointUUID retrieves the unique identifier for a specific
 	// relation endpoint based on the provided arguments.
@@ -965,6 +979,27 @@ func (s *Service) GetRelationUnits(
 	return s.st.GetRelationUnitsChanges(ctx, relationUUID, applicationUUID)
 }
 
+// GetRelationUnits returns the current state of the relation units.
+func (s *Service) GetFullRelationUnitChange(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationUUID application.UUID,
+) (relation.FullRelationUnitChange, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return relation.FullRelationUnitChange{}, errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	if err := applicationUUID.Validate(); err != nil {
+		return relation.FullRelationUnitChange{}, errors.Errorf(
+			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
+	}
+
+	return s.st.GetFullRelationUnitsChange(ctx, relationUUID, applicationUUID)
+}
+
 // GetConsumerRelationUnitsChange returns the versions of the relation units
 // settings and any departed units.
 func (s *Service) GetConsumerRelationUnitsChange(
@@ -992,20 +1027,19 @@ func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUIDStr stri
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	relationUUID, err := corerelation.ParseUUID(relationUUIDStr)
+	_, err := corerelation.ParseUUID(relationUUIDStr)
 	if err != nil {
 		return corerelation.Key{}, errors.Capture(err)
 	}
 
-	relationDetails, err := s.st.GetRelationDetails(ctx, relationUUID)
+	relationEndpoints, err := s.st.GetRelationEndpoints(ctx, relationUUIDStr)
 	if err != nil {
 		return corerelation.Key{}, errors.Capture(err)
 	}
 
-	var identifiers []corerelation.EndpointIdentifier
-	for _, e := range relationDetails.Endpoints {
-		identifiers = append(identifiers, e.EndpointIdentifier())
-	}
+	identifiers := transform.Slice(relationEndpoints, func(in relation.Endpoint) corerelation.EndpointIdentifier {
+		return in.EndpointIdentifier()
+	})
 
 	key, err := corerelation.NewKey(identifiers)
 	if err != nil {

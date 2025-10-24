@@ -1295,6 +1295,51 @@ func (s *relationSuite) TestGetRelationsStatusForUnitEmptyResult(c *tc.C) {
 	c.Check(results, tc.HasLen, 0)
 }
 
+func (s *relationSuite) TestGetRelationEndpoints(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	relationID := 7
+
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Dying, relationID)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	expectedEndpoints := []domainrelation.Endpoint{endpoint1, endpoint2}
+
+	// Act: Get relation endpoints.
+	obtainedEndpoints, err := s.state.GetRelationEndpoints(c.Context(), relationUUID.String())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedEndpoints, tc.SameContents, expectedEndpoints)
+}
+
 func (s *relationSuite) TestGetRelationDetails(c *tc.C) {
 	// Arrange: Add two endpoints and a relation on them.
 	relationID := 7
@@ -2303,6 +2348,70 @@ func (s *relationSuite) TestGetRelationUnitsChanges(c *tc.C) {
 func (s *relationSuite) TestGetRelationUnitsChangesRelationNotFound(c *tc.C) {
 	// Act
 	_, err := s.state.GetRelationUnitsChanges(c.Context(), corerelationtesting.GenRelationUUID(c),
+		tc.Must(c, coreapplication.NewUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestGetFullRelationUnitsChange(c *tc.C) {
+	// Arrange
+	// - 1 application with settings hash => will return a non nil hash
+	// - 1 unit with no settings hash => will return a version of 0
+	// - 1 unit with settings hash => will return a non nil hash
+	// - 1 unit requested but not found => will be added to departed
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
+	withSettingAppUUID := s.addApplication(c, charmUUID, "withsetting")
+	withSettingAppEndpointUUID := s.addApplicationEndpoint(c, withSettingAppUUID, charmRelationUUID)
+	relationUUID := s.addRelation(c)
+	s.addUnit(c, "withsetting/1", withSettingAppUUID, charmUUID)
+	noSettingUnitUUID := s.addUnit(c, "withsetting/0", withSettingAppUUID, charmUUID)
+	withSettingUnitUUID := s.addUnit(c, "withsetting/3", withSettingAppUUID, charmUUID)
+	withSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, withSettingAppEndpointUUID)
+	s.addRelationUnit(c, noSettingUnitUUID, withSettingRelationEndpointUUID)
+	relUnitUUID := s.addRelationUnit(c, withSettingUnitUUID, withSettingRelationEndpointUUID)
+	s.addRelationUnitSetting(c, relUnitUUID, "foo", "bar")
+	s.addRelationApplicationSetting(c, withSettingRelationEndpointUUID, "baz", "simple")
+	s.setRelationSuspended(c, relationUUID)
+	expectedMacBytes := s.addMacaroon(c, relationUUID.String())
+	expected := domainrelation.FullRelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relationUUID,
+			Life:         corelife.Alive,
+			UnitsSettings: []domainrelation.UnitSettings{
+				{
+					UnitID:   3,
+					Settings: map[string]string{"foo": "bar"},
+				},
+			},
+			ApplicationSettings: map[string]string{"baz": "simple"},
+		},
+		Suspended: true,
+		//SuspendedReason: "it's a test",
+	}
+
+	// Act
+	obtained, err := s.state.GetFullRelationUnitsChange(c.Context(),
+		relationUUID, withSettingAppUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.RelationUnitChange.AllUnits", tc.SameContents, []int{1, 0, 3})
+	mc.AddExpr("_.RelationUnitChange.InScopeUnits", tc.SameContents, []int{0, 3})
+	mc.AddExpr("_.Macaroons", tc.Ignore)
+	c.Check(obtained, mc, expected)
+	if c.Check(obtained.Macaroons, tc.HasLen, 1) {
+		obtainedMac := obtained.Macaroons[0]
+		obtainedMacBytes := tc.Must(c, obtainedMac.MarshalJSON)
+		c.Check(obtainedMacBytes, tc.DeepEquals, expectedMacBytes)
+	}
+}
+
+func (s *relationSuite) TestGetFullRelationUnitsChangeRelationNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetFullRelationUnitsChange(c.Context(), corerelationtesting.GenRelationUUID(c),
 		tc.Must(c, coreapplication.NewUUID))
 
 	// Assert

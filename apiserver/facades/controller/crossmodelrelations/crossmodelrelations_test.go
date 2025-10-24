@@ -7,7 +7,7 @@ import (
 	"context"
 	"strings"
 	"testing"
-	time "time"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/names/v6"
@@ -35,7 +35,7 @@ import (
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	domainlife "github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
-	config "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -1398,6 +1398,131 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesModelConfigError(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.ErrorMatches, "config error")
+}
+
+func (s *facadeSuite) TestWatchRelationChanges(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	// Setup variables
+	relationKey, _ := corerelation.NewKeyFromString("one:db two:use")
+	relationTag := names.NewRelationTag(relationKey.String())
+	testMac, _ := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	appUUID := tc.Must(c, application.NewUUID)
+	relUUID := relationtesting.GenRelationUUID(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+
+	// Setup successful authentication
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relationKey, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).Return(nil)
+
+	s.crossModelRelationService.EXPECT().GetOfferingApplicationToken(gomock.Any(), relUUID).Return(appUUID, nil)
+
+	// Setup watcher call
+	ch := make(chan struct{})
+	mockWatcher := NewMockNotifyWatcher(ctrl)
+	mockWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	s.relationService.EXPECT().WatchRelationUnits(gomock.Any(), relUUID, appUUID).Return(mockWatcher, nil)
+
+	// Initial call to GetConsumerRelationUnitsChange when the
+	// relationChangesWatcher loop starts.
+	s.relationService.EXPECT().GetConsumerRelationUnitsChange(gomock.Any(), relUUID, appUUID).
+		DoAndReturn(func(context.Context, corerelation.UUID, application.UUID) (domainrelation.ConsumerRelationUnitsChange, error) {
+			// Trigger RelationUnits watcher for the EnsureRegisterWatcher call.
+			time.AfterFunc(testhelpers.ShortWait, func() {
+				// Send initial event.
+				select {
+				case ch <- struct{}{}:
+				case <-c.Context().Done():
+					c.Fatalf("timed out waiting to send change event")
+				}
+			})
+			return domainrelation.ConsumerRelationUnitsChange{}, nil
+		})
+	// Second call to GetConsumerRelationUnitsChange when the RelationUnits
+	// watcher sends an event. Return value must be different from initial
+	// value for the relationChangesWatcher to send an event.
+	s.relationService.EXPECT().GetConsumerRelationUnitsChange(gomock.Any(), relUUID, appUUID).
+		Return(domainrelation.ConsumerRelationUnitsChange{AppSettingsVersion: map[string]int64{"one": 88}}, nil)
+
+	// Real change data returned from the facade method WatchRelationChanges
+	expected := domainrelation.FullRelationUnitChange{
+		RelationUnitChange: domainrelation.RelationUnitChange{
+			RelationUUID: relUUID,
+			Life:         life.Alive,
+		},
+		Suspended:       true,
+		SuspendedReason: "testing",
+	}
+	s.relationService.EXPECT().GetFullRelationUnitChange(gomock.Any(), relUUID, appUUID).Return(expected, nil)
+
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, w worker.Worker) (string, error) {
+			_, ok := w.(RelationChangesWatcher)
+			c.Assert(ok, tc.IsTrue)
+			return "42", nil
+		})
+
+	args := params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:         relUUID.String(),
+			Macaroons:     macaroon.Slice{testMac},
+			BakeryVersion: bakery.LatestVersion,
+		}},
+	}
+
+	// Act
+	obtained, err := s.api(c).WatchRelationChanges(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained.Results, tc.HasLen, 1)
+	c.Check(obtained.Results[0].RemoteRelationWatcherId, tc.Equals, "42")
+	c.Check(obtained.Results[0].Changes, tc.DeepEquals, params.RemoteRelationChangeEvent{
+		RelationToken:           relUUID.String(),
+		ApplicationOrOfferToken: appUUID.String(),
+		Life:                    life.Alive,
+		Suspended:               ptr(true),
+		SuspendedReason:         "testing",
+	})
+}
+
+// TestWatchRelationChangesAuthError successfully gets data needed to
+// authentic, then the authentication fails.
+func (s *facadeSuite) TestWatchRelationChangesAuthError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	relationKey, _ := corerelation.NewKeyFromString("one:db two:use")
+	testMac, _ := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relationKey, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	tag := names.NewRelationTag(relationKey.String())
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), tag, gomock.Any(), bakery.LatestVersion).Return(errors.New("boom"))
+
+	args := params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:         relUUID.String(),
+			Macaroons:     macaroon.Slice{testMac},
+			BakeryVersion: bakery.LatestVersion,
+		}},
+	}
+
+	// Act
+	obtained, err := s.api(c).WatchRelationChanges(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained.Results, tc.HasLen, 1)
+	c.Check(obtained.Results[0].Error, tc.ErrorMatches, "boom")
 }
 
 func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {

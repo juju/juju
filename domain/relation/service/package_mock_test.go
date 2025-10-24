@@ -285,6 +285,45 @@ func (c *MockStateGetConsumerRelationUnitsChangeCall) DoAndReturn(f func(context
 	return c
 }
 
+// GetFullRelationUnitsChange mocks base method.
+func (m *MockState) GetFullRelationUnitsChange(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (relation0.FullRelationUnitChange, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFullRelationUnitsChange", arg0, arg1, arg2)
+	ret0, _ := ret[0].(relation0.FullRelationUnitChange)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFullRelationUnitsChange indicates an expected call of GetFullRelationUnitsChange.
+func (mr *MockStateMockRecorder) GetFullRelationUnitsChange(arg0, arg1, arg2 any) *MockStateGetFullRelationUnitsChangeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFullRelationUnitsChange", reflect.TypeOf((*MockState)(nil).GetFullRelationUnitsChange), arg0, arg1, arg2)
+	return &MockStateGetFullRelationUnitsChangeCall{Call: call}
+}
+
+// MockStateGetFullRelationUnitsChangeCall wrap *gomock.Call
+type MockStateGetFullRelationUnitsChangeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetFullRelationUnitsChangeCall) Return(arg0 relation0.FullRelationUnitChange, arg1 error) *MockStateGetFullRelationUnitsChangeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetFullRelationUnitsChangeCall) Do(f func(context.Context, relation.UUID, application.UUID) (relation0.FullRelationUnitChange, error)) *MockStateGetFullRelationUnitsChangeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetFullRelationUnitsChangeCall) DoAndReturn(f func(context.Context, relation.UUID, application.UUID) (relation0.FullRelationUnitChange, error)) *MockStateGetFullRelationUnitsChangeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetGoalStateRelationDataForApplication mocks base method.
 func (m *MockState) GetGoalStateRelationDataForApplication(arg0 context.Context, arg1 application.UUID) ([]relation0.GoalStateRelationData, error) {
 	m.ctrl.T.Helper()
@@ -672,6 +711,45 @@ func (c *MockStateGetRelationEndpointUUIDCall) Do(f func(context.Context, relati
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetRelationEndpointUUIDCall) DoAndReturn(f func(context.Context, relation0.GetRelationEndpointUUIDArgs) (relation.EndpointUUID, error)) *MockStateGetRelationEndpointUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRelationEndpoints mocks base method.
+func (m *MockState) GetRelationEndpoints(arg0 context.Context, arg1 string) ([]relation0.Endpoint, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationEndpoints", arg0, arg1)
+	ret0, _ := ret[0].([]relation0.Endpoint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationEndpoints indicates an expected call of GetRelationEndpoints.
+func (mr *MockStateMockRecorder) GetRelationEndpoints(arg0, arg1 any) *MockStateGetRelationEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationEndpoints", reflect.TypeOf((*MockState)(nil).GetRelationEndpoints), arg0, arg1)
+	return &MockStateGetRelationEndpointsCall{Call: call}
+}
+
+// MockStateGetRelationEndpointsCall wrap *gomock.Call
+type MockStateGetRelationEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationEndpointsCall) Return(arg0 []relation0.Endpoint, arg1 error) *MockStateGetRelationEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationEndpointsCall) Do(f func(context.Context, string) ([]relation0.Endpoint, error)) *MockStateGetRelationEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationEndpointsCall) DoAndReturn(f func(context.Context, string) ([]relation0.Endpoint, error)) *MockStateGetRelationEndpointsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

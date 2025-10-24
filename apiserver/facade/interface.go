@@ -274,13 +274,23 @@ type Authorizer interface {
 // MacaroonAuthenticator provides methods to authenticate macaroons for cross
 // model operations.
 type MacaroonAuthenticator interface {
-	// CheckOfferMacaroons verifies that the specified macaroons allow access to
-	// the offer.
-	CheckOfferMacaroons(ctx context.Context, offeringModelUUID, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error)
+	// CheckOfferMacaroons verifies that the specified macaroons allow access to the
+	// offer.
+	CheckOfferMacaroons(
+		ctx context.Context,
+		offeringModelUUID, offerUUID string,
+		mac macaroon.Slice,
+		version bakery.Version,
+	) (map[string]string, error)
 
-	// CheckRelationMacaroons verifies that the specified macaroons allow access
-	// to the relation.
-	CheckRelationMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, relationTag names.RelationTag, mac macaroon.Slice, version bakery.Version) error
+	// CheckRelationMacaroons verifies that the specified macaroons allow access to the relation.
+	CheckRelationMacaroons(
+		ctx context.Context,
+		sourceModelUUID, offerUUID string,
+		relationTag names.RelationTag,
+		mac macaroon.Slice,
+		version bakery.Version,
+	) error
 }
 
 // CrossModelAuthContext provides methods to create macaroons for cross model

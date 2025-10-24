@@ -69,6 +69,12 @@ type relationUUIDAndRole struct {
 	Role string `db:"role"`
 }
 
+type lifeAndSuspended struct {
+	Life      life.Value `db:"value"`
+	Suspended bool       `db:"suspended"`
+	Reason    string     `db:"suspended_reason"`
+}
+
 // applicationPlatform represents a structure to get OS and channel information
 // for a specific application, from the table `application_platform`
 type applicationPlatform struct {

@@ -16,17 +16,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
-	domainrelation "github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/environs/config"
 )
 
 // CrossModelRelationService provides access to cross-model relations.
 type CrossModelRelationService interface {
-	// GetApplicationNameAndUUIDByOfferUUID returns the application name and
-	// UUID for the given offer UUID.
-	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, coreapplication.UUID, error)
-
 	// AddRelationNetworkIngress adds ingress network CIDRs for the specified
 	// relation.
 	// The CIDRs are added to the relation_network_ingress table.
@@ -39,18 +35,28 @@ type CrossModelRelationService interface {
 	// application endpoint name in the current model.
 	AddConsumedRelation(ctx context.Context, args crossmodelrelationservice.AddConsumedRelationArgs) error
 
+	// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
+	// for the given offer UUID.
+	// Returns crossmodelrelationerrors.OfferNotFound if the offer or associated
+	// application is not found.
+	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, coreapplication.UUID, error)
+
+	// GetOfferingApplicationToken returns the offering application token (uuid)
+	// for the given relation UUID.
+	GetOfferingApplicationToken(ctx context.Context, relationUUID corerelation.UUID) (coreapplication.UUID, error)
+
 	// GetOfferUUIDByRelationUUID returns the offer UUID corresponding to
 	// the cross model relation UUID.
 	GetOfferUUIDByRelationUUID(ctx context.Context, relationUUID corerelation.UUID) (offer.UUID, error)
 
-	// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by
-	// any unit of the specified app and returns a watcher which notifies of
-	// secret URIs that have had a new revision added.
-	WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID coreapplication.UUID) (watcher.StringsWatcher, error)
-
-	// EnsureUnitsExist ensures that the given synthetic units exist in the
-	// local model.
+	// EnsureUnitsExist ensures that the given synthetic units exist in the local
+	// model.
 	EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error
+
+	// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any
+	// unit of the specified app and returns a watcher which notifies of secret URIs
+	// that have had a new revision added.
+	WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID coreapplication.UUID) (watcher.StringsWatcher, error)
 }
 
 // ModelConfigService is an interface that provides access to the
@@ -85,8 +91,34 @@ type StatusService interface {
 
 // RelationService provides access to relations.
 type RelationService interface {
+	// GetConsumerRelationUnitsChange returns the versions of the relation units
+	// settings and any departed units.
+	GetConsumerRelationUnitsChange(
+		context.Context,
+		corerelation.UUID,
+		coreapplication.UUID,
+	) (relation.ConsumerRelationUnitsChange, error)
+
+	// GetRelationUnits returns the current state of the relation units.
+	GetFullRelationUnitChange(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationUUID coreapplication.UUID,
+	) (relation.FullRelationUnitChange, error)
+
 	// GetRelationDetails returns relation details for the given relationUUID.
-	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (domainrelation.RelationDetails, error)
+	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetails, error)
+
+	// GetRelationKeyByUUID returns the relation key for the given UUID.
+	GetRelationKeyByUUID(ctx context.Context, relationUUID string) (corerelation.Key, error)
+
+	// GetRelationUnitUUID returns the relation unit UUID for the given unit for
+	// the given relation.
+	GetRelationUnitUUID(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		unitName unit.Name,
+	) (corerelation.UnitUUID, error)
 
 	// SetRelationRemoteApplicationAndUnitSettings will set the application and
 	// unit settings for a remote relation. If the unit has not yet entered
@@ -107,13 +139,9 @@ type RelationService interface {
 	// relation.
 	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
 
-	// GetRelationUnitUUID returns the relation unit UUID for the given unit for
-	// the given relation.
-	GetRelationUnitUUID(
-		ctx context.Context,
-		relationUUID corerelation.UUID,
-		unitName unit.Name,
-	) (corerelation.UnitUUID, error)
+	// WatchRelationUnits returns a watcher for changes to the units
+	// in the given relation in the local model.
+	WatchRelationUnits(context.Context, corerelation.UUID, coreapplication.UUID) (watcher.NotifyWatcher, error)
 }
 
 // ApplicationService provides access to applications.
