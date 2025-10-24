@@ -134,11 +134,11 @@ func NewWatchableService(
 	}
 }
 
-// WatchUnitApplicationLifeSuspendedStatus returns a watcher that notifies of
+// WatchRelationUnitApplicationLifeSuspendedStatus returns a watcher that notifies of
 // changes to the life or suspended status any relation the unit's application
 // is part of. If the unit is a subordinate, its principal application is
 // watched. The watcher notifies with the relation keys.
-func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
+func (s *WatchableService) WatchRelationUnitApplicationLifeSuspendedStatus(
 	ctx context.Context,
 	unitUUID unit.UUID,
 ) (watcher.StringsWatcher, error) {
@@ -170,10 +170,10 @@ func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 	)
 }
 
-// WatchApplicationLifeSuspendedStatus returns a watcher that notifies of
-// changes to the life or suspended status for any relation the application
-// is part of. The watcher notifies with the relation UUIDs.
-func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
+// WatchRelationsLifeSuspendedStatusForApplication returns a watcher that
+// notifies of changes to the life or suspended status for any relation the
+// application is part of. The watcher notifies with the relation UUIDs.
+func (s *WatchableService) WatchRelationsLifeSuspendedStatusForApplication(
 	ctx context.Context,
 	applicationUUID application.UUID,
 ) (watcher.StringsWatcher, error) {

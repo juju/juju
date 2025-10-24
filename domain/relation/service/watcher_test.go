@@ -246,12 +246,12 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	c.Check(relationsIgnored.Contains(unrelatedRelUUID.String()), tc.IsTrue)
 }
 
-func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatusApplicationNotFound(c *tc.C) {
+func (s *watcherSuite) TestWatchRelationsLifeSuspendedStatusForApplicationApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().ApplicationExists(gomock.Any(), gomock.Any()).Return(applicationerrors.ApplicationNotFound)
 
-	_, err := s.service.WatchApplicationLifeSuspendedStatus(c.Context(), tc.Must(c, coreapplication.NewUUID))
+	_, err := s.service.WatchRelationsLifeSuspendedStatusForApplication(c.Context(), tc.Must(c, coreapplication.NewUUID))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

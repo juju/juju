@@ -251,7 +251,7 @@ func (w *localConsumerWorker) loop() (err error) {
 	ctx := w.catacomb.Context(context.Background())
 
 	// Watch for changes to any local relations to the remote application.
-	relationsWatcher, err := w.crossModelService.WatchApplicationLifeSuspendedStatus(ctx, w.applicationUUID)
+	relationsWatcher, err := w.crossModelService.WatchRelationsLifeSuspendedStatusForApplication(ctx, w.applicationUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil
 	} else if err != nil {

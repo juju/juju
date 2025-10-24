@@ -70,7 +70,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.addApplicationEndpoint(c, s.appEndpointUUID, s.appUUID, s.charmRelationUUID)
 }
 
-func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusPrincipal(c *tc.C) {
+func (s *watcherSuite) TestWatchRelationUnitApplicationLifeSuspendedStatusPrincipal(c *tc.C) {
 	// Arrange: create the required state, with one relation and its status.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
 
@@ -79,7 +79,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusPrincipal(c *t
 	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchUnitApplicationLifeSuspendedStatus(c.Context(), unitUUID)
+	watcher, err := svc.WatchRelationUnitApplicationLifeSuspendedStatus(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
@@ -170,7 +170,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusPrincipal(c *t
 	harness.Run(c, []string{relationKey})
 }
 
-func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusSubordinate(c *tc.C) {
+func (s *watcherSuite) TestWatchRelationUnitApplicationLifeSuspendedStatusSubordinate(c *tc.C) {
 	// Arrange: create the required state, with one relation and its status.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
 
@@ -184,7 +184,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusSubordinate(c 
 	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchUnitApplicationLifeSuspendedStatus(c.Context(), subordinateUnitUUID)
+	watcher, err := svc.WatchRelationUnitApplicationLifeSuspendedStatus(c.Context(), subordinateUnitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
@@ -283,7 +283,7 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusSubordinate(c 
 	harness.Run(c, []string{relationKey})
 }
 
-func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatus(c *tc.C) {
+func (s *watcherSuite) TestWatchRelationsLifeSuspendedStatusForApplication(c *tc.C) {
 	// Arrange: create the required state, with one relation and its status.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
 
@@ -292,7 +292,7 @@ func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatus(c *tc.C) {
 	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchApplicationLifeSuspendedStatus(c.Context(), applicationUUID)
+	watcher, err := svc.WatchRelationsLifeSuspendedStatusForApplication(c.Context(), applicationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
