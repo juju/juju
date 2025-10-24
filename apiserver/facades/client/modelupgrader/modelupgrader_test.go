@@ -147,7 +147,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersion(c *tc.C) {
 		u.controllerTag,
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersionTo(
+	u.modelAgentService.EXPECT().UpgradeModelAgentToTargetVersion(
 		gomock.Any(),
 		version,
 	).Return(nil)
@@ -224,7 +224,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithStream(c *tc.C) {
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersionStream(
+	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersionWithStream(
 		gomock.Any(),
 		modelagent.AgentStreamReleased,
 	).Return(version, nil)

@@ -650,10 +650,10 @@ func (s *Service) UpgradeModelTargetAgentVersion(
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
-	err = s.UpgradeModelTargetAgentVersionTo(ctx, recommendedVersion)
+	err = s.UpgradeModelAgentToTargetVersion(ctx, recommendedVersion)
 
 	// NOTE (tlm): Because this func uses
-	// [Service.UpgradeModelTargetAgentVersionTo] to compose its
+	// [Service.UpgradeModelAgentToTargetVersion] to compose its
 	// implementation. This func must handle the contract of
 	// UpgradeModelTargetAgentVersion. Specifically the errors returned don't
 	// align with the expecations of the caller. The below switch statement
@@ -686,7 +686,7 @@ func (s *Service) UpgradeModelTargetAgentVersion(
 	return recommendedVersion, nil
 }
 
-// UpgradeModelTargetAgentVersionStream is responsible for upgrading the target
+// UpgradeModelTargetAgentVersionWithStream is responsible for upgrading the target
 // agent version of the current model to the latest version available. While
 // performing the upgrade the agent stream for the model will also be changed.
 // The version that is upgraded to is returned.
@@ -701,7 +701,7 @@ func (s *Service) UpgradeModelTargetAgentVersion(
 // the model running the Juju controller.
 // - [modelagenterrors.ModelUpgradeBlocker] when their exists a blocker in the
 // model that prevents the model from being upgraded.
-func (s *Service) UpgradeModelTargetAgentVersionStream(
+func (s *Service) UpgradeModelTargetAgentVersionWithStream(
 	ctx context.Context,
 	agentStream modelagent.AgentStream,
 ) (semversion.Number, error) {
@@ -750,7 +750,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStream(
 	return recommendedVersion, nil
 }
 
-// UpgradeModelTargetAgentVersionTo upgrades a model to a new target agent
+// UpgradeModelAgentToTargetVersion upgrades a model to a new target agent
 // version. All agents that run on behalf of entities within the model will be
 // eventually upgraded to the new version after this call successfully returns.
 //
@@ -772,7 +772,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStream(
 // the model running the Juju controller.
 // - [modelagenterrors.ModelUpgradeBlocker] when their exists a blocker in the
 // model that prevents the model from being upgraded.
-func (s *Service) UpgradeModelTargetAgentVersionTo(
+func (s *Service) UpgradeModelAgentToTargetVersion(
 	ctx context.Context,
 	desiredTargetVersion semversion.Number,
 ) error {

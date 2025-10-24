@@ -37,19 +37,19 @@ type ModelAgentService interface {
 		ctx context.Context,
 	) (semversion.Number, error)
 
-	// UpgradeModelTargetAgentVersionStream is responsible for upgrading the target
+	// UpgradeModelTargetAgentVersionWithStream is responsible for upgrading the target
 	// agent version of the current model to the latest version available. While
 	// performing the upgrade the agent stream for the model will also be changed.
 	// The version that is upgraded to is returned.
-	UpgradeModelTargetAgentVersionStream(
+	UpgradeModelTargetAgentVersionWithStream(
 		ctx context.Context,
 		agentStream modelagent.AgentStream,
 	) (semversion.Number, error)
 
-	// UpgradeModelTargetAgentVersionTo upgrades a model to a new target agent
+	// UpgradeModelAgentToTargetVersion upgrades a model to a new target agent
 	// version. All agents that run on behalf of entities within the model will be
 	// eventually upgraded to the new version after this call successfully returns.
-	UpgradeModelTargetAgentVersionTo(
+	UpgradeModelAgentToTargetVersion(
 		ctx context.Context,
 		desiredTargetVersion semversion.Number,
 	) error
@@ -381,7 +381,7 @@ func (m *ModelUpgraderAPI) runUpgrade(
 		}
 	case hasTargetVersion && !hasStreamChange:
 		upgrader = func(ctx context.Context) error {
-			return m.modelAgentService.UpgradeModelTargetAgentVersionTo(
+			return m.modelAgentService.UpgradeModelAgentToTargetVersion(
 				ctx,
 				targetVersion,
 			)
@@ -389,7 +389,7 @@ func (m *ModelUpgraderAPI) runUpgrade(
 	case !hasTargetVersion && hasStreamChange:
 		upgrader = func(ctx context.Context) error {
 			version, err := m.modelAgentService.
-				UpgradeModelTargetAgentVersionStream(
+				UpgradeModelTargetAgentVersionWithStream(
 					ctx,
 					targetStream,
 				)
