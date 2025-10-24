@@ -220,7 +220,7 @@ func (st *State) GetApplicationLife(ctx context.Context, aUUID string) (life.Lif
 }
 
 // DeleteApplication removes a application from the database completely.
-func (st *State) DeleteApplication(ctx context.Context, aUUID string) error {
+func (st *State) DeleteApplication(ctx context.Context, aUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -312,6 +312,12 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			return errors.Errorf("deleting simple application references: %w", err)
 		}
 
+		if force {
+			if err := st.deleteSecretApplicationOwner(ctx, tx, aUUID); err != nil {
+				return errors.Errorf("deleting simple application references: %w", err)
+			}
+		}
+
 		// Get the charm UUID before we delete the application.
 		charmUUID, err := st.getCharmUUIDForApplication(ctx, tx, aUUID)
 		if err != nil {
@@ -366,6 +372,22 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		if err := tx.Query(ctx, deleteApplicationReferenceStmt, app).Run(); err != nil {
 			return errors.Errorf("deleting reference to application in %s: %w", table, err)
 		}
+	}
+	return nil
+}
+
+func (st *State) deleteSecretApplicationOwner(ctx context.Context, tx *sqlair.TX, aUUID string) error {
+	app := entityUUID{UUID: aUUID}
+
+	deleteSecretStmt, err := st.Prepare(`
+DELETE FROM secret_application_owner
+WHERE application_uuid = $entityUUID.uuid
+`, app)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteSecretStmt, app).Run(); err != nil {
+		return errors.Errorf("deleting secret application reference: %w", err)
 	}
 	return nil
 }

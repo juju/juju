@@ -376,17 +376,17 @@ func (c *MockModelDBStateApplicationScheduleRemovalCall) DoAndReturn(f func(cont
 }
 
 // DeleteApplication mocks base method.
-func (m *MockModelDBState) DeleteApplication(arg0 context.Context, arg1 string) error {
+func (m *MockModelDBState) DeleteApplication(arg0 context.Context, arg1 string, arg2 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteApplication", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteApplication indicates an expected call of DeleteApplication.
-func (mr *MockModelDBStateMockRecorder) DeleteApplication(arg0, arg1 any) *MockModelDBStateDeleteApplicationCall {
+func (mr *MockModelDBStateMockRecorder) DeleteApplication(arg0, arg1, arg2 any) *MockModelDBStateDeleteApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteApplication", reflect.TypeOf((*MockModelDBState)(nil).DeleteApplication), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteApplication", reflect.TypeOf((*MockModelDBState)(nil).DeleteApplication), arg0, arg1, arg2)
 	return &MockModelDBStateDeleteApplicationCall{Call: call}
 }
 
@@ -402,13 +402,13 @@ func (c *MockModelDBStateDeleteApplicationCall) Return(arg0 error) *MockModelDBS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateDeleteApplicationCall) Do(f func(context.Context, string) error) *MockModelDBStateDeleteApplicationCall {
+func (c *MockModelDBStateDeleteApplicationCall) Do(f func(context.Context, string, bool) error) *MockModelDBStateDeleteApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateDeleteApplicationCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteApplicationCall {
+func (c *MockModelDBStateDeleteApplicationCall) DoAndReturn(f func(context.Context, string, bool) error) *MockModelDBStateDeleteApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
