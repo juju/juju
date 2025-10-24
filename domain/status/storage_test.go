@@ -47,6 +47,7 @@ func (s *storageStatusSuite) TestFilesystemStatusDBValues(c *tc.C) {
 		StorageFilesystemStatusTypeDetaching:  "detaching",
 		StorageFilesystemStatusTypeDetached:   "detached",
 		StorageFilesystemStatusTypeDestroying: "destroying",
+		StorageFilesystemStatusTypeTombstone:  "tombstone",
 	})
 }
 
@@ -106,6 +107,7 @@ func (s *storageStatusSuite) TestVolumeStatusDBValues(c *tc.C) {
 		StorageVolumeStatusTypeDetaching:  "detaching",
 		StorageVolumeStatusTypeDetached:   "detached",
 		StorageVolumeStatusTypeDestroying: "destroying",
+		StorageVolumeStatusTypeTombstone:  "tombstone",
 	})
 }
 

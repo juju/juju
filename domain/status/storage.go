@@ -23,6 +23,9 @@ const (
 	StorageFilesystemStatusTypeDetaching
 	StorageFilesystemStatusTypeDetached
 	StorageFilesystemStatusTypeDestroying
+	// StorageFilesystemStatusTypeTombstone is an internal status, filesystems
+	// with this status are dead and all but deleted from the model.
+	StorageFilesystemStatusTypeTombstone
 )
 
 // EncodeStorageFilesystemStatus encodes a StorageFilesystemStatusType into its
@@ -43,6 +46,8 @@ func EncodeStorageFilesystemStatus(s StorageFilesystemStatusType) (int, error) {
 		return 5, nil
 	case StorageFilesystemStatusTypeDestroying:
 		return 6, nil
+	case StorageFilesystemStatusTypeTombstone:
+		return 7, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
@@ -66,6 +71,8 @@ func DecodeStorageFilesystemStatus(s int) (StorageFilesystemStatusType, error) {
 		return StorageFilesystemStatusTypeDetached, nil
 	case 6:
 		return StorageFilesystemStatusTypeDestroying, nil
+	case 7:
+		return StorageFilesystemStatusTypeTombstone, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
@@ -82,12 +89,12 @@ func FilesystemStatusTransitionValid(
 	if current == new.Status {
 		return nil
 	}
-	validTransition := true
+	validTransition := current != StorageFilesystemStatusTypeTombstone
 	switch new.Status {
 	case StorageFilesystemStatusTypePending:
 		// If a filesystem is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
-		validTransition = !isProvisioned
+		validTransition = validTransition && !isProvisioned
 	default:
 		// Anything else is ok.
 	}
@@ -115,6 +122,9 @@ const (
 	StorageVolumeStatusTypeDetaching
 	StorageVolumeStatusTypeDetached
 	StorageVolumeStatusTypeDestroying
+	// StorageVolumeStatusTypeTombstone is an internal status, volumes with this
+	// status are dead and all but deleted from the model.
+	StorageVolumeStatusTypeTombstone
 )
 
 // EncodeStorageVolumeStatus encodes a StorageVolumeStatusType into its
@@ -135,6 +145,8 @@ func EncodeStorageVolumeStatus(s StorageVolumeStatusType) (int, error) {
 		return 5, nil
 	case StorageVolumeStatusTypeDestroying:
 		return 6, nil
+	case StorageVolumeStatusTypeTombstone:
+		return 7, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
@@ -158,6 +170,8 @@ func DecodeStorageVolumeStatus(s int) (StorageVolumeStatusType, error) {
 		return StorageVolumeStatusTypeDetached, nil
 	case 6:
 		return StorageVolumeStatusTypeDestroying, nil
+	case 7:
+		return StorageVolumeStatusTypeTombstone, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
@@ -174,12 +188,12 @@ func VolumeStatusTransitionValid(
 	if current == new.Status {
 		return nil
 	}
-	validTransition := true
+	validTransition := current != StorageVolumeStatusTypeTombstone
 	switch new.Status {
 	case StorageVolumeStatusTypePending:
 		// If a volume is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
-		validTransition = !isProvisioned
+		validTransition = validTransition && !isProvisioned
 	default:
 		// Anything else is ok.
 	}
