@@ -17,6 +17,7 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
@@ -1097,8 +1098,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 	volumeUUID1, volumeID1 := s.newModelVolume(c)
 	filesystemUUID1, _ := s.newModelFilesystem(c)
 	volumeUUID2, volumeID2 := s.newModelVolume(c)
-	volumeAUUID1 := s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
-	volumeAUUID2 := s.newModelVolumeAttachment(c, volumeUUID2, machineNetNodeUUID)
+	s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
+	s.newMachineVolumeAttachment(c, volumeUUID2, machineNetNodeUUID)
 	s.newStorageInstanceVolume(c, siUUID1, volumeUUID1)
 	s.newStorageInstanceFilesystem(c, siUUID1, filesystemUUID1)
 	s.newStorageInstanceVolume(c, siUUID2, volumeUUID2)
@@ -1108,26 +1109,32 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 		c.Context(), machineUUID,
 	)
 
-	expected := []domainstorageprovisioning.MachineVolumeProvisioningParams{
+	expected := []internal.MachineVolumeProvisioningParams{
 		{
+			MachineVolumeAttachmentProvisioningParams: internal.MachineVolumeAttachmentProvisioningParams{
+				ReadOnly:          false,
+				ProvisioningScope: domainstorageprovisioning.ProvisionScopeModel,
+			},
 			Attributes: map[string]string{
 				"foo": "bar",
 			},
-			ID:                   volumeID1,
-			Provider:             "canonical",
-			RequestedSizeMiB:     100,
-			SizeMiB:              0,
-			VolumeAttachmentUUID: volumeAUUID1,
+			ID:               volumeID1,
+			Provider:         "canonical",
+			RequestedSizeMiB: 100,
+			SizeMiB:          0,
 		},
 		{
+			MachineVolumeAttachmentProvisioningParams: internal.MachineVolumeAttachmentProvisioningParams{
+				ReadOnly:          false,
+				ProvisioningScope: domainstorageprovisioning.ProvisionScopeMachine,
+			},
 			Attributes: map[string]string{
 				"foo": "bar",
 			},
-			ID:                   volumeID2,
-			Provider:             "canonical",
-			RequestedSizeMiB:     100,
-			SizeMiB:              0,
-			VolumeAttachmentUUID: volumeAUUID2,
+			ID:               volumeID2,
+			Provider:         "canonical",
+			RequestedSizeMiB: 100,
+			SizeMiB:          0,
 		},
 	}
 	c.Check(err, tc.ErrorIsNil)
@@ -1155,7 +1162,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsIgnores(c *tc.C)
 	volumeUUID1, volumeID1 := s.newModelVolume(c)
 	filesystemUUID1, _ := s.newModelFilesystem(c)
 	volumeUUID2, _ := s.newMachineVolume(c)
-	volumeAUUID1 := s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
+	s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
 	s.newModelVolumeAttachment(c, volumeUUID2, machineNetNodeUUID)
 	s.newStorageInstanceVolume(c, siUUID1, volumeUUID1)
 	s.newStorageInstanceFilesystem(c, siUUID1, filesystemUUID1)
@@ -1166,16 +1173,19 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsIgnores(c *tc.C)
 		c.Context(), machineUUID,
 	)
 
-	expected := []domainstorageprovisioning.MachineVolumeProvisioningParams{
+	expected := []internal.MachineVolumeProvisioningParams{
 		{
+			MachineVolumeAttachmentProvisioningParams: internal.MachineVolumeAttachmentProvisioningParams{
+				ReadOnly:          false,
+				ProvisioningScope: domainstorageprovisioning.ProvisionScopeModel,
+			},
 			Attributes: map[string]string{
 				"foo": "bar",
 			},
-			ID:                   volumeID1,
-			Provider:             "canonical",
-			RequestedSizeMiB:     100,
-			SizeMiB:              0,
-			VolumeAttachmentUUID: volumeAUUID1,
+			ID:               volumeID1,
+			Provider:         "canonical",
+			RequestedSizeMiB: 100,
+			SizeMiB:          0,
 		},
 	}
 	c.Check(err, tc.ErrorIsNil)

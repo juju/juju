@@ -23,6 +23,7 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -1047,7 +1048,7 @@ WHERE  uuid = $volumeProvisionedInfo.uuid
 // - [domainmachineerrors.MachineNotFound] when no machine exists for the uuid.
 func (st *State) GetMachineModelProvisionedVolumeParams(
 	ctx context.Context, uuid coremachine.UUID,
-) ([]storageprovisioning.MachineVolumeProvisioningParams, error) {
+) ([]internal.MachineVolumeProvisioningParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1062,7 +1063,8 @@ SELECT &machineVolumeProvisioningParams.* FROM (
               si.requested_size_mib,
               sp.type AS provider_type,
               sp.uuid AS storage_pool_uuid,
-              sva.uuid AS volume_attachment_uuid
+              sva.provision_scope_id AS attachment_provision_scope_id,
+              sva.read_only AS attachment_read_only
     FROM      storage_volume sv
     JOIN      storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
     JOIN      machine m ON sva.net_node_uuid = m.net_node_uuid
@@ -1150,23 +1152,26 @@ SELECT &storagePoolAttributeWithUUID.* FROM (
 		poolAttributeMap[attr.StoragePoolUUID] = append(attrs, attr)
 	}
 
-	retVal := make([]storageprovisioning.MachineVolumeProvisioningParams, 0, len(volumeDBParams))
+	retVal := make([]internal.MachineVolumeProvisioningParams, 0, len(volumeDBParams))
 	for _, dbParams := range volumeDBParams {
 		attributes := make(map[string]string, len(poolAttributeMap[dbParams.StoragePoolUUID]))
 		for _, attr := range poolAttributeMap[dbParams.StoragePoolUUID] {
 			attributes[attr.Key] = attr.Value
 		}
 
-		vaUUID := storageprovisioning.VolumeAttachmentUUID(
-			dbParams.VolumeAttachmentUUID,
-		)
-		params := storageprovisioning.MachineVolumeProvisioningParams{
-			Attributes:           attributes,
-			ID:                   dbParams.VolumeID,
-			Provider:             dbParams.ProviderType,
-			RequestedSizeMiB:     dbParams.RequestedSizeMiB,
-			SizeMiB:              dbParams.SizeMiB,
-			VolumeAttachmentUUID: vaUUID,
+		params := internal.MachineVolumeProvisioningParams{
+			MachineVolumeAttachmentProvisioningParams: internal.MachineVolumeAttachmentProvisioningParams{
+				// if read only is null it's zero value in the db will be false.
+				ReadOnly: dbParams.AttachmentReadOnly.V,
+				ProvisioningScope: storageprovisioning.ProvisionScope(
+					dbParams.AttachmentProvisionScopeID,
+				),
+			},
+			Attributes:       attributes,
+			ID:               dbParams.VolumeID,
+			Provider:         dbParams.ProviderType,
+			RequestedSizeMiB: dbParams.RequestedSizeMiB,
+			SizeMiB:          dbParams.SizeMiB,
 		}
 		retVal = append(retVal, params)
 	}
