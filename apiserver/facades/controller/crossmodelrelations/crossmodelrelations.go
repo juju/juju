@@ -420,6 +420,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 				Role:      charm.RelationRole(relation.ConsumerApplicationEndpoint.Role),
 				Interface: relation.ConsumerApplicationEndpoint.Interface,
 			},
+			Username: username,
 		},
 	); err != nil {
 		return nil, errors.Annotate(err, "adding remote application consumer")

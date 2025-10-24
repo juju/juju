@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
-	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -72,7 +71,11 @@ func (st *State) AddRemoteApplicationOfferer(
 		}
 
 		// Insert the application, along with the associated charm.
-		if err := st.insertApplication(ctx, tx, applicationName, args.AddRemoteApplicationArgs); err != nil {
+		if err := st.insertApplication(ctx, tx, applicationName, insertApplicationArgs{
+			ApplicationUUID: args.ApplicationUUID,
+			CharmUUID:       args.CharmUUID,
+			Charm:           args.Charm,
+		}); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -109,14 +112,14 @@ func (st *State) AddConsumedRelation(
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get the application UUID for which the offer UUID was created.
-		_, localApplicationUUID, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, args.OfferUUID)
+		_, offerApplicationUUID, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, args.OfferUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		// Make sure we don't have the remote application consumer already
-		// inserted in the db.
-		if err := st.checkRemoteApplicationExists(ctx, tx, args.OfferUUID, args.RemoteApplicationUUID, args.RelationUUID); err != nil {
+		// If the relation already exists, return an error. All relations are
+		// immutable, so we can only consume it once.
+		if err := st.checkConsumerRelationExists(ctx, tx, args.RelationUUID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -126,7 +129,11 @@ func (st *State) AddConsumedRelation(
 		}
 
 		// Insert the application, along with the associated charm.
-		if err := st.insertApplication(ctx, tx, applicationName, args.AddRemoteApplicationArgs); err != nil {
+		if err := st.insertApplication(ctx, tx, applicationName, insertApplicationArgs{
+			ApplicationUUID: args.SynthApplicationUUID,
+			CharmUUID:       args.CharmUUID,
+			Charm:           args.Charm,
+		}); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -136,14 +143,24 @@ func (st *State) AddConsumedRelation(
 		}
 
 		// Create an offer connection for this consumer.
-		offerConnectionUUID, err := st.insertOfferConnection(ctx, tx, args.OfferUUID, args.RelationUUID)
+		offerConnectionUUID, err := st.insertOfferConnection(ctx, tx,
+			args.SynthApplicationUUID,
+			args.OfferUUID,
+			args.RelationUUID,
+			args.Username,
+		)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
 		// Insert the remote application consumer record, this allows us to find
 		// the synthetic application later.
-		if err := st.insertRemoteApplicationConsumer(ctx, tx, offerConnectionUUID, localApplicationUUID, args.ApplicationUUID, args.ConsumerModelUUID, args.OfferUUID); err != nil {
+		if err := st.insertRemoteApplicationConsumer(ctx, tx,
+			offerConnectionUUID,
+			offerApplicationUUID,
+			args.ConsumerApplicationUUID,
+			args.ConsumerModelUUID,
+		); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -168,7 +185,6 @@ SELECT  a.name AS &remoteApplicationOffererInfo.application_name,
         aro.life_id AS &remoteApplicationOffererInfo.life_id,
         aro.application_uuid AS &remoteApplicationOffererInfo.application_uuid,
         aro.offer_uuid AS &remoteApplicationOffererInfo.offer_uuid,
-        aro.version AS &remoteApplicationOffererInfo.version,
         aro.offerer_model_uuid AS &remoteApplicationOffererInfo.offerer_model_uuid,
         aro.offer_url AS &remoteApplicationOffererInfo.offer_url,
         aro.macaroon AS &remoteApplicationOffererInfo.macaroon
@@ -203,7 +219,6 @@ WHERE   aro.life_id < 2;`
 			ApplicationName:  offerer.ApplicationName,
 			OfferUUID:        offerer.OfferUUID,
 			OfferURL:         offerer.OfferURL,
-			ConsumeVersion:   int(offerer.Version),
 			OffererModelUUID: offerer.OffererModelUUID,
 			Macaroon:         macaroon,
 		}
@@ -256,10 +271,9 @@ func (st *State) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmode
 	query := `
 SELECT  a.name AS &remoteApplicationConsumerInfo.application_name,
         arc.life_id AS &remoteApplicationConsumerInfo.life_id,
-        oc.offer_uuid AS &remoteApplicationConsumerInfo.offer_uuid,
-        arc.version AS &remoteApplicationConsumerInfo.version
+        oc.offer_uuid AS &remoteApplicationConsumerInfo.offer_uuid
 FROM    application_remote_consumer AS arc
-JOIN    application AS a ON a.uuid = arc.consumer_application_uuid
+JOIN    application AS a ON a.uuid = arc.offer_connection_uuid
 JOIN    offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
 WHERE   arc.life_id < 2;`
 	queryStmt, err := st.Prepare(query, remoteApplicationConsumerInfo{})
@@ -283,7 +297,6 @@ WHERE   arc.life_id < 2;`
 			ApplicationName: consumer.ApplicationName,
 			Life:            consumer.LifeID,
 			OfferUUID:       consumer.OfferUUID,
-			ConsumeVersion:  int(consumer.Version),
 		}
 	}
 
@@ -341,11 +354,25 @@ func (st *State) EnsureUnitsExist(ctx context.Context, appUUID string, units []s
 	return nil
 }
 
+type insertApplicationArgs struct {
+	// ApplicationUUID is the UUID to assign to the synthetic application
+	// representing the remote application, on the consuming model.
+	ApplicationUUID string
+
+	// CharmUUID is the UUID to assign to the synthetic charm representing
+	// the remote application, on the consuming model.
+	CharmUUID string
+
+	// Charm is the charm representing the remote application, on the consuming
+	// model.
+	Charm charm.Charm
+}
+
 func (st *State) insertApplication(
 	ctx context.Context,
 	tx *sqlair.TX,
 	name string,
-	args crossmodelrelation.AddRemoteApplicationArgs,
+	args insertApplicationArgs,
 ) error {
 	appDetails := applicationDetails{
 		UUID:      args.ApplicationUUID,
@@ -395,18 +422,12 @@ func (st *State) insertRemoteApplicationOfferer(
 		}
 	}
 
-	version, err := st.nextRemoteApplicationOffererVersion(ctx, tx, args.OfferUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	remoteApp := remoteApplicationOfferer{
 		UUID:                  args.RemoteApplicationUUID,
 		LifeID:                life.Alive,
 		ApplicationUUID:       args.ApplicationUUID,
 		OfferUUID:             args.OfferUUID,
 		OfferURL:              args.OfferURL,
-		Version:               version,
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      args.OffererModelUUID,
 		Macaroon:              args.EncodedMacaroon,
@@ -439,35 +460,20 @@ func (st *State) insertRemoteApplicationConsumer(
 	ctx context.Context,
 	tx *sqlair.TX,
 	offerConnectionUUID string,
-	localApplicationUUID string,
+	offerApplicationUUID string,
 	consumerApplicationUUID string,
 	consumerModelUUID string,
-	offerUUID string,
 ) error {
-
-	// Insert the remote application consumer record, this allows us to find
-	// the synthetic application later.
-	version, err := st.nextRemoteApplicationConsumerVersion(ctx, tx, offerUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	remoteAppConsumerUUID, err := internaluuid.NewUUID()
-	if err != nil {
-		return errors.Capture(err)
-	}
 	remoteApp := remoteApplicationConsumer{
-		UUID:                    remoteAppConsumerUUID.String(),
-		OffererApplicationUUID:  localApplicationUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
 		OfferConnectionUUID:     offerConnectionUUID,
+		OffererApplicationUUID:  offerApplicationUUID,
+		ConsumerApplicationUUID: consumerApplicationUUID, // token passed by the register call
 		ConsumerModelUUID:       consumerModelUUID,
-		Version:                 version,
 		LifeID:                  life.Alive,
 	}
 
 	insertRemoteApp := `
-INSERT INTO application_remote_consumer (*) 
+INSERT INTO application_remote_consumer (*)
 VALUES ($remoteApplicationConsumer.*);`
 	insertRemoteAppStmt, err := st.Prepare(insertRemoteApp, remoteApp)
 	if err != nil {
@@ -524,28 +530,24 @@ WHERE  name = $charmScope.name;`
 func (st *State) insertOfferConnection(
 	ctx context.Context,
 	tx *sqlair.TX,
-	offerUUID string,
-	consumerRelationUUID string,
+	offerConnectionUUID,
+	offerUUID,
+	consumerRelationUUID,
+	consumerUsername string,
 ) (string, error) {
-	// Create an offer connection for this consumer.
-	offerConnectionUUID, err := internaluuid.NewUUID()
-	if err != nil {
-		return "", errors.Errorf("generating offer connection UUID: %w", err)
-	}
-
-	insertOfferConnection := `
+	insertOfferConnectionQuery := `
 INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
 VALUES ($offerConnection.*);`
 
 	offerConn := offerConnection{
-		UUID:               offerConnectionUUID.String(),
+		UUID:               offerConnectionUUID,
 		OfferUUID:          offerUUID,
 		RemoteRelationUUID: consumerRelationUUID,
-		Username:           "consumer-user",
+		Username:           consumerUsername,
 	}
 
 	var emptyOfferConnection offerConnection
-	insertOfferConnStmt, err := st.Prepare(insertOfferConnection, emptyOfferConnection)
+	insertOfferConnStmt, err := st.Prepare(insertOfferConnectionQuery, emptyOfferConnection)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -554,35 +556,7 @@ VALUES ($offerConnection.*);`
 		return "", errors.Errorf("inserting offer connection record: %w", err)
 	}
 
-	return offerConnectionUUID.String(), nil
-}
-
-func (st *State) nextRemoteApplicationOffererVersion(
-	ctx context.Context,
-	tx *sqlair.TX,
-	offerUUID string,
-) (uint64, error) {
-
-	namespace := domainsequence.MakePrefixNamespace(crossmodelrelation.ApplicationRemoteOffererSequenceNamespace, offerUUID)
-	nextVersion, err := sequencestate.NextValue(ctx, st, tx, namespace)
-	if err != nil {
-		return 0, errors.Errorf("getting next remote application offerer version: %w", err)
-	}
-	return nextVersion, nil
-}
-
-func (st *State) nextRemoteApplicationConsumerVersion(
-	ctx context.Context,
-	tx *sqlair.TX,
-	offerUUID string,
-) (uint64, error) {
-
-	namespace := domainsequence.MakePrefixNamespace(crossmodelrelation.ApplicationRemoteConsumerSequenceNamespace, offerUUID)
-	nextVersion, err := sequencestate.NextValue(ctx, st, tx, namespace)
-	if err != nil {
-		return 0, errors.Errorf("getting next remote application consumer version: %w", err)
-	}
-	return nextVersion, nil
+	return offerConnectionUUID, nil
 }
 
 func (st *State) insertRemoteApplicationOffererStatus(
@@ -724,53 +698,26 @@ WHERE  oe.offer_uuid = $offerConnectionQuery.offer_uuid
 	return res.Name, res.UUID, nil
 }
 
-// checkRemoteApplicationExists checks if a remote application with the given
-// offer UUID, remote application UUID and remote relation UUID already exists.
-func (st *State) checkRemoteApplicationExists(
+// checkConsumerRelationExists checks if the consumer relation already exists.
+func (st *State) checkConsumerRelationExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	offerUUID string,
-	remoteApplicationUUID string,
-	remoteRelationUUID string,
+	consumingRelationUUID string,
 ) error {
-	synthRelationIdent := uuid{UUID: remoteRelationUUID}
+	synthRelationIdent := uuid{UUID: consumingRelationUUID}
 	syntheticRelationExistsStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &countResult.count
-FROM  relation
-WHERE uuid = $uuid.uuid
+FROM   relation
+WHERE  uuid = $uuid.uuid
 `, countResult{}, synthRelationIdent)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	offerConnectionOfferUUID := offerConnectionQuery{OfferUUID: offerUUID}
-	consumerAppUUID := consumerApplicationUUID{ConsumerApplicationUUID: remoteApplicationUUID}
-	consumerApplicationExistsStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &countResult.count
-FROM  application_remote_consumer AS arc
-JOIN  offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
-WHERE arc.consumer_application_uuid = $consumerApplicationUUID.consumer_application_uuid
-AND   oc.offer_uuid = $offerConnectionQuery.offer_uuid
-`, countResult{}, consumerAppUUID, offerConnectionOfferUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	var result countResult
-	// First check if the synthetic relation already exists.
 	if err := tx.Query(ctx, syntheticRelationExistsStmt, synthRelationIdent).Get(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("checking if consumer relation %q exists: %w", remoteRelationUUID, err)
-	}
-	if result.Count > 0 {
-		return crossmodelrelationerrors.RemoteRelationAlreadyRegistered
-	}
-
-	// Now check if the consumer application, related with the offer UUID
-	// already exists.
-	if err := tx.Query(ctx, consumerApplicationExistsStmt, consumerAppUUID, offerConnectionOfferUUID).Get(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("checking if consumer application %q exists: %w", remoteApplicationUUID, err)
-	}
-	if result.Count > 0 {
+		return errors.Errorf("checking if consumer relation %q exists: %w", consumingRelationUUID, err)
+	} else if result.Count > 0 {
 		return crossmodelrelationerrors.RemoteRelationAlreadyRegistered
 	}
 
@@ -1019,7 +966,7 @@ SELECT r.uuid AS &uuid.uuid
 FROM   application_remote_consumer AS arc
 JOIN   offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
 JOIN   relation AS r ON r.uuid = oc.remote_relation_uuid
-WHERE  arc.uuid IN ($ids[:])`, uuid{}, ident)
+WHERE  arc.offer_connection_uuid IN ($ids[:])`, uuid{}, ident)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

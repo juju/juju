@@ -91,3 +91,8 @@ type linkLayerDevice struct {
 	Count           int    `db:"count"`
 	UUID            string `db:"uuid"`
 }
+
+type consumerApplicationUUID struct {
+	ConsumerApplicationUUID string `db:"consumer_application_uuid"`
+	SynthApplicationUUID    string `db:"uuid"`
+}

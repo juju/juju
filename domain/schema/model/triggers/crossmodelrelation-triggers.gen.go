@@ -29,12 +29,10 @@ END;
 CREATE TRIGGER trg_log_application_remote_consumer_update
 AFTER UPDATE ON application_remote_consumer FOR EACH ROW
 WHEN 
-	NEW.uuid != OLD.uuid OR
+	NEW.offer_connection_uuid != OLD.offer_connection_uuid OR
 	NEW.offerer_application_uuid != OLD.offerer_application_uuid OR
 	NEW.consumer_application_uuid != OLD.consumer_application_uuid OR
-	NEW.offer_connection_uuid != OLD.offer_connection_uuid OR
 	NEW.consumer_model_uuid != OLD.consumer_model_uuid OR
-	NEW.version != OLD.version OR
 	NEW.life_id != OLD.life_id 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
@@ -75,7 +73,6 @@ WHEN
 	NEW.application_uuid != OLD.application_uuid OR
 	NEW.offer_uuid != OLD.offer_uuid OR
 	NEW.offer_url != OLD.offer_url OR
-	NEW.version != OLD.version OR
 	(NEW.offerer_controller_uuid != OLD.offerer_controller_uuid OR (NEW.offerer_controller_uuid IS NOT NULL AND OLD.offerer_controller_uuid IS NULL) OR (NEW.offerer_controller_uuid IS NULL AND OLD.offerer_controller_uuid IS NOT NULL)) OR
 	NEW.offerer_model_uuid != OLD.offerer_model_uuid OR
 	NEW.macaroon != OLD.macaroon 

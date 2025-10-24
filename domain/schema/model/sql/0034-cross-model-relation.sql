@@ -12,9 +12,6 @@ CREATE TABLE application_remote_offerer (
     -- offer_url is the URL of the offer that the remote application is
     -- consuming.
     offer_url TEXT NOT NULL,
-    -- version is the unique version number that is incremented when the 
-    -- consumer model changes the offerer application.
-    version INT NOT NULL,
     -- offerer_controller_uuid is the offering controller where the
     -- offerer application is located. There is no FK constraint on it,
     -- because that information is located in the controller DB.
@@ -67,44 +64,6 @@ CREATE TABLE application_remote_offerer_relation_macaroon (
     REFERENCES relation (uuid)
 );
 
--- application_remote_consumer represents a remote consumer application
--- inside of the offering model.
-CREATE TABLE application_remote_consumer (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    -- offerer_application_uuid is application UUID of the offer in the offering
-    -- model.
-    offerer_application_uuid TEXT NOT NULL,
-    -- consumed_application_uuid is the (remote, synthetic) application UUID in 
-    -- the consumer model.
-    consumer_application_uuid TEXT NOT NULL,
-    -- offer_connection_uuid is the offer connection that links the remote
-    -- consumer to the offer.
-    offer_connection_uuid TEXT NOT NULL,
-    -- consumer_model_uuid is the model in the consuming controller where
-    -- the consumer application is located. There is no FK constraint on it,
-    -- because we don't have the model locally.
-    consumer_model_uuid TEXT NOT NULL,
-    -- version is the unique version number that is incremented when the
-    -- consumer model changes the consumer application.
-    version INT NOT NULL,
-    life_id INT NOT NULL,
-    CONSTRAINT fk_life_id
-    FOREIGN KEY (life_id)
-    REFERENCES life (id),
-    CONSTRAINT fk_offerer_application_uuid
-    FOREIGN KEY (offerer_application_uuid)
-    REFERENCES application (uuid),
-    CONSTRAINT fk_consumer_application_uuid
-    FOREIGN KEY (consumer_application_uuid)
-    REFERENCES application (uuid),
-    CONSTRAINT fk_offer_connection_uuid
-    FOREIGN KEY (offer_connection_uuid)
-    REFERENCES offer_connection (uuid)
-);
-
-CREATE UNIQUE INDEX idx_application_remote_consumer_consumed_application_uuid
-ON application_remote_consumer (consumer_application_uuid);
-
 -- offer connection links the application remote consumer to the offer.
 CREATE TABLE offer_connection (
     uuid TEXT NOT NULL PRIMARY KEY,
@@ -124,6 +83,40 @@ CREATE TABLE offer_connection (
     CONSTRAINT fk_remote_relation_uuid
     FOREIGN KEY (remote_relation_uuid)
     REFERENCES relation (uuid)
+);
+
+-- application_remote_consumer represents a remote consumer application
+-- inside of the offering model.
+CREATE TABLE application_remote_consumer (
+    -- offer_connection_uuid is the offer connection that links the remote
+    -- consumer to the offer. This is the same UUID as the synthetic application
+    -- that represents the remote application in the consumer model.
+    offer_connection_uuid TEXT NOT NULL PRIMARY KEY,
+    -- offerer_application_uuid is application UUID of the offer in the offering
+    -- model.
+    offerer_application_uuid TEXT NOT NULL,
+    -- consumed_application_uuid is the (remote token) application UUID in 
+    -- the consumer model.
+    consumer_application_uuid TEXT NOT NULL,
+    -- consumer_model_uuid is the model in the consuming controller where
+    -- the consumer application is located. There is no FK constraint on it,
+    -- because we don't have the model locally.
+    consumer_model_uuid TEXT NOT NULL,
+    life_id INT NOT NULL,
+    CONSTRAINT fk_life_id
+    FOREIGN KEY (life_id)
+    REFERENCES life (id),
+    CONSTRAINT fk_offerer_application_uuid
+    FOREIGN KEY (offerer_application_uuid)
+    REFERENCES application (uuid),
+    -- This is correct, the offer_connection_uuid is both the connection_uuid
+    -- and the application uuid representing the synth application. The
+    CONSTRAINT fk_offer_connection_uuid
+    FOREIGN KEY (offer_connection_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_offer_connection_uuid
+    FOREIGN KEY (offer_connection_uuid)
+    REFERENCES offer_connection (uuid)
 );
 
 -- relation_network_ingress holds information about ingress CIDRs for a 

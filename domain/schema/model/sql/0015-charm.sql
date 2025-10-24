@@ -12,6 +12,19 @@ INSERT INTO charm_run_as_kind VALUES
 (2, 'sudoer'),
 (3, 'non-root');
 
+CREATE TABLE charm_source (
+    id INT PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_charm_source_name
+ON charm_source (name);
+
+INSERT INTO charm_source VALUES
+(0, 'local'),
+(1, 'charmhub'),
+(2, 'cmr');
+
 -- The charm table exists as the nexus to all charm data. 
 --
 -- The fact that the charm is in the database indicates that it's a placeholder.
@@ -183,19 +196,6 @@ SELECT
 FROM charm AS c
 LEFT JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
 LEFT JOIN charm_run_as_kind AS crak ON cm.run_as_id = crak.id;
-
-CREATE TABLE charm_source (
-    id INT PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
-CREATE UNIQUE INDEX idx_charm_source_name
-ON charm_source (name);
-
-INSERT INTO charm_source VALUES
-(0, 'local'),
-(1, 'charmhub'),
-(2, 'cmr');
 
 CREATE VIEW v_charm_annotation_index AS
 SELECT

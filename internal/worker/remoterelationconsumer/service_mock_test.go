@@ -584,6 +584,45 @@ func (c *MockCrossModelServiceEnsureUnitsExistCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// GetApplicationUUIDByName mocks base method.
+func (m *MockCrossModelService) GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationUUIDByName", ctx, name)
+	ret0, _ := ret[0].(application.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationUUIDByName indicates an expected call of GetApplicationUUIDByName.
+func (mr *MockCrossModelServiceMockRecorder) GetApplicationUUIDByName(ctx, name any) *MockCrossModelServiceGetApplicationUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationUUIDByName", reflect.TypeOf((*MockCrossModelService)(nil).GetApplicationUUIDByName), ctx, name)
+	return &MockCrossModelServiceGetApplicationUUIDByNameCall{Call: call}
+}
+
+// MockCrossModelServiceGetApplicationUUIDByNameCall wrap *gomock.Call
+type MockCrossModelServiceGetApplicationUUIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelServiceGetApplicationUUIDByNameCall) Return(arg0 application.UUID, arg1 error) *MockCrossModelServiceGetApplicationUUIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelServiceGetApplicationUUIDByNameCall) Do(f func(context.Context, string) (application.UUID, error)) *MockCrossModelServiceGetApplicationUUIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelServiceGetApplicationUUIDByNameCall) DoAndReturn(f func(context.Context, string) (application.UUID, error)) *MockCrossModelServiceGetApplicationUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationDetails mocks base method.
 func (m *MockCrossModelService) GetRelationDetails(arg0 context.Context, arg1 relation.UUID) (relation0.RelationDetails, error) {
 	m.ctrl.T.Helper()
@@ -1121,6 +1160,68 @@ func (c *MockCrossModelServiceWatchRemoteApplicationOfferersCall) Do(f func(cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelServiceWatchRemoteApplicationOfferersCall) DoAndReturn(f func(context.Context) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRemoteApplicationOfferersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockApplicationService is a mock of ApplicationService interface.
+type MockApplicationService struct {
+	ctrl     *gomock.Controller
+	recorder *MockApplicationServiceMockRecorder
+}
+
+// MockApplicationServiceMockRecorder is the mock recorder for MockApplicationService.
+type MockApplicationServiceMockRecorder struct {
+	mock *MockApplicationService
+}
+
+// NewMockApplicationService creates a new mock instance.
+func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService {
+	mock := &MockApplicationService{ctrl: ctrl}
+	mock.recorder = &MockApplicationServiceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
+	return m.recorder
+}
+
+// GetApplicationUUIDByName mocks base method.
+func (m *MockApplicationService) GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationUUIDByName", ctx, name)
+	ret0, _ := ret[0].(application.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationUUIDByName indicates an expected call of GetApplicationUUIDByName.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationUUIDByName(ctx, name any) *MockApplicationServiceGetApplicationUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationUUIDByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationUUIDByName), ctx, name)
+	return &MockApplicationServiceGetApplicationUUIDByNameCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationUUIDByNameCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationUUIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationUUIDByNameCall) Return(arg0 application.UUID, arg1 error) *MockApplicationServiceGetApplicationUUIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationUUIDByNameCall) Do(f func(context.Context, string) (application.UUID, error)) *MockApplicationServiceGetApplicationUUIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationUUIDByNameCall) DoAndReturn(f func(context.Context, string) (application.UUID, error)) *MockApplicationServiceGetApplicationUUIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -83,10 +83,22 @@ type RemoteModelRelationsClient interface {
 // CrossModelService is an interface that groups together the local
 // relation service and the cross-model relation service.
 type CrossModelService interface {
-	RelationService
+	ApplicationService
 	CrossModelRelationService
-	StatusService
+	RelationService
 	RemovalService
+	StatusService
+}
+
+// ApplicationService is an interface that defines the methods for
+// managing applications directly on the local model database.
+type ApplicationService interface {
+	// GetApplicationUUIDByName returns an application UUID by application name. It
+	// returns an error if the application can not be found by the name.
+	//
+	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
+	// and [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error)
 }
 
 // RelationService is an interface that defines the methods for
@@ -373,7 +385,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 				ApplicationUUID:                application.UUID(remoteApp.ApplicationUUID),
 				ConsumerModelUUID:              w.config.ModelUUID,
 				OffererModelUUID:               remoteApp.OffererModelUUID,
-				ConsumeVersion:                 remoteApp.ConsumeVersion,
+				ConsumeVersion:                 0,
 				Macaroon:                       remoteApp.Macaroon,
 				CrossModelService:              w.crossModelService,
 				RemoteRelationClientGetter:     w.config.RemoteRelationClientGetter,
@@ -423,7 +435,7 @@ func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicat
 		return false, errors.Errorf("worker %q is not a OffererApplicationWorker", remoteApp.ApplicationName)
 	}
 
-	return appWorker.ConsumeVersion() != remoteApp.ConsumeVersion, nil
+	return appWorker.ConsumeVersion() != 0, nil
 }
 
 // Report provides information for the engine report.

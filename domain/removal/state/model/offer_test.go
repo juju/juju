@@ -86,6 +86,8 @@ func (s *offerSuite) TestDeleteOfferForceWithRelations(c *tc.C) {
 	offerUUID := s.createOffer(c, "foo")
 	s.createRemoteApplicationConsumer(c, "bar", offerUUID)
 
+	s.DumpTable(c, "relation", "application_remote_consumer", "application")
+
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.DeleteOffer(c.Context(), offerUUID.String(), true)

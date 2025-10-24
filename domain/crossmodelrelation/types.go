@@ -136,10 +136,6 @@ type RemoteApplicationConsumer struct {
 	// OfferUUID is the UUID of the offer that the remote application is
 	// consuming.
 	OfferUUID string
-
-	// ConsumeVersion is the version of the offer that the remote application is
-	// consuming.
-	ConsumeVersion int
 }
 
 // RemoteApplicationOfferer represents a remote application
@@ -162,10 +158,6 @@ type RemoteApplicationOfferer struct {
 	// and it's exported endpoints
 	OfferURL string
 
-	// ConsumeVersion is the version of the offer that the remote application is
-	// consuming.
-	ConsumeVersion int
-
 	// OffererModelUUID is the UUID of the model that is offering the
 	// application.
 	OffererModelUUID string
@@ -178,38 +170,6 @@ type RemoteApplicationOfferer struct {
 // AddRemoteApplicationOffererArgs contains the parameters required to add a new
 // remote application offerer.
 type AddRemoteApplicationOffererArgs struct {
-	AddRemoteApplicationArgs
-
-	// OfferURL is the URL of this offer, the natural key for the offer to
-	// identify the in offer in the offering model.
-	OfferURL string
-
-	// OffererControllerUUID is the UUID of the controller that the remote
-	// application is in.
-	OffererControllerUUID *string
-
-	// OffererModelUUID is the UUID of the model that is offering the
-	// application.
-	OffererModelUUID string
-
-	// EncodedMacaroon is the encoded macaroon that the remote application uses
-	// to authenticate with the offerer model.
-	EncodedMacaroon []byte
-}
-
-// AddRemoteApplicationConsumerArgs contains the parameters required to add a
-// new remote application consumer.
-type AddRemoteApplicationConsumerArgs struct {
-	AddRemoteApplicationArgs
-
-	// RelationUUID is the UUID of the relation created to connect the remote
-	// application to a local application, on the consuming model.
-	RelationUUID string
-}
-
-// AddRemoteApplicationArgs contains the parameters required to add a new remote
-// application, on any of the offering or the consuming models.
-type AddRemoteApplicationArgs struct {
 	// ApplicationUUID is the UUID to assign to the synthetic application
 	// representing the remote application, on the consuming model.
 	ApplicationUUID string
@@ -233,6 +193,56 @@ type AddRemoteApplicationArgs struct {
 	// ConsumerModelUUID is the UUID of the model that is consuming the
 	// application.
 	ConsumerModelUUID string
+
+	// OfferURL is the URL of this offer, the natural key for the offer to
+	// identify the in offer in the offering model.
+	OfferURL string
+
+	// OffererControllerUUID is the UUID of the controller that the remote
+	// application is in.
+	OffererControllerUUID *string
+
+	// OffererModelUUID is the UUID of the model that is offering the
+	// application.
+	OffererModelUUID string
+
+	// EncodedMacaroon is the encoded macaroon that the remote application uses
+	// to authenticate with the offerer model.
+	EncodedMacaroon []byte
+}
+
+// AddRemoteApplicationConsumerArgs contains the parameters required to add a
+// new remote application consumer.
+type AddRemoteApplicationConsumerArgs struct {
+	// CharmUUID is the UUID to assign to the synthetic charm representing
+	// the remote application, on the consuming model.
+	CharmUUID string
+
+	// Charm is the charm representing the remote application, on the consuming
+	// model.
+	Charm charm.Charm
+
+	// OfferUUID is the UUID of the offer that the remote application is
+	// consuming. The offer is in this model, the offering model.
+	OfferUUID string
+
+	// ConsumerModelUUID is the UUID of the model that is consuming the
+	// application.
+	ConsumerModelUUID string
+
+	// RelationUUID is the UUID of the relation created to connect the remote
+	// application to a local application, on the consuming model.
+	RelationUUID string
+
+	// ConsumerApplicationUUID is the UUID of the consuming application UUID.
+	ConsumerApplicationUUID string
+
+	// SynthApplicationUUID is the UUID of the synthetic application created
+	// to represent the remote application, on the consuming model.
+	SynthApplicationUUID string
+
+	// Username is the name of the user making the request.
+	Username string
 }
 
 // CreateOfferArgs contains parameters used to create an offer.

@@ -180,7 +180,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForOperationTaskLog("task_uuid", tableOperationTaskLog),
 		triggers.ChangeLogTriggersForApplicationRemoteOfferer("uuid",
 			tableCrossModelRelationApplicationRemoteOfferers),
-		triggers.ChangeLogTriggersForApplicationRemoteConsumer("uuid",
+		triggers.ChangeLogTriggersForApplicationRemoteConsumer("offer_connection_uuid",
 			tableCrossModelRelationApplicationRemoteConsumers),
 		triggers.ChangeLogTriggersForOffer("uuid", tableOffer),
 		triggers.ChangeLogTriggersForApplicationStatus("application_uuid", tableApplicationStatus),
