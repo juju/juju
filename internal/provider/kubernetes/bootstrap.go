@@ -1341,7 +1341,6 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		c.broker.dynamicClient(),
 		c.broker.newWatcher,
 		c.broker.clock,
-		c.broker.randomPrefix,
 		c.broker.controllerUUID,
 	)
 

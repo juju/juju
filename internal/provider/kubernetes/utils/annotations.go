@@ -4,12 +4,7 @@
 package utils
 
 import (
-	"crypto/rand"
-	"fmt"
-	"io"
 	"strings"
-
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/environs/tags"
@@ -151,12 +146,3 @@ func ResourceTagsToAnnotations(in map[string]string, labelVersion constants.Labe
 
 // RandomPrefixFunc defines a function used to generate a random hex string.
 type RandomPrefixFunc func() (string, error)
-
-// RandomPrefix returns a random string for storage related annotations.
-func RandomPrefix() (string, error) {
-	var randPrefixBytes [4]byte
-	if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
-		return "", errors.Trace(err)
-	}
-	return fmt.Sprintf("%x", randPrefixBytes), nil
-}
