@@ -158,6 +158,45 @@ func (c *MockStateGetStorageAttachmentUUIDForStorageInstanceAndUnitCall) DoAndRe
 	return c
 }
 
+// GetStorageInstanceAttachments mocks base method.
+func (m *MockState) GetStorageInstanceAttachments(arg0 context.Context, arg1 storage0.StorageInstanceUUID) ([]storageprovisioning.StorageAttachmentUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageInstanceAttachments", arg0, arg1)
+	ret0, _ := ret[0].([]storageprovisioning.StorageAttachmentUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageInstanceAttachments indicates an expected call of GetStorageInstanceAttachments.
+func (mr *MockStateMockRecorder) GetStorageInstanceAttachments(arg0, arg1 any) *MockStateGetStorageInstanceAttachmentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageInstanceAttachments", reflect.TypeOf((*MockState)(nil).GetStorageInstanceAttachments), arg0, arg1)
+	return &MockStateGetStorageInstanceAttachmentsCall{Call: call}
+}
+
+// MockStateGetStorageInstanceAttachmentsCall wrap *gomock.Call
+type MockStateGetStorageInstanceAttachmentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetStorageInstanceAttachmentsCall) Return(arg0 []storageprovisioning.StorageAttachmentUUID, arg1 error) *MockStateGetStorageInstanceAttachmentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetStorageInstanceAttachmentsCall) Do(f func(context.Context, storage0.StorageInstanceUUID) ([]storageprovisioning.StorageAttachmentUUID, error)) *MockStateGetStorageInstanceAttachmentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetStorageInstanceAttachmentsCall) DoAndReturn(f func(context.Context, storage0.StorageInstanceUUID) ([]storageprovisioning.StorageAttachmentUUID, error)) *MockStateGetStorageInstanceAttachmentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStorageInstanceUUIDByID mocks base method.
 func (m *MockState) GetStorageInstanceUUIDByID(arg0 context.Context, arg1 string) (storage0.StorageInstanceUUID, error) {
 	m.ctrl.T.Helper()

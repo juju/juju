@@ -91,3 +91,16 @@ type linkLayerDevice struct {
 	Count           int    `db:"count"`
 	UUID            string `db:"uuid"`
 }
+
+// storageAttachmentDetachInfo represents the information needed to make a
+// decision if a given storage attachment can be detached from a unit safely.
+// This information assumes the case where the unit will continue to run after
+// the attachment is removed.
+type storageAttachmentDetachInfo struct {
+	CharmStorageName string `db:"charm_storage_name"`
+	CountFulfilment  int    `db:"count_fulfilment"`
+	RequiredCountMin int    `db:"required_count_min"`
+	LifeID           int    `db:"life_id"`
+	UnitLifeID       int    `db:"unit_life_id"`
+	UnitUUID         string `db:"unit_uuid"`
+}

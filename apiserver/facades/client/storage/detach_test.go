@@ -321,3 +321,77 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentWithForceAndWait(c *tc.C
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.IsNil)
 }
+
+// TestDetachStorageAllAttachments asserts that if the caller only supplies a
+// storage id to remove the storage is detached from all units.
+func (s *storageDetachSuite) TestDetachStorageAllAttachments(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageAttachmentUUID1 := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	storageAttachmentUUID2 := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	storageExp := s.storageService.EXPECT()
+	storageExp.GetStorageInstanceUUIDForID(gomock.Any(), "data/1").Return(
+		storageInstUUID, nil,
+	).AnyTimes()
+	storageExp.GetStorageInstanceAttachments(
+		gomock.Any(), storageInstUUID,
+	).Return([]domainstorageprovisioning.StorageAttachmentUUID{
+		storageAttachmentUUID1, storageAttachmentUUID2,
+	}, nil)
+
+	// We want to see two removals occur
+	removalEXP := s.removalService.EXPECT()
+	removalEXP.RemoveStorageAttachmentFromAliveUnit(
+		gomock.Any(), storageAttachmentUUID1, false, time.Duration(0),
+	).Return("123", nil)
+	removalEXP.RemoveStorageAttachmentFromAliveUnit(
+		gomock.Any(), storageAttachmentUUID2, false, time.Duration(0),
+	).Return("124", nil)
+
+	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+		StorageIds: params.StorageAttachmentIds{
+			Ids: []params.StorageAttachmentId{
+				{
+					StorageTag: "storage-data/1",
+				},
+			},
+		},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
+}
+
+// TestDetachStorageAllAttachmentsEmpty asserts that if the caller only supplies
+// a storage id to detached and the storage is not attached to anything the
+// operation results in a noop.
+func (s *storageDetachSuite) TestDetachStorageAllAttachmentsEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	storageExp := s.storageService.EXPECT()
+	storageExp.GetStorageInstanceUUIDForID(gomock.Any(), "data/1").Return(
+		storageInstUUID, nil,
+	).AnyTimes()
+	storageExp.GetStorageInstanceAttachments(
+		gomock.Any(), storageInstUUID,
+	).Return([]domainstorageprovisioning.StorageAttachmentUUID{}, nil)
+
+	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+		StorageIds: params.StorageAttachmentIds{
+			Ids: []params.StorageAttachmentId{
+				{
+					StorageTag: "storage-data/1",
+				},
+			},
+		},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
+}
