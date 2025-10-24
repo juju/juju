@@ -10,6 +10,36 @@ import (
 	"github.com/juju/juju/domain/life"
 )
 
+// MachineVolumeProvisioningParams defines the set of parameters required to
+// provision volumes alongside machines in the environ.
+type MachineVolumeProvisioningParams struct {
+	// Attributes is the set of provider specific attributes to use when
+	// provisioning and managing the volume.
+	Attributes map[string]string
+
+	// ID is the unique id given to the volume in the controller. This is not
+	// the volume uuid.
+	ID string
+
+	// Provider is the storage provider to use when provisioning the volume.
+	Provider string
+
+	// RequestedSizeMiB is the requested size the volume should be at least
+	// provisioned as. See [MachineVolumeProvisioningParams.SizeMiB] for the
+	// actual size of the volume once provisioned.
+	RequestedSizeMiB uint64
+
+	// SizeMiB is the actual provisioned sized of the volume. See
+	// [MachineVolumeProvisioningParams.RequestedSizeMiB] for the requested size
+	// when being provisioned. A value of 0 here means the volume has not been
+	// provisioned yet and the final size is not known.
+	SizeMiB uint64
+
+	// VolumeAttachmentUUID is the uuid of the volume attachment that attaches
+	// this volume to the machine.
+	VolumeAttachmentUUID VolumeAttachmentUUID
+}
+
 // VolumeAttachmentID is a struct that provides the IDs and names associated
 // with a volume attachment. In this case the id refers to the volume
 // resource the attachment is for. As well as this the name of the machine and
