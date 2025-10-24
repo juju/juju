@@ -12,7 +12,14 @@ import (
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 )
+
+// attachmentSuite is a test suite for asserting the behaviour of storage
+// attachment related methods on [State].
+type attachmentSuite struct {
+	baseSuite
+}
 
 // attachmentUUIDSuite is a test suite for asserting the behaviour of
 // [State.GetStorageAttachmentUUIDForStorageInstanceAndUnit].
@@ -21,6 +28,11 @@ import (
 // under control.
 type attachmentUUIDSuite struct {
 	baseSuite
+}
+
+// TestAttachmentSuite runs all of the tests contained within [attachmentSuite].
+func TestAttachmentSuite(t *testing.T) {
+	tc.Run(t, &attachmentSuite{})
 }
 
 // TestAttachmentUUIDSuite runs the tests contained in [attachmentUUIDSuite].
@@ -77,4 +89,51 @@ func (s *attachmentUUIDSuite) TestUUIDForStorageInstanceAndUnit(c *tc.C) {
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(gotUUID, tc.Equals, storageAttachmentUUID)
+}
+
+// TestGetStorageInstnaceAttachmentsNotFound asserts that when the storage
+// instance does not exist in the model the caller gets back an error satisfying
+// [domainstorageerrors.StorageInstanceNotFound].
+func (s *attachmentSuite) TestGetStorageInstnaceAttachmentsNotFound(c *tc.C) {
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetStorageInstanceAttachments(c.Context(), storageInstanceUUID)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
+}
+
+// TestGetStorageInstanceAttachmentsEmptyResult asserts that when a storage
+// instance is not attached to any units an empty slice is returned.
+func (s *attachmentSuite) TestGetStorageInstanceAttachmentsEmptyResult(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(
+		c, "kratos", poolUUID, "token-store",
+	)
+
+	st := NewState(s.TxnRunnerFactory())
+	attachments, err := st.GetStorageInstanceAttachments(c.Context(), storageInstanceUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(attachments, tc.HasLen, 0)
+}
+
+func (s *attachmentSuite) TestGetStorageInstanceAttachments(c *tc.C) {
+	unitUUID1 := s.newUnit(c)
+	unitUUID2 := s.newUnit(c)
+	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(
+		c, "kratos", poolUUID, "token-store",
+	)
+	storageAttachmentUUID1 := s.newStorageAttachment(c, storageInstanceUUID, unitUUID1)
+	storageAttachmentUUID2 := s.newStorageAttachment(c, storageInstanceUUID, unitUUID2)
+
+	st := NewState(s.TxnRunnerFactory())
+	attachments, err := st.GetStorageInstanceAttachments(c.Context(), storageInstanceUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(
+		attachments, tc.SameContents,
+		[]domainstorageprovisioning.StorageAttachmentUUID{
+			storageAttachmentUUID2,
+			storageAttachmentUUID1,
+		},
+	)
 }
