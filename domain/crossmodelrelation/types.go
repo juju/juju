@@ -226,6 +226,10 @@ type AddRemoteApplicationConsumerArgs struct {
 	// consuming. The offer is in this model, the offering model.
 	OfferUUID string
 
+	// OfferEndpointName is the name of the offering application endpoint
+	// to be used in the relation.
+	OfferEndpointName string
+
 	// ConsumerModelUUID is the UUID of the model that is consuming the
 	// application.
 	ConsumerModelUUID string

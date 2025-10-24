@@ -410,10 +410,11 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	// Insert the remote relation.
 	if err := api.crossModelRelationService.AddConsumedRelation(ctx,
 		crossmodelrelationservice.AddConsumedRelationArgs{
-			ConsumerApplicationUUID: relation.ConsumerApplicationToken,
 			OfferUUID:               offerUUID,
 			RelationUUID:            relation.RelationToken,
+			OfferingEndpointName:    relation.OfferEndpointName,
 			ConsumerModelUUID:       sourceModelTag.Id(),
+			ConsumerApplicationUUID: relation.ConsumerApplicationToken,
 			// We only have the actual consumed endpoint.
 			ConsumerApplicationEndpoint: charm.Relation{
 				Name:      relation.ConsumerApplicationEndpoint.Name,
@@ -425,6 +426,9 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	); err != nil {
 		return nil, errors.Annotate(err, "adding remote application consumer")
 	}
+
+	// TODO: get relation key by method, do not create on the fly here
+	// inconsistent with the real key.
 
 	// Create the relation tag for the remote relation.
 	// The relation tag is based on the relation key, which is of the form

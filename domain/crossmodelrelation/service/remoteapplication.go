@@ -261,6 +261,7 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 
 	if err := s.modelState.AddConsumedRelation(ctx, synthApplicationName, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		OfferUUID:         args.OfferUUID.String(),
+		OfferEndpointName: args.OfferingEndpointName,
 		ConsumerModelUUID: args.ConsumerModelUUID,
 		RelationUUID:      args.RelationUUID,
 
