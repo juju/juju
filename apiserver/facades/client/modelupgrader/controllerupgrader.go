@@ -104,17 +104,14 @@ func NewControllerUpgraderAPI(
 	authorizer facade.Authorizer,
 	check common.BlockCheckerInterface,
 	upgraderService ControllerUpgraderService,
-) (*ControllerUpgraderAPI, error) {
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
+) *ControllerUpgraderAPI {
 	return &ControllerUpgraderAPI{
 		controllerTag:   controllerTag,
 		modelTag:        modelTag,
 		authorizer:      authorizer,
 		check:           check,
 		upgraderService: upgraderService,
-	}, nil
+	}
 }
 
 // AbortModelUpgrade returns not supported, as it's not possible to move

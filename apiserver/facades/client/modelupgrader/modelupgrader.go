@@ -120,18 +120,14 @@ func NewModelUpgraderAPI(
 	authorizer facade.Authorizer,
 	check common.BlockCheckerInterface,
 	modelAgentService ModelAgentService,
-) (*ModelUpgraderAPI, error) {
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
+) *ModelUpgraderAPI {
 	return &ModelUpgraderAPI{
 		authorizer:        authorizer,
 		check:             check,
 		modelAgentService: modelAgentService,
 		controllerTag:     controllerTag,
 		modelTag:          modelTag,
-	}, nil
+	}
 }
 
 // canUpgrade has the responsibility to determine whether there is sufficient

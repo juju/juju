@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -61,30 +60,22 @@ func newUpgraderFacadeV1(ctx facade.MultiModelContext) (UpgradeAPI, error) {
 	checker := common.NewBlockChecker(domainServices.BlockCommand())
 
 	if ctx.IsControllerModelScoped() {
-		upgraderAPI, err := NewControllerUpgraderAPI(
+		upgraderAPI := NewControllerUpgraderAPI(
 			controllerTag,
 			modelTag,
 			auth,
 			checker,
 			domainServices.ControllerUpgraderService(),
 		)
-
-		if err != nil {
-			return UpgradeAPI{}, errors.Capture(err)
-		}
 		return UpgradeAPI{upgraderAPI}, nil
 	}
 
-	upgraderAPI, err := NewModelUpgraderAPI(
+	upgraderAPI := NewModelUpgraderAPI(
 		controllerTag,
 		modelTag,
 		auth,
 		checker,
 		domainServices.ModelAgentService(),
 	)
-	if err != nil {
-		return UpgradeAPI{}, errors.Capture(err)
-	}
-
 	return UpgradeAPI{UpgraderAPI: upgraderAPI}, nil
 }
