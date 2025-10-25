@@ -71,6 +71,16 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	machineName coremachine.Name,
 	allSpaces network.SpaceInfos,
 ) (*params.ProvisioningInfo, error) {
+	machineUUID, err := api.machineService.GetMachineUUID(ctx, machineName)
+	switch {
+	case errors.Is(err, machineerrors.MachineNotFound):
+		return nil, errors.Errorf(
+			"machine %q does not exist", machineName,
+		).Add(coreerrors.NotFound)
+	case err != nil:
+		return nil, errors.Errorf("getting machine %q uuid: %w", machineName, err)
+	}
+
 	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting model info: %w", err)
@@ -96,7 +106,9 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	}
 
 	var result params.ProvisioningInfo
-	result, err = api.getProvisioningInfoBase(ctx, machineName, unitNames, spaceBindings, modelConfig)
+	result, err = api.getProvisioningInfoBase(
+		ctx, machineName, machineUUID, unitNames, spaceBindings, modelConfig,
+	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -116,6 +128,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 func (api *ProvisionerAPI) getProvisioningInfoBase(
 	ctx context.Context,
 	machineName coremachine.Name,
+	machineUUID coremachine.UUID,
 	unitNames []coreunit.Name,
 	endpointBindings map[string]string,
 	modelConfig *config.Config,
