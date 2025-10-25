@@ -149,6 +149,9 @@ type localConsumerWorker struct {
 	offererRelationUnitChanges  chan offererunitrelations.RelationUnitChange
 	offererRelationChanges      chan offererrelations.RelationChange
 
+	secretChangesWatcher watcher.SecretsRevisionWatcher
+	secretChanges        watcher.SecretRevisionChannel
+
 	newConsumerUnitRelationsWorker NewConsumerUnitRelationsWorkerFunc
 	newOffererUnitRelationsWorker  NewOffererUnitRelationsWorkerFunc
 	newOffererRelationsWorker      NewOffererRelationsWorkerFunc
@@ -381,6 +384,24 @@ func (w *localConsumerWorker) loop() (err error) {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
 				}
 			}
+		case changes, ok := <-w.secretChanges:
+			if !ok {
+				select {
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				default:
+					return errors.New("secret changes watcher closed unexpectedly")
+				}
+			}
+
+			w.logger.Debugf(ctx, "secrets changed: %v", changes)
+
+			for _, change := range changes {
+				err := w.crossModelService.UpdateRemoteSecretRevision(ctx, change.URI, change.Revision)
+				if err != nil {
+					return errors.Annotatef(err, "consuming secrets change %#v from remote model %v", changes, w.offererModelUUID)
+				}
+			}
 		}
 	}
 }
@@ -589,6 +610,23 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	// clean themselves up if the relation is suspended or removed.
 	if err := w.ensureUnitRelationWorkers(ctx, details, result.offererApplicationUUID, result.macaroon); err != nil {
 		return errors.Annotatef(err, "creating unit relation workers for %q", details.UUID)
+	}
+
+	if w.secretChangesWatcher == nil {
+		w.secretChangesWatcher, err = w.remoteModelClient.WatchConsumedSecretsChanges(
+			ctx, result.offererApplicationUUID.String(), details.UUID.String(), w.offerMacaroon)
+		if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, errors.NotImplemented) {
+			if dischargeErr := w.handleDischargeRequiredError(ctx, err, details.UUID); dischargeErr != nil {
+				w.logger.Errorf(ctx, "discharge error handling for consumer unit change for relation %q: %v", details.UUID, dischargeErr)
+			}
+			return errors.Annotate(err, "watching consumed secret changes")
+		}
+		if err == nil {
+			if err := w.catacomb.Add(w.secretChangesWatcher); err != nil {
+				return errors.Trace(err)
+			}
+			w.secretChanges = w.secretChangesWatcher.Changes()
+		}
 	}
 
 	// Handle the case where the relation is dying, and ensure we have no
