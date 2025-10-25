@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/names/v6"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreerrors "github.com/juju/juju/core/errors"
 	coreunit "github.com/juju/juju/core/unit"
@@ -15,7 +17,6 @@ import (
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v6"
 )
 
 // DetachStorage sets the specified storage attachment(s) to Dying, unless they
