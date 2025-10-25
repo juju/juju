@@ -47,7 +47,7 @@ type ApplicationState interface {
 	GetApplicationLife(ctx context.Context, appUUID string) (life.Life, error)
 
 	// DeleteApplication removes a application from the database completely.
-	DeleteApplication(ctx context.Context, appUUID string) error
+	DeleteApplication(ctx context.Context, appUUID string, force bool) error
 }
 
 // RemoveApplication checks if a application with the input application UUID
@@ -179,7 +179,7 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 		return errors.Errorf("application %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	if err := s.modelState.DeleteApplication(ctx, job.EntityUUID); errors.Is(err, applicationerrors.ApplicationNotFound) {
+	if err := s.modelState.DeleteApplication(ctx, job.EntityUUID, job.Force); errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// The application has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil

@@ -226,7 +226,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c 
 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
-	exp.DeleteApplication(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -240,7 +240,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplicationErr
 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
-	exp.DeleteApplication(gomock.Any(), j.EntityUUID).Return(errors.Errorf("the front fell off"))
+	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(errors.Errorf("the front fell off"))
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
