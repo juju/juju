@@ -18,6 +18,7 @@ import (
 	life "github.com/juju/juju/domain/life"
 	removal "github.com/juju/juju/domain/removal"
 	internal "github.com/juju/juju/domain/removal/internal"
+	provider "github.com/juju/juju/internal/secrets/provider"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -154,6 +155,46 @@ func (c *MockControllerDBStateEnsureModelNotAliveCascadeCall) Do(f func(context.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockControllerDBStateEnsureModelNotAliveCascadeCall) DoAndReturn(f func(context.Context, string, bool) error) *MockControllerDBStateEnsureModelNotAliveCascadeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetActiveModelSecretBackend mocks base method.
+func (m *MockControllerDBState) GetActiveModelSecretBackend(arg0 context.Context, arg1 string) (string, *provider.ModelBackendConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveModelSecretBackend", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(*provider.ModelBackendConfig)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetActiveModelSecretBackend indicates an expected call of GetActiveModelSecretBackend.
+func (mr *MockControllerDBStateMockRecorder) GetActiveModelSecretBackend(arg0, arg1 any) *MockControllerDBStateGetActiveModelSecretBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveModelSecretBackend", reflect.TypeOf((*MockControllerDBState)(nil).GetActiveModelSecretBackend), arg0, arg1)
+	return &MockControllerDBStateGetActiveModelSecretBackendCall{Call: call}
+}
+
+// MockControllerDBStateGetActiveModelSecretBackendCall wrap *gomock.Call
+type MockControllerDBStateGetActiveModelSecretBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerDBStateGetActiveModelSecretBackendCall) Return(arg0 string, arg1 *provider.ModelBackendConfig, arg2 error) *MockControllerDBStateGetActiveModelSecretBackendCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerDBStateGetActiveModelSecretBackendCall) Do(f func(context.Context, string) (string, *provider.ModelBackendConfig, error)) *MockControllerDBStateGetActiveModelSecretBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerDBStateGetActiveModelSecretBackendCall) DoAndReturn(f func(context.Context, string) (string, *provider.ModelBackendConfig, error)) *MockControllerDBStateGetActiveModelSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

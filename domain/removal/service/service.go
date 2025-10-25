@@ -78,6 +78,10 @@ type ModelDBState interface {
 type ControllerDBState interface {
 	ControllerState
 	ControllerOfferState
+
+	// GetActiveModelSecretBackend returns the active secret backend ID and 
+	// config for the model with the input UUID.
+	GetActiveModelSecretBackend(ctx context.Context, modelUUID string) (string, *provider.ModelBackendConfig, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
