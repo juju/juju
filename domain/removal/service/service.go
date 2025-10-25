@@ -55,6 +55,7 @@ type ModelDBState interface {
 	RemoteApplicationOffererState
 	RemoteRelationState
 	OfferState
+	SecretModelState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
