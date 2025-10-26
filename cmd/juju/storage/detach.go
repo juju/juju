@@ -37,12 +37,16 @@ func NewDetachStorageCommand(new NewEntityDetacherCloserFunc) cmd.Command {
 
 const (
 	detachStorageCommandDoc = `
-Detaches storage from units. Specify one or more unit/application storage IDs,
-as output by ` + "`juju storage`" + `. The storage will remain in the model until it is
-removed by an operator.
+Detaches storage from units. Specify one or more storage IDs (storage_name/id),
+as output by ` + "`juju storage`" + `. The storage will remain in the model
+until it is removed by an operator. The storage being detached will be removed
+from all units that are using it.
 
 Detaching storage may fail but under some circumstances, Juju user may need
-to force storage detachment despite operational errors.
+to force storage detachment despite operational errors. Storage detachments are
+not performed as a single operation, so when detaching multiple storage IDs it
+may be that some detachments succeed while others fail. In this case the command
+can be executed again to retry the failed detachments.
 `
 
 	detachStorageCommandExamples = `
