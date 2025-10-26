@@ -35,7 +35,7 @@ type VolumeState interface {
 
 	// GetMachineModelProvisionedVolumeAttachmentParams returns the volume
 	// attachment parameters for all attachments onto a machine that are
-	// provisioned by the model. Should the machine have no volumes thar are
+	// provisioned by the model. Should the machine have no volumes that are
 	// model provisioned then an empty result is returned.
 	//
 	// The following errors may be returned:
@@ -48,7 +48,7 @@ type VolumeState interface {
 	// all volumes of a machine that are provisioned by the model. The decision
 	// of if a volume in the model is for a machine is made by checking if the
 	// volume has an attachment onto the machine. Should the machine have no
-	// volumes thar are model provisioned then an empty result is returned.
+	// volumes that are model provisioned then an empty result is returned.
 	//
 	// The following errors may be returned:
 	// - [domainmachineerrors.MachineNotFound] when no machine exists for the
