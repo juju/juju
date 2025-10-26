@@ -10,11 +10,13 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/application"
+	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
@@ -160,6 +162,20 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
 
+// TestGetFilesystemTemplatesForApplicationNotFound tests that when requesting
+// filesystem templates for an application that doesn't exist the caller gets
+// back an error satisfying [domainapplicationerrors.ApplicationNotFound].
+func (s *filesystemSuite) TestGetFilesystemTemplatesForApplicationNotFound(c *tc.C) {
+	notFoundApplicationUUID := tc.Must(c, application.NewUUID)
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetFilesystemTemplatesForApplication(
+		c.Context(), notFoundApplicationUUID,
+	)
+
+	c.Check(err, tc.ErrorIs, domainapplicationerrors.ApplicationNotFound)
+}
+
 // TestGetFilesystemTemplatesForApplication checks that multiple storage for
 // different pools return different values.
 func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
@@ -178,7 +194,7 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	result, err := st.GetFilesystemTemplatesForApplication(c.Context(), application.UUID(appUUID))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, []storageprovisioning.FilesystemTemplate{{
+	c.Check(result, tc.DeepEquals, []internal.FilesystemTemplate{{
 		StorageName:  "x",
 		Count:        2,
 		MaxCount:     10,

@@ -16,20 +16,25 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
 // GetFilesystemTemplatesForApplication returns all the filesystem templates for
 // a given application.
+//
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] when the application does not exist.
 func (st *State) GetFilesystemTemplatesForApplication(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
-) ([]storageprovisioning.FilesystemTemplate, error) {
+) ([]internal.FilesystemTemplate, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -84,7 +89,9 @@ ORDER BY asd.storage_name
 		if err != nil {
 			return err
 		} else if !exists {
-			return errors.Errorf("application %q does not exist", appUUID)
+			return errors.Errorf(
+				"application %q does not exist", appUUID,
+			).Add(applicationerrors.ApplicationNotFound)
 		}
 		err = tx.Query(ctx, fsTemplateQuery, id).GetAll(&fsTemplates)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -114,9 +121,9 @@ ORDER BY asd.storage_name
 		storageAttrs[attr.Key] = attr.Value
 	}
 
-	r := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
+	r := make([]internal.FilesystemTemplate, 0, len(fsTemplates))
 	for _, v := range fsTemplates {
-		r = append(r, storageprovisioning.FilesystemTemplate{
+		r = append(r, internal.FilesystemTemplate{
 			StorageName:  v.StorageName,
 			Count:        v.Count,
 			MaxCount:     v.MaxCount,
