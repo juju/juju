@@ -112,10 +112,10 @@ func (l filesystemLives) Iter(yield func(string, life.Life) bool) {
 // attachment from the model database.
 type filesystemAttachmentParams struct {
 	CharmStorageLocation sql.Null[string] `db:"charm_storage_location"`
+	CharmStorageReadOnly sql.Null[bool]   `db:"charm_storage_read_only"`
 	MachineInstanceID    sql.Null[string] `db:"machine_instance_id"`
 	MountPoint           sql.Null[string] `db:"mount_point"`
 	ProviderID           sql.Null[string] `db:"provider_id"`
-	ReadOnly             sql.Null[bool]   `db:"read_only"`
 	StoragePoolType      string           `db:"storage_pool_type"`
 }
 

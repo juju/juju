@@ -1007,11 +1007,12 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMachineAttached(c *tc
 
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
-		MachineInstanceID: "machine-id-123",
-		Provider:          "canonical",
-		ProviderID:        "provider-id",
-		MountPoint:        "/var/foo",
-		ReadOnly:          true,
+		CharmStorageLocation: "/var/foo",
+		MachineInstanceID:    "machine-id-123",
+		MountPoint:           "",
+		Provider:             "canonical",
+		ProviderID:           "provider-id",
+		ReadOnly:             true,
 	})
 }
 
@@ -1038,7 +1039,6 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C)
 	// Construct storage instance, filesystem, filesystem attachment
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, _ := s.newModelFilesystem(c)
-	s.setFilesystemProviderID(c, fsUUID, "provider-id")
 	fsaUUID := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 
@@ -1051,11 +1051,54 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C)
 
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
-		MachineInstanceID: "",
-		Provider:          "canonical",
-		ProviderID:        "provider-id",
-		MountPoint:        "/var/foo",
-		ReadOnly:          true,
+		CharmStorageLocation: "/var/foo",
+		MachineInstanceID:    "",
+		Provider:             "canonical",
+		ProviderID:           "",
+		ReadOnly:             true,
+	})
+}
+
+// TestGetFilesystemAttachmentParamsMountPointSet is making sure that when the
+// attachment has its mount point set that it is returned in the params.
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountPointSet(c *tc.C) {
+	// Construct the app, unit and machine
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "testapp")
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
+	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID, netNodeUUID)
+
+	// Construct storage pool and charm storage
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
+
+	// Construct storage instance, filesystem, filesystem attachment
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	fsUUID, _ := s.newMachineFilesystem(c)
+	s.setFilesystemProviderID(c, fsUUID, "provider-id")
+	fsaUUID := s.newMachineFilesystemAttachmentWithMount(
+		c, fsUUID, netNodeUUID, "/mnt/foo", true,
+	)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+
+	// Attach the storage instance to the unit. This is what draws in all the
+	// information for the attachment params.
+	_ = s.newStorageAttachment(c, suuid, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	params, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
+		CharmStorageLocation: "/var/foo",
+		MachineInstanceID:    "machine-id-123",
+		MountPoint:           "/mnt/foo",
+		Provider:             "canonical",
+		ProviderID:           "provider-id",
+		ReadOnly:             true,
 	})
 }
 
@@ -1118,17 +1161,37 @@ VALUES (?, ?, 0, ?, 1)
 
 // newMachineFilesystemAttachment creates a new filesystem attachment that has
 // machine provision scope. The attachment is associated with the provided
-// filesystem uuid and net node uuid.
+// filesystem uuid and net node uuid. No mount point or read only attributes
+// are set. Use [filesystemSuite.newMachineFilesystemAttachmentWithMount].
 func (s *filesystemSuite) newMachineFilesystemAttachment(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.FilesystemAttachmentUUID {
-	return s.newMachineFilesystemAttachmentWithMount(
-		c, fsUUID, netNodeUUID, "", false,
+	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem_attachment (uuid,
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           provision_scope_id)
+VALUES (?, ?, ?, 0, 1)
+`,
+		attachmentUUID.String(),
+		fsUUID.String(),
+		netNodeUUID.String(),
 	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID
 }
 
+// newMachineFilesystemAttachmentWithMount creates a new filesystem attachment
+// that has machine provision scope. The attachment is associated with the
+// provided filesystem and has its mount point and read only values set.
 func (s *filesystemSuite) newMachineFilesystemAttachmentWithMount(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
@@ -1163,43 +1226,40 @@ VALUES (?, ?, ?, 0, ?, ?, 1)
 
 // newModelFilesystemAttachment creates a new filesystem attachment that has
 // model provision scope. The attachment is associated with the provided
-// filesystem uuid and net node uuid.
+// filesystem uuid and net node uuid. No mount point is set during the creation
+// of the attachment. Use
+// [filesystemSuite.newModelFilesystemAttachmentWithMount] if you require a
+// mount point set.
 func (s *filesystemSuite) newModelFilesystemAttachment(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.FilesystemAttachmentUUID {
-	return s.newModelFilesystemAttachmentWithMount(
-		c, fsUUID, netNodeUUID, "/mnt", false,
-	)
-}
+	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
 
-func (s *filesystemSuite) setFilesystemProviderID(
-	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
-	providerID string,
-) {
-	_, err := s.DB().Exec(`
-UPDATE storage_filesystem
-SET    provider_id = ?
-WHERE  uuid = ?
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem_attachment (uuid,
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           read_only,
+                                           provision_scope_id)
+VALUES (?, ?, ?, 0, false, 0)
 `,
-		providerID, fsUUID.String(),
+		attachmentUUID.String(),
+		fsUUID,
+		netNodeUUID.String(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID
 }
 
-func (s *filesystemSuite) removeFilesystemWithObliterateValue(
-	c *tc.C,
-	uuid storageprovisioning.FilesystemUUID,
-	obliterateValue bool,
-) {
-	_, err := s.DB().Exec(
-		`UPDATE storage_filesystem SET life_id=?, obliterate_on_cleanup=? WHERE uuid=?`,
-		domainlife.Dying, obliterateValue, uuid)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
+// newModelFilesystemAttachmentWithMount creates a new filesystem attachment
+// that has model provision scope. The attachment is associated with the
+// provided filesystem and has its mount point and read only values set.
 func (s *baseSuite) newModelFilesystemAttachmentWithMount(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
@@ -1230,4 +1290,49 @@ VALUES (?, ?, ?, 0, ?, ?, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID
+}
+
+func (s *filesystemSuite) setFilesystemProviderID(
+	c *tc.C,
+	fsUUID storageprovisioning.FilesystemUUID,
+	providerID string,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_filesystem
+SET    provider_id = ?
+WHERE  uuid = ?
+`,
+		providerID, fsUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *filesystemSuite) removeFilesystemWithObliterateValue(
+	c *tc.C,
+	uuid storageprovisioning.FilesystemUUID,
+	obliterateValue bool,
+) {
+	_, err := s.DB().Exec(
+		`UPDATE storage_filesystem SET life_id=?, obliterate_on_cleanup=? WHERE uuid=?`,
+		domainlife.Dying, obliterateValue, uuid)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// newModelFilesystem creates a new filesystem in the model with model
+// provision scope. Return is the uuid and filesystem id of the entity.
+func (s *filesystemSuite) newModelFilesystem(c *tc.C) (
+	storageprovisioning.FilesystemUUID, string,
+) {
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+	`,
+		fsUUID.String(), fsID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID, fsID
 }
