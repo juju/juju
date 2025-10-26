@@ -15,7 +15,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/blockdevice"
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
@@ -909,7 +908,7 @@ WHERE  uuid = $volumeAttachmentProvisionedInfo.uuid
 }
 
 func (st *State) checkBlockDeviceExists(
-	ctx context.Context, tx *sqlair.TX, uuid blockdevice.BlockDeviceUUID,
+	ctx context.Context, tx *sqlair.TX, uuid domainblockdevice.BlockDeviceUUID,
 ) (bool, error) {
 	io := entityUUID{UUID: uuid.String()}
 
@@ -942,7 +941,7 @@ WHERE  uuid = $entityUUID.uuid
 // volume attachment does not yet have a block device.
 func (st *State) GetBlockDeviceForVolumeAttachment(
 	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
-) (blockdevice.BlockDeviceUUID, error) {
+) (domainblockdevice.BlockDeviceUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -979,7 +978,7 @@ WHERE  uuid = $volumeAttachmentProvisionedInfo.uuid
 		).Add(storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice)
 	}
 
-	return blockdevice.BlockDeviceUUID(io.BlockDeviceUUID.V), nil
+	return domainblockdevice.BlockDeviceUUID(io.BlockDeviceUUID.V), nil
 }
 
 // SetVolumeProvisionedInfo sets the provisioned information for the given
@@ -1863,7 +1862,7 @@ VALUES      ($volumeAttachmentPlanAttr.*)
 func (st *State) SetVolumeAttachmentPlanProvisionedBlockDevice(
 	ctx context.Context,
 	uuid storageprovisioning.VolumeAttachmentPlanUUID,
-	blockDeviceUUID blockdevice.BlockDeviceUUID,
+	blockDeviceUUID domainblockdevice.BlockDeviceUUID,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
