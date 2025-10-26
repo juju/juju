@@ -48,12 +48,6 @@ type MachineVolumeProvisioningParams struct {
 	// actual size of the volume once provisioned.
 	RequestedSizeMiB uint64
 
-	// SizeMiB is the actual provisioned sized of the volume. See
-	// [MachineVolumeProvisioningParams.RequestedSizeMiB] for the requested size
-	// when being provisioned. A value of 0 here means the volume has not been
-	// provisioned yet and the final size is not known.
-	SizeMiB uint64
-
 	// Tags represents the set of tags that should be applied to the volume by
 	// the storage provider.
 	Tags map[string]string
