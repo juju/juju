@@ -1191,7 +1191,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsMachineNotFound(
 func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 	machineNetNodeUUID := s.newNetNode(c)
 	machineUUID, _ := s.newMachineWithNetNode(c, machineNetNodeUUID)
-	_, charmUUID := s.newApplication(c, "testapp")
+	appUUID, charmUUID := s.newApplication(c, "testapp")
+	unitUUID, unitName := s.newUnitWithNetNode(c, "testapp/0", appUUID, machineNetNodeUUID)
 	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
 		"foo": "bar",
 	})
@@ -1199,8 +1200,9 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, "/var/filesystem")
 
 	siUUID1 := s.newStorageInstanceForCharmWithPool(
-		c, charmUUID, poolUUID, "myblock",
+		c, charmUUID, poolUUID, "myfilesystem",
 	)
+	s.newStorageAttachment(c, siUUID1, unitUUID)
 	siUUID2 := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myblock",
 	)
@@ -1213,6 +1215,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 	s.newStorageInstanceFilesystem(c, siUUID1, filesystemUUID1)
 	s.newStorageInstanceVolume(c, siUUID2, volumeUUID2)
 
+	s.DumpTable(c, "charm_storage", "unit", "storage_attachment", "storage_instance")
 	st := NewState(s.TxnRunnerFactory())
 	volumeParams, err := st.GetMachineModelProvisionedVolumeParams(
 		c.Context(), machineUUID,
@@ -1223,10 +1226,11 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 			Attributes: map[string]string{
 				"foo": "bar",
 			},
-			ID:               volumeID1,
-			Provider:         "canonical",
-			RequestedSizeMiB: 100,
-			SizeMiB:          0,
+			ID:                   volumeID1,
+			Provider:             "canonical",
+			RequestedSizeMiB:     100,
+			SizeMiB:              0,
+			StorageOwnerUnitName: ptr(unitName.String()),
 		},
 		{
 			Attributes: map[string]string{
@@ -1236,6 +1240,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 			Provider:         "canonical",
 			RequestedSizeMiB: 100,
 			SizeMiB:          0,
+			// We purposelly have not associated this storage instance with a
+			// unit to show that the value comes out as nil.
 		},
 	}
 	c.Check(err, tc.ErrorIsNil)
