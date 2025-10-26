@@ -781,6 +781,41 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *tc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestWatchDeleted(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check().Return(nil)
+	s.secretTriggers.EXPECT().WatchDeleted(gomock.Any(), []secretservice.CharmSecretOwner{{
+		Kind: secretservice.UnitOwner,
+		ID:   "mariadb/0",
+	}, {
+		Kind: secretservice.ApplicationOwner,
+		ID:   "mariadb",
+	}}).Return(
+		s.secretsWatcher, nil,
+	)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), s.secretsWatcher).Return("1", nil)
+
+	uri := coresecrets.NewURI()
+	watchChan := make(chan []string, 1)
+	watchChan <- []string{uri.String()}
+	s.secretsWatcher.EXPECT().Changes().Return(watchChan)
+
+	result, err := s.facade.WatchDeleted(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: "unit-mariadb-0",
+		}, {
+			Tag: "application-mariadb",
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          []string{uri.String()},
+	})
+}
+
 func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	defer s.setup(c).Finish()
 

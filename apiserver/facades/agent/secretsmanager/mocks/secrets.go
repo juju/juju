@@ -86,6 +86,50 @@ func (c *MockSecretTriggersSecretRotatedCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// WatchDeleted mocks base method.
+func (m *MockSecretTriggers) WatchDeleted(ctx context.Context, owners ...service.CharmSecretOwner) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx}
+	for _, a := range owners {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WatchDeleted", varargs...)
+	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchDeleted indicates an expected call of WatchDeleted.
+func (mr *MockSecretTriggersMockRecorder) WatchDeleted(ctx any, owners ...any) *MockSecretTriggersWatchDeletedCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx}, owners...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchDeleted", reflect.TypeOf((*MockSecretTriggers)(nil).WatchDeleted), varargs...)
+	return &MockSecretTriggersWatchDeletedCall{Call: call}
+}
+
+// MockSecretTriggersWatchDeletedCall wrap *gomock.Call
+type MockSecretTriggersWatchDeletedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretTriggersWatchDeletedCall) Return(arg0 watcher.StringsWatcher, arg1 error) *MockSecretTriggersWatchDeletedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretTriggersWatchDeletedCall) Do(f func(context.Context, ...service.CharmSecretOwner) (watcher.StringsWatcher, error)) *MockSecretTriggersWatchDeletedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretTriggersWatchDeletedCall) DoAndReturn(f func(context.Context, ...service.CharmSecretOwner) (watcher.StringsWatcher, error)) *MockSecretTriggersWatchDeletedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchObsolete mocks base method.
 func (m *MockSecretTriggers) WatchObsolete(ctx context.Context, owners ...service.CharmSecretOwner) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
