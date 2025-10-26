@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strconv"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corechangestream "github.com/juju/juju/core/changestream"
@@ -23,6 +24,7 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -193,7 +195,10 @@ type FilesystemState interface {
 
 	// GetFilesystemTemplatesForApplication returns all the filesystem templates
 	// for a given application.
-	GetFilesystemTemplatesForApplication(context.Context, coreapplication.UUID) ([]storageprovisioning.FilesystemTemplate, error)
+	GetFilesystemTemplatesForApplication(
+		context.Context,
+		coreapplication.UUID,
+	) ([]internal.FilesystemTemplate, error)
 
 	// SetFilesystemProvisionedInfo sets on the provided filesystem the information
 	// about the provisioned filesystem.
@@ -391,6 +396,49 @@ func calculateFilesystemAttachmentMountPoint(
 	}
 
 	return path.Join(refLocation, uuid.String())
+}
+
+// calculateFilesystemTemplateAttachmentMountPoint calculates the mount point
+// for a filesystem attachment on a Kubernetes pod. Because it is not know at
+// the time of calculating this value the exact composition of the attachments
+// we use the storage name and index to build uniqueness.
+func calculateFilesystemTemplateAttachmentMountPoint(
+	storageName,
+	charmStorageLocation string,
+	idx int,
+) string {
+	refLocation := charmStorageLocation
+	if charmStorageLocation == "" {
+		refLocation = defaultFilesystemAttachmentDir()
+	}
+
+	// The decision was to always append the storage name and index to the ref
+	// location even when the storage is a singleton was done to avoid conflicts
+	// with other charm storage. Because this calculation has no insight into
+	// if the charm has made a mistake specified the same storage location for
+	// multiple storage names. Doing it this way makes this calculation always
+	// safe.
+	return path.Join(refLocation, storageName, strconv.Itoa(idx))
+}
+
+// calculateFilesystemTemplateAttachmentMountPoints calculates all of the mount
+// points for a filesystem template based on the desired count. The result is
+// a slice equaling count in length with a unique mount point.
+func calculateFilesystemTemplateAttachmentMountPoints(
+	storageName,
+	charmStorageLocation string,
+	count int,
+) []string {
+	retVal := make([]string, 0, count)
+	for range count {
+		retVal = append(
+			retVal,
+			calculateFilesystemTemplateAttachmentMountPoint(
+				storageName, charmStorageLocation, len(retVal),
+			),
+		)
+	}
+	return retVal
 }
 
 // GetFilesystemAttachmentUUIDForFilesystemIDMachine returns the filesystem attachment
@@ -773,7 +821,30 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 			"getting filesystem templates for app %q: %w", appUUID, err,
 		)
 	}
-	return fsTemplates, nil
+
+	retVal := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
+	for _, fsTemplate := range fsTemplates {
+		mountPoints := calculateFilesystemTemplateAttachmentMountPoints(
+			fsTemplate.StorageName,
+			fsTemplate.Location,
+			fsTemplate.Count,
+		)
+
+		mountTemplate := storageprovisioning.FilesystemTemplate{
+			Attributes:   fsTemplate.Attributes,
+			Count:        fsTemplate.Count,
+			Location:     fsTemplate.Location,
+			MaxCount:     fsTemplate.MaxCount,
+			MountPoints:  mountPoints,
+			ProviderType: fsTemplate.ProviderType,
+			ReadOnly:     fsTemplate.ReadOnly,
+			SizeMiB:      fsTemplate.SizeMiB,
+			StorageName:  fsTemplate.StorageName,
+		}
+		retVal = append(retVal, mountTemplate)
+	}
+
+	return retVal, nil
 }
 
 // SetFilesystemProvisionedInfo sets on the provided filesystem the information

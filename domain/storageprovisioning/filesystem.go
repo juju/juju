@@ -156,6 +156,11 @@ type FilesystemTemplate struct {
 	// mounted.
 	Location string
 
+	// MountPoints is the set of mounts points that each storage instance should
+	// be mounted at. The number of mount points in this slice is garanteed to
+	// be the same as [FilesystemTemplate.Count]
+	MountPoints []string
+
 	// Attributes are a set of key value pairs that are supplied to the provider
 	// or provisioner to facilitate this filesystem(s).
 	Attributes map[string]string

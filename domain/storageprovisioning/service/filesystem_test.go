@@ -22,6 +22,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -450,25 +451,39 @@ func (s *filesystemSuite) TestWatchMachineProvisionedFilesystemAttachmentsNotFou
 func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := tc.Must(c, coreapplication.NewUUID)
-	expectedResult := []storageprovisioning.FilesystemTemplate{{
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	stateTemplates := []internal.FilesystemTemplate{{
 		StorageName:  "a",
-		Count:        1,
+		Count:        2,
 		MaxCount:     10,
 		SizeMiB:      1234,
 		ProviderType: "foo",
 		ReadOnly:     true,
-		Location:     "bar",
+		Location:     "/bar",
 		Attributes: map[string]string{
 			"laz": "baz",
 		},
 	}}
-	s.state.EXPECT().GetFilesystemTemplatesForApplication(gomock.Any(), appID).
-		Return(expectedResult, nil)
+	s.state.EXPECT().GetFilesystemTemplatesForApplication(gomock.Any(), appUUID).
+		Return(stateTemplates, nil)
 
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appID)
+	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
+
+	expectedResult := []storageprovisioning.FilesystemTemplate{{
+		StorageName:  "a",
+		Count:        2,
+		MaxCount:     10,
+		MountPoints:  []string{"/bar/a/0", "/bar/a/1"},
+		SizeMiB:      1234,
+		ProviderType: "foo",
+		ReadOnly:     true,
+		Location:     "/bar",
+		Attributes: map[string]string{
+			"laz": "baz",
+		},
+	}}
 	c.Check(result, tc.DeepEquals, expectedResult)
 }
 
