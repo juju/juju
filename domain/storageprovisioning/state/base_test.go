@@ -562,8 +562,11 @@ func (s *baseSuite) newCharmStorage(c *tc.C,
 ) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, read_only, count_min, count_max, location)
-VALUES (?, ?, (SELECT id FROM charm_storage_kind WHERE kind = ?), ?, 0, 10, ?)`, charmUUID, name, kind, readOnly, location)
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, read_only,
+                           count_min, count_max, location, shared)
+VALUES (?, ?, (SELECT id FROM charm_storage_kind WHERE kind = ?), ?, 0, 10, ?, false)
+`,
+			charmUUID, name, kind, readOnly, location)
 		if err != nil {
 			return err
 		}
