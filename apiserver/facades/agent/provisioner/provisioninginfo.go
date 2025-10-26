@@ -17,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -85,6 +86,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	if err != nil {
 		return nil, errors.Errorf("getting model info: %w", err)
 	}
+
 	modelConfig, err := api.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting model config: %w", err)
@@ -179,7 +181,14 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		}
 	}
 
-	// TODO (storage): get volumes and volume attachments from the model
+	volParams, volAttachParams, err := api.machineVolumeParams(
+		ctx, machineName, machineUUID,
+	)
+	if err != nil {
+		return params.ProvisioningInfo{}, errors.Capture(err)
+	}
+	result.Volumes = volParams
+	result.VolumeAttachments = volAttachParams
 
 	if result.CharmLXDProfiles, err =
 		api.machineService.UpdateLXDProfiles(
@@ -217,6 +226,86 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	}
 
 	return result, nil
+}
+
+// machineVolumeParams is responsible for getting the information and
+// constructing the machine volume and attachment parameters required during
+// provisioning.
+func (api *ProvisionerAPI) machineVolumeParams(
+	ctx context.Context,
+	machineName coremachine.Name,
+	machineUUID coremachine.UUID,
+) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
+	volumeParams, attachmentParams, err :=
+		api.storageProvisioningService.GetMachineProvisioningVolumeParams(
+			ctx, machineUUID,
+		)
+	switch {
+	case errors.Is(err, machineerrors.MachineNotFound):
+		return nil, nil, errors.Errorf("machine does not exist").Add(
+			coreerrors.NotFound,
+		)
+	case err != nil:
+		return nil, nil, errors.Errorf("getting machine volume params: %w", err)
+	}
+
+	capturedVolumeIDs := make(map[string]struct{}, len(volumeParams))
+	retValVParams := make([]params.VolumeParams, 0, len(volumeParams))
+	for _, vp := range volumeParams {
+		capturedVolumeIDs[vp.ID] = struct{}{}
+		vTag, err := names.ParseVolumeTag(names.VolumeTagKind + vp.ID)
+		if err != nil {
+			return nil, nil, errors.Errorf(
+				"parsing volume id to a volume tag: %w", err,
+			)
+		}
+
+		attr := make(map[string]any, len(vp.Attributes))
+		for k, v := range vp.Attributes {
+			attr[k] = v
+		}
+
+		retValVParams = append(retValVParams, params.VolumeParams{
+			// We don't set attachment info
+			Attributes: attr,
+			Provider:   vp.Provider,
+			SizeMiB:    vp.RequestedSizeMiB,
+			Tags:       vp.Tags,
+			VolumeTag:  vTag.String(),
+		})
+	}
+
+	machineTag := names.NewMachineTag(machineName.String())
+	retValVAParams := make([]params.VolumeAttachmentParams, 0, len(attachmentParams))
+	for _, ap := range attachmentParams {
+		if _, has := capturedVolumeIDs[ap.VolumeID]; has {
+			// NOTE (tlm): This logic comes from 3.6 where if we supply a volume
+			// param to the caller any associated attachment should not be
+			// included. This is because the code assumes how the environ
+			// works and that if the environ is making a volume there must be an
+			// associate attachment to establish. The better design would be to
+			// pass all the volume and attachment information back and let the
+			// environ storage provider establish what it wants to do. We also
+			// gain the ability then to pass specific attachment information to
+			// the environ which we loose out on here.
+			continue
+		}
+
+		vTag, err := names.ParseVolumeTag(names.VolumeTagKind + ap.VolumeID)
+		if err != nil {
+			return nil, nil, errors.Errorf(
+				"parsing volume attachment volume id to a volume tag: %w", err,
+			)
+		}
+		retValVAParams = append(retValVAParams, params.VolumeAttachmentParams{
+			MachineTag: machineTag.String(),
+			Provider:   ap.Provider,
+			ReadOnly:   ap.ReadOnly,
+			ProviderId: ap.VolumeProviderID,
+			VolumeTag:  vTag.String(),
+		})
+	}
+	return retValVParams, retValVAParams, nil
 }
 
 // machineTags returns machine-specific tags to set on the instance.
