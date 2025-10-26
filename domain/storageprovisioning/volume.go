@@ -23,6 +23,10 @@ type MachineVolumeAttachmentProvisioningParams struct {
 	// VolumeID is the unique id given to the volume in the controller. This is
 	// not the volume uuid.
 	VolumeID string
+
+	// VolumeProviderID is the unique id given to the volume by the storage
+	// provider. This value is opaque to Juju.
+	VolumeProviderID string
 }
 
 // MachineVolumeProvisioningParams defines the set of parameters required to
@@ -49,6 +53,10 @@ type MachineVolumeProvisioningParams struct {
 	// when being provisioned. A value of 0 here means the volume has not been
 	// provisioned yet and the final size is not known.
 	SizeMiB uint64
+
+	// Tags represents the set of tags that should be applied to the volume by
+	// the storage provider.
+	Tags map[string]string
 }
 
 // VolumeAttachmentID is a struct that provides the IDs and names associated
