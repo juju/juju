@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/blockdevice"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainmachineerrors "github.com/juju/juju/domain/machine/errors"
@@ -1059,6 +1060,7 @@ func (st *State) GetMachineModelProvisionedVolumeAttachmentParams(
 SELECT &machineVolumeAttachmentProvisioningParams.* FROM (
     SELECT    sv.volume_id,
               sp.type AS provider_type,
+              sva.block_device_uuid,
               sva.read_only
     FROM      storage_volume_attachment sva
     JOIN      storage_volume sv ON sv.uuid = sva.storage_volume_uuid
@@ -1106,6 +1108,10 @@ SELECT &machineVolumeAttachmentProvisioningParams.* FROM (
 			Provider: dbVal.ProviderType,
 			ReadOnly: dbVal.ReadOnly.V,
 			VolumeID: dbVal.VolumeID,
+		}
+		if dbVal.BlockDeviceUUID.Valid {
+			blockDeviceUUID := domainblockdevice.BlockDeviceUUID(dbVal.BlockDeviceUUID.V)
+			params.BlockDeviceUUID = &blockDeviceUUID
 		}
 		retVal = append(retVal, params)
 	}

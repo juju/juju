@@ -323,9 +323,10 @@ type filesystemTemplate struct {
 // machineVolumeAttachmentProvisioningParams represents the provisioning params
 // for a volume attachment onto a machine in the model.
 type machineVolumeAttachmentProvisioningParams struct {
-	ProviderType string         `db:"provider_type"`
-	ReadOnly     sql.Null[bool] `db:"read_only"`
-	VolumeID     string         `db:"volume_id"`
+	BlockDeviceUUID sql.Null[string] `db:"block_device_uuid"`
+	ProviderType    string           `db:"provider_type"`
+	ReadOnly        sql.Null[bool]   `db:"read_only"`
+	VolumeID        string           `db:"volume_id"`
 }
 
 // machineVolumeProvisioningParams represents the provisioning params for a

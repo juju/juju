@@ -618,6 +618,15 @@ func (s *baseSuite) newBlockDevice(
 	return uuid
 }
 
+// newSimpleBlockDevice creates a new block device for the given machine and
+// name. This is a simplified version of [baseSuite.newBlockDevice] for when a
+// test just requires a block device to exist in the model.
+func (s *baseSuite) newSimpleBlockDevice(
+	c *tc.C, machineUUID coremachine.UUID, name string,
+) blockdevice.BlockDeviceUUID {
+	return s.newBlockDevice(c, machineUUID, name, "123", "123", nil)
+}
+
 func (s *baseSuite) changeVolumeAttachmentInfo(
 	c *tc.C,
 	uuid storageprovisioning.VolumeAttachmentUUID,

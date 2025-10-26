@@ -1101,7 +1101,9 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParams(c *tc
 	volumeUUID1, volumeID1 := s.newModelVolume(c)
 	filesystemUUID1, _ := s.newModelFilesystem(c)
 	volumeUUID2, volumeID2 := s.newModelVolume(c)
-	s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
+	va1UUID := s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
+	va1BlockDeviceUUID := s.newSimpleBlockDevice(c, machineUUID, "sda")
+	s.changeVolumeAttachmentInfo(c, va1UUID, va1BlockDeviceUUID, false)
 	s.newModelVolumeAttachment(c, volumeUUID2, machineNetNodeUUID)
 	s.newStorageInstanceVolume(c, siUUID1, volumeUUID1)
 	s.newStorageInstanceFilesystem(c, siUUID1, filesystemUUID1)
@@ -1115,9 +1117,10 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParams(c *tc
 
 	expected := []domaininternal.MachineVolumeAttachmentProvisioningParams{
 		{
-			Provider: "canonical",
-			ReadOnly: false,
-			VolumeID: volumeID1,
+			BlockDeviceUUID: &va1BlockDeviceUUID,
+			Provider:        "canonical",
+			ReadOnly:        false,
+			VolumeID:        volumeID1,
 		},
 		{
 			Provider: "canonical",
