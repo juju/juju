@@ -48,25 +48,26 @@ type ProvisionerAPI struct {
 	*common.InstanceIdGetter
 	*common.ToolsGetter
 
-	networkService            NetworkService
-	controllerConfigService   ControllerConfigService
-	cloudImageMetadataService CloudImageMetadataService
-	agentProvisionerService   AgentProvisionerService
-	keyUpdaterService         KeyUpdaterService
-	modelConfigService        ModelConfigService
-	modelInfoService          ModelInfoService
-	machineService            MachineService
-	statusService             StatusService
-	applicationService        ApplicationService
-	removalService            RemovalService
-	authorizer                facade.Authorizer
-	storagePoolGetter         StoragePoolGetter
-	getAuthFunc               common.GetAuthFunc
-	getCanModify              common.GetAuthFunc
-	toolsFinder               common.ToolsFinder
-	watcherRegistry           facade.WatcherRegistry
-	logger                    logger.Logger
-	clock                     clock.Clock
+	networkService             NetworkService
+	controllerConfigService    ControllerConfigService
+	cloudImageMetadataService  CloudImageMetadataService
+	agentProvisionerService    AgentProvisionerService
+	keyUpdaterService          KeyUpdaterService
+	modelConfigService         ModelConfigService
+	modelInfoService           ModelInfoService
+	machineService             MachineService
+	statusService              StatusService
+	applicationService         ApplicationService
+	removalService             RemovalService
+	authorizer                 facade.Authorizer
+	storagePoolGetter          StoragePoolGetter
+	storageProvisioningService StoageProvisioningService
+	getAuthFunc                common.GetAuthFunc
+	getCanModify               common.GetAuthFunc
+	toolsFinder                common.ToolsFinder
+	watcherRegistry            facade.WatcherRegistry
+	logger                     logger.Logger
+	clock                      clock.Clock
 
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
@@ -135,6 +136,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	removalService := domainServices.Removal()
 	statusService := domainServices.Status()
 	storageService := domainServices.Storage()
+	storageProvisioningService := domainServices.StorageProvisioning()
 
 	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
@@ -160,27 +162,28 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 			externalControllerService,
 			modelService,
 		),
-		networkService:            networkService,
-		controllerConfigService:   controllerConfigService,
-		agentProvisionerService:   agentProvisionerService,
-		cloudImageMetadataService: cloudImageMetadataService,
-		keyUpdaterService:         keyUpdaterService,
-		modelConfigService:        modelConfigService,
-		modelInfoService:          modelInfoService,
-		machineService:            machineService,
-		statusService:             statusService,
-		applicationService:        applicationService,
-		removalService:            removalService,
-		authorizer:                authorizer,
-		storagePoolGetter:         storageService,
-		getAuthFunc:               getAuthFunc,
-		getCanModify:              getCanModify,
-		controllerUUID:            ctx.ControllerUUID(),
-		modelName:                 modelInfo.Name,
-		modelUUID:                 ctx.ModelUUID(),
-		watcherRegistry:           watcherRegistry,
-		logger:                    ctx.Logger().Child("provisioner"),
-		clock:                     ctx.Clock(),
+		networkService:             networkService,
+		controllerConfigService:    controllerConfigService,
+		agentProvisionerService:    agentProvisionerService,
+		cloudImageMetadataService:  cloudImageMetadataService,
+		keyUpdaterService:          keyUpdaterService,
+		modelConfigService:         modelConfigService,
+		modelInfoService:           modelInfoService,
+		machineService:             machineService,
+		statusService:              statusService,
+		applicationService:         applicationService,
+		removalService:             removalService,
+		authorizer:                 authorizer,
+		storagePoolGetter:          storageService,
+		storageProvisioningService: storageProvisioningService,
+		getAuthFunc:                getAuthFunc,
+		getCanModify:               getCanModify,
+		controllerUUID:             ctx.ControllerUUID(),
+		modelName:                  modelInfo.Name,
+		modelUUID:                  ctx.ModelUUID(),
+		watcherRegistry:            watcherRegistry,
+		logger:                     ctx.Logger().Child("provisioner"),
+		clock:                      ctx.Clock(),
 	}
 	if isCaasModel {
 		return api, nil

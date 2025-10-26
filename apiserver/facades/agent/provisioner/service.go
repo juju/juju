@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -176,6 +177,18 @@ type StatusService interface {
 type StoragePoolGetter interface {
 	// GetStoragePoolByName returns the storage pool with the specified name.
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
+}
+
+// StoageProvisioningService provides the needed functionality for determing
+// a machines volume storage provisioning information.
+type StoageProvisioningService interface {
+	GetMachineProvisioningVolumeParams(
+		ctx context.Context, uuid coremachine.UUID,
+	) (
+		[]domainstorageprovisioning.MachineVolumeProvisioningParams,
+		[]domainstorageprovisioning.MachineVolumeAttachmentProvisioningParams,
+		error,
+	)
 }
 
 // NetworkService provides functionality for working with the network topology,
