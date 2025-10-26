@@ -602,7 +602,8 @@ SELECT &filesystemAttachmentParams.* FROM (
     SELECT    sf.provider_id,
               mci.instance_id AS machine_instance_id,
               cs.location AS charm_storage_location,
-              cs.read_only,
+              sfa.mount_point,
+              cs.read_only AS charm_storage_read_only,
               sp.type AS storage_pool_type
     FROM      storage_filesystem_attachment sfa
     JOIN      storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
@@ -655,7 +656,7 @@ SELECT &filesystemAttachmentParams.* FROM (
 		MountPoint:           dbVal.MountPoint.V,
 		Provider:             dbVal.StoragePoolType,
 		ProviderID:           dbVal.ProviderID.V,
-		ReadOnly:             dbVal.ReadOnly.V,
+		ReadOnly:             dbVal.CharmStorageReadOnly.V,
 	}, nil
 }
 
