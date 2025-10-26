@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
@@ -55,6 +56,7 @@ type Config struct {
 	MachineService            MachineService
 	ApplicationService        ApplicationService
 	RelationService           RelationService
+	StatusService             StatusService
 	EnvironFirewaller         EnvironFirewaller
 	EnvironModelFirewaller    EnvironModelFirewaller
 	EnvironInstances          EnvironInstances
@@ -90,6 +92,9 @@ func (cfg Config) Validate() error {
 	if cfg.FirewallerAPI == nil {
 		return errors.NotValidf("nil Firewaller Facade")
 	}
+	if cfg.ApplicationService == nil {
+		return errors.NotValidf("nil ApplicationService")
+	}
 	if cfg.CrossModelRelationService == nil {
 		return errors.NotValidf("nil crossmodelrelation service")
 	}
@@ -98,6 +103,12 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.MachineService == nil {
 		return errors.NotValidf("nil MachineService")
+	}
+	if cfg.RelationService == nil {
+		return errors.NotValidf("nil RelationService")
+	}
+	if cfg.StatusService == nil {
+		return errors.NotValidf("nil StatusService")
 	}
 	if cfg.Mode == config.FwGlobal && cfg.EnvironFirewaller == nil {
 		return errors.NotValidf("nil EnvironFirewaller")
@@ -125,6 +136,7 @@ type Firewaller struct {
 	machineService            MachineService
 	applicationService        ApplicationService
 	relationService           RelationService
+	statusService             StatusService
 	environFirewaller         EnvironFirewaller
 	environModelFirewaller    EnvironModelFirewaller
 	environInstances          EnvironInstances
@@ -200,6 +212,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		machineService:             cfg.MachineService,
 		applicationService:         cfg.ApplicationService,
 		relationService:            cfg.RelationService,
+		statusService:              cfg.StatusService,
 		environFirewaller:          cfg.EnvironFirewaller,
 		environModelFirewaller:     cfg.EnvironModelFirewaller,
 		environInstances:           cfg.EnvironInstances,
@@ -1968,7 +1981,15 @@ func (rd *remoteRelationData) publishIngressToRemote(ctx context.Context, cidrs 
 		// mark the relation as in error. It's not an error that requires a
 		// worker restart though.
 		if params.IsCodeForbidden(err) {
-			return rd.fw.relationService.SetRelationStatus(ctx, rd.relationUUID, relation.Error, err.Error())
+			// TODO: We currently only have this method to update the relation
+			// status but we don't have a unit name. This needs to be addressed.
+			return rd.fw.statusService.SetRelationStatus(
+				ctx,
+				coreunit.Name(""),
+				rd.relationUUID,
+				status.StatusInfo{
+					Status:  status.Status(relation.Error),
+					Message: err.Error()})
 		}
 		return errors.Trace(err)
 	}

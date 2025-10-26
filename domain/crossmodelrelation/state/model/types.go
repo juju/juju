@@ -396,10 +396,6 @@ type queryLife struct {
 	Value corelife.Value `db:"value"`
 }
 
-type netNodeUUID struct {
-	NetNodeUUID string `db:"net_node_uuid"`
-}
-
 type modelConfigKey struct {
 	Key string `db:"key"`
 }

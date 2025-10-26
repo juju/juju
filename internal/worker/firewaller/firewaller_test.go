@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -61,6 +62,7 @@ type firewallerBaseSuite struct {
 	applicationService        *mocks.MockApplicationService
 	crossModelRelationService *mocks.MockCrossModelRelationService
 	relationService           *mocks.MockRelationService
+	statusService             *mocks.MockStatusService
 	crossmodelFirewaller      *mocks.MockCrossModelFirewallerFacadeCloser
 	envFirewaller             *mocks.MockEnvironFirewaller
 	envModelFirewaller        *mocks.MockEnvironModelFirewaller
@@ -135,6 +137,7 @@ func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.crossModelRelationService = mocks.NewMockCrossModelRelationService(ctrl)
 	s.relationService = mocks.NewMockRelationService(ctrl)
+	s.statusService = mocks.NewMockStatusService(ctrl)
 	s.envFirewaller = mocks.NewMockEnvironFirewaller(ctrl)
 	s.envModelFirewaller = mocks.NewMockEnvironModelFirewaller(ctrl)
 	s.envInstances = mocks.NewMockEnvironInstances(ctrl)
@@ -188,6 +191,7 @@ func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 		s.applicationService = nil
 		s.crossModelRelationService = nil
 		s.relationService = nil
+		s.statusService = nil
 		s.envFirewaller = nil
 		s.envModelFirewaller = nil
 		s.envInstances = nil
@@ -216,6 +220,7 @@ func (s *firewallerBaseSuite) ensureMocksWithoutMachine(ctrl *gomock.Controller)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.crossModelRelationService = mocks.NewMockCrossModelRelationService(ctrl)
 	s.relationService = mocks.NewMockRelationService(ctrl)
+	s.statusService = mocks.NewMockStatusService(ctrl)
 	s.envFirewaller = mocks.NewMockEnvironFirewaller(ctrl)
 	s.envModelFirewaller = mocks.NewMockEnvironModelFirewaller(ctrl)
 	s.envInstances = mocks.NewMockEnvironInstances(ctrl)
@@ -240,6 +245,7 @@ func (s *firewallerBaseSuite) ensureMocksWithoutMachine(ctrl *gomock.Controller)
 		s.applicationService = nil
 		s.crossModelRelationService = nil
 		s.relationService = nil
+		s.statusService = nil
 		s.envFirewaller = nil
 		s.envModelFirewaller = nil
 		s.envInstances = nil
@@ -471,6 +477,7 @@ func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) wo
 		MachineService:            s.machineService,
 		ApplicationService:        s.applicationService,
 		RelationService:           s.relationService,
+		StatusService:             s.statusService,
 		CrossModelRelationService: s.crossModelRelationService,
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
@@ -1763,7 +1770,10 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
 		return &params.Error{Code: params.CodeForbidden, Message: "error"}
 	})
-	s.relationService.EXPECT().SetRelationStatus(gomock.Any(), relUUID, relation.Error, "error").DoAndReturn(func(context.Context, relation.UUID, relation.Status, string) error {
+	s.statusService.EXPECT().SetRelationStatus(gomock.Any(), coreunit.Name(""), relUUID, status.StatusInfo{
+		Status:  status.Status(relation.Error),
+		Message: "error",
+	}).DoAndReturn(func(context.Context, coreunit.Name, relation.UUID, status.StatusInfo) error {
 		updated <- true
 		return nil
 	})
@@ -2684,6 +2694,7 @@ func (s *NoneModeSuite) TestStopImmediately(c *tc.C) {
 		MachineService:            s.machineService,
 		ApplicationService:        s.applicationService,
 		RelationService:           s.relationService,
+		StatusService:             s.statusService,
 		CrossModelRelationService: s.crossModelRelationService,
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil

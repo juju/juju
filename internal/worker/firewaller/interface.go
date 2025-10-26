@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
@@ -120,10 +121,18 @@ type RelationService interface {
 
 	// GetRelationDetails returns RelationDetails for the given relation UUID.
 	GetRelationDetails(ctx context.Context, relationUUID relation.UUID) (domainrelation.RelationDetails, error)
+}
 
-	// SetRelationStatus sets the status and message for the given relation
-	// UUID.
-	SetRelationStatus(ctx context.Context, relationUUID relation.UUID, status relation.Status, message string) error
+// StatusService provides access to the status service.
+type StatusService interface {
+	// SetRelationStatus sets the status of the relation to the status provided.
+	// Status may only be set by the application leader.
+	SetRelationStatus(
+		ctx context.Context,
+		unitName unit.Name,
+		relationUUID relation.UUID,
+		info status.StatusInfo,
+	) error
 }
 
 // PortService provides methods to query opened ports for machines
