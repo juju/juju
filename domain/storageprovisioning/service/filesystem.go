@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"path"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corechangestream "github.com/juju/juju/core/changestream"
@@ -214,6 +215,12 @@ func (s *Service) CheckFilesystemForIDExists(
 	return s.st.CheckFilesystemForIDExists(ctx, id)
 }
 
+// defaultFilesystemAttachmentDir returns the default directory where filesystem
+// attachments will be mounted to.
+func defaultFilesystemAttachmentDir() string {
+	return "/var/lib/juju/storage"
+}
+
 // GetFilesystemAttachmentForMachine retrieves the [storageprovisioning.FilesystemAttachment]
 // for the supplied net node uuid and filesystem id.
 //
@@ -328,7 +335,8 @@ func (s *Service) GetFilesystemAttachmentLife(
 }
 
 // GetFilesystemAttachmentParams retrieves the attachment parameters for a given
-// filesystem attachment.
+// filesystem attachment. This function gaurantees to always return a mount
+// point for the attachment.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the supplied filesystem attachment UUID is not
@@ -348,7 +356,41 @@ func (s *Service) GetFilesystemAttachmentParams(
 		).Add(coreerrors.NotValid)
 	}
 
-	return s.st.GetFilesystemAttachmentParams(ctx, uuid)
+	params, err := s.st.GetFilesystemAttachmentParams(ctx, uuid)
+	if err != nil {
+		return storageprovisioning.FilesystemAttachmentParams{}, errors.Capture(err)
+	}
+
+	if params.MountPoint != "" {
+		// The mount point has already been set on the attachment. There is
+		// nothing more to do.
+		return params, nil
+	}
+
+	params.MountPoint = calculateFilesystemAttachmentMountPoint(
+		params.CharmStorageLocation,
+		uuid,
+	)
+	return params, nil
+}
+
+// calculateFilesystemAttachmentMountPoint calculates the mount point for a
+// filesystem attachment. If the charmStorageLocation supplied is empty the the
+// value from [defaultFilesystemAttachmentDir] will be used as the base of the
+// mount point.
+//
+// This function guarantees to be idempotent given the same attachment and charm
+// location.
+func calculateFilesystemAttachmentMountPoint(
+	charmStorageLocation string,
+	uuid storageprovisioning.FilesystemAttachmentUUID,
+) string {
+	refLocation := charmStorageLocation
+	if charmStorageLocation == "" {
+		refLocation = defaultFilesystemAttachmentDir()
+	}
+
+	return path.Join(refLocation, uuid.String())
 }
 
 // GetFilesystemAttachmentUUIDForFilesystemIDMachine returns the filesystem attachment
