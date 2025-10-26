@@ -1142,16 +1142,28 @@ SELECT &machineVolumeProvisioningParams.* FROM (
     SELECT    sv.volume_id,
               sv.size_mib,
               si.requested_size_mib,
+              si.storage_id,
               sp.type AS provider_type,
-              sp.uuid AS storage_pool_uuid
+              sp.uuid AS storage_pool_uuid,
+              u.name AS storage_unit_owner_name
     FROM      storage_volume sv
     JOIN      storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
     JOIN      machine m ON sva.net_node_uuid = m.net_node_uuid
     JOIN      storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
     JOIN      storage_instance si ON siv.storage_instance_uuid = si.uuid
     JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
-    WHERE     m.uuid = $entityUUID.uuid
-    AND       sv.provision_scope_id = 0
+    -- NOTE (tlm) This left join is about establishing if the storage instance
+    -- is fulfilling shared charm storage. If it is not then then we assume that
+    -- at most only one storage attachment is made to the storage instance.
+    LEFT JOIN (storage_attachment sa
+               JOIN  storage_instance si2 ON sa.storage_instance_uuid = si2.uuid
+               JOIN  unit u ON sa.unit_uuid = u.uuid
+               JOIN  charm_storage cs ON u.charm_uuid = cs.charm_uuid
+                                     AND si2.storage_name = cs.name
+              ) ON sa.storage_instance_uuid = si.uuid
+               AND cs.shared = FALSE
+    WHERE  m.uuid = $entityUUID.uuid
+    AND    sv.provision_scope_id = 0
 )
 `,
 		machineVolumeProvisioningParams{}, input,
@@ -1244,6 +1256,9 @@ SELECT &storagePoolAttributeWithUUID.* FROM (
 			Provider:         dbParams.ProviderType,
 			RequestedSizeMiB: dbParams.RequestedSizeMiB,
 			SizeMiB:          dbParams.SizeMiB,
+		}
+		if dbParams.StorageUnitOwnerName.Valid {
+			params.StorageOwnerUnitName = &dbParams.StorageUnitOwnerName.V
 		}
 		retVal = append(retVal, params)
 	}
