@@ -1247,6 +1247,51 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 	c.Check(volumeParams, tc.SameContents, expected)
 }
 
+// TestGetMachineModelProvisionedVolumeParamsSharedStorage tests that when a
+// volume is associated with charm storage that is shared no unit name owner
+// is returned to the caller.
+//
+// NOTE (tlm): Shared storage is not currently supported but we can simulate it
+// in the database to confirm correct working behaviour.
+func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsSharedStorage(c *tc.C) {
+	machineNetNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, machineNetNodeUUID)
+	appUUID, charmUUID := s.newApplication(c, "testapp")
+	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID, machineNetNodeUUID)
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+	s.newCharmStorage(c, charmUUID, "myblock", "block", true, true, "/var/block")
+
+	siUUID1 := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "myblock",
+	)
+	s.newStorageAttachment(c, siUUID1, unitUUID)
+	volumeUUID1, volumeID1 := s.newModelVolume(c)
+	s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
+	s.newStorageInstanceVolume(c, siUUID1, volumeUUID1)
+
+	st := NewState(s.TxnRunnerFactory())
+	volumeParams, err := st.GetMachineModelProvisionedVolumeParams(
+		c.Context(), machineUUID,
+	)
+
+	expected := []domaininternal.MachineVolumeProvisioningParams{
+		{
+			Attributes: map[string]string{
+				"foo": "bar",
+			},
+			ID:                   volumeID1,
+			Provider:             "canonical",
+			RequestedSizeMiB:     100,
+			SizeMiB:              0,
+			StorageOwnerUnitName: nil,
+		},
+	}
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(volumeParams, tc.SameContents, expected)
+}
+
 // TestGetMachineModelProvisionedVolumeParamsIgnores tests that the machine
 // provisioning params ignores volumes that have a provider scope of machine.
 func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsIgnores(c *tc.C) {
