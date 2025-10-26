@@ -175,38 +175,6 @@ VALUES (?, ?, ?, 0, 1)
 	return attachmentUUID
 }
 
-func (s *baseSuite) newModelFilesystemAttachmentWithMount(
-	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	mountPoint string,
-	readOnly bool,
-) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
-
-	_, err := s.DB().ExecContext(
-		c.Context(),
-		`
-INSERT INTO storage_filesystem_attachment (uuid,
-                                           storage_filesystem_uuid,
-                                           net_node_uuid,
-                                           life_id,
-                                           mount_point,
-                                           read_only,
-                                           provision_scope_id)
-VALUES (?, ?, ?, 0, ?, ?, 0)
-`,
-		attachmentUUID.String(),
-		fsUUID,
-		netNodeUUID.String(),
-		mountPoint,
-		readOnly,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return attachmentUUID
-}
-
 // newModelFilesystem creates a new filesystem in the model with model
 // provision scope. Return is the uuid and filesystem id of the entity.
 func (s *baseSuite) newModelFilesystem(c *tc.C) (
@@ -558,15 +526,20 @@ VALUES (?, ?, ?, ?, ?, ?)`, appUUID, charmUUID, storageName, storagePoolUUID, si
 // newCharmStorage creates a new charm storage for the given charm with fixed
 // values for min/max count of 0 -> 10.
 func (s *baseSuite) newCharmStorage(c *tc.C,
-	charmUUID string, name string, kind string, readOnly bool, location string,
+	charmUUID string,
+	name string,
+	kind string,
+	readOnly bool,
+	shared bool,
+	location string,
 ) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, read_only,
                            count_min, count_max, location, shared)
-VALUES (?, ?, (SELECT id FROM charm_storage_kind WHERE kind = ?), ?, 0, 10, ?, false)
+VALUES (?, ?, (SELECT id FROM charm_storage_kind WHERE kind = ?), ?, 0, 10, ?, ?)
 `,
-			charmUUID, name, kind, readOnly, location)
+			charmUUID, name, kind, readOnly, location, shared)
 		if err != nil {
 			return err
 		}

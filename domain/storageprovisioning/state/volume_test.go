@@ -890,7 +890,7 @@ func (s *volumeSuite) TestGetVolumeParams(c *tc.C) {
 		"foo": "bar",
 	})
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, false, "")
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, suuid, volUUID)
@@ -919,7 +919,7 @@ func (s *volumeSuite) TestGetVolumeParamsWithVolumeAttachment(c *tc.C) {
 	poolUUID := s.newStoragePool(c, "thebigpool", "mypoolprovider", map[string]string{
 		"foo": "bar",
 	})
-	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "/var/foo")
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, false, "/var/foo")
 
 	// Construct storage instance, volume, volume attachment
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
@@ -961,7 +961,7 @@ func (s *volumeSuite) TestGetVolumeRemovalParams(c *tc.C) {
 		"foo": "bar",
 	})
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, false, "")
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	volUUID, _ := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, suuid, volUUID)
@@ -982,7 +982,7 @@ func (s *volumeSuite) TestGetVolumeRemovalParamsWithObliterateFalse(c *tc.C) {
 		"foo": "bar",
 	})
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, false, "")
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	volUUID, _ := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, suuid, volUUID)
@@ -1004,7 +1004,7 @@ func (s *volumeSuite) TestGetVolumeRemovalParamsWithObliterateTrue(c *tc.C) {
 		"foo": "bar",
 	})
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, false, "")
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	volUUID, _ := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, suuid, volUUID)
@@ -1041,7 +1041,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
 		"foo": "bar",
 	})
-	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "/var/foo")
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, false, "/var/foo")
 
 	// Construct storage instance, volume, volume attachment
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
@@ -1089,8 +1089,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParams(c *tc
 	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
 		"foo": "bar",
 	})
-	s.newCharmStorage(c, charmUUID, "myblock", "block", true, "/var/block")
-	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, "/var/filesystem")
+	s.newCharmStorage(c, charmUUID, "myblock", "block", true, false, "/var/block")
+	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, false, "/var/filesystem")
 
 	siUUID1 := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myblock",
@@ -1141,8 +1141,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParamsIgnore
 	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
 		"foo": "bar",
 	})
-	s.newCharmStorage(c, charmUUID, "myblock", "block", true, "/var/block")
-	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, "/var/filesystem")
+	s.newCharmStorage(c, charmUUID, "myblock", "block", true, false, "/var/block")
+	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, false, "/var/filesystem")
 
 	siUUID1 := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myblock",
@@ -1196,8 +1196,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
 		"foo": "bar",
 	})
-	s.newCharmStorage(c, charmUUID, "myblock", "block", true, "/var/block")
-	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, "/var/filesystem")
+	s.newCharmStorage(c, charmUUID, "myblock", "block", true, false, "/var/block")
+	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, false, "/var/filesystem")
 
 	siUUID1 := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myfilesystem",
@@ -1215,7 +1215,6 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 	s.newStorageInstanceFilesystem(c, siUUID1, filesystemUUID1)
 	s.newStorageInstanceVolume(c, siUUID2, volumeUUID2)
 
-	s.DumpTable(c, "charm_storage", "unit", "storage_attachment", "storage_instance")
 	st := NewState(s.TxnRunnerFactory())
 	volumeParams, err := st.GetMachineModelProvisionedVolumeParams(
 		c.Context(), machineUUID,
@@ -1257,8 +1256,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsIgnores(c *tc.C)
 	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
 		"foo": "bar",
 	})
-	s.newCharmStorage(c, charmUUID, "myblock", "block", true, "/var/block")
-	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, "/var/filesystem")
+	s.newCharmStorage(c, charmUUID, "myblock", "block", true, false, "/var/block")
+	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, false, "/var/filesystem")
 
 	siUUID1 := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myblock",

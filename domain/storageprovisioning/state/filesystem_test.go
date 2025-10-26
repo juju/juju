@@ -56,7 +56,7 @@ func (s *filesystemSuite) TestCheckFilesystemForIDNotFound(c *tc.C) {
 // by id when it is backed by a volume.
 func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
 	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	volUUID, volID := s.newMachineVolume(c)
@@ -83,7 +83,7 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 // by id when it isn't backed by a volume.
 func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
 	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
@@ -186,8 +186,8 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 		"c": "d",
 	})
 	spUUID2 := s.newStoragePool(c, "rootfs", "rootfs", nil)
-	s.newCharmStorage(c, charmUUID, "x", "filesystem", true, "/a/x")
-	s.newCharmStorage(c, charmUUID, "y", "filesystem", true, "/a/y")
+	s.newCharmStorage(c, charmUUID, "x", "filesystem", true, false, "/a/x")
+	s.newCharmStorage(c, charmUUID, "y", "filesystem", true, false, "/a/y")
 	s.newApplicationStorageDirective(c, appUUID, charmUUID, "x", spUUID, 123, 2)
 	s.newApplicationStorageDirective(c, appUUID, charmUUID, "y", spUUID2, 456, 1)
 
@@ -884,7 +884,7 @@ func (s *filesystemSuite) TestGetFilesystemParamsUsingPool(c *tc.C) {
 		"foo": "bar",
 	})
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
@@ -919,7 +919,7 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParams(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", nil)
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
@@ -938,7 +938,7 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParamsWithObliterateFalse(c *t
 	st := NewState(s.TxnRunnerFactory())
 	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", nil)
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
@@ -958,7 +958,7 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParamsWithObliterateTrue(c *tc
 	st := NewState(s.TxnRunnerFactory())
 	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", nil)
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
