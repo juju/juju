@@ -11,7 +11,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -87,9 +86,7 @@ func (s *stateSuite) TestCheckMachineIsDeadTrue(c *tc.C) {
 	s.changeMachineLife(c, machineUUID, domainlife.Dead)
 
 	st := NewState(s.TxnRunnerFactory())
-	isDead, err := st.CheckMachineIsDead(
-		c.Context(), coremachine.UUID(machineUUID),
-	)
+	isDead, err := st.CheckMachineIsDead(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(isDead, tc.IsTrue)
 }
@@ -101,9 +98,7 @@ func (s *stateSuite) TestCheckMachineIsDeadFalse(c *tc.C) {
 	machineUUID, _ := s.newMachineWithNetNode(c, netNode)
 
 	st := NewState(s.TxnRunnerFactory())
-	isDead, err := st.CheckMachineIsDead(
-		c.Context(), coremachine.UUID(machineUUID),
-	)
+	isDead, err := st.CheckMachineIsDead(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(isDead, tc.IsFalse)
 }
@@ -169,9 +164,7 @@ func (s *stateSuite) TestGetMachineNetNodeUUID(c *tc.C) {
 	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
 
 	st := NewState(s.TxnRunnerFactory())
-	rval, err := st.GetMachineNetNodeUUID(
-		c.Context(), coremachine.UUID(machineUUID),
-	)
+	rval, err := st.GetMachineNetNodeUUID(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, netNodeUUID)
 }
