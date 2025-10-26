@@ -565,7 +565,7 @@ func (st *State) GetFilesystemAttachmentParams(
 	// the params for a filesystem attachment. This is because
 	// the type of the provider is recorded on the storage instance.
 	//
-	// A review of Mongo shows that this cases is possible but there is not real
+	// A review of Mongo shows that this cases is possible but there is no real
 	// story to show how this happens of if it is valid. As it stands we don't
 	// support this case in Dqlite so it is a watch and act scneario.
 	//
@@ -600,10 +600,10 @@ func (st *State) GetFilesystemAttachmentParams(
 	stmt, err := st.Prepare(`
 SELECT &filesystemAttachmentParams.* FROM (
     SELECT    sf.provider_id,
-              mci.instance_id,
-              cs.location,
+              mci.instance_id AS machine_instance_id,
+              cs.location AS charm_storage_location,
               cs.read_only,
-              sp.type
+              sp.type AS storage_pool_type
     FROM      storage_filesystem_attachment sfa
     JOIN      storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
     JOIN      storage_instance_filesystem sif ON sf.uuid = sif.storage_filesystem_uuid
@@ -650,11 +650,12 @@ SELECT &filesystemAttachmentParams.* FROM (
 	}
 
 	return storageprovisioning.FilesystemAttachmentParams{
-		MachineInstanceID: dbVal.InstanceID.V,
-		Provider:          dbVal.Type,
-		ProviderID:        dbVal.ProviderID.V,
-		MountPoint:        dbVal.Location.V,
-		ReadOnly:          dbVal.ReadOnly.V,
+		CharmStorageLocation: dbVal.CharmStorageLocation.V,
+		MachineInstanceID:    dbVal.MachineInstanceID.V,
+		MountPoint:           dbVal.MountPoint.V,
+		Provider:             dbVal.StoragePoolType,
+		ProviderID:           dbVal.ProviderID.V,
+		ReadOnly:             dbVal.ReadOnly.V,
 	}, nil
 }
 
