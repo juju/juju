@@ -1239,7 +1239,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 			Provider:         "canonical",
 			RequestedSizeMiB: 100,
 			SizeMiB:          0,
-			// We purposelly have not associated this storage instance with a
+			// We purposely have not associated this storage instance with a
 			// unit to show that the value comes out as nil.
 		},
 	}

@@ -179,7 +179,7 @@ type StoragePoolGetter interface {
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
-// StoageProvisioningService provides the needed functionality for determing
+// StoageProvisioningService provides the needed functionality for determining
 // a machines volume storage provisioning information.
 type StoageProvisioningService interface {
 	GetMachineProvisioningVolumeParams(

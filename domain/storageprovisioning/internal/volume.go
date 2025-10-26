@@ -31,7 +31,7 @@ type MachineVolumeAttachmentProvisioningParams struct {
 }
 
 // MachineVolumeProvisioningParams is a internal type for representing the
-// machine provisioning paramters for a volume from state.
+// machine provisioning parameters for a volume from state.
 type MachineVolumeProvisioningParams struct {
 	// Attributes is the set of provider specific attributes to use when
 	// provisioning and managing the volume.

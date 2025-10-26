@@ -1073,7 +1073,9 @@ SELECT &machineVolumeAttachmentProvisioningParams.* FROM (
 `,
 		machineVolumeAttachmentProvisioningParams{}, input)
 	if err != nil {
-		return nil, errors.Errorf("preparing machine volume attachment params statment: %w", err)
+		return nil, errors.Errorf(
+			"preparing machine volume attachment params statement: %w", err,
+		)
 	}
 
 	var volumeAttachDBParams []machineVolumeAttachmentProvisioningParams
@@ -1168,7 +1170,9 @@ SELECT &machineVolumeProvisioningParams.* FROM (
 		machineVolumeProvisioningParams{}, input,
 	)
 	if err != nil {
-		return nil, errors.Errorf("preparing machine volume params statment: %w", err)
+		return nil, errors.Errorf(
+			"preparing machine volume params statement: %w", err,
+		)
 	}
 
 	// Because we are getting storage pool attributes for many volumes they may
