@@ -23,6 +23,7 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -1046,7 +1047,7 @@ WHERE  uuid = $volumeProvisionedInfo.uuid
 // - [domainmachineerrors.MachineNotFound] when no machine exists for the uuid.
 func (st *State) GetMachineModelProvisionedVolumeAttachmentParams(
 	ctx context.Context, uuid coremachine.UUID,
-) ([]storageprovisioning.MachineVolumeAttachmentProvisioningParams, error) {
+) ([]internal.MachineVolumeAttachmentProvisioningParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1097,11 +1098,11 @@ SELECT &machineVolumeAttachmentProvisioningParams.* FROM (
 	}
 
 	retVal := make(
-		[]storageprovisioning.MachineVolumeAttachmentProvisioningParams,
+		[]internal.MachineVolumeAttachmentProvisioningParams,
 		0, len(volumeAttachDBParams),
 	)
 	for _, dbVal := range volumeAttachDBParams {
-		params := storageprovisioning.MachineVolumeAttachmentProvisioningParams{
+		params := internal.MachineVolumeAttachmentProvisioningParams{
 			Provider: dbVal.ProviderType,
 			ReadOnly: dbVal.ReadOnly.V,
 			VolumeID: dbVal.VolumeID,
@@ -1122,7 +1123,7 @@ SELECT &machineVolumeAttachmentProvisioningParams.* FROM (
 // - [domainmachineerrors.MachineNotFound] when no machine exists for the uuid.
 func (st *State) GetMachineModelProvisionedVolumeParams(
 	ctx context.Context, uuid coremachine.UUID,
-) ([]storageprovisioning.MachineVolumeProvisioningParams, error) {
+) ([]internal.MachineVolumeProvisioningParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1224,14 +1225,14 @@ SELECT &storagePoolAttributeWithUUID.* FROM (
 		poolAttributeMap[attr.StoragePoolUUID] = append(attrs, attr)
 	}
 
-	retVal := make([]storageprovisioning.MachineVolumeProvisioningParams, 0, len(volumeDBParams))
+	retVal := make([]internal.MachineVolumeProvisioningParams, 0, len(volumeDBParams))
 	for _, dbParams := range volumeDBParams {
 		attributes := make(map[string]string, len(poolAttributeMap[dbParams.StoragePoolUUID]))
 		for _, attr := range poolAttributeMap[dbParams.StoragePoolUUID] {
 			attributes[attr.Key] = attr.Value
 		}
 
-		params := storageprovisioning.MachineVolumeProvisioningParams{
+		params := internal.MachineVolumeProvisioningParams{
 			Attributes:       attributes,
 			ID:               dbParams.VolumeID,
 			Provider:         dbParams.ProviderType,

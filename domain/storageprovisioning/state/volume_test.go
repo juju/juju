@@ -17,6 +17,7 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	domaininternal "github.com/juju/juju/domain/storageprovisioning/internal"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
@@ -1112,7 +1113,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParams(c *tc
 			c.Context(), machineUUID,
 		)
 
-	expected := []domainstorageprovisioning.MachineVolumeAttachmentProvisioningParams{
+	expected := []domaininternal.MachineVolumeAttachmentProvisioningParams{
 		{
 			Provider: "canonical",
 			ReadOnly: false,
@@ -1161,7 +1162,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParamsIgnore
 			c.Context(), machineUUID,
 		)
 
-	expected := []domainstorageprovisioning.MachineVolumeAttachmentProvisioningParams{
+	expected := []domaininternal.MachineVolumeAttachmentProvisioningParams{
 		{
 			Provider: "canonical",
 			ReadOnly: false,
@@ -1214,7 +1215,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 		c.Context(), machineUUID,
 	)
 
-	expected := []domainstorageprovisioning.MachineVolumeProvisioningParams{
+	expected := []domaininternal.MachineVolumeProvisioningParams{
 		{
 			Attributes: map[string]string{
 				"foo": "bar",
@@ -1270,7 +1271,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsIgnores(c *tc.C)
 		c.Context(), machineUUID,
 	)
 
-	expected := []domainstorageprovisioning.MachineVolumeProvisioningParams{
+	expected := []domaininternal.MachineVolumeProvisioningParams{
 		{
 			Attributes: map[string]string{
 				"foo": "bar",
