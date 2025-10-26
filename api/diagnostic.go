@@ -9,7 +9,7 @@ import (
 	"runtime/debug"
 	"sync/atomic"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 var connCount int64

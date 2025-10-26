@@ -94,6 +94,36 @@ type StorageState interface {
 	// FilesystemScheduleRemoval schedules a removal job for the filesystem with
 	// the input UUID, qualified with the input force boolean.
 	FilesystemScheduleRemoval(ctx context.Context, removalUUID, fsUUID string, force bool, when time.Time) error
+
+	// GetFilesystemAttachmentLife returns the life of the filesystem attachment
+	// indicated by the supplied UUID.
+	GetFilesystemAttachmentLife(
+		ctx context.Context, rUUID string,
+	) (life.Life, error)
+
+	// MarkFilesystemAttachmentAsDead updates the life to dead of the filesystem
+	// attachment indicated by the supplied UUID.
+	MarkFilesystemAttachmentAsDead(ctx context.Context, rUUID string) error
+
+	// GetVolumeAttachmentLife returns the life of the volume attachment
+	// indicated by the supplied UUID.
+	GetVolumeAttachmentLife(
+		ctx context.Context, rUUID string,
+	) (life.Life, error)
+
+	// MarkVolumeAttachmentAsDead updates the life to dead of the volume
+	// attachment indicated by the supplied UUID.
+	MarkVolumeAttachmentAsDead(ctx context.Context, rUUID string) error
+
+	// GetVolumeAttachmentPlanLife returns the life of the volume attachment
+	// plan indicated by the supplied UUID.
+	GetVolumeAttachmentPlanLife(
+		ctx context.Context, rUUID string,
+	) (life.Life, error)
+
+	// MarkVolumeAttachmentPlanAsDead updates the life to dead of the volume
+	// attachment plan indicated by the supplied UUID.
+	MarkVolumeAttachmentPlanAsDead(ctx context.Context, rUUID string) error
 }
 
 // RemoveStorageAttachment checks if a storage attachment with the input UUID
@@ -328,37 +358,136 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 // MarkFilesystemAttachmentAsDead marks the filesystem attachment as dead.
 //
 // The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied filesystem attachment UUID is not
+// valid.
 // - [storageprovisioningerrors.FilesystemAttachmentNotFound] if the filesystem
 // attachment is not found.
 // - [removalerrors.EntityStillAlive] if the filesystem attachment is alive.
 func (s *Service) MarkFilesystemAttachmentAsDead(
 	ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
 ) error {
-	return errors.New("not implemented: MarkFilesystemAttachmentAsDead")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return errors.Errorf(
+			"validating filesystem attachment uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	l, err := s.modelState.GetFilesystemAttachmentLife(ctx, uuid.String())
+	if err != nil {
+		return errors.Errorf(
+			"getting filesystem attachment %q life: %w", uuid, err,
+		)
+	}
+	if l == life.Alive {
+		return errors.Errorf(
+			"filesystem attachment %q is alive", uuid,
+		).Add(removalerrors.EntityStillAlive)
+	} else if l == life.Dead {
+		return nil
+	}
+
+	err = s.modelState.MarkFilesystemAttachmentAsDead(ctx, uuid.String())
+	if err != nil {
+		return errors.Errorf(
+			"marking filesystem attachment %q as dead: %w", uuid, err,
+		)
+	}
+
+	return nil
 }
 
 // MarkVolumeAttachmentAsDead marks the volume attachment as dead.
 //
 // The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied volume attachment UUID is not
+// valid.
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] if the volume
 // attachment is not found.
 // - [removalerrors.EntityStillAlive] if the volume attachment is alive.
 func (s *Service) MarkVolumeAttachmentAsDead(
 	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
 ) error {
-	return errors.New("not implemented: MarkVolumeAttachmentAsDead")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return errors.Errorf(
+			"validating volume attachment uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	l, err := s.modelState.GetVolumeAttachmentLife(ctx, uuid.String())
+	if err != nil {
+		return errors.Errorf(
+			"getting volume attachment %q life: %w", uuid, err,
+		)
+	}
+	if l == life.Alive {
+		return errors.Errorf(
+			"volume attachment %q is alive", uuid,
+		).Add(removalerrors.EntityStillAlive)
+	} else if l == life.Dead {
+		return nil
+	}
+
+	err = s.modelState.MarkVolumeAttachmentAsDead(ctx, uuid.String())
+	if err != nil {
+		return errors.Errorf(
+			"marking volume attachment %q as dead: %w", uuid, err,
+		)
+	}
+
+	return nil
 }
 
 // MarkVolumeAttachmentPlanAsDead marks the volume attachment plan as dead.
 //
 // The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied volume attachment plan UUID is not
+// valid.
 // - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] if the volume
 // attachment plan is not found.
 // - [removalerrors.EntityStillAlive] if the volume attachment plan is alive.
 func (s *Service) MarkVolumeAttachmentPlanAsDead(
 	ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
 ) error {
-	return errors.New("not implemented: MarkVolumeAttachmentPlanAsDead")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return errors.Errorf(
+			"validating volume attachment plan uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	l, err := s.modelState.GetVolumeAttachmentPlanLife(ctx, uuid.String())
+	if err != nil {
+		return errors.Errorf(
+			"getting volume attachment plan %q life: %w", uuid, err,
+		)
+	}
+	if l == life.Alive {
+		return errors.Errorf(
+			"volume attachment plan %q is alive", uuid,
+		).Add(removalerrors.EntityStillAlive)
+	} else if l == life.Dead {
+		return nil
+	}
+
+	err = s.modelState.MarkVolumeAttachmentPlanAsDead(ctx, uuid.String())
+	if err != nil {
+		return errors.Errorf(
+			"marking volume attachment plan %q as dead: %w", uuid, err,
+		)
+	}
+
+	return nil
 }
 
 // RemoveDeadFilesystem is to be called from the storage provisoner to
