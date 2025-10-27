@@ -131,7 +131,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		_, err := removalSt.EnsureApplicationNotAliveCascade(c.Context(), appID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
-		err = removalSt.DeleteApplication(c.Context(), appID.String())
+		err = removalSt.DeleteApplication(c.Context(), appID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -1319,7 +1319,7 @@ WHERE uuid=?
 	harness.AddTest(c, func(c *tc.C) {
 		_, err := removalSt.EnsureApplicationNotAliveCascade(c.Context(), appID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
-		err = removalSt.DeleteApplication(c.Context(), appID.String())
+		err = removalSt.DeleteApplication(c.Context(), appID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{appID.String()}))

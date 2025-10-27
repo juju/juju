@@ -431,7 +431,7 @@ func (s *applicationSuite) TestDeleteIAASApplication(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteApplication(c.Context(), appUUID.String())
+	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The application should be gone.
@@ -455,7 +455,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// This should fail because the application has units.
-	err := st.DeleteApplication(c.Context(), appUUID.String())
+	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
 
@@ -464,7 +464,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
-	err = st.DeleteApplication(c.Context(), appUUID.String())
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The application should be gone.
@@ -494,7 +494,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithRelations(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// This should fail because the application has units.
-	err = st.DeleteApplication(c.Context(), appUUID.String())
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasRelations)
 
@@ -503,7 +503,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithRelations(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
-	err = st.DeleteApplication(c.Context(), appUUID.String())
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The application should be gone.
@@ -533,14 +533,14 @@ func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
-	err = st.DeleteApplication(c.Context(), appUUID1.String())
+	err = st.DeleteApplication(c.Context(), appUUID1.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkCharmsCount(c, 1)
 
 	// Now we can delete the application and the charm should be removed as
 	// well.
-	err = st.DeleteApplication(c.Context(), appUUID2.String())
+	err = st.DeleteApplication(c.Context(), appUUID2.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkNoCharmsExist(c)
@@ -562,7 +562,7 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	err := st.DeleteUnit(c.Context(), unitUUIDs[0].String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.DeleteApplication(c.Context(), appUUID.String())
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The application should be gone.
@@ -581,7 +581,7 @@ func (s *applicationSuite) TestDeleteCAASApplicationWithUnit(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteApplication(c.Context(), appUUID.String())
+	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorMatches, `.*still has 1 unit.*`)
 }
 
@@ -650,7 +650,7 @@ func (s *applicationSuite) TestDeleteApplicationNotWipingDeviceConstraints(c *tc
 
 	s.advanceApplicationLife(c, app1ID, life.Dead)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = st.DeleteApplication(c.Context(), app1ID.String())
+	err = st.DeleteApplication(c.Context(), app1ID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.GetApplicationLife(c.Context(), "app1")
@@ -685,7 +685,7 @@ func (s *applicationSuite) TestDeleteApplicationWithObjectstoreResource(c *tc.C)
 
 	// Act: Delete the application
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = st.DeleteApplication(c.Context(), appUUID.String())
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: The application is deleted
@@ -730,7 +730,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`, "1", charmUUID, "buzz", 1, 0, 0, time.Now())
 
 	// Act: Delete the application
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = st.DeleteApplication(c.Context(), appUUID.String())
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: The application is deleted
@@ -776,7 +776,7 @@ func (s *applicationSuite) TestDeleteApplicationWithSharedObjectstoreResource(c 
 
 	// Act: Delete an application
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = st.DeleteApplication(c.Context(), appUUID1.String())
+	err = st.DeleteApplication(c.Context(), appUUID1.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: The application is deleted
