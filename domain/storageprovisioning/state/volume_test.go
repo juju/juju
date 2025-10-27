@@ -1232,6 +1232,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 			StorageName:          "myfilesystem",
 			StorageID:            siID1,
 			StorageOwnerUnitName: ptr(unitName.String()),
+			UUID:                 volumeUUID1,
 		},
 		{
 			Attributes: map[string]string{
@@ -1243,6 +1244,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 			SizeMiB:          0,
 			StorageName:      "myblock",
 			StorageID:        siID2,
+			UUID:             volumeUUID2,
 			// We purposely have not associated this storage instance with a
 			// unit to show that the value comes out as nil.
 		},
@@ -1292,6 +1294,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsSharedStorage(c 
 			StorageID:            siID1,
 			StorageName:          "myblock",
 			StorageOwnerUnitName: nil,
+			UUID:                 volumeUUID1,
 		},
 	}
 	c.Check(err, tc.ErrorIsNil)
@@ -1341,6 +1344,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsIgnores(c *tc.C)
 			SizeMiB:          0,
 			StorageID:        siID1,
 			StorageName:      "myblock",
+			UUID:             volumeUUID1,
 		},
 	}
 	c.Check(err, tc.ErrorIsNil)

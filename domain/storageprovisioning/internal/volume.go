@@ -68,4 +68,8 @@ type MachineVolumeProvisioningParams struct {
 	// instance is currently attached to a unit and the storage instance is not
 	// shared.
 	StorageOwnerUnitName *string
+
+	// UUID is the unique uuid given to this volume. ALWAYS use this value in
+	// comparison checks.
+	UUID domainstorageprovisioning.VolumeUUID
 }

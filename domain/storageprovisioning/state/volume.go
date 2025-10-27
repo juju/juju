@@ -1140,7 +1140,8 @@ func (st *State) GetMachineModelProvisionedVolumeParams(
 
 	paramsStmt, err := st.Prepare(`
 SELECT &machineVolumeProvisioningParams.* FROM (
-    SELECT    sv.volume_id,
+    SELECT    sv.uuid,
+              sv.volume_id,
               sv.size_mib,
               si.requested_size_mib,
               si.storage_id,
@@ -1262,6 +1263,7 @@ SELECT &storagePoolAttributeWithUUID.* FROM (
 			SizeMiB:          dbParams.SizeMiB,
 			StorageID:        dbParams.StorageID,
 			StorageName:      dbParams.StorageName,
+			UUID:             storageprovisioning.VolumeUUID(dbParams.UUID),
 		}
 		if dbParams.StorageUnitOwnerName.Valid {
 			params.StorageOwnerUnitName = &dbParams.StorageUnitOwnerName.V

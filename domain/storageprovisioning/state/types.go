@@ -340,6 +340,7 @@ type machineVolumeProvisioningParams struct {
 	StoragePoolUUID      string           `db:"storage_pool_uuid"`
 	StorageUnitOwnerName sql.Null[string] `db:"storage_unit_owner_name"`
 	VolumeID             string           `db:"volume_id"`
+	UUID                 string           `db:"uuid"`
 }
 
 // volumeProvisioningParams represents the provisioning params for a volume from the model
