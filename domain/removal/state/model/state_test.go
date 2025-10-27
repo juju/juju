@@ -413,12 +413,6 @@ func (s *baseSuite) createRemoteApplicationConsumer(
 					Role:      charm.RoleProvider,
 					Scope:     charm.ScopeGlobal,
 				},
-				"bar": {
-					Name:      "bar",
-					Interface: "rel",
-					Role:      charm.RoleProvider,
-					Scope:     charm.ScopeGlobal,
-				},
 			},
 		},
 		Manifest:      s.minimalManifest(),
@@ -433,12 +427,14 @@ func (s *baseSuite) createRemoteApplicationConsumer(
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	relationUUID := tc.Must(c, relation.NewUUID)
 	err := cmrState.AddConsumedRelation(c.Context(), name, crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		SynthApplicationUUID:    remoteAppUUID.String(),
-		ConsumerApplicationUUID: appUUID.String(),
-		CharmUUID:               tc.Must(c, uuid.NewUUID).String(),
-		Charm:                   ch,
-		OfferUUID:               offerUUID.String(),
-		RelationUUID:            relationUUID.String(),
+		SynthApplicationUUID:        remoteAppUUID.String(),
+		ConsumerApplicationUUID:     appUUID.String(),
+		ConsumerApplicationEndpoint: "foo",
+		CharmUUID:                   tc.Must(c, uuid.NewUUID).String(),
+		Charm:                       ch,
+		OfferUUID:                   offerUUID.String(),
+		OfferEndpointName:           "bar",
+		RelationUUID:                relationUUID.String(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

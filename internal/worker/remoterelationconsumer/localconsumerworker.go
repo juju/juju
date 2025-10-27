@@ -733,9 +733,7 @@ func (w *localConsumerWorker) registerConsumerRelation(
 		RelationToken:            relationUUID.String(),
 		OfferUUID:                offerUUID,
 		ConsumerApplicationEndpoint: params.RemoteEndpoint{
-			// Name here contains the consuming endpoint name, which includes
-			// the application name as a prefix. This is required.
-			Name:      consumingEndpoint.String(),
+			Name:      consumingEndpoint.Name,
 			Role:      consumingEndpoint.Role,
 			Interface: consumingEndpoint.Interface,
 			Limit:     consumingEndpoint.Limit,

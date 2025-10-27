@@ -573,12 +573,15 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 			return nil
 		})
 
+	relKey, err := corerelation.NewKeyFromString("offerapp:db remoteapp:db")
+	c.Assert(err, tc.ErrorIsNil)
+	s.relationService.EXPECT().
+		GetRelationKeyByUUID(gomock.Any(), relationUUID).Return(relKey, nil)
+
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
 		Return(map[string]string{"username": "bob"}, nil)
 
-	relKey, err := corerelation.NewKeyFromString("offerapp:db remoteapp:db")
-	c.Assert(err, tc.ErrorIsNil)
 	offererRemoteRelationTag := names.NewRelationTag(relKey.String())
 
 	s.crossModelAuthContext.EXPECT().CreateRemoteRelationMacaroon(gomock.Any(), s.modelUUID, offerUUID.String(), "bob", offererRemoteRelationTag, bakery.LatestVersion).
@@ -694,35 +697,6 @@ func (s *facadeSuite) TestRegisterRemoteRelationsAddConsumerError(c *tc.C) {
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "adding remote application consumer: insert failed")
 }
 
-func (s *facadeSuite) TestRegisterRemoteRelationsRelationKeyParseError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appName := "offerapp"
-	appUUIDStr := tc.Must(c, uuid.NewUUID).String()
-	offerUUID := tc.Must(c, offer.NewUUID)
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
-	remoteAppToken := tc.Must(c, uuid.NewUUID).String()
-
-	s.crossModelRelationService.EXPECT().
-		GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID).
-		Return(appName, application.UUID(appUUIDStr), nil)
-
-	s.crossModelRelationService.EXPECT().
-		AddConsumedRelation(gomock.Any(), gomock.Any()).
-		Return(nil)
-
-	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
-	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
-		Return(map[string]string{"username": "bob"}, nil)
-
-	api := s.api(c)
-	// remote endpoint name lacks application prefix -> parse failure.
-	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "db", "db", nil)
-	results, err := api.RegisterRemoteRelations(c.Context(), params.RegisterConsumingRelationArgs{Relations: []params.RegisterConsumingRelationArg{arg}})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, tc.ErrorMatches, "parsing relation key.*")
-}
-
 func (s *facadeSuite) TestRegisterRemoteRelationsCreateMacaroonError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -739,6 +713,11 @@ func (s *facadeSuite) TestRegisterRemoteRelationsCreateMacaroonError(c *tc.C) {
 	s.crossModelRelationService.EXPECT().
 		AddConsumedRelation(gomock.Any(), gomock.Any()).
 		Return(nil)
+
+	relKey, err := corerelation.NewKeyFromString("offerapp:db remoteapp:db")
+	c.Assert(err, tc.ErrorIsNil)
+	s.relationService.EXPECT().
+		GetRelationKeyByUUID(gomock.Any(), relationUUID).Return(relKey, nil)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).

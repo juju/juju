@@ -130,6 +130,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationConsumers(c *tc.C) {
 		err := svc.AddConsumedRelation(c.Context(), service.AddConsumedRelationArgs{
 			ConsumerApplicationUUID: uuid.MustNewUUID().String(),
 			OfferUUID:               offerUUID,
+			OfferingEndpointName:    "db",
 			RelationUUID:            relationUUID,
 			ConsumerModelUUID:       consumerModelUUID,
 			ConsumerApplicationEndpoint: charm.Relation{
@@ -573,6 +574,7 @@ func (s *watcherSuite) TestWatchOffererRelationsCaching(c *tc.C) {
 		err := svc.AddConsumedRelation(c.Context(), service.AddConsumedRelationArgs{
 			ConsumerApplicationUUID: remoteApplicationUUID1,
 			OfferUUID:               localOfferUUID,
+			OfferingEndpointName:    "db",
 			RelationUUID:            consumerRelationUUID1,
 			ConsumerModelUUID:       consumerModelUUID,
 			ConsumerApplicationEndpoint: charm.Relation{
@@ -599,6 +601,7 @@ func (s *watcherSuite) TestWatchOffererRelationsCaching(c *tc.C) {
 		err := svc.AddConsumedRelation(c.Context(), service.AddConsumedRelationArgs{
 			ConsumerApplicationUUID: remoteApplicationUUID,
 			OfferUUID:               localOfferUUID,
+			OfferingEndpointName:    "db",
 			RelationUUID:            consumerRelationUUID2,
 			ConsumerModelUUID:       consumerModelUUID,
 			ConsumerApplicationEndpoint: charm.Relation{
@@ -678,6 +681,7 @@ func (s *watcherSuite) setupLocalOfferRemoteConsumerAndRelation(c *tc.C, db data
 	err := svc.AddConsumedRelation(c.Context(), service.AddConsumedRelationArgs{
 		ConsumerApplicationUUID: remoteApplicationUUID,
 		OfferUUID:               localOfferUUID,
+		OfferingEndpointName:    "db",
 		RelationUUID:            consumerRelationUUID.String(),
 		ConsumerModelUUID:       consumerModelUUID,
 		ConsumerApplicationEndpoint: charm.Relation{

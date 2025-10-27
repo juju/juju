@@ -246,6 +246,9 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 	if args.ConsumerApplicationEndpoint.Name == "" {
 		return internalerrors.Errorf("endpoint cannot be empty").Add(errors.NotValid)
 	}
+	if args.OfferingEndpointName == "" {
+		return internalerrors.Errorf("offer endpoint cannot be empty").Add(errors.NotValid)
+	}
 
 	// Construct a synthetic charm to represent the remote application charm,
 	// so we can track the endpoints it offers.
@@ -261,12 +264,14 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 
 	if err := s.modelState.AddConsumedRelation(ctx, synthApplicationName, crossmodelrelation.AddRemoteApplicationConsumerArgs{
 		OfferUUID:         args.OfferUUID.String(),
+		OfferEndpointName: args.OfferingEndpointName,
 		ConsumerModelUUID: args.ConsumerModelUUID,
 		RelationUUID:      args.RelationUUID,
 
 		// ConsumerApplicationUUID is the application UUID in the consuming
 		// model.
-		ConsumerApplicationUUID: args.ConsumerApplicationUUID,
+		ConsumerApplicationUUID:     args.ConsumerApplicationUUID,
+		ConsumerApplicationEndpoint: args.ConsumerApplicationEndpoint.Name,
 
 		// SynthApplicationUUID is the application UUID created
 		// to represent the synthetic application in the offering model. This

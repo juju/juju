@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/relation"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -303,17 +304,25 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *tc.C) {
 	now := time.Now().Truncate(time.Second)
 
 	expected := &bakery.Macaroon{}
+	relationKey, _ := relation.NewKeyFromString("mediawiki:db mysql:server")
+	relationTag := names.NewRelationTag(relationKey.String())
 
-	s.bakery.EXPECT().GetRemoteRelationCaveats("mysql-uuid", s.modelUUID.String(), "mary", "relation-mediawiki.db#mysql.server").Return(s.caveatWithRelation(now))
+	s.bakery.EXPECT().GetRemoteRelationCaveats("mysql-uuid", s.modelUUID.String(), "mary", relationKey.String()).Return(s.caveatWithRelation(now))
 	s.bakery.EXPECT().NewMacaroon(
 		gomock.Any(),
 		bakery.LatestVersion,
 		s.caveatWithRelation(now),
-		crossModelRelateOp("relation-mediawiki.db#mysql.server"),
+		crossModelRelateOp(relationTag.String()),
 	).Return(expected, nil)
 
 	authContext := s.newAuthContext(c)
-	mac, err := authContext.CreateRemoteRelationMacaroon(c.Context(), s.modelUUID, "mysql-uuid", "mary", names.NewRelationTag("mediawiki:db mysql:server"), bakery.LatestVersion)
+	mac, err := authContext.CreateRemoteRelationMacaroon(
+		c.Context(),
+		s.modelUUID,
+		"mysql-uuid",
+		"mary",
+		relationTag,
+		bakery.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mac, tc.Equals, expected)
 }

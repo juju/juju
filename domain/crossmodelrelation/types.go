@@ -226,6 +226,10 @@ type AddRemoteApplicationConsumerArgs struct {
 	// consuming. The offer is in this model, the offering model.
 	OfferUUID string
 
+	// OfferEndpointName is the name of the offering application endpoint
+	// to be used in the relation.
+	OfferEndpointName string
+
 	// ConsumerModelUUID is the UUID of the model that is consuming the
 	// application.
 	ConsumerModelUUID string
@@ -236,6 +240,10 @@ type AddRemoteApplicationConsumerArgs struct {
 
 	// ConsumerApplicationUUID is the UUID of the consuming application UUID.
 	ConsumerApplicationUUID string
+
+	// ConsumerApplicationEndpoint is the relation endpoint name of the
+	// consuming application.
+	ConsumerApplicationEndpoint string
 
 	// SynthApplicationUUID is the UUID of the synthetic application created
 	// to represent the remote application, on the consuming model.

@@ -391,6 +391,7 @@ func (s *remoteApplicationServiceSuite) TestAddConsumedRelation(c *tc.C) {
 
 	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		OfferUUID:               offerUUID,
+		OfferingEndpointName:    "test",
 		RelationUUID:            relationUUID,
 		ConsumerApplicationUUID: consumerApplicationUUID,
 		ConsumerModelUUID:       consumerModelUUID,
@@ -410,11 +411,13 @@ func (s *remoteApplicationServiceSuite) TestAddConsumedRelation(c *tc.C) {
 	received.SynthApplicationUUID = ""
 
 	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID.String(),
-		ConsumerModelUUID:       consumerModelUUID,
-		RelationUUID:            relationUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		Charm:                   syntheticCharm,
+		OfferUUID:                   offerUUID.String(),
+		OfferEndpointName:           "test",
+		ConsumerModelUUID:           consumerModelUUID,
+		RelationUUID:                relationUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		Charm:                       syntheticCharm,
 	})
 }
 
@@ -495,6 +498,7 @@ func (s *remoteApplicationServiceSuite) TestAddConsumedRelationInvalidEndpointSc
 	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		ConsumerApplicationUUID: remoteApplicationUUID,
 		OfferUUID:               offerUUID,
+		OfferingEndpointName:    "test",
 		RelationUUID:            relationUUID,
 		ConsumerModelUUID:       consumerModelUUID,
 		ConsumerApplicationEndpoint: charm.Relation{
@@ -551,6 +555,7 @@ func (s *remoteApplicationServiceSuite) TestAddConsumedRelationStateError(c *tc.
 
 	err := service.AddConsumedRelation(c.Context(), AddConsumedRelationArgs{
 		OfferUUID:               offerUUID,
+		OfferingEndpointName:    "test",
 		RelationUUID:            relationUUID,
 		ConsumerApplicationUUID: consumerApplicationUUID,
 		ConsumerModelUUID:       consumerModelUUID,

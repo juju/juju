@@ -5,7 +5,6 @@ package crossmodelrelations
 
 import (
 	"context"
-	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
@@ -391,7 +390,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 		return nil, errors.Trace(err)
 	}
 
-	appName, appUUID, err := api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
+	_, appUUID, err := api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -410,10 +409,11 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	// Insert the remote relation.
 	if err := api.crossModelRelationService.AddConsumedRelation(ctx,
 		crossmodelrelationservice.AddConsumedRelationArgs{
-			ConsumerApplicationUUID: relation.ConsumerApplicationToken,
 			OfferUUID:               offerUUID,
 			RelationUUID:            relation.RelationToken,
+			OfferingEndpointName:    relation.OfferEndpointName,
 			ConsumerModelUUID:       sourceModelTag.Id(),
+			ConsumerApplicationUUID: relation.ConsumerApplicationToken,
 			// We only have the actual consumed endpoint.
 			ConsumerApplicationEndpoint: charm.Relation{
 				Name:      relation.ConsumerApplicationEndpoint.Name,
@@ -426,16 +426,9 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 		return nil, errors.Annotate(err, "adding remote application consumer")
 	}
 
-	// Create the relation tag for the remote relation.
-	// The relation tag is based on the relation key, which is of the form
-	// "app1:epName1 app2:epName2".
-	localEndpoint := appName + ":" + relation.OfferEndpointName
-
-	relationKey, err := corerelation.NewKeyFromString(
-		strings.Join([]string{localEndpoint, relation.ConsumerApplicationEndpoint.Name}, " "),
-	)
+	relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, relation.RelationToken)
 	if err != nil {
-		return nil, errors.Annotate(err, "parsing relation key")
+		return nil, errors.Annotate(err, "getting relation key")
 	}
 
 	offererRemoteRelationTag := names.NewRelationTag(relationKey.String())
