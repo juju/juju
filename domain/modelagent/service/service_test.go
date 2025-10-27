@@ -193,7 +193,7 @@ func (s *serviceSuite) TestWatchUnitTargetAgentVersionNotFound(c *tc.C) {
 		"", applicationerrors.UnitNotFound,
 	)
 
-	svc := NewWatchableService(s.agentBinaryFinder, s.modelState, nil)
+	svc := NewWatchableService(s.agentBinaryFinder, s.modelState, s.controllerState, nil)
 	_, err := svc.WatchUnitTargetAgentVersion(
 		c.Context(),
 		"foo/0",
@@ -211,7 +211,7 @@ func (s *serviceSuite) TestWatchMachineTargetAgentVersionNotFound(c *tc.C) {
 		"", machineerrors.MachineNotFound,
 	)
 
-	svc := NewWatchableService(s.agentBinaryFinder, s.modelState, nil)
+	svc := NewWatchableService(s.agentBinaryFinder, s.modelState, s.controllerState, nil)
 	_, err := svc.WatchMachineTargetAgentVersion(c.Context(), "0")
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
@@ -851,12 +851,12 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersion(c *tc.C) {
 	c.Check(newVer, tc.Equals, desiredVersion)
 }
 
-// TestUpgradeModelTargetAgentVersionStreamControllerModel tests that if a
+// TestUpgradeModelTargetAgentVersionWithStreamControllerModel tests that if a
 // caller asks for the current model's target agent version to be upgrade, but
 // the model hosts the current Juju controller. No upgrade is performed and the
 // caller gets back an error satisfying
 // [modelagenterrors.CannotUpgradeControllerModel].
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamControllerModel(c *tc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionWithStreamControllerModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
@@ -869,17 +869,17 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamControllerMo
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	_, err := svc.UpgradeModelTargetAgentVersionStream(
+	_, err := svc.UpgradeModelTargetAgentVersionWithStream(
 		c.Context(), domainagentbinary.AgentStreamDevel,
 	)
 	c.Check(err, tc.ErrorIs, modelagenterrors.CannotUpgradeControllerModel)
 }
 
-// TestUpgradeModelTargetAgentVersionStreamNotValid is a test that asserts if a
+// TestUpgradeModelTargetAgentVersionWithStreamNotValid is a test that asserts if a
 // caller asks for the current model's target agent version to be upgraded with
 // an invalid agent stream, the caller gets back an error satisfying
 // [coreerrors.NotValid].
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamNotValid(c *tc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionWithStreamNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	domainAgentStream := domainagentbinary.Stream(-1)
@@ -889,16 +889,16 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamNotValid(c *
 	).Return([]semversion.Number{desiredVersion}, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	_, err := svc.UpgradeModelTargetAgentVersionStream(c.Context(), domainAgentStream)
+	_, err := svc.UpgradeModelTargetAgentVersionWithStream(c.Context(), domainAgentStream)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestUpgradeModelTargetAgentVersionStreamMachineBaseValidation tests that if a
+// TestUpgradeModelTargetAgentVersionWithStreamMachineBaseValidation tests that if a
 // caller asks for the current model's target agent version to be
 // upgraded, but there are machines in the model that are not running a
 // supported base. The upgrade must fail with an error satisfying
 // [modelagenterrors.ModelUpgradeBlocker].
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamMachineBaseValidation(c *tc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionWithStreamMachineBaseValidation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
@@ -912,17 +912,17 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamMachineBaseV
 	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(1, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	_, err := svc.UpgradeModelTargetAgentVersionStream(
+	_, err := svc.UpgradeModelTargetAgentVersionWithStream(
 		c.Context(), domainagentbinary.AgentStreamDevel,
 	)
 	_, isBlockedErr := errors.AsType[modelagenterrors.ModelUpgradeBlocker](err)
 	c.Check(isBlockedErr, tc.IsTrue)
 }
 
-// TestUpgradeModelTargetAgentVersionStream is a happy path test of
+// TestUpgradeModelTargetAgentVersionWithStream is a happy path test of
 // [Service.UpgradeMoelTargetAgentVersionStream]. In this test we want to see
 // that the model is upgraded to that highest available version available.
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStream(c *tc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionWithStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
@@ -942,7 +942,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStream(c *tc.C) {
 	).Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	newVer, err := svc.UpgradeModelTargetAgentVersionStream(
+	newVer, err := svc.UpgradeModelTargetAgentVersionWithStream(
 		c.Context(), domainagentbinary.AgentStreamDevel,
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -960,7 +960,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToDowngrade(c *tc.
 
 	upgradeTo := semversion.MustParse("3.6.1")
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), upgradeTo)
+	err := svc.UpgradeModelAgentToTargetVersion(c.Context(), upgradeTo)
 	c.Check(err, tc.ErrorIs, modelagenterrors.DowngradeNotSupported)
 }
 
@@ -980,7 +980,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToOverMax(c *tc.C)
 	upgradeTo := version
 	upgradeTo.Minor++
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), upgradeTo)
+	err := svc.UpgradeModelAgentToTargetVersion(c.Context(), upgradeTo)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSupported)
 }
 
@@ -1000,7 +1000,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToMissingAgentBina
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(false, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), desiredVersion)
+	err := svc.UpgradeModelAgentToTargetVersion(c.Context(), desiredVersion)
 	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
 
@@ -1020,7 +1020,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToControllerModel(
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), desiredVersion)
+	err := svc.UpgradeModelAgentToTargetVersion(c.Context(), desiredVersion)
 	c.Check(err, tc.ErrorIs, modelagenterrors.CannotUpgradeControllerModel)
 }
 
@@ -1043,14 +1043,14 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToMachineBaseValid
 	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(1, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), desiredVersion)
+	err := svc.UpgradeModelAgentToTargetVersion(c.Context(), desiredVersion)
 	_, isBlockedErr := errors.AsType[modelagenterrors.ModelUpgradeBlocker](err)
 	c.Check(isBlockedErr, tc.IsTrue)
 }
 
-// TestUpgradeModelTargetAgentVersionTo is a happy path test for upgrading a
+// TestUpgradeModelAgentToTargetVersion is a happy path test for upgrading a
 // model to a specific target agent version.
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionTo(c *tc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelAgentToTargetVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
@@ -1069,15 +1069,36 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionTo(c *tc.C) {
 	).Return(nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	err := svc.UpgradeModelTargetAgentVersionTo(c.Context(), desiredVersion)
+	err := svc.UpgradeModelAgentToTargetVersion(c.Context(), desiredVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
 
-// TestUpgradeModelTargetAgentVersionStreamToDowngrade is a test that asserts if
+// TestUpgradeModelAgentToTargetVersionSameVersion tests upgrading to a version
+// that is the same as the running version. It should not perform the upgrade
+// because there is no need to.
+func (s *modelUpgradeSuite) TestUpgradeModelAgentToTargetVersionSameVersion(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentTargetVersion := semversion.MustParse("4.0.1")
+	desiredVersion := semversion.MustParse("4.0.1")
+	s.controllerState.EXPECT().GetControllerAgentVersions(
+		gomock.Any(),
+	).Return([]semversion.Number{desiredVersion}, nil)
+	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
+	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
+	err := svc.UpgradeModelAgentToTargetVersion(c.Context(), desiredVersion)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+// TestUpgradeModelAgentToTargetVersionDowngrade is a test that asserts if
 // a model upgrade is requested to a specific version and it would be considered
 // a downgrade, the caller gets back an error satisfying
 // [modelagenterrors.DowngradeNotSupport].
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToDowngrade(c *tc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelAgentToTargetVersionDowngrade(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	version := semversion.MustParse("4.0.0")
@@ -1091,11 +1112,11 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToDowngrade(
 	c.Check(err, tc.ErrorIs, modelagenterrors.DowngradeNotSupported)
 }
 
-// TestUpgradeModelTargetAgentVersionStreamToOverMax is a test that asserts if a
+// TestUpgradeModelAgentToTargetVersionOverMax is a test that asserts if a
 // model upgrade is requested to a version that is greater than the max
 // supported version of the controller. The caller gets back an error satisfying
 // [modelagenterrors.AgentVersionNotSupported].
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToOverMax(c *tc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelAgentToTargetVersionOverMax(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	version := semversion.MustParse("4.0.1")

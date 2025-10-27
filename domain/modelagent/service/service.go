@@ -248,12 +248,16 @@ func NewService(
 
 // NewWatchableService returns a new [WatchableService].
 func NewWatchableService(
-	agentBinaryFinder AgentBinaryFinder, st ModelState, watcherFactory WatcherFactory,
+	agentBinaryFinder AgentBinaryFinder,
+	modelSt ModelState,
+	controllerSt ControllerState,
+	watcherFactory WatcherFactory,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
 			agentBinaryFinder: agentBinaryFinder,
-			modelSt:           st,
+			modelSt:           modelSt,
+			controllerSt:      controllerSt,
 		},
 		watcherFactory: watcherFactory,
 	}
@@ -644,10 +648,10 @@ func (s *Service) UpgradeModelTargetAgentVersion(
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
-	err = s.UpgradeModelTargetAgentVersionTo(ctx, recommendedVersion)
+	err = s.UpgradeModelAgentToTargetVersion(ctx, recommendedVersion)
 
 	// NOTE (tlm): Because this func uses
-	// [Service.UpgradeModelTargetAgentVersionTo] to compose its
+	// [Service.UpgradeModelAgentToTargetVersion] to compose its
 	// implementation. This func must handle the contract of
 	// UpgradeModelTargetAgentVersion. Specifically the errors returned don't
 	// align with the expecations of the caller. The below switch statement
@@ -680,7 +684,7 @@ func (s *Service) UpgradeModelTargetAgentVersion(
 	return recommendedVersion, nil
 }
 
-// UpgradeModelTargetAgentVersionStream is responsible for upgrading the target
+// UpgradeModelTargetAgentVersionWithStream is responsible for upgrading the target
 // agent version of the current model to the latest version available. While
 // performing the upgrade the agent stream for the model will also be changed.
 // The version that is upgraded to is returned.
@@ -695,7 +699,7 @@ func (s *Service) UpgradeModelTargetAgentVersion(
 // the model running the Juju controller.
 // - [modelagenterrors.ModelUpgradeBlocker] when their exists a blocker in the
 // model that prevents the model from being upgraded.
-func (s *Service) UpgradeModelTargetAgentVersionStream(
+func (s *Service) UpgradeModelTargetAgentVersionWithStream(
 	ctx context.Context,
 	agentStream domainagentbinary.Stream,
 ) (semversion.Number, error) {
@@ -714,7 +718,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStream(
 	// [Service.UpgradeModelTargetAgentVersionStreamTo] to compose it's
 	// implementation. This func must handle the contract of
 	// UpgradeModelTargetAgentVersion. Specifically the errors returned don't
-	// align with the expecations of the caller. The below switch statement
+	// align with the expectations of the caller. The below switch statement
 	// re-writes the error cases to better explain the very unlikely error that
 	// has occurred. These exists to point a developer at the problem and not to
 	// offer any actionable item for a caller.
@@ -744,7 +748,7 @@ func (s *Service) UpgradeModelTargetAgentVersionStream(
 	return recommendedVersion, nil
 }
 
-// UpgradeModelTargetAgentVersionTo upgrades a model to a new target agent
+// UpgradeModelAgentToTargetVersion upgrades a model to a new target agent
 // version. All agents that run on behalf of entities within the model will be
 // eventually upgraded to the new version after this call successfully returns.
 //
@@ -766,21 +770,14 @@ func (s *Service) UpgradeModelTargetAgentVersionStream(
 // the model running the Juju controller.
 // - [modelagenterrors.ModelUpgradeBlocker] when their exists a blocker in the
 // model that prevents the model from being upgraded.
-func (s *Service) UpgradeModelTargetAgentVersionTo(
+func (s *Service) UpgradeModelAgentToTargetVersion(
 	ctx context.Context,
 	desiredTargetVersion semversion.Number,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	currentTargetVersion, err := s.modelSt.GetModelTargetAgentVersion(ctx)
-	if err != nil {
-		return errors.Errorf(
-			"getting current model target agent version: %w", err,
-		)
-	}
-
-	err = s.validateModelCanBeUpgradedTo(ctx, currentTargetVersion, desiredTargetVersion)
+	currentTargetVersion, err := s.RunPreUpgradeChecksToVersion(ctx, desiredTargetVersion)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -832,22 +829,11 @@ func (s *Service) UpgradeModelTargetAgentVersionStreamTo(
 ) error {
 	// NOTE (tlm): We don't try and short circuit version upgrading if the model
 	// is already at the current desired version. This is because this
-	// upgrade also has consider the context of an agent stream change.
+	// upgrade also has considered the context of an agent stream change.
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !agentStream.IsValid() {
-		return errors.New("agent stream is not valid").Add(coreerrors.NotValid)
-	}
-
-	currentTargetVersion, err := s.modelSt.GetModelTargetAgentVersion(ctx)
-	if err != nil {
-		return errors.Errorf(
-			"getting current model target agent version: %w", err,
-		)
-	}
-
-	err = s.validateModelCanBeUpgradedTo(ctx, currentTargetVersion, desiredTargetVersion)
+	currentTargetVersion, err := s.RunPreUpgradeChecksToVersionWithStream(ctx, desiredTargetVersion, agentStream)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -917,7 +903,7 @@ func (s *Service) validateModelCanBeUpgraded(
 	return nil
 }
 
-// validateModelCanBeUpgradedTo checks to see if the model can be upgraded to a
+// validateModelCanBeUpgradedTo checks to see if the model can be upgraded to
 // the new desired target version and that it is within the supported realm of
 // versions. Checks are also performed to ensure the model itself is in a state
 // that can be upgraded.
@@ -947,7 +933,7 @@ func (s *Service) validateModelCanBeUpgradedTo(
 
 	// Check that the caller is not attempting to downgrade the target agent
 	// version of the model.
-	if currentTargetVersion.Compare(desiredTargetVersion) >= 0 {
+	if currentTargetVersion.Compare(desiredTargetVersion) > 0 {
 		return errors.New(
 			"model agent version downgrades are not supported",
 		).Add(modelagenterrors.DowngradeNotSupported)
@@ -1012,6 +998,176 @@ func (s *Service) getRecommendedVersion(
 	})
 
 	return versions[0], nil
+}
+
+// RunPreUpgradeChecks performs a series of pre-upgrade validation checks
+// to ensure that the model can be safely upgraded to the controller’s
+// currently recommended version.
+//
+// This method determines the recommended version from the controller,
+// then calls [Service.RunPreUpgradeChecksToVersion] to validate that the
+// model can be upgraded to that version.
+//
+// The following errors may be returned:
+//   - [modelagenterrors.DowngradeNotSupported] if the upgrade target version
+//     is lower than the model’s current agent version.
+//   - [modelagenterrors.AgentVersionNotSupported] if the target version is
+//     greater than the controller’s supported maximum or is not defined.
+//   - [modelagenterrors.MissingAgentBinaries] if the agent binaries for the
+//     target version cannot be found.
+//   - [modelagenterrors.CannotUpgradeControllerModel] if the model is the
+//     controller model itself.
+//   - [modelagenterrors.ModelUpgradeBlocker] if the model contains blockers
+//     that prevent upgrading (e.g., unsupported machine bases).
+//
+// Returns the controller’s recommended version if all checks pass.
+func (s *Service) RunPreUpgradeChecks(
+	ctx context.Context,
+) (semversion.Number, error) {
+	recommendedVersion, err := s.getRecommendedVersion(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+
+	_, err = s.RunPreUpgradeChecksToVersion(ctx, recommendedVersion)
+	if err != nil {
+		return semversion.Zero, err
+	}
+
+	return recommendedVersion, nil
+}
+
+// RunPreUpgradeChecksToVersion performs pre-upgrade validation checks
+// to ensure that the model can be safely upgraded to a specific desired
+// target agent version.
+//
+// This function compares the current model’s target version with the
+// desired target version, validates upgrade compatibility and supported
+// ranges, ensures required binaries exist, and checks that the model
+// itself is eligible for upgrade.
+//
+// The following errors may be returned:
+//   - [modelagenterrors.DowngradeNotSupported] if a downgrade is requested.
+//   - [modelagenterrors.AgentVersionNotSupported] if the desired version
+//     exceeds the controller’s supported version or is undefined.
+//   - [modelagenterrors.MissingAgentBinaries] if binaries for the target
+//     version do not exist.
+//   - [modelagenterrors.CannotUpgradeControllerModel] if the model is the
+//     controller model.
+//   - [modelagenterrors.ModelUpgradeBlocker] if there are blockers within
+//     the model preventing an upgrade.
+//
+// Returns the current model target version if validation passes.
+func (s *Service) RunPreUpgradeChecksToVersion(
+	ctx context.Context,
+	desiredTargetVersion semversion.Number,
+) (semversion.Number, error) {
+	currentTargetVersion, err := s.modelSt.GetModelTargetAgentVersion(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Errorf(
+			"getting current model target agent version: %w", err,
+		)
+	}
+
+	err = s.validateModelCanBeUpgradedTo(
+		ctx,
+		currentTargetVersion,
+		desiredTargetVersion,
+	)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+
+	return currentTargetVersion, nil
+}
+
+// RunPreUpgradeChecksWithStream performs pre-upgrade validation checks
+// similar to [Service.RunPreUpgradeChecks], but additionally validates
+// against a specific [domainagentbinary.Stream].
+//
+// It ensures that the provided agent stream is valid, retrieves the
+// controller’s recommended version, and verifies that the model can be
+// upgraded to that version using [Service.RunPreUpgradeChecksToVersionWithStream].
+//
+// The following errors may be returned:
+//   - [coreerrors.NotValid] if the supplied agent stream is invalid.
+//   - [modelagenterrors.DowngradeNotSupported] if a downgrade is requested.
+//   - [modelagenterrors.AgentVersionNotSupported] if the target version
+//     exceeds the controller’s supported version or is undefined.
+//   - [modelagenterrors.MissingAgentBinaries] if binaries for the target
+//     version are missing.
+//   - [modelagenterrors.CannotUpgradeControllerModel] if the model is the
+//     controller model.
+//   - [modelagenterrors.ModelUpgradeBlocker] if upgrade blockers exist.
+//
+// Returns the controller’s recommended version if all checks pass.
+func (s *Service) RunPreUpgradeChecksWithStream(
+	ctx context.Context,
+	stream domainagentbinary.Stream,
+) (semversion.Number, error) {
+	desiredTargetVersion, err := s.getRecommendedVersion(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+
+	_, err = s.RunPreUpgradeChecksToVersionWithStream(
+		ctx,
+		desiredTargetVersion,
+		stream,
+	)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+
+	return desiredTargetVersion, nil
+}
+
+// RunPreUpgradeChecksToVersionWithStream performs pre-upgrade validation
+// checks for a specific desired target agent version within a given
+// [domainagentbinary.Stream].
+//
+// This function validates the supplied agent stream, retrieves the
+// model’s current target agent version, and checks that upgrading to
+// the desired target version is supported, safe, and possible.
+//
+// The following errors may be returned:
+//   - [coreerrors.NotValid] if the provided agent stream is invalid.
+//   - [modelagenterrors.DowngradeNotSupported] if a downgrade is requested.
+//   - [modelagenterrors.AgentVersionNotSupported] if the desired version
+//     exceeds the controller’s supported version or is undefined.
+//   - [modelagenterrors.MissingAgentBinaries] if binaries for the target
+//     version do not exist.
+//   - [modelagenterrors.CannotUpgradeControllerModel] if the model is the
+//     controller model.
+//   - [modelagenterrors.ModelUpgradeBlocker] if upgrade blockers exist.
+//
+// Returns the current model target version if validation succeeds.
+func (s *Service) RunPreUpgradeChecksToVersionWithStream(
+	ctx context.Context,
+	desiredTargetVersion semversion.Number,
+	stream domainagentbinary.Stream,
+) (semversion.Number, error) {
+	if !stream.IsValid() {
+		return semversion.Zero, errors.New("agent stream is not valid").
+			Add(coreerrors.NotValid)
+	}
+
+	currentTargetVersion, err := s.modelSt.GetModelTargetAgentVersion(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Errorf(
+			"getting current model target agent version: %w", err,
+		)
+	}
+
+	err = s.validateModelCanBeUpgradedTo(
+		ctx,
+		currentTargetVersion,
+		desiredTargetVersion,
+	)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+	return currentTargetVersion, nil
 }
 
 // WatchMachineTargetAgentVersion is responsible for watching the target agent

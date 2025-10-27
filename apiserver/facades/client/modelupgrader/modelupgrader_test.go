@@ -17,39 +17,36 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
-	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
-type controllerUpgraderAPISuite struct {
-	authorizer      *mocks.MockAuthorizer
-	check           *modelupgradermocks.MockBlockCheckerInterface
-	upgraderService *modelupgradermocks.MockControllerUpgraderService
-	controllerTag   names.Tag
-	modelTag        names.Tag
+type modelUpgradeSuite struct {
+	authorizer        *mocks.MockAuthorizer
+	check             *modelupgradermocks.MockBlockCheckerInterface
+	modelAgentService *modelupgradermocks.MockModelAgentService
+	controllerTag     names.Tag
+	modelTag          names.Tag
 }
 
-// TestControllerUpgraderAPISuite runs the test methods in controllerUpgraderAPISuite.
-func TestControllerUpgraderAPISuite(t *testing.T) {
-	tc.Run(t, &controllerUpgraderAPISuite{})
+func TestModelUpgradeSuite(t *testing.T) {
+	tc.Run(t, &modelUpgradeSuite{})
 }
 
-// setup instantiates the mocked dependencies.
-func (u *controllerUpgraderAPISuite) setup(c *tc.C) *gomock.Controller {
+func (u *modelUpgradeSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	u.authorizer = mocks.NewMockAuthorizer(ctrl)
 	u.check = modelupgradermocks.NewMockBlockCheckerInterface(ctrl)
-	u.upgraderService = modelupgradermocks.NewMockControllerUpgraderService(ctrl)
+	u.modelAgentService = modelupgradermocks.NewMockModelAgentService(ctrl)
 	u.controllerTag = names.NewControllerTag(tc.Must(c, uuid.NewUUID).String())
 	u.modelTag = names.NewModelTag(tc.Must(c, uuid.NewUUID).String())
 
 	c.Cleanup(func() {
 		u.authorizer = nil
 		u.check = nil
-		u.upgraderService = nil
+		u.modelAgentService = nil
 		u.controllerTag = nil
 		u.modelTag = nil
 	})
@@ -58,7 +55,7 @@ func (u *controllerUpgraderAPISuite) setup(c *tc.C) *gomock.Controller {
 
 // TestUpgradeModelWithVersionAndStream tests the upgrade with
 // an explicit version and stream. This is a happy case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionAndStream(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelWithVersionAndStream(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -72,16 +69,17 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionAndStream(c *tc.
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	u.upgraderService.EXPECT().UpgradeControllerToVersionWithStream(
+	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersionStreamTo(
 		gomock.Any(),
 		version,
 		domainagentbinary.AgentStreamReleased,
 	).Return(nil)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService,
+	)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
@@ -97,11 +95,14 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionAndStream(c *tc.
 
 // TestUpgradeModelWithVersionAndStream tests the dry run upgrade with
 // an explicit version and stream. This is a happy case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionAndStreamDryRun(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelWithVersionAndStreamDryRun(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	version, err := semversion.Parse("4.0.1")
+	currentTargetVersion, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	desiredTargetVersion, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	u.authorizer.EXPECT().HasPermission(
@@ -111,33 +112,33 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionAndStreamDryRun(
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	u.upgraderService.EXPECT().RunPreUpgradeChecksToVersionWithStream(
+	u.modelAgentService.EXPECT().RunPreUpgradeChecksToVersionWithStream(
 		gomock.Any(),
-		version,
+		desiredTargetVersion,
 		domainagentbinary.AgentStreamReleased,
-	).Return(nil)
+	).Return(currentTargetVersion, nil)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
-		TargetVersion: version,
+		TargetVersion: desiredTargetVersion,
 		AgentStream:   "released",
 		DryRun:        true,
 	})
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
-		ChosenVersion: version,
+		ChosenVersion: desiredTargetVersion,
 	})
 }
 
 // TestUpgradeModelWithVersion tests the upgrade passing
 // an explicit version. This is a happy case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersion(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelWithVersion(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -150,15 +151,15 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersion(c *tc.C) {
 		u.controllerTag,
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().UpgradeControllerToVersion(
+	u.modelAgentService.EXPECT().UpgradeModelAgentToTargetVersion(
 		gomock.Any(),
 		version,
 	).Return(nil)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
@@ -173,11 +174,14 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersion(c *tc.C) {
 
 // TestUpgradeModelWithVersion tests the dry run upgrade passing
 // an explicit version. This is a happy case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionDryRun(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelWithVersionDryRun(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	version, err := semversion.Parse("4.0.1")
+	currentTargetVersion, err := semversion.Parse("4.0.0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	desiredTargetVersion, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	u.authorizer.EXPECT().HasPermission(
@@ -186,31 +190,31 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithVersionDryRun(c *tc.C) 
 		u.controllerTag,
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().RunPreUpgradeChecksToVersion(
+	u.modelAgentService.EXPECT().RunPreUpgradeChecksToVersion(
 		gomock.Any(),
-		version,
-	).Return(nil)
+		desiredTargetVersion,
+	).Return(currentTargetVersion, nil)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:      u.modelTag.String(),
-		TargetVersion: version,
+		TargetVersion: desiredTargetVersion,
 		DryRun:        true,
 	})
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
-		ChosenVersion: version,
+		ChosenVersion: desiredTargetVersion,
 	})
 }
 
 // TestUpgradeModelWithStream tests the upgrade passing
 // an explicit stream. This is a happy case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStream(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelWithStream(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -224,15 +228,15 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStream(c *tc.C) {
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	u.upgraderService.EXPECT().UpgradeControllerWithStream(
+	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersionWithStream(
 		gomock.Any(),
 		domainagentbinary.AgentStreamReleased,
 	).Return(version, nil)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:    u.modelTag.String(),
@@ -247,7 +251,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStream(c *tc.C) {
 
 // TestUpgradeModelWithStream tests the dry run upgrade passing
 // an explicit stream. This is a happy case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -261,14 +265,14 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	u.upgraderService.EXPECT().RunPreUpgradeChecksWithStream(
+	u.modelAgentService.EXPECT().RunPreUpgradeChecksWithStream(
 		gomock.Any(), domainagentbinary.AgentStreamReleased,
 	).Return(version, nil)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:    u.modelTag.String(),
@@ -284,7 +288,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
 
 // TestUpgradeModelWithoutVersionAndStream tests the upgrade without passing
 // an explicit version and stream. This is a happy case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStream(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelWithoutVersionAndStream(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -297,13 +301,13 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStream(c *
 		u.controllerTag,
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().
-		UpgradeController(gomock.Any()).Return(version, nil)
+	u.modelAgentService.EXPECT().
+		UpgradeModelTargetAgentVersion(gomock.Any()).Return(version, nil)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -317,7 +321,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStream(c *
 
 // TestUpgradeModelWithoutVersionAndStream tests the dry run upgrade without passing
 // an explicit version and stream. This is a happy case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStreamDryRun(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelWithoutVersionAndStreamDryRun(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -330,13 +334,13 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStreamDryR
 		u.controllerTag,
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().
+	u.modelAgentService.EXPECT().
 		RunPreUpgradeChecks(gomock.Any()).Return(version, nil)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -349,11 +353,11 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelWithoutVersionAndStreamDryR
 	})
 }
 
-// TestUpgradeModelMapErrMissingControllerBinariesToNotFound tests that the
-// [controllerupgradererrors.MissingControllerBinaries] is mapped to a
+// TestUpgradeModelMapErrMissingAgentBinariesToNotFound tests that the
+// [modelagenterrors.MissingAgentBinaries] is mapped to a
 // not found error.
 // This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrMissingControllerBinariesToNotFound(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelMapErrMissingAgentBinariesToNotFound(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -363,16 +367,16 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrMissingControllerBina
 		u.controllerTag,
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().UpgradeController(gomock.Any()).Return(
+	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersion(gomock.Any()).Return(
 		semversion.Zero,
 		errors.New("bad").
-			Add(controllerupgradererrors.MissingControllerBinaries),
+			Add(modelagenterrors.MissingAgentBinaries),
 	)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -381,7 +385,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrMissingControllerBina
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
 		Error: &params.Error{
-			Message: "controller agent binaries are not available for version \"0.0.0\"",
+			Message: "model agent binaries are not available for version \"0.0.0\"",
 			Code:    "not found",
 		},
 	})
@@ -391,7 +395,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrMissingControllerBina
 // [controllerupgradererrors.ControllerUpgradeBlocker] is mapped to a
 // not supported error.
 // This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrControllerUpgradeBlockerToNotSupported(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelMapErrModelUpgradeBlockerToNotSupported(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -401,17 +405,17 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrControllerUpgradeBloc
 		u.controllerTag,
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().UpgradeController(gomock.Any()).Return(
+	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersion(gomock.Any()).Return(
 		semversion.Zero,
-		controllerupgradererrors.ControllerUpgradeBlocker{
-			Reason: "controller nodes 1 are not running controller version 4.0.1",
+		modelagenterrors.ModelUpgradeBlocker{
+			Reason: "model has 1 machines using unsupported bases",
 		},
 	)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -420,78 +424,18 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrControllerUpgradeBloc
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
 		Error: &params.Error{
-			Message: "controller upgrading is blocked for reason: controller " +
-				"nodes 1 are not running controller version 4.0.1",
+			Message: "model upgrading is blocked for reason: model " +
+				"has 1 machines using unsupported bases",
 			Code: "not supported",
 		},
 	})
 }
 
-// TestUpgradeModelMapErrVersionNotSupportedToNotValid tests that the
-// [controllerupgradererrors.VersionNotSupported] is mapped to a
-// [coreerrors.NotValid]. This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrVersionNotSupportedToNotValid(c *tc.C) {
-	ctrl := u.setup(c)
-	defer ctrl.Finish()
-
-	u.authorizer.EXPECT().HasPermission(
-		gomock.Any(),
-		permission.SuperuserAccess,
-		u.controllerTag,
-	).Return(nil)
-	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().UpgradeController(gomock.Any()).Return(
-		semversion.Zero,
-		errors.New("bad").Add(controllerupgradererrors.VersionNotSupported))
-
-	api := NewControllerUpgraderAPI(
-		u.controllerTag,
-		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
-
-	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
-		ModelTag: u.modelTag.String(),
-	})
-
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{})
-}
-
-// TestUpgradeModelMapErrAgentStreamNotValidToNotValid tests that the
-// [modelagenterrors.AgentStreamNotValid] is mapped to a [coreerrors.NotValid].
-// This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrAgentStreamNotValidToNotValid(c *tc.C) {
-	ctrl := u.setup(c)
-	defer ctrl.Finish()
-
-	u.authorizer.EXPECT().HasPermission(
-		gomock.Any(),
-		permission.SuperuserAccess,
-		u.controllerTag,
-	).Return(nil)
-	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().UpgradeController(gomock.Any()).Return(
-		semversion.Zero,
-		errors.New("bad").Add(modelagenterrors.AgentStreamNotValid),
-	)
-
-	api := NewControllerUpgraderAPI(
-		u.controllerTag,
-		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
-
-	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
-		ModelTag: u.modelTag.String(),
-	})
-
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{})
-}
-
 // TestUpgradeModelMapErrDowngradeNotSupportedToNotSupported tests that the
-// [controllerupgradererrors.DowngradeNotSupported] is mapped to a not
-// supported error. This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrDowngradeNotSupportedToNotSupported(c *tc.C) {
+// [modelagenterrors.DowngradeNotSupported] is mapped to a
+// not supported error.
+// This is a sad case.
+func (u *modelUpgradeSuite) TestUpgradeModelMapErrDowngradeNotSupportedToNotSupported(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -501,16 +445,15 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrDowngradeNotSupported
 		u.controllerTag,
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().UpgradeController(gomock.Any()).Return(
+	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersion(gomock.Any()).Return(
 		semversion.Zero,
-		errors.New("controller version downgrades are not supported").
-			Add(controllerupgradererrors.DowngradeNotSupported),
+		modelagenterrors.DowngradeNotSupported,
 	)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -519,17 +462,18 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapErrDowngradeNotSupported
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{
 		Error: &params.Error{
-			Message: "cannot upgrade the controller to version \"0.0.0\" because it is " +
+			Message: "cannot upgrade the model agent to version \"0.0.0\" because it is " +
 				"lower than the current running version",
 			Code: "not supported",
 		},
 	})
 }
 
-// TestUpgradeModelMapOtherErrorsToServerError tests that the
-// errors not defined in the switch case is mapped to a server error.
+// TestUpgradeModelMapErrAgentVersionNotSupportedToNotValid tests that the
+// [modelagenterrors.DowngradeNotSupported] is mapped to a
+// not supported error.
 // This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelMapOtherErrorsToServerError(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelMapErrAgentVersionNotSupportedToNotValid(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -539,15 +483,79 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapOtherErrorsToServerError
 		u.controllerTag,
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
-	u.upgraderService.EXPECT().UpgradeController(gomock.Any()).Return(
+	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersion(gomock.Any()).Return(
+		semversion.Zero,
+		modelagenterrors.AgentVersionNotSupported,
+	)
+
+	api := NewModelUpgraderAPI(
+		u.controllerTag,
+		u.modelTag,
+		u.authorizer, u.check, u.modelAgentService)
+
+	_, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
+		ModelTag: u.modelTag.String(),
+	})
+
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestUpgradeModelMapErrInvalidStreamToNotValid tests that the
+// [coreerrors.NotValid] is mapped to a not supported error.
+// Based on the service contract, a [coreerrors.NotValid] is
+// returned when the agent stream is not valid.
+// This is a sad case.
+func (u *modelUpgradeSuite) TestUpgradeModelMapErrInvalidStreamToNotValid(c *tc.C) {
+	ctrl := u.setup(c)
+	defer ctrl.Finish()
+
+	u.authorizer.EXPECT().HasPermission(
+		gomock.Any(),
+		permission.SuperuserAccess,
+		u.controllerTag,
+	).Return(nil)
+	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersion(gomock.Any()).Return(
+		semversion.Zero,
+		modelagenterrors.AgentVersionNotSupported,
+	)
+
+	api := NewModelUpgraderAPI(
+		u.controllerTag,
+		u.modelTag,
+		u.authorizer, u.check, u.modelAgentService)
+
+	_, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
+		ModelTag: u.modelTag.String(),
+	})
+
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestUpgradeModelMapOtherErrorsToServerError tests that the
+// errors not defined in the switch case is mapped to a server error.
+// This is a sad case.
+func (u *modelUpgradeSuite) TestUpgradeModelMapOtherErrorsToServerError(c *tc.C) {
+	ctrl := u.setup(c)
+	defer ctrl.Finish()
+
+	u.authorizer.EXPECT().HasPermission(
+		gomock.Any(),
+		permission.SuperuserAccess,
+		u.controllerTag,
+	).Return(nil)
+	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersion(
+		gomock.Any(),
+	).Return(
 		semversion.Zero,
 		errors.New("crazy error occurred"),
 	)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -561,7 +569,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelMapOtherErrorsToServerError
 // TestUpgradeModelNoWriteAccess tests that we get an error when the user
 // doesn't have write access.
 // This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelNoWriteAccess(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelNoWriteAccess(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -582,10 +590,10 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelNoWriteAccess(c *tc.C) {
 				Add(authentication.ErrorEntityMissingPermission),
 		)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -598,7 +606,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelNoWriteAccess(c *tc.C) {
 // TestUpgradeModelNoWriteAccess tests that we get an error when there is
 // a change block in place.
 // This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelChangeNotAllowed(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelChangeNotAllowed(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -609,10 +617,10 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelChangeNotAllowed(c *tc.C) {
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.New("not allowed"))
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -625,14 +633,14 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelChangeNotAllowed(c *tc.C) {
 // TestUpgradeModelErrorBecauseOfDifferentModel tests that we get
 // an error when the given model tag is different to the hosted model.
 // This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelErrorBecauseOfDifferentModel(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelErrorBecauseOfDifferentModel(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: names.NewModelTag(uuid.MustNewUUID().String()).String(),
@@ -645,14 +653,14 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrorBecauseOfDifferentMode
 // TestUpgradeModelErrorModelTag tests that we get an error when
 // a poorly formatted model tag is given.
 // This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelErrorModelTag(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelErrorModelTag(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: names.NewModelTag("broken-uuid").String(),
@@ -666,7 +674,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrorModelTag(c *tc.C) {
 // TestUpgradeModelErrorCanUpgrade tests that we get an error when
 // [ControllerUpgraderAPI.canUpgrade] func returns a non-permission error.
 // This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelErrorCanUpgrade(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelErrorCanUpgrade(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -676,10 +684,10 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrorCanUpgrade(c *tc.C) {
 		u.controllerTag,
 	).Return(errors.New("unknown failure"))
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag: u.modelTag.String(),
@@ -692,7 +700,7 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrorCanUpgrade(c *tc.C) {
 // TestUpgradeModelErrorCanUpgrade tests that we correctly map the error when
 // the given stream fails to parse.
 // This is a sad case.
-func (u *controllerUpgraderAPISuite) TestUpgradeModelErrUnknownStreamMapToNotValid(c *tc.C) {
+func (u *modelUpgradeSuite) TestUpgradeModelErrUnknownStreamMapToNotValid(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
@@ -703,10 +711,10 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrUnknownStreamMapToNotVal
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	api := NewControllerUpgraderAPI(
+	api := NewModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
+		u.authorizer, u.check, u.modelAgentService)
 
 	res, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
 		ModelTag:    u.modelTag.String(),
@@ -715,19 +723,4 @@ func (u *controllerUpgraderAPISuite) TestUpgradeModelErrUnknownStreamMapToNotVal
 
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{})
-}
-
-// AbortModelUpgrade tests that aborting a model upgrade is not supported.
-func (u *controllerUpgraderAPISuite) AbortModelUpgrade(c *tc.C) {
-	ctrl := u.setup(c)
-	defer ctrl.Finish()
-
-	api := NewControllerUpgraderAPI(
-		u.controllerTag,
-		u.modelTag,
-		u.authorizer, u.check, u.upgraderService)
-
-	err := api.AbortModelUpgrade(c.Context(), params.ModelParam{})
-
-	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }

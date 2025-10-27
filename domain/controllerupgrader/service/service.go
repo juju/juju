@@ -312,7 +312,7 @@ func (s *Service) UpgradeControllerToVersion(
 	return nil
 }
 
-// UpgradeControllerToVersionAndStream upgrades the current clusters set of
+// UpgradeControllerToVersionWithStream upgrades the current clusters set of
 // controllers to the specified version. Also updated is the agent stream used
 // for getting the controller binaries. All controllers participating in the
 // cluster will eventually be upgraded to the new version after this call
@@ -441,7 +441,7 @@ func (s *Service) validateControllerCanBeUpgraded(
 // - [controllerupgradererrors.DowngradeNotSupported] if the requested version
 // being upgraded to would result in a downgrade of the controller.
 // - [controllerupgradererrors.VersionNotSupported] if the requested version
-// being upgraded to is more then a patch version upgrade.
+// being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
 func (s *Service) validateControllerCanBeUpgradedTo(
@@ -490,7 +490,7 @@ func (s *Service) validateControllerCanBeUpgradedTo(
 // - [controllerupgradererrors.DowngradeNotSupported] if the requested version
 // being upgraded to would result in a downgrade of the controller.
 // - [controllerupgradererrors.VersionNotSupported] if the requested version
-// being upgraded to is more then a patch version upgrade.
+// being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
 func (s *Service) RunPreUpgradeChecks(ctx context.Context) (semversion.Number, error) {
@@ -520,7 +520,7 @@ func (s *Service) RunPreUpgradeChecks(ctx context.Context) (semversion.Number, e
 // - [controllerupgradererrors.DowngradeNotSupported] if the requested version
 // being upgraded to would result in a downgrade of the controller.
 // - [controllerupgradererrors.VersionNotSupported] if the requested version
-// being upgraded to is more then a patch version upgrade.
+// being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
 func (s *Service) RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersion semversion.Number) error {
@@ -569,7 +569,7 @@ func (s *Service) RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersi
 // - [controllerupgradererrors.DowngradeNotSupported] if the requested version
 // being upgraded to would result in a downgrade of the controller.
 // - [controllerupgradererrors.VersionNotSupported] if the requested version
-// being upgraded to is more then a patch version upgrade.
+// being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
 func (s *Service) RunPreUpgradeChecksWithStream(ctx context.Context, stream agentbinary.Stream) (semversion.Number, error) {
@@ -607,7 +607,7 @@ func (s *Service) RunPreUpgradeChecksWithStream(ctx context.Context, stream agen
 // - [controllerupgradererrors.DowngradeNotSupported] if the requested version
 // being upgraded to would result in a downgrade of the controller.
 // - [controllerupgradererrors.VersionNotSupported] if the requested version
-// being upgraded to is more then a patch version upgrade.
+// being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
 func (s *Service) RunPreUpgradeChecksToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream agentbinary.Stream) error {

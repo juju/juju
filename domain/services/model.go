@@ -57,6 +57,7 @@ import (
 	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	statemodel "github.com/juju/juju/domain/model/state/model"
 	modelagentservice "github.com/juju/juju/domain/modelagent/service"
+	modelagentctrlstate "github.com/juju/juju/domain/modelagent/state/controller"
 	modelagentmodelstate "github.com/juju/juju/domain/modelagent/state/model"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
@@ -412,7 +413,12 @@ func (s *ModelServices) ModelSecretBackend() *secretbackendservice.ModelSecretBa
 func (s *ModelServices) Agent() *modelagentservice.WatchableService {
 	return modelagentservice.NewWatchableService(
 		modelagentservice.DefaultAgentBinaryFinder(),
-		modelagentmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		modelagentmodelstate.NewState(
+			changestream.NewTxnRunnerFactory(s.modelDB),
+		),
+		modelagentctrlstate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+		),
 		s.modelWatcherFactory("modelagent"),
 	)
 }
