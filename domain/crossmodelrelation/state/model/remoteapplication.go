@@ -61,13 +61,16 @@ func (st *State) AddRemoteApplicationOfferer(
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check the offer doesn't already exist. This must be done first
+		// as the api caller should check for AleadyExists errors and
+		// continue.
+		if err := st.checkApplicationRemoteOffererDoesNotExist(ctx, tx, args.OfferUUID); err != nil {
+			return errors.Capture(err)
+		}
+
 		// Check if the application already exists.
 		if err := st.checkApplicationNameAvailable(ctx, tx, applicationName); err != nil {
 			return errors.Errorf("checking if application %q exists: %w", applicationName, err)
-		}
-		// Check the offer doesn't already exist.
-		if err := st.checkApplicationRemoteOffererDoesNotExist(ctx, tx, args.OfferUUID); err != nil {
-			return errors.Capture(err)
 		}
 
 		// Insert the application, along with the associated charm.
