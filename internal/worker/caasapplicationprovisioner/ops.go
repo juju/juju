@@ -32,7 +32,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -280,13 +279,7 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	storageUniqueID := getStorageUniqueID(appUUID)
 	filesystems := []internalstorage.KubernetesFilesystemParams{}
 	for _, fst := range pi.FilesystemTemplates {
-		for i := range fst.Count {
-			mountPoint, err := storage.FilesystemMountPointK8s(
-				fst.Location, fst.MaxCount, i, fst.StorageName,
-			)
-			if err != nil {
-				return errors.Trace(err)
-			}
+		for _, mountPoint := range fst.MountPoints {
 			fsp := internalstorage.KubernetesFilesystemParams{
 				StorageName: fst.StorageName,
 				Size:        fst.SizeMiB,

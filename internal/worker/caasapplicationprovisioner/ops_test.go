@@ -614,6 +614,7 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 			ProviderType: "kubernetes",
 			ReadOnly:     false,
 			Location:     "/charm-defined-location",
+			MountPoints:  []string{"/charm-defined-location/data/0"},
 			Attributes: map[string]string{
 				"attr-foo": "attr-bar",
 			},
@@ -671,7 +672,7 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 			},
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				ReadOnly: false,
-				Path:     "/charm-defined-location",
+				Path:     "/charm-defined-location/data/0",
 			},
 		}},
 		Devices:         []devices.KubernetesDeviceParams{},
