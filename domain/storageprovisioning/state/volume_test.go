@@ -1093,7 +1093,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParams(c *tc
 	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, false, "/var/filesystem")
 
 	siUUID1, _ := s.newStorageInstanceForCharmWithPool(
-		c, charmUUID, poolUUID, "myblock",
+		c, charmUUID, poolUUID, "myfilesystem",
 	)
 	siUUID2, _ := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myblock",
@@ -1120,12 +1120,16 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParams(c *tc
 			BlockDeviceUUID: &va1BlockDeviceUUID,
 			Provider:        "canonical",
 			ReadOnly:        false,
+			StorageName:     "myfilesystem",
 			VolumeID:        volumeID1,
+			VolumeUUID:      volumeUUID1,
 		},
 		{
-			Provider: "canonical",
-			ReadOnly: false,
-			VolumeID: volumeID2,
+			Provider:    "canonical",
+			ReadOnly:    false,
+			StorageName: "myblock",
+			VolumeID:    volumeID2,
+			VolumeUUID:  volumeUUID2,
 		},
 	}
 	c.Check(err, tc.ErrorIsNil)
@@ -1145,7 +1149,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParamsIgnore
 	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, false, "/var/filesystem")
 
 	siUUID1, _ := s.newStorageInstanceForCharmWithPool(
-		c, charmUUID, poolUUID, "myblock",
+		c, charmUUID, poolUUID, "myfilesystem",
 	)
 	siUUID2, _ := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myblock",
@@ -1167,9 +1171,11 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParamsIgnore
 
 	expected := []domaininternal.MachineVolumeAttachmentProvisioningParams{
 		{
-			Provider: "canonical",
-			ReadOnly: false,
-			VolumeID: volumeID1,
+			Provider:    "canonical",
+			ReadOnly:    false,
+			StorageName: "myfilesystem",
+			VolumeID:    volumeID1,
+			VolumeUUID:  volumeUUID1,
 		},
 	}
 	c.Check(err, tc.ErrorIsNil)

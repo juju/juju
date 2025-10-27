@@ -1057,7 +1057,9 @@ func (st *State) GetMachineModelProvisionedVolumeAttachmentParams(
 
 	paramsStmt, err := st.Prepare(`
 SELECT &machineVolumeAttachmentProvisioningParams.* FROM (
-    SELECT    sv.volume_id,
+    SELECT    sv.uuid AS volume_uuid,
+              sv.volume_id,
+              si.storage_name,
               sp.type AS provider_type,
               sva.block_device_uuid,
               sva.read_only
@@ -1106,9 +1108,11 @@ SELECT &machineVolumeAttachmentProvisioningParams.* FROM (
 	)
 	for _, dbVal := range volumeAttachDBParams {
 		params := internal.MachineVolumeAttachmentProvisioningParams{
-			Provider: dbVal.ProviderType,
-			ReadOnly: dbVal.ReadOnly.V,
-			VolumeID: dbVal.VolumeID,
+			Provider:    dbVal.ProviderType,
+			ReadOnly:    dbVal.ReadOnly.V,
+			StorageName: dbVal.StorageName,
+			VolumeID:    dbVal.VolumeID,
+			VolumeUUID:  storageprovisioning.VolumeUUID(dbVal.VolumeUUID),
 		}
 		if dbVal.BlockDeviceUUID.Valid {
 			blockDeviceUUID := domainblockdevice.BlockDeviceUUID(dbVal.BlockDeviceUUID.V)
