@@ -25,7 +25,7 @@ type SecretModelState interface {
 	DeleteUnitOwnedSecretContent(ctx context.Context, uUUID string) error
 }
 
-func (s *Service) removeApplicationOwnedSecrets(ctx context.Context, aUUID coreapplication.UUID) error {
+func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID coreapplication.UUID) error {
 	sb, err := s.getSecretBackend(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -39,7 +39,7 @@ func (s *Service) removeApplicationOwnedSecrets(ctx context.Context, aUUID corea
 	return nil
 }
 
-func (s *Service) removeUnitOwnedSecrets(ctx context.Context, uUUID coreunit.UUID) error {
+func (s *Service) deleteUnitOwnedSecrets(ctx context.Context, uUUID coreunit.UUID) error {
 	sb, err := s.getSecretBackend(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -59,16 +59,16 @@ func (s *Service) getSecretBackend(ctx context.Context) (provider.SecretsBackend
 		return nil, errors.Errorf("getting model secret backend: %w", err)
 	}
 
+	// See comment in domain/removal/state/model/secret.go.
+	// This trapdoor should not exist, and a proper DB-backed
+	// implementation of the Juju secret back-end should replace it.
+	if modelBackendCfg.BackendType == juju.BackendType {
+		return nil, nil
+	}
+
 	p, err := s.secretBackendProviderGetter(modelBackendCfg.BackendType)
 	if err != nil {
 		return nil, errors.Capture(err)
-	}
-
-	// See comment in domain/removal/state/model/secret.go.
-	// This trapdoor should not exist, and a proper DB-backed
-	// implementationof the Juju secret back-end should replace it.
-	if p.Type() == juju.BackendType {
-		return nil, nil
 	}
 
 	err = p.Initialise(modelBackendCfg)
@@ -76,13 +76,6 @@ func (s *Service) getSecretBackend(ctx context.Context) (provider.SecretsBackend
 		return nil, errors.Errorf("initialising secrets provider: %w", err)
 	}
 
-	info := &provider.ModelBackendConfig{
-		ControllerUUID: modelBackendCfg.ControllerUUID,
-		ModelUUID:      modelBackendCfg.ModelUUID,
-		ModelName:      modelBackendCfg.ModelName,
-		BackendConfig:  modelBackendCfg.BackendConfig,
-	}
-
-	sb, err := p.NewBackend(info)
+	sb, err := p.NewBackend(modelBackendCfg)
 	return sb, errors.Capture(err)
 }
