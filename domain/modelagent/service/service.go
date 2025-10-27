@@ -1083,7 +1083,7 @@ func (s *Service) RunPreUpgradeChecksToVersion(
 
 // RunPreUpgradeChecksWithStream performs pre-upgrade validation checks
 // similar to [Service.RunPreUpgradeChecks], but additionally validates
-// against a specific [modelagent.AgentStream].
+// against a specific [domainagentbinary.Stream].
 //
 // It ensures that the provided agent stream is valid, retrieves the
 // controller’s recommended version, and verifies that the model can be
@@ -1124,7 +1124,7 @@ func (s *Service) RunPreUpgradeChecksWithStream(
 
 // RunPreUpgradeChecksToVersionWithStream performs pre-upgrade validation
 // checks for a specific desired target agent version within a given
-// [modelagent.AgentStream].
+// [domainagentbinary.Stream].
 //
 // This function validates the supplied agent stream, retrieves the
 // model’s current target agent version, and checks that upgrading to

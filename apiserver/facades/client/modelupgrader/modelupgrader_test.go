@@ -16,7 +16,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/modelagent"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -69,7 +69,11 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionAndStream(c *tc.C) {
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersionStreamTo(gomock.Any(), version, modelagent.AgentStreamReleased).Return(nil)
+	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersionStreamTo(
+		gomock.Any(),
+		version,
+		domainagentbinary.AgentStreamReleased,
+	).Return(nil)
 
 	api := NewModelUpgraderAPI(
 		u.controllerTag,
@@ -111,7 +115,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionAndStreamDryRun(c *tc.C) 
 	u.modelAgentService.EXPECT().RunPreUpgradeChecksToVersionWithStream(
 		gomock.Any(),
 		desiredTargetVersion,
-		modelagent.AgentStreamReleased,
+		domainagentbinary.AgentStreamReleased,
 	).Return(currentTargetVersion, nil)
 
 	api := NewModelUpgraderAPI(
@@ -226,7 +230,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithStream(c *tc.C) {
 
 	u.modelAgentService.EXPECT().UpgradeModelTargetAgentVersionWithStream(
 		gomock.Any(),
-		modelagent.AgentStreamReleased,
+		domainagentbinary.AgentStreamReleased,
 	).Return(version, nil)
 
 	api := NewModelUpgraderAPI(
@@ -262,7 +266,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	u.modelAgentService.EXPECT().RunPreUpgradeChecksWithStream(
-		gomock.Any(), modelagent.AgentStreamReleased,
+		gomock.Any(), domainagentbinary.AgentStreamReleased,
 	).Return(version, nil)
 
 	api := NewModelUpgraderAPI(
