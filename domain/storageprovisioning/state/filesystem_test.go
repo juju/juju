@@ -1273,41 +1273,6 @@ VALUES (?, ?, ?, 0, false, 0)
 	return attachmentUUID
 }
 
-// newModelFilesystemAttachmentWithMount creates a new filesystem attachment
-// that has model provision scope. The attachment is associated with the
-// provided filesystem and has its mount point and read only values set.
-func (s *baseSuite) newModelFilesystemAttachmentWithMount(
-	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	mountPoint string,
-	readOnly bool,
-) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
-
-	_, err := s.DB().ExecContext(
-		c.Context(),
-		`
-INSERT INTO storage_filesystem_attachment (uuid,
-                                           storage_filesystem_uuid,
-                                           net_node_uuid,
-                                           life_id,
-                                           mount_point,
-                                           read_only,
-                                           provision_scope_id)
-VALUES (?, ?, ?, 0, ?, ?, 0)
-`,
-		attachmentUUID.String(),
-		fsUUID,
-		netNodeUUID.String(),
-		mountPoint,
-		readOnly,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return attachmentUUID
-}
-
 func (s *filesystemSuite) setFilesystemProviderID(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
