@@ -343,3 +343,10 @@ type relationNetworkEgress struct {
 	RelationUUID string `db:"relation_uuid"`
 	CIDR         string `db:"cidr"`
 }
+
+type relationStatus struct {
+	RelationUUID string     `db:"relation_uuid"`
+	StatusID     int        `db:"relation_status_type_id"`
+	Message      string     `db:"message"`
+	Since        *time.Time `db:"updated_at"`
+}

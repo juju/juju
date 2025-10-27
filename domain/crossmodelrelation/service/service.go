@@ -421,7 +421,7 @@ func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, rela
 		return nil, errors.Capture(err)
 	}
 
-	relationEgressNamespace, modelConfigNamespace, ipAddressNamespace := w.modelState.NamespaceForRelationEgressNetworksWatcher()
+	relationEgressNamespace, modelConfigNamespace, ipAddressNamespace := w.modelState.NamespacesForRelationEgressNetworksWatcher()
 
 	initialQuery := w.modelState.InitialWatchStatementForRelationEgressNetworks(relationUUID.String())
 

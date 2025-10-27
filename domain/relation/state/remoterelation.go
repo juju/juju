@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -13,6 +14,8 @@ import (
 	"github.com/juju/juju/core/life"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/status"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -47,6 +50,50 @@ func (st *State) SetRemoteRelationSuspendedState(
 		// Set the suspended state.
 		if err := st.updateRemoteRelationSuspendedState(ctx, tx, relationUUID, suspended, reason); err != nil {
 			return errors.Errorf("updating remote relation suspended state: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// SetRelationErrorStatus sets the relation status to Error. This method only
+// allows updating the status of cross-model relations.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID is not
+//     found.
+func (st *State) SetRelationErrorStatus(
+	ctx context.Context,
+	relationUUID string,
+	message string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkRelationExistsByUUID(ctx, tx, relationUUID)
+		if err != nil {
+			return errors.Errorf("checking relation exists: %w", err)
+		} else if !exists {
+			return relationerrors.RelationNotFound
+		}
+
+		// Check it's a remote relation.
+		remote, err := st.isRemoteRelation(ctx, tx, relationUUID)
+		if err != nil {
+			return errors.Errorf("checking relation is remote: %w", err)
+		} else if !remote {
+			return errors.Errorf("relation must be a remote relation to set error status")
+		}
+
+		// Set the error status.
+		if err := st.updateRelationStatus(ctx, tx, relationUUID, message); err != nil {
+			return errors.Errorf("updating relation status: %w", err)
 		}
 
 		return nil
@@ -350,4 +397,42 @@ func findMissingNames(found []unitUUIDNameLife, expected []string) []string {
 		all.Remove(unit.Name)
 	}
 	return all.SortedValues()
+}
+
+func (st *State) updateRelationStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID string,
+	message string,
+) error {
+	statusID, err := status.EncodeRelationStatus(status.RelationStatusTypeError)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	now := time.Now().UTC()
+
+	statusInfo := relationStatus{
+		RelationUUID: relationUUID,
+		StatusID:     statusID,
+		Message:      message,
+		Since:        &now,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO relation_status (*) VALUES ($relationStatus.*)
+ON CONFLICT(relation_uuid) DO UPDATE SET
+    relation_status_type_id = excluded.relation_status_type_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at
+WHERE relation_uuid = $relationStatus.relation_uuid
+`, statusInfo)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, statusInfo).Run()
+	if internaldatabase.IsErrConstraintForeignKey(err) {
+		return relationerrors.RelationNotFound
+	}
+	return errors.Capture(err)
 }

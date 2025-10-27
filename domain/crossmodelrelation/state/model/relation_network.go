@@ -165,9 +165,9 @@ func (st *State) NamespaceForRelationIngressNetworksWatcher() string {
 	return "relation_network_ingress"
 }
 
-// NamespaceForRelationEgressNetworksWatcher returns the namespaces of the
+// NamespacesForRelationEgressNetworksWatcher returns the namespaces of the
 // tables needed for the relation egress networks watcher.
-func (st *State) NamespaceForRelationEgressNetworksWatcher() (string, string, string) {
+func (st *State) NamespacesForRelationEgressNetworksWatcher() (string, string, string) {
 	return "relation_network_egress", "model_config", "ip_address"
 }
 

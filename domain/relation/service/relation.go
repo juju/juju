@@ -81,6 +81,10 @@ type State interface {
 	// remote relation in the local model.
 	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID string, suspended bool, reason string) error
 
+	// SetRelationErrorStatus sets the relation status to Error. This method only
+	// allows updating the status of cross-model relations.
+	SetRelationErrorStatus(ctx context.Context, relationUUID string, message string) error
+
 	// GetAllRelationDetails return RelationDetailResults for all relations
 	// for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
@@ -572,6 +576,24 @@ func (s *Service) SetRemoteRelationSuspendedState(ctx context.Context, relationU
 	}
 
 	return s.st.SetRemoteRelationSuspendedState(ctx, relationUUID.String(), suspended, reason)
+}
+
+// SetRelationErrorStatus sets the relation status to Error. This method only
+// allows updating to error the status of cross-model relations.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID is not
+//     found.
+func (s *Service) SetRelationErrorStatus(ctx context.Context, relationUUID corerelation.UUID, message string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"setting relation error status:%w", err).Add(relationerrors.RelationUUIDNotValid)
+	}
+
+	return s.st.SetRelationErrorStatus(ctx, relationUUID.String(), message)
 }
 
 // GetAllRelationDetails return RelationDetailResults of all relation for the

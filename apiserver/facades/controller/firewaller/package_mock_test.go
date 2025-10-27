@@ -40,6 +40,45 @@ func (m *MockControllerConfigAPI) EXPECT() *MockControllerConfigAPIMockRecorder 
 	return m.recorder
 }
 
+// ControllerAPIInfoForModels mocks base method.
+func (m *MockControllerConfigAPI) ControllerAPIInfoForModels(arg0 context.Context, arg1 params.Entities) (params.ControllerAPIInfoResults, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerAPIInfoForModels", arg0, arg1)
+	ret0, _ := ret[0].(params.ControllerAPIInfoResults)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerAPIInfoForModels indicates an expected call of ControllerAPIInfoForModels.
+func (mr *MockControllerConfigAPIMockRecorder) ControllerAPIInfoForModels(arg0, arg1 any) *MockControllerConfigAPIControllerAPIInfoForModelsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerAPIInfoForModels", reflect.TypeOf((*MockControllerConfigAPI)(nil).ControllerAPIInfoForModels), arg0, arg1)
+	return &MockControllerConfigAPIControllerAPIInfoForModelsCall{Call: call}
+}
+
+// MockControllerConfigAPIControllerAPIInfoForModelsCall wrap *gomock.Call
+type MockControllerConfigAPIControllerAPIInfoForModelsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerConfigAPIControllerAPIInfoForModelsCall) Return(arg0 params.ControllerAPIInfoResults, arg1 error) *MockControllerConfigAPIControllerAPIInfoForModelsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerConfigAPIControllerAPIInfoForModelsCall) Do(f func(context.Context, params.Entities) (params.ControllerAPIInfoResults, error)) *MockControllerConfigAPIControllerAPIInfoForModelsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerConfigAPIControllerAPIInfoForModelsCall) DoAndReturn(f func(context.Context, params.Entities) (params.ControllerAPIInfoResults, error)) *MockControllerConfigAPIControllerAPIInfoForModelsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ControllerConfig mocks base method.
 func (m *MockControllerConfigAPI) ControllerConfig(arg0 context.Context) (params.ControllerConfigResult, error) {
 	m.ctrl.T.Helper()

@@ -1293,6 +1293,48 @@ func (s *relationServiceSuite) TestGetFullRelationUnitChangeApplicationIDNotVali
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
 
+func (s *relationServiceSuite) TestSetRelationErrorStatus(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	message := "some error message"
+
+	s.state.EXPECT().SetRelationErrorStatus(gomock.Any(), relationUUID.String(), message).Return(nil)
+
+	// Act
+	err := s.service.SetRelationErrorStatus(c.Context(), relationUUID, message)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationServiceSuite) TestSetRelationErrorStatusRelationUUIDNotValid(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	// Act
+	err := s.service.SetRelationErrorStatus(c.Context(), "bad-uuid", "error message")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestSetRelationErrorStatusStateError(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	message := "some error message"
+	expectedErr := errors.New("boom")
+
+	s.state.EXPECT().SetRelationErrorStatus(gomock.Any(), relationUUID.String(), message).Return(expectedErr)
+
+	// Act
+	err := s.service.SetRelationErrorStatus(c.Context(), relationUUID, message)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 type relationLeadershipServiceSuite struct {
 	baseServiceSuite
 
