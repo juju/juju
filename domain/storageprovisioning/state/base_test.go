@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -136,8 +137,7 @@ VALUES (?, 0, ?)
 // provision scope. Returned is the uuid and volume id of the entity.
 func (s *baseSuite) newMachineVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
 	vsUUID := domaintesting.GenVolumeUUID(c)
-
-	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
+	vsID := strconv.FormatUint(s.nextVolumeSequenceNumber(c), 10)
 
 	_, err := s.DB().Exec(`
 INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
@@ -229,12 +229,29 @@ VALUES (?, ?, ?, 0, ?, ?, 0)
 	return attachmentUUID
 }
 
+// newModelFilesystem creates a new filesystem in the model with model
+// provision scope. Return is the uuid and filesystem id of the entity.
+func (s *baseSuite) newModelFilesystem(c *tc.C) (
+	storageprovisioning.FilesystemUUID, string,
+) {
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsID := strconv.FormatUint(s.nextFilesystemSequenceNumber(c), 10)
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+	`,
+		fsUUID.String(), fsID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID, fsID
+}
+
 // newModelVolume creates a new volume in the model with model
 // provision scope. Return is the uuid and volume id of the entity.
 func (s *baseSuite) newModelVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
 	vsUUID := domaintesting.GenVolumeUUID(c)
-
-	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
+	vsID := strconv.FormatUint(s.nextVolumeSequenceNumber(c), 10)
 
 	_, err := s.DB().Exec(`
 INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
@@ -319,7 +336,7 @@ func (s *baseSuite) newStorageInstanceForCharmWithPool(
 	c *tc.C, charmUUID, poolUUID, storageName string,
 ) domainstorage.StorageInstanceUUID {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
-	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
+	storageID := strconv.FormatUint(s.nextStorageSequenceNumber(c), 10)
 
 	var charmName string
 	err := s.DB().QueryRowContext(
@@ -377,16 +394,44 @@ VALUES (?, ?, ?, ?, 0, 100, ?, 0)
 	return storageInstanceUUID
 }
 
+// nextFilesystemSequenceNumber retrieves the next sequence number in the
+// filesystem namespace.
+func (s *baseSuite) nextFilesystemSequenceNumber(c *tc.C) uint64 {
+	var id uint64
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		id, err = sequencestate.NextValue(
+			ctx, preparer{}, tx, domainsequence.StaticNamespace("filesystem"),
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return id
+}
+
 // nextStorageSequenceNumber retrieves the next sequence number in the storage
 // namespace.
-func (s *baseSuite) nextStorageSequenceNumber(
-	c *tc.C,
-) uint64 {
+func (s *baseSuite) nextStorageSequenceNumber(c *tc.C) uint64 {
 	var id uint64
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		id, err = sequencestate.NextValue(
 			ctx, preparer{}, tx, domainsequence.StaticNamespace("storage"),
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return id
+}
+
+// nextVolumeSequenceNumber retrieves the next sequence number in the volume
+// namespace.
+func (s *baseSuite) nextVolumeSequenceNumber(c *tc.C) uint64 {
+	var id uint64
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		id, err = sequencestate.NextValue(
+			ctx, preparer{}, tx, domainsequence.StaticNamespace("volume"),
 		)
 		return err
 	})

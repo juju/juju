@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/juju/tc"
@@ -1185,7 +1186,7 @@ func (s *filesystemSuite) newMachineFilesystemWithSize(
 	c *tc.C, size uint64,
 ) (storageprovisioning.FilesystemUUID, string) {
 	fsUUID := domaintesting.GenFilesystemUUID(c)
-	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
+	fsID := strconv.FormatUint(s.nextFilesystemSequenceNumber(c), 10)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, size_mib, provision_scope_id)
 VALUES (?, ?, 0, ?, 1)
