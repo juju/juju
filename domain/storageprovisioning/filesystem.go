@@ -157,7 +157,7 @@ type FilesystemTemplate struct {
 	Location string
 
 	// MountPoints is the set of mounts points that each storage instance should
-	// be mounted at. The number of mount points in this slice is garanteed to
+	// be mounted at. The number of mount points in this slice is guaranteed to
 	// be the same as [FilesystemTemplate.Count]
 	MountPoints []string
 

@@ -340,7 +340,7 @@ func (s *Service) GetFilesystemAttachmentLife(
 }
 
 // GetFilesystemAttachmentParams retrieves the attachment parameters for a given
-// filesystem attachment. This function gaurantees to always return a mount
+// filesystem attachment. This function guarantees to always return a mount
 // point for the attachment.
 //
 // The following errors may be returned:
