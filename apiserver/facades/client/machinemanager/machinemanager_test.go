@@ -175,7 +175,7 @@ func TestDestroyMachineManagerSuite(t *testing.T) {
 
 func (s *DestroyMachineManagerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing the following tests:
-- TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines 
+- TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines
 - TestDestroyMachineFailedAllStorageRetrieval
 - TestDestroyMachineFailedSomeUnitStorageRetrieval
 - TestDestroyMachineFailedSomeStorageRetrievalManyMachines
@@ -511,7 +511,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 
 func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(arch *string) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
-	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{Arch: arch}, nil)
+	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(instance.HardwareCharacteristics{Arch: arch}, nil)
 	s.machineService.EXPECT().GetMachineBase(gomock.Any(), coremachine.Name("0")).Return(corebase.MustParseBaseFromString("ubuntu@20.04/stable"), nil)
 	if arch != nil {
 		s.agentPasswordService.EXPECT().SetMachinePassword(gomock.Any(), coremachine.Name("0"), gomock.Any()).Return(nil).AnyTimes()
@@ -580,7 +580,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *tc.C) 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
-	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{}, nil)
+	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(instance.HardwareCharacteristics{}, nil)
 
 	_, err = s.api.ProvisioningScript(c.Context(), params.ProvisioningScriptParams{
 		MachineId: "0",

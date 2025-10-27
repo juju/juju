@@ -44,7 +44,6 @@ type StorageProvisionerAPIv4 struct {
 
 	blockDeviceService         BlockDeviceService
 	authorizer                 facade.Authorizer
-	storagePoolGetter          StoragePoolGetter
 	storageStatusService       StorageStatusService
 	storageProvisioningService StorageProvisioningService
 	machineService             MachineService
@@ -73,7 +72,6 @@ func NewStorageProvisionerAPIv4(
 	applicationService ApplicationService,
 	removalService RemovalService,
 	authorizer facade.Authorizer,
-	storagePoolGetter StoragePoolGetter,
 	storageStatusService StorageStatusService,
 	storageProvisioningService StorageProvisioningService,
 	logger logger.Logger,
@@ -194,7 +192,6 @@ func NewStorageProvisionerAPIv4(
 		watcherRegistry: watcherRegistry,
 
 		authorizer:                 authorizer,
-		storagePoolGetter:          storagePoolGetter,
 		storageStatusService:       storageStatusService,
 		storageProvisioningService: storageProvisioningService,
 		machineService:             machineService,

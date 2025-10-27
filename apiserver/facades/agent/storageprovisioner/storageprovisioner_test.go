@@ -89,7 +89,6 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 		s.applicationService,
 		s.removalService,
 		s.authorizer,
-		nil, // storageService
 		nil, // statusService
 		s.storageProvisioningService,
 		loggertesting.WrapCheckLog(c),

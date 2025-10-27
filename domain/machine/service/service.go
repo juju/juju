@@ -65,7 +65,7 @@ type State interface {
 
 	// GetHardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
-	GetHardwareCharacteristics(context.Context, string) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(context.Context, string) (instance.HardwareCharacteristics, error)
 
 	// AvailabilityZone returns the availability zone for the specified machine.
 	AvailabilityZone(context.Context, string) (string, error)

@@ -86,7 +86,7 @@ func ModelMachineInfo(ctx context.Context, machineService MachineService, status
 		} else if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return nil, errors.Trace(err)
 		}
-		if hw != nil && hw.String() != "" {
+		if hw.String() != "" {
 			hwParams := &params.MachineHardware{
 				Cores:            hw.CpuCores,
 				Arch:             hw.Arch,

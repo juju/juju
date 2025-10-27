@@ -88,7 +88,7 @@ func (s *migrationServiceSuite) TestGetInstanceID(c *tc.C) {
 func (s *migrationServiceSuite) TestGetHardwareCharacteristics(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hwc := &instance.HardwareCharacteristics{
+	hwc := instance.HardwareCharacteristics{
 		Mem: ptr[uint64](1024),
 	}
 

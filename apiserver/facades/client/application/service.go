@@ -155,7 +155,7 @@ type MachineService interface {
 
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (instance.HardwareCharacteristics, error)
 
 	// GetMachineBase returns the base for the given machine.
 	GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error)

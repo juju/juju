@@ -1870,10 +1870,10 @@ func (c *MockMachineServiceAllMachineNamesCall) DoAndReturn(f func(context.Conte
 }
 
 // GetHardwareCharacteristics mocks base method.
-func (m *MockMachineService) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
+func (m *MockMachineService) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHardwareCharacteristics", arg0, arg1)
-	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
+	ret0, _ := ret[0].(instance.HardwareCharacteristics)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1891,19 +1891,19 @@ type MockMachineServiceGetHardwareCharacteristicsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceGetHardwareCharacteristicsCall) Return(arg0 *instance.HardwareCharacteristics, arg1 error) *MockMachineServiceGetHardwareCharacteristicsCall {
+func (c *MockMachineServiceGetHardwareCharacteristicsCall) Return(arg0 instance.HardwareCharacteristics, arg1 error) *MockMachineServiceGetHardwareCharacteristicsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceGetHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceGetHardwareCharacteristicsCall {
+func (c *MockMachineServiceGetHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (instance.HardwareCharacteristics, error)) *MockMachineServiceGetHardwareCharacteristicsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceGetHardwareCharacteristicsCall {
+func (c *MockMachineServiceGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (instance.HardwareCharacteristics, error)) *MockMachineServiceGetHardwareCharacteristicsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
