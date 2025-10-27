@@ -6,6 +6,7 @@ package service
 import (
 	"gopkg.in/macaroon.v2"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/domain/application/charm"
@@ -44,7 +45,7 @@ type AddConsumedRelationArgs struct {
 	// ConsumerApplicationUUID is the application UUID as as it exists in the
 	// remote (consuming) model. It contains the value from the RPC param
 	// ConsumerApplicationToken.
-	ConsumerApplicationUUID string
+	ConsumerApplicationUUID coreapplication.UUID
 
 	// ConsumerApplicationEndpoint endpoint consumed.
 	ConsumerApplicationEndpoint charm.Relation
@@ -60,10 +61,6 @@ type AddConsumedRelationArgs struct {
 	// ConsumerModelUUID is the UUID of the model that is consuming the
 	// application.
 	ConsumerModelUUID string
-
-	// OfferingApplicationUUID is the UUID of the application offering
-	// the endpoint
-	OfferingApplicationUUID string
 
 	// OfferingEndpointName is the name of the endpoint on the offering
 	// application to use in the relation.

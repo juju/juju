@@ -382,6 +382,10 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 ) (*params.ConsumingRelationDetails, error) {
 	// Retrieve the application UUID for the provided offer UUID (also validates
 	// offer exists).
+	consumingAppUUID, err := coreapplication.ParseUUID(relation.ConsumerApplicationToken)
+	if err != nil {
+		return nil, err
+	}
 	offerUUID, err := offer.ParseUUID(relation.OfferUUID)
 	if err != nil {
 		return nil, err
@@ -410,7 +414,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	// Insert the remote relation.
 	if err := api.crossModelRelationService.AddConsumedRelation(ctx,
 		crossmodelrelationservice.AddConsumedRelationArgs{
-			ConsumerApplicationUUID: relation.ConsumerApplicationToken,
+			ConsumerApplicationUUID: consumingAppUUID,
 			OfferUUID:               offerUUID,
 			RelationUUID:            relation.RelationToken,
 			ConsumerModelUUID:       sourceModelTag.Id(),
@@ -420,7 +424,8 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 				Role:      charm.RelationRole(relation.ConsumerApplicationEndpoint.Role),
 				Interface: relation.ConsumerApplicationEndpoint.Interface,
 			},
-			Username: username,
+			OfferingEndpointName: relation.OfferEndpointName,
+			Username:             username,
 		},
 	); err != nil {
 		return nil, errors.Annotate(err, "adding remote application consumer")

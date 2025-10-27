@@ -241,6 +241,14 @@ type AddRemoteApplicationConsumerArgs struct {
 	// to represent the remote application, on the consuming model.
 	SynthApplicationUUID string
 
+	// OfferingEndpointName is the name of the endpoint on the offering (i.e
+	// the local) application to use in the relation.
+	OfferingEndpointName string
+
+	// ConsumingEndpointName is the name of the endpoint on the consuming (i.e
+	// the remote synthetic) application to use in the relation.
+	ConsumingEndpointName string
+
 	// Username is the name of the user making the request.
 	Username string
 }

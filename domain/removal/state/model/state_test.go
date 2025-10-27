@@ -439,6 +439,8 @@ func (s *baseSuite) createRemoteApplicationConsumer(
 		Charm:                   ch,
 		OfferUUID:               offerUUID.String(),
 		RelationUUID:            relationUUID.String(),
+		OfferingEndpointName:    "bar",
+		ConsumingEndpointName:   "foo",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

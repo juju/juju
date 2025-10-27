@@ -137,8 +137,20 @@ func (st *State) AddConsumedRelation(
 			return errors.Capture(err)
 		}
 
+		consumerRelationEndpoint, err := st.getRelationEndpoint(ctx, tx,
+			args.RelationUUID, args.SynthApplicationUUID, args.ConsumingEndpointName)
+		if err != nil {
+			return errors.Errorf("getting consumer relation endpoint UUID: %w", err)
+		}
+		offeringRelationEndpoint, err := st.getRelationEndpoint(ctx, tx,
+			args.RelationUUID, offerApplicationUUID, args.OfferingEndpointName)
+		if err != nil {
+			return errors.Errorf("getting offering relation endpoint UUID: %w", err)
+		}
+
 		// Create the synthetic relation for this consumer.
-		if err := st.insertSyntheticRelation(ctx, tx, args.RelationUUID); err != nil {
+		err = st.insertSyntheticRelation(ctx, tx, args.RelationUUID, offeringRelationEndpoint, consumerRelationEndpoint)
+		if err != nil {
 			return errors.Capture(err)
 		}
 
@@ -491,6 +503,8 @@ func (st *State) insertSyntheticRelation(
 	ctx context.Context,
 	tx *sqlair.TX,
 	consumerRelationUUID string,
+	offeringRelationEndpoint,
+	consumingRelationEndpoint relationEndpoint,
 ) error {
 	relationID, err := sequencestate.NextValue(ctx, st, tx, domainrelation.SequenceNamespace)
 	if err != nil {
@@ -521,9 +535,23 @@ WHERE  name = $charmScope.name;`
 		return errors.Capture(err)
 	}
 
+	insertRelationEndpoint := `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES ($relationEndpoint.*);`
+	insertRelationEndpointStmt, err := st.Prepare(insertRelationEndpoint, relationEndpoint{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	if err := tx.Query(ctx, insertRelationStmt, rel, charmScope).Run(); err != nil {
 		return errors.Errorf("inserting remote relation record: %w", err)
 	}
+
+	eps := []relationEndpoint{offeringRelationEndpoint, consumingRelationEndpoint}
+	if err := tx.Query(ctx, insertRelationEndpointStmt, eps).Run(); err != nil {
+		return errors.Errorf("inserting remote relation endpoint records: %w", err)
+	}
+
 	return nil
 }
 
@@ -696,6 +724,40 @@ WHERE  oe.offer_uuid = $offerConnectionQuery.offer_uuid
 	}
 
 	return res.Name, res.UUID, nil
+}
+
+func (st *State) getRelationEndpoint(ctx context.Context, tx *sqlair.TX, relationUUID, appUUID, epName string) (relationEndpoint, error) {
+	relationEndpointUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return relationEndpoint{}, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT ae.uuid AS &uuid.uuid
+FROM   application_endpoint AS ae
+JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+WHERE  ae.application_uuid = $uuid.uuid
+AND    cr.name = $name.name
+	`, uuid{}, name{})
+	if err != nil {
+		return relationEndpoint{}, errors.Capture(err)
+	}
+
+	var endpointUUID uuid
+	err = tx.Query(ctx, stmt, uuid{UUID: appUUID}, name{Name: epName}).Get(&endpointUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return relationEndpoint{}, errors.Errorf("no endpoint %q found for application %q", epName, appUUID).
+			Add(relationerrors.RelationEndpointNotFound)
+	}
+	if err != nil {
+		return relationEndpoint{}, errors.Capture(err)
+	}
+
+	return relationEndpoint{
+		UUID:         relationEndpointUUID.String(),
+		EndpointUUID: endpointUUID.UUID,
+		RelationUUID: relationUUID,
+	}, nil
 }
 
 // checkConsumerRelationExists checks if the consumer relation already exists.

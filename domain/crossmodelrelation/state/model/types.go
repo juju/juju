@@ -252,6 +252,12 @@ type relation struct {
 	RelationID uint64 `db:"relation_id"`
 }
 
+type relationEndpoint struct {
+	UUID         string `db:"uuid"`
+	RelationUUID string `db:"relation_uuid"`
+	EndpointUUID string `db:"endpoint_uuid"`
+}
+
 type charmScope struct {
 	Name string `db:"name"`
 }

@@ -218,8 +218,8 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !uuid.IsValidUUIDString(args.ConsumerApplicationUUID) {
-		return internalerrors.Errorf("remote application UUID %q is not a valid UUID", args.ConsumerApplicationUUID).Add(errors.NotValid)
+	if err := args.ConsumerApplicationUUID.Validate(); err != nil {
+		return internalerrors.Errorf("validating consumer application UUID: %w", err)
 	}
 
 	synthApplicationUUID, err := coreapplication.NewUUID()
@@ -246,6 +246,9 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 	if args.ConsumerApplicationEndpoint.Name == "" {
 		return internalerrors.Errorf("endpoint cannot be empty").Add(errors.NotValid)
 	}
+	if args.OfferingEndpointName == "" {
+		return internalerrors.Errorf("offering endpoint name cannot be empty").Add(errors.NotValid)
+	}
 
 	// Construct a synthetic charm to represent the remote application charm,
 	// so we can track the endpoints it offers.
@@ -266,7 +269,7 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 
 		// ConsumerApplicationUUID is the application UUID in the consuming
 		// model.
-		ConsumerApplicationUUID: args.ConsumerApplicationUUID,
+		ConsumerApplicationUUID: args.ConsumerApplicationUUID.String(),
 
 		// SynthApplicationUUID is the application UUID created
 		// to represent the synthetic application in the offering model. This
@@ -278,6 +281,9 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 		// represent the remote application on the offering model.
 		CharmUUID: charmUUID.String(),
 		Charm:     syntheticCharm,
+
+		OfferingEndpointName:  args.OfferingEndpointName,
+		ConsumingEndpointName: args.ConsumerApplicationEndpoint.Name,
 
 		Username: args.Username,
 	}); internalerrors.Is(err, crossmodelrelationerrors.RemoteRelationAlreadyRegistered) {

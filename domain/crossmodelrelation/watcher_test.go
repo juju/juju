@@ -128,7 +128,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationConsumers(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		err := svc.AddConsumedRelation(c.Context(), service.AddConsumedRelationArgs{
-			ConsumerApplicationUUID: uuid.MustNewUUID().String(),
+			ConsumerApplicationUUID: tc.Must(c, application.NewUUID),
 			OfferUUID:               offerUUID,
 			RelationUUID:            relationUUID,
 			ConsumerModelUUID:       consumerModelUUID,
@@ -564,9 +564,9 @@ func (s *watcherSuite) TestWatchOffererRelationsCaching(c *tc.C) {
 	// Add an app remote consumer - this should create a relation and trigger
 	// the watcher.
 	var consumerRelationUUID1 string
-	var remoteApplicationUUID1 string
+	var remoteApplicationUUID1 application.UUID
 	harness.AddTest(c, func(c *tc.C) {
-		remoteApplicationUUID1 = tc.Must(c, uuid.NewUUID).String()
+		remoteApplicationUUID1 = tc.Must(c, application.NewUUID)
 		consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
 		consumerRelationUUID1 = tc.Must(c, uuid.NewUUID).String()
 
@@ -592,7 +592,7 @@ func (s *watcherSuite) TestWatchOffererRelationsCaching(c *tc.C) {
 	// relation too.
 	var consumerRelationUUID2 string
 	harness.AddTest(c, func(c *tc.C) {
-		remoteApplicationUUID := tc.Must(c, uuid.NewUUID).String()
+		remoteApplicationUUID := tc.Must(c, application.NewUUID)
 		consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
 		consumerRelationUUID2 = tc.Must(c, uuid.NewUUID).String()
 
@@ -671,7 +671,7 @@ func (s *watcherSuite) setupLocalOfferRemoteConsumerAndRelation(c *tc.C, db data
 	s.createLocalOfferForConsumer(c, db, localOfferUUID)
 
 	// Add a remote consumer for the local offer.
-	remoteApplicationUUID := tc.Must(c, uuid.NewUUID).String()
+	remoteApplicationUUID := tc.Must(c, application.NewUUID)
 	consumerModelUUID := tc.Must(c, uuid.NewUUID).String()
 	consumerRelationUUID := tc.Must(c, uuid.NewUUID)
 
