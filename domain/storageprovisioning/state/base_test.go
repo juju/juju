@@ -269,14 +269,14 @@ func (s *baseSuite) newStorageAttachment(
 	c *tc.C,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
-) string {
+) storageprovisioning.StorageAttachmentUUID {
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, ?)
 `, saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), domainlife.Alive)
 	c.Assert(err, tc.ErrorIsNil)
-	return saUUID.String()
+	return saUUID
 }
 
 func (s *baseSuite) newStorageInstanceForCharmWithPool(

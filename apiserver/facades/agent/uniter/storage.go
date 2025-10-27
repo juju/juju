@@ -23,7 +23,6 @@ import (
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	"github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -182,12 +181,12 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 			ctx, storageTag.Id(), unitUUID,
 		)
 		switch {
-		case errors.Is(err, storageerrors.StorageInstanceNotFound):
+		case errors.Is(err, domainstorageerrors.StorageInstanceNotFound):
 			return params.StorageAttachment{}, internalerrors.Errorf(
 				"storage instance not found for %q %q",
 				storageTag.Id(), unitTag.Id(),
 			).Add(coreerrors.NotFound)
-		case errors.Is(err, storageerrors.StorageAttachmentNotFound):
+		case errors.Is(err, domainstorageerrors.StorageAttachmentNotFound):
 			return params.StorageAttachment{}, internalerrors.Errorf(
 				"storage attachment not found for %q %q",
 				storageTag.Id(), unitTag.Id(),
@@ -203,7 +202,7 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 			ctx, storageAttachmentUUID,
 		)
 		switch {
-		case errors.Is(err, storageerrors.StorageAttachmentNotFound):
+		case errors.Is(err, domainstorageerrors.StorageAttachmentNotFound):
 			return params.StorageAttachment{}, internalerrors.Errorf(
 				"storage attachment %q for unit %q not found",
 				arg.StorageTag, unitTag.Id(),

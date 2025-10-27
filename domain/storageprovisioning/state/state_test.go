@@ -309,7 +309,7 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnit(c *tc.C) {
 	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory())
-	storageIDs, err := st.GetStorageAttachmentIDsForUnit(c.Context(), unitUUID.String())
+	storageIDs, err := st.GetStorageAttachmentIDsForUnit(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storageIDs, tc.DeepEquals, []string{
 		storageID,
@@ -320,7 +320,7 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnitWithUnitNotFound(c *tc.C)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetStorageAttachmentIDsForUnit(c.Context(), unitUUID.String())
+	_, err := st.GetStorageAttachmentIDsForUnit(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -336,7 +336,7 @@ func (s *stateSuite) TestGetStorageInstanceUUIDByID(c *tc.C) {
 		c.Context(), storageID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(rval, tc.Equals, storageInstanceUUID.String())
+	c.Check(rval, tc.Equals, storageInstanceUUID)
 }
 
 func (s *stateSuite) TestGetStorageInstanceUUIDByIDWithStorageInstanceNotFound(c *tc.C) {
@@ -356,7 +356,7 @@ func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 
-	life, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
+	life, err := st.GetStorageAttachmentLife(c.Context(), unitUUID, storageInstanceUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(life, tc.Equals, domainlife.Alive)
 }
@@ -366,7 +366,7 @@ func (s *stateSuite) TestGetAttachmentLifeWithUnitNotFound(c *tc.C) {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
+	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID, storageInstanceUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -377,7 +377,7 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageInstanceNotFound(c *tc.C) {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
+	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID, storageInstanceUUID)
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
 }
 
@@ -390,7 +390,7 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageAttachmentNotFound(c *tc.C)
 	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
+	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID, storageInstanceUUID)
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
@@ -410,7 +410,7 @@ func (s *stateSuite) TestInitialWatchStatementForUnitStorageAttachments(c *tc.C)
 
 	st := NewState(s.TxnRunnerFactory())
 
-	stmt, q := st.InitialWatchStatementForUnitStorageAttachments(c.Context(), unitUUID.String())
+	stmt, q := st.InitialWatchStatementForUnitStorageAttachments(c.Context(), unitUUID)
 	c.Assert(stmt, tc.Equals, "custom_storage_attachment_unit_uuid_lifecycle")
 	result, err := q(c.Context(), s.TxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
@@ -423,7 +423,7 @@ func (s *stateSuite) TestInitialWatchStatementForUnitStorageAttachmentsWithUnitN
 	unitUUID := unittesting.GenUnitUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
-	stmt, q := st.InitialWatchStatementForUnitStorageAttachments(c.Context(), unitUUID.String())
+	stmt, q := st.InitialWatchStatementForUnitStorageAttachments(c.Context(), unitUUID)
 	c.Assert(stmt, tc.Equals, "custom_storage_attachment_unit_uuid_lifecycle")
 	c.Assert(q, tc.NotNil)
 	_, err := q(c.Context(), s.TxnRunner())
@@ -442,7 +442,7 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDForUnit(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	attachmentUUID, err := st.GetStorageAttachmentUUIDForUnit(
-		c.Context(), storageID, unitUUID.String(),
+		c.Context(), storageID, unitUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(attachmentUUID, tc.Equals, saUUID)
@@ -459,7 +459,7 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDWithStorageAttachmentNotFound(c
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentUUIDForUnit(
-		c.Context(), storageID, unitUUID.String(),
+		c.Context(), storageID, unitUUID,
 	)
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
@@ -474,7 +474,7 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDWithUnitNotFound(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentUUIDForUnit(
-		c.Context(), storageID, unitUUID.String(),
+		c.Context(), storageID, unitUUID,
 	)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
@@ -484,7 +484,7 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDWithStorageInstanceNotFound(c *
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentUUIDForUnit(
-		c.Context(), "foo/1", unitUUID.String(),
+		c.Context(), "foo/1", unitUUID,
 	)
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
 }
@@ -554,6 +554,6 @@ func (s *stateSuite) TestGetStorageAttachmentInfoWithStorageAttachmentNotFound(c
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetStorageAttachmentInfo(c.Context(), saUUID.String())
+	_, err := st.GetStorageAttachmentInfo(c.Context(), saUUID)
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
