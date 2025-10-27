@@ -410,11 +410,12 @@ func (s *remoteApplicationServiceSuite) TestAddConsumedRelation(c *tc.C) {
 	received.SynthApplicationUUID = ""
 
 	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID.String(),
-		ConsumerModelUUID:       consumerModelUUID,
-		RelationUUID:            relationUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		Charm:                   syntheticCharm,
+		OfferUUID:                   offerUUID.String(),
+		ConsumerModelUUID:           consumerModelUUID,
+		RelationUUID:                relationUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		Charm:                       syntheticCharm,
 	})
 }
 

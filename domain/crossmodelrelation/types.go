@@ -241,6 +241,10 @@ type AddRemoteApplicationConsumerArgs struct {
 	// ConsumerApplicationUUID is the UUID of the consuming application UUID.
 	ConsumerApplicationUUID string
 
+	// ConsumerApplicationEndpoint is the relation endpoint name of the
+	// consuming application.
+	ConsumerApplicationEndpoint string
+
 	// SynthApplicationUUID is the UUID of the synthetic application created
 	// to represent the remote application, on the consuming model.
 	SynthApplicationUUID string

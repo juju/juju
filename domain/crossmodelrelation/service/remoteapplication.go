@@ -267,7 +267,8 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 
 		// ConsumerApplicationUUID is the application UUID in the consuming
 		// model.
-		ConsumerApplicationUUID: args.ConsumerApplicationUUID,
+		ConsumerApplicationUUID:     args.ConsumerApplicationUUID,
+		ConsumerApplicationEndpoint: args.ConsumerApplicationEndpoint.Name,
 
 		// SynthApplicationUUID is the application UUID created
 		// to represent the synthetic application in the offering model. This

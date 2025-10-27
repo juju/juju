@@ -448,15 +448,16 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 		},
 	}
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		OfferEndpointName:       "offer-endpoint",
-		RelationUUID:            relationUUID,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID,
-		CharmUUID:               charmUUID,
-		Charm:                   charm,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		OfferEndpointName:           "offer-endpoint",
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -465,14 +466,77 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 	s.assertCharmMetadata(c, synthApplicationUUID, charmUUID, charm)
 
 	endpoints := s.fetchApplicationEndpoints(c, synthApplicationUUID)
-	c.Assert(endpoints, tc.HasLen, 2)
-
-	c.Check(endpoints[0].charmRelationName, tc.Equals, "db")
-	c.Check(endpoints[1].charmRelationName, tc.Equals, "juju-info")
+	if c.Check(endpoints, tc.HasLen, 2) {
+		c.Check(endpoints[0].charmRelationName, tc.Equals, "db")
+		c.Check(endpoints[1].charmRelationName, tc.Equals, "juju-info")
+	}
 
 	// Check that the synthetic relation has been created with the expected
 	// UUID and ID 0 (the first relation created in the model).
 	s.assertRelation(c, relationUUID, 0)
+
+	s.assertRelationEndpoints(c, relationUUID, offerApplicationUUID.String(), synthApplicationUUID)
+}
+
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelationEndpointNotFound(c *tc.C) {
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"seven": {
+					Name:      "seven",
+					Role:      charm.RoleProvider,
+					Interface: "seven",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		ConsumerApplicationEndpoint: "db",
+		Charm:                       charm,
+	})
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationEndpointNotFound)
+}
+
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelationOneAndOnlyOneEndpoint(c *tc.C) {
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+				"seven": {
+					Name:      "seven",
+					Role:      charm.RoleProvider,
+					Interface: "seven",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		ConsumerApplicationEndpoint: "db",
+		Charm:                       charm,
+	})
+	c.Assert(err, tc.ErrorIs, relationerrors.AmbiguousRelation)
 }
 
 func (s *modelRemoteApplicationSuite) TestAddConsumedRelationTwice(c *tc.C) {
@@ -513,14 +577,15 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationTwice(c *tc.C) {
 		},
 	}
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID,
-		CharmUUID:               charmUUID,
-		Charm:                   charm,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -529,14 +594,15 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationTwice(c *tc.C) {
 	s.assertCharmMetadata(c, synthApplicationUUID, charmUUID, charm)
 
 	err = s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID,
-		CharmUUID:               charmUUID,
-		Charm:                   charm,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteRelationAlreadyRegistered)
 }
@@ -606,27 +672,29 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationMultiple(c *tc.C) {
 	}
 
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID0,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID0,
-		CharmUUID:               charmUUID0,
-		Charm:                   charm1,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID0,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		SynthApplicationUUID:        synthApplicationUUID0,
+		CharmUUID:                   charmUUID0,
+		Charm:                       charm1,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Should succeed since different applications can consume same offer
 	err = s.state.AddConsumedRelation(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID1,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID1,
-		CharmUUID:               charmUUID1,
-		Charm:                   charm2,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID1,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "cache",
+		SynthApplicationUUID:        synthApplicationUUID1,
+		CharmUUID:                   charmUUID1,
+		Charm:                       charm2,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -692,14 +760,15 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersSingle(c 
 		},
 	}
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID,
-		CharmUUID:               charmUUID,
-		Charm:                   charm,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -776,27 +845,29 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersMultiple(
 	}
 
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID0,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID0,
-		CharmUUID:               charmUUID0,
-		Charm:                   charm1,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID0,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "cache",
+		SynthApplicationUUID:        synthApplicationUUID0,
+		CharmUUID:                   charmUUID0,
+		Charm:                       charm1,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Should succeed since different applications can consume same offer
 	err = s.state.AddConsumedRelation(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID1,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID1,
-		CharmUUID:               charmUUID1,
-		Charm:                   charm2,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID1,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		SynthApplicationUUID:        synthApplicationUUID1,
+		CharmUUID:                   charmUUID1,
+		Charm:                       charm2,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -860,14 +931,15 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersFiltersDe
 		},
 	}
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID,
-		CharmUUID:               charmUUID,
-		Charm:                   charm,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "cache",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -923,14 +995,15 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersSin
 		},
 	}
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID,
-		CharmUUID:               charmUUID,
-		Charm:                   charm,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "cache",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1014,14 +1087,6 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMul
 					Scope:     charm.ScopeGlobal,
 				},
 			},
-			Requires: map[string]charm.Relation{
-				"cache": {
-					Name:      "cache",
-					Role:      charm.RoleRequirer,
-					Interface: "cacher",
-					Scope:     charm.ScopeGlobal,
-				},
-			},
 			Peers: map[string]charm.Relation{},
 		},
 	}
@@ -1046,27 +1111,29 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMul
 	}
 
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID0,
-		RelationUUID:            relationUUID0,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID0,
-		SynthApplicationUUID:    synthApplicationUUID0,
-		CharmUUID:               charmUUID0,
-		Charm:                   charm1,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID0,
+		RelationUUID:                relationUUID0,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID0,
+		ConsumerApplicationEndpoint: "db",
+		SynthApplicationUUID:        synthApplicationUUID0,
+		CharmUUID:                   charmUUID0,
+		Charm:                       charm1,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Should succeed since different applications can consume same offer
 	err = s.state.AddConsumedRelation(c.Context(), "bar", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID1,
-		RelationUUID:            relationUUID1,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID1,
-		SynthApplicationUUID:    synthApplicationUUID1,
-		CharmUUID:               charmUUID1,
-		Charm:                   charm2,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID1,
+		RelationUUID:                relationUUID1,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID1,
+		ConsumerApplicationEndpoint: "cache",
+		SynthApplicationUUID:        synthApplicationUUID1,
+		CharmUUID:                   charmUUID1,
+		Charm:                       charm2,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1159,14 +1226,15 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMix
 		},
 	}
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID,
-		CharmUUID:               charmUUID,
-		Charm:                   charm,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "cache",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1234,14 +1302,15 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersDup
 		},
 	}
 	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		OfferUUID:               offerUUID,
-		RelationUUID:            relationUUID,
-		ConsumerModelUUID:       consumerModelUUID,
-		ConsumerApplicationUUID: consumerApplicationUUID,
-		SynthApplicationUUID:    synthApplicationUUID,
-		CharmUUID:               charmUUID,
-		Charm:                   charm,
-		Username:                "consumer-user",
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "cache",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1648,13 +1717,44 @@ FROM relation WHERE relation_id=?
 		}
 		return nil
 	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotUUID, tc.Equals, relationUUID)
-	c.Check(gotID, tc.Equals, relationID)
-	c.Check(gotLifID, tc.Equals, 0)   // life.Alive
-	c.Check(gotScopeID, tc.Equals, 0) // scope.Global
-	c.Check(gotSuspended, tc.Equals, false)
-	c.Check(gotSuspendedReason.V, tc.Equals, "")
+	if c.Check(err, tc.ErrorIsNil) {
+		c.Check(gotUUID, tc.Equals, relationUUID)
+		c.Check(gotID, tc.Equals, relationID)
+		c.Check(gotLifID, tc.Equals, 0)   // life.Alive
+		c.Check(gotScopeID, tc.Equals, 0) // scope.Global
+		c.Check(gotSuspended, tc.Equals, false)
+		c.Check(gotSuspendedReason.V, tc.Equals, "")
+	}
+}
+func (s *modelRemoteApplicationSuite) assertRelationEndpoints(c *tc.C, relationUUID, app1UUID, app2UUID string) {
+	appUUIDs := set.NewStrings(app1UUID, app2UUID)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT ae.application_uuid
+FROM   relation_endpoint AS re
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+WHERE  relation_uuid = ?
+`, relationUUID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var appUUID string
+
+			if err := rows.Scan(&appUUID); err != nil {
+				return err
+			}
+			if c.Check(appUUIDs.Contains(appUUID), tc.Equals, true) {
+				appUUIDs.Remove(appUUID)
+			}
+		}
+		return nil
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(appUUIDs.IsEmpty(), tc.Equals, true, tc.Commentf("relation_endpoint with app %q, not found", appUUIDs.SortedValues()))
 }
 
 func (s *modelRemoteApplicationSuite) assertCharmMetadata(c *tc.C, appUUID, charmUUID string, expected charm.Charm) {
