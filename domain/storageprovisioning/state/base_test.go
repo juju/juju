@@ -332,9 +332,11 @@ VALUES (?, ?, ?, ?)
 	return saUUID
 }
 
+// newStorageInstanceForCharmWithPool creates a new storage instance in the
+// model referenced to the supplied charm and using the provided storage pool.
 func (s *baseSuite) newStorageInstanceForCharmWithPool(
 	c *tc.C, charmUUID, poolUUID, storageName string,
-) domainstorage.StorageInstanceUUID {
+) (domainstorage.StorageInstanceUUID, string) {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	storageID := strconv.FormatUint(s.nextStorageSequenceNumber(c), 10)
 
@@ -360,7 +362,7 @@ VALUES (?, ?, ?, ?, 0, 100, ?, 1)
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return storageInstanceUUID
+	return storageInstanceUUID, storageID
 }
 
 func (s *baseSuite) newStorageInstanceBlockKindForCharmWithPool(
