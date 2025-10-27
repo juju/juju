@@ -51,12 +51,12 @@ run_secret_drain() {
 	vault_backend_name='myvault'
 	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
 
-	juju --show-log deploy easyrsa
-	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
-	wait_for "easyrsa" "$(idle_condition "easyrsa" 0)"
+	juju --show-log deploy juju-qa-test app
+	wait_for "active" '.applications["app"] | ."application-status".current'
+	wait_for "app" "$(idle_condition "app" 0)"
 
-	secret_owned_by_unit=$(juju exec --unit easyrsa/0 -- secret-add --owner unit owned-by=easyrsa/0)
-	secret_owned_by_app=$(juju exec --unit easyrsa/0 -- secret-add owned-by=easyrsa-app)
+	secret_owned_by_unit=$(juju exec --unit app/0 -- secret-add --owner unit owned-by=app/0)
+	secret_owned_by_app=$(juju exec --unit app/0 -- secret-add owned-by=app-app)
 
 	juju show-secret --reveal "$secret_owned_by_unit"
 	juju show-secret --reveal "$secret_owned_by_app"
@@ -107,9 +107,9 @@ run_user_secret_drain() {
 	juju --show-log model-secret-backend "$vault_backend_name" -m "$model_name"
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
-	juju --show-log deploy easyrsa
-	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
-	wait_for "easyrsa" "$(idle_condition "easyrsa" 0)"
+	juju --show-log deploy juju-qa-test app
+	wait_for "active" '.applications["app"] | ."application-status".current'
+	wait_for "app" "$(idle_condition "app" 0)"
 
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
@@ -117,8 +117,8 @@ run_user_secret_drain() {
 	juju show-secret --reveal "$secret_uri"
 	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 1
 
-	juju --show-log grant-secret "$secret_uri" easyrsa
-	check_contains "$(juju exec --unit easyrsa/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+	juju --show-log grant-secret "$secret_uri" app
+	check_contains "$(juju exec --unit app/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
 	# change the secret backend to internal.
 	juju model-secret-backend auto
@@ -152,7 +152,7 @@ run_user_secret_drain() {
 	done
 
 	# ensure the application can still read the user secret.
-	check_contains "$(juju exec --unit easyrsa/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+	check_contains "$(juju exec --unit app/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
 	juju show-secret --reveal mysecret
 	juju show-secret --reveal anothersecret
