@@ -336,6 +336,7 @@ type machineVolumeProvisioningParams struct {
 	RequestedSizeMiB     uint64           `db:"requested_size_mib"`
 	SizeMiB              uint64           `db:"size_mib"`
 	StorageID            string           `db:"storage_id"`
+	StorageName          string           `db:"storage_name"`
 	StoragePoolUUID      string           `db:"storage_pool_uuid"`
 	StorageUnitOwnerName sql.Null[string] `db:"storage_unit_owner_name"`
 	VolumeID             string           `db:"volume_id"`

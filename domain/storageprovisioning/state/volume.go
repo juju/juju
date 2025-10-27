@@ -1144,6 +1144,7 @@ SELECT &machineVolumeProvisioningParams.* FROM (
               sv.size_mib,
               si.requested_size_mib,
               si.storage_id,
+              si.storage_name,
               sp.type AS provider_type,
               sp.uuid AS storage_pool_uuid,
               u.name AS storage_unit_owner_name
@@ -1259,6 +1260,8 @@ SELECT &storagePoolAttributeWithUUID.* FROM (
 			Provider:         dbParams.ProviderType,
 			RequestedSizeMiB: dbParams.RequestedSizeMiB,
 			SizeMiB:          dbParams.SizeMiB,
+			StorageID:        dbParams.StorageID,
+			StorageName:      dbParams.StorageName,
 		}
 		if dbParams.StorageUnitOwnerName.Valid {
 			params.StorageOwnerUnitName = &dbParams.StorageUnitOwnerName.V

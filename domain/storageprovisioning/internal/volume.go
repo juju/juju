@@ -59,6 +59,10 @@ type MachineVolumeProvisioningParams struct {
 	// fulfills. Not to be confused with the storage instance's uuid.
 	StorageID string
 
+	// StorageName is the the name given to the storage instance this volume
+	// fulfills.
+	StorageName string
+
 	// StorageOwnerUnitName is the name of the unit the associated storage
 	// instance is attached to. This value will only ever be set if the storage
 	// instance is currently attached to a unit and the storage instance is not
