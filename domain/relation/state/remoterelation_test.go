@@ -817,3 +817,214 @@ func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateFlipFlop(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(details.Suspended, tc.IsFalse)
 }
+
+func (s *remoteRelationSuite) TestSetRelationErrorStatusNonCMR(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	err := s.state.SetRelationErrorStatus(c.Context(),
+		relationUUID.String(),
+		"error message",
+	)
+	c.Assert(err, tc.ErrorMatches, "relation must be a remote relation to set error status")
+}
+
+func (s *remoteRelationSuite) TestSetRelationErrorStatusFirstApplication(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Force the charm source to be a CMR.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = ?`, s.fakeCharmUUID1)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetRelationErrorStatus(c.Context(),
+		relationUUID.String(),
+		"something went wrong",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the status was set by querying the relation_status table.
+	var statusID int
+	var message string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT relation_status_type_id, message 
+			FROM relation_status 
+			WHERE relation_uuid = ?
+		`, relationUUID.String()).Scan(&statusID, &message)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statusID, tc.Equals, 5) // RelationStatusTypeError = 5
+	c.Check(message, tc.Equals, "something went wrong")
+}
+
+func (s *remoteRelationSuite) TestSetRelationErrorStatusSecondApplication(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	// Force the charm source to be a CMR on the second application.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = ?`, s.fakeCharmUUID2)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetRelationErrorStatus(c.Context(),
+		relationUUID.String(),
+		"another error occurred",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the status was set by querying the relation_status table.
+	var statusID int
+	var message string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT relation_status_type_id, message 
+			FROM relation_status 
+			WHERE relation_uuid = ?
+		`, relationUUID.String()).Scan(&statusID, &message)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statusID, tc.Equals, 5) // RelationStatusTypeError = 5
+	c.Check(message, tc.Equals, "another error occurred")
+}
+
+func (s *remoteRelationSuite) TestSetRelationErrorStatusUpdateExisting(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Force the charm source to be a CMR.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = ?`, s.fakeCharmUUID1)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Set the error status first time.
+	err = s.state.SetRelationErrorStatus(c.Context(),
+		relationUUID.String(),
+		"first error",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Update with a new error message.
+	err = s.state.SetRelationErrorStatus(c.Context(),
+		relationUUID.String(),
+		"second error",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the status was updated.
+	var statusID int
+	var message string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT relation_status_type_id, message 
+			FROM relation_status 
+			WHERE relation_uuid = ?
+		`, relationUUID.String()).Scan(&statusID, &message)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statusID, tc.Equals, 5) // RelationStatusTypeError = 5
+	c.Check(message, tc.Equals, "second error")
+}
+
+func (s *remoteRelationSuite) TestSetRelationErrorStatusRelationNotFound(c *tc.C) {
+	err := s.state.SetRelationErrorStatus(c.Context(),
+		corerelationtesting.GenRelationUUID(c).String(),
+		"error message",
+	)
+	c.Assert(err, tc.ErrorMatches, ".*relation not found.*")
+}

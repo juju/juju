@@ -6,13 +6,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/juju/clock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/secret"
+	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
@@ -147,8 +149,8 @@ type WatchableService struct {
 func NewWatchableService(
 	controllerState ControllerState,
 	modelState ModelState,
-	watcherFactory WatcherFactory,
 	statusHistory StatusHistory,
+	watcherFactory WatcherFactory,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
@@ -382,14 +384,6 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 	)
 }
 
-// WatchRelationEgressNetworks watches for changes to the egress networks
-// for the specified relation UUID. It returns a NotifyWatcher that emits
-// events when there are insertions or deletions in the relation_network_egress
-// table.
-func (c *Service) WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.NotifyWatcher, error) {
-	return nil, errors.Errorf("crossmodelrelation.WatchRelationEgressNetworks").Add(coreerrors.NotImplemented)
-}
-
 // WatchRelationIngressNetworks watches for changes to the ingress networks
 // for the specified relation UUID. It returns a NotifyWatcher that emits
 // events when there are insertions or deletions in the relation_network_ingress
@@ -409,6 +403,136 @@ func (w *WatchableService) WatchRelationIngressNetworks(ctx context.Context, rel
 		"relation ingress networks watcher",
 		eventsource.PredicateFilter(table, changestream.All, eventsource.EqualsPredicate(relationUUID.String())),
 	)
+}
+
+// WatchRelationEgressNetworks watches for changes to the egress networks
+// for the specified relation UUID. It watches changes on the relation-specific
+// egress networks, model config (egress-subnets), and unit addresses.
+//
+// The priority order for egress CIDRs is:
+// 1. Relation-specific egress CIDRs (from relation_network_egress table)
+// 2. Model config egress-subnets
+// 3. Unit addresses (converted to CIDRs)
+func (w *WatchableService) WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	relationEgressNamespace, modelConfigNamespace, ipAddressNamespace := w.modelState.NamespacesForRelationEgressNetworksWatcher()
+
+	initialQuery := w.modelState.InitialWatchStatementForRelationEgressNetworks(relationUUID.String())
+
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+		if len(changes) == 0 {
+			return nil, nil
+		}
+
+		hasRelevantChange := false
+
+		for _, change := range changes {
+			switch change.Namespace() {
+			case modelConfigNamespace:
+				if change.Changed() == environsconfig.EgressSubnets {
+					hasRelevantChange = true
+				}
+
+			case ipAddressNamespace:
+				// Accept all ip_address changes as they might belong to units
+				// in this relation.
+				// The getEgressCIDRs function will query and filter
+				// appropriately.
+				hasRelevantChange = true
+
+			case relationEgressNamespace:
+				if change.Changed() == relationUUID.String() {
+					hasRelevantChange = true
+				}
+			}
+		}
+
+		if hasRelevantChange {
+			return w.getEgressCIDRs(ctx, relationUUID.String())
+		}
+
+		return nil, nil
+	}
+
+	return w.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
+		initialQuery,
+		fmt.Sprintf("relation egress networks watcher for relation %q", relationUUID),
+		mapper,
+		eventsource.NamespaceFilter(modelConfigNamespace, changestream.All),
+		eventsource.NamespaceFilter(ipAddressNamespace, changestream.All),
+		eventsource.NamespaceFilter(relationEgressNamespace, changestream.All),
+	)
+}
+
+// getEgressCIDRs returns the current egress CIDRs for the relation.
+// The priority for egress addresses is:
+// Relation egress (user-set with --via) > model egress > unit public addresses.
+func (w *WatchableService) getEgressCIDRs(ctx context.Context, relationUUID string) ([]string, error) {
+	// Get unit addresses grouped by unit UUID for this relation.
+	unitAddressesMap, err := w.modelState.GetUnitAddressesForRelation(ctx, relationUUID)
+	if err != nil {
+		w.logger.Errorf(ctx, "getting unit addresses for relation %q: %v", relationUUID, err)
+		return nil, err
+	}
+
+	// If there are no units in the relation, return empty regardless of
+	// configured CIDRs.
+	if len(unitAddressesMap) == 0 {
+		return []string{}, nil
+	}
+
+	// First, check for the user set (relation specific) egress CIDRs.
+	relationCIDRs, err := w.modelState.GetRelationNetworkEgress(ctx, relationUUID)
+	if err != nil {
+		w.logger.Errorf(ctx, "getting relation egress networks for relation %q: %v", relationUUID, err)
+		return nil, err
+	}
+
+	if len(relationCIDRs) > 0 {
+		return relationCIDRs, nil
+	}
+
+	// Second, check model config for egress-subnets.
+	modelCIDRs, err := w.modelState.GetModelEgressSubnets(ctx)
+	if err != nil {
+		w.logger.Errorf(ctx, "getting model egress subnets: %v", err)
+		return nil, err
+	}
+
+	if len(modelCIDRs) > 0 {
+		return modelCIDRs, nil
+	}
+
+	// Third, use unit public addresses and convert them to CIDRs.
+	unitPublicAddresses := w.filterPublicAddresses(unitAddressesMap)
+	// Only send the minimum possible subnet, so SubnetsForAddresses adds /32
+	// (or /128 if IPv6).
+	return network.SubnetsForAddresses(unitPublicAddresses), nil
+}
+
+func (w *WatchableService) filterPublicAddresses(unitAddresses map[string]network.SpaceAddresses) []string {
+	var allPublicAddresses []string
+
+	for _, addrs := range unitAddresses {
+		// First match the scope, then sort by origin.
+		matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
+		if len(matchedAddrs) == 0 {
+			continue
+		}
+		sort.Sort(matchedAddrs)
+
+		// Take the first address (highest priority origin).
+		allPublicAddresses = append(allPublicAddresses, matchedAddrs[0].Value)
+	}
+
+	return allPublicAddresses
 }
 
 func ptr[T any](v T) *T {

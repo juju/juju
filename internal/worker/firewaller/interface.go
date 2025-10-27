@@ -78,10 +78,6 @@ type CrossModelRelationService interface {
 	// if the macaroon is not found.
 	GetMacaroonForRelation(ctx context.Context, relationUUID relation.UUID) (*macaroon.Macaroon, error)
 
-	// GetRelationNetworkEgress retrieves all egress network CIDRs for the
-	// specified relation.
-	GetRelationNetworkEgress(ctx context.Context, relationUUID string) ([]string, error)
-
 	// GetRelationNetworkIngress retrieves all ingress network CIDRs for the
 	// specified relation.
 	GetRelationNetworkIngress(ctx context.Context, relationUUID relation.UUID) ([]string, error)
@@ -99,10 +95,16 @@ type CrossModelRelationService interface {
 	WatchOffererRelations(ctx context.Context) (watcher.StringsWatcher, error)
 
 	// WatchRelationEgressNetworks watches for changes to the egress networks
-	// for the specified relation UUID. It returns a NotifyWatcher that emits
-	// events when there are insertions or deletions in the relation_network_egress
-	// table.
-	WatchRelationEgressNetworks(ctx context.Context, relationUUID relation.UUID) (watcher.NotifyWatcher, error)
+	// for the specified relation UUID. It watches changes on the relation-specific
+	// egress networks, model config (egress-subnets), and unit addresses.
+	//
+	// The priority order for egress CIDRs is:
+	// 1. Relation-specific egress CIDRs (from relation_network_egress table)
+	// 2. Model config egress-subnets
+	// 3. Unit addresses (converted to CIDRs)
+	//
+	// Note: CIDRs are only returned if there are units in the relation.
+	WatchRelationEgressNetworks(ctx context.Context, relationUUID relation.UUID) (watcher.StringsWatcher, error)
 
 	// WatchRelationIngressNetworks watches for changes to the ingress networks
 	// for the specified relation UUID. It returns a NotifyWatcher that emits
@@ -119,9 +121,9 @@ type RelationService interface {
 	// GetRelationDetails returns RelationDetails for the given relation UUID.
 	GetRelationDetails(ctx context.Context, relationUUID relation.UUID) (domainrelation.RelationDetails, error)
 
-	// SetRelationStatus sets the status and message for the given relation
-	// UUID.
-	SetRelationStatus(ctx context.Context, relationUUID relation.UUID, status relation.Status, message string) error
+	// SetRelationErrorStatus sets the relation status to Error. This method only
+	// allows updating to error the status of cross-model relations.
+	SetRelationErrorStatus(ctx context.Context, relationUUID relation.UUID, message string) error
 }
 
 // PortService provides methods to query opened ports for machines

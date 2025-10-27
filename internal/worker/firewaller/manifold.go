@@ -146,6 +146,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		PortsService:              domainServices.Port(),
 		MachineService:            domainServices.Machine(),
 		ApplicationService:        domainServices.Application(),
+		RelationService:           domainServices.Relation(),
 		EnvironFirewaller:         fwEnv,
 		EnvironModelFirewaller:    modelFw,
 		EnvironInstances:          environ,

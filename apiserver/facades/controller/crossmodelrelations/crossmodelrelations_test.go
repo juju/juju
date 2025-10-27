@@ -1525,6 +1525,245 @@ func (s *facadeSuite) TestWatchRelationChangesAuthError(c *tc.C) {
 	c.Check(obtained.Results[0].Error, tc.ErrorMatches, "boom")
 }
 
+func (s *facadeSuite) TestWatchEgressAddressesForRelations(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	relUUID := relationtesting.GenRelationUUID(c)
+
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag := names.NewRelationTag(relKey.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
+		Key: relKey,
+	}, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
+
+	mockWatcher := NewMockStringsWatcher(ctrl)
+	changes := make(chan []string, 1)
+	changes <- []string{"10.0.0.1/32", "10.0.0.2/32"}
+	mockWatcher.EXPECT().Changes().Return(changes)
+	s.crossModelRelationService.EXPECT().WatchRelationEgressNetworks(gomock.Any(), relUUID).Return(mockWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, w worker.Worker) (string, error) {
+			_, ok := w.(watcher.StringsWatcher)
+			c.Assert(ok, tc.IsTrue)
+			return "1", nil
+		})
+
+	api := s.api(c)
+	results, err := api.WatchEgressAddressesForRelations(c.Context(), params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:         relUUID.String(),
+			Macaroons:     macaroon.Slice{testMac},
+			BakeryVersion: bakery.LatestVersion,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[0].StringsWatcherId, tc.Equals, "1")
+	c.Assert(results.Results[0].Changes, tc.HasLen, 2)
+	c.Check(results.Results[0].Changes[0], tc.Equals, "10.0.0.1/32")
+	c.Check(results.Results[0].Changes[1], tc.Equals, "10.0.0.2/32")
+}
+
+func (s *facadeSuite) TestWatchEgressAddressesForRelationsNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID := relationtesting.GenRelationUUID(c)
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{}, errors.New("relation not found"))
+
+	api := s.api(c)
+	results, err := api.WatchEgressAddressesForRelations(c.Context(), params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:         relUUID.String(),
+			Macaroons:     macaroon.Slice{testMac},
+			BakeryVersion: bakery.LatestVersion,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "relation not found")
+}
+
+func (s *facadeSuite) TestWatchEgressAddressesForRelationsOfferNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID := relationtesting.GenRelationUUID(c)
+
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
+		Key: relKey,
+	}, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return("", crossmodelrelationerrors.OfferNotFound)
+
+	api := s.api(c)
+	results, err := api.WatchEgressAddressesForRelations(c.Context(), params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:         relUUID.String(),
+			Macaroons:     macaroon.Slice{testMac},
+			BakeryVersion: bakery.LatestVersion,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *facadeSuite) TestWatchEgressAddressesForRelationsAuthError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	relUUID := relationtesting.GenRelationUUID(c)
+
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag := names.NewRelationTag(relKey.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
+		Key: relKey,
+	}, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
+		Return(errors.New("auth failed"))
+
+	api := s.api(c)
+	results, err := api.WatchEgressAddressesForRelations(c.Context(), params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:         relUUID.String(),
+			Macaroons:     macaroon.Slice{testMac},
+			BakeryVersion: bakery.LatestVersion,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "auth failed")
+}
+
+func (s *facadeSuite) TestWatchEgressAddressesForRelationsWatcherError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	relUUID := relationtesting.GenRelationUUID(c)
+
+	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag := names.NewRelationTag(relKey.String())
+
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
+		Key: relKey,
+	}, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
+	s.crossModelRelationService.EXPECT().WatchRelationEgressNetworks(gomock.Any(), relUUID).Return(nil, errors.New("watcher creation failed"))
+
+	api := s.api(c)
+	results, err := api.WatchEgressAddressesForRelations(c.Context(), params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:         relUUID.String(),
+			Macaroons:     macaroon.Slice{testMac},
+			BakeryVersion: bakery.LatestVersion,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "watcher creation failed")
+}
+
+func (s *facadeSuite) TestWatchEgressAddressesForRelationsMultipleRelations(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	offerUUID1 := tc.Must(c, offer.NewUUID)
+	relUUID1 := relationtesting.GenRelationUUID(c)
+	relUUID2 := relationtesting.GenRelationUUID(c)
+
+	relKey1, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
+	c.Assert(err, tc.ErrorIsNil)
+	relationTag1 := names.NewRelationTag(relKey1.String())
+
+	// First relation succeeds.
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID1).Return(domainrelation.RelationDetails{
+		Key: relKey1,
+	}, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID1).Return(offerUUID1, nil)
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID1.String(), relationTag1, gomock.Any(), bakery.LatestVersion).
+		Return(nil)
+
+	mockWatcher := NewMockStringsWatcher(ctrl)
+	changes := make(chan []string, 1)
+	changes <- []string{"10.0.0.1/32"}
+	mockWatcher.EXPECT().Changes().Return(changes)
+	s.crossModelRelationService.EXPECT().WatchRelationEgressNetworks(gomock.Any(), relUUID1).Return(mockWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, w worker.Worker) (string, error) {
+			_, ok := w.(watcher.StringsWatcher)
+			c.Assert(ok, tc.IsTrue)
+			return "1", nil
+		})
+
+	// Second relation fails on GetRelationDetails.
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID2).Return(domainrelation.RelationDetails{}, errors.New("not found"))
+
+	api := s.api(c)
+	results, err := api.WatchEgressAddressesForRelations(c.Context(), params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
+			{
+				Token:         relUUID1.String(),
+				Macaroons:     macaroon.Slice{testMac},
+				BakeryVersion: bakery.LatestVersion,
+			},
+			{
+				Token:         relUUID2.String(),
+				Macaroons:     macaroon.Slice{testMac},
+				BakeryVersion: bakery.LatestVersion,
+			},
+		},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+
+	// First result should succeed.
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[0].StringsWatcherId, tc.Equals, "1")
+	c.Assert(results.Results[0].Changes, tc.HasLen, 1)
+	c.Check(results.Results[0].Changes[0], tc.Equals, "10.0.0.1/32")
+
+	// Second result should fail.
+	c.Check(results.Results[1].Error, tc.ErrorMatches, "not found")
+}
+
 func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

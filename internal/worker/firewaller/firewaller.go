@@ -90,6 +90,9 @@ func (cfg Config) Validate() error {
 	if cfg.FirewallerAPI == nil {
 		return errors.NotValidf("nil Firewaller Facade")
 	}
+	if cfg.ApplicationService == nil {
+		return errors.NotValidf("nil ApplicationService")
+	}
 	if cfg.CrossModelRelationService == nil {
 		return errors.NotValidf("nil crossmodelrelation service")
 	}
@@ -98,6 +101,9 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.MachineService == nil {
 		return errors.NotValidf("nil MachineService")
+	}
+	if cfg.RelationService == nil {
+		return errors.NotValidf("nil RelationService")
 	}
 	if cfg.Mode == config.FwGlobal && cfg.EnvironFirewaller == nil {
 		return errors.NotValidf("nil EnvironFirewaller")
@@ -1851,11 +1857,11 @@ func (rd *remoteRelationData) watchLocalEgressPublishRemote() error {
 		select {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
-		case <-egressAddressWatcher.Changes():
-			cidrs, err := rd.fw.crossModelRelationService.GetRelationNetworkEgress(ctx, string(rd.relationUUID))
-			if err != nil {
-				return errors.Trace(err)
+		case cidrs, ok := <-egressAddressWatcher.Changes():
+			if !ok {
+				return errors.New("local relation network egress watcher closed")
 			}
+
 			rd.fw.logger.Debugf(ctx, "local egress addresses for %v changed: %v", rd.tag, cidrs)
 			if err := rd.publishIngressToRemote(ctx, cidrs); err != nil {
 				return errors.Trace(err)
@@ -1968,7 +1974,11 @@ func (rd *remoteRelationData) publishIngressToRemote(ctx context.Context, cidrs 
 		// mark the relation as in error. It's not an error that requires a
 		// worker restart though.
 		if params.IsCodeForbidden(err) {
-			return rd.fw.relationService.SetRelationStatus(ctx, rd.relationUUID, relation.Error, err.Error())
+			return rd.fw.relationService.SetRelationErrorStatus(
+				ctx,
+				rd.relationUUID,
+				err.Error(),
+			)
 		}
 		return errors.Trace(err)
 	}

@@ -1456,31 +1456,8 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *tc.C
 	s.crossModelRelationService.EXPECT().GetMacaroonForRelation(gomock.Any(), relUUID).Return(mac, nil).MinTimes(1)
 
 	localEgressCh := make(chan []string, 1)
-	notifyCh := make(chan struct{}, 1)
-	remoteEgressWatch := watchertest.NewMockNotifyWatcher(notifyCh)
+	remoteEgressWatch := watchertest.NewMockStringsWatcher(localEgressCh)
 	s.crossModelRelationService.EXPECT().WatchRelationEgressNetworks(gomock.Any(), relUUID).Return(remoteEgressWatch, nil).MinTimes(1)
-
-	var mu sync.Mutex
-	var currentCIDRs []string
-	s.crossModelRelationService.EXPECT().GetRelationNetworkEgress(gomock.Any(), string(relUUID)).DoAndReturn(
-		func(_ context.Context, _ string) ([]string, error) {
-			mu.Lock()
-			defer mu.Unlock()
-			return currentCIDRs, nil
-		}).AnyTimes()
-
-	// Helper goroutine to bridge test control channel to watcher notifications
-	go func() {
-		for cidrs := range localEgressCh {
-			mu.Lock()
-			currentCIDRs = cidrs
-			mu.Unlock()
-			select {
-			case notifyCh <- struct{}{}:
-			default:
-			}
-		}
-	}()
 
 	s.crossmodelFirewaller.EXPECT().Close().Return(nil).MinTimes(1)
 
@@ -1743,31 +1720,8 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	s.crossModelRelationService.EXPECT().GetMacaroonForRelation(gomock.Any(), relUUID).Return(mac, nil).MinTimes(1)
 
 	localEgressCh := make(chan []string, 1)
-	notifyCh := make(chan struct{}, 1)
-	remoteEgressWatch := watchertest.NewMockNotifyWatcher(notifyCh)
+	remoteEgressWatch := watchertest.NewMockStringsWatcher(localEgressCh)
 	s.crossModelRelationService.EXPECT().WatchRelationEgressNetworks(gomock.Any(), relUUID).Return(remoteEgressWatch, nil).MinTimes(1)
-
-	var mu sync.Mutex
-	var currentCIDRs []string
-	s.crossModelRelationService.EXPECT().GetRelationNetworkEgress(gomock.Any(), string(relUUID)).DoAndReturn(
-		func(_ context.Context, _ string) ([]string, error) {
-			mu.Lock()
-			defer mu.Unlock()
-			return currentCIDRs, nil
-		}).AnyTimes()
-
-	// Helper goroutine to bridge test control channel to watcher notifications
-	go func() {
-		for cidrs := range localEgressCh {
-			mu.Lock()
-			currentCIDRs = cidrs
-			mu.Unlock()
-			select {
-			case notifyCh <- struct{}{}:
-			default:
-			}
-		}
-	}()
 
 	s.crossmodelFirewaller.EXPECT().Close().Return(nil).MinTimes(1)
 
@@ -1809,7 +1763,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
 		return &params.Error{Code: params.CodeForbidden, Message: "error"}
 	})
-	s.relationService.EXPECT().SetRelationStatus(gomock.Any(), relUUID, relation.Error, "error").DoAndReturn(func(context.Context, relation.UUID, relation.Status, string) error {
+	s.relationService.EXPECT().SetRelationErrorStatus(gomock.Any(), relUUID, "error").DoAndReturn(func(context.Context, relation.UUID, string) error {
 		updated <- true
 		return nil
 	})

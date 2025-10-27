@@ -183,8 +183,8 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	return service.NewWatchableService(
 		controllerState,
 		modelState,
-		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	), modelState
@@ -693,7 +693,6 @@ func (s *watcherSuite) setupLocalOfferRemoteConsumerAndRelation(c *tc.C, db data
 }
 
 func (s *watcherSuite) setupRemoteOffererLocalAndRelation(c *tc.C, db database.TxnRunner, svc *service.WatchableService) corerelation.UUID {
-	// Add remote offerer "foo" with an endpoint "db".
 	err := svc.AddRemoteApplicationOfferer(c.Context(), "foo", service.AddRemoteApplicationOffererArgs{
 		OfferUUID:        tc.Must(c, offer.NewUUID),
 		OffererModelUUID: tc.Must(c, uuid.NewUUID).String(),
@@ -706,14 +705,13 @@ func (s *watcherSuite) setupRemoteOffererLocalAndRelation(c *tc.C, db database.T
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Create a local application with a "db" endpoint.
 	localOfferUUID := tc.Must(c, offer.NewUUID)
 	s.createLocalOfferForConsumer(c, db, localOfferUUID)
 
 	var relUUID corerelation.UUID
-	// Create relation between remote app "foo" and "local-app" on endpoint "db".
+	var localAppUUID, localEP string
 	err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var remoteAppUUID, localAppUUID string
+		var remoteAppUUID string
 		if err := tx.QueryRowContext(ctx, `SELECT uuid FROM application WHERE name = ?`, "foo").Scan(&remoteAppUUID); err != nil {
 			return err
 		}
@@ -721,13 +719,12 @@ func (s *watcherSuite) setupRemoteOffererLocalAndRelation(c *tc.C, db database.T
 			return err
 		}
 
-		// Find endpoint UUIDs for "db".
 		qEP := `
 SELECT ae.uuid
 FROM   application_endpoint ae
 JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
 WHERE  ae.application_uuid = ? AND cr.name = ?`
-		var remoteEP, localEP string
+		var remoteEP string
 		if err := tx.QueryRowContext(ctx, qEP, remoteAppUUID, "db").Scan(&remoteEP); err != nil {
 			return err
 		}
@@ -735,20 +732,17 @@ WHERE  ae.application_uuid = ? AND cr.name = ?`
 			return err
 		}
 
-		// Get global scope id.
 		var globalScopeID int
 		if err := tx.QueryRowContext(ctx, `SELECT id FROM charm_relation_scope WHERE name='global'`).Scan(&globalScopeID); err != nil {
 			return err
 		}
 
 		relUUID = tc.Must(c, corerelation.NewUUID)
-		// Insert relation.
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO relation (uuid, life_id, relation_id, scope_id)
 VALUES (?, 0, 1, ?)`, relUUID.String(), globalScopeID); err != nil {
 			return err
 		}
-		// Insert relation endpoints.
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
 VALUES (?, ?, ?)`, tc.Must(c, uuid.NewUUID).String(), relUUID.String(), remoteEP); err != nil {
@@ -763,12 +757,65 @@ VALUES (?, ?, ?)`, tc.Must(c, uuid.NewUUID).String(), relUUID.String(), localEP)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.createUnitWithAddressForRelation(c, db, localAppUUID, relUUID.String(), localEP)
+
 	return relUUID
+}
+
+func (s *watcherSuite) createUnitWithAddressForRelation(c *tc.C, db database.TxnRunner, appUUID, relationUUID, endpointUUID string) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var charmUUID string
+		if err := tx.QueryRowContext(ctx, `SELECT charm_uuid FROM application WHERE uuid = ?`, appUUID).Scan(&charmUUID); err != nil {
+			return err
+		}
+
+		netNodeUUID := tc.Must(c, uuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO net_node (uuid) VALUES (?)`, netNodeUUID); err != nil {
+			return err
+		}
+
+		unitUUID := tc.Must(c, uuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, net_node_uuid, name, life_id, application_uuid, charm_uuid)
+VALUES (?, ?, 'local-app/0', 0, ?, ?)`, unitUUID, netNodeUUID, appUUID, charmUUID); err != nil {
+			return err
+		}
+
+		var relationEndpointUUID string
+		err := tx.QueryRowContext(ctx, `
+SELECT uuid FROM relation_endpoint WHERE relation_uuid = ? AND endpoint_uuid = ?`, relationUUID, endpointUUID).Scan(&relationEndpointUUID)
+		if err != nil {
+			return err
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
+VALUES (?, ?, ?)`, tc.Must(c, uuid.NewUUID).String(), relationEndpointUUID, unitUUID); err != nil {
+			return err
+		}
+
+		deviceUUID := tc.Must(c, uuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, device_type_id, virtual_port_type_id)
+VALUES (?, ?, 'eth0', 2, 0)`, deviceUUID, netNodeUUID); err != nil {
+			return err
+		}
+
+		ipUUID := tc.Must(c, uuid.NewUUID).String()
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, config_type_id, origin_id, scope_id)
+VALUES (?, ?, ?, '198.51.100.1', 0, 4, 1, 1)`, ipUUID, netNodeUUID, deviceUUID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *watcherSuite) createLocalToLocalRelation(c *tc.C, db database.TxnRunner) {
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		// Create a second local app "local-app-2" with endpoint "db".
 		charmUUID := tc.Must(c, uuid.NewUUID).String()
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, reference_name, architecture_id, revision)
@@ -819,7 +866,6 @@ WHERE  ae.application_uuid = ? AND cr.name = ?`, local1AppUUID, "db").Scan(&ep1)
 			return err
 		}
 
-		// Insert relation between local apps.
 		rUUID := tc.Must(c, uuid.NewUUID).String()
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO relation (uuid, life_id, relation_id, scope_id)
@@ -856,14 +902,11 @@ func (s *watcherSuite) TestWatchRelationIngressNetworks(c *tc.C) {
 	db, err := s.GetWatchableDB(c.Context(), s.modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Set up a remote offerer app and a relation.
 	remoteRelationUUID := s.setupRemoteOffererLocalAndRelation(c, db, svc)
-	// Initial event.
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 	err = svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, saasIngressAllow, []string{"203.0.113.0/24"})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Start the watcher.
 	s.modelIdler.AssertChangeStreamIdle(c)
 	w, err := svc.WatchRelationIngressNetworks(c.Context(), remoteRelationUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -901,7 +944,8 @@ func (s *watcherSuite) TestWatchRelationIngressNetworks(c *tc.C) {
 		w.AssertChange()
 	})
 
-	// Now create a different relation and add ingress networks to it; this should be ignored.
+	// Now create a different relation and add ingress networks to it; this
+	// should be ignored.
 	harness.AddTest(c, func(c *tc.C) {
 		otherRelationUUID := s.createRelation(c, db, svc)
 		err := svc.AddRelationNetworkIngress(c.Context(), otherRelationUUID, saasIngressAllow, []string{"203.0.113.0/24"})
@@ -939,17 +983,135 @@ WHERE relation_uuid = ? AND cidr = ?`, relationUUID.String(), cidr)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *watcherSuite) TestWatchRelationEgressNetworks(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+	svc, _ := s.setupService(c, factory)
+
+	db, err := s.GetWatchableDB(c.Context(), s.modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	remoteRelationUUID := s.setupRemoteOffererLocalAndRelation(c, db, svc)
+
+	s.modelIdler.AssertChangeStreamIdle(c)
+	w, err := svc.WatchRelationEgressNetworks(c.Context(), remoteRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s.modelIdler, watchertest.NewWatcherC(c, w))
+
+	// Adding an egress network should trigger an event with the CIDR.
+	harness.AddTest(c, func(c *tc.C) {
+		s.addEgressNetwork(c, db, remoteRelationUUID, "192.0.2.0/24")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert("192.0.2.0/24"))
+	})
+
+	// Deleting an egress network falls back to unit addresses (converted to
+	// CIDRs).
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteEgressNetwork(c, db, remoteRelationUUID, "192.0.2.0/24")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert("198.51.100.1/32"))
+	})
+
+	// Adding an egress network overrides the unit address fallback.
+	harness.AddTest(c, func(c *tc.C) {
+		s.addEgressNetwork(c, db, remoteRelationUUID, "198.51.100.0/24")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert("198.51.100.0/24"))
+	})
+
+	// Adding multiple egress networks should return all CIDRs.
+	harness.AddTest(c, func(c *tc.C) {
+		s.addEgressNetwork(c, db, remoteRelationUUID, "203.0.113.0/24")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert("198.51.100.0/24", "203.0.113.0/24"))
+	})
+
+	// Changes to a different relation's egress networks should be ignored.
+	harness.AddTest(c, func(c *tc.C) {
+		otherRelationUUID := s.createRelation(c, db, svc)
+		s.addEgressNetwork(c, db, otherRelationUUID, "10.0.0.0/8")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Deleting the last egress network falls back to unit addresses.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteEgressNetwork(c, db, remoteRelationUUID, "198.51.100.0/24")
+		s.deleteEgressNetwork(c, db, remoteRelationUUID, "203.0.113.0/24")
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Falls back to unit address CIDR.
+		w.Check(watchertest.StringSliceAssert("198.51.100.1/32"))
+	})
+
+	// Changes to unrelated model config keys should be ignored.
+	harness.AddTest(c, func(c *tc.C) {
+		s.setModelConfig(c, db, "some-other-key", "some-value")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Initial event should be empty (no egress networks configured initially).
+	harness.Run(c, []string{})
+}
+
+func (s *watcherSuite) TestWatchRelationEgressNetworksEmptyRelationUUID(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+	svc, _ := s.setupService(c, factory)
+
+	_, err := svc.WatchRelationEgressNetworks(c.Context(), "")
+	c.Assert(err, tc.ErrorMatches, "relation uuid cannot be empty")
+}
+
+func (s *watcherSuite) TestWatchRelationEgressNetworksInvalidUUID(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+	svc, _ := s.setupService(c, factory)
+
+	_, err := svc.WatchRelationEgressNetworks(c.Context(), "foo")
+	c.Assert(err, tc.ErrorMatches, "relation uuid \"foo\": not valid")
+}
+
+func (s *watcherSuite) addEgressNetwork(c *tc.C, db database.TxnRunner, relationUUID corerelation.UUID, cidr string) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO relation_network_egress (relation_uuid, cidr)
+VALUES (?, ?)
+ON CONFLICT (relation_uuid, cidr) DO NOTHING`, relationUUID.String(), cidr)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) deleteEgressNetwork(c *tc.C, db database.TxnRunner, relationUUID corerelation.UUID, cidr string) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+DELETE FROM relation_network_egress
+WHERE relation_uuid = ? AND cidr = ?`, relationUUID.String(), cidr)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) setModelConfig(c *tc.C, db database.TxnRunner, key, value string) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_config (key, value)
+VALUES (?, ?)
+ON CONFLICT (key) DO UPDATE SET value = excluded.value`, key, value)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *watcherSuite) createRelation(c *tc.C, db database.TxnRunner, svc *service.WatchableService) corerelation.UUID {
 	var relUUID corerelation.UUID
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		// Get global scope id.
 		var globalScopeID int
 		if err := tx.QueryRowContext(ctx, `SELECT id FROM charm_relation_scope WHERE name='global'`).Scan(&globalScopeID); err != nil {
 			return err
 		}
 
 		relUUID = tc.Must(c, corerelation.NewUUID)
-		// Insert relation.
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO relation (uuid, life_id, relation_id, scope_id)
 VALUES (?, 0, 2, ?)`, relUUID.String(), globalScopeID); err != nil {

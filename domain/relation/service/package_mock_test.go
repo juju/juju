@@ -1340,6 +1340,44 @@ func (c *MockStateSetRelationApplicationAndUnitSettingsCall) DoAndReturn(f func(
 	return c
 }
 
+// SetRelationErrorStatus mocks base method.
+func (m *MockState) SetRelationErrorStatus(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRelationErrorStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRelationErrorStatus indicates an expected call of SetRelationErrorStatus.
+func (mr *MockStateMockRecorder) SetRelationErrorStatus(arg0, arg1, arg2 any) *MockStateSetRelationErrorStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationErrorStatus", reflect.TypeOf((*MockState)(nil).SetRelationErrorStatus), arg0, arg1, arg2)
+	return &MockStateSetRelationErrorStatusCall{Call: call}
+}
+
+// MockStateSetRelationErrorStatusCall wrap *gomock.Call
+type MockStateSetRelationErrorStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetRelationErrorStatusCall) Return(arg0 error) *MockStateSetRelationErrorStatusCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetRelationErrorStatusCall) Do(f func(context.Context, string, string) error) *MockStateSetRelationErrorStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetRelationErrorStatusCall) DoAndReturn(f func(context.Context, string, string) error) *MockStateSetRelationErrorStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetRelationRemoteApplicationAndUnitSettings mocks base method.
 func (m *MockState) SetRelationRemoteApplicationAndUnitSettings(arg0 context.Context, arg1, arg2 string, arg3 map[string]string, arg4 map[string]map[string]string) error {
 	m.ctrl.T.Helper()

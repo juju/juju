@@ -7,12 +7,13 @@ import (
 	"context"
 	"net"
 
-	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/watcher/eventsource"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/network"
+	internalnetwork "github.com/juju/juju/internal/network"
 )
 
 // ModelRelationNetworkState describes retrieval and persistence methods for
@@ -26,9 +27,28 @@ type ModelRelationNetworkState interface {
 	// specified relation.
 	GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error)
 
+	// GetRelationNetworkEgress retrieves all egress network CIDRs for the
+	// specified relation.
+	GetRelationNetworkEgress(ctx context.Context, relationUUID string) ([]string, error)
+
 	// NamespaceForRelationIngressNetworksWatcher returns the namespace of the
 	// relation_network_ingress table, used for the watcher.
 	NamespaceForRelationIngressNetworksWatcher() string
+
+	// NamespacesForRelationEgressNetworksWatcher returns the namespaces of the
+	// tables needed for the relation egress networks watcher.
+	NamespacesForRelationEgressNetworksWatcher() (string, string, string)
+
+	// InitialWatchStatementForRelationEgressNetworks returns the initial query
+	// for watching relation egress networks.
+	InitialWatchStatementForRelationEgressNetworks(relationUUID string) eventsource.NamespaceQuery
+
+	// GetUnitAddressesForRelation returns all unit addresses for units that are
+	// part of the specified relation, grouped by unit UUID.
+	GetUnitAddressesForRelation(ctx context.Context, relationUUID string) (map[string]network.SpaceAddresses, error)
+
+	// GetModelEgressSubnets returns the egress-subnets configuration from model config.
+	GetModelEgressSubnets(ctx context.Context) ([]string, error)
 }
 
 // AddRelationNetworkIngress adds ingress network CIDRs for the specified
@@ -52,13 +72,6 @@ func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID co
 	}
 
 	return nil
-}
-
-// GetRelationNetworkEgress retrieves all egress network CIDRs for the
-// specified relation.
-// The CIDRs are retrieved from the relation_network_egress table.
-func (s *Service) GetRelationNetworkEgress(ctx context.Context, relationUUID string) ([]string, error) {
-	return nil, errors.Errorf("crossmodelrelation.GetRelationNetworkEgress").Add(coreerrors.NotImplemented)
 }
 
 // GetRelationNetworkIngress retrieves all ingress network CIDRs for the
@@ -95,7 +108,7 @@ func (s *Service) validateIngressNetworks(saasIngressAllow []string, networks []
 	}
 	if len(whitelistCIDRs) > 0 {
 		for _, n := range requestedCIDRs {
-			if !network.SubnetInAnyRange(whitelistCIDRs, n) {
+			if !internalnetwork.SubnetInAnyRange(whitelistCIDRs, n) {
 				return errors.Errorf("subnet %v not in firewall whitelist", n).Add(crossmodelrelationerrors.SubnetNotInWhitelist)
 			}
 		}

@@ -284,6 +284,45 @@ func (c *MockCrossModelRelationServiceGetOfferingApplicationTokenCall) DoAndRetu
 	return c
 }
 
+// WatchRelationEgressNetworks mocks base method.
+func (m *MockCrossModelRelationService) WatchRelationEgressNetworks(arg0 context.Context, arg1 relation.UUID) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchRelationEgressNetworks", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchRelationEgressNetworks indicates an expected call of WatchRelationEgressNetworks.
+func (mr *MockCrossModelRelationServiceMockRecorder) WatchRelationEgressNetworks(arg0, arg1 any) *MockCrossModelRelationServiceWatchRelationEgressNetworksCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationEgressNetworks", reflect.TypeOf((*MockCrossModelRelationService)(nil).WatchRelationEgressNetworks), arg0, arg1)
+	return &MockCrossModelRelationServiceWatchRelationEgressNetworksCall{Call: call}
+}
+
+// MockCrossModelRelationServiceWatchRelationEgressNetworksCall wrap *gomock.Call
+type MockCrossModelRelationServiceWatchRelationEgressNetworksCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceWatchRelationEgressNetworksCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockCrossModelRelationServiceWatchRelationEgressNetworksCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceWatchRelationEgressNetworksCall) Do(f func(context.Context, relation.UUID) (watcher.Watcher[[]string], error)) *MockCrossModelRelationServiceWatchRelationEgressNetworksCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceWatchRelationEgressNetworksCall) DoAndReturn(f func(context.Context, relation.UUID) (watcher.Watcher[[]string], error)) *MockCrossModelRelationServiceWatchRelationEgressNetworksCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchRemoteConsumedSecretsChanges mocks base method.
 func (m *MockCrossModelRelationService) WatchRemoteConsumedSecretsChanges(arg0 context.Context, arg1 application.UUID) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()

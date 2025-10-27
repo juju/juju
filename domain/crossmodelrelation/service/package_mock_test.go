@@ -15,6 +15,7 @@ import (
 
 	application "github.com/juju/juju/core/application"
 	model "github.com/juju/juju/core/model"
+	network "github.com/juju/juju/core/network"
 	offer "github.com/juju/juju/core/offer"
 	relation "github.com/juju/juju/core/relation"
 	secrets "github.com/juju/juju/core/secrets"
@@ -618,6 +619,45 @@ func (c *MockModelStateGetMacaroonForRelationCall) DoAndReturn(f func(context.Co
 	return c
 }
 
+// GetModelEgressSubnets mocks base method.
+func (m *MockModelState) GetModelEgressSubnets(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelEgressSubnets", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelEgressSubnets indicates an expected call of GetModelEgressSubnets.
+func (mr *MockModelStateMockRecorder) GetModelEgressSubnets(arg0 any) *MockModelStateGetModelEgressSubnetsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelEgressSubnets", reflect.TypeOf((*MockModelState)(nil).GetModelEgressSubnets), arg0)
+	return &MockModelStateGetModelEgressSubnetsCall{Call: call}
+}
+
+// MockModelStateGetModelEgressSubnetsCall wrap *gomock.Call
+type MockModelStateGetModelEgressSubnetsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetModelEgressSubnetsCall) Return(arg0 []string, arg1 error) *MockModelStateGetModelEgressSubnetsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetModelEgressSubnetsCall) Do(f func(context.Context) ([]string, error)) *MockModelStateGetModelEgressSubnetsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetModelEgressSubnetsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockModelStateGetModelEgressSubnetsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetOfferDetails mocks base method.
 func (m *MockModelState) GetOfferDetails(arg0 context.Context, arg1 crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
 	m.ctrl.T.Helper()
@@ -853,6 +893,45 @@ func (c *MockModelStateGetOfferingApplicationTokenCall) Do(f func(context.Contex
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateGetOfferingApplicationTokenCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelStateGetOfferingApplicationTokenCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRelationNetworkEgress mocks base method.
+func (m *MockModelState) GetRelationNetworkEgress(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationNetworkEgress", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationNetworkEgress indicates an expected call of GetRelationNetworkEgress.
+func (mr *MockModelStateMockRecorder) GetRelationNetworkEgress(arg0, arg1 any) *MockModelStateGetRelationNetworkEgressCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationNetworkEgress", reflect.TypeOf((*MockModelState)(nil).GetRelationNetworkEgress), arg0, arg1)
+	return &MockModelStateGetRelationNetworkEgressCall{Call: call}
+}
+
+// MockModelStateGetRelationNetworkEgressCall wrap *gomock.Call
+type MockModelStateGetRelationNetworkEgressCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetRelationNetworkEgressCall) Return(arg0 []string, arg1 error) *MockModelStateGetRelationNetworkEgressCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetRelationNetworkEgressCall) Do(f func(context.Context, string) ([]string, error)) *MockModelStateGetRelationNetworkEgressCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetRelationNetworkEgressCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelStateGetRelationNetworkEgressCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1176,6 +1255,45 @@ func (c *MockModelStateGetSecretValueCall) DoAndReturn(f func(context.Context, *
 	return c
 }
 
+// GetUnitAddressesForRelation mocks base method.
+func (m *MockModelState) GetUnitAddressesForRelation(arg0 context.Context, arg1 string) (map[string]network.SpaceAddresses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitAddressesForRelation", arg0, arg1)
+	ret0, _ := ret[0].(map[string]network.SpaceAddresses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitAddressesForRelation indicates an expected call of GetUnitAddressesForRelation.
+func (mr *MockModelStateMockRecorder) GetUnitAddressesForRelation(arg0, arg1 any) *MockModelStateGetUnitAddressesForRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAddressesForRelation", reflect.TypeOf((*MockModelState)(nil).GetUnitAddressesForRelation), arg0, arg1)
+	return &MockModelStateGetUnitAddressesForRelationCall{Call: call}
+}
+
+// MockModelStateGetUnitAddressesForRelationCall wrap *gomock.Call
+type MockModelStateGetUnitAddressesForRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetUnitAddressesForRelationCall) Return(arg0 map[string]network.SpaceAddresses, arg1 error) *MockModelStateGetUnitAddressesForRelationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetUnitAddressesForRelationCall) Do(f func(context.Context, string) (map[string]network.SpaceAddresses, error)) *MockModelStateGetUnitAddressesForRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetUnitAddressesForRelationCall) DoAndReturn(f func(context.Context, string) (map[string]network.SpaceAddresses, error)) *MockModelStateGetUnitAddressesForRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatementForConsumerRelations mocks base method.
 func (m *MockModelState) InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
@@ -1250,6 +1368,44 @@ func (c *MockModelStateInitialWatchStatementForOffererRelationsCall) Do(f func()
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateInitialWatchStatementForOffererRelationsCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockModelStateInitialWatchStatementForOffererRelationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementForRelationEgressNetworks mocks base method.
+func (m *MockModelState) InitialWatchStatementForRelationEgressNetworks(arg0 string) eventsource.NamespaceQuery {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementForRelationEgressNetworks", arg0)
+	ret0, _ := ret[0].(eventsource.NamespaceQuery)
+	return ret0
+}
+
+// InitialWatchStatementForRelationEgressNetworks indicates an expected call of InitialWatchStatementForRelationEgressNetworks.
+func (mr *MockModelStateMockRecorder) InitialWatchStatementForRelationEgressNetworks(arg0 any) *MockModelStateInitialWatchStatementForRelationEgressNetworksCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForRelationEgressNetworks", reflect.TypeOf((*MockModelState)(nil).InitialWatchStatementForRelationEgressNetworks), arg0)
+	return &MockModelStateInitialWatchStatementForRelationEgressNetworksCall{Call: call}
+}
+
+// MockModelStateInitialWatchStatementForRelationEgressNetworksCall wrap *gomock.Call
+type MockModelStateInitialWatchStatementForRelationEgressNetworksCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateInitialWatchStatementForRelationEgressNetworksCall) Return(arg0 eventsource.NamespaceQuery) *MockModelStateInitialWatchStatementForRelationEgressNetworksCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateInitialWatchStatementForRelationEgressNetworksCall) Do(f func(string) eventsource.NamespaceQuery) *MockModelStateInitialWatchStatementForRelationEgressNetworksCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateInitialWatchStatementForRelationEgressNetworksCall) DoAndReturn(f func(string) eventsource.NamespaceQuery) *MockModelStateInitialWatchStatementForRelationEgressNetworksCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1519,6 +1675,46 @@ func (c *MockModelStateNamespaceRemoteConsumerRelationsCall) Do(f func() string)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateNamespaceRemoteConsumerRelationsCall) DoAndReturn(f func() string) *MockModelStateNamespaceRemoteConsumerRelationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespacesForRelationEgressNetworksWatcher mocks base method.
+func (m *MockModelState) NamespacesForRelationEgressNetworksWatcher() (string, string, string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespacesForRelationEgressNetworksWatcher")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(string)
+	return ret0, ret1, ret2
+}
+
+// NamespacesForRelationEgressNetworksWatcher indicates an expected call of NamespacesForRelationEgressNetworksWatcher.
+func (mr *MockModelStateMockRecorder) NamespacesForRelationEgressNetworksWatcher() *MockModelStateNamespacesForRelationEgressNetworksWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespacesForRelationEgressNetworksWatcher", reflect.TypeOf((*MockModelState)(nil).NamespacesForRelationEgressNetworksWatcher))
+	return &MockModelStateNamespacesForRelationEgressNetworksWatcherCall{Call: call}
+}
+
+// MockModelStateNamespacesForRelationEgressNetworksWatcherCall wrap *gomock.Call
+type MockModelStateNamespacesForRelationEgressNetworksWatcherCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateNamespacesForRelationEgressNetworksWatcherCall) Return(arg0, arg1, arg2 string) *MockModelStateNamespacesForRelationEgressNetworksWatcherCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateNamespacesForRelationEgressNetworksWatcherCall) Do(f func() (string, string, string)) *MockModelStateNamespacesForRelationEgressNetworksWatcherCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateNamespacesForRelationEgressNetworksWatcherCall) DoAndReturn(f func() (string, string, string)) *MockModelStateNamespacesForRelationEgressNetworksWatcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1797,6 +1993,84 @@ func (c *MockModelRelationNetworkStateAddRelationNetworkIngressCall) DoAndReturn
 	return c
 }
 
+// GetModelEgressSubnets mocks base method.
+func (m *MockModelRelationNetworkState) GetModelEgressSubnets(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelEgressSubnets", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelEgressSubnets indicates an expected call of GetModelEgressSubnets.
+func (mr *MockModelRelationNetworkStateMockRecorder) GetModelEgressSubnets(arg0 any) *MockModelRelationNetworkStateGetModelEgressSubnetsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelEgressSubnets", reflect.TypeOf((*MockModelRelationNetworkState)(nil).GetModelEgressSubnets), arg0)
+	return &MockModelRelationNetworkStateGetModelEgressSubnetsCall{Call: call}
+}
+
+// MockModelRelationNetworkStateGetModelEgressSubnetsCall wrap *gomock.Call
+type MockModelRelationNetworkStateGetModelEgressSubnetsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelRelationNetworkStateGetModelEgressSubnetsCall) Return(arg0 []string, arg1 error) *MockModelRelationNetworkStateGetModelEgressSubnetsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelRelationNetworkStateGetModelEgressSubnetsCall) Do(f func(context.Context) ([]string, error)) *MockModelRelationNetworkStateGetModelEgressSubnetsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelRelationNetworkStateGetModelEgressSubnetsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockModelRelationNetworkStateGetModelEgressSubnetsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRelationNetworkEgress mocks base method.
+func (m *MockModelRelationNetworkState) GetRelationNetworkEgress(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationNetworkEgress", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationNetworkEgress indicates an expected call of GetRelationNetworkEgress.
+func (mr *MockModelRelationNetworkStateMockRecorder) GetRelationNetworkEgress(arg0, arg1 any) *MockModelRelationNetworkStateGetRelationNetworkEgressCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationNetworkEgress", reflect.TypeOf((*MockModelRelationNetworkState)(nil).GetRelationNetworkEgress), arg0, arg1)
+	return &MockModelRelationNetworkStateGetRelationNetworkEgressCall{Call: call}
+}
+
+// MockModelRelationNetworkStateGetRelationNetworkEgressCall wrap *gomock.Call
+type MockModelRelationNetworkStateGetRelationNetworkEgressCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelRelationNetworkStateGetRelationNetworkEgressCall) Return(arg0 []string, arg1 error) *MockModelRelationNetworkStateGetRelationNetworkEgressCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelRelationNetworkStateGetRelationNetworkEgressCall) Do(f func(context.Context, string) ([]string, error)) *MockModelRelationNetworkStateGetRelationNetworkEgressCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelRelationNetworkStateGetRelationNetworkEgressCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelRelationNetworkStateGetRelationNetworkEgressCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationNetworkIngress mocks base method.
 func (m *MockModelRelationNetworkState) GetRelationNetworkIngress(arg0 context.Context, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -1836,6 +2110,83 @@ func (c *MockModelRelationNetworkStateGetRelationNetworkIngressCall) DoAndReturn
 	return c
 }
 
+// GetUnitAddressesForRelation mocks base method.
+func (m *MockModelRelationNetworkState) GetUnitAddressesForRelation(arg0 context.Context, arg1 string) (map[string]network.SpaceAddresses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitAddressesForRelation", arg0, arg1)
+	ret0, _ := ret[0].(map[string]network.SpaceAddresses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitAddressesForRelation indicates an expected call of GetUnitAddressesForRelation.
+func (mr *MockModelRelationNetworkStateMockRecorder) GetUnitAddressesForRelation(arg0, arg1 any) *MockModelRelationNetworkStateGetUnitAddressesForRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAddressesForRelation", reflect.TypeOf((*MockModelRelationNetworkState)(nil).GetUnitAddressesForRelation), arg0, arg1)
+	return &MockModelRelationNetworkStateGetUnitAddressesForRelationCall{Call: call}
+}
+
+// MockModelRelationNetworkStateGetUnitAddressesForRelationCall wrap *gomock.Call
+type MockModelRelationNetworkStateGetUnitAddressesForRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelRelationNetworkStateGetUnitAddressesForRelationCall) Return(arg0 map[string]network.SpaceAddresses, arg1 error) *MockModelRelationNetworkStateGetUnitAddressesForRelationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelRelationNetworkStateGetUnitAddressesForRelationCall) Do(f func(context.Context, string) (map[string]network.SpaceAddresses, error)) *MockModelRelationNetworkStateGetUnitAddressesForRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelRelationNetworkStateGetUnitAddressesForRelationCall) DoAndReturn(f func(context.Context, string) (map[string]network.SpaceAddresses, error)) *MockModelRelationNetworkStateGetUnitAddressesForRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementForRelationEgressNetworks mocks base method.
+func (m *MockModelRelationNetworkState) InitialWatchStatementForRelationEgressNetworks(arg0 string) eventsource.NamespaceQuery {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementForRelationEgressNetworks", arg0)
+	ret0, _ := ret[0].(eventsource.NamespaceQuery)
+	return ret0
+}
+
+// InitialWatchStatementForRelationEgressNetworks indicates an expected call of InitialWatchStatementForRelationEgressNetworks.
+func (mr *MockModelRelationNetworkStateMockRecorder) InitialWatchStatementForRelationEgressNetworks(arg0 any) *MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetworksCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForRelationEgressNetworks", reflect.TypeOf((*MockModelRelationNetworkState)(nil).InitialWatchStatementForRelationEgressNetworks), arg0)
+	return &MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetworksCall{Call: call}
+}
+
+// MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetworksCall wrap *gomock.Call
+type MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetworksCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetworksCall) Return(arg0 eventsource.NamespaceQuery) *MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetworksCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetworksCall) Do(f func(string) eventsource.NamespaceQuery) *MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetworksCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetworksCall) DoAndReturn(f func(string) eventsource.NamespaceQuery) *MockModelRelationNetworkStateInitialWatchStatementForRelationEgressNetworksCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceForRelationIngressNetworksWatcher mocks base method.
 func (m *MockModelRelationNetworkState) NamespaceForRelationIngressNetworksWatcher() string {
 	m.ctrl.T.Helper()
@@ -1870,6 +2221,46 @@ func (c *MockModelRelationNetworkStateNamespaceForRelationIngressNetworksWatcher
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelRelationNetworkStateNamespaceForRelationIngressNetworksWatcherCall) DoAndReturn(f func() string) *MockModelRelationNetworkStateNamespaceForRelationIngressNetworksWatcherCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespacesForRelationEgressNetworksWatcher mocks base method.
+func (m *MockModelRelationNetworkState) NamespacesForRelationEgressNetworksWatcher() (string, string, string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespacesForRelationEgressNetworksWatcher")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(string)
+	return ret0, ret1, ret2
+}
+
+// NamespacesForRelationEgressNetworksWatcher indicates an expected call of NamespacesForRelationEgressNetworksWatcher.
+func (mr *MockModelRelationNetworkStateMockRecorder) NamespacesForRelationEgressNetworksWatcher() *MockModelRelationNetworkStateNamespacesForRelationEgressNetworksWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespacesForRelationEgressNetworksWatcher", reflect.TypeOf((*MockModelRelationNetworkState)(nil).NamespacesForRelationEgressNetworksWatcher))
+	return &MockModelRelationNetworkStateNamespacesForRelationEgressNetworksWatcherCall{Call: call}
+}
+
+// MockModelRelationNetworkStateNamespacesForRelationEgressNetworksWatcherCall wrap *gomock.Call
+type MockModelRelationNetworkStateNamespacesForRelationEgressNetworksWatcherCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelRelationNetworkStateNamespacesForRelationEgressNetworksWatcherCall) Return(arg0, arg1, arg2 string) *MockModelRelationNetworkStateNamespacesForRelationEgressNetworksWatcherCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelRelationNetworkStateNamespacesForRelationEgressNetworksWatcherCall) Do(f func() (string, string, string)) *MockModelRelationNetworkStateNamespacesForRelationEgressNetworksWatcherCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelRelationNetworkStateNamespacesForRelationEgressNetworksWatcherCall) DoAndReturn(f func() (string, string, string)) *MockModelRelationNetworkStateNamespacesForRelationEgressNetworksWatcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

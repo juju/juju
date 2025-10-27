@@ -105,6 +105,9 @@ type ApplicationService interface {
 type ControllerConfigAPI interface {
 	// ControllerConfig returns the controller's configuration.
 	ControllerConfig(context.Context) (params.ControllerConfigResult, error)
+
+	// ControllerAPIInfoForModels returns the controller api connection details for the specified models.
+	ControllerAPIInfoForModels(context.Context, params.Entities) (params.ControllerAPIInfoResults, error)
 }
 
 // ModelInfoService provides access to the model services.
