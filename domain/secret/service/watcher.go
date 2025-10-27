@@ -153,20 +153,13 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 
-	tableSecrets, querySecrets := s.secretState.InitialWatchStatementForOwnedSecrets(appOwners, unitOwners)
 	tableObsoleteRevisions, queryObsoleteRevisions := s.secretState.InitialWatchStatementForObsoleteRevision(
 		appOwners, unitOwners,
 	)
+	tableSecrets := "secret_metadata"
 
 	initialQuery := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		var initials []string
-		// Get the initial secret changes.
-		secretChanges, err := querySecrets(ctx, runner)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		initials = append(initials, secretChanges...)
-
 		// Get the initial obsolete revision changes.
 		obsoleteRevisionChanges, err := queryObsoleteRevisions(ctx, runner)
 		if err != nil {
@@ -339,19 +332,20 @@ func (s *WatchableService) WatchDeleted(ctx context.Context, owners ...CharmSecr
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 
-	tableSecrets, querySecrets := s.secretState.InitialWatchStatementForOwnedSecrets(appOwners, unitOwners)
-
+	// There are initially no deleted secrets - the watcher emits events for secrets
+	// deleted from this point on.
 	initialQuery := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
-		var initials []string
-		// Get the initial owned secrets.
-		secretChanges, err := querySecrets(ctx, runner)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		initials = append(initials, secretChanges...)
-		return initials, nil
+		return nil, nil
 	}
 
+	// Gather the secrets currently known to the owners so any future
+	// deletions can be attributed.
+	initialOwnedSecretIDs, err := s.secretState.GetOwnedSecretIDs(ctx, appOwners, unitOwners)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	tableSecrets := "secret_metadata"
 	secretRevisionChangesNamespace := "custom_deleted_secret_revision_by_id"
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
@@ -361,6 +355,7 @@ func (s *WatchableService) WatchDeleted(ctx context.Context, owners ...CharmSecr
 		deletedWatcherMapperFunc(
 			s.logger,
 			s.secretState,
+			initialOwnedSecretIDs,
 			appOwners, unitOwners,
 			tableSecrets,
 			secretRevisionChangesNamespace,
@@ -373,6 +368,7 @@ func (s *WatchableService) WatchDeleted(ctx context.Context, owners ...CharmSecr
 func deletedWatcherMapperFunc(
 	logger logger.Logger,
 	state State,
+	initialOwnedSecretIDs []string,
 	appOwners secret.ApplicationOwners,
 	unitOwners secret.UnitOwners,
 	tableSecrets, secretRevisionChangesNamespace string,
@@ -381,7 +377,7 @@ func deletedWatcherMapperFunc(
 	// Tracking this set allows us to identify if a deletion event corresponds to a previously owned secret.
 	// When a deletion event is received, the secret data is no longer available in the database,
 	// so we cannot query the database to determine if the secret was previously owned.
-	knownSecretURIs := set.NewStrings()
+	knownSecretURIs := set.NewStrings(initialOwnedSecretIDs...)
 
 	mergeSecretChange := func(
 		currentChanges []changestream.ChangeEvent,
@@ -464,7 +460,7 @@ func deletedWatcherMapperFunc(
 		currentOwnedSecretIDs = set.NewStrings(ownedSecretIDs...)
 
 		// The source watcher may emit events from secret_metadata
-		// and secret_revision_obsolete tables.
+		// and custom_deleted_secret_revision_by_id namespaces.
 		for _, change := range changes {
 			switch change.Namespace() {
 			case tableSecrets:

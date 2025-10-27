@@ -1750,45 +1750,6 @@ func (c *MockStateInitialWatchStatementForObsoleteRevisionCall) DoAndReturn(f fu
 	return c
 }
 
-// InitialWatchStatementForOwnedSecrets mocks base method.
-func (m *MockState) InitialWatchStatementForOwnedSecrets(arg0 secret.ApplicationOwners, arg1 secret.UnitOwners) (string, eventsource.NamespaceQuery) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitialWatchStatementForOwnedSecrets", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(eventsource.NamespaceQuery)
-	return ret0, ret1
-}
-
-// InitialWatchStatementForOwnedSecrets indicates an expected call of InitialWatchStatementForOwnedSecrets.
-func (mr *MockStateMockRecorder) InitialWatchStatementForOwnedSecrets(arg0, arg1 any) *MockStateInitialWatchStatementForOwnedSecretsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForOwnedSecrets", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForOwnedSecrets), arg0, arg1)
-	return &MockStateInitialWatchStatementForOwnedSecretsCall{Call: call}
-}
-
-// MockStateInitialWatchStatementForOwnedSecretsCall wrap *gomock.Call
-type MockStateInitialWatchStatementForOwnedSecretsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateInitialWatchStatementForOwnedSecretsCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementForOwnedSecretsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementForOwnedSecretsCall) Do(f func(secret.ApplicationOwners, secret.UnitOwners) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForOwnedSecretsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementForOwnedSecretsCall) DoAndReturn(f func(secret.ApplicationOwners, secret.UnitOwners) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForOwnedSecretsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // InitialWatchStatementForSecretsRevisionExpiryChanges mocks base method.
 func (m *MockState) InitialWatchStatementForSecretsRevisionExpiryChanges(arg0 secret.ApplicationOwners, arg1 secret.UnitOwners) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()

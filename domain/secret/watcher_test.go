@@ -71,6 +71,15 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	uri3 := coresecrets.NewURI()
 	uri4 := coresecrets.NewURI()
 
+	// Create an initial secret to ensure it is not picked up
+	// when the watcher is created.
+	sp := secret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
 	w, err := svc.WatchObsolete(ctx,
 		service.CharmSecretOwner{
 			Kind: service.ApplicationOwner,
@@ -96,12 +105,6 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(c, func(c *tc.C) {
-		sp := secret.UpsertSecretParams{
-			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
-		}
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
-		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
@@ -352,6 +355,15 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 	uri2 := coresecrets.NewURI()
 	uri3 := coresecrets.NewURI()
 
+	// Create an initial secret to ensure it is not picked up
+	// when the watcher is created.
+	sp := secret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
 	w, err := svc.WatchDeleted(ctx,
 		service.CharmSecretOwner{
 			Kind: service.ApplicationOwner,
@@ -364,13 +376,6 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(c, func(c *tc.C) {
-		sp := secret.UpsertSecretParams{
-			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
-		}
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
-		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, tc.ErrorIsNil)
-
 		// Create another app owned secret with an extra revision.
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmApplicationSecret(ctx, st, 1, uri2, "mysql", sp)

@@ -1015,29 +1015,6 @@ ON CONFLICT(revision_uuid, name) DO UPDATE SET
 	return nil
 }
 
-// InitialWatchStatementForOwnedSecrets returns the table name and query to use
-// for watching changes of secrets owned by the specified apps and/or units.
-func (st State) InitialWatchStatementForOwnedSecrets(
-	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-) (string, eventsource.NamespaceQuery) {
-	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
-		var dbSecrets secretIDs
-		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
-			dbSecrets, err = st.getSecretsForOwners(ctx, tx, appOwners, unitOwners)
-			return errors.Capture(err)
-		})
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		var ids []string
-		for _, secret := range dbSecrets {
-			ids = append(ids, secret.ID)
-		}
-		return ids, nil
-	}
-	return "secret_metadata", queryFunc
-}
-
 // GetOwnedSecretIDs returns a slice of the secret ID owned by the specified apps and/or units.
 func (st State) GetOwnedSecretIDs(
 	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,

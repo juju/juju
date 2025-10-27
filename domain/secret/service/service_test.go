@@ -2125,6 +2125,7 @@ func (s *serviceSuite) TestWatchObsoleteMapperSendRemovedURIs(c *tc.C) {
 	mapper := deletedWatcherMapperFunc(
 		loggertesting.WrapCheckLog(c),
 		s.state,
+		[]string{removedOwnedURI1.ID, removedOwnedURI2.ID},
 		appOwners, unitOwners,
 		"secret_metadata", "custom_deleted_secret_revision_by_id",
 	)
@@ -2189,10 +2190,6 @@ func (s *serviceSuite) TestWatchObsolete(c *tc.C) {
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
 	).Return("secret_revision_obsolete", namespaceQuery)
-	s.state.EXPECT().InitialWatchStatementForOwnedSecrets(
-		domainsecret.ApplicationOwners([]string{"mysql"}),
-		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return("secret_metadata", namespaceQuery)
 
 	svc := NewWatchableService(
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
