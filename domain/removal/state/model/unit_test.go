@@ -912,7 +912,7 @@ func (s *unitSuite) TestDeleteCharmIfUnusedAfterUnitDeletion(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.DeleteCharmIfUnused(c.Context(), charmUUID, false)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: The unit is deleted and the charm is also deleted as it is unused.
@@ -940,7 +940,7 @@ func (s *unitSuite) TestDeleteCharmIfUnusedBeforeUnitDeletion(c *tc.C) {
 
 	// Act: Delete the charm, the unit and the application.
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.DeleteCharmIfUnused(c.Context(), charmUUID, false)
+	err := st.DeleteCharmIfUnused(c.Context(), charmUUID)
 
 	// Assert: The charm deletion shouldn't fail as it's still referenced.
 	// And the charm shouldn't be deleted.

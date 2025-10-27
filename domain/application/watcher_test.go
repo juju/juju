@@ -133,7 +133,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		err = removalSt.DeleteApplication(c.Context(), appID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
-		err = removalSt.DeleteCharmIfUnused(c.Context(), id.String(), true)
+		err = removalSt.DeleteCharmIfUnused(c.Context(), id.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(

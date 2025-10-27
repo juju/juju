@@ -228,7 +228,8 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c 
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any(), true).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -244,7 +245,8 @@ func (s *applicationSuite) TestDeleteCharmForApplicationFails(c *tc.C) {
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any(), true).Return(errors.Errorf("the charm is still in use"))
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(errors.Errorf("the charm is still in use"))
+	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)

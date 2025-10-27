@@ -466,7 +466,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 	// Now we can delete the application.
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.DeleteCharmIfUnused(c.Context(), charmUUID, true)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The application should be gone.
@@ -539,7 +539,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C
 	// Now we can delete the application.
 	err = st.DeleteApplication(c.Context(), appUUID1.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.DeleteCharmIfUnused(c.Context(), charmUUID1, true)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID1)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkCharmsCount(c, 1)
@@ -548,7 +548,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C
 	// well.
 	err = st.DeleteApplication(c.Context(), appUUID2.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.DeleteCharmIfUnused(c.Context(), charmUUID2, true)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkNoCharmsExist(c)
@@ -573,7 +573,7 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.DeleteCharmIfUnused(c.Context(), charmUUID, true)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The application should be gone.
@@ -736,11 +736,17 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`, "1", charmUUID, "buzz", 1, 0, 0, time.Now())
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteOrphanedResources(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: The application is deleted
 	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.IsFalse)
+
+	s.checkNoCharmsExist(c)
 }
 
 func (s *applicationSuite) TestDeleteCharmIfUnsedAfterApplicationDeletion(c *tc.C) {
@@ -754,7 +760,7 @@ func (s *applicationSuite) TestDeleteCharmIfUnsedAfterApplicationDeletion(c *tc.
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.DeleteCharmIfUnused(c.Context(), charmUUID, true)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: The application is deleted and the charm is deleted
@@ -773,7 +779,7 @@ func (s *applicationSuite) TestDeleteCharmIfUnsedBeforeApplicationDeletion(c *tc
 
 	// Act: Delete the charm before deleting the application.
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.DeleteCharmIfUnused(c.Context(), charmUUID, true)
+	err := st.DeleteCharmIfUnused(c.Context(), charmUUID)
 
 	// Assert: delete charm shouldn't return an error because the reference count
 	// is 1 (the application).
@@ -810,7 +816,7 @@ func (s *applicationSuite) TestDeleteCharmReturnConstraintError(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.DeleteCharmIfUnused(c.Context(), charmUUID, false)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
 
 	// Assert: delete charm should return a ConstraintError.
 	c.Assert(err, tc.ErrorMatches, ".*FOREIGN KEY constraint failed.*")

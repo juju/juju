@@ -167,7 +167,7 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnit(c *tc.C) {
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any(), false).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
@@ -191,7 +191,7 @@ func (s *unitSuite) TestExecuteJobWithForceForUnitDyingDeleteUnit(c *tc.C) {
 	exp.LeaveScope(gomock.Any(), ruUUID).Return(nil)
 	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any(), false).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
@@ -226,7 +226,7 @@ func (s *unitSuite) TestDeleteCharmForUnitFails(c *tc.C) {
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any(), false).Return(errors.Errorf("the charm is still in use"))
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(errors.Errorf("the charm is still in use"))
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
@@ -257,7 +257,7 @@ func (s *unitSuite) TestExecuteJobForUnitRevokingUnitError(c *tc.C) {
 	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any(), false).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(errors.Errorf("the front fell off"))
@@ -277,7 +277,7 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnitClaimNotHeld(c *tc.C) {
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any(), false).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(leadership.ErrClaimNotHeld)

@@ -51,7 +51,11 @@ type ApplicationState interface {
 
 	// DeleteCharmIfUnused deletes the charm with the input UUID if it is not
 	// used by any other application/unit.
-	DeleteCharmIfUnused(ctx context.Context, charmUUID string, applicationDeletion bool) error
+	DeleteCharmIfUnused(ctx context.Context, charmUUID string) error
+
+	// DeleteOrphanedResources deletes any resources associated with the input
+	// charm UUID that are no longer referenced by any application.
+	DeleteOrphanedResources(ctx context.Context, charmUUID string) error
 
 	// GetChamrForApplication returns the charm UUID for the application with
 	// the input application UUID.
@@ -202,8 +206,14 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 		return errors.Errorf("deleting application %q: %w", job.EntityUUID, err)
 	}
 
+	// Try to delete any orphaned resources associated with the charm.
+	if err := s.modelState.DeleteOrphanedResources(ctx, charmUUID); err != nil {
+		// Log the error but do not fail the removal job.
+		s.logger.Warningf(ctx, "deleting orphaned resources for application %q: %v", job.EntityUUID, err)
+	}
+
 	// Try to delete the charm if it is unused.
-	if err := s.modelState.DeleteCharmIfUnused(ctx, charmUUID, true); err != nil {
+	if err := s.modelState.DeleteCharmIfUnused(ctx, charmUUID); err != nil {
 		// Log the error but do not fail the removal job.
 		s.logger.Warningf(ctx, "deleting charm for application %q: %v", job.EntityUUID, err)
 	}

@@ -452,17 +452,17 @@ func (c *MockModelDBStateDeleteApplicationCall) DoAndReturn(f func(context.Conte
 }
 
 // DeleteCharmIfUnused mocks base method.
-func (m *MockModelDBState) DeleteCharmIfUnused(arg0 context.Context, arg1 string, arg2 bool) error {
+func (m *MockModelDBState) DeleteCharmIfUnused(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteCharmIfUnused", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DeleteCharmIfUnused", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteCharmIfUnused indicates an expected call of DeleteCharmIfUnused.
-func (mr *MockModelDBStateMockRecorder) DeleteCharmIfUnused(arg0, arg1, arg2 any) *MockModelDBStateDeleteCharmIfUnusedCall {
+func (mr *MockModelDBStateMockRecorder) DeleteCharmIfUnused(arg0, arg1 any) *MockModelDBStateDeleteCharmIfUnusedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCharmIfUnused", reflect.TypeOf((*MockModelDBState)(nil).DeleteCharmIfUnused), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCharmIfUnused", reflect.TypeOf((*MockModelDBState)(nil).DeleteCharmIfUnused), arg0, arg1)
 	return &MockModelDBStateDeleteCharmIfUnusedCall{Call: call}
 }
 
@@ -478,13 +478,13 @@ func (c *MockModelDBStateDeleteCharmIfUnusedCall) Return(arg0 error) *MockModelD
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateDeleteCharmIfUnusedCall) Do(f func(context.Context, string, bool) error) *MockModelDBStateDeleteCharmIfUnusedCall {
+func (c *MockModelDBStateDeleteCharmIfUnusedCall) Do(f func(context.Context, string) error) *MockModelDBStateDeleteCharmIfUnusedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateDeleteCharmIfUnusedCall) DoAndReturn(f func(context.Context, string, bool) error) *MockModelDBStateDeleteCharmIfUnusedCall {
+func (c *MockModelDBStateDeleteCharmIfUnusedCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteCharmIfUnusedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -675,6 +675,44 @@ func (c *MockModelDBStateDeleteOfferCall) Do(f func(context.Context, string, boo
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateDeleteOfferCall) DoAndReturn(f func(context.Context, string, bool) error) *MockModelDBStateDeleteOfferCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteOrphanedResources mocks base method.
+func (m *MockModelDBState) DeleteOrphanedResources(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteOrphanedResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteOrphanedResources indicates an expected call of DeleteOrphanedResources.
+func (mr *MockModelDBStateMockRecorder) DeleteOrphanedResources(arg0, arg1 any) *MockModelDBStateDeleteOrphanedResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOrphanedResources", reflect.TypeOf((*MockModelDBState)(nil).DeleteOrphanedResources), arg0, arg1)
+	return &MockModelDBStateDeleteOrphanedResourcesCall{Call: call}
+}
+
+// MockModelDBStateDeleteOrphanedResourcesCall wrap *gomock.Call
+type MockModelDBStateDeleteOrphanedResourcesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateDeleteOrphanedResourcesCall) Return(arg0 error) *MockModelDBStateDeleteOrphanedResourcesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateDeleteOrphanedResourcesCall) Do(f func(context.Context, string) error) *MockModelDBStateDeleteOrphanedResourcesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateDeleteOrphanedResourcesCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteOrphanedResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

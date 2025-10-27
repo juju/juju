@@ -332,20 +332,25 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 
 // DeleteCharmIfUnused deletes the charm with the input UUID if it is not used
 // by any application or unit.
-// If applicationDeletion is true we also delete dangling resources.
-func (st *State) DeleteCharmIfUnused(ctx context.Context, charmUUID string, applicationDeletion bool) error {
+func (st *State) DeleteCharmIfUnused(ctx context.Context, charmUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if applicationDeletion {
-			err := st.deleteDanglingResources(ctx, tx, charmUUID)
-			if err != nil {
-				return errors.Errorf("deleting dangling resources: %w", err)
-			}
-		}
 		return st.deleteCharmIfUnusedByUUID(ctx, tx, charmUUID)
+	}))
+}
+
+// DeleteOrphanedResources deletes any resources associated with the input
+// charm UUID that are no longer referenced by any application.
+func (st *State) DeleteOrphanedResources(ctx context.Context, charmUUID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.deleteOrphanedResources(ctx, tx, charmUUID)
 	}))
 }
 
@@ -486,14 +491,9 @@ WHERE application_uuid = $entityUUID.uuid
 	return nil
 }
 
-// deleteDanglingResources deletes resources that are associated to a charm_uuid,
+// deleteOrphanedResources deletes resources that are associated to a charm_uuid,
 // and are not associated with any application_resource.
-// This is safe to do because each application has its own charm_uuid, so during
-// application deletion, we can delete any resources associated to the application's
-// charm_uuid.
-// This is needed because when a resource is attached to an application, it replaces the
-// entry in application_resource, but the resource itself is not deleted.
-func (st *State) deleteDanglingResources(ctx context.Context, tx *sqlair.TX, charmUUID string) error {
+func (st *State) deleteOrphanedResources(ctx context.Context, tx *sqlair.TX, charmUUID string) error {
 	// If the charm UUID is empty, we can skip the deletion.
 	if charmUUID == "" {
 		return nil
