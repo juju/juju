@@ -98,40 +98,6 @@ WHERE  uuid = $uuid.uuid`, uuid{})
 	return errors.Capture(err)
 }
 
-// UpdateOffer updates the endpoints of the given offer.
-func (st *State) UpdateOffer(
-	ctx context.Context,
-	offerName string,
-	offerEndpoints []string,
-) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		offerUUID, applicationUUID, err := st.getOfferAndApplicationUUID(ctx, tx, offerName)
-		if err != nil {
-			return err
-		}
-
-		// Delete all the current offer endpoints and create new ones.
-		// TODO (cmr) verify that the endpoint is not in use as a
-		// relation before making updates.
-
-		if err = st.deleteOfferEndpoints(ctx, tx, offerUUID); err != nil {
-			return errors.Errorf("offer %q: %w", offerName, err)
-		}
-
-		if err = st.createOfferEndpoints(ctx, tx, offerUUID, applicationUUID, offerEndpoints); err != nil {
-			return errors.Errorf("offer %q: %w", offerName, err)
-		}
-		return nil
-	})
-
-	return errors.Capture(err)
-}
-
 // GetOfferUUIDByRelationUUID returns the offer UUID corresponding to
 // the cross model relation UUID, returning an error satisfying
 // [crossmodelrelationerrors.OfferNotFound] if the relation is not found.

@@ -35,11 +35,11 @@ func (s *offerServiceSuite) TestOfferCreate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	// Expect to call CreateOffer by receiving OfferNotFound from UpdateOffer.
-	s.modelState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
-
+	// Expect to call CreateOffer by receiving OfferNotFound from GetOfferUUID.
 	applicationName := "test-application"
 	offerName := "test-offer"
+	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerName).Return("", crossmodelrelationerrors.OfferNotFound)
+
 	ownerName := usertesting.GenNewName(c, "admin")
 	ownerUUID := uuid.MustNewUUID()
 	s.controllerState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
@@ -73,11 +73,11 @@ func (s *offerServiceSuite) TestOfferCreateAccessErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	// Expect to call CreateOffer by receiving OfferNotFound from UpdateOffer.
-	s.modelState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
-
+	// Expect to call CreateOffer by receiving OfferNotFound from GetOfferUUID.
 	applicationName := "test-application"
 	offerName := "test-offer"
+	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerName).Return("", crossmodelrelationerrors.OfferNotFound)
+
 	ownerName := usertesting.GenNewName(c, "admin")
 	ownerUUID := uuid.MustNewUUID()
 	s.controllerState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
@@ -113,12 +113,11 @@ func (s *offerServiceSuite) TestOfferCreateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-
-	// Expect to call CreateOffer by receiving OfferNotFound from UpdateOffer.
-	s.modelState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
-
+	// Expect to call CreateOffer by receiving OfferNotFound from GetOfferUUID.
 	applicationName := "test-application"
 	offerName := "test-offer"
+	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerName).Return("", crossmodelrelationerrors.OfferNotFound)
+
 	ownerName := usertesting.GenNewName(c, "admin")
 	ownerUUID := uuid.MustNewUUID()
 	s.controllerState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
@@ -139,28 +138,86 @@ func (s *offerServiceSuite) TestOfferCreateError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "create offer: boom")
 }
 
-// TestOfferUpdate tests that Offer creates updates an existing offer.
-func (s *offerServiceSuite) TestOfferUpdate(c *tc.C) {
+// TestOfferAlreadyExists tests that Offer returns an error when an offer
+// with the same name already exists.
+func (s *offerServiceSuite) TestOfferAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	applicationName := "test-application"
 	offerName := "test-offer"
 	ownerName := usertesting.GenNewName(c, "admin")
-	createOfferArgs := crossmodelrelation.ApplicationOfferArgs{
+	existingOfferUUID := uuid.MustNewUUID().String()
+	args := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       ownerName,
 	}
 
-	s.modelState.EXPECT().UpdateOffer(gomock.Any(), offerName, []string{"db"}).Return(nil)
+	// Return an existing offer UUID to simulate the offer already exists
+	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerName).Return(existingOfferUUID, nil)
 
 	// Act
-	err := s.service(c).Offer(c.Context(), createOfferArgs)
+	err := s.service(c).Offer(c.Context(), args)
 
 	// Assert
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorMatches, `create offer: offer "test-offer" already exists with UUID ".*"`)
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferAlreadyExists)
+}
+
+// TestOfferGetOfferUUIDError tests that Offer returns an error when
+// GetOfferUUID fails with an error other than OfferNotFound.
+func (s *offerServiceSuite) TestOfferGetOfferUUIDError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	applicationName := "test-application"
+	offerName := "test-offer"
+	ownerName := usertesting.GenNewName(c, "admin")
+	args := crossmodelrelation.ApplicationOfferArgs{
+		ApplicationName: applicationName,
+		OfferName:       offerName,
+		Endpoints:       map[string]string{"db": "db"},
+		OwnerName:       ownerName,
+	}
+
+	// Return a database error when checking if offer exists
+	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerName).Return("", errors.Errorf("database error"))
+
+	// Act
+	err := s.service(c).Offer(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "create offer: database error")
+}
+
+// TestOfferOwnerNotFound tests that Offer returns an error when
+// the owner user doesn't exist.
+func (s *offerServiceSuite) TestOfferOwnerNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	applicationName := "test-application"
+	offerName := "test-offer"
+	ownerName := usertesting.GenNewName(c, "nonexistent")
+	args := crossmodelrelation.ApplicationOfferArgs{
+		ApplicationName: applicationName,
+		OfferName:       offerName,
+		Endpoints:       map[string]string{"db": "db"},
+		OwnerName:       ownerName,
+	}
+
+	// Offer doesn't exist yet
+	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerName).Return("", crossmodelrelationerrors.OfferNotFound)
+	// Owner user doesn't exist
+	s.controllerState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(uuid.UUID{}, errors.Errorf("user not found"))
+
+	// Act
+	err := s.service(c).Offer(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "create offer: user not found")
 }
 
 func (s *offerServiceSuite) TestGetOffersEmptyFilters(c *tc.C) {

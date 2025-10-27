@@ -174,6 +174,11 @@ func (api *OffersAPI) Offer(ctx context.Context, all params.AddApplicationOffers
 	}
 
 	err = crossModelRelationService.Offer(ctx, applicationOfferArgs)
+	if errors.Is(err, crossmodelrelationerrors.OfferAlreadyExists) {
+		// We don't support updating offers via this API, so return an
+		// appropriate error.
+		err = errors.Errorf("offer %q already exists, updating offers is not supported", applicationOfferArgs.OfferName).Add(coreerrors.BadRequest)
+	}
 	return handleErr(err), nil
 }
 
