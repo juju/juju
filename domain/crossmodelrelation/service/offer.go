@@ -43,13 +43,6 @@ type ModelOfferState interface {
 	// Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
 	GetOfferUUID(ctx context.Context, name string) (string, error)
 
-	// UpdateOffer updates the endpoints of the given offer.
-	UpdateOffer(
-		ctx context.Context,
-		offerName string,
-		offerEndpoints []string,
-	) error
-
 	// GetOfferUUIDByRelationUUID returns the offer UUID corresponding to
 	// the cross model relation UUID, returning an error satisfying
 	// [crossmodelrelationerrors.OfferNotFound] if the relation is not found.
@@ -122,13 +115,15 @@ func (s *Service) Offer(
 	}
 	createArgs := crossmodelrelation.MakeCreateOfferArgs(args, offerUUID)
 
-	// Attempt to update the offer, return if successful or an error other than
-	// OfferNotFound is received.
-	err = s.modelState.UpdateOffer(ctx, createArgs.OfferName, createArgs.Endpoints)
-	if err == nil {
-		return nil
-	} else if !errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
-		return errors.Errorf("update offer: %w", err)
+	// Check if the offer already exists.
+	existingOfferUUID, err := s.modelState.GetOfferUUID(ctx, args.OfferName)
+	if err != nil && !errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
+		return errors.Errorf("create offer: %w", err)
+	} else if err == nil {
+		// The offer exists, this means that we have to return an error since we
+		// don't support updating offers.
+		return errors.Errorf("create offer: offer %q already exists with UUID %q",
+			args.OfferName, existingOfferUUID).Add(crossmodelrelationerrors.OfferAlreadyExists)
 	}
 
 	// Verify the owner exists, has not been removed, and
