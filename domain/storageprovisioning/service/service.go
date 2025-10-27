@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
@@ -113,6 +114,16 @@ type State interface {
 	GetStorageAttachmentLifeForUnit(
 		ctx context.Context, unitUUID string,
 	) (map[string]domainlife.Life, error)
+
+	// GetStorageAttachmentInfo returns information about a storage attachment for
+	// the given storage attachment UUID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
+	// attachment does not exist.
+	GetStorageAttachmentInfo(
+		ctx context.Context, storageAttachmentUUID string,
+	) (storageprovisioning.StorageAttachmentInfo, error)
 
 	// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for
 	// a given storage ID and unit UUID.
@@ -346,6 +357,35 @@ func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
 	rval[tags.JujuModel] = info.ModelUUID
 
 	return rval, nil
+}
+
+// GetUnitStorageAttachmentInfo returns information about a storage attachment
+// for the given storage attachment UUID.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the provided storage attachment uuid is invalid.
+// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
+// attachment does not exist.
+func (s *Service) GetUnitStorageAttachmentInfo(
+	ctx context.Context,
+	uuid storageprovisioning.StorageAttachmentUUID,
+) (storageprovisioning.StorageAttachmentInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return storageprovisioning.StorageAttachmentInfo{}, errors.Errorf(
+			"validating storage attachment uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	info, err := s.st.GetStorageAttachmentInfo(ctx, uuid.String())
+	if err != nil {
+		return storageprovisioning.StorageAttachmentInfo{}, errors.Capture(err)
+	}
+
+	return info, nil
 }
 
 // GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for the

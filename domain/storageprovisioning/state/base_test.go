@@ -174,6 +174,25 @@ VALUES (?, ?, ?, 0, 1)
 	return attachmentUUID
 }
 
+// newModelFilesystem creates a new filesystem in the model with model
+// provision scope. Return is the uuid and filesystem id of the entity.
+func (s *baseSuite) newModelFilesystem(c *tc.C) (
+	storageprovisioning.FilesystemUUID, string,
+) {
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+	`,
+		fsUUID.String(), fsID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID, fsID
+}
+
 // newModelVolume creates a new volume in the model with model
 // provision scope. Return is the uuid and volume id of the entity.
 func (s *baseSuite) newModelVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
@@ -356,6 +375,15 @@ VALUES (?, ?, ?, ?, ?, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return unitUUID, coreunit.Name(unitName)
+}
+
+func (s *baseSuite) newStorageOwner(
+	c *tc.C, storageInstanceUUID domainstorage.StorageInstanceUUID, ownerUUID coreunit.UUID,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_unit_owner(unit_uuid, storage_instance_uuid)
+VALUES (?, ?)`, ownerUUID.String(), storageInstanceUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // newVolumeAttachmentPlan creates a new volume attachment plan. The attachment

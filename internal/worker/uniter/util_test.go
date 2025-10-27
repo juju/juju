@@ -754,7 +754,6 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 				}
 				return params.StorageAttachment{
 					StorageTag: tag.String(),
-					OwnerTag:   ctx.unit.Tag().String(),
 					UnitTag:    ctx.unit.Tag().String(),
 					Kind:       params.StorageKindFilesystem,
 					Location:   "/path/to/nowhere",

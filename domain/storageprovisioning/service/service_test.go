@@ -17,8 +17,10 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -395,4 +397,51 @@ func (s *serviceSuite) TestWatchStorageAttachment(c *tc.C) {
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	_, err := svc.WatchStorageAttachment(c.Context(), storageAttachmentUUID)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetUnitStorageAttachmentInfoForVolume(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	bdUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	info := storageprovisioning.StorageAttachmentInfo{
+		Kind:            domainstorage.StorageKindBlock,
+		Life:            domainlife.Alive,
+		BlockDeviceUUID: bdUUID,
+	}
+
+	s.state.EXPECT().GetStorageAttachmentInfo(gomock.Any(), storageAttachmentUUID.String()).
+		Return(info, nil)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	result, err := svc.GetUnitStorageAttachmentInfo(c.Context(), storageAttachmentUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, storageprovisioning.StorageAttachmentInfo{
+		Kind:            domainstorage.StorageKindBlock,
+		Life:            domainlife.Alive,
+		BlockDeviceUUID: bdUUID,
+	})
+}
+
+func (s *serviceSuite) TestGetUnitStorageAttachmentInfoForFilesystem(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	info := storageprovisioning.StorageAttachmentInfo{
+		Kind:                 domainstorage.StorageKindFilesystem,
+		Life:                 domainlife.Alive,
+		FilesystemMountPoint: "/mnt/data",
+	}
+
+	s.state.EXPECT().GetStorageAttachmentInfo(gomock.Any(), storageAttachmentUUID.String()).
+		Return(info, nil)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	result, err := svc.GetUnitStorageAttachmentInfo(c.Context(), storageAttachmentUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, storageprovisioning.StorageAttachmentInfo{
+		Kind:                 domainstorage.StorageKindFilesystem,
+		Life:                 domainlife.Alive,
+		FilesystemMountPoint: "/mnt/data",
+	})
 }

@@ -827,6 +827,45 @@ func (c *MockStateGetStorageAttachmentIDsForUnitCall) DoAndReturn(f func(context
 	return c
 }
 
+// GetStorageAttachmentInfo mocks base method.
+func (m *MockState) GetStorageAttachmentInfo(ctx context.Context, storageAttachmentUUID string) (storageprovisioning.StorageAttachmentInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageAttachmentInfo", ctx, storageAttachmentUUID)
+	ret0, _ := ret[0].(storageprovisioning.StorageAttachmentInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageAttachmentInfo indicates an expected call of GetStorageAttachmentInfo.
+func (mr *MockStateMockRecorder) GetStorageAttachmentInfo(ctx, storageAttachmentUUID any) *MockStateGetStorageAttachmentInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageAttachmentInfo", reflect.TypeOf((*MockState)(nil).GetStorageAttachmentInfo), ctx, storageAttachmentUUID)
+	return &MockStateGetStorageAttachmentInfoCall{Call: call}
+}
+
+// MockStateGetStorageAttachmentInfoCall wrap *gomock.Call
+type MockStateGetStorageAttachmentInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetStorageAttachmentInfoCall) Return(arg0 storageprovisioning.StorageAttachmentInfo, arg1 error) *MockStateGetStorageAttachmentInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetStorageAttachmentInfoCall) Do(f func(context.Context, string) (storageprovisioning.StorageAttachmentInfo, error)) *MockStateGetStorageAttachmentInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetStorageAttachmentInfoCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.StorageAttachmentInfo, error)) *MockStateGetStorageAttachmentInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStorageAttachmentLife mocks base method.
 func (m *MockState) GetStorageAttachmentLife(ctx context.Context, unitUUID, storageInstanceUUID string) (life.Life, error) {
 	m.ctrl.T.Helper()
