@@ -27,6 +27,7 @@ import (
 	removal "github.com/juju/juju/domain/removal"
 	config "github.com/juju/juju/environs/config"
 	gomock "go.uber.org/mock/gomock"
+	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockCrossModelRelationService is a mock of CrossModelRelationService interface.
@@ -280,6 +281,44 @@ func (c *MockCrossModelRelationServiceGetOfferingApplicationTokenCall) Do(f func
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelRelationServiceGetOfferingApplicationTokenCall) DoAndReturn(f func(context.Context, relation.UUID) (application.UUID, error)) *MockCrossModelRelationServiceGetOfferingApplicationTokenCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SaveMacaroonForRelation mocks base method.
+func (m *MockCrossModelRelationService) SaveMacaroonForRelation(arg0 context.Context, arg1 relation.UUID, arg2 *macaroon.Macaroon) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveMacaroonForRelation", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveMacaroonForRelation indicates an expected call of SaveMacaroonForRelation.
+func (mr *MockCrossModelRelationServiceMockRecorder) SaveMacaroonForRelation(arg0, arg1, arg2 any) *MockCrossModelRelationServiceSaveMacaroonForRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveMacaroonForRelation", reflect.TypeOf((*MockCrossModelRelationService)(nil).SaveMacaroonForRelation), arg0, arg1, arg2)
+	return &MockCrossModelRelationServiceSaveMacaroonForRelationCall{Call: call}
+}
+
+// MockCrossModelRelationServiceSaveMacaroonForRelationCall wrap *gomock.Call
+type MockCrossModelRelationServiceSaveMacaroonForRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) Return(arg0 error) *MockCrossModelRelationServiceSaveMacaroonForRelationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) Do(f func(context.Context, relation.UUID, *macaroon.Macaroon) error) *MockCrossModelRelationServiceSaveMacaroonForRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) DoAndReturn(f func(context.Context, relation.UUID, *macaroon.Macaroon) error) *MockCrossModelRelationServiceSaveMacaroonForRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
