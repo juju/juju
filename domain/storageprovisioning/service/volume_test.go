@@ -1279,6 +1279,10 @@ func (s *volumeSuite) TestGetMachineProvisioningVolumeParams(c *tc.C) {
 	machineUUID := tc.Must(c, coremachine.NewUUID)
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	blockDeviceUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	volumeUUID1 := tc.Must(c, storageprovisioning.NewVolumeUUID)
+	volumeUUID2 := tc.Must(c, storageprovisioning.NewVolumeUUID)
+	volumeUUID3 := tc.Must(c, storageprovisioning.NewVolumeUUID)
+	volumeUUID4 := tc.Must(c, storageprovisioning.NewVolumeUUID)
 
 	stExp := s.state.EXPECT()
 	stExp.GetStorageResourceTagInfoForModel(gomock.Any(), gomock.Any()).Return(
@@ -1296,36 +1300,42 @@ func (s *volumeSuite) TestGetMachineProvisioningVolumeParams(c *tc.C) {
 			Attributes: map[string]string{
 				"vol1": "foo",
 			},
-			ID:                   "vol/1",
+			ID:                   "1",
 			Provider:             "juju-basic-storage",
 			RequestedSizeMiB:     1024,
 			SizeMiB:              0, // Non provisioned.
-			StorageID:            "kratos-key/1",
+			StorageID:            "11",
+			StorageName:          "kratos-keystore",
 			StorageOwnerUnitName: ptr("unit/0"), // Non shared.
+			UUID:                 volumeUUID1,
 		},
 		{
 			// Non provisioned, shared volume.
 			Attributes: map[string]string{
 				"volshared2": "foo",
 			},
-			ID:                   "vol-shared/2",
+			ID:                   "2",
 			Provider:             "juju-basic-storage",
 			RequestedSizeMiB:     1024,
 			SizeMiB:              0, // Non provisioned.
-			StorageID:            "kratos-key/2",
+			StorageID:            "22",
+			StorageName:          "kratos-keystore",
 			StorageOwnerUnitName: nil, // Shared volume.
+			UUID:                 volumeUUID2,
 		},
 		{
 			// provisioned, non shared volume.
 			Attributes: map[string]string{
 				"vol3": "foo",
 			},
-			ID:                   "vol/3",
+			ID:                   "3",
 			Provider:             "juju-basic-storage",
 			RequestedSizeMiB:     1024,
 			SizeMiB:              1024, // Provisioned.
-			StorageID:            "kratos-key/3",
+			StorageID:            "33",
+			StorageName:          "kratos-keystore",
 			StorageOwnerUnitName: ptr("unit/1"), // Non shared.
+			UUID:                 volumeUUID3,
 		},
 	}, nil)
 	stExp.GetMachineModelProvisionedVolumeAttachmentParams(
@@ -1336,34 +1346,42 @@ func (s *volumeSuite) TestGetMachineProvisioningVolumeParams(c *tc.C) {
 			BlockDeviceUUID:  nil, // Non provisioned
 			Provider:         "juju-basic-storage",
 			ReadOnly:         true,
-			VolumeID:         "vol/1",
+			StorageName:      "kratos-keystore",
+			VolumeID:         "1",
 			VolumeProviderID: "",
+			VolumeUUID:       volumeUUID1,
 		},
 		{
 			// Non provisioned attachment and volume.
 			BlockDeviceUUID:  nil, // Non provisioned
 			Provider:         "juju-basic-storage",
 			ReadOnly:         false,
-			VolumeID:         "vol-shared/2",
+			StorageName:      "kratos-keystore",
+			VolumeID:         "2",
 			VolumeProviderID: "",
+			VolumeUUID:       volumeUUID2,
 		},
 		{
 			// Non provisioned attachment with provisioned volume.
 			BlockDeviceUUID: nil, // Non provisioned
 			Provider:        "juju-basic-storage",
 			ReadOnly:        false,
-			VolumeID:        "vol/3",
+			StorageName:     "kratos-keystore",
+			VolumeID:        "3",
 			// Volume is provisioned but attachment is not
 			VolumeProviderID: "myprovider-123",
+			VolumeUUID:       volumeUUID3,
 		},
 		{
 			// Provisioned attachment and volume.
 			BlockDeviceUUID: &blockDeviceUUID, // Provisioned
 			Provider:        "juju-basic-storage",
 			ReadOnly:        false,
-			VolumeID:        "vol/3",
+			StorageName:     "kratos-keystore",
+			VolumeID:        "4",
 			// Volume is provisioned
 			VolumeProviderID: "myprovider-123",
+			VolumeUUID:       volumeUUID4,
 		},
 	}, nil)
 
@@ -1380,30 +1398,34 @@ func (s *volumeSuite) TestGetMachineProvisioningVolumeParams(c *tc.C) {
 			Attributes: map[string]string{
 				"vol1": "foo",
 			},
-			ID:               "vol/1",
+			ID:               "1",
 			Provider:         "juju-basic-storage",
 			RequestedSizeMiB: 1024,
+			StorageName:      "kratos-keystore",
 			Tags: map[string]string{
 				"foo":                   "bar",
 				"juju-controller-uuid":  controllerUUID.String(),
 				"juju-model-uuid":       modelUUID.String(),
-				"juju-storage-instance": "kratos-key/1",
+				"juju-storage-instance": "kratos-keystore/11",
 				"juju-storage-owner":    "unit/0",
 			},
+			UUID: volumeUUID1,
 		},
 		{
 			Attributes: map[string]string{
 				"volshared2": "foo",
 			},
-			ID:               "vol-shared/2",
+			ID:               "2",
 			Provider:         "juju-basic-storage",
 			RequestedSizeMiB: 1024,
+			StorageName:      "kratos-keystore",
 			Tags: map[string]string{
 				"foo":                   "bar",
 				"juju-controller-uuid":  controllerUUID.String(),
 				"juju-model-uuid":       modelUUID.String(),
-				"juju-storage-instance": "kratos-key/2",
+				"juju-storage-instance": "kratos-keystore/22",
 			},
+			UUID: volumeUUID2,
 		},
 	}
 	c.Check(volParams, tc.SameContents, expectedVolParams)
@@ -1412,20 +1434,26 @@ func (s *volumeSuite) TestGetMachineProvisioningVolumeParams(c *tc.C) {
 		{
 			Provider:         "juju-basic-storage",
 			ReadOnly:         true,
-			VolumeID:         "vol/1",
+			StorageName:      "kratos-keystore",
+			VolumeID:         "1",
 			VolumeProviderID: "", // volume has not be provisioned
+			VolumeUUID:       volumeUUID1,
 		},
 		{
 			Provider:         "juju-basic-storage",
 			ReadOnly:         false,
-			VolumeID:         "vol-shared/2",
+			StorageName:      "kratos-keystore",
+			VolumeID:         "2",
 			VolumeProviderID: "", // volume has not be provisioned
+			VolumeUUID:       volumeUUID2,
 		},
 		{
 			Provider:         "juju-basic-storage",
 			ReadOnly:         false,
-			VolumeID:         "vol/3",
+			StorageName:      "kratos-keystore",
+			VolumeID:         "3",
 			VolumeProviderID: "myprovider-123", // volume has been provisioned
+			VolumeUUID:       volumeUUID3,
 		},
 	}
 	c.Check(attachParams, tc.SameContents, expectedAttachParams)

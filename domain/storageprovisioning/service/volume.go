@@ -363,7 +363,11 @@ func (s *Service) GetMachineProvisioningVolumeParams(
 		}
 
 		vTags := maps.Clone(modelTags)
-		vTags[environtags.JujuStorageInstance] = param.StorageID
+		// Storage inst tag value structure comes from our names package and
+		// how it outputs a storage instance id in the format <storagename/id>.
+		storageInstTagVal := fmt.Sprintf("%s/%s", param.StorageName, param.StorageID)
+		vTags[environtags.JujuStorageInstance] = storageInstTagVal
+
 		if param.StorageOwnerUnitName != nil {
 			vTags[environtags.JujuStorageOwner] = *param.StorageOwnerUnitName
 		}
@@ -372,7 +376,9 @@ func (s *Service) GetMachineProvisioningVolumeParams(
 			ID:               param.ID,
 			Provider:         param.Provider,
 			RequestedSizeMiB: param.RequestedSizeMiB,
+			StorageName:      param.StorageName,
 			Tags:             vTags,
+			UUID:             param.UUID,
 		}
 		retValVolParams = append(retValVolParams, param)
 	}
@@ -390,8 +396,10 @@ func (s *Service) GetMachineProvisioningVolumeParams(
 		param := storageprovisioning.MachineVolumeAttachmentProvisioningParams{
 			Provider:         param.Provider,
 			ReadOnly:         param.ReadOnly,
+			StorageName:      param.StorageName,
 			VolumeID:         param.VolumeID,
 			VolumeProviderID: param.VolumeProviderID,
+			VolumeUUID:       param.VolumeUUID,
 		}
 		retValVolAttachParams = append(retValVolAttachParams, param)
 	}

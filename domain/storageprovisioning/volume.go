@@ -20,6 +20,10 @@ type MachineVolumeAttachmentProvisioningParams struct {
 	// read only.
 	ReadOnly bool
 
+	// StorageName is the the name given to the storage instance this volume
+	// fulfills.
+	StorageName string
+
 	// VolumeID is the unique id given to the volume in the controller. This is
 	// not the volume uuid.
 	VolumeID string
@@ -27,6 +31,10 @@ type MachineVolumeAttachmentProvisioningParams struct {
 	// VolumeProviderID is the unique id given to the volume by the storage
 	// provider. This value is opaque to Juju.
 	VolumeProviderID string
+
+	// VolumeUUID is the unique uuid of the volume this attachment is for. When
+	// performing compparison of this attachment ALWAYS use this value.
+	VolumeUUID VolumeUUID
 }
 
 // MachineVolumeProvisioningParams defines the set of parameters required to
@@ -48,9 +56,17 @@ type MachineVolumeProvisioningParams struct {
 	// actual size of the volume once provisioned.
 	RequestedSizeMiB uint64
 
+	// StorageName is the the name given to the storage instance this volume
+	// fulfills.
+	StorageName string
+
 	// Tags represents the set of tags that should be applied to the volume by
 	// the storage provider.
 	Tags map[string]string
+
+	// UUID is the unique uuid given to this volume. ALWAYS use this value in
+	// comparison checks.
+	UUID VolumeUUID
 }
 
 // VolumeAttachmentID is a struct that provides the IDs and names associated
