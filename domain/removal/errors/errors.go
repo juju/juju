@@ -52,6 +52,10 @@ const (
 	// still has relations
 	OfferHasRelations = errors.ConstError("offer has relations")
 
+	// ApplicationHasOfferConnections indicates that an application cannot be
+	// deleted because it still has offer connections
+	ApplicationHasOfferConnections = errors.ConstError("application has offer connections")
+
 	// ForceRequired indicates that a removal job requires the force flag to
 	// be set to true in order to proceed.
 	ForceRequired = errors.ConstError("force required for removal job")

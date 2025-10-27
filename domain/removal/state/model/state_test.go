@@ -343,6 +343,41 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Provi
 	return appID
 }
 
+func (s *baseSuite) createOffer(c *tc.C, offerName string) offer.UUID {
+	cmrState := crossmodelrelationstate.NewState(
+		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	)
+	s.createIAASApplication(c, s.setupApplicationService(c), offerName)
+	offerUUID := tc.Must(c, offer.NewUUID)
+
+	err := cmrState.CreateOffer(c.Context(), crossmodelrelation.CreateOfferArgs{
+		UUID:            offerUUID,
+		ApplicationName: offerName,
+		Endpoints:       []string{"foo", "bar"},
+		OfferName:       offerName,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return offerUUID
+}
+
+func (s *baseSuite) createOfferForApplication(c *tc.C, appName string, offerName string) offer.UUID {
+	cmrState := crossmodelrelationstate.NewState(
+		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	)
+	offerUUID := tc.Must(c, offer.NewUUID)
+
+	err := cmrState.CreateOffer(c.Context(), crossmodelrelation.CreateOfferArgs{
+		UUID:            offerUUID,
+		ApplicationName: appName,
+		Endpoints:       []string{"foo", "bar"},
+		OfferName:       offerName,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return offerUUID
+}
+
 func (s *baseSuite) createRemoteApplicationOfferer(
 	c *tc.C,
 	name string,

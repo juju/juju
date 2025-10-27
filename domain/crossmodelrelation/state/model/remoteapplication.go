@@ -131,6 +131,10 @@ func (st *State) AddConsumedRelation(
 			return errors.Capture(err)
 		}
 
+		if err := st.checkApplicationAlive(ctx, tx, offerApplicationUUID); err != nil {
+			return errors.Capture(err)
+		}
+
 		// If the relation already exists, return an error. All relations are
 		// immutable, so we can only consume it once.
 		if err := st.checkConsumerRelationExists(ctx, tx, args.RelationUUID); err != nil {

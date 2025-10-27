@@ -425,7 +425,7 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 	s.createCharm(c, offerCharmUUID)
 	charmRelationUUID := s.createCharmRelation(c, offerCharmUUID, "offer-endpoint")
 	// Create an application in the database.
-	s.createApplication(c, offerApplicationUUID.String(), offerCharmUUID, offerUUID)
+	s.createApplication(c, offerApplicationUUID, offerCharmUUID, offerUUID)
 	s.addApplicationEndpoint(c, offerApplicationUUID, charmRelationUUID)
 
 	charm := charm.Charm{
@@ -548,7 +548,7 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationTwice(c *tc.C) {
 	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 
 	// Offer resources needed:
-	offerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
 	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
@@ -623,7 +623,7 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationMultiple(c *tc.C) {
 	synthApplicationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
 
 	// Offer resources needed:
-	offerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
 	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
@@ -699,9 +699,61 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationMultiple(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelationDyingApplication(c *tc.C) {
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Offer resources needed:
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
+	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
+	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, offerCharmUUID)
+	charmRelationUUID := s.createCharmRelation(c, offerCharmUUID, "offer-endpoint")
+	// Create an application in the database.
+	s.createDyingApplication(c, offerApplicationUUID, offerCharmUUID, offerUUID)
+	s.addApplicationEndpoint(c, offerApplicationUUID, charmRelationUUID)
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
+}
+
 func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUID(c *tc.C) {
 	// Create application, charm and offer first
-	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
 	s.createOffer(c, offerUUID)
@@ -711,8 +763,8 @@ func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUID(c *tc.C)
 	// Retrieve application UUID by offer UUID - should return the correct UUID
 	gotName, gotUUID, err := s.state.GetApplicationNameAndUUIDByOfferUUID(c.Context(), offerUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotName, tc.Equals, applicationUUID)
-	c.Check(gotUUID.String(), tc.Equals, applicationUUID)
+	c.Check(gotName, tc.Equals, applicationUUID.String())
+	c.Check(gotUUID, tc.Equals, applicationUUID)
 }
 
 func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUIDNotExists(c *tc.C) {
@@ -731,7 +783,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersSingle(c 
 	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 
 	// Offer resources needed:
-	offerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
 	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
@@ -796,7 +848,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersMultiple(
 	synthApplicationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
 
 	// Offer resources needed:
-	offerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
 	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
@@ -903,7 +955,7 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersFiltersDe
 	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 
 	// Offer resources needed:
-	offerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
 	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
@@ -967,7 +1019,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersSin
 	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 
 	// Offer resources needed:
-	offerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
 	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
@@ -1053,8 +1105,8 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMul
 	synthApplicationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
 
 	// Offer resources needed:
-	offerApplicationUUID0 := tc.Must(c, internaluuid.NewUUID).String()
-	offerApplicationUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	offerApplicationUUID0 := tc.Must(c, coreapplication.NewUUID)
+	offerApplicationUUID1 := tc.Must(c, coreapplication.NewUUID)
 
 	offerCharmUUID0 := tc.Must(c, internaluuid.NewUUID).String()
 	offerCharmUUID1 := tc.Must(c, internaluuid.NewUUID).String()
@@ -1198,7 +1250,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersMix
 	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 
 	// Offer resources needed:
-	offerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
 	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
@@ -1274,7 +1326,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererRelationUUIDsForConsumersDup
 	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 
 	// Offer resources needed:
-	offerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
 	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	// Create an offer in the database.
 	s.createOffer(c, offerUUID)
@@ -1339,7 +1391,7 @@ WHERE  arc.offer_connection_uuid = ?`, consumerUUID).Scan(&offererRelationUUID)
 }
 
 func (s *modelRemoteApplicationSuite) TestEnsureUnitsExist(c *tc.C) {
-	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
 
@@ -1347,14 +1399,14 @@ func (s *modelRemoteApplicationSuite) TestEnsureUnitsExist(c *tc.C) {
 	s.createCharm(c, charmUUID)
 	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
-	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID.String(), []string{"app/0", "app/1", "app/2"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertUnitNames(c, applicationUUID, []string{"app/0", "app/1", "app/2"})
 }
 
 func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistIdempotent(c *tc.C) {
-	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
 
@@ -1362,17 +1414,17 @@ func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistIdempotent(c *tc.C) {
 	s.createCharm(c, charmUUID)
 	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
-	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID.String(), []string{"app/0", "app/1", "app/2"})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID.String(), []string{"app/0", "app/1", "app/2"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertUnitNames(c, applicationUUID, []string{"app/0", "app/1", "app/2"})
 }
 
 func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistIdempotentPartial(c *tc.C) {
-	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
 
@@ -1380,17 +1432,17 @@ func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistIdempotentPartial(c *t
 	s.createCharm(c, charmUUID)
 	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
-	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID.String(), []string{"app/0", "app/1", "app/2"})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/1", "app/2"})
+	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID.String(), []string{"app/1", "app/2"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertUnitNames(c, applicationUUID, []string{"app/0", "app/1", "app/2"})
 }
 
 func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistMissing(c *tc.C) {
-	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
 
@@ -1398,17 +1450,17 @@ func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistMissing(c *tc.C) {
 	s.createCharm(c, charmUUID)
 	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
-	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	err := s.state.EnsureUnitsExist(c.Context(), applicationUUID.String(), []string{"app/0", "app/1", "app/2"})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/1", "app/4"})
+	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID.String(), []string{"app/1", "app/4"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertUnitNames(c, applicationUUID, []string{"app/0", "app/1", "app/2", "app/4"})
 }
 
 func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistDying(c *tc.C) {
-	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
 
@@ -1425,12 +1477,12 @@ WHERE uuid = ?`, applicationUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID.String(), []string{"app/0", "app/1", "app/2"})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelRemoteApplicationSuite) TestEnsureUnitsExistDead(c *tc.C) {
-	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
 
@@ -1447,7 +1499,7 @@ WHERE uuid = ?`, applicationUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID, []string{"app/0", "app/1", "app/2"})
+	err = s.state.EnsureUnitsExist(c.Context(), applicationUUID.String(), []string{"app/0", "app/1", "app/2"})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1532,7 +1584,7 @@ func (s *modelRemoteApplicationSuite) TestGetOfferingApplicationTokenNotFound(c 
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *modelRemoteApplicationSuite) assertUnitNames(c *tc.C, applicationUUID string, expectedNames []string) {
+func (s *modelRemoteApplicationSuite) assertUnitNames(c *tc.C, applicationUUID coreapplication.UUID, expectedNames []string) {
 	var names []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
@@ -1582,13 +1634,21 @@ VALUES (?, 'test-offer')
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelRemoteApplicationSuite) createApplication(c *tc.C, applicationUUID string, charmUUID string, offerUUID string) {
+func (s *modelRemoteApplicationSuite) createApplication(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string) {
+	s.createApplicationWithLife(c, applicationUUID, charmUUID, offerUUID, life.Alive)
+}
+
+func (s *modelRemoteApplicationSuite) createDyingApplication(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string) {
+	s.createApplicationWithLife(c, applicationUUID, charmUUID, offerUUID, life.Dying)
+}
+
+func (s *modelRemoteApplicationSuite) createApplicationWithLife(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string, l life.Life) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Create an application record
 		_, err := tx.Exec(`
 INSERT INTO application (uuid, name, charm_uuid, life_id, space_uuid)
-VALUES (?, ?, ?, 0, ?)
-`, applicationUUID, applicationUUID, charmUUID, network.AlphaSpaceId)
+VALUES (?, ?, ?, ?, ?)
+`, applicationUUID, applicationUUID, charmUUID, l, network.AlphaSpaceId)
 		if err != nil {
 			return err
 		}
@@ -1896,7 +1956,7 @@ func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsFiltering(c *t
 
 	// Create a remote offerer application with at least one endpoint (juju-info
 	// is added automatically).
-	remoteAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteAppUUID := tc.Must(c, coreapplication.NewUUID)
 	remoteCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	remoteOfferUUID := tc.Must(c, internaluuid.NewUUID).String()
 	remoteCharm := charm.Charm{
@@ -1912,7 +1972,7 @@ func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsFiltering(c *t
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(ctx, "remote-app", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       remoteAppUUID,
+		ApplicationUUID:       remoteAppUUID.String(),
 		CharmUUID:             remoteCharmUUID,
 		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
 		OfferUUID:             remoteOfferUUID,
@@ -1928,7 +1988,7 @@ func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsFiltering(c *t
 	s.createOffer(c, localOfferUUID)
 	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	s.createCharm(c, localCharmUUID)
-	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localAppUUID := tc.Must(c, coreapplication.NewUUID)
 	s.createApplication(c, localAppUUID, localCharmUUID, localOfferUUID)
 	localEndpointUUID := s.getAppEndpointUUID(c, localAppUUID, "endpoint0")
 
@@ -1955,7 +2015,7 @@ func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsEmptyArgsRetur
 	ctx := c.Context()
 
 	// Create a remote offerer application with two endpoints: juju-info and db.
-	remoteAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteAppUUID := tc.Must(c, coreapplication.NewUUID)
 	remoteCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	remoteOfferUUID := tc.Must(c, internaluuid.NewUUID).String()
 	remoteCharm := charm.Charm{
@@ -1978,7 +2038,7 @@ func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsEmptyArgsRetur
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(ctx, "remote-app-2", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       remoteAppUUID,
+		ApplicationUUID:       remoteAppUUID.String(),
 		CharmUUID:             remoteCharmUUID,
 		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
 		OfferUUID:             remoteOfferUUID,
@@ -2021,7 +2081,7 @@ func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsNoMatches(c *t
 	s.createOffer(c, localOfferUUID)
 	localCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	s.createCharm(c, localCharmUUID)
-	localAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	localAppUUID := tc.Must(c, coreapplication.NewUUID)
 	s.createApplication(c, localAppUUID, localCharmUUID, localOfferUUID)
 	localEndpointUUID := s.getAppEndpointUUID(c, localAppUUID, "endpoint0")
 
@@ -2041,7 +2101,7 @@ func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsDeduplicates(c
 
 	// Create a remote offerer application with two endpoints (juju-info and
 	// db).
-	remoteAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remoteAppUUID := tc.Must(c, coreapplication.NewUUID)
 	remoteCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	remoteOfferUUID := tc.Must(c, internaluuid.NewUUID).String()
 	remoteCharm := charm.Charm{
@@ -2064,7 +2124,7 @@ func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsDeduplicates(c
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(ctx, "remote-app-3", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		ApplicationUUID:       remoteAppUUID,
+		ApplicationUUID:       remoteAppUUID.String(),
 		CharmUUID:             remoteCharmUUID,
 		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
 		OfferUUID:             remoteOfferUUID,
@@ -2096,7 +2156,7 @@ VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), rel, epDB)
 
 // getAppEndpointUUID returns the application_endpoint.uuid for the given
 // application and charm relation (endpoint) name.
-func (s *modelRemoteApplicationSuite) getAppEndpointUUID(c *tc.C, applicationUUID string, endpointName string) string {
+func (s *modelRemoteApplicationSuite) getAppEndpointUUID(c *tc.C, applicationUUID coreapplication.UUID, endpointName string) string {
 	var epUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, `
@@ -2250,7 +2310,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererModelUUIDNotFound(c *tc.C) {
 }
 
 func (s *modelRemoteApplicationSuite) TestGetOffererModelUUIDNotRemoteOfferer(c *tc.C) {
-	applicationUUID := tc.Must(c, coreapplication.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, corecharm.NewID).String()
 	offerUUID := tc.Must(c, coreoffer.NewUUID).String()
 
@@ -2263,7 +2323,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererModelUUIDNotRemoteOfferer(c 
 }
 
 func (s *modelRemoteApplicationSuite) TestCheckIsApplicationConsumer(c *tc.C) {
-	applicationUUID := tc.Must(c, coreapplication.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, corecharm.NewID).String()
 	offerUUID := tc.Must(c, coreoffer.NewUUID).String()
 
@@ -2271,7 +2331,7 @@ func (s *modelRemoteApplicationSuite) TestCheckIsApplicationConsumer(c *tc.C) {
 	s.createCharm(c, charmUUID)
 	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
-	isConsumer, err := s.state.IsApplicationConsumer(c.Context(), applicationUUID)
+	isConsumer, err := s.state.IsApplicationConsumer(c.Context(), applicationUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isConsumer, tc.IsTrue)
 }

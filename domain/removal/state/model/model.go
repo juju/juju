@@ -353,8 +353,8 @@ WHERE uuid = $entityUUID.uuid;
 // IsControllerModel returns true if the model is the controller model.
 // The following errors may be returned:
 // - [modelerrors.NotFound] when the model does not exist.
-func (s *State) IsControllerModel(ctx context.Context, mUUID string) (bool, error) {
-	db, err := s.DB(ctx)
+func (st *State) IsControllerModel(ctx context.Context, mUUID string) (bool, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -366,7 +366,7 @@ func (s *State) IsControllerModel(ctx context.Context, mUUID string) (bool, erro
 	uuid := entityUUID{UUID: mUUID}
 	var m model
 
-	stmt, err := s.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT &model.is_controller_model
 FROM model
 WHERE uuid = $entityUUID.uuid

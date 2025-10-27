@@ -36,22 +36,20 @@ INSERT INTO offer (*) VALUES ($nameAndUUID.*)`, nameAndUUID{})
 	offer := nameAndUUID{Name: args.OfferName, UUID: args.UUID.String()}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		h, err := st.getApplicationUUIDs(ctx, tx, []string{args.ApplicationName})
+		applicationUUID, err := st.getApplicationUUID(ctx, tx, args.ApplicationName)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		applicationUUID, ok := h[args.ApplicationName]
-		if !ok {
-			return errors.Errorf("application %q not found", args.ApplicationName).Add(applicationerrors.ApplicationNotFound)
+		if err := st.checkApplicationAlive(ctx, tx, applicationUUID); err != nil {
+			return errors.Capture(err)
 		}
 
-		err = tx.Query(ctx, createOfferStmt, offer).Run()
-		if err != nil {
+		if err := tx.Query(ctx, createOfferStmt, offer).Run(); err != nil {
 			return errors.Errorf("inserting offer row for %q: %w", args.OfferName, err)
 		}
 
-		if err = st.createOfferEndpoints(ctx, tx, args.UUID.String(), applicationUUID, args.Endpoints); err != nil {
+		if err := st.createOfferEndpoints(ctx, tx, args.UUID.String(), applicationUUID, args.Endpoints); err != nil {
 			return errors.Errorf("offer %q: %w", args.OfferName, err)
 		}
 
@@ -303,6 +301,25 @@ func encodeOfferFilter(in crossmodelrelation.OfferFilter) ([]offerFilter, error)
 		})
 	}
 	return result, nil
+}
+
+func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, appName string) (string, error) {
+	stmt, err := st.Prepare(`
+SELECT uuid AS &uuid.uuid
+FROM   application
+WHERE  name = $name.name
+`, name{}, uuid{})
+	if err != nil {
+		return "", errors.Errorf("preparing application uuid query: %w", err)
+	}
+
+	var result uuid
+	if err := tx.Query(ctx, stmt, name{Name: appName}).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.ApplicationNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+	return result.UUID, nil
 }
 
 func (st *State) getApplicationUUIDs(ctx context.Context, tx *sqlair.TX, appNames []string) (map[string]string, error) {

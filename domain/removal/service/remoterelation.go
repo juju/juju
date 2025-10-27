@@ -37,7 +37,7 @@ type RemoteRelationState interface {
 	DeleteRemoteRelation(ctx context.Context, rUUID string) error
 }
 
-// RemoveRelation checks if a relation with the input UUID exists.
+// RemoveRemoteRelation checks if a relation with the input UUID exists.
 // If it does, the relation is guaranteed after this call to be:
 // - No longer alive.
 // - Removed or scheduled to be removed with the input force qualification.
