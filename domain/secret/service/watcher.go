@@ -138,12 +138,12 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	return eventsource.NewMultiStringsWatcher(ctx, sWLocal, sWRemote)
 }
 
-// WatchObsolete returns a watcher for notifying when:
+// WatchObsoleteSecrets returns a watcher for notifying when:
 //   - a secret revision owned by the entity no longer
 //     has any consumers
 //
 // Obsolete revisions results are "uri/revno".
-func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchObsoleteSecrets(ctx context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -316,13 +316,13 @@ func obsoleteWatcherMapperFunc(
 	}
 }
 
-// WatchDeleted returns a watcher for notifying when:
+// WatchDeletedSecrets returns a watcher for notifying when:
 //   - a secret owned by the entity is deleted
 //   - a secret revision owned by the entity is deleted
 //
 // Deleted revisions results are "uri/revno" and deleted
 // secret results are "uri".
-func (s *WatchableService) WatchDeleted(ctx context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchDeletedSecrets(ctx context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -452,7 +452,6 @@ func deletedWatcherMapperFunc(
 		// This is acceptable because the source watcher will emit the
 		// changes again for these changes.
 		var currentOwnedSecretIDs set.Strings
-		//if len(secretEventValues) > 0 {
 		ownedSecretIDs, err := state.GetOwnedSecretIDs(ctx, appOwners, unitOwners)
 		if err != nil {
 			return nil, errors.Capture(err)

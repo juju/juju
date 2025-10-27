@@ -80,7 +80,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	w, err := svc.WatchObsolete(ctx,
+	w, err := svc.WatchObsoleteSecrets(ctx,
 		service.CharmSecretOwner{
 			Kind: service.ApplicationOwner,
 			ID:   "mysql",
@@ -165,7 +165,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 
-	w, err := svc.WatchObsolete(ctx,
+	w, err := svc.WatchObsoleteSecrets(ctx,
 		service.CharmSecretOwner{
 			Kind: service.ApplicationOwner,
 			ID:   "mysql",
@@ -228,7 +228,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 
-	w, err := svc.WatchObsolete(ctx,
+	w, err := svc.WatchObsoleteSecrets(ctx,
 		service.CharmSecretOwner{
 			Kind: service.UnitOwner,
 			ID:   "mysql/0",
@@ -364,7 +364,7 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	w, err := svc.WatchDeleted(ctx,
+	w, err := svc.WatchDeletedSecrets(ctx,
 		service.CharmSecretOwner{
 			Kind: service.ApplicationOwner,
 			ID:   "mysql",
@@ -417,7 +417,7 @@ func (s *watcherSuite) TestWatchDeletedSecretRemovesRevisionFromChangeSet(c *tc.
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 
-	w, err := svc.WatchDeleted(ctx,
+	w, err := svc.WatchDeletedSecrets(ctx,
 		service.CharmSecretOwner{
 			Kind: service.ApplicationOwner,
 			ID:   "mysql",
@@ -473,7 +473,7 @@ func (s *watcherSuite) TestWatchDeletedForUnitsOwnedSecret(c *tc.C) {
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 
-	w, err := svc.WatchDeleted(ctx,
+	w, err := svc.WatchDeletedSecrets(ctx,
 		service.CharmSecretOwner{
 			Kind: service.UnitOwner,
 			ID:   "mysql/0",

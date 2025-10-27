@@ -2193,7 +2193,7 @@ func (s *serviceSuite) TestWatchObsolete(c *tc.C) {
 
 	svc := NewWatchableService(
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
-	w, err := svc.WatchObsolete(c.Context(),
+	w, err := svc.WatchObsoleteSecrets(c.Context(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,
 			ID:   "mysql",

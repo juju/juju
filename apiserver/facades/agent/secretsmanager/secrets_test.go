@@ -751,7 +751,7 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *tc.C) {
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-	s.secretTriggers.EXPECT().WatchObsolete(gomock.Any(), []secretservice.CharmSecretOwner{{
+	s.secretTriggers.EXPECT().WatchObsoleteSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
 		Kind: secretservice.UnitOwner,
 		ID:   "mariadb/0",
 	}, {
@@ -786,7 +786,7 @@ func (s *SecretsManagerSuite) TestWatchDeleted(c *tc.C) {
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-	s.secretTriggers.EXPECT().WatchDeleted(gomock.Any(), []secretservice.CharmSecretOwner{{
+	s.secretTriggers.EXPECT().WatchDeletedSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
 		Kind: secretservice.UnitOwner,
 		ID:   "mariadb/0",
 	}, {
