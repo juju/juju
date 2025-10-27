@@ -1415,7 +1415,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *tc.C
 
 	offererModelUUID := tc.Must(c, coremodel.NewUUID)
 
-	s.crossModelRelationService.EXPECT().IsApplicationConsumer(gomock.Any(), "wordpress").Return(true, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().IsApplicationLocal(gomock.Any(), "wordpress").Return(true, nil).MinTimes(1)
 	s.crossModelRelationService.EXPECT().GetOffererModelUUID(gomock.Any(), "remote-mysql").Return(offererModelUUID, nil).MinTimes(1)
 	relTag := names.NewRelationTag("wordpress:db remote-mysql:server")
 	relKey, err := relation.NewKeyFromString(relTag.Id())
@@ -1591,7 +1591,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 
 	offererModelUUID := tc.Must(c, coremodel.NewUUID)
 
-	s.crossModelRelationService.EXPECT().IsApplicationConsumer(gomock.Any(), "remote-wordpress").Return(false, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().IsApplicationLocal(gomock.Any(), "remote-wordpress").Return(false, nil).MinTimes(1)
 	s.crossModelRelationService.EXPECT().GetOffererModelUUID(gomock.Any(), "remote-wordpress").Return(offererModelUUID, nil).MinTimes(1)
 
 	relTag := names.NewRelationTag("remote-wordpress:db mysql:server")
@@ -1677,7 +1677,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 
 	offererModelUUID := tc.Must(c, coremodel.NewUUID)
 
-	s.crossModelRelationService.EXPECT().IsApplicationConsumer(gomock.Any(), "wordpress").Return(true, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().IsApplicationLocal(gomock.Any(), "wordpress").Return(true, nil).MinTimes(1)
 	s.crossModelRelationService.EXPECT().GetOffererModelUUID(gomock.Any(), "remote-mysql").Return(offererModelUUID, nil).MinTimes(1)
 
 	relTag := names.NewRelationTag("wordpress:db remote-mysql:server")
@@ -1841,6 +1841,8 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 				},
 			}, nil
 		}).AnyTimes()
+
+	s.crossModelRelationService.EXPECT().IsApplicationLocal(gomock.Any(), "mysql").Return(true, nil).AnyTimes()
 
 	localIngressCh := make(chan []string, 1)
 	notifyCh := make(chan struct{}, 1)

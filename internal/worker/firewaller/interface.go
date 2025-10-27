@@ -82,9 +82,9 @@ type CrossModelRelationService interface {
 	// specified relation.
 	GetRelationNetworkIngress(ctx context.Context, relationUUID relation.UUID) ([]string, error)
 
-	// IsApplicationConsumer checks if the given application exists in the model and
-	// is a non-synthetic application, in the consumer model.
-	IsApplicationConsumer(ctx context.Context, appName string) (bool, error)
+	// IsApplicationLocal checks if the given application exists in the model and
+	// is a non-synthetic application.
+	IsApplicationLocal(ctx context.Context, appName string) (bool, error)
 
 	// WatchConsumerRelations watches the changes to (remote) relations on the
 	// consuming model and notifies the worker of any changes.

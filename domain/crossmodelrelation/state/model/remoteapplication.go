@@ -1627,9 +1627,9 @@ WHERE a.name = $name.name`, modelUUID{}, name{})
 	return coremodel.UUID(result.UUID), nil
 }
 
-// IsApplicationConsumer checks if the given application exists in the model and
-// is a non-synthetic application, in the consumer model.
-func (st *State) IsApplicationConsumer(ctx context.Context, appName string) (bool, error) {
+// IsApplicationLocal checks if the given application exists in the model and
+// is a non-synthetic application, based on the charm source not being 'cmr'.
+func (st *State) IsApplicationLocal(ctx context.Context, appName string) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)

@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/canonical/sqlair"
@@ -173,8 +174,10 @@ func (st *State) NamespacesForRelationEgressNetworksWatcher() (string, string, s
 
 // InitialWatchStatementForRelationEgressNetworks returns the initial query
 // for watching relation egress networks. It returns the actual egress CIDRs
-// if the relation exists, or an empty slice if no egress networks are
-// configured.
+// following the same priority logic as the watcher mapper:
+// 1. Relation-specific egress CIDRs from relation_network_egress
+// 2. Model config egress-subnets
+// 3. Unit public addresses converted to CIDRs
 func (st *State) InitialWatchStatementForRelationEgressNetworks(relationUUID string) eventsource.NamespaceQuery {
 	return func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		db, err := st.DB(ctx)
@@ -182,16 +185,29 @@ func (st *State) InitialWatchStatementForRelationEgressNetworks(relationUUID str
 			return nil, errors.Capture(err)
 		}
 
-		checkStmt, err := st.Prepare(`
-SELECT &uuid.*
-FROM   relation
-WHERE  uuid = $uuid.uuid
-`, uuid{})
+		// Step 1: Get unit addresses for this relation
+		// If there are no units, return empty regardless of configured CIDRs
+		unitAddressStmt, err := st.Prepare(`
+SELECT u.uuid AS &unitAddress.unit_uuid,
+       ua.address_value AS &unitAddress.address_value,
+       ua.config_type_name AS &unitAddress.config_type_name,
+       ua.type_name AS &unitAddress.type_name,
+       ua.origin_name AS &unitAddress.origin_name,
+       ua.scope_name AS &unitAddress.scope_name,
+       ua.space_uuid AS &unitAddress.space_uuid,
+       ua.cidr AS &unitAddress.cidr
+FROM   relation_unit ru
+JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
+JOIN   unit u ON ru.unit_uuid = u.uuid
+JOIN   v_all_unit_address AS ua ON u.uuid = ua.unit_uuid
+WHERE  re.relation_uuid = $uuid.uuid
+`, unitAddress{}, uuid{})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
 
-		selectStmt, err := st.Prepare(`
+		// Step 2: Check relation-specific egress CIDRs
+		relationEgressStmt, err := st.Prepare(`
 SELECT &cidr.*
 FROM   relation_network_egress
 WHERE  relation_uuid = $uuid.uuid
@@ -200,10 +216,33 @@ WHERE  relation_uuid = $uuid.uuid
 			return nil, errors.Capture(err)
 		}
 
+		// Step 3: Check model config egress-subnets
+		egressSubnetsConfigKey := modelConfigKey{
+			Key: config.EgressSubnets,
+		}
+		modelConfigStmt, err := st.Prepare(`
+SELECT &modelConfigValue.value
+FROM   model_config
+WHERE  key = $modelConfigKey.key
+`, modelConfigValue{}, egressSubnetsConfigKey)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
 		var cidrs []string
 		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			// Check if relation exists
 			var result uuid
-			err := tx.Query(ctx, checkStmt, uuid{UUID: relationUUID}).Get(&result)
+			checkStmt, err := st.Prepare(`
+SELECT &uuid.*
+FROM   relation
+WHERE  uuid = $uuid.uuid
+`, uuid{})
+			if err != nil {
+				return errors.Capture(err)
+			}
+
+			err = tx.Query(ctx, checkStmt, uuid{UUID: relationUUID}).Get(&result)
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return relationerrors.RelationNotFound
 			}
@@ -211,15 +250,79 @@ WHERE  relation_uuid = $uuid.uuid
 				return err
 			}
 
-			var results []cidr
-			if err := tx.Query(ctx, selectStmt, uuid{UUID: relationUUID}).GetAll(&results); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			// Get unit addresses
+			var addresses []unitAddress
+			err = tx.Query(ctx, unitAddressStmt, uuid{UUID: relationUUID}).GetAll(&addresses)
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Capture(err)
+			}
+
+			// If no units, return empty
+			if len(addresses) == 0 {
+				cidrs = []string{}
+				return nil
+			}
+
+			// Priority 1: Check relation-specific egress CIDRs
+			var relationCIDRs []cidr
+			err = tx.Query(ctx, relationEgressStmt, uuid{UUID: relationUUID}).GetAll(&relationCIDRs)
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("retrieving relation network egress for relation %q: %w", relationUUID, err)
 			}
 
-			cidrs = make([]string, len(results))
-			for i, result := range results {
-				cidrs[i] = result.CIDR
+			if len(relationCIDRs) > 0 {
+				cidrs = make([]string, len(relationCIDRs))
+				for i, c := range relationCIDRs {
+					cidrs[i] = c.CIDR
+				}
+				return nil
 			}
+
+			// Priority 2: Check model config for egress-subnets
+			var configValue modelConfigValue
+			err = tx.Query(ctx, modelConfigStmt, egressSubnetsConfigKey).Get(&configValue)
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Capture(err)
+			}
+
+			if configValue.Value != "" {
+				configCIDRs := strings.Split(configValue.Value, ",")
+				cidrs = make([]string, 0, len(configCIDRs))
+				for _, c := range configCIDRs {
+					trimmed := strings.TrimSpace(c)
+					if trimmed != "" {
+						cidrs = append(cidrs, trimmed)
+					}
+				}
+				if len(cidrs) > 0 {
+					return nil
+				}
+			}
+
+			// Priority 3: Use unit public addresses
+			// Group addresses by unit UUID
+			unitAddressesMap := make(map[string]network.SpaceAddresses)
+			for _, addr := range addresses {
+				spaceAddr, err := encodeIPAddress(addr)
+				if err != nil {
+					return errors.Capture(err)
+				}
+				unitAddressesMap[addr.UnitUUID] = append(unitAddressesMap[addr.UnitUUID], spaceAddr)
+			}
+
+			// Filter for public addresses
+			var allPublicAddresses []string
+			for _, addrs := range unitAddressesMap {
+				matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
+				if len(matchedAddrs) == 0 {
+					continue
+				}
+				sort.Sort(matchedAddrs)
+				allPublicAddresses = append(allPublicAddresses, matchedAddrs[0].Value)
+			}
+
+			// Convert to /32 or /128 CIDRs
+			cidrs = network.SubnetsForAddresses(allPublicAddresses)
 			return nil
 		})
 		if err != nil {

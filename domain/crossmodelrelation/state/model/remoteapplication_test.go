@@ -2382,7 +2382,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererModelUUIDNotRemoteOfferer(c 
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
 }
 
-func (s *modelRemoteApplicationSuite) TestCheckIsApplicationConsumer(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestCheckIsApplicationLocal(c *tc.C) {
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, corecharm.NewID).String()
 	offerUUID := tc.Must(c, coreoffer.NewUUID).String()
@@ -2391,15 +2391,15 @@ func (s *modelRemoteApplicationSuite) TestCheckIsApplicationConsumer(c *tc.C) {
 	s.createCharm(c, charmUUID)
 	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
-	isConsumer, err := s.state.IsApplicationConsumer(c.Context(), applicationUUID.String())
+	isLocal, err := s.state.IsApplicationLocal(c.Context(), applicationUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isConsumer, tc.IsTrue)
+	c.Check(isLocal, tc.IsTrue)
 }
 
 func (s *modelRemoteApplicationSuite) TestCheckIsApplicationConsumerNotFound(c *tc.C) {
-	isConsumer, err := s.state.IsApplicationConsumer(c.Context(), "non-existent-app")
+	isLocal, err := s.state.IsApplicationLocal(c.Context(), "non-existent-app")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isConsumer, tc.IsFalse)
+	c.Check(isLocal, tc.IsFalse)
 }
 
 func (s *modelRemoteApplicationSuite) TestCheckIsApplicationConsumerSynthetic(c *tc.C) {
@@ -2439,7 +2439,7 @@ func (s *modelRemoteApplicationSuite) TestCheckIsApplicationConsumerSynthetic(c 
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isConsumer, err := s.state.IsApplicationConsumer(c.Context(), "remote-app")
+	isLocal, err := s.state.IsApplicationLocal(c.Context(), "remote-app")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isConsumer, tc.IsFalse)
+	c.Check(isLocal, tc.IsFalse)
 }

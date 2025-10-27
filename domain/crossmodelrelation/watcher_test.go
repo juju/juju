@@ -1055,8 +1055,10 @@ func (s *watcherSuite) TestWatchRelationEgressNetworks(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	// Initial event should be empty (no egress networks configured initially).
-	harness.Run(c, []string{})
+	// Initial event should contain the unit address converted to CIDR.
+	// The setupRemoteOffererLocalAndRelation creates a unit with address
+	// 198.51.100.1 (public scope), which should be returned as 198.51.100.1/32.
+	harness.Run(c, []string{"198.51.100.1/32"})
 }
 
 func (s *watcherSuite) TestWatchRelationEgressNetworksEmptyRelationUUID(c *tc.C) {
