@@ -1199,11 +1199,11 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 	s.newCharmStorage(c, charmUUID, "myblock", "block", true, false, "/var/block")
 	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, false, "/var/filesystem")
 
-	siUUID1 := s.newStorageInstanceForCharmWithPool(
+	siUUID1, siID1 := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myfilesystem",
 	)
 	s.newStorageAttachment(c, siUUID1, unitUUID)
-	siUUID2 := s.newStorageInstanceForCharmWithPool(
+	siUUID2, siID2 := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myblock",
 	)
 	volumeUUID1, volumeID1 := s.newModelVolume(c)
@@ -1229,6 +1229,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 			Provider:             "canonical",
 			RequestedSizeMiB:     100,
 			SizeMiB:              0,
+			StorageName:          "myfilesystem",
+			StorageID:            siID1,
 			StorageOwnerUnitName: ptr(unitName.String()),
 		},
 		{
@@ -1239,6 +1241,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 			Provider:         "canonical",
 			RequestedSizeMiB: 100,
 			SizeMiB:          0,
+			StorageName:      "myblock",
+			StorageID:        siID2,
 			// We purposely have not associated this storage instance with a
 			// unit to show that the value comes out as nil.
 		},
@@ -1263,7 +1267,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsSharedStorage(c 
 	})
 	s.newCharmStorage(c, charmUUID, "myblock", "block", true, true, "/var/block")
 
-	siUUID1 := s.newStorageInstanceForCharmWithPool(
+	siUUID1, siID1 := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myblock",
 	)
 	s.newStorageAttachment(c, siUUID1, unitUUID)
@@ -1285,6 +1289,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsSharedStorage(c 
 			Provider:             "canonical",
 			RequestedSizeMiB:     100,
 			SizeMiB:              0,
+			StorageID:            siID1,
+			StorageName:          "myblock",
 			StorageOwnerUnitName: nil,
 		},
 	}
@@ -1304,10 +1310,10 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsIgnores(c *tc.C)
 	s.newCharmStorage(c, charmUUID, "myblock", "block", true, false, "/var/block")
 	s.newCharmStorage(c, charmUUID, "myfilesystem", "filesystem", true, false, "/var/filesystem")
 
-	siUUID1 := s.newStorageInstanceForCharmWithPool(
+	siUUID1, siID1 := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myblock",
 	)
-	siUUID2 := s.newStorageInstanceForCharmWithPool(
+	siUUID2, _ := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "myblock",
 	)
 	volumeUUID1, volumeID1 := s.newModelVolume(c)
@@ -1333,6 +1339,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParamsIgnores(c *tc.C)
 			Provider:         "canonical",
 			RequestedSizeMiB: 100,
 			SizeMiB:          0,
+			StorageID:        siID1,
+			StorageName:      "myblock",
 		},
 	}
 	c.Check(err, tc.ErrorIsNil)
