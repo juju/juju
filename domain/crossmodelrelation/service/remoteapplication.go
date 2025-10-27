@@ -246,6 +246,9 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 	if args.ConsumerApplicationEndpoint.Name == "" {
 		return internalerrors.Errorf("endpoint cannot be empty").Add(errors.NotValid)
 	}
+	if args.OfferingEndpointName == "" {
+		return internalerrors.Errorf("offer endpoint cannot be empty").Add(errors.NotValid)
+	}
 
 	// Construct a synthetic charm to represent the remote application charm,
 	// so we can track the endpoints it offers.

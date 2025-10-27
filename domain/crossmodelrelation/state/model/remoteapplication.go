@@ -100,10 +100,13 @@ func (st *State) AddRemoteApplicationOfferer(
 // The synthetic application is used to create a relation with the
 // provided charm.Relation from the consuming side and the offering
 // application endpoint name in the current model.
-// If no local application exists for which the given offer UUID was created,
-// [applicationerrors.ApplicationNotFound] is returned.
-// [relationerrors.AmbiguousRelation]
-// [relationerrors.RelationEndpointNotFound]
+// Returns:
+//   - [applicationerrors.ApplicationNotFound] if no local application exists
+//     for which the given offer UUID was created.
+//   - [relationerrors.AmbiguousRelation] if the synthetic charm has more than
+//     one endpoint.
+//   - [relationerrors.RelationEndpointNotFound] if the offer application
+//     endpoint is not contained in the synthetic charm.
 func (st *State) AddConsumedRelation(
 	ctx context.Context,
 	applicationName string,
