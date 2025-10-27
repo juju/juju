@@ -27,6 +27,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageprovisioning "github.com/juju/juju/domain/storage/provisioning"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -249,11 +250,13 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		return nil, nil, errors.Errorf("getting machine volume params: %w", err)
 	}
 
-	capturedVolumeIDs := make(map[string]struct{}, len(volumeParams))
+	capturedVolumeIDs := make(
+		map[domainstorageprovisioning.VolumeUUID]struct{}, len(volumeParams),
+	)
 	retValVParams := make([]params.VolumeParams, 0, len(volumeParams))
 	for _, vp := range volumeParams {
-		capturedVolumeIDs[vp.ID] = struct{}{}
-		vTag, err := names.ParseVolumeTag(names.VolumeTagKind + vp.ID)
+		capturedVolumeIDs[vp.UUID] = struct{}{}
+		vTag, err := names.ParseVolumeTag(names.VolumeTagKind + "-" + vp.ID)
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"parsing volume id to a volume tag: %w", err,
@@ -278,7 +281,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 	machineTag := names.NewMachineTag(machineName.String())
 	retValVAParams := make([]params.VolumeAttachmentParams, 0, len(attachmentParams))
 	for _, ap := range attachmentParams {
-		if _, has := capturedVolumeIDs[ap.VolumeID]; has {
+		if _, has := capturedVolumeIDs[ap.VolumeUUID]; has {
 			// NOTE (tlm): This logic comes from 3.6 where if we supply a volume
 			// param to the caller any associated attachment should not be
 			// included. This is because the code assumes how the environ
@@ -291,7 +294,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 			continue
 		}
 
-		vTag, err := names.ParseVolumeTag(names.VolumeTagKind + ap.VolumeID)
+		vTag, err := names.ParseVolumeTag(names.VolumeTagKind + "-" + ap.VolumeID)
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"parsing volume attachment volume id to a volume tag: %w", err,
