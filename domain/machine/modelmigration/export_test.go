@@ -65,7 +65,7 @@ func (s *exportSuite) TestFailGetHardwareCharacteristicsForExport(c *tc.C) {
 		},
 	}, nil)
 	s.service.EXPECT().GetHardwareCharacteristics(gomock.Any(), machineUUIDs[0]).
-		Return(nil, errors.New("boom"))
+		Return(instance.HardwareCharacteristics{}, errors.New("boom"))
 
 	op := s.newExportOperation(c)
 	err := op.Execute(c.Context(), dst)
@@ -104,7 +104,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		VirtType:         ptr("vm"),
 	}
 	s.service.EXPECT().GetHardwareCharacteristics(gomock.Any(), machineUUID).
-		Return(&hc, nil)
+		Return(hc, nil)
 
 	op := s.newExportOperation(c)
 	err := op.Execute(c.Context(), dst)
@@ -177,9 +177,9 @@ func (s *exportSuite) TestExportContainer(c *tc.C) {
 		VirtType:         ptr("vm"),
 	}
 	s.service.EXPECT().GetHardwareCharacteristics(gomock.Any(), machineUUID).
-		Return(&hc, nil)
+		Return(hc, nil)
 	s.service.EXPECT().GetHardwareCharacteristics(gomock.Any(), containerUUID).
-		Return(&hc, nil)
+		Return(hc, nil)
 
 	op := s.newExportOperation(c)
 	err := op.Execute(c.Context(), dst)

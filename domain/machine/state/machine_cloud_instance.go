@@ -17,16 +17,20 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetHardwareCharacteristics returns the hardware characteristics struct with
-// data retrieved from the machine cloud instance table.
+// GetHardwareCharacteristics returns the hardware characteristics for a machine.
+//
+// The following errors may be returned:
+// - [machineerrors.NotFound] if the machine with the specified UUID does not
+// exist.
 func (st *State) GetHardwareCharacteristics(
 	ctx context.Context,
 	machineUUID string,
-) (*instance.HardwareCharacteristics, error) {
+) (instance.HardwareCharacteristics, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return instance.HardwareCharacteristics{}, errors.Capture(err)
 	}
+
 	query := `
 SELECT    &instanceDataResult.*
 FROM      v_hardware_characteristics AS v
@@ -36,27 +40,42 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 	}
 	stmt, err := st.Prepare(query, machineUUIDQuery)
 	if err != nil {
-		return nil, errors.Errorf("preparing retrieve hardware characteristics statement: %w", err)
+		return instance.HardwareCharacteristics{}, errors.Errorf("preparing retrieve hardware characteristics statement: %w", err)
 	}
 
 	var row instanceDataResult
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, machineUUIDQuery).Get(&row)
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("getting machine hardware characteristics for %q: %w", machineUUID, machineerrors.NotProvisioned)
-		} else if err != nil {
-			return errors.Errorf("querying machine cloud instance for machine %q: %w", machineUUID, err)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkMachineExists(ctx, tx, machineUUID)
+		if err != nil {
+			return errors.Errorf("checking machine %q exists: %w", machineUUID, err)
 		}
-		return nil
-	}); err != nil {
-		return nil, errors.Capture(err)
+		if !exists {
+			return errors.Errorf(
+				"machine %q does not exist in the model", machineUUID,
+			).Add(machineerrors.MachineNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, machineUUIDQuery).Get(&row)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Hardware characteristics is a struct of pointers, the reality is
+			// if the record doesn't exist return the empty struct. The reocrd
+			// is always created with the machine.
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return instance.HardwareCharacteristics{}, errors.Capture(err)
 	}
 	return row.toHardwareCharacteristics(), nil
 }
 
 // AvailabilityZone returns the availability zone for the specified machine.
-// If no hardware characteristics are set for the machine, it returns
-// [machineerrors.AvailabilityZoneNotFound].
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist in the model.
+// - [machineerrors.AvailabilityZoneNotFound] if no availability zone is set on
+// the machines hardware characteristics.
 func (st *State) AvailabilityZone(
 	ctx context.Context,
 	machineUUID string,
@@ -79,20 +98,35 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 	}
 
 	var row instanceDataResult
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, machineUUIDQuery).Get(&row)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkMachineExists(ctx, tx, machineUUID)
+		if err != nil {
+			return errors.Errorf("checking machine %q exists: %w", machineUUID, err)
+		}
+		if !exists {
+			return errors.Errorf(
+				"machine %q does not exist in the model", machineUUID,
+			).Add(machineerrors.MachineNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, machineUUIDQuery).Get(&row)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("machine cloud instance for machine %q: %w", machineUUID, machineerrors.AvailabilityZoneNotFound)
+			return errors.Errorf(
+				"machine %q has no availability zone set", machineUUID,
+			).Add(machineerrors.AvailabilityZoneNotFound)
 		}
 		if err != nil {
 			return errors.Errorf("querying machine cloud instance for machine %q: %w", machineUUID, err)
 		}
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return "", errors.Capture(err)
 	}
 	if row.AvailabilityZone == nil {
-		return "", nil
+		return "", errors.Errorf(
+			"machine %q has no availability zone set", machineUUID,
+		).Add(machineerrors.AvailabilityZoneNotFound)
 	}
 	return *row.AvailabilityZone, nil
 }

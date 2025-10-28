@@ -27,7 +27,7 @@ type MigrationState interface {
 
 	// GetHardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
-	GetHardwareCharacteristics(context.Context, string) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(context.Context, string) (instance.HardwareCharacteristics, error)
 
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
@@ -113,13 +113,16 @@ func (s *MigrationService) GetInstanceID(ctx context.Context, machineUUID corema
 
 // GetHardwareCharacteristics returns the hardware characteristics of the
 // of the specified machine.
-func (s *MigrationService) GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error) {
+func (s *MigrationService) GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (instance.HardwareCharacteristics, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	hc, err := s.st.GetHardwareCharacteristics(ctx, machineUUID.String())
 	if err != nil {
-		return hc, errors.Errorf("retrieving hardware characteristics for machine %q: %w", machineUUID, err)
+		return instance.HardwareCharacteristics{}, errors.Errorf(
+			"retrieving hardware characteristics for machine %q: %w",
+			machineUUID, err,
+		)
 	}
 	return hc, nil
 }

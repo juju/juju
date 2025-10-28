@@ -79,7 +79,7 @@ func (s *machineSuite) TestMachineHardwareInfo(c *tc.C) {
 	one := uint64(1)
 	amd64 := "amd64"
 	gig := uint64(1024)
-	hw := &instance.HardwareCharacteristics{
+	hw := instance.HardwareCharacteristics{
 		Arch:     &amd64,
 		Mem:      &gig,
 		CpuCores: &one,

@@ -203,10 +203,10 @@ func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 }
 
 // GetHardwareCharacteristics mocks base method.
-func (m *MockExportService) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
+func (m *MockExportService) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHardwareCharacteristics", arg0, arg1)
-	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
+	ret0, _ := ret[0].(instance.HardwareCharacteristics)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -224,19 +224,19 @@ type MockExportServiceGetHardwareCharacteristicsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockExportServiceGetHardwareCharacteristicsCall) Return(arg0 *instance.HardwareCharacteristics, arg1 error) *MockExportServiceGetHardwareCharacteristicsCall {
+func (c *MockExportServiceGetHardwareCharacteristicsCall) Return(arg0 instance.HardwareCharacteristics, arg1 error) *MockExportServiceGetHardwareCharacteristicsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceGetHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockExportServiceGetHardwareCharacteristicsCall {
+func (c *MockExportServiceGetHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (instance.HardwareCharacteristics, error)) *MockExportServiceGetHardwareCharacteristicsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockExportServiceGetHardwareCharacteristicsCall {
+func (c *MockExportServiceGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (instance.HardwareCharacteristics, error)) *MockExportServiceGetHardwareCharacteristicsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

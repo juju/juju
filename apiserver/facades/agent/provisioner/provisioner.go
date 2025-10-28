@@ -541,20 +541,21 @@ func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Ent
 			result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("%w: %w", err, errors.NotFound))
 			continue
 		}
-		hc, err := api.machineService.GetHardwareCharacteristics(ctx, machineUUID)
-		if errors.Is(err, machineerrors.NotProvisioned) {
+
+		az, err := api.machineService.AvailabilityZone(ctx, machineUUID)
+		switch {
+		case errors.Is(err, machineerrors.AvailabilityZoneNotFound):
+			result.Results[i].Result = ""
+			continue
+		case errors.Is(err, machineerrors.MachineNotFound):
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFound)
 			continue
-		}
-		if err != nil {
+		case err != nil:
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if hc.AvailabilityZone != nil {
-			result.Results[i].Result = *hc.AvailabilityZone
-		} else {
-			result.Results[i].Result = ""
-		}
+
+		result.Results[i].Result = az
 	}
 	return result, nil
 }

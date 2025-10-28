@@ -97,6 +97,28 @@ func (st *State) AddMachine(ctx context.Context, args domainmachine.AddMachineAr
 	return netNodeUUID.String(), machineNames, nil
 }
 
+// checkMachineExists will return a true or false answer if a machine exists
+// in the model with the given UUID.
+func (st *State) checkMachineExists(
+	ctx context.Context, tx *sqlair.TX, uuid string,
+) (bool, error) {
+	entityUUID := entityUUID{UUID: uuid}
+	q := "SELECT &entityUUID.* FROM machine WHERE uuid = $entityUUID.uuid"
+	stmt, err := st.Prepare(q, entityUUID)
+	if err != nil {
+		return false, errors.Errorf("preparing check machine exists query: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, entityUUID).Get(&entityUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 // GetMachineLife returns the life status of the specified machine.
 // It returns a MachineNotFound if the given machine doesn't exist.
 func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (life.Life, error) {

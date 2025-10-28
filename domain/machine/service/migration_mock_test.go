@@ -42,10 +42,10 @@ func (m *MockMigrationState) EXPECT() *MockMigrationStateMockRecorder {
 }
 
 // GetHardwareCharacteristics mocks base method.
-func (m *MockMigrationState) GetHardwareCharacteristics(arg0 context.Context, arg1 string) (*instance.HardwareCharacteristics, error) {
+func (m *MockMigrationState) GetHardwareCharacteristics(arg0 context.Context, arg1 string) (instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHardwareCharacteristics", arg0, arg1)
-	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
+	ret0, _ := ret[0].(instance.HardwareCharacteristics)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,19 +63,19 @@ type MockMigrationStateGetHardwareCharacteristicsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMigrationStateGetHardwareCharacteristicsCall) Return(arg0 *instance.HardwareCharacteristics, arg1 error) *MockMigrationStateGetHardwareCharacteristicsCall {
+func (c *MockMigrationStateGetHardwareCharacteristicsCall) Return(arg0 instance.HardwareCharacteristics, arg1 error) *MockMigrationStateGetHardwareCharacteristicsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateGetHardwareCharacteristicsCall) Do(f func(context.Context, string) (*instance.HardwareCharacteristics, error)) *MockMigrationStateGetHardwareCharacteristicsCall {
+func (c *MockMigrationStateGetHardwareCharacteristicsCall) Do(f func(context.Context, string) (instance.HardwareCharacteristics, error)) *MockMigrationStateGetHardwareCharacteristicsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, string) (*instance.HardwareCharacteristics, error)) *MockMigrationStateGetHardwareCharacteristicsCall {
+func (c *MockMigrationStateGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, string) (instance.HardwareCharacteristics, error)) *MockMigrationStateGetHardwareCharacteristicsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

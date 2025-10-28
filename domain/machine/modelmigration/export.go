@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/machine"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/errors"
@@ -40,7 +39,7 @@ type ExportService interface {
 	GetInstanceID(ctx context.Context, machineUUID coremachine.UUID) (instance.Id, error)
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (instance.HardwareCharacteristics, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -123,9 +122,6 @@ func (e *exportOperation) exportMachine(ctx context.Context, m machine.ExportMac
 		InstanceId: m.InstanceID,
 	}
 	hardwareCharacteristics, err := e.service.GetHardwareCharacteristics(ctx, m.UUID)
-	if errors.Is(err, machineerrors.NotProvisioned) {
-		return nil
-	}
 	if err != nil {
 		return errors.Errorf("retrieving hardware characteristics for machine %q: %w", m.Name, err)
 	}

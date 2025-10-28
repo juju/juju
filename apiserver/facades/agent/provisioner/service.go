@@ -107,9 +107,14 @@ type MachineService interface {
 	// list of profiles for the given machine without any checks.
 	SetAppliedLXDProfileNames(ctx context.Context, mUUID coremachine.UUID, profileNames []string) error
 
-	// GetHardwareCharacteristics returns the hardware characteristics of the
-	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
+	// AvailabilityZone returns the availability zone for the specified machine.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the machine
+	// does not exist in the model.
+	// - [github.com/juju/juju/domain/machine/errors.AvailabilityZoneNotFound] when
+	// no availability zone has been set for the machine.
+	AvailabilityZone(ctx context.Context, machineUUID coremachine.UUID) (string, error)
 
 	// GetInstanceID returns the cloud specific instance id for this machine.
 	GetInstanceID(ctx context.Context, mUUID coremachine.UUID) (instance.Id, error)

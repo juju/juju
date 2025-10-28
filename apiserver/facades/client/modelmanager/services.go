@@ -243,7 +243,7 @@ type MachineService interface {
 
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	GetHardwareCharacteristics(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(context.Context, machine.UUID) (instance.HardwareCharacteristics, error)
 
 	// GetSupportedContainersTypes returns the supported container types for the
 	// provider.

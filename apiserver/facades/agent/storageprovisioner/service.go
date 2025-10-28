@@ -39,17 +39,13 @@ type ModelConfigService interface {
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, machineName machine.Name) (machine.UUID, error)
+
 	// GetInstanceID returns the cloud specific instance id for this machine.
 	GetInstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error)
-	// GetInstanceIDAndName returns the cloud specific instance ID and display
-	// name for this machine.
-	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
-	// GetHardwareCharacteristics returns the hardware characteristics of the
-	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
-	// GetMachineLife returns the lifecycle state of the machine with the
-	// specified UUID.
-	GetMachineLife(ctx context.Context, machineName machine.Name) (life.Value, error)
+
+	// GetMachineLife returns the lifecycle of the machine.
+	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
+
 	// WatchMachineCloudInstances returns a NotifyWatcher that is subscribed to
 	// the changes in the machine_cloud_instance table in the model, for the given
 	// machine UUID.

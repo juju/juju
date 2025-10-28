@@ -37,7 +37,6 @@ func Register(registry facade.FacadeRegistry) {
 // newFacadeV4 provides the signature required for facade registration.
 func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPIv4, error) {
 	domainServices := ctx.DomainServices()
-	storageService := domainServices.Storage()
 
 	return NewStorageProvisionerAPIv4(
 		stdCtx,
@@ -48,7 +47,6 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		domainServices.Application(),
 		domainServices.Removal(),
 		ctx.Auth(),
-		storageService,
 		domainServices.Status(),
 		domainServices.StorageProvisioning(),
 		ctx.Logger().Child("storageprovisioner"),

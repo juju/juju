@@ -78,8 +78,8 @@ func tagsFromHardwareCharacteristics(machineUUID string, hc *instance.HardwareCh
 	return res
 }
 
-func (d *instanceDataResult) toHardwareCharacteristics() *instance.HardwareCharacteristics {
-	return &instance.HardwareCharacteristics{
+func (d *instanceDataResult) toHardwareCharacteristics() instance.HardwareCharacteristics {
+	return instance.HardwareCharacteristics{
 		Arch:             d.Arch,
 		Mem:              d.Mem,
 		RootDisk:         d.RootDisk,

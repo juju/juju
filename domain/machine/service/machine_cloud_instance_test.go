@@ -10,49 +10,92 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	domainmachine "github.com/juju/juju/domain/machine"
+	domainmachineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
+func (s *serviceSuite) TestRetrieveHardwareCharacteristicsMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+
+	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), machineUUID.String()).
+		Return(instance.HardwareCharacteristics{}, domainmachineerrors.MachineNotFound)
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, err := svc.GetHardwareCharacteristics(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIs, domainmachineerrors.MachineNotFound)
+}
+
 func (s *serviceSuite) TestRetrieveHardwareCharacteristics(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	machineUUID := tc.Must(c, coremachine.NewUUID)
 
-	expected := &instance.HardwareCharacteristics{
+	expected := instance.HardwareCharacteristics{
 		Mem:      uintptr(1024),
 		RootDisk: uintptr(256),
 		CpuCores: uintptr(4),
 		CpuPower: uintptr(75),
 	}
-	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), "42").
+	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), machineUUID.String()).
 		Return(expected, nil)
 
-	hc, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).GetHardwareCharacteristics(c.Context(), "42")
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	hc, err := svc.GetHardwareCharacteristics(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hc, tc.DeepEquals, expected)
 }
 
 func (s *serviceSuite) TestRetrieveHardwareCharacteristicsFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	machineUUID := tc.Must(c, coremachine.NewUUID)
 
-	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), "42").
-		Return(nil, errors.New("boom"))
+	opErr := errors.New("boom")
+	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), machineUUID.String()).
+		Return(instance.HardwareCharacteristics{}, opErr)
 
-	hc, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).GetHardwareCharacteristics(c.Context(), "42")
-	c.Check(hc, tc.IsNil)
-	c.Assert(err, tc.ErrorMatches, "retrieving hardware characteristics for machine \"42\": boom")
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, err := svc.GetHardwareCharacteristics(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIs, opErr)
+}
+
+func (s *serviceSuite) TestRetrieveAvailabilityZoneMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+
+	s.state.EXPECT().AvailabilityZone(gomock.Any(), machineUUID.String()).
+		Return("", domainmachineerrors.MachineNotFound)
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, err := svc.AvailabilityZone(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIs, domainmachineerrors.MachineNotFound)
+}
+
+func (s *serviceSuite) TestRetrieveAvailabilityZoneNotSet(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+
+	s.state.EXPECT().AvailabilityZone(gomock.Any(), machineUUID.String()).
+		Return("", domainmachineerrors.AvailabilityZoneNotFound)
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, err := svc.AvailabilityZone(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIs, domainmachineerrors.AvailabilityZoneNotFound)
 }
 
 func (s *serviceSuite) TestRetrieveAvailabilityZone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	machineUUID := tc.Must(c, coremachine.NewUUID)
 
-	s.state.EXPECT().AvailabilityZone(gomock.Any(), "42").
+	s.state.EXPECT().AvailabilityZone(gomock.Any(), machineUUID.String()).
 		Return("foo", nil)
 
-	hc, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).AvailabilityZone(c.Context(), "42")
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	hc, err := svc.AvailabilityZone(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(hc, tc.DeepEquals, "foo")
+	c.Check(hc, tc.Equals, "foo")
 }
 
 func (s *serviceSuite) TestSetMachineCloudInstance(c *tc.C) {
@@ -104,8 +147,8 @@ func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *tc.C) {
 func (s *serviceSuite) TestGetPollingInfosSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	n1 := machine.Name("0")
-	n2 := machine.Name("1")
+	n1 := coremachine.Name("0")
+	n2 := coremachine.Name("1")
 	expected := domainmachine.PollingInfos{{
 		MachineUUID:         "uuid-0",
 		MachineName:         n1,
@@ -121,7 +164,7 @@ func (s *serviceSuite) TestGetPollingInfosSuccess(c *tc.C) {
 	s.state.EXPECT().GetPollingInfos(gomock.Any(), []string{"0", "1"}).Return(expected, nil)
 
 	infos, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetPollingInfos(c.Context(), []machine.Name{n1, n2})
+		GetPollingInfos(c.Context(), []coremachine.Name{n1, n2})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(infos, tc.DeepEquals, expected)
 }
@@ -131,19 +174,19 @@ func (s *serviceSuite) TestGetPollingInfosValidationError(c *tc.C) {
 
 	// invalid machine name should cause validation error and short-circuit before state call
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetPollingInfos(c.Context(), []machine.Name{"invalid"})
+		GetPollingInfos(c.Context(), []coremachine.Name{"invalid"})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestGetPollingInfosStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	n := machine.Name("0")
+	n := coremachine.Name("0")
 	rErr := errors.New("boom")
 	s.state.EXPECT().GetPollingInfos(gomock.Any(), []string{"0"}).Return(nil, rErr)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetPollingInfos(c.Context(), []machine.Name{n})
+		GetPollingInfos(c.Context(), []coremachine.Name{n})
 	c.Assert(err, tc.ErrorIs, rErr)
 }
 
@@ -151,7 +194,7 @@ func (s *serviceSuite) TestGetPollingInfosEmptyArgs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	result, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetPollingInfos(c.Context(), []machine.Name{})
+		GetPollingInfos(c.Context(), []coremachine.Name{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 0)
 }

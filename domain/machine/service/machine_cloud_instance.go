@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/transform"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
@@ -69,9 +70,22 @@ func (s *Service) GetInstanceIDAndName(ctx context.Context, machineUUID machine.
 }
 
 // AvailabilityZone returns the availability zone for the specified machine.
-func (s *Service) AvailabilityZone(ctx context.Context, machineUUID machine.UUID) (string, error) {
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the machine uuid is not valid.
+// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the machine
+// does not exist in the model.
+// - [github.com/juju/juju/domain/machine/errors.AvailabilityZoneNotFound] when
+// no availability zone has been set for the machine.
+func (s *Service) AvailabilityZone(
+	ctx context.Context, machineUUID machine.UUID,
+) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if machineUUID.Validate() != nil {
+		return "", errors.New("machine uuid is not valid").Add(coreerrors.NotValid)
+	}
 
 	az, err := s.st.AvailabilityZone(ctx, machineUUID.String())
 	if err != nil {
@@ -82,9 +96,18 @@ func (s *Service) AvailabilityZone(ctx context.Context, machineUUID machine.UUID
 
 // GetHardwareCharacteristics returns the hardware characteristics of the
 // of the specified machine.
-func (s *Service) GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error) {
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the machine uuid is not valid.
+// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the machine
+// does not exist in the model.
+func (s *Service) GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (instance.HardwareCharacteristics, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if machineUUID.Validate() != nil {
+		return instance.HardwareCharacteristics{}, errors.New("machine uuid is not valid").Add(coreerrors.NotValid)
+	}
 
 	hc, err := s.st.GetHardwareCharacteristics(ctx, machineUUID.String())
 	if err != nil {

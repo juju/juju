@@ -618,6 +618,45 @@ func (c *MockMachineServiceAllMachineNamesCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// AvailabilityZone mocks base method.
+func (m *MockMachineService) AvailabilityZone(arg0 context.Context, arg1 machine.UUID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AvailabilityZone", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AvailabilityZone indicates an expected call of AvailabilityZone.
+func (mr *MockMachineServiceMockRecorder) AvailabilityZone(arg0, arg1 any) *MockMachineServiceAvailabilityZoneCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZone", reflect.TypeOf((*MockMachineService)(nil).AvailabilityZone), arg0, arg1)
+	return &MockMachineServiceAvailabilityZoneCall{Call: call}
+}
+
+// MockMachineServiceAvailabilityZoneCall wrap *gomock.Call
+type MockMachineServiceAvailabilityZoneCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceAvailabilityZoneCall) Return(arg0 string, arg1 error) *MockMachineServiceAvailabilityZoneCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceAvailabilityZoneCall) Do(f func(context.Context, machine.UUID) (string, error)) *MockMachineServiceAvailabilityZoneCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceAvailabilityZoneCall) DoAndReturn(f func(context.Context, machine.UUID) (string, error)) *MockMachineServiceAvailabilityZoneCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetBootstrapEnviron mocks base method.
 func (m *MockMachineService) GetBootstrapEnviron(arg0 context.Context) (environs.BootstrapEnviron, error) {
 	m.ctrl.T.Helper()
@@ -653,45 +692,6 @@ func (c *MockMachineServiceGetBootstrapEnvironCall) Do(f func(context.Context) (
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceGetBootstrapEnvironCall) DoAndReturn(f func(context.Context) (environs.BootstrapEnviron, error)) *MockMachineServiceGetBootstrapEnvironCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetHardwareCharacteristics mocks base method.
-func (m *MockMachineService) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetHardwareCharacteristics", arg0, arg1)
-	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetHardwareCharacteristics indicates an expected call of GetHardwareCharacteristics.
-func (mr *MockMachineServiceMockRecorder) GetHardwareCharacteristics(arg0, arg1 any) *MockMachineServiceGetHardwareCharacteristicsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHardwareCharacteristics", reflect.TypeOf((*MockMachineService)(nil).GetHardwareCharacteristics), arg0, arg1)
-	return &MockMachineServiceGetHardwareCharacteristicsCall{Call: call}
-}
-
-// MockMachineServiceGetHardwareCharacteristicsCall wrap *gomock.Call
-type MockMachineServiceGetHardwareCharacteristicsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceGetHardwareCharacteristicsCall) Return(arg0 *instance.HardwareCharacteristics, arg1 error) *MockMachineServiceGetHardwareCharacteristicsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceGetHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceGetHardwareCharacteristicsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceGetHardwareCharacteristicsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
