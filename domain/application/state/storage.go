@@ -49,7 +49,7 @@ const (
 func (st *State) GetApplicationStorageInfo(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
-) (application.ApplicationStorage, error) {
+) (map[string]application.ApplicationStorageInfo, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -99,10 +99,7 @@ SELECT &applicationStorageInfo.* FROM (
 	}
 
 	// Preallocate map with expected size since each storage name
-	// should be unique within an application
-	// TODO: Although we do have the composite key on charm_uuid, so in theory if this was different
-	// this would break?
-	appStorage := make(application.ApplicationStorage, len(storageInfoResult))
+	appStorage := make(map[string]application.ApplicationStorageInfo, len(storageInfoResult))
 	for _, info := range storageInfoResult {
 		appStorage[info.StorageName] = application.ApplicationStorageInfo{
 			StoragePoolName: info.StoragePoolName,

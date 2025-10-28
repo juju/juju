@@ -100,7 +100,7 @@ type State interface {
 	GetApplicationStorageInfo(
 		ctx context.Context,
 		appUUID coreapplication.UUID,
-	) (application.ApplicationStorage, error)
+	) (map[string]application.ApplicationStorageInfo, error)
 
 	// GetApplicationStorageDirectives returns the storage directives that are
 	// set for an application. If the application does not have any storage

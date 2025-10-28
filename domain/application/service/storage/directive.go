@@ -73,7 +73,7 @@ func (s *Service) GetApplicationStorageDirectives(
 func (s *Service) GetApplicationStorageInfo(
 	ctx context.Context,
 	uuid coreapplication.UUID,
-) (application.ApplicationStorage, error) {
+) (map[string]application.ApplicationStorageInfo, error) {
 	if uuid.Validate() != nil {
 		return nil, coreerrors.NotValid
 	}

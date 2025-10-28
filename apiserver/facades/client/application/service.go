@@ -198,7 +198,7 @@ type ApplicationService interface {
 	//
 	// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
 	// error is returned.
-	GetApplicationStorageInfo(ctx context.Context, uuid coreapplication.UUID) (application.ApplicationStorage, error)
+	GetApplicationStorageInfo(ctx context.Context, uuid coreapplication.UUID) (map[string]application.ApplicationStorageInfo, error)
 
 	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)

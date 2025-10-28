@@ -48,12 +48,6 @@ type StorageDirective struct {
 	Size uint64
 }
 
-// StorageName is a type alias for storage names.
-type StorageName = string
-
-// ApplicationStorage is a map of storage names to their corresponding storage info.
-type ApplicationStorage map[StorageName]ApplicationStorageInfo
-
 // ApplicationStorageInfo defines the storage information for a given storage
 // name. It does not include the name as it is expected to be mapped via [ApplicationStorage].
 type ApplicationStorageInfo struct {

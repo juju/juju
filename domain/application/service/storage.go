@@ -31,7 +31,7 @@ type StorageService interface {
 	GetApplicationStorageInfo(
 		ctx context.Context,
 		uuid coreapplication.UUID,
-	) (application.ApplicationStorage, error)
+	) (map[string]application.ApplicationStorageInfo, error)
 
 	// GetApplicationStorageDirectives returns the storage directives that are
 	// set for an application. If the application does not have any storage

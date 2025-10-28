@@ -2024,8 +2024,8 @@ func (s *applicationSuite) TestGetApplicationStorageInfo(c *tc.C) {
 		gomock.Any(),
 		appUUID,
 	).Return(
-		domainapplication.ApplicationStorage{
-			"logs": domainapplication.ApplicationStorageInfo{
+		map[string]domainapplication.ApplicationStorageInfo{
+			"logs": {
 				StoragePoolName: poolName,
 				SizeMiB:         &size,
 				Count:           &count,
