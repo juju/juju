@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
@@ -12,6 +14,7 @@ import (
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -79,6 +82,50 @@ func (s *modelOfferSuite) TestCreateOffer(c *tc.C) {
 			EndpointUUID: endpointUUID2,
 		},
 	})
+}
+
+func (s *modelOfferSuite) TestCreateOfferDyingAplication(c *tc.C) {
+	// Arrange
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relation := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+	relation2 := charm.Relation{
+		Name:      "log",
+		Role:      charm.RoleProvider,
+		Interface: "log",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID2 := s.addCharmRelation(c, charmUUID, relation2)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	s.addApplicationEndpoint(c, appUUID, relationUUID)
+	s.addApplicationEndpoint(c, appUUID, relationUUID2)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = 1 WHERE uuid = ?", appUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	args := crossmodelrelation.CreateOfferArgs{
+		UUID:            tc.Must(c, offer.NewUUID),
+		ApplicationName: appName,
+		Endpoints:       []string{relation.Name, relation2.Name},
+		OfferName:       "test-offer",
+	}
+
+	// Act
+	err = s.state.CreateOffer(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
 // TestCreateOfferEndpointFail tests that all endpoints are found.

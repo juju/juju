@@ -407,6 +407,10 @@ type cidr struct {
 	CIDR string `db:"cidr"`
 }
 
+type lifeID struct {
+	Life int `db:"life_id"`
+}
+
 type queryLife struct {
 	Value corelife.Value `db:"value"`
 }

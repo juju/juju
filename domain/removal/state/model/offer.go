@@ -54,6 +54,13 @@ func (st *State) DeleteOffer(ctx context.Context, oUUID string, force bool) erro
 
 	offerUUID := entityUUID{UUID: oUUID}
 
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.deleteOffer(ctx, tx, offerUUID, force)
+	})
+	return errors.Capture(err)
+}
+
+func (st *State) deleteOffer(ctx context.Context, tx *sqlair.TX, offerUUID entityUUID, force bool) error {
 	checkConnsStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &count.count
 FROM offer_connection 
@@ -122,65 +129,62 @@ WHERE uuid = $entityUUID.uuid
 		return errors.Errorf("preparing delete offer query: %w", err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if !force {
-			var count count
-			if err := tx.Query(ctx, checkConnsStmt, offerUUID).Get(&count); err != nil {
-				return errors.Errorf("checking offer connections: %w", err)
-			} else if count.Count > 0 {
-				return errors.Errorf("cannot delete offer %q, it has %d connections", oUUID, count.Count).
-					Add(removalerrors.OfferHasRelations).
-					Add(removalerrors.ForceRequired)
+	if !force {
+		var count count
+		if err := tx.Query(ctx, checkConnsStmt, offerUUID).Get(&count); err != nil {
+			return errors.Errorf("checking offer connections: %w", err)
+		} else if count.Count > 0 {
+			return errors.Errorf("cannot delete offer %q, it has %d connections", offerUUID, count.Count).
+				Add(removalerrors.OfferHasRelations).
+				Add(removalerrors.ForceRequired)
+		}
+	}
+
+	// If we aren't force removing, we know we don't have any connections
+	// so we don't need to run the queries deleting the connections and
+	// remote apps/relations
+	if force {
+		var synthRelationUUIDs []entityUUID
+		err = tx.Query(ctx, getSynthRelationsStmt, offerUUID).GetAll(&synthRelationUUIDs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting synthetic relation UUIDs: %w", err)
+		}
+		relUUIDs := uuids(transform.Slice(synthRelationUUIDs, func(e entityUUID) string { return e.UUID }))
+
+		var synthAppUUIDs []consumerApplicationUUID
+		err = tx.Query(ctx, getSynthAppsStmt, offerUUID).GetAll(&synthAppUUIDs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting synthetic application UUIDs: %w", err)
+		}
+
+		if err := tx.Query(ctx, deleteRelationEndpointsStmt, relUUIDs).Run(); err != nil {
+			return errors.Errorf("deleting relation endpoints: %w", err)
+		}
+
+		for _, uuids := range synthAppUUIDs {
+			if err := st.deleteRemoteApplicationConsumer(ctx, tx, uuids); err != nil {
+				return errors.Errorf("deleting remote application %q consumer: %w", uuids.ConsumerApplicationUUID, err)
 			}
 		}
 
-		// If we aren't force removing, we know we don't have any connections
-		// so we don't need to run the queries deleting the connections and
-		// remote apps/relations
-		if force {
-			var synthRelationUUIDs []entityUUID
-			err = tx.Query(ctx, getSynthRelationsStmt, offerUUID).GetAll(&synthRelationUUIDs)
-			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("getting synthetic relation UUIDs: %w", err)
-			}
-			relUUIDs := uuids(transform.Slice(synthRelationUUIDs, func(e entityUUID) string { return e.UUID }))
-
-			var synthAppUUIDs []consumerApplicationUUID
-			err = tx.Query(ctx, getSynthAppsStmt, offerUUID).GetAll(&synthAppUUIDs)
-			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("getting synthetic application UUIDs: %w", err)
-			}
-
-			if err := tx.Query(ctx, deleteRelationEndpointsStmt, relUUIDs).Run(); err != nil {
-				return errors.Errorf("deleting relation endpoints: %w", err)
-			}
-
-			for _, uuids := range synthAppUUIDs {
-				if err := st.deleteRemoteApplicationConsumer(ctx, tx, uuids); err != nil {
-					return errors.Errorf("deleting remote application %q consumer: %w", uuids.ConsumerApplicationUUID, err)
-				}
-			}
-
-			if err := tx.Query(ctx, deleteOfferConnectionStmt, offerUUID).Run(); err != nil {
-				return errors.Errorf("deleting offer connection: %w", err)
-			}
-
-			if err := tx.Query(ctx, deleteRelationsStmt, relUUIDs).Run(); err != nil {
-				return errors.Errorf("deleting synthetic relations: %w", err)
-			}
+		if err := tx.Query(ctx, deleteOfferConnectionStmt, offerUUID).Run(); err != nil {
+			return errors.Errorf("deleting offer connections: %w", err)
 		}
 
-		if err := tx.Query(ctx, deleteOfferEndpointsStmt, offerUUID).Run(); err != nil {
-			return errors.Errorf("deleting offer endpoints: %w", err)
+		if err := tx.Query(ctx, deleteRelationsStmt, relUUIDs).Run(); err != nil {
+			return errors.Errorf("deleting synthetic relations: %w", err)
 		}
+	}
 
-		if err := tx.Query(ctx, deleteOfferStmt, offerUUID).Run(); err != nil {
-			return errors.Errorf("deleting offer: %w", err)
-		}
+	if err := tx.Query(ctx, deleteOfferEndpointsStmt, offerUUID).Run(); err != nil {
+		return errors.Errorf("deleting offer endpoints: %w", err)
+	}
 
-		return nil
-	})
-	return errors.Capture(err)
+	if err := tx.Query(ctx, deleteOfferStmt, offerUUID).Run(); err != nil {
+		return errors.Errorf("deleting offer: %w", err)
+	}
+
+	return nil
 }
 
 func (st *State) deleteRemoteApplicationConsumer(ctx context.Context, tx *sqlair.TX, uuids consumerApplicationUUID) error {

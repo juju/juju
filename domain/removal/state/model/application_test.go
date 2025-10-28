@@ -60,7 +60,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccess(c *
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We don't have any units, so we expect an empty slice for both unit and
@@ -115,7 +115,7 @@ VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Perform the ensure operation with destroyStorage.
-	artifacts, err := st.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), true)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), true, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 0)
@@ -166,7 +166,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 0)
@@ -201,7 +201,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 0)
@@ -238,7 +238,7 @@ func (s *applicationSuite) TestEnsureApplicationOnMultipleMachines(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID1.String(), false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID1.String(), false, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	app1UnitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
@@ -294,7 +294,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 1)
@@ -315,7 +315,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeDyingSuccess(c *t
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We don't have any units, so we expect an empty slice for both unit and
@@ -330,11 +330,36 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeDyingSuccess(c *t
 	c.Check(lifeID, tc.Equals, 1)
 }
 
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeOfferConnections(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app")
+	offerUUID := s.createOfferForApplication(c, "some-app", "some-offer")
+	s.createRemoteApplicationConsumer(c, "some-remote-app", offerUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	c.Assert(err, tc.ErrorIs, removalerrors.ApplicationHasOfferConnections)
+	c.Assert(err, tc.ErrorIs, removalerrors.ForceRequired)
+}
+
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeOfferConnectionsWithForce(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app")
+	offerUUID := s.createOfferForApplication(c, "some-app", "some-offer")
+	s.createRemoteApplicationConsumer(c, "some-remote-app", offerUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, true)
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkApplicationDyingState(c, appUUID)
+}
+
 func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// We don't care if it's already gone.
-	_, err := st.EnsureApplicationNotAliveCascade(c.Context(), "some-application-uuid", false)
+	_, err := st.EnsureApplicationNotAliveCascade(c.Context(), "some-application-uuid", false, false)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -891,6 +916,32 @@ func (s *applicationSuite) TestDeleteApplicationWithSharedObjectstoreResource(c 
 	exists, err := st.ApplicationExists(c.Context(), appUUID1.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+}
+
+func (s *applicationSuite) TestDeleteApplicationWithOffers(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app")
+	offerUUID1 := s.createOfferForApplication(c, "some-app", "some-offer")
+	offerUUID2 := s.createOfferForApplication(c, "some-app", "some-other-offer")
+
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	offerExists, err := st.OfferExists(c.Context(), offerUUID1.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(offerExists, tc.Equals, false)
+
+	offerExists, err = st.OfferExists(c.Context(), offerUUID2.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(offerExists, tc.Equals, false)
 }
 
 func (s *applicationSuite) getAppResourceUUID(c *tc.C, appUUID coreapplication.UUID) string {

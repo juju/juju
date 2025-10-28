@@ -8,13 +8,8 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 
-	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/offer"
-	"github.com/juju/juju/domain/crossmodelrelation"
-	crossmodelrelationstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -115,22 +110,4 @@ func (s *offerSuite) TestDeleteOfferForceWithRelations(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(relCount, tc.Equals, 0)
 	c.Check(remoteAppCount, tc.Equals, 0)
-}
-
-func (s *offerSuite) createOffer(c *tc.C, appName string) offer.UUID {
-	cmrState := crossmodelrelationstate.NewState(
-		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
-	)
-	s.createIAASApplication(c, s.setupApplicationService(c), appName)
-	offerUUID := tc.Must(c, offer.NewUUID)
-
-	err := cmrState.CreateOffer(c.Context(), crossmodelrelation.CreateOfferArgs{
-		UUID:            offerUUID,
-		ApplicationName: "foo",
-		Endpoints:       []string{"foo", "bar"},
-		OfferName:       "foo",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	return offerUUID
 }

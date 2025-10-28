@@ -57,7 +57,7 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 // the last ones on their machines, it will cascade and the machines are
 // also set to dying. The affected machine UUIDs are returned.
 func (st *State) EnsureApplicationNotAliveCascade(
-	ctx context.Context, aUUID string, destroyStorage bool,
+	ctx context.Context, aUUID string, destroyStorage bool, force bool,
 ) (internal.CascadedApplicationLives, error) {
 	var res internal.CascadedApplicationLives
 
@@ -67,6 +67,18 @@ func (st *State) EnsureApplicationNotAliveCascade(
 	}
 
 	applicationUUID := entityUUID{UUID: aUUID}
+	checkOfferConnectionsStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   offer_connection AS oc
+JOIN   offer AS o ON oc.offer_uuid = o.uuid
+JOIN   offer_endpoint AS oe ON o.uuid = oe.offer_uuid
+JOIN   application_endpoint AS ae ON oe.endpoint_uuid = ae.uuid
+WHERE  ae.application_uuid = $entityUUID.uuid
+	`, count{}, applicationUUID)
+	if err != nil {
+		return res, errors.Errorf("preparing offer connections query: %w", err)
+	}
+
 	updateApplicationStmt, err := st.Prepare(`
 UPDATE application
 SET    life_id = 1
@@ -111,6 +123,17 @@ AND    life_id = 0`, applicationUUID)
 	}
 
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if !force {
+			var count count
+			if err := tx.Query(ctx, checkOfferConnectionsStmt, applicationUUID).Get(&count); err != nil {
+				return errors.Errorf("checking offer connections: %w", err)
+			} else if count.Count > 0 {
+				return errors.Errorf("cannot remove application %q, it has %d offer connection(s)", aUUID, count.Count).
+					Add(removalerrors.ApplicationHasOfferConnections).
+					Add(removalerrors.ForceRequired)
+			}
+		}
+
 		if err := tx.Query(ctx, updateApplicationStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("advancing application life: %w", err)
 		}
@@ -228,12 +251,12 @@ func (st *State) DeleteApplication(ctx context.Context, aUUID string, force bool
 	applicationUUID := entityUUID{UUID: aUUID}
 
 	unitsStmt, err := st.Prepare(`
-SELECT count(*) AS &count.count
+SELECT COUNT(*) AS &count.count
 FROM unit
 WHERE application_uuid = $entityUUID.uuid
 `, count{}, applicationUUID)
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("preparing application unit count query: %w", err)
 	}
 
 	relationsStmt, err := st.Prepare(`
@@ -242,7 +265,17 @@ FROM v_relation_endpoint
 WHERE application_uuid = $entityUUID.uuid
 `, count{}, applicationUUID)
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("preparing application relation count query: %w", err)
+	}
+
+	getOffersStmt, err := st.Prepare(`
+SELECT oe.offer_uuid AS &entityUUID.uuid
+FROM offer_endpoint AS oe
+JOIN application_endpoint AS ae ON oe.endpoint_uuid = ae.uuid
+WHERE ae.application_uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing application offers query: %w", err)
 	}
 
 	deleteApplicationStmt, err := st.Prepare(`
@@ -288,6 +321,20 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			return errors.Errorf("cannot delete application as it still has %d relation(s)", numRelations).
 				Add(applicationerrors.ApplicationHasRelations).
 				Add(removalerrors.RemovalJobIncomplete)
+		}
+
+		var offers []entityUUID
+		if err := tx.Query(ctx, getOffersStmt, applicationUUID).GetAll(&offers); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting offers: %w", err)
+		}
+
+		for _, offer := range offers {
+			// We don't need to worry about whether the offer has connections here.
+			// Either we are using force, meaning we don't care, or we are not forcing,
+			// meaning we checked there are no connections before setting to dying.
+			if err := st.deleteOffer(ctx, tx, offer, force); err != nil {
+				return errors.Errorf("deleting offer %q: %w", offer.UUID, err)
+			}
 		}
 
 		if err := st.deleteApplicationAnnotations(ctx, tx, aUUID); err != nil {
