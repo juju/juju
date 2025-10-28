@@ -593,7 +593,7 @@ func (s *Service) GetFilesystemUUIDForID(
 func (s *Service) WatchModelProvisionedFilesystems(
 	ctx context.Context,
 ) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystems()

@@ -986,7 +986,7 @@ func (s *Service) GetRelationUnits(
 	relationUUID corerelation.UUID,
 	applicationUUID application.UUID,
 ) (relation.RelationUnitChange, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := relationUUID.Validate(); err != nil {
@@ -1007,7 +1007,7 @@ func (s *Service) GetFullRelationUnitChange(
 	relationUUID corerelation.UUID,
 	applicationUUID application.UUID,
 ) (relation.FullRelationUnitChange, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := relationUUID.Validate(); err != nil {
@@ -1029,7 +1029,7 @@ func (s *Service) GetConsumerRelationUnitsChange(
 	relationUUID corerelation.UUID,
 	applicationUUID application.UUID,
 ) (relation.ConsumerRelationUnitsChange, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := relationUUID.Validate(); err != nil {

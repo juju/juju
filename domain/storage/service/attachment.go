@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetStorageAttachmentUUIDForStorageIDAndUnit returns the
+// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
 // [domainstorageprovisioning.StorageAttachmentUUID] associated with the given
 // storage instance id and unit name.
 //
@@ -30,7 +30,7 @@ func (s *Service) GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 	uuid domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
 ) (domainstorageprovisioning.StorageAttachmentUUID, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if uuid.Validate() != nil {

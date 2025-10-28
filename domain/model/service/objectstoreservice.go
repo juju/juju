@@ -47,7 +47,7 @@ func (s *ObjectStoreService) Model(ctx context.Context) (coremodel.ModelInfo, er
 
 // WatchModel returns a watcher that emits an event if the model changes.
 func (s ObjectStoreService) WatchModel(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(

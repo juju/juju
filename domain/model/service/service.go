@@ -712,7 +712,7 @@ func NewWatchableService(
 // received. Newly created models will not be reported since they are not
 // activated at creation. Deletion of activated models is also not reported.
 func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	mapper := getWatchActivatedModelsMapper(s.st)

@@ -98,7 +98,7 @@ func NewWatchableService(
 // WatchMachineLife returns a watcher that observes the changes to life of one
 // machine.
 func (s *WatchableService) WatchMachineLife(ctx context.Context, machineName machine.Name) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	table := s.st.NamespaceForMachineLife()
@@ -119,7 +119,7 @@ func (s *WatchableService) WatchMachineLife(ctx context.Context, machineName mac
 // machine unit lifecycle events, so it can be used to track the lifecycle of
 // a machine and its units together.
 func (s *WatchableService) WatchMachineAndMachineUnitLife(ctx context.Context, machineName machine.Name) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := machineName.Validate(); err != nil {
@@ -146,7 +146,7 @@ func (s *WatchableService) WatchMachineAndMachineUnitLife(ctx context.Context, m
 // WatchMachineContainerLife returns a watcher that observes machine container
 // life changes.
 func (s *WatchableService) WatchMachineContainerLife(ctx context.Context, parentMachineName machine.Name) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := parentMachineName.Validate(); err != nil {
@@ -224,7 +224,7 @@ func (s *WatchableService) getContainerTypeOrUseDefault(
 // after their transition to the dead state.
 // It emits machine names rather than UUIDs.
 func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	table, stmt := s.st.InitialWatchModelMachinesStatement()
@@ -243,7 +243,7 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.Stri
 // WatchModelMachineLifeAndStartTimes returns a string watcher that emits machine names
 // for changes to machine life or agent start times.
 func (s *WatchableService) WatchModelMachineLifeAndStartTimes(ctx context.Context) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	table, stmt := s.st.InitialWatchModelMachineLifeAndStartTimesStatement()
@@ -259,7 +259,7 @@ func (s *WatchableService) WatchModelMachineLifeAndStartTimes(ctx context.Contex
 // the changes in the machine_cloud_instance table in the model, for the given
 // machine UUID.
 func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machineUUID machine.UUID) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
@@ -279,7 +279,7 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machi
 // fired from `SetAppliedLXDProfileNames()` instead of the `machine_lxd_profile`
 // table, which could become noisy.
 func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID machine.UUID) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(

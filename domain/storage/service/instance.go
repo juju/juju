@@ -19,7 +19,7 @@ import (
 func (s *Service) GetStorageInstanceUUIDForID(
 	ctx context.Context, storageID string,
 ) (domainstorage.StorageInstanceUUID, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return s.st.GetStorageInstanceUUIDByID(ctx, storageID)
