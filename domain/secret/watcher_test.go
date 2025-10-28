@@ -390,12 +390,14 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
-		// Delete the application owned secret.
-		removeSecret(c, ctx, st, uri1)
-		// Delete an application owned revision.
-		removeSecret(c, ctx, st, uri2, 1)
-		// Delete the unit owned secret.
-		removeSecret(c, ctx, st, uri3)
+		removeSecrets(c, ctx, st,
+			// Delete the application owned secret.
+			secretRev{uri: uri1},
+			// Delete an application owned revision.
+			secretRev{uri: uri2, revs: []int{1}},
+			// Delete the unit owned secret.
+			secretRev{uri: uri3},
+		)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -446,12 +448,14 @@ func (s *watcherSuite) TestWatchDeletedSecretRemovesRevisionFromChangeSet(c *tc.
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
-		// Delete the application owned secret.
-		removeSecret(c, ctx, st, uri1)
-		// Delete an application owned revision.
-		removeSecret(c, ctx, st, uri2, 1)
-		// Delete the secret for the above revision.
-		removeSecret(c, ctx, st, uri2)
+		removeSecrets(c, ctx, st,
+			// Delete the application owned secret.
+			secretRev{uri: uri1},
+			// Delete an application owned revision.
+			secretRev{uri: uri2, revs: []int{1}},
+			// Delete the secret for the above revision.
+			secretRev{uri: uri2},
+		)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -500,10 +504,12 @@ func (s *watcherSuite) TestWatchDeletedForUnitsOwnedSecret(c *tc.C) {
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
-		// Delete the application owned secret.
-		removeSecret(c, ctx, st, uri1)
-		// Delete the unit owned secret.
-		removeSecret(c, ctx, st, uri2)
+		removeSecrets(c, ctx, st,
+			// Delete the application owned secret.
+			secretRev{uri: uri1},
+			// Delete the unit owned secret.
+			secretRev{uri: uri2},
+		)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -1041,9 +1047,19 @@ func createCharmUnitSecret(ctx context.Context, st *state.State, version int, ur
 	})
 }
 
-func removeSecret(c *tc.C, ctx context.Context, st *state.State, uri *coresecrets.URI, revs ...int) {
+type secretRev struct {
+	uri  *coresecrets.URI
+	revs []int
+}
+
+func removeSecrets(c *tc.C, ctx context.Context, st *state.State, secrets ...secretRev) {
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.DeleteSecret(ctx, uri, revs)
+		for _, sr := range secrets {
+			if err := st.DeleteSecret(ctx, sr.uri, sr.revs); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
