@@ -19,6 +19,7 @@ import (
 )
 
 // ApplicationExists returns true if a application exists with the input UUID.
+// Returns false (with an error) if the application is a remote application
 func (st *State) ApplicationExists(ctx context.Context, aUUID string) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -34,6 +35,14 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 		return false, errors.Errorf("preparing application exists query: %w", err)
 	}
 
+	isRemoteOffererStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   application_remote_offerer
+WHERE  application_uuid = $entityUUID.uuid`, count{}, applicationUUID)
+	if err != nil {
+		return false, errors.Errorf("preparing application remote offerer exists query: %w", err)
+	}
+
 	var applicationExists bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, existsStmt, applicationUUID).Get(&applicationUUID)
@@ -44,8 +53,25 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 		}
 
 		applicationExists = true
+
+		var countRemoteOfferer count
+		err = tx.Query(ctx, isRemoteOffererStmt, applicationUUID).Get(&countRemoteOfferer)
+		if err != nil {
+			return errors.Errorf("running application remote offerer exists query: %w", err)
+		}
+
+		if countRemoteOfferer.Count > 0 {
+			return errors.Errorf("application %q is a remote application", aUUID).
+				Add(removalerrors.ApplicationIsRemoteOfferer)
+		}
+
+		// TODO: Handle remote application consumers
+
 		return nil
 	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
 
 	return applicationExists, errors.Capture(err)
 }
