@@ -49,7 +49,7 @@ func (s *State) GetActiveModelSecretBackend(
 		return "", nil, errors.Capture(err)
 	}
 	var (
-		modelBackend secretbackend.ModelSecretBackend
+		modelBackend modelSecretBackend
 		backend      *secretbackend.SecretBackend
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -81,35 +81,25 @@ func (s *State) GetActiveModelSecretBackend(
 
 func (s *State) getModelSecretBackendDetails(
 	ctx context.Context, tx *sqlair.TX, mUUID string,
-) (secretbackend.ModelSecretBackend, error) {
+) (modelSecretBackend, error) {
 	input := entityUUID{UUID: mUUID}
+	var backend modelSecretBackend
 
 	stmt, err := s.Prepare(`
-SELECT &ModelSecretBackend.*
+SELECT &modelSecretBackend.*
 FROM   v_model_secret_backend
-WHERE  uuid = $modelIdentifier.uuid`, input, secretbackend.ModelSecretBackend{})
+WHERE  uuid = $entityUUID.uuid`, input, backend)
 	if err != nil {
-		return secretbackend.ModelSecretBackend{}, errors.Capture(err)
+		return backend, errors.Capture(err)
 	}
 
-	var backend secretbackend.ModelSecretBackend
 	err = tx.Query(ctx, stmt, input).Get(&backend)
 	if errors.Is(err, sql.ErrNoRows) {
-		return secretbackend.ModelSecretBackend{}, errors.Errorf(
+		return backend, errors.Errorf(
 			"getting secret backend for model %q: %w", mUUID, modelerrors.NotFound)
 	}
-	if err != nil {
-		return secretbackend.ModelSecretBackend{}, errors.Capture(err)
-	}
 
-	return secretbackend.ModelSecretBackend{
-		ControllerUUID:    backend.ControllerUUID,
-		ModelID:           backend.ModelID,
-		ModelName:         backend.ModelName,
-		ModelType:         backend.ModelType,
-		SecretBackendID:   backend.SecretBackendID,
-		SecretBackendName: backend.SecretBackendName,
-	}, nil
+	return backend, errors.Capture(err)
 }
 
 func (s *State) getK8sSecretBackendForModel(
@@ -266,6 +256,26 @@ type modelDetails struct {
 
 	// Type is the type of the model.
 	Type coremodel.ModelType `db:"model_type"`
+}
+
+type modelSecretBackend struct {
+	// ControllerUUID is the UUID of the controller.
+	ControllerUUID string `db:"controller_uuid"`
+
+	// ModelID is the unique identifier for the model.
+	ModelID coremodel.UUID `db:"uuid"`
+
+	// ModelName is the name of the model.
+	ModelName string `db:"name"`
+
+	// ModelType is the type of the model.
+	ModelType coremodel.ModelType `db:"model_type"`
+
+	// SecretBackendID is the unique identifier for the secret backend configured for the model.
+	SecretBackendID string `db:"secret_backend_uuid"`
+
+	// SecretBackendName is the name of the secret backend configured for the model.
+	SecretBackendName string `db:"secret_backend_name"`
 }
 
 // SecretBackendRow represents a single joined result from secret_backend and

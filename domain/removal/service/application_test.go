@@ -273,7 +273,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingJujuSecretsDeleteApp
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.DeleteApplicationOwnedSecretContent(gomock.Any(), j.EntityUUID)
-	exp.DeleteApplication(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
