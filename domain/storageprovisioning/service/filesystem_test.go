@@ -453,13 +453,13 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	stateTemplates := []internal.FilesystemTemplate{{
-		StorageName:  "a",
-		Count:        2,
-		MaxCount:     10,
-		SizeMiB:      1234,
-		ProviderType: "foo",
-		ReadOnly:     true,
-		CharmLocationHint:     "/bar",
+		StorageName:       "a",
+		Count:             2,
+		MaxCount:          10,
+		SizeMiB:           1234,
+		ProviderType:      "foo",
+		ReadOnly:          true,
+		CharmLocationHint: "/bar",
 		Attributes: map[string]string{
 			"laz": "baz",
 		},

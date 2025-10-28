@@ -124,14 +124,14 @@ ORDER BY asd.storage_name
 	r := make([]internal.FilesystemTemplate, 0, len(fsTemplates))
 	for _, v := range fsTemplates {
 		r = append(r, internal.FilesystemTemplate{
-			StorageName:  v.StorageName,
-			Count:        v.Count,
-			MaxCount:     v.MaxCount,
-			SizeMiB:      v.SizeMiB,
-			ProviderType: v.ProviderType,
-			ReadOnly:     v.ReadOnly,
-			CharmLocationHint:     v.Location,
-			Attributes:   attrs[v.StorageName],
+			StorageName:       v.StorageName,
+			Count:             v.Count,
+			MaxCount:          v.MaxCount,
+			SizeMiB:           v.SizeMiB,
+			ProviderType:      v.ProviderType,
+			ReadOnly:          v.ReadOnly,
+			CharmLocationHint: v.Location,
+			Attributes:        attrs[v.StorageName],
 		})
 	}
 	return r, nil
