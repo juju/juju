@@ -1015,11 +1015,87 @@ ON CONFLICT(revision_uuid, name) DO UPDATE SET
 	return nil
 }
 
+// GetApplicationUUIDsForNames return the application UUIDs for the specified application names.
+// Only UUIDs for names that exist are included.
+func (st State) GetApplicationUUIDsForNames(ctx context.Context, names domainsecret.ApplicationOwners) ([]string, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	queryStmt, err := st.Prepare(`
+SELECT uuid AS &application.uuid
+FROM   application a
+WHERE  a.name IN ($ApplicationOwners[:])
+`, names, application{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var apps []application
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, names).GetAll(&apps)
+		if err == nil || errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Errorf("querying application UUIDs for %q: %w", names, err)
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+	var result []string
+	for _, app := range apps {
+		result = append(result, app.UUID.String())
+	}
+	return result, nil
+}
+
+// GetUnitUUIDsForNames return the unit UUIDs for the specified unit names.
+// Only UUIDs for names that exist are included.
+func (st State) GetUnitUUIDsForNames(ctx context.Context, names domainsecret.UnitOwners) ([]string, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	queryStmt, err := st.Prepare(`
+SELECT uuid AS &unit.uuid
+FROM   unit u
+WHERE  u.name IN ($UnitOwners[:])
+`, names, unit{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var units []unit
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, names).GetAll(&units)
+		if err == nil || errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Errorf("querying unit UUIDs for %q: %w", names, err)
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+	var result []string
+	for _, u := range units {
+		result = append(result, u.UUID.String())
+	}
+	return result, nil
+}
+
 // GetOwnedSecretIDs returns a slice of the secret ID owned by the specified apps and/or units.
 func (st State) GetOwnedSecretIDs(
-	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	ctx context.Context, appOwnerUUIDs []string, unitOwnerUUIDs []string,
 ) ([]string, error) {
-	if len(appOwners) == 0 && len(unitOwners) == 0 {
+	if len(appOwnerUUIDs) == 0 && len(unitOwnerUUIDs) == 0 {
 		return nil, errors.New("must supply at least one app owner or unit owner")
 	}
 
@@ -1030,7 +1106,7 @@ func (st State) GetOwnedSecretIDs(
 
 	var dbSecrets secretIDs
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		dbSecrets, err = st.getSecretsForOwners(ctx, tx, appOwners, unitOwners)
+		dbSecrets, err = st.getSecretsForOwners(ctx, tx, appOwnerUUIDs, unitOwnerUUIDs)
 		return errors.Capture(err)
 	}); err != nil {
 		return nil, errors.Errorf("getting owned secret IDs: %w", err)
@@ -1043,9 +1119,9 @@ func (st State) GetOwnedSecretIDs(
 }
 
 func (st State) getSecretsForOwners(
-	ctx context.Context, tx *sqlair.TX, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	ctx context.Context, tx *sqlair.TX, appOwnerUUIDs domainsecret.ApplicationOwners, unitOwnerUUIDs domainsecret.UnitOwners,
 ) (secretIDs, error) {
-	if len(appOwners) == 0 && len(unitOwners) == 0 {
+	if len(appOwnerUUIDs) == 0 && len(unitOwnerUUIDs) == 0 {
 		return nil, errors.New("must supply at least one app owner or unit owner")
 	}
 
@@ -1053,11 +1129,8 @@ func (st State) getSecretsForOwners(
 SELECT sm.secret_id AS &secretID.id
 FROM   secret_metadata sm
        LEFT JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
-       LEFT JOIN application a ON a.uuid = sao.application_uuid
        LEFT JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
-       LEFT JOIN unit u ON u.uuid = suo.unit_uuid
-WHERE  (sao.application_uuid <> "" OR suo.unit_uuid <> "")
-AND    (a.name IN ($ApplicationOwners[:]) OR u.name IN ($UnitOwners[:]))
+WHERE  sao.application_uuid IN ($ApplicationOwners[:]) OR suo.unit_uuid IN ($UnitOwners[:])
 `
 
 	queryTypes := []any{
@@ -1072,7 +1145,7 @@ AND    (a.name IN ($ApplicationOwners[:]) OR u.name IN ($UnitOwners[:]))
 	}
 
 	var dbSecrets secretIDs
-	err = tx.Query(ctx, queryStmt, appOwners, unitOwners).GetAll(&dbSecrets)
+	err = tx.Query(ctx, queryStmt, appOwnerUUIDs, unitOwnerUUIDs).GetAll(&dbSecrets)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Capture(err)
 	}
@@ -3072,13 +3145,13 @@ type dbSecretIDs []string
 // InitialWatchStatementForObsoleteRevision returns the initial watch statement
 // and the table name for watching obsolete revisions.
 func (st State) InitialWatchStatementForObsoleteRevision(
-	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	appOwnerUUIDs domainsecret.ApplicationOwners, unitOwnerUUIDs domainsecret.UnitOwners,
 ) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		var revisions []secretRevision
 		if err := st.getRevisionForObsolete(
 			ctx, runner, "sro.revision_uuid AS &secretRevision.uuid", secretRevision{}, &revisions,
-			appOwners, unitOwners,
+			appOwnerUUIDs, unitOwnerUUIDs,
 		); err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -3097,11 +3170,11 @@ func (st State) InitialWatchStatementForObsoleteRevision(
 // to their corresponding secret IDs.
 func (st State) GetRevisionIDsForObsolete(
 	ctx context.Context,
-	appOwners domainsecret.ApplicationOwners,
-	unitOwners domainsecret.UnitOwners,
+	appOwnerUUIDs domainsecret.ApplicationOwners,
+	unitOwnerUUIDs domainsecret.UnitOwners,
 	revisionUUIDs ...string,
 ) (map[string]string, error) {
-	if len(revisionUUIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
+	if len(revisionUUIDs) == 0 && len(appOwnerUUIDs) == 0 && len(unitOwnerUUIDs) == 0 {
 		return nil, nil
 	}
 	db, err := st.DB(ctx)
@@ -3115,7 +3188,7 @@ func (st State) GetRevisionIDsForObsolete(
 sr.secret_id AS &secretRevision.secret_id,
 sr.revision AS &secretRevision.revision,
 sro.revision_uuid AS &secretRevision.uuid`, secretRevision{}, &revisions,
-		appOwners, unitOwners, revisionUUIDs...,
+		appOwnerUUIDs, unitOwnerUUIDs, revisionUUIDs...,
 	); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3130,11 +3203,11 @@ func (st State) getRevisionForObsolete(
 	ctx context.Context, runner domain.TxnRunner,
 	selectStmt string,
 	outputType, result any,
-	appOwners domainsecret.ApplicationOwners,
-	unitOwners domainsecret.UnitOwners,
+	appOwnerUUIDs domainsecret.ApplicationOwners,
+	unitOwnerUUIDs domainsecret.UnitOwners,
 	revUUIDs ...string,
 ) error {
-	if len(revUUIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
+	if len(revUUIDs) == 0 && len(appOwnerUUIDs) == 0 && len(unitOwnerUUIDs) == 0 {
 		return nil
 	}
 
@@ -3153,32 +3226,28 @@ FROM secret_revision_obsolete sro
 		queryParams = append(queryParams, revisionUUIDs(revUUIDs))
 		conditions = append(conditions, "AND sr.uuid IN ($revisionUUIDs[:])")
 	}
-	if len(appOwners) > 0 && len(unitOwners) > 0 {
-		queryParams = append(queryParams, appOwners, unitOwners)
+	if len(appOwnerUUIDs) > 0 && len(unitOwnerUUIDs) > 0 {
+		queryParams = append(queryParams, appOwnerUUIDs, unitOwnerUUIDs)
 		joins = append(joins, `
      LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
-     LEFT JOIN application ON application.uuid = sao.application_uuid
-     LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
-     LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
+     LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`[1:],
 		)
 		conditions = append(conditions, `AND (
-    sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
-    OR suo.unit_uuid IS NOT NULL AND unit.name IN ($UnitOwners[:])
+    sao.application_uuid IN ($ApplicationOwners[:])
+    OR suo.unit_uuid IN ($UnitOwners[:])
 )`)
-	} else if len(appOwners) > 0 {
-		queryParams = append(queryParams, appOwners)
+	} else if len(appOwnerUUIDs) > 0 {
+		queryParams = append(queryParams, appOwnerUUIDs)
 		joins = append(joins, `
-     LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
-     LEFT JOIN application ON application.uuid = sao.application_uuid`[1:],
+     LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`[1:],
 		)
-		conditions = append(conditions, "AND sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
-	} else if len(unitOwners) > 0 {
-		queryParams = append(queryParams, unitOwners)
+		conditions = append(conditions, "AND sao.application_uuid IN ($ApplicationOwners[:])")
+	} else if len(unitOwnerUUIDs) > 0 {
+		queryParams = append(queryParams, unitOwnerUUIDs)
 		joins = append(joins, `
-     LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
-     LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
+     LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`[1:],
 		)
-		conditions = append(conditions, "AND suo.unit_uuid IS NOT NULL AND unit.name IN ($UnitOwners[:])")
+		conditions = append(conditions, "AND suo.unit_uuid IN ($UnitOwners[:])")
 	}
 	if len(joins) > 0 {
 		q += fmt.Sprintf("\n%s", strings.Join(joins, "\n"))
@@ -3188,7 +3257,7 @@ FROM secret_revision_obsolete sro
 	}
 	st.logger.Tracef(ctx,
 		"revisionUUIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
-		revUUIDs, appOwners, unitOwners, q,
+		revUUIDs, appOwnerUUIDs, unitOwnerUUIDs, q,
 	)
 	stmt, err := st.Prepare(q, append(queryParams, outputType)...)
 	if err != nil {

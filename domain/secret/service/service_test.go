@@ -2186,9 +2186,16 @@ func (s *serviceSuite) TestWatchObsolete(c *tc.C) {
 	var namespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
 		return []string{}, nil
 	}
+	appUUID := tc.Must(c, uuid.NewUUID).String()
+	unit1UUID := tc.Must(c, uuid.NewUUID).String()
+	unit2UUID := tc.Must(c, uuid.NewUUID).String()
+	s.state.EXPECT().GetApplicationUUIDsForNames(gomock.Any(), domainsecret.ApplicationOwners{"mysql"}).
+		Return([]string{appUUID}, nil)
+	s.state.EXPECT().GetUnitUUIDsForNames(gomock.Any(), domainsecret.UnitOwners{"mysql/0", "mysql/1"}).
+		Return([]string{unit1UUID, unit2UUID}, nil)
 	s.state.EXPECT().InitialWatchStatementForObsoleteRevision(
-		domainsecret.ApplicationOwners([]string{"mysql"}),
-		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+		domainsecret.ApplicationOwners{appUUID},
+		domainsecret.UnitOwners{unit1UUID, unit2UUID},
 	).Return("secret_revision_obsolete", namespaceQuery)
 
 	svc := NewWatchableService(

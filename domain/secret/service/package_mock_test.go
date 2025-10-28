@@ -593,6 +593,45 @@ func (c *MockStateGetApplicationUUIDCall) DoAndReturn(f func(domain.AtomicContex
 	return c
 }
 
+// GetApplicationUUIDsForNames mocks base method.
+func (m *MockState) GetApplicationUUIDsForNames(arg0 context.Context, arg1 secret.ApplicationOwners) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationUUIDsForNames", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationUUIDsForNames indicates an expected call of GetApplicationUUIDsForNames.
+func (mr *MockStateMockRecorder) GetApplicationUUIDsForNames(arg0, arg1 any) *MockStateGetApplicationUUIDsForNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationUUIDsForNames", reflect.TypeOf((*MockState)(nil).GetApplicationUUIDsForNames), arg0, arg1)
+	return &MockStateGetApplicationUUIDsForNamesCall{Call: call}
+}
+
+// MockStateGetApplicationUUIDsForNamesCall wrap *gomock.Call
+type MockStateGetApplicationUUIDsForNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationUUIDsForNamesCall) Return(arg0 []string, arg1 error) *MockStateGetApplicationUUIDsForNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationUUIDsForNamesCall) Do(f func(context.Context, secret.ApplicationOwners) ([]string, error)) *MockStateGetApplicationUUIDsForNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationUUIDsForNamesCall) DoAndReturn(f func(context.Context, secret.ApplicationOwners) ([]string, error)) *MockStateGetApplicationUUIDsForNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetConsumedRemoteSecretURIsWithChanges mocks base method.
 func (m *MockState) GetConsumedRemoteSecretURIsWithChanges(arg0 context.Context, arg1 unit.Name, arg2 ...string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -838,7 +877,7 @@ func (c *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall) DoAndReturn(f 
 }
 
 // GetOwnedSecretIDs mocks base method.
-func (m *MockState) GetOwnedSecretIDs(arg0 context.Context, arg1 secret.ApplicationOwners, arg2 secret.UnitOwners) ([]string, error) {
+func (m *MockState) GetOwnedSecretIDs(arg0 context.Context, arg1, arg2 []string) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOwnedSecretIDs", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
@@ -865,13 +904,13 @@ func (c *MockStateGetOwnedSecretIDsCall) Return(arg0 []string, arg1 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetOwnedSecretIDsCall) Do(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners) ([]string, error)) *MockStateGetOwnedSecretIDsCall {
+func (c *MockStateGetOwnedSecretIDsCall) Do(f func(context.Context, []string, []string) ([]string, error)) *MockStateGetOwnedSecretIDsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetOwnedSecretIDsCall) DoAndReturn(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners) ([]string, error)) *MockStateGetOwnedSecretIDsCall {
+func (c *MockStateGetOwnedSecretIDsCall) DoAndReturn(f func(context.Context, []string, []string) ([]string, error)) *MockStateGetOwnedSecretIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1552,6 +1591,45 @@ func (c *MockStateGetUnitUUIDCall) Do(f func(domain.AtomicContext, unit.Name) (u
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitUUIDCall) DoAndReturn(f func(domain.AtomicContext, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitUUIDsForNames mocks base method.
+func (m *MockState) GetUnitUUIDsForNames(arg0 context.Context, arg1 secret.UnitOwners) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitUUIDsForNames", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitUUIDsForNames indicates an expected call of GetUnitUUIDsForNames.
+func (mr *MockStateMockRecorder) GetUnitUUIDsForNames(arg0, arg1 any) *MockStateGetUnitUUIDsForNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUIDsForNames", reflect.TypeOf((*MockState)(nil).GetUnitUUIDsForNames), arg0, arg1)
+	return &MockStateGetUnitUUIDsForNamesCall{Call: call}
+}
+
+// MockStateGetUnitUUIDsForNamesCall wrap *gomock.Call
+type MockStateGetUnitUUIDsForNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitUUIDsForNamesCall) Return(arg0 []string, arg1 error) *MockStateGetUnitUUIDsForNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitUUIDsForNamesCall) Do(f func(context.Context, secret.UnitOwners) ([]string, error)) *MockStateGetUnitUUIDsForNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitUUIDsForNamesCall) DoAndReturn(f func(context.Context, secret.UnitOwners) ([]string, error)) *MockStateGetUnitUUIDsForNamesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -89,15 +89,17 @@ type State interface {
 		ctx context.Context, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
 	) error
 	GetOwnedSecretIDs(
-		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+		ctx context.Context, appOwnerUUIDs []string, unitOwnerUUIDs []string,
 	) ([]string, error)
+	GetApplicationUUIDsForNames(ctx context.Context, names domainsecret.ApplicationOwners) ([]string, error)
+	GetUnitUUIDsForNames(ctx context.Context, names domainsecret.UnitOwners) ([]string, error)
 
 	// For watching obsolete secret revision changes.
 	InitialWatchStatementForObsoleteRevision(
-		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+		appOwnerUUIDs domainsecret.ApplicationOwners, unitOwnerUUIDs domainsecret.UnitOwners,
 	) (tableName string, statement eventsource.NamespaceQuery)
 	GetRevisionIDsForObsolete(
-		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
+		ctx context.Context, appUUIDs domainsecret.ApplicationOwners, unitUUIDS domainsecret.UnitOwners, revisionUUIDs ...string,
 	) (map[string]string, error)
 
 	// For watching obsolete user secret revisions to prune.

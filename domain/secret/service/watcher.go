@@ -152,9 +152,17 @@ func (s *WatchableService) WatchObsoleteSecrets(ctx context.Context, owners ...C
 	}
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
+	appUUIDS, err := s.secretState.GetApplicationUUIDsForNames(ctx, appOwners)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	unitUUIDS, err := s.secretState.GetUnitUUIDsForNames(ctx, unitOwners)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
 	tableObsoleteRevisions, queryObsoleteRevisions := s.secretState.InitialWatchStatementForObsoleteRevision(
-		appOwners, unitOwners,
+		appUUIDS, unitUUIDS,
 	)
 	tableSecrets := "secret_metadata"
 
@@ -175,7 +183,7 @@ func (s *WatchableService) WatchObsoleteSecrets(ctx context.Context, owners ...C
 		obsoleteWatcherMapperFunc(
 			s.logger,
 			s.secretState,
-			appOwners, unitOwners,
+			appUUIDS, unitUUIDS,
 			tableSecrets, tableObsoleteRevisions,
 		),
 		eventsource.NamespaceFilter(tableSecrets, changestream.All),
@@ -186,8 +194,8 @@ func (s *WatchableService) WatchObsoleteSecrets(ctx context.Context, owners ...C
 func obsoleteWatcherMapperFunc(
 	logger logger.Logger,
 	state State,
-	appOwners secret.ApplicationOwners,
-	unitOwners secret.UnitOwners,
+	appUUIDs []string,
+	unitUUIDs []string,
 	tableSecrets, tableObsoleteRevisions string,
 ) eventsource.Mapper {
 	// knownSecretURIs is a set of currently owned secret URIs.
@@ -275,7 +283,7 @@ func obsoleteWatcherMapperFunc(
 		var currentOwnedSecretIDs set.Strings
 		var revisionUUIDAndIDMap map[string]string
 		if len(secretEventValues) > 0 {
-			ownedSecretIDs, err := state.GetOwnedSecretIDs(ctx, appOwners, unitOwners)
+			ownedSecretIDs, err := state.GetOwnedSecretIDs(ctx, appUUIDs, unitUUIDs)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
@@ -283,7 +291,7 @@ func obsoleteWatcherMapperFunc(
 		}
 		if len(revisionEventValues) > 0 {
 			revisionUUIDAndIDMap, err = state.GetRevisionIDsForObsolete(
-				ctx, appOwners, unitOwners, revisionEventValues...,
+				ctx, appUUIDs, unitUUIDs, revisionEventValues...,
 			)
 			if err != nil {
 				return nil, errors.Capture(err)
@@ -331,6 +339,14 @@ func (s *WatchableService) WatchDeletedSecrets(ctx context.Context, owners ...Ch
 	}
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
+	appUUIDS, err := s.secretState.GetApplicationUUIDsForNames(ctx, appOwners)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	unitUUIDS, err := s.secretState.GetUnitUUIDsForNames(ctx, unitOwners)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
 	// There are initially no deleted secrets - the watcher emits events for secrets
 	// deleted from this point on.
@@ -340,7 +356,7 @@ func (s *WatchableService) WatchDeletedSecrets(ctx context.Context, owners ...Ch
 
 	// Gather the secrets currently known to the owners so any future
 	// deletions can be attributed.
-	initialOwnedSecretIDs, err := s.secretState.GetOwnedSecretIDs(ctx, appOwners, unitOwners)
+	initialOwnedSecretIDs, err := s.secretState.GetOwnedSecretIDs(ctx, appUUIDS, unitUUIDS)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -356,7 +372,7 @@ func (s *WatchableService) WatchDeletedSecrets(ctx context.Context, owners ...Ch
 			s.logger,
 			s.secretState,
 			initialOwnedSecretIDs,
-			appOwners, unitOwners,
+			appUUIDS, unitUUIDS,
 			tableSecrets,
 			secretRevisionChangesNamespace,
 		),
@@ -369,8 +385,8 @@ func deletedWatcherMapperFunc(
 	logger logger.Logger,
 	state State,
 	initialOwnedSecretIDs []string,
-	appOwners secret.ApplicationOwners,
-	unitOwners secret.UnitOwners,
+	appUUIDs []string,
+	unitUUIDs []string,
 	tableSecrets, secretRevisionChangesNamespace string,
 ) eventsource.Mapper {
 	// knownSecretURIs is a set of currently owned secret URIs.
@@ -452,7 +468,7 @@ func deletedWatcherMapperFunc(
 		// This is acceptable because the source watcher will emit the
 		// changes again for these changes.
 		var currentOwnedSecretIDs set.Strings
-		ownedSecretIDs, err := state.GetOwnedSecretIDs(ctx, appOwners, unitOwners)
+		ownedSecretIDs, err := state.GetOwnedSecretIDs(ctx, appUUIDs, unitUUIDs)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}

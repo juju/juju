@@ -629,7 +629,7 @@ CREATE TRIGGER trg_log_custom_secret_revision_delete
 AFTER DELETE ON secret_revision FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[1]d, CONCAT(OLD.secret_id, '/', OLD.revision), DATETIME('now'));
+    VALUES (4, %[1]d, CONCAT(OLD.secret_id, '/', OLD.revision), DATETIME('now', 'utc'));
 END;`, namespaceID))
 	}
 }
