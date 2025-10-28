@@ -51,6 +51,7 @@ type baseSuite struct {
 	resourceService           *MockResourceService
 	statusService             *MockStatusService
 	storageService            *MockStorageService
+	charm                     *MockCharm
 
 	charmRepository        *MockRepository
 	charmRepositoryFactory *MockRepositoryFactory
@@ -91,6 +92,8 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.controllerUUID = tc.Must(c, uuid.NewUUID).String()
 	s.modelUUID = modeltesting.GenModelUUID(c)
+
+	s.charm = NewMockCharm(ctrl)
 
 	return ctrl
 }
