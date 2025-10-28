@@ -17,6 +17,9 @@ import (
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
+	provider "github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider/juju"
+	"github.com/juju/juju/internal/secrets/provider/vault"
 )
 
 type applicationSuite struct {
@@ -249,6 +252,37 @@ func (s *applicationSuite) TestDeleteCharmForApplicationFails(c *tc.C) {
 	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
+	sbCfg := &provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{
+			BackendType: vault.BackendType,
+		},
+	}
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
+	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestExecuteJobForApplicationDyingJujuSecretsDeleteApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newApplicationJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.DeleteApplicationOwnedSecretContent(gomock.Any(), j.EntityUUID)
+	exp.DeleteApplication(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	sbCfg := &provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{
+			BackendType: juju.BackendType,
+		},
+	}
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -262,6 +296,15 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplicationErr
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(errors.Errorf("the front fell off"))
+
+	sbCfg := &provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{
+			BackendType: vault.BackendType,
+		},
+	}
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
+	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
