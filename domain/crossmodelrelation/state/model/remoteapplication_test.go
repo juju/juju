@@ -283,6 +283,66 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferAlreadyConsumed)
 }
 
+// TestAddRemoteApplicationOffererInsertsApplicationAndCharmTwiceSameOfferUUIDSameName
+// tests the scenario where a client attempts to consume an offer which has
+// already been consumed.
+func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsApplicationAndCharmTwiceSameOfferUUIDSameName(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote offerer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+
+	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		ApplicationUUID:       applicationUUID,
+		CharmUUID:             charmUUID,
+		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+		OfferUUID:             offerUUID,
+		Charm:                 charm,
+		EncodedMacaroon:       []byte("encoded macaroon"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertApplicationRemoteOfferer(c, applicationUUID)
+	s.assertApplication(c, applicationUUID)
+	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm)
+
+	err = s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		ApplicationUUID:       applicationUUID,
+		CharmUUID:             charmUUID,
+		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+		OfferUUID:             offerUUID,
+		Charm:                 charm,
+		EncodedMacaroon:       []byte("encoded macaroon"),
+	})
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferAlreadyConsumed)
+}
+
 func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferers(c *tc.C) {
 	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
