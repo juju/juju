@@ -93,16 +93,6 @@ type WatcherState interface {
 // WatcherFactory describes methods for creating watchers that are used by the
 // WatchableService.
 type WatcherFactory interface {
-	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
-	// input base watcher's db/queue.
-	NewNotifyMapperWatcher(
-		ctx context.Context,
-		summary string,
-		mapper eventsource.Mapper,
-		filter eventsource.FilterOption,
-		filterOpts ...eventsource.FilterOption,
-	) (watcher.NotifyWatcher, error)
-
 	// NewNamespaceWatcher returns a new watcher that receives changes from the
 	// input base watcher's db/queue.
 	NewNamespaceMapperWatcher(
@@ -112,6 +102,27 @@ type WatcherFactory interface {
 		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
+
+	// NewNamespaceWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. Change-log events will be emitted only if the filter
+	// accepts them, and dispatching the notifications via the Changes channel. A
+	// filter option is required, though additional filter options can be provided.
+	NewNamespaceWatcher(
+		ctx context.Context,
+		initialQuery eventsource.NamespaceQuery,
+		summary string,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
+	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
+	// input base watcher's db/queue.
+	NewNotifyMapperWatcher(
+		ctx context.Context,
+		summary string,
+		mapper eventsource.Mapper,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
 }
 
 // WatchableService provides the API for working with applications and the
@@ -134,6 +145,35 @@ func NewWatchableService(
 	}
 }
 
+// WatchRelationLifeSuspendedStatus returns a watcher that send the
+// the relation uuid of the given relation when there are changes to
+// its life or suspended status.
+func (s *WatchableService) WatchRelationLifeSuspendedStatus(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"watching relation life suspended status: %w", err).Add(applicationerrors.UnitUUIDNotValid)
+	}
+
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
+			return []string{relationUUID.String()}, nil
+		},
+		fmt.Sprintf("watch relation life suspended status for %q", relationUUID),
+		eventsource.PredicateFilter(
+			s.st.GetRelationLifeSuspendedNameSpace(),
+			changestream.All,
+			eventsource.EqualsPredicate(relationUUID.String()),
+		),
+	)
+}
+
 // WatchRelationUnitApplicationLifeSuspendedStatus returns a watcher that notifies of
 // changes to the life or suspended status any relation the unit's application
 // is part of. If the unit is a subordinate, its principal application is
@@ -147,7 +187,7 @@ func (s *WatchableService) WatchRelationUnitApplicationLifeSuspendedStatus(
 
 	if err := unitUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"%w:%w", applicationerrors.UnitUUIDNotValid, err)
+			"watching relation life suspended status: %w", err).Add(applicationerrors.UnitUUIDNotValid)
 	}
 
 	principalID, subordinateID, err := s.st.GetPrincipalSubordinateApplicationUUIDs(ctx, unitUUID)

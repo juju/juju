@@ -382,6 +382,63 @@ func (s *watcherSuite) TestWatchRelationsLifeSuspendedStatusForApplication(c *tc
 	harness.Run(c, []string{relationUUID.String()})
 }
 
+func (s *watcherSuite) TestWatchRelationLifeSuspendedStatus(c *tc.C) {
+	// Arrange: create the a relation.
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+	s.addRelation(c, relationUUID)
+
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchRelationLifeSuspendedStatus(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Act 0: change the relation life.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 1 WHERE uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: received changed of relation uuid.
+		w.Check(
+			watchertest.StringSliceAssert(relationUUID.String()),
+		)
+	})
+
+	// Act 1: set the relation to suspended.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE relation SET suspended = TRUE WHERE uuid=?", relationUUID,
+			); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: received changed of relation uuid.
+		w.Check(
+			watchertest.StringSliceAssert(relationUUID.String()),
+		)
+	})
+
+	// Act 3: add a relation unrelated to the current unit.
+	harness.AddTest(c, func(c *tc.C) {
+		_ = s.setupSecondRelationNotFound(c)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string{relationUUID.String()})
+}
+
 func (s *watcherSuite) setupSecondAppAndRelate(
 	c *tc.C, appNameTwo string,
 ) (relation.UUID, coreapplication.UUID, corecharm.ID) {

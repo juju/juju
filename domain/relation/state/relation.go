@@ -57,6 +57,12 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 	}
 }
 
+// GetRelationLifeSuspendedNameSpace returns the namespace for watching
+// a relation's life and suspended state.'
+func (st *State) GetRelationLifeSuspendedNameSpace() string {
+	return "custom_relation_life_suspended"
+}
+
 // AddRelation establishes a new relation between two endpoints identified by
 // epIdentifier1 and epIdentifier2.
 // Returns the two endpoints involved in the relation and any error encountered

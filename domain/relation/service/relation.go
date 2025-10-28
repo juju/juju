@@ -139,6 +139,10 @@ type State interface {
 	// relation endpoint based on the provided arguments.
 	GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (corerelation.EndpointUUID, error)
 
+	// GetRelationLifeSuspendedNameSpace returns the namespace for watching
+	// a relation's life and suspended state.'
+	GetRelationLifeSuspendedNameSpace() string
+
 	// GetRegularRelationUUIDByEndpointIdentifiers gets the UUID of a regular
 	// relation specified by two endpoint identifiers.
 	GetRegularRelationUUIDByEndpointIdentifiers(
