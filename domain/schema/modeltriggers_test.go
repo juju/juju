@@ -11,20 +11,27 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
 )
 
-// modelStorageSuite is a set of tests for asserting the behaviour of the
-// storage provisioning triggers that exist in the model schema.
-type modelStorageSuite struct {
-	schemaBaseSuite
+// TestModelSuite registers the tests for the [modelSuite].
+func TestModelSuite(t *testing.T) {
+	tc.Run(t, &modelSuite{})
 }
 
 // TestModelStorageSuite registers the tests for the [modelStorageSuite].
 func TestModelStorageSuite(t *testing.T) {
 	tc.Run(t, &modelStorageSuite{})
+}
+
+// modelStorageSuite is a set of tests for asserting the behaviour of the
+// storage provisioning triggers that exist in the model schema.
+type modelStorageSuite struct {
+	schemaBaseSuite
 }
 
 // SetUpTest is responsible for setting up the model DDL so the storage triggers
@@ -1534,4 +1541,79 @@ func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceLinkDeviceDele
 	s.assertChangeEvent(
 		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
 	)
+}
+
+// modelSuite is a set of tests for asserting the behaviour of the
+// custom model triggers that exist in the model schema.
+type modelSuite struct {
+	schemaBaseSuite
+}
+
+// SetUpTest is responsible for setting up the model DDL so the model triggers
+// can be tested.
+func (s *modelSuite) SetUpTest(c *tc.C) {
+	s.schemaBaseSuite.SetUpTest(c)
+	s.applyDDL(c, ModelDDL())
+}
+
+func (s *modelSuite) TestRelationLifeSuspendedTriggerLifeChange(c *tc.C) {
+	relationUUID := s.insertRelation(c)
+	// We don't worry about asserting no change here. The change event assertion
+	// at the end checks for a single change event.
+
+	s.updateRelationLife(c, relationUUID, life.Dead)
+
+	s.assertChangeEvent(
+		c, "custom_relation_life_suspended", relationUUID,
+	)
+}
+
+func (s *modelSuite) TestRelationLifeSuspendedTriggerSuspendedChange(c *tc.C) {
+	relationUUID := s.insertRelation(c)
+	// We don't worry about asserting no change here. The change event assertion
+	// at the end checks for a single change event.
+
+	s.updateRelationSuspended(c, relationUUID, true)
+
+	s.assertChangeEvent(
+		c, "custom_relation_life_suspended", relationUUID,
+	)
+}
+
+func (s *modelSuite) insertRelation(c *tc.C) string {
+	relationUUID := tc.Must(c, corerelation.NewUUID).String()
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO relation (uuid, relation_id, life_id, scope_id)
+SELECT ?, ?, id, 0
+FROM life
+WHERE value = ?
+`, relationUUID, 7, life.Alive)
+		return err
+	})
+	c.Assert(err, tc.IsNil)
+	return relationUUID
+}
+
+func (s *modelSuite) updateRelationLife(c *tc.C, relationUUID string, l life.Value) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+UPDATE relation
+SET    life_id = (SELECT id FROM life WHERE value = ?)
+WHERE  uuid = ?`, l, relationUUID)
+		return err
+	})
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *modelSuite) updateRelationSuspended(c *tc.C, relationUUID string, suspended bool) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+UPDATE relation
+SET    suspended = ?
+WHERE  uuid = ?`, suspended, relationUUID)
+		return err
+	})
+	c.Assert(err, tc.IsNil)
 }

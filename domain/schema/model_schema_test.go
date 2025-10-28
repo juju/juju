@@ -741,6 +741,9 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 
 		"trg_log_custom_relation_unit_insert",
 		"trg_log_custom_relation_unit_delete",
+
+		"trg_log_custom_relation_life_suspended_update",
+		"trg_log_custom_relation_life_suspended_delete",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")

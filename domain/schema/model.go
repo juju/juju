@@ -59,6 +59,7 @@ const (
 	customNamespaceUnitAgentStatus
 	customNamespaceUnitWorkloadStatus
 	customNamespaceK8sPodStatus
+	customNamespaceRelationLifeSuspended
 )
 
 const (
