@@ -826,14 +826,14 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 	for _, fsTemplate := range fsTemplates {
 		mountPoints := calculateFilesystemTemplateAttachmentMountPoints(
 			fsTemplate.StorageName,
-			fsTemplate.Location,
+			fsTemplate.CharmLocationHint,
 			fsTemplate.Count,
 		)
 
 		mountTemplate := storageprovisioning.FilesystemTemplate{
 			Attributes:   fsTemplate.Attributes,
 			Count:        fsTemplate.Count,
-			Location:     fsTemplate.Location,
+			Location:     fsTemplate.CharmLocationHint,
 			MaxCount:     fsTemplate.MaxCount,
 			MountPoints:  mountPoints,
 			ProviderType: fsTemplate.ProviderType,

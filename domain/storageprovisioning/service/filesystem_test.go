@@ -459,7 +459,7 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 		SizeMiB:      1234,
 		ProviderType: "foo",
 		ReadOnly:     true,
-		Location:     "/bar",
+		CharmLocationHint:     "/bar",
 		Attributes: map[string]string{
 			"laz": "baz",
 		},

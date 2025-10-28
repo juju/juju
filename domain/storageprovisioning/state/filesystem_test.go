@@ -201,7 +201,7 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 		SizeMiB:      123,
 		ProviderType: "magic",
 		ReadOnly:     true,
-		Location:     "/a/x",
+		CharmLocationHint:     "/a/x",
 		Attributes: map[string]string{
 			"a": "b",
 			"c": "d",
@@ -213,7 +213,7 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 		SizeMiB:      456,
 		ProviderType: "rootfs",
 		ReadOnly:     true,
-		Location:     "/a/y",
+		CharmLocationHint:     "/a/y",
 	}})
 }
 

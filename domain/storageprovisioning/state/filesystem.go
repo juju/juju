@@ -130,7 +130,7 @@ ORDER BY asd.storage_name
 			SizeMiB:      v.SizeMiB,
 			ProviderType: v.ProviderType,
 			ReadOnly:     v.ReadOnly,
-			Location:     v.Location,
+			CharmLocationHint:     v.Location,
 			Attributes:   attrs[v.StorageName],
 		})
 	}
