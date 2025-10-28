@@ -2027,8 +2027,8 @@ func (s *applicationSuite) TestGetApplicationStorageInfo(c *tc.C) {
 		map[string]domainapplication.ApplicationStorageInfo{
 			"logs": {
 				StoragePoolName: poolName,
-				SizeMiB:         &size,
-				Count:           &count,
+				SizeMiB:         size,
+				Count:           count,
 			},
 		},
 		nil,

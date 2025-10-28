@@ -103,8 +103,8 @@ SELECT &applicationStorageInfo.* FROM (
 	for _, info := range storageInfoResult {
 		appStorage[info.StorageName] = application.ApplicationStorageInfo{
 			StoragePoolName: info.StoragePoolName,
-			SizeMiB:         &info.SizeMiB,
-			Count:           &info.Count,
+			SizeMiB:         info.SizeMiB,
+			Count:           info.Count,
 		}
 	}
 

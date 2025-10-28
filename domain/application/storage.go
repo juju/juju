@@ -56,8 +56,8 @@ type ApplicationStorageInfo struct {
 	StoragePoolName string
 
 	// SizeMiB is the size of the storage instance, in MiB.
-	SizeMiB *uint64
+	SizeMiB uint64
 
 	// Count is the number of storage instances.
-	Count *uint64
+	Count uint64
 }

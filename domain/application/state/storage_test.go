@@ -158,9 +158,9 @@ func (s *applicationStateSuite) TestGetApplicationStorageInfo(c *tc.C) {
 		foundDirectives,
 		tc.DeepEquals,
 		map[string]application.ApplicationStorageInfo{
-			"database": {StoragePoolName: "my-ebs", SizeMiB: &directives[0].Size, Count: &d0count},
-			"logs":     {StoragePoolName: "my-rootfs", SizeMiB: &directives[1].Size, Count: &d1count},
-			"cache":    {StoragePoolName: "my-fast", SizeMiB: &directives[2].Size, Count: &d2count},
+			"database": {StoragePoolName: "my-ebs", SizeMiB: directives[0].Size, Count: d0count},
+			"logs":     {StoragePoolName: "my-rootfs", SizeMiB: directives[1].Size, Count: d1count},
+			"cache":    {StoragePoolName: "my-fast", SizeMiB: directives[2].Size, Count: d2count},
 		},
 	)
 }

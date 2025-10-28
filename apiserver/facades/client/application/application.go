@@ -2333,8 +2333,8 @@ func (api *APIBase) getOneApplicationStorage(ctx context.Context, entity params.
 	for name, storageInfo := range storage {
 		sc[name] = params.StorageDirectives{
 			Pool:    storageInfo.StoragePoolName,
-			SizeMiB: storageInfo.SizeMiB,
-			Count:   storageInfo.Count,
+			SizeMiB: &storageInfo.SizeMiB,
+			Count:   &storageInfo.Count,
 		}
 	}
 
