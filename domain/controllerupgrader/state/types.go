@@ -60,7 +60,7 @@ type binaryForVersionAndArchitectures struct {
 	Version        string `db:"version"`
 }
 
-// AgentStream represents the stream in use for the agent.
-type AgentStream struct {
+// agentStream represents the stream in use for the agent.
+type agentStream struct {
 	StreamID int `db:"stream_id"`
 }

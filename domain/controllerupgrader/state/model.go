@@ -326,7 +326,7 @@ func (s *ControllerModelState) GetModelAgentStream(ctx context.Context) (agentbi
 		return -1, errors.Capture(err)
 	}
 
-	stream := AgentStream{}
+	stream := agentStream{}
 	stmt, err := s.Prepare(`
 SELECT &AgentStream.*
 FROM   agent_version
