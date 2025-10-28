@@ -429,7 +429,7 @@ func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX) erro
 	if err != nil {
 		return errors.Errorf("getting application count: %w", err)
 	} else if count.Count > 0 {
-		return errors.Errorf("still %d application still exist it", count.Count).Add(removalerrors.EntityStillAlive)
+		return errors.Errorf("%d application(s) still exist", count.Count).Add(removalerrors.EntityStillAlive)
 	}
 
 	machinesStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM machine`, count)
@@ -441,7 +441,7 @@ func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX) erro
 	if err != nil {
 		return errors.Errorf("getting machine count: %w", err)
 	} else if count.Count > 0 {
-		return errors.Errorf("still %d machines still exist", count.Count).Add(removalerrors.EntityStillAlive)
+		return errors.Errorf("%d machine(s) still exist", count.Count).Add(removalerrors.EntityStillAlive)
 	}
 
 	return nil

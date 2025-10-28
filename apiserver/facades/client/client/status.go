@@ -192,7 +192,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return noStatus, internalerrors.Errorf("could not fetch open port ranges: %w", err)
 	}
 	// These may be empty when machines have not finished deployment.
-	if context.ipAddresses, context.linkLayerDevices, context.spaces, err = fetchNetworkInterfaces(ctx,
+	if context.ipAddresses, context.linkLayerDevices, err = fetchNetworkInterfaces(ctx,
 		c.networkService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch IP addresses and link layer devices: %w", err)
 	}
@@ -346,9 +346,6 @@ type statusContext struct {
 	// ipAddresses: machine id -> list of ip.addresses
 	ipAddresses map[coremachine.Name][]domainnetwork.NetAddr
 
-	// spaces: machine id -> deviceName -> list of spaceNames
-	spaces map[coremachine.Name]map[string]set.Strings
-
 	// linkLayerDevices: machine id -> list of linkLayerDevices
 	linkLayerDevices map[coremachine.Name][]domainnetwork.NetInterface
 
@@ -433,12 +430,11 @@ func fetchNetworkInterfaces(
 ) (
 	map[coremachine.Name][]domainnetwork.NetAddr,
 	map[coremachine.Name][]domainnetwork.NetInterface,
-	map[coremachine.Name]map[string]set.Strings,
 	error,
 ) {
 	devices, err := networkService.GetAllDevicesByMachineNames(ctx)
 	if err != nil {
-		return nil, nil, nil, internalerrors.Errorf("fetching devices: %w", err)
+		return nil, nil, internalerrors.Errorf("fetching devices: %w", err)
 	}
 
 	// Remove loopback addresses
@@ -471,7 +467,7 @@ func fetchNetworkInterfaces(
 		return k, allAddresses
 	})
 
-	return ipAddresses, devices, nil, nil
+	return ipAddresses, devices, nil
 }
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
@@ -770,7 +766,9 @@ func (c *statusContext) makeMachineStatus(
 		status.NetworkInterfaces = transform.SliceToMap(linkLayerDevices, func(llDev domainnetwork.NetInterface) (string, params.NetworkInterface) {
 			spaces := set.NewStrings()
 			for _, addr := range llDev.Addrs {
-				spaces.Add(addr.Space)
+				if addr.Space != "" {
+					spaces.Add(addr.Space)
+				}
 			}
 			var mac, gw string
 			if llDev.MACAddress != nil {

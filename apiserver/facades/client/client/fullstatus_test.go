@@ -100,6 +100,11 @@ func (s *fullStatusSuite) TestFullStatusNetworkInterfaces(c *tc.C) {
 					{
 						AddressValue: "172.16.0.0",
 						AddressType:  "ipv4",
+						Space:        "alpha",
+					},
+					{
+						AddressValue: "172.16.0.1",
+						AddressType:  "ipv4",
 						Space:        "",
 					},
 				},
@@ -113,7 +118,7 @@ func (s *fullStatusSuite) TestFullStatusNetworkInterfaces(c *tc.C) {
 				Name: "eth1",
 				Addrs: []domainnetwork.NetAddr{
 					{
-						AddressValue: "172.16.0.1",
+						AddressValue: "3.16.0.1",
 						AddressType:  "ipv4",
 						Space:        "space1",
 					},
@@ -146,15 +151,15 @@ func (s *fullStatusSuite) TestFullStatusNetworkInterfaces(c *tc.C) {
 	c.Check(machine0.NetworkInterfaces, tc.DeepEquals,
 		map[string]params.NetworkInterface{
 			"eth0": {
-				IPAddresses:    []string{"172.16.0.0"},
+				IPAddresses:    []string{"172.16.0.0", "172.16.0.1"},
 				MACAddress:     "",
 				Gateway:        "",
 				DNSNameservers: nil,
-				Space:          "",
+				Space:          "alpha",
 				IsUp:           false,
 			},
 			"eth1": {
-				IPAddresses:    []string{"172.16.0.1"},
+				IPAddresses:    []string{"3.16.0.1"},
 				MACAddress:     macAddr,
 				Gateway:        gatewayAddr,
 				DNSNameservers: []string{"8.8.8.8"},
