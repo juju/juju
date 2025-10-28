@@ -195,25 +195,25 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 	result, err := st.GetFilesystemTemplatesForApplication(c.Context(), application.UUID(appUUID))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, []internal.FilesystemTemplate{{
-		StorageName:  "x",
-		Count:        2,
-		MaxCount:     10,
-		SizeMiB:      123,
-		ProviderType: "magic",
-		ReadOnly:     true,
-		CharmLocationHint:     "/a/x",
+		StorageName:       "x",
+		Count:             2,
+		MaxCount:          10,
+		SizeMiB:           123,
+		ProviderType:      "magic",
+		ReadOnly:          true,
+		CharmLocationHint: "/a/x",
 		Attributes: map[string]string{
 			"a": "b",
 			"c": "d",
 		},
 	}, {
-		StorageName:  "y",
-		Count:        1,
-		MaxCount:     10,
-		SizeMiB:      456,
-		ProviderType: "rootfs",
-		ReadOnly:     true,
-		CharmLocationHint:     "/a/y",
+		StorageName:       "y",
+		Count:             1,
+		MaxCount:          10,
+		SizeMiB:           456,
+		ProviderType:      "rootfs",
+		ReadOnly:          true,
+		CharmLocationHint: "/a/y",
 	}})
 }
 
@@ -1244,7 +1244,7 @@ VALUES (?, ?, ?, 0, ?, ?, 1)
 // model provision scope. The attachment is associated with the provided
 // filesystem uuid and net node uuid. No mount point is set during the creation
 // of the attachment. Use
-// [filesystemSuite.newModelFilesystemAttachmentWithMount] if you require a
+// [baseSuite.newModelFilesystemAttachmentWithMount] if you require a
 // mount point set.
 func (s *filesystemSuite) newModelFilesystemAttachment(
 	c *tc.C,
