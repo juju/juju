@@ -78,28 +78,10 @@ run_deploy_revision_refresh() {
 	# revision 23 is in channel 2.0/edge
 	juju deploy juju-qa-test --revision 23 --channel latest/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
+	wait_for "juju-qa-test" "$(active_idle_condition "juju-qa-test")"
 
-	# NOTE:
-	# The following loop is specific to juju 3.0+ due to
-	# async charm download and should NOT be removed in
-	# a merge from 2.9.
-	attempt=0
-	while true; do
-		# Ensure that refresh gets the revision from the channel
-		# listed at deploy.
-		# revision 15 is in channel latest/edge
-		OUT=$(juju refresh juju-qa-test 2>&1 || true)
-		if echo "${OUT}" | grep -E -q "Added"; then
-			break
-		fi
-		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
-			# shellcheck disable=SC2046
-			echo $(red "timeout: waiting for charm download to complete 50sec")
-			exit 5
-		fi
-		sleep 5
-	done
+	# Once the application is ready, refresh is expected to immediately work.
+	juju refresh juju-qa-test
 
 	# revision 21 is in channel latest/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 21)"
