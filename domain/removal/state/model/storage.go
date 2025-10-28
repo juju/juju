@@ -91,18 +91,23 @@ func (st *State) EnsureStorageAttachmentNotAliveWithFulfilment(
 	)
 
 	// Notes (TLM): This sql exists to count how many storage instances are
-	// currently being used to fulfil a charm storage need on a given
-	// unit. We do not consider storage attachments that not alive in the count.
+	// currently being used to fulfil a charm storage needed on a given
+	// unit. We do not consider storage attachments that are not alive in the
+	// count.
+	//
+	// Table alias suffixed with Entity are established on to the attachment
+	// being removed. Table aliases suffixed with Rel are attachments onto
+	// related attachments for the same storage the entity is fulfilling.
 	fulfilmentQ := `
 SELECT COUNT(saA.uuid) AS &count.count
-FROM   storage_attachment saE
-JOIN   storage_attachment saA ON saE.unit_uuid = saA.unit_uuid
-JOIN   storage_instance siE ON saE.storage_instance_uuid = siE.uuid
-JOIN   storage_instance siA ON saA.storage_instance_uuid = siA.uuid
-                           AND siA.storage_name = siE.storage_name
-AND    saE.uuid = $entityUUID.uuid
-AND    saA.uuid != $entityUUID.uuid
-AND    saA.life_id = 0
+FROM   storage_attachment saEntity
+JOIN   storage_attachment saRel ON saEntity.unit_uuid = saRel.unit_uuid
+JOIN   storage_instance siEntity ON saEntity.storage_instance_uuid = siEntity.uuid
+JOIN   storage_instance siRel ON saRel.storage_instance_uuid = siRel.uuid
+                           AND siRel.storage_name = siEntity.storage_name
+AND    saEntity.uuid = $entityUUID.uuid
+AND    saRel.uuid != $entityUUID.uuid
+AND    saRel.life_id = 0
 `
 
 	fulfilmentStmt, err := st.Prepare(fulfilmentQ, entityUUID, fulfilmentDBVal)
