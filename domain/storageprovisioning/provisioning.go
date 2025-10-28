@@ -5,6 +5,7 @@ package storageprovisioning
 
 import (
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -135,4 +136,36 @@ func CalculateStorageInstanceComposition(
 	}
 
 	return rval, nil
+}
+
+// CalculateStorageInstanceOwnershipScope determines if the storage is owned by
+// either the model or the machine. This is distinctly separate from, but is
+// related to provision scope. Provision scope indicates how a volume or
+// filesystem will be provisioned. Ownership scope indicates if the storage
+// instance that holds the volume and filesystem, is owned by the model or the
+// machine.
+func CalculateStorageInstanceOwnershipScope(
+	composition StorageInstanceComposition,
+) (OwnershipScope, error) {
+	var provisionScope ProvisionScope
+	if composition.VolumeRequired {
+		// Even if the a filesystem is required, if there is a volume, it backs
+		// the filesystem, so we use the volumes provisioning scope to calculate
+		// ownership scope. This might at some point be not true, if a volume is
+		// provisioned by a machine but the provider can allow it to be
+		// re-attached to annother machine.
+		provisionScope = composition.VolumeProvisionScope
+	} else if composition.FilesystemRequired {
+		provisionScope = composition.FilesystemProvisionScope
+	} else {
+		return -1, storageprovisioningerrors.OwnershipScopeIncalculable
+	}
+	switch provisionScope {
+	case ProvisionScopeMachine:
+		return OwnershipScopeMachine, nil
+	case ProvisionScopeModel:
+		return OwnershipScopeModel, nil
+	default:
+		return -1, storageprovisioningerrors.OwnershipScopeIncalculable
+	}
 }

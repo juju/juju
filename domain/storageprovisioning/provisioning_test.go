@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -308,4 +309,88 @@ func (s *provisioningSuite) TestCheckStorageProviderDoesNotSupportBlockDevice(c 
 		s.storageProvider, domainstorage.StorageKindBlock,
 	)
 	c.Check(got, tc.IsFalse)
+}
+
+func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeNoFilesystemNoVolume(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	comp := StorageInstanceComposition{}
+	_, err := CalculateStorageInstanceOwnershipScope(comp)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.OwnershipScopeIncalculable)
+}
+
+func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeVolumeModelProvisioned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	comp := StorageInstanceComposition{
+		VolumeRequired:       true,
+		VolumeProvisionScope: ProvisionScopeModel,
+	}
+	scope, err := CalculateStorageInstanceOwnershipScope(comp)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(scope, tc.Equals, OwnershipScopeModel)
+}
+
+func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeVolumeMachineProvisioned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	comp := StorageInstanceComposition{
+		VolumeRequired:       true,
+		VolumeProvisionScope: ProvisionScopeMachine,
+	}
+	scope, err := CalculateStorageInstanceOwnershipScope(comp)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(scope, tc.Equals, OwnershipScopeMachine)
+}
+
+func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeFilesystemModelProvisioned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	comp := StorageInstanceComposition{
+		FilesystemRequired:       true,
+		FilesystemProvisionScope: ProvisionScopeModel,
+	}
+	scope, err := CalculateStorageInstanceOwnershipScope(comp)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(scope, tc.Equals, OwnershipScopeModel)
+}
+
+func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeFilesystemMachineProvisioned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	comp := StorageInstanceComposition{
+		FilesystemRequired:       true,
+		FilesystemProvisionScope: ProvisionScopeMachine,
+	}
+	scope, err := CalculateStorageInstanceOwnershipScope(comp)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(scope, tc.Equals, OwnershipScopeMachine)
+}
+
+func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeFilesystemMachineScopedVolumeModelScoped(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	comp := StorageInstanceComposition{
+		FilesystemRequired:       true,
+		FilesystemProvisionScope: ProvisionScopeMachine,
+		VolumeRequired:           true,
+		VolumeProvisionScope:     ProvisionScopeModel,
+	}
+	scope, err := CalculateStorageInstanceOwnershipScope(comp)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(scope, tc.Equals, OwnershipScopeModel)
+}
+
+func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeFilesystemMachineScopedVolumeMachineScoped(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	comp := StorageInstanceComposition{
+		FilesystemRequired:       true,
+		FilesystemProvisionScope: ProvisionScopeMachine,
+		VolumeRequired:           true,
+		VolumeProvisionScope:     ProvisionScopeMachine,
+	}
+	scope, err := CalculateStorageInstanceOwnershipScope(comp)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(scope, tc.Equals, OwnershipScopeMachine)
 }

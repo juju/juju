@@ -261,6 +261,13 @@ func (s *ProviderService) makeIAASUnitArgs(
 				"making storage arguments for IAAS unit: %w", err,
 			)
 		}
+		iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
+			ctx, unitStorageArgs)
+		if err != nil {
+			return nil, errors.Errorf(
+				"making IAAS storage arguments for IAAS unit: %w", err,
+			)
+		}
 
 		arg := application.AddIAASUnitArg{
 			AddUnitArg: application.AddUnitArg{
@@ -271,10 +278,11 @@ func (s *ProviderService) makeIAASUnitArgs(
 				NetNodeUUID:   machineNetNodeUUID,
 				UnitStatusArg: s.makeIAASUnitStatusArgs(),
 			},
-			Platform:           platform,
-			Nonce:              u.Nonce,
-			MachineNetNodeUUID: machineNetNodeUUID,
-			MachineUUID:        machineUUID,
+			CreateIAASUnitStorageArg: iassUnitStorageArgs,
+			Platform:                 platform,
+			Nonce:                    u.Nonce,
+			MachineNetNodeUUID:       machineNetNodeUUID,
+			MachineUUID:              machineUUID,
 		}
 		args[i] = arg
 	}
@@ -404,6 +412,7 @@ func (s *Service) AddIAASSubordinateUnit(
 	unitName, machineNames, err := s.st.AddIAASSubordinateUnit(
 		ctx,
 		application.SubordinateUnitArg{
+			// TODO(storage): create storage args for subordinate unit.
 			SubordinateAppID:  subordinateAppID,
 			NetNodeUUID:       principalNetNodeUUID,
 			PrincipalUnitUUID: princiaplUnitUUID,

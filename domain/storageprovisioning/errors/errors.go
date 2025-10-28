@@ -41,4 +41,8 @@ const (
 	// VolumeAttachmentPlanAlreadyExists is used when a volume attachment plan
 	// already exists for the given volume attachment.
 	VolumeAttachmentPlanAlreadyExists = errors.ConstError("volume attachment plan already exists")
+
+	// OwnershipScopeIncalculable is used when the ownership scope for a storage
+	// instance cannot be calculated.
+	OwnershipScopeIncalculable = errors.ConstError("ownership scope is incalculable")
 )

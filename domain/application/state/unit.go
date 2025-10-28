@@ -1536,6 +1536,24 @@ func (st *State) insertIAASUnit(
 		)
 	}
 
+	err = st.insertMachineVolumeOwnership(ctx, tx, args.MachineUUID,
+		args.VolumesToOwn)
+	if err != nil {
+		return "", "", nil, errors.Errorf(
+			"inserting volume ownership for machine %q: %w",
+			args.MachineUUID, err,
+		)
+	}
+
+	err = st.insertMachineFilesystemOwnership(ctx, tx, args.MachineUUID,
+		args.FilesystemsToOwn)
+	if err != nil {
+		return "", "", nil, errors.Errorf(
+			"inserting volume ownership for machine %q: %w",
+			args.MachineUUID, err,
+		)
+	}
+
 	return unitName, unitUUID, machineNames, nil
 }
 

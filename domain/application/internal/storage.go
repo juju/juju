@@ -55,6 +55,18 @@ type CreateUnitStorageArg struct {
 	StorageToOwn []domainstorage.StorageInstanceUUID
 }
 
+// CreateIAASUnitStorageArg represents the arguments required for making storage
+// for am IASS unit. This complements [CreateUnitStorageArg], allowing for an
+// IAAS unit to augment storage that is destined for a machine.
+type CreateIAASUnitStorageArg struct {
+	// FilesystemsToOwn defines filesystems that will be owned by the unit's
+	// machine.
+	FilesystemsToOwn []domainstorageprov.FilesystemUUID
+
+	// VolumesToOwn defines volumes that will be owned by the unit's machine.
+	VolumesToOwn []domainstorageprov.VolumeUUID
+}
+
 // CreateUnitStorageAttachmentArg describes the arguments required for creating a
 // storage attachment.
 type CreateUnitStorageAttachmentArg struct {

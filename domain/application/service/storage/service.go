@@ -697,6 +697,47 @@ func (s Service) MakeUnitStorageArgs(
 	}, nil
 }
 
+// MakeIAASUnitStorageArgs returns [internal.CreateIAASUnitStorageArg] that
+// complement the unit storage arguments provided for IAAS units.
+func (s Service) MakeIAASUnitStorageArgs(
+	ctx context.Context,
+	unitStorageArg internal.CreateUnitStorageArg,
+) (internal.CreateIAASUnitStorageArg, error) {
+	var arg internal.CreateIAASUnitStorageArg
+	for _, v := range unitStorageArg.StorageInstances {
+		// TODO(storage): refactor this to use the storage instance composition
+		// calculated from the storageprovisioning domain.
+		var comp domainstorageprov.StorageInstanceComposition
+		if v.Filesystem != nil {
+			comp.FilesystemRequired = true
+			comp.FilesystemProvisionScope = v.Filesystem.ProvisionScope
+		}
+		if v.Volume != nil {
+			comp.VolumeRequired = true
+			comp.VolumeProvisionScope = v.Volume.ProvisionScope
+		}
+		s, err := domainstorageprov.CalculateStorageInstanceOwnershipScope(
+			comp)
+		if err != nil {
+			return internal.CreateIAASUnitStorageArg{}, errors.Errorf(
+				"calculating storage ownership for storage instance %q: %w",
+				v.UUID, err,
+			)
+		}
+		if s != domainstorageprov.OwnershipScopeMachine {
+			continue
+		}
+		if v.Filesystem != nil {
+			arg.FilesystemsToOwn = append(arg.FilesystemsToOwn,
+				v.Filesystem.UUID)
+		}
+		if v.Volume != nil {
+			arg.VolumesToOwn = append(arg.VolumesToOwn, v.Volume.UUID)
+		}
+	}
+	return arg, nil
+}
+
 // makeUnitStorageInstancesFromDirective is responsible for taking a storage
 // directive and creating a set of storage instance args that are capable of
 // fulfilling the requirements of the directive.

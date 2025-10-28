@@ -24,6 +24,9 @@ func setAddUnitNoopStorageExpects(
 	storageService.EXPECT().MakeUnitStorageArgs(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
+	storageService.EXPECT().MakeIAASUnitStorageArgs(
+		gomock.Any(), gomock.Any(),
+	).Return(internal.CreateIAASUnitStorageArg{}, nil).AnyTimes()
 }
 
 // setCreateApplicationNoopStorageExpects sets on the storage service mock a set
@@ -43,6 +46,9 @@ func setCreateApplicationNoopStorageExpects(
 	storageService.EXPECT().MakeUnitStorageArgs(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
+	storageService.EXPECT().MakeIAASUnitStorageArgs(
+		gomock.Any(), gomock.Any(),
+	).Return(internal.CreateIAASUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(
 		gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(nil).AnyTimes()

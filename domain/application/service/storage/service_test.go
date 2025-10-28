@@ -231,3 +231,78 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		StorageToOwn:      expectedStorageToOwn,
 	})
 }
+
+func (s *serviceSuite) TestMakeIAASUnitStorageArgs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fsUUID1 := tc.Must(c, domainstorageprov.NewFilesystemUUID)
+	fsUUID2 := tc.Must(c, domainstorageprov.NewFilesystemUUID)
+	volUUID1 := tc.Must(c, domainstorageprov.NewVolumeUUID)
+	volUUID2 := tc.Must(c, domainstorageprov.NewVolumeUUID)
+
+	expectedStorageInstances := []internal.CreateUnitStorageInstanceArg{
+		{
+			Filesystem: &internal.CreateUnitStorageFilesystemArg{
+				UUID:           tc.Must(c, domainstorageprov.NewFilesystemUUID),
+				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+			},
+			Volume: &internal.CreateUnitStorageVolumeArg{
+				UUID:           tc.Must(c, domainstorageprov.NewVolumeUUID),
+				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			},
+		},
+		{
+			Filesystem: &internal.CreateUnitStorageFilesystemArg{
+				UUID:           tc.Must(c, domainstorageprov.NewFilesystemUUID),
+				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			},
+		},
+		{
+			Volume: &internal.CreateUnitStorageVolumeArg{
+				UUID:           tc.Must(c, domainstorageprov.NewVolumeUUID),
+				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			},
+		},
+		{
+			Filesystem: &internal.CreateUnitStorageFilesystemArg{
+				UUID:           fsUUID1,
+				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+			},
+		},
+		{
+			Volume: &internal.CreateUnitStorageVolumeArg{
+				UUID:           volUUID1,
+				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+			},
+		},
+		{
+			Filesystem: &internal.CreateUnitStorageFilesystemArg{
+				UUID:           fsUUID2,
+				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+			},
+			Volume: &internal.CreateUnitStorageVolumeArg{
+				UUID:           volUUID2,
+				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+			},
+		},
+	}
+	input := internal.CreateUnitStorageArg{
+		StorageInstances: expectedStorageInstances,
+	}
+
+	svc := NewService(s.state, s.poolProvider)
+	arg, err := svc.MakeIAASUnitStorageArgs(c.Context(), input)
+	c.Assert(err, tc.IsNil)
+	c.Check(arg.FilesystemsToOwn, tc.SameContents,
+		[]domainstorageprov.FilesystemUUID{
+			fsUUID1,
+			fsUUID2,
+		},
+	)
+	c.Check(arg.VolumesToOwn, tc.SameContents,
+		[]domainstorageprov.VolumeUUID{
+			volUUID1,
+			volUUID2,
+		},
+	)
+}

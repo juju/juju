@@ -1257,6 +1257,20 @@ type insertStorageUnitOwner struct {
 	UnitUUID            string `db:"unit_uuid"`
 }
 
+// insertVolumeMachineOwner represents the set of values required for creating a
+// new machine_volume record.
+type insertVolumeMachineOwner struct {
+	MachineUUID string `db:"machine_uuid"`
+	VolumeUUID  string `db:"volume_uuid"`
+}
+
+// insertFilesystemMachineOwner represents the set of values required for
+// creating a new machine_filesystem record.
+type insertFilesystemMachineOwner struct {
+	MachineUUID    string `db:"machine_uuid"`
+	FilesystemUUID string `db:"filesystem_uuid"`
+}
+
 // insertUnitStorageDirective represents the set of values required for
 // inserting a new unit storage directive.
 type insertUnitStorageDirective struct {
