@@ -382,7 +382,7 @@ func (st *ModelState) SetRelationStatus(
 	return nil
 }
 
-// SetRelationStatus sets the given relation status. It can
+// SetRemoteRelationStatus sets the given relation status. It can
 // return the following errors:
 //   - [statuserrors.RelationNotFound] if the relation doesn't exist.
 func (st *ModelState) SetRemoteRelationStatus(

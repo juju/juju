@@ -24,6 +24,7 @@ import (
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -536,6 +537,8 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 	s.assertRelation(c, relationUUID, 0)
 
 	s.assertRelationEndpoints(c, relationUUID, offerApplicationUUID.String(), synthApplicationUUID)
+
+	s.assertRelationStatusJoining(c, relationUUID)
 }
 
 func (s *modelRemoteApplicationSuite) TestAddConsumedRelationEndpointNotFound(c *tc.C) {
@@ -1875,6 +1878,24 @@ WHERE  relation_uuid = ?
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(appUUIDs.IsEmpty(), tc.Equals, true, tc.Commentf("relation_endpoint with app %q, not found", appUUIDs.SortedValues()))
+}
+
+func (s *modelRemoteApplicationSuite) assertRelationStatusJoining(c *tc.C, relationUUID string) {
+	var statusID int
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `
+SELECT relation_status_type_id
+FROM   relation_status
+WHERE  relation_uuid = ?
+`, relationUUID).Scan(&statusID)
+
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	expectedRelationID := tc.Must1(c, status.EncodeRelationStatus, status.RelationStatusTypeJoining)
+	c.Check(statusID, tc.Equals, expectedRelationID)
 }
 
 func (s *modelRemoteApplicationSuite) assertCharmMetadata(c *tc.C, appUUID, charmUUID string, expected charm.Charm) {

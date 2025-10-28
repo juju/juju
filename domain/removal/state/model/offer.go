@@ -87,6 +87,14 @@ WHERE relation_uuid IN ($uuids[:])
 		return errors.Errorf("preparing delete relation endpoint query: %w", err)
 	}
 
+	deleteRelationStatusStmt, err := st.Prepare(`
+DELETE FROM relation_status
+WHERE relation_uuid IN ($uuids[:])
+`, uuids{})
+	if err != nil {
+		return errors.Errorf("preparing delete relation status query: %w", err)
+	}
+
 	deleteRelationsStmt, err := st.Prepare(`
 DELETE FROM relation
 WHERE uuid IN ($uuids[:])
@@ -169,6 +177,10 @@ WHERE uuid = $entityUUID.uuid
 
 		if err := tx.Query(ctx, deleteOfferConnectionStmt, offerUUID).Run(); err != nil {
 			return errors.Errorf("deleting offer connections: %w", err)
+		}
+
+		if err := tx.Query(ctx, deleteRelationStatusStmt, relUUIDs).Run(); err != nil {
+			return errors.Errorf("deleting relation status: %w", err)
 		}
 
 		if err := tx.Query(ctx, deleteRelationsStmt, relUUIDs).Run(); err != nil {
