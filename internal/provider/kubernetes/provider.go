@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 )
 
@@ -94,7 +93,11 @@ func newRestClient(cfg *rest.Config) (rest.Interface, error) {
 }
 
 // Open is part of the ContainerEnvironProvider interface.
-func (p kubernetesEnvironProvider) Open(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error) {
+func (p kubernetesEnvironProvider) Open(
+	ctx context.Context,
+	args environs.OpenParams,
+	_ environs.CredentialInvalidator,
+) (caas.Broker, error) {
 	logger.Debugf(context.TODO(), "opening model %q.", args.Config.Name())
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
@@ -112,7 +115,7 @@ func (p kubernetesEnvironProvider) Open(ctx context.Context, args environs.OpenP
 	return newK8sBroker(ctx,
 		args.ControllerUUID, k8sRestConfig, args.Config, namespace,
 		k8s.NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher,
-		k8swatcher.NewKubernetesStringsWatcher, utils.RandomPrefix, jujuclock.WallClock)
+		k8swatcher.NewKubernetesStringsWatcher, jujuclock.WallClock)
 }
 
 // NamespaceForModel returns the namespace which is associated with the specified model.

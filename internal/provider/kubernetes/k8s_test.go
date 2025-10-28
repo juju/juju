@@ -99,9 +99,6 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *tc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, "")
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
 		return nil, errors.NewNotFound(nil, "undefined k8sWatcherFn for base test")
 	})
@@ -112,7 +109,7 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *tc.C) {
 
 	var err error
 	s.broker, err = kubernetes.NewK8sBroker(c.Context(), testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, "", newK8sClientFunc, newK8sRestFunc,
-		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
+		watcherFn, stringsWatcherFn, s.clock)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Test namespace is actually empty string and a namespaced method fails.
@@ -138,9 +135,6 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 
 	newControllerUUID := names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00e").Id()
 	nsBefore := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
@@ -159,7 +153,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 		s.mockNamespaces.EXPECT().Update(gomock.Any(), &nsAfter, v1.UpdateOptions{}).Times(1).
 			Return(&nsAfter, nil),
 	)
-	s.setupBroker(c, ctrl, newControllerUUID, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
+	s.setupBroker(c, ctrl, newControllerUUID, newK8sClientFunc, newK8sRestFunc, "").Finish()
 }
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrated(c *tc.C) {
@@ -167,9 +161,6 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrat
 	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 
 	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
@@ -181,7 +172,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrat
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
 			Return(ns, nil),
 	)
-	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, "").Finish()
 }
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceNotCreatedYet(c *tc.C) {
@@ -189,15 +180,12 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
 			Return(nil, s.k8sNotFoundError()),
 	)
-	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, "").Finish()
 }
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceExists(c *tc.C) {
@@ -205,9 +193,6 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
@@ -221,7 +206,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 				},
 			}, nil),
 	)
-	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, "").Finish()
 }
 
 func (s *K8sBrokerSuite) TestAPIVersion(c *tc.C) {
@@ -950,7 +935,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *tc.C) {
 			Name:   appName,
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"app.juju.is/uuid":               "appuuid",
+				"app.juju.is/uuid":               "uniqid",
 				"controller.juju.is/id":          testing.ControllerTag.Id(),
 				"charm.juju.is/modified-version": "0",
 			},

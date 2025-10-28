@@ -42,7 +42,7 @@ type appWorker struct {
 	logger logger.Logger
 	ops    ApplicationOps
 
-	appID            coreapplication.UUID
+	appUUID          coreapplication.UUID
 	changes          chan struct{}
 	password         string
 	lastApplied      caas.ApplicationConfig
@@ -88,7 +88,7 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 			statusService:              config.StatusService,
 			storageProvisioningService: config.StorageProvisioningService,
 			resourceOpenerGetter:       config.ResourceOpenerGetter,
-			appID:                      config.AppID,
+			appUUID:                    config.AppID,
 			facade:                     config.Facade,
 			broker:                     config.Broker,
 			clock:                      config.Clock,
@@ -127,22 +127,22 @@ func (a *appWorker) loop() error {
 
 	// TODO: eliminate name at this level, it should be only in provisioning info
 	// when creating resources on the k8s broker.
-	name, err := a.applicationService.GetApplicationName(ctx, a.appID)
+	name, err := a.applicationService.GetApplicationName(ctx, a.appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		a.logger.Debugf(ctx, "application %q no longer exists", a.appID)
+		a.logger.Debugf(ctx, "application %q no longer exists", a.appUUID)
 		return nil
 	} else if err != nil {
-		return errors.Annotatef(err, "fetching info for application %q", a.appID)
+		return errors.Annotatef(err, "fetching info for application %q", a.appUUID)
 	}
 
 	// If the application is the Juju controller, only provide updates on the
 	// status of the application.
-	statusOnly, err := a.applicationService.IsControllerApplication(ctx, a.appID)
+	statusOnly, err := a.applicationService.IsControllerApplication(ctx, a.appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		a.logger.Debugf(ctx, "application %q no longer exists", a.appID)
+		a.logger.Debugf(ctx, "application %q no longer exists", a.appUUID)
 		return nil
 	} else if err != nil {
-		return errors.Annotatef(err, "fetching info for application %q", a.appID)
+		return errors.Annotatef(err, "fetching info for application %q", a.appUUID)
 	}
 
 	// TODO(sidecar): support more than statefulset
@@ -150,7 +150,7 @@ func (a *appWorker) loop() error {
 
 	// If the application no longer exists, return immediately. If it's in
 	// Dead state, ensure it's deleted and terminated.
-	appLife, err := a.applicationService.GetApplicationLife(ctx, a.appID)
+	appLife, err := a.applicationService.GetApplicationLife(ctx, a.appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		a.logger.Debugf(ctx, "application %q no longer exists", name)
 		return nil
@@ -160,11 +160,13 @@ func (a *appWorker) loop() error {
 	a.life = appLife
 	if appLife == life.Dead {
 		if !statusOnly {
-			err = a.ops.AppDying(ctx, name, a.appID, app, a.life, a.facade, a.applicationService, a.statusService, a.logger)
+			err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life, a.facade,
+				a.applicationService, a.statusService, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
-			err = a.ops.AppDead(ctx, name, a.appID, app, a.broker, a.applicationService, a.statusService, a.clock, a.logger)
+			err = a.ops.AppDead(ctx, name, a.appUUID, app, a.broker,
+				a.applicationService, a.statusService, a.clock, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
@@ -178,7 +180,7 @@ func (a *appWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = a.agentPasswordService.SetApplicationPassword(ctx, a.appID, a.password)
+		err = a.agentPasswordService.SetApplicationPassword(ctx, a.appUUID, a.password)
 		if err != nil {
 			return errors.Annotate(err, "failed to set application api password")
 		}
@@ -230,7 +232,7 @@ func (a *appWorker) loop() error {
 	)
 
 	handleChange := func() error {
-		appLife, err := a.applicationService.GetApplicationLife(ctx, a.appID)
+		appLife, err := a.applicationService.GetApplicationLife(ctx, a.appUUID)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			appLife = life.Dead
 		} else if err != nil {
@@ -271,7 +273,7 @@ func (a *appWorker) loop() error {
 			}
 			if !statusOnly {
 				a.provisioningInfo, err = a.ops.ProvisioningInfo(ctx, name,
-					a.appID, a.facade, a.storageProvisioningService,
+					a.appUUID, a.facade, a.storageProvisioningService,
 					a.applicationService, a.resourceOpenerGetter,
 					a.provisioningInfo, a.logger)
 				if errors.Is(err, errors.NotProvisioned) {
@@ -282,7 +284,9 @@ func (a *appWorker) loop() error {
 				} else if err != nil {
 					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
 				}
-				err = a.ops.AppAlive(ctx, name, app, a.password, &a.lastApplied, a.provisioningInfo, a.statusService, a.clock, a.logger)
+				err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
+					&a.lastApplied, a.provisioningInfo, a.statusService,
+					a.clock, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -311,7 +315,8 @@ func (a *appWorker) loop() error {
 			ready = true
 		case life.Dying:
 			if !statusOnly {
-				err = a.ops.AppDying(ctx, name, a.appID, app, a.life, a.facade, a.applicationService, a.statusService, a.logger)
+				err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
+					a.facade, a.applicationService, a.statusService, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -319,11 +324,13 @@ func (a *appWorker) loop() error {
 			ready = false
 		case life.Dead:
 			if !statusOnly {
-				err = a.ops.AppDying(ctx, name, a.appID, app, a.life, a.facade, a.applicationService, a.statusService, a.logger)
+				err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
+					a.facade, a.applicationService, a.statusService, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				err = a.ops.AppDead(ctx, name, a.appID, app, a.broker, a.applicationService, a.statusService, a.clock, a.logger)
+				err = a.ops.AppDead(ctx, name, a.appUUID, app, a.broker,
+					a.applicationService, a.statusService, a.clock, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -361,7 +368,8 @@ func (a *appWorker) loop() error {
 				shouldRefresh = false
 				break
 			}
-			err := a.ops.EnsureScale(ctx, name, a.appID, app, a.life, a.facade, a.applicationService, a.statusService, a.logger)
+			err := a.ops.EnsureScale(ctx, name, a.appUUID, app, a.life, a.facade,
+				a.applicationService, a.statusService, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
@@ -422,7 +430,7 @@ func (a *appWorker) loop() error {
 				reconcileDeadChan = nil
 				break
 			}
-			err := a.ops.ReconcileDeadUnitScale(ctx, name, a.appID, app,
+			err := a.ops.ReconcileDeadUnitScale(ctx, name, a.appUUID, app,
 				a.facade, a.applicationService, a.statusService, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
@@ -461,7 +469,7 @@ func (a *appWorker) loop() error {
 		case <-appChanges:
 			// Respond to changes in provider application.
 			lastReportedStatus, err = a.ops.UpdateState(
-				ctx, name, a.appID, app, lastReportedStatus,
+				ctx, name, a.appUUID, app, lastReportedStatus,
 				a.broker, a.applicationService,
 				a.statusService, a.clock, a.logger)
 			if err != nil {
@@ -470,7 +478,7 @@ func (a *appWorker) loop() error {
 		case <-replicaChanges:
 			// Respond to changes in replicas of the application.
 			lastReportedStatus, err = a.ops.UpdateState(
-				ctx, name, a.appID, app, lastReportedStatus,
+				ctx, name, a.appUUID, app, lastReportedStatus,
 				a.broker, a.applicationService,
 				a.statusService, a.clock, a.logger)
 			if err != nil {
@@ -486,7 +494,7 @@ func (a *appWorker) loop() error {
 				reportErrors = append(reportErrors, err.Error())
 			}
 			report := map[string]any{
-				"application-uuid": a.appID,
+				"application-uuid": a.appUUID,
 				"application-name": name,
 				"status-only":      statusOnly,
 				"application-life": a.life,
@@ -505,7 +513,7 @@ func (a *appWorker) loop() error {
 			return nil
 		}
 		if shouldRefresh {
-			err := a.ops.RefreshApplicationStatus(ctx, name, a.appID, app, appLife,
+			err := a.ops.RefreshApplicationStatus(ctx, name, a.appUUID, app, appLife,
 				a.statusService, a.clock, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "refreshing application status for %q", name)

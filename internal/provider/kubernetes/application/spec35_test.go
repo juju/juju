@@ -208,7 +208,7 @@ func getPodSpec35() corev1.PodSpec {
 					ReadOnly:  true,
 				},
 				{
-					Name:      "gitlab-database-appuuid",
+					Name:      "gitlab-database-uniqid",
 					MountPath: "path/to/here",
 				},
 			},
@@ -279,7 +279,7 @@ func getPodSpec35() corev1.PodSpec {
 					SubPath:   "charm/containers/gitlab",
 				},
 				{
-					Name:      "gitlab-database-appuuid",
+					Name:      "gitlab-database-uniqid",
 					MountPath: "path/to/here",
 				},
 			},

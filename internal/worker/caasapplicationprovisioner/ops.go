@@ -69,7 +69,7 @@ type ProvisioningInfo struct {
 // This is exported for testing only.
 type ApplicationOps interface {
 	ProvisioningInfo(
-		ctx context.Context, appName string, appID coreapplication.UUID,
+		ctx context.Context, appName string, appUUID coreapplication.UUID,
 		facade CAASProvisionerFacade,
 		storageProvisioningService StorageProvisioningService,
 		applicationService ApplicationService,
@@ -77,42 +77,43 @@ type ApplicationOps interface {
 		lastProvisioningInfo *ProvisioningInfo,
 		logger logger.Logger) (*ProvisioningInfo, error)
 
-	AppAlive(ctx context.Context, appName string, app caas.Application,
-		password string, lastApplied *caas.ApplicationConfig,
-		provisioningInfo *ProvisioningInfo,
-		statusService StatusService,
+	AppAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
+		app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+		provisioningInfo *ProvisioningInfo, statusService StatusService,
 		clk clock.Clock, logger logger.Logger) error
 
-	AppDying(ctx context.Context, appName string, appID coreapplication.UUID, app caas.Application, appLife life.Value,
-		facade CAASProvisionerFacade,
+	AppDying(ctx context.Context, appName string, appUUID coreapplication.UUID,
+		app caas.Application, appLife life.Value, facade CAASProvisionerFacade,
 		applicationService ApplicationService, statusService StatusService,
 		logger logger.Logger) error
 
-	AppDead(ctx context.Context, appName string, appID coreapplication.UUID, app caas.Application,
-		broker CAASBroker, applicationService ApplicationService, statusService StatusService,
+	AppDead(ctx context.Context, appName string, appUUID coreapplication.UUID,
+		app caas.Application, broker CAASBroker, applicationService ApplicationService,
+		statusService StatusService,
 		clk clock.Clock, logger logger.Logger) error
 
 	EnsureTrust(ctx context.Context, appName string, app caas.Application,
 		applicationService ApplicationService, logger logger.Logger) error
 
-	UpdateState(ctx context.Context, appName string, appID coreapplication.UUID, app caas.Application,
-		lastReportedStatus UpdateStatusState,
+	UpdateState(ctx context.Context, appName string, appUUID coreapplication.UUID,
+		app caas.Application, lastReportedStatus UpdateStatusState,
 		broker CAASBroker, applicationService ApplicationService, statusService StatusService,
 		clk clock.Clock, logger logger.Logger) (UpdateStatusState, error)
 
-	RefreshApplicationStatus(ctx context.Context, appName string, appID coreapplication.UUID, app caas.Application, appLife life.Value,
-		statusService StatusService, clk clock.Clock, logger logger.Logger) error
+	RefreshApplicationStatus(ctx context.Context, appName string, appUUID coreapplication.UUID,
+		app caas.Application, appLife life.Value, statusService StatusService,
+		clk clock.Clock, logger logger.Logger) error
 
 	WaitForTerminated(appName string, app caas.Application,
 		clk clock.Clock) error
 
-	ReconcileDeadUnitScale(ctx context.Context, appName string, appID coreapplication.UUID, app caas.Application,
-		facade CAASProvisionerFacade,
+	ReconcileDeadUnitScale(ctx context.Context, appName string, appUUID coreapplication.UUID,
+		app caas.Application, facade CAASProvisionerFacade,
 		applicationService ApplicationService, statusService StatusService,
 		logger logger.Logger) error
 
-	EnsureScale(ctx context.Context, appName string, appID coreapplication.UUID, app caas.Application, appLife life.Value,
-		facade CAASProvisionerFacade,
+	EnsureScale(ctx context.Context, appName string, appUUID coreapplication.UUID,
+		app caas.Application, appLife life.Value, facade CAASProvisionerFacade,
 		applicationService ApplicationService, statusService StatusService,
 		logger logger.Logger) error
 }
@@ -122,43 +123,44 @@ type applicationOps struct{}
 var _ ApplicationOps = &applicationOps{}
 
 func (applicationOps) ProvisioningInfo(
-	ctx context.Context, appName string, appID coreapplication.UUID,
+	ctx context.Context, appName string, appUUID coreapplication.UUID,
 	facade CAASProvisionerFacade,
 	storageProvisioningService StorageProvisioningService,
 	applicationService ApplicationService,
 	resourceOpenerGetter ResourceOpenerGetter,
 	lastProvisioningInfo *ProvisioningInfo,
 	logger logger.Logger) (*ProvisioningInfo, error) {
-	return provisioningInfo(ctx, appName, appID, facade, storageProvisioningService, applicationService, resourceOpenerGetter, lastProvisioningInfo, logger)
+	return provisioningInfo(ctx, appName, appUUID, facade, storageProvisioningService, applicationService, resourceOpenerGetter, lastProvisioningInfo, logger)
 }
 
 func (applicationOps) AppAlive(
 	ctx context.Context,
-	appName string, app caas.Application, password string,
-	lastApplied *caas.ApplicationConfig,
-	provisioningInfo *ProvisioningInfo,
-	statusService StatusService,
+	appName string, appUUID coreapplication.UUID, app caas.Application,
+	password string, lastApplied *caas.ApplicationConfig,
+	provisioningInfo *ProvisioningInfo, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return appAlive(ctx, appName, app, password, lastApplied, provisioningInfo, statusService, clk, logger)
+	return appAlive(ctx, appName, appUUID, app, password,
+		lastApplied, provisioningInfo, statusService,
+		clk, logger)
 }
 
 func (applicationOps) AppDying(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application, appLife life.Value,
+	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade,
 	applicationService ApplicationService, statusService StatusService,
 	logger logger.Logger,
 ) error {
-	return appDying(ctx, appName, appID, app, appLife, facade, applicationService, statusService, logger)
+	return appDying(ctx, appName, appUUID, app, appLife, facade, applicationService, statusService, logger)
 }
 
 func (applicationOps) AppDead(ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application, broker CAASBroker,
+	appName string, appUUID coreapplication.UUID, app caas.Application, broker CAASBroker,
 	applicationService ApplicationService, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return appDead(ctx, appName, appID, app, broker, applicationService, statusService, clk, logger)
+	return appDead(ctx, appName, appUUID, app, broker, applicationService, statusService, clk, logger)
 }
 
 func (applicationOps) EnsureTrust(
@@ -172,20 +174,20 @@ func (applicationOps) EnsureTrust(
 
 func (applicationOps) UpdateState(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application, lastReportedStatus UpdateStatusState,
+	appName string, appUUID coreapplication.UUID, app caas.Application, lastReportedStatus UpdateStatusState,
 	broker CAASBroker, applicationService ApplicationService, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) (UpdateStatusState, error) {
-	return updateState(ctx, appName, appID, app, lastReportedStatus, broker, applicationService, statusService, clk, logger)
+	return updateState(ctx, appName, appUUID, app, lastReportedStatus, broker, applicationService, statusService, clk, logger)
 }
 
 func (applicationOps) RefreshApplicationStatus(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application, appLife life.Value,
+	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return refreshApplicationStatus(ctx, appName, appID, app, appLife, statusService, clk, logger)
+	return refreshApplicationStatus(ctx, appName, appUUID, app, appLife, statusService, clk, logger)
 }
 
 func (applicationOps) WaitForTerminated(
@@ -197,22 +199,22 @@ func (applicationOps) WaitForTerminated(
 
 func (applicationOps) ReconcileDeadUnitScale(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application,
+	appName string, appUUID coreapplication.UUID, app caas.Application,
 	facade CAASProvisionerFacade,
 	applicationService ApplicationService, statusService StatusService,
 	logger logger.Logger,
 ) error {
-	return reconcileDeadUnitScale(ctx, appName, appID, app, facade, applicationService, statusService, logger)
+	return reconcileDeadUnitScale(ctx, appName, appUUID, app, facade, applicationService, statusService, logger)
 }
 
 func (applicationOps) EnsureScale(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application, appLife life.Value,
+	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade,
 	applicationService ApplicationService, statusService StatusService,
 	logger logger.Logger,
 ) error {
-	return ensureScale(ctx, appName, appID, app, appLife, facade, applicationService, statusService, logger)
+	return ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, statusService, logger)
 }
 
 type Tomb interface {
@@ -222,10 +224,9 @@ type Tomb interface {
 
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
 // CAAS broker to create the resources in the k8s cluster for this application.
-func appAlive(ctx context.Context, appName string, app caas.Application,
-	password string, lastApplied *caas.ApplicationConfig,
-	pi *ProvisioningInfo,
-	statusService StatusService,
+func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
+	app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+	pi *ProvisioningInfo, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	logger.Debugf(ctx, "ensuring application %q exists", appName)
@@ -276,6 +277,7 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 		containers[k] = container
 	}
 
+	storageUniqueID := getStorageUniqueID(appUUID)
 	filesystems := []internalstorage.KubernetesFilesystemParams{}
 	for _, fst := range pi.FilesystemTemplates {
 		for i := range fst.Count {
@@ -321,7 +323,8 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 		// TODO(jneo8): Now units scaling from 0->N follow the same flow.
 		// The provisionInfo.Scale is no longer used, so in theory we
 		// could delete this field. Should investigate refactoring.
-		InitialScale: 0,
+		InitialScale:    0,
+		StorageUniqueID: storageUniqueID,
 	}
 	switch pi.CharmMeta.CharmUser {
 	case charm.RunAsDefault:
@@ -356,17 +359,17 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 // the application and removing units.
 func appDying(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application, appLife life.Value,
+	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade,
 	applicationService ApplicationService, statusService StatusService,
 	logger logger.Logger,
 ) (err error) {
 	logger.Debugf(ctx, "application %q dying", appName)
-	err = ensureScale(ctx, appName, appID, app, appLife, facade, applicationService, statusService, logger)
+	err = ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, statusService, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
-	err = reconcileDeadUnitScale(ctx, appName, appID, app, facade, applicationService, statusService, logger)
+	err = reconcileDeadUnitScale(ctx, appName, appUUID, app, facade, applicationService, statusService, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot reconcile dead units in dying application")
 	}
@@ -377,7 +380,7 @@ func appDying(
 // is removed from the k8s cluster and unblocks the cleanup of the application in state.
 func appDead(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application, broker CAASBroker,
+	appName string, appUUID coreapplication.UUID, app caas.Application, broker CAASBroker,
 	applicationService ApplicationService, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
@@ -390,7 +393,7 @@ func appDead(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = updateState(ctx, appName, appID, app, nil, broker, applicationService, statusService, clk, logger)
+	_, err = updateState(ctx, appName, appUUID, app, nil, broker, applicationService, statusService, clk, logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -431,7 +434,7 @@ func ensureTrust(
 // status, IP addresses and volume info.
 func updateState(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application,
+	appName string, appUUID coreapplication.UUID, app caas.Application,
 	lastReportedStatus UpdateStatusState,
 	broker CAASBroker, applicationService ApplicationService, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
@@ -458,7 +461,7 @@ func updateState(
 		}
 	}
 
-	unitToPod, err := applicationService.GetAllUnitCloudContainerIDsForApplication(ctx, appID)
+	unitToPod, err := applicationService.GetAllUnitCloudContainerIDsForApplication(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -523,7 +526,7 @@ func updateState(
 
 func refreshApplicationStatus(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application, appLife life.Value,
+	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
@@ -539,7 +542,7 @@ func refreshApplicationStatus(
 	}
 
 	// refresh the unit's information.
-	unitStatuses, err := statusService.GetUnitAgentStatusesForApplication(ctx, appID)
+	unitStatuses, err := statusService.GetUnitAgentStatusesForApplication(ctx, appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil
 	} else if err != nil {
@@ -596,13 +599,13 @@ func waitForTerminated(appName string, app caas.Application,
 // can go ahead and remove the units from CAAS provider.
 func reconcileDeadUnitScale(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application,
+	appName string, appUUID coreapplication.UUID, app caas.Application,
 	facade CAASProvisionerFacade,
 	applicationService ApplicationService,
 	statusService StatusService,
 	logger logger.Logger,
 ) error {
-	unitNamesAndLives, err := applicationService.GetAllUnitLifeForApplication(ctx, appID)
+	unitNamesAndLives, err := applicationService.GetAllUnitLifeForApplication(ctx, appUUID)
 	if err != nil {
 		return fmt.Errorf("getting units for application %s: %w", appName, err)
 	}
@@ -636,7 +639,12 @@ func reconcileDeadUnitScale(
 		return nil
 	}
 
-	if err := ensureScaleWithFsAttachments(ctx, appName, app, desiredScale, facade, logger); err != nil && !errors.Is(err, errors.NotFound) {
+	storageUniqueID := getStorageUniqueID(appUUID)
+	err = ensureScaleWithFsAttachments(
+		ctx, appName, app, desiredScale,
+		facade, logger, storageUniqueID,
+	)
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf(
 			"scaling application %q to scale %d: %w",
 			appName,
@@ -668,7 +676,7 @@ func reconcileDeadUnitScale(
 // current scale targets that have yet to be met.
 func ensureScale(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID, app caas.Application, appLife life.Value,
+	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade,
 	applicationService ApplicationService, statusService StatusService,
 	logger logger.Logger,
@@ -702,7 +710,7 @@ func ensureScale(
 		ps.ScaleTarget = desiredScale
 	}
 
-	units, err := applicationService.GetAllUnitLifeForApplication(ctx, appID)
+	units, err := applicationService.GetAllUnitLifeForApplication(ctx, appUUID)
 	if err != nil {
 		return err
 	}
@@ -716,7 +724,16 @@ func ensureScale(
 	}
 
 	if ps.ScaleTarget >= unitScale {
-		err := ensureScaleWithFsAttachments(ctx, appName, app, ps.ScaleTarget, facade, logger)
+		storageUniqueID := appUUID.String()[:6]
+		err := ensureScaleWithFsAttachments(
+			ctx,
+			appName,
+			app,
+			ps.ScaleTarget,
+			facade,
+			logger,
+			storageUniqueID,
+		)
 
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof(ctx, "dying application %q is already removed from k8s", appName)
@@ -766,6 +783,10 @@ func ensureScale(
 	return nil
 }
 
+func getStorageUniqueID(appUUID coreapplication.UUID) string {
+	return appUUID.String()[:6]
+}
+
 func setApplicationStatus(
 	ctx context.Context,
 	appName string, s status.Status, reason string, data map[string]any,
@@ -797,8 +818,10 @@ func updateProvisioningState(
 }
 
 // ensureScaleWithFsAttachments scales an application while ensuring required PVCs are created.
-func ensureScaleWithFsAttachments(ctx context.Context, appName string, app caas.Application, scaleTarget int,
-	facade CAASProvisionerFacade, logger logger.Logger,
+func ensureScaleWithFsAttachments(
+	ctx context.Context, appName string,
+	app caas.Application, scaleTarget int,
+	facade CAASProvisionerFacade, logger logger.Logger, storageUniqueID string,
 ) error {
 	logger.Infof(ctx, "scaling application %q to desired scale %d", appName, scaleTarget)
 
@@ -809,7 +832,12 @@ func ensureScaleWithFsAttachments(ctx context.Context, appName string, app caas.
 	}
 
 	// Ensure PVCs exist.
-	if err := app.EnsurePVCs(info.Filesystems, info.FilesystemUnitAttachments); err != nil {
+	err = app.EnsurePVCs(
+		info.Filesystems,
+		info.FilesystemUnitAttachments,
+		storageUniqueID,
+	)
+	if err != nil {
 		return err
 	}
 	return app.Scale(scaleTarget)
@@ -817,7 +845,7 @@ func ensureScaleWithFsAttachments(ctx context.Context, appName string, app caas.
 
 func provisioningInfo(
 	ctx context.Context,
-	appName string, appID coreapplication.UUID,
+	appName string, appUUID coreapplication.UUID,
 	facade CAASProvisionerFacade,
 	storageProvisioningService StorageProvisioningService,
 	applicationService ApplicationService,
@@ -845,13 +873,13 @@ func provisioningInfo(
 		Scale:                res.Scale,
 	}
 
-	fsTemplates, err := storageProvisioningService.GetFilesystemTemplatesForApplication(ctx, appID)
+	fsTemplates, err := storageProvisioningService.GetFilesystemTemplatesForApplication(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	pi.FilesystemTemplates = fsTemplates
 
-	storageResourceTags, err := storageProvisioningService.GetStorageResourceTagsForApplication(ctx, appID)
+	storageResourceTags, err := storageProvisioningService.GetStorageResourceTagsForApplication(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -865,13 +893,13 @@ func provisioningInfo(
 		}
 	}
 
-	charm, _, err := applicationService.GetCharmByApplicationUUID(ctx, appID)
+	charm, _, err := applicationService.GetCharmByApplicationUUID(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	pi.CharmMeta = charm.Meta()
 
-	ro, err := resourceOpenerGetter.ResourceOpenerForApplication(ctx, appID, appName)
+	ro, err := resourceOpenerGetter.ResourceOpenerForApplication(ctx, appUUID, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

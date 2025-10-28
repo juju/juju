@@ -215,7 +215,7 @@ func getPodSpec36() corev1.PodSpec {
 					ReadOnly:  true,
 				},
 				{
-					Name:      "gitlab-database-appuuid",
+					Name:      "gitlab-database-uniqid",
 					MountPath: "path/to/here",
 				},
 			},
@@ -305,7 +305,7 @@ func getPodSpec36() corev1.PodSpec {
 					SubPath:   "charm/etc/pebble/identities.yaml",
 				},
 				{
-					Name:      "gitlab-database-appuuid",
+					Name:      "gitlab-database-uniqid",
 					MountPath: "path/to/here",
 				},
 			},
