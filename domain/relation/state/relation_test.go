@@ -1284,6 +1284,50 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *tc.C) {
 	c.Assert(results, tc.SameContents, expectedResults)
 }
 
+func (s *relationSuite) TestGetRelationStatusesForUnitExcludesSyntheticRelations(c *tc.C) {
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:  "fake-endpoint-name-1",
+			Role:  charm.RoleProvider,
+			Scope: charm.ScopeGlobal,
+		},
+	}
+
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:  "fake-endpoint-name-2",
+			Role:  charm.RoleRequirer,
+			Scope: charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	// Arrange: Add a unit.
+	unitUUID := s.addUnit(c, "unit-name", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	// Arrange: Add unit to relation and set relation status.
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
+	s.setRelationSuspended(c, relationUUID)
+
+	s.setApplicationRemoteOfferer(c, s.fakeApplicationUUID1, applicationEndpointUUID1, relationUUID)
+
+	// Act: Get relation status for unit.
+	results, err := s.state.GetRelationsStatusForUnit(c.Context(), unitUUID)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert): %v",
+		errors.ErrorStack(err)))
+	c.Check(results, tc.HasLen, 0)
+}
+
 // TestGetRelationStatusesForUnitEmptyResult checks that an empty slice is
 // returned when a unit is in no relations.
 func (s *relationSuite) TestGetRelationsStatusForUnitEmptyResult(c *tc.C) {

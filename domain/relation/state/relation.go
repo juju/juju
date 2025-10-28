@@ -756,7 +756,10 @@ JOIN      relation AS r ON re.relation_uuid = r.uuid
 JOIN      application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN      unit AS u ON ae.application_uuid = u.application_uuid
 LEFT JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
+JOIN      application AS a ON u.application_uuid = a.uuid
+LEFT JOIN application_remote_consumer AS arc ON a.uuid = arc.offerer_application_uuid
 WHERE     u.uuid = $unitUUIDArg.unit_uuid
+AND       arc.offer_connection_uuid IS NULL
 `, uuid, relationUnitStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)

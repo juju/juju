@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
@@ -66,14 +67,14 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
 	err := updateCharmDir(ctx, cfg.Executor.State(), cfg.CharmDirGuard, cfg.Logger)
 	if err != nil {
-		return errors.Trace(err)
+		return internalerrors.Errorf("updating charm dir: %w", err)
 	}
 
 	// If we're restarting the loop, ensure any pending charm upgrade is run
 	// before continuing.
 	err = checkCharmInstallUpgrade(ctx, cfg.Logger, cfg.CharmDir, cfg.Watcher.Snapshot(), rf, cfg.Executor)
 	if err != nil {
-		return errors.Trace(err)
+		return internalerrors.Errorf("checking charm install upgrade: %w", err)
 	}
 
 	fire := make(chan struct{}, 1)
@@ -133,7 +134,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 					cfg.Logger.Warningf(ctx, "executor lock acquisition cancelled")
 					return ErrRestart
 				}
-				return errors.Trace(err)
+				return internalerrors.Errorf("running operation: %w", err)
 			}
 			close(done)
 
@@ -144,7 +145,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 
 			err = updateCharmDir(ctx, rf.LocalState.State, cfg.CharmDirGuard, cfg.Logger)
 			if err != nil {
-				return errors.Trace(err)
+				return internalerrors.Errorf("updating charm dir: %w", err)
 			}
 
 			op, err = cfg.Resolver.NextOp(ctx, *rf.LocalState, rf.RemoteState, rf)

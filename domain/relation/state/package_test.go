@@ -19,6 +19,7 @@ import (
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -525,4 +526,21 @@ func (s *baseRelationSuite) setUnitSubordinate(c *tc.C, unitUUID1, unitUUID2 cor
 INSERT INTO unit_principal (unit_uuid, principal_uuid)
 VALUES (?,?)
 `, unitUUID1, unitUUID2)
+}
+
+func (s *baseRelationSuite) setApplicationRemoteOfferer(c *tc.C, appUUID coreapplication.UUID, endpointUUID string, relationUUID corerelation.UUID) {
+	offerUUID := tc.Must(c, offer.NewUUID)
+	offerConnectionUUID := appUUID.String()
+
+	s.query(c, `INSERT INTO offer (uuid, name) VALUES (?,'offer')`, offerUUID)
+	s.query(c, `INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?,?)`, offerUUID, endpointUUID)
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?,?,?,'user')
+`, offerConnectionUUID, offerUUID, relationUUID)
+
+	s.query(c, `
+INSERT INTO application_remote_consumer
+(offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id) VALUES (?,?,?,?,0)
+`, offerConnectionUUID, appUUID, tc.Must(c, uuid.NewUUID).String(), tc.Must(c, uuid.NewUUID).String())
 }
