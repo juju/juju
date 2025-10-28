@@ -174,6 +174,25 @@ VALUES (?, ?, ?, 0, 1)
 	return attachmentUUID
 }
 
+// newModelFilesystem creates a new filesystem in the model with model
+// provision scope. Return is the uuid and filesystem id of the entity.
+func (s *baseSuite) newModelFilesystem(c *tc.C) (
+	storageprovisioning.FilesystemUUID, string,
+) {
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+	`,
+		fsUUID.String(), fsID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID, fsID
+}
+
 // newModelVolume creates a new volume in the model with model
 // provision scope. Return is the uuid and volume id of the entity.
 func (s *baseSuite) newModelVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
@@ -250,14 +269,14 @@ func (s *baseSuite) newStorageAttachment(
 	c *tc.C,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
-) string {
+) storageprovisioning.StorageAttachmentUUID {
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, ?)
 `, saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), domainlife.Alive)
 	c.Assert(err, tc.ErrorIsNil)
-	return saUUID.String()
+	return saUUID
 }
 
 func (s *baseSuite) newStorageInstanceForCharmWithPool(
@@ -279,6 +298,37 @@ INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
                              life_id, requested_size_mib, storage_pool_uuid,
                              storage_kind_id)
 VALUES (?, ?, ?, ?, 0, 100, ?, 1)
+`,
+		storageInstanceUUID.String(),
+		charmName,
+		storageName,
+		storageID,
+		poolUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return storageInstanceUUID
+}
+
+func (s *baseSuite) newStorageInstanceBlockKindForCharmWithPool(
+	c *tc.C, charmUUID, poolUUID, storageName string,
+) domainstorage.StorageInstanceUUID {
+	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
+
+	var charmName string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
+		charmUUID,
+	).Scan(&charmName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
+                             life_id, requested_size_mib, storage_pool_uuid,
+                             storage_kind_id)
+VALUES (?, ?, ?, ?, 0, 100, ?, 0)
 `,
 		storageInstanceUUID.String(),
 		charmName,
@@ -356,6 +406,15 @@ VALUES (?, ?, ?, ?, ?, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return unitUUID, coreunit.Name(unitName)
+}
+
+func (s *baseSuite) newStorageOwner(
+	c *tc.C, storageInstanceUUID domainstorage.StorageInstanceUUID, ownerUUID coreunit.UUID,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_unit_owner(unit_uuid, storage_instance_uuid)
+VALUES (?, ?)`, ownerUUID.String(), storageInstanceUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // newVolumeAttachmentPlan creates a new volume attachment plan. The attachment

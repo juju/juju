@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
@@ -19,6 +20,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -47,13 +49,15 @@ type State interface {
 	// machine exists for the provided UUID.
 	CheckMachineIsDead(context.Context, coremachine.UUID) (bool, error)
 
-	// GetMachineNetNodeUUID retrieves the net node UUID associated with provided
-	// machine.
+	// GetMachineNetNodeUUID retrieves the net node UUID associated with
+	// provided machine.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
 	// machine exists for the provided UUID.
-	GetMachineNetNodeUUID(context.Context, coremachine.UUID) (domainnetwork.NetNodeUUID, error)
+	GetMachineNetNodeUUID(
+		context.Context, coremachine.UUID,
+	) (domainnetwork.NetNodeUUID, error)
 
 	// GetStoragesourceTagInfoForModel returns the information required to build
 	// storage tags in the model.
@@ -67,7 +71,9 @@ type State interface {
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
 	// unit exists for the supplied unit UUID.
-	GetUnitNetNodeUUID(context.Context, coreunit.UUID) (domainnetwork.NetNodeUUID, error)
+	GetUnitNetNodeUUID(
+		context.Context, coreunit.UUID,
+	) (domainnetwork.NetNodeUUID, error)
 
 	// NamespaceForWatchMachineCloudInstance returns the change stream namespace
 	// for watching machine cloud instance changes.
@@ -75,23 +81,32 @@ type State interface {
 
 	// GetStorageResourceTagInfoForApplication returns information required to
 	// build resource tags for storage created for the given application.
-	GetStorageResourceTagInfoForApplication(context.Context, application.UUID, string) (storageprovisioning.ApplicationResourceTagInfo, error)
+	GetStorageResourceTagInfoForApplication(
+		context.Context, application.UUID, string,
+	) (storageprovisioning.ApplicationResourceTagInfo, error)
 
-	// GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the given unit UUID.
+	// GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the
+	// given unit UUID.
 	//
 	// The following errors may be returned:
-	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
-	GetStorageAttachmentIDsForUnit(ctx context.Context, unitUUID string) ([]string, error)
+	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied
+	// unit UUID.
+	GetStorageAttachmentIDsForUnit(
+		ctx context.Context, unitUUID coreunit.UUID,
+	) ([]string, error)
 
-	// GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by its ID.
+	// GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by
+	// its ID.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound]
 	// when no storage instance exists for the provided ID.
-	GetStorageInstanceUUIDByID(ctx context.Context, storageID string) (string, error)
+	GetStorageInstanceUUIDByID(
+		ctx context.Context, storageID string,
+	) (storage.StorageInstanceUUID, error)
 
-	// GetStorageAttachmentLife retrieves the life of a storage attachment for a unit
-	// and the storage instance.
+	// GetStorageAttachmentLife retrieves the life of a storage attachment for
+	// a unit and the storage instance.
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied
@@ -102,7 +117,9 @@ type State interface {
 	// when the storage attachment does not exist for the unit and storage
 	// instance.
 	GetStorageAttachmentLife(
-		ctx context.Context, unitUUID, storageInstanceUUID string,
+		ctx context.Context,
+		unitUUID coreunit.UUID,
+		storageInstanceUUID storage.StorageInstanceUUID,
 	) (domainlife.Life, error)
 
 	// GetStorageAttachmentLifeForUnit returns a mapping of storage IDs to the
@@ -111,11 +128,22 @@ type State interface {
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist.
 	GetStorageAttachmentLifeForUnit(
-		ctx context.Context, unitUUID string,
+		ctx context.Context, unitUUID coreunit.UUID,
 	) (map[string]domainlife.Life, error)
 
-	// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for
-	// a given storage ID and unit UUID.
+	// GetStorageAttachmentInfo returns information about a storage attachment
+	// for the given storage attachment UUID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
+	// attachment does not exist.
+	GetStorageAttachmentInfo(
+		ctx context.Context,
+		storageAttachmentUUID storageprovisioning.StorageAttachmentUUID,
+	) (storageprovisioning.StorageAttachmentInfo, error)
+
+	// GetStorageAttachmentUUIDForUnit returns the UUID of the storage
+	// attachment for a given storage ID and unit UUID.
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist.
@@ -124,13 +152,13 @@ type State interface {
 	// - [github.com/juju/juju/domain/storage/errors.StorageAttachmentNotFound]
 	// if the storage attachment does not exist.
 	GetStorageAttachmentUUIDForUnit(
-		ctx context.Context, storageID, unitUUID string,
-	) (string, error)
+		ctx context.Context, storageID string, unitUUID coreunit.UUID,
+	) (storageprovisioning.StorageAttachmentUUID, error)
 
 	// InitialWatchStatementForUnitStorageAttachments returns the initial watch
 	// statement for unit storage attachments.
 	InitialWatchStatementForUnitStorageAttachments(
-		ctx context.Context, unitUUID string,
+		ctx context.Context, unitUUID coreunit.UUID,
 	) (string, eventsource.Query[map[string]domainlife.Life])
 
 	// NamespaceForStorageAttachment returns the change stream namespace
@@ -152,22 +180,25 @@ type WatcherFactory interface {
 		initialStateQuery eventsource.NamespaceQuery,
 		summary string,
 		mapper eventsource.Mapper,
-		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
-	// NewNamespaceWatcher returns a new watcher that filters changes from the input
-	// base watcher's db/queue. Change-log events will be emitted only if the filter
-	// accepts them, and dispatching the notifications via the Changes channel. A
-	// filter option is required, though additional filter options can be provided.
+	// NewNamespaceWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted only if
+	// the filter accepts them, and dispatching the notifications via the
+	// Changes channel. A filter option is required, though additional filter
+	// options can be provided.
 	NewNamespaceWatcher(
 		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		summary string,
-		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
-	// NewNotifyWatcher returns a new watcher that filters changes from the input
-	// base watcher's db/queue. A single filter option is required, though
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
 		ctx context.Context,
@@ -264,12 +295,14 @@ func (s *Service) GetStorageResourceTagsForApplication(
 	return resourceTags, nil
 }
 
-// GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the given unit UUID.
+// GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the
+// given unit UUID.
 //
 // The following errors may be returned:
 // - [github.com/juju/juju/core/errors.NotValid] when the provided unit UUID
 // is not valid.
-// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit
+// UUID.
 func (s *Service) GetStorageAttachmentIDsForUnit(
 	ctx context.Context, unitUUID coreunit.UUID,
 ) ([]string, error) {
@@ -277,20 +310,24 @@ func (s *Service) GetStorageAttachmentIDsForUnit(
 		return nil, errors.Capture(err)
 	}
 
-	ids, err := s.st.GetStorageAttachmentIDsForUnit(ctx, unitUUID.String())
+	ids, err := s.st.GetStorageAttachmentIDsForUnit(ctx, unitUUID)
 	if err != nil {
-		return nil, errors.Errorf("getting storage attachment IDs for unit %q: %w", unitUUID, err)
+		return nil, errors.Errorf(
+			"getting storage attachment IDs for unit %q: %w", unitUUID, err,
+		)
 	}
 	return ids, nil
 }
 
-// GetStorageAttachmentLife retrieves the life of a storage attachment for a unit.
+// GetStorageAttachmentLife retrieves the life of a storage attachment for a
+// unit.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the provided unit UUID is not valid.
 // - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound]
 // when no storage instance exists for the provided storage instance UUID.
-// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit
+// UUID.
 // - [github.com/juju/juju/domain/storage/errors.StorageAttachmentNotFound]
 // when the storage attachment does not exist for the unit.
 func (s *Service) GetStorageAttachmentLife(
@@ -302,10 +339,13 @@ func (s *Service) GetStorageAttachmentLife(
 
 	storageInstanceUUID, err := s.st.GetStorageInstanceUUIDByID(ctx, storageID)
 	if err != nil {
-		return -1, errors.Errorf("getting storage instance UUID for ID %q: %w", storageID, err)
+		return -1, errors.Errorf(
+			"getting storage instance UUID for ID %q: %w", storageID, err,
+		)
 	}
 
-	life, err := s.st.GetStorageAttachmentLife(ctx, unitUUID.String(), storageInstanceUUID)
+	life, err := s.st.GetStorageAttachmentLife(
+		ctx, unitUUID, storageInstanceUUID)
 	if err != nil {
 		return -1, errors.Errorf(
 			"getting life for storage attachment %q: %w", storageID, err,
@@ -348,8 +388,37 @@ func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
 	return rval, nil
 }
 
-// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for the
-// given storage ID and unit UUID.
+// GetUnitStorageAttachmentInfo returns information about a storage attachment
+// for the given storage attachment UUID.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the provided storage attachment uuid is invalid.
+// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
+// attachment does not exist.
+func (s *Service) GetUnitStorageAttachmentInfo(
+	ctx context.Context,
+	uuid storageprovisioning.StorageAttachmentUUID,
+) (storageprovisioning.StorageAttachmentInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return storageprovisioning.StorageAttachmentInfo{}, errors.Errorf(
+			"validating storage attachment uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	info, err := s.st.GetStorageAttachmentInfo(ctx, uuid)
+	if err != nil {
+		return storageprovisioning.StorageAttachmentInfo{}, errors.Capture(err)
+	}
+
+	return info, nil
+}
+
+// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment
+// for the given storage ID and unit UUID.
 //
 // The following errors may be returned:
 // - [github.com/juju/juju/core/errors.NotValid] when the provided unit UUID
@@ -371,12 +440,13 @@ func (s *Service) GetStorageAttachmentUUIDForUnit(
 		return "", errors.Capture(err)
 	}
 
-	storageAttachmentUUID, err := s.st.GetStorageAttachmentUUIDForUnit(ctx, storageID, unitUUID.String())
+	storageAttachmentUUID, err := s.st.GetStorageAttachmentUUIDForUnit(
+		ctx, storageID, unitUUID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	return storageprovisioning.StorageAttachmentUUID(storageAttachmentUUID), nil
+	return storageAttachmentUUID, nil
 }
 
 // WatchStorageAttachmentsForUnit returns a watcher that emits the storage IDs
@@ -396,11 +466,13 @@ func (s *Service) WatchStorageAttachmentsForUnit(
 	}
 
 	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
-		return s.st.GetStorageAttachmentLifeForUnit(ctx, unitUUID.String())
+		return s.st.GetStorageAttachmentLifeForUnit(ctx, unitUUID)
 	}
 
-	ns, initialLifeQuery := s.st.InitialWatchStatementForUnitStorageAttachments(ctx, unitUUID.String())
-	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
+	ns, initialLifeQuery := s.st.InitialWatchStatementForUnitStorageAttachments(
+		ctx, unitUUID)
+	initialQuery, mapper := makeEntityLifePrerequisites(
+		initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
 		ns, changestream.All, eventsource.EqualsPredicate(unitUUID.String()),
 	)

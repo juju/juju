@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/operation"
@@ -592,6 +593,11 @@ type RemovalService interface {
 
 // BlockDeviceService provides methods to watch and manage block devices.
 type BlockDeviceService interface {
+	// GetBlockDevice retrieves a block device by uuid.
+	GetBlockDevice(
+		ctx context.Context, uuid domainblockdevice.BlockDeviceUUID,
+	) (blockdevice.BlockDevice, error)
+
 	// GetBlockDevicesForMachine returns the block devices for the specified
 	// machine.
 	GetBlockDevicesForMachine(
@@ -619,6 +625,13 @@ type StorageProvisioningService interface {
 	GetStorageAttachmentLife(
 		ctx context.Context, unitUUID coreunit.UUID, storageID string,
 	) (domainlife.Life, error)
+
+	// GetUnitStorageAttachmentInfo returns information about a storage attachment for
+	// the given storage attachment UUID.
+	GetUnitStorageAttachmentInfo(
+		ctx context.Context,
+		uuid storageprovisioning.StorageAttachmentUUID,
+	) (storageprovisioning.StorageAttachmentInfo, error)
 
 	// GetStorageAttachmentUUIDForUnit returns the UUID of the storage
 	// attachment for the given storage ID and unit UUID.

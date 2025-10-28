@@ -1200,25 +1200,6 @@ func (s *filesystemSuite) removeFilesystemWithObliterateValue(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// newModelFilesystem creates a new filesystem in the model with model
-// provision scope. Return is the uuid and filesystem id of the entity.
-func (s *filesystemSuite) newModelFilesystem(c *tc.C) (
-	storageprovisioning.FilesystemUUID, string,
-) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
-
-	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
-
-	_, err := s.DB().Exec(`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
-VALUES (?, ?, 0, 0)
-	`,
-		fsUUID.String(), fsID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return fsUUID, fsID
-}
-
 func (s *baseSuite) newModelFilesystemAttachmentWithMount(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,

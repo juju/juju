@@ -19,6 +19,9 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/blockdevice"
+	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
+	"github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -148,8 +151,136 @@ func (s *StorageAPI) DestroyUnitStorageAttachments(ctx context.Context, args par
 
 // StorageAttachments returns the storage attachments with the specified tags.
 func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.StorageAttachmentIds) (params.StorageAttachmentResults, error) {
+	canAccess, err := s.accessUnit(ctx)
+	if err != nil {
+		return params.StorageAttachmentResults{}, err
+	}
 	result := params.StorageAttachmentResults{
 		Results: make([]params.StorageAttachmentResult, len(args.Ids)),
+	}
+	one := func(arg params.StorageAttachmentId) (params.StorageAttachment, error) {
+		unitTag, err := names.ParseUnitTag(arg.UnitTag)
+		if err != nil {
+			return params.StorageAttachment{}, internalerrors.Capture(err)
+		}
+		if !canAccess(unitTag) {
+			return params.StorageAttachment{}, apiservererrors.ErrPerm
+		}
+
+		storageTag, err := names.ParseStorageTag(arg.StorageTag)
+		if err != nil {
+			return params.StorageAttachment{}, internalerrors.Capture(err)
+		}
+
+		unitUUID, err := s.getUnitUUID(ctx, unitTag)
+		if err != nil {
+			return params.StorageAttachment{}, internalerrors.Capture(err)
+		}
+
+		storageAttachmentUUID, err := s.storageProvisioningService.GetStorageAttachmentUUIDForUnit(
+			ctx, storageTag.Id(), unitUUID,
+		)
+		switch {
+		case errors.Is(err, domainstorageerrors.StorageInstanceNotFound):
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"storage instance not found for %q %q",
+				storageTag.Id(), unitTag.Id(),
+			).Add(coreerrors.NotFound)
+		case errors.Is(err, domainstorageerrors.StorageAttachmentNotFound):
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"storage attachment not found for %q %q",
+				storageTag.Id(), unitTag.Id(),
+			).Add(coreerrors.NotFound)
+		case err != nil:
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"getting storage attachment uuid for %q unit %q: %w",
+				storageTag.Id(), arg.UnitTag, err,
+			)
+		}
+
+		info, err := s.storageProvisioningService.GetUnitStorageAttachmentInfo(
+			ctx, storageAttachmentUUID,
+		)
+		switch {
+		case errors.Is(err, domainstorageerrors.StorageAttachmentNotFound):
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"storage attachment %q for unit %q not found",
+				arg.StorageTag, unitTag.Id(),
+			).Add(coreerrors.NotFound)
+		case err != nil:
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"getting storage attachment info for storage %q unit %q: %w",
+				arg.StorageTag, unitTag.Id(), err,
+			)
+		}
+
+		sa := params.StorageAttachment{
+			StorageTag: storageTag.String(),
+			UnitTag:    unitTag.String(),
+		}
+		sa.Life, err = info.Life.Value()
+		if err != nil {
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"invalid life %q for storage attachment %q unit %q: %w",
+				info.Life, arg.StorageTag, unitTag.Id(), err,
+			)
+		}
+
+		if info.Kind == storage.StorageKindFilesystem {
+			if info.FilesystemMountPoint == "" {
+				return params.StorageAttachment{}, internalerrors.Errorf(
+					"mount point for storage attachment %q for unit %q missing",
+					arg.StorageTag, unitTag.Id(),
+				).Add(coreerrors.NotProvisioned)
+			}
+			sa.Kind = params.StorageKindFilesystem
+			sa.Location = info.FilesystemMountPoint
+			return sa, nil
+		} else if info.Kind != storage.StorageKindBlock {
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"invalid kind %q for storage attachment %q unit %q",
+				info.Kind, arg.StorageTag, unitTag.Id(),
+			)
+		}
+
+		if info.BlockDeviceUUID == "" {
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"storage attachment %q for unit %q not provisioned",
+				arg.StorageTag, unitTag.Id(),
+			).Add(coreerrors.NotProvisioned)
+		}
+
+		blockDevice, err := s.blockDeviceService.GetBlockDevice(
+			ctx, info.BlockDeviceUUID)
+		if errors.Is(err, blockdeviceerrors.BlockDeviceNotFound) {
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"block device for storage attachment %q for unit %q missing",
+				arg.StorageTag, unitTag.Id(),
+			).Add(coreerrors.NotProvisioned)
+		} else if err != nil {
+			return params.StorageAttachment{}, internalerrors.Capture(err)
+		}
+
+		devLink := blockdevice.IDLink(blockDevice.DeviceLinks)
+		if devLink == "" {
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"block device link for storage attachment %q for unit %q missing",
+				arg.StorageTag, unitTag.Id(),
+			).Add(coreerrors.NotProvisioned)
+		}
+
+		sa.Kind = params.StorageKindBlock
+		sa.Location = devLink
+
+		return sa, nil
+	}
+	for i, arg := range args.Ids {
+		sa, err := one(arg)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = sa
 	}
 	return result, nil
 }
