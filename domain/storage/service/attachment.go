@@ -61,7 +61,7 @@ func (s *Service) GetStorageInstanceAttachments(
 	ctx context.Context,
 	uuid domainstorage.StorageInstanceUUID,
 ) ([]domainstorageprovisioning.StorageAttachmentUUID, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if uuid.Validate() != nil {
