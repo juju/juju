@@ -527,7 +527,8 @@ func (s *stateSuite) TestGetStorageAttachmentInfoBlockDevice(c *tc.C) {
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceBlockKindForCharmWithPool(
+		c, charmUUID, poolUUID, "mystorage")
 	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	s.newStorageOwner(c, storageInstanceUUID, unitUUID)
 

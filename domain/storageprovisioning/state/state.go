@@ -618,7 +618,7 @@ func (st *State) GetStorageAttachmentInfo(
 	stmt, err := st.Prepare(`
 SELECT &storageAttachmentInfo.* FROM (
     SELECT    sa.life_id,
-              iif(sif.storage_filesystem_uuid IS NOT NULL, 1, 0) AS storage_kind_id,
+              si.storage_kind_id,
               sa.uuid AS storage_attachment_uuid,
               sfa.mount_point,
               sva.block_device_uuid

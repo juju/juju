@@ -310,6 +310,37 @@ VALUES (?, ?, ?, ?, 0, 100, ?, 1)
 	return storageInstanceUUID
 }
 
+func (s *baseSuite) newStorageInstanceBlockKindForCharmWithPool(
+	c *tc.C, charmUUID, poolUUID, storageName string,
+) domainstorage.StorageInstanceUUID {
+	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
+
+	var charmName string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
+		charmUUID,
+	).Scan(&charmName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
+                             life_id, requested_size_mib, storage_pool_uuid,
+                             storage_kind_id)
+VALUES (?, ?, ?, ?, 0, 100, ?, 0)
+`,
+		storageInstanceUUID.String(),
+		charmName,
+		storageName,
+		storageID,
+		poolUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return storageInstanceUUID
+}
+
 // nextStorageSequenceNumber retrieves the next sequence number in the storage
 // namespace.
 func (s *baseSuite) nextStorageSequenceNumber(
