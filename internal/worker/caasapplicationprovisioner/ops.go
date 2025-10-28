@@ -77,11 +77,10 @@ type ApplicationOps interface {
 		lastProvisioningInfo *ProvisioningInfo,
 		logger logger.Logger) (*ProvisioningInfo, error)
 
-	AppAlive(ctx context.Context, appName string, app caas.Application,
-		password string, lastApplied *caas.ApplicationConfig,
-		provisioningInfo *ProvisioningInfo,
-		statusService StatusService,
-		clk clock.Clock, logger logger.Logger, appUUID coreapplication.UUID) error
+	AppAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
+		app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+		provisioningInfo *ProvisioningInfo, statusService StatusService,
+		clk clock.Clock, logger logger.Logger) error
 
 	AppDying(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, appLife life.Value, facade CAASProvisionerFacade,
@@ -136,16 +135,14 @@ func (applicationOps) ProvisioningInfo(
 
 func (applicationOps) AppAlive(
 	ctx context.Context,
-	appName string, app caas.Application, password string,
-	lastApplied *caas.ApplicationConfig,
-	provisioningInfo *ProvisioningInfo,
-	statusService StatusService,
+	appName string, appUUID coreapplication.UUID, app caas.Application,
+	password string, lastApplied *caas.ApplicationConfig,
+	provisioningInfo *ProvisioningInfo, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
-	appUUID coreapplication.UUID,
 ) error {
-	return appAlive(ctx, appName, app, password,
+	return appAlive(ctx, appName, appUUID, app, password,
 		lastApplied, provisioningInfo, statusService,
-		clk, logger, appUUID)
+		clk, logger)
 }
 
 func (applicationOps) AppDying(
@@ -227,12 +224,10 @@ type Tomb interface {
 
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
 // CAAS broker to create the resources in the k8s cluster for this application.
-func appAlive(ctx context.Context, appName string, app caas.Application,
-	password string, lastApplied *caas.ApplicationConfig,
-	pi *ProvisioningInfo,
-	statusService StatusService,
+func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
+	app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+	pi *ProvisioningInfo, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
-	appUUID coreapplication.UUID,
 ) error {
 	logger.Debugf(ctx, "ensuring application %q exists", appName)
 
@@ -280,12 +275,6 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 			})
 		}
 		containers[k] = container
-	}
-
-	if len(appUUID) < 6 {
-		return errors.NotValidf(
-			"app UUID is not well formed to derive a storage unique ID",
-		)
 	}
 
 	storageUniqueID := getStorageUniqueID(appUUID)

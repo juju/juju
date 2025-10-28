@@ -689,7 +689,8 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 		}),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppAlive(c.Context(), "test", app, password, &lastApplied, &pi, statusService, clk, s.logger, appUUID)
+	err := caasapplicationprovisioner.AppOps.AppAlive(c.Context(), "test",
+		appUUID, app, password, &lastApplied, &pi, statusService, clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
