@@ -184,6 +184,13 @@ WHERE  ae.application_uuid = $entityUUID.uuid
 		return errors.Errorf("preparing remote relation app relation count query: %w", err)
 	}
 
+	deleteRelationNetworkEgressStmt, err := st.Prepare(`
+DELETE FROM relation_network_egress
+WHERE  relation_uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing relation network egress deletion: %w", err)
+	}
+
 	deleteRemoteOffererRelationMacaroonStmt, err := st.Prepare(`
 DELETE FROM application_remote_offerer_relation_macaroon
 WHERE  relation_uuid = $entityUUID.uuid`, entityUUID{})
@@ -204,6 +211,11 @@ WHERE  application_uuid = $entityUUID.uuid
 		err = tx.Query(ctx, getSyntheticAppUUIDStmt, remoteRelationUUID).Get(&synthAppUUID)
 		if err != nil {
 			return errors.Errorf("getting app UUID: %w", err)
+		}
+
+		err = tx.Query(ctx, deleteRelationNetworkEgressStmt, remoteRelationUUID).Run()
+		if err != nil {
+			return errors.Errorf("running relation network egress deletion: %w", err)
 		}
 
 		err = tx.Query(ctx, deleteRemoteOffererRelationMacaroonStmt, remoteRelationUUID).Run()

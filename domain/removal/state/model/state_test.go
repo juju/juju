@@ -542,7 +542,7 @@ func (s *baseSuite) createRemoteRelationBetween(c *tc.C, synthAppName, appName s
 
 	ep1Name := fmt.Sprintf("%s:foo", synthAppName)
 	ep2Name := fmt.Sprintf("%s:bar", appName)
-	ep1, ep2, err := relSvc.AddRelation(c.Context(), ep1Name, ep2Name)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), ep1Name, ep2Name, "0.0.0.0/0")
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), domainrelation.GetRelationUUIDForRemovalArgs{
 		Endpoints: []string{ep1.String(), ep2.String()},
