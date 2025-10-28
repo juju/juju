@@ -168,7 +168,7 @@ func (t *ToolsGetter) oneAgentTools(ctx context.Context, canRead AuthFunc, tag n
 		Number: targetVersion.Number,
 		// OSType is always "ubuntu" now.
 		// We will eventually get rid of it.
-		OSType: os.Ubuntu.String(),
+		OSType: strings.ToLower(os.Ubuntu.String()),
 		Arch:   targetVersion.Arch,
 	}
 
