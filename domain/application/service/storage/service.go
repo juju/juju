@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/domain/application/internal"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -708,7 +707,7 @@ func (s Service) MakeIAASUnitStorageArgs(
 	for _, v := range unitStorageArg.StorageInstances {
 		// TODO(storage): refactor this to use the storage instance composition
 		// calculated from the storageprovisioning domain.
-		var comp storageprovisioning.StorageInstanceComposition
+		var comp domainstorageprov.StorageInstanceComposition
 		if v.Filesystem != nil {
 			comp.FilesystemRequired = true
 			comp.FilesystemProvisionScope = v.Filesystem.ProvisionScope
@@ -717,7 +716,7 @@ func (s Service) MakeIAASUnitStorageArgs(
 			comp.VolumeRequired = true
 			comp.VolumeProvisionScope = v.Volume.ProvisionScope
 		}
-		s, err := storageprovisioning.CalculateStorageInstanceOwnershipScope(
+		s, err := domainstorageprov.CalculateStorageInstanceOwnershipScope(
 			comp)
 		if err != nil {
 			return internal.CreateIAASUnitStorageArg{}, errors.Errorf(
@@ -725,7 +724,7 @@ func (s Service) MakeIAASUnitStorageArgs(
 				v.UUID, err,
 			)
 		}
-		if s != storageprovisioning.OwnershipScopeMachine {
+		if s != domainstorageprov.OwnershipScopeMachine {
 			continue
 		}
 		if v.Filesystem != nil {

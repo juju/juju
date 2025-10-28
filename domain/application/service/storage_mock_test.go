@@ -125,6 +125,45 @@ func (c *MockStorageServiceMakeApplicationStorageDirectiveArgsCall) DoAndReturn(
 	return c
 }
 
+// MakeIAASUnitStorageArgs mocks base method.
+func (m *MockStorageService) MakeIAASUnitStorageArgs(arg0 context.Context, arg1 internal.CreateUnitStorageArg) (internal.CreateIAASUnitStorageArg, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MakeIAASUnitStorageArgs", arg0, arg1)
+	ret0, _ := ret[0].(internal.CreateIAASUnitStorageArg)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MakeIAASUnitStorageArgs indicates an expected call of MakeIAASUnitStorageArgs.
+func (mr *MockStorageServiceMockRecorder) MakeIAASUnitStorageArgs(arg0, arg1 any) *MockStorageServiceMakeIAASUnitStorageArgsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeIAASUnitStorageArgs", reflect.TypeOf((*MockStorageService)(nil).MakeIAASUnitStorageArgs), arg0, arg1)
+	return &MockStorageServiceMakeIAASUnitStorageArgsCall{Call: call}
+}
+
+// MockStorageServiceMakeIAASUnitStorageArgsCall wrap *gomock.Call
+type MockStorageServiceMakeIAASUnitStorageArgsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageServiceMakeIAASUnitStorageArgsCall) Return(arg0 internal.CreateIAASUnitStorageArg, arg1 error) *MockStorageServiceMakeIAASUnitStorageArgsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageServiceMakeIAASUnitStorageArgsCall) Do(f func(context.Context, internal.CreateUnitStorageArg) (internal.CreateIAASUnitStorageArg, error)) *MockStorageServiceMakeIAASUnitStorageArgsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageServiceMakeIAASUnitStorageArgsCall) DoAndReturn(f func(context.Context, internal.CreateUnitStorageArg) (internal.CreateIAASUnitStorageArg, error)) *MockStorageServiceMakeIAASUnitStorageArgsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MakeRegisterExistingCAASUnitStorageArg mocks base method.
 func (m *MockStorageService) MakeRegisterExistingCAASUnitStorageArg(arg0 context.Context, arg1 unit.UUID, arg2 network.NetNodeUUID, arg3 []caas.FilesystemInfo) (internal.RegisterUnitStorageArg, error) {
 	m.ctrl.T.Helper()

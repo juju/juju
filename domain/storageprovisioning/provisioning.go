@@ -139,7 +139,7 @@ func CalculateStorageInstanceComposition(
 }
 
 // CalculateStorageInstanceOwnershipScope determines if the storage is owned by
-// either the model or the machine. This is distinctly seperate from, but is
+// either the model or the machine. This is distinctly separate from, but is
 // related to provision scope. Provision scope indicates how a volume or
 // filesystem will be provisioned. Ownership scope indicates if the storage
 // instance that holds the volume and filesystem, is owned by the model or the
