@@ -129,7 +129,7 @@ func controllerAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinarySt
 		}
 
 		return &agentBinaryStoreLogShim{
-			AgentBinaryStore: services.AgentBinaryStore(),
+			AgentBinaryStore: services.ControllerAgentBinaryStore(),
 			StoreName:        "controller agent binary store",
 		}, nil
 	}
