@@ -391,6 +391,36 @@ AND    user.removed = false
 	return coreUser, errors.Capture(err)
 }
 
+func (st *UserState) checkPotentiallyOrhpanedModels(ctx context.Context, tx *sqlair.TX, uuid string) error {
+	checkAdminStmt, err := st.Prepare(`
+SELECT model.uuid AS &dbModelUUID.uuid,
+       (SELECT count(*) FROM v_user_auth ua
+        JOIN   permission p ON ua.uuid = p.grant_to
+        WHERE  p.grant_on=model.uuid
+        -- admin permission
+        AND    p.access_type_id = 3
+        AND    ua.disabled = false
+        AND    ua.removed = false
+        AND    ua.uuid <> $userUUID.uuid) AS num_other_admins
+FROM   model
+WHERE  num_other_admins = 0
+`, userUUID{}, dbModelUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var orphanedModels []dbModelUUID
+	err = tx.Query(ctx, checkAdminStmt, userUUID{UUID: uuid}).GetAll(&orphanedModels)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return errors.Errorf("querying potentially orphaned models: %w", err)
+	}
+	if err == nil && len(orphanedModels) > 0 {
+		return errors.Errorf(
+			"%d model(s) would be left without an admin user", len(orphanedModels),
+		).Add(accesserrors.LastModelAdmin)
+	}
+	return nil
+}
+
 // RemoveUser marks the user as removed. This obviates the ability of a user
 // to function, but keeps the user retaining provenance, i.e. auditing.
 // RemoveUser will also remove any credentials and activation codes for the
@@ -446,6 +476,11 @@ WHERE user_public_ssh_key_id IN (SELECT id
 		if err != nil {
 			return errors.Capture(err)
 		}
+
+		if err := st.checkPotentiallyOrhpanedModels(ctx, tx, uuid.String()); err != nil {
+			return errors.Capture(err)
+		}
+
 		m["uuid"] = uuid
 
 		if err := tx.Query(ctx, deleteModelAuthorizedKeysStmt, m).Run(); err != nil {
@@ -471,7 +506,7 @@ WHERE user_public_ssh_key_id IN (SELECT id
 		return nil
 	})
 	if err != nil {
-		return errors.Errorf("removing user %q: %w", name, err)
+		return errors.Capture(err)
 	}
 	return nil
 }
@@ -668,6 +703,10 @@ UPDATE SET disabled = true`
 			return errors.Capture(err)
 		}
 		m["uuid"] = uuid
+
+		if err := st.checkPotentiallyOrhpanedModels(ctx, tx, uuid.String()); err != nil {
+			return errors.Capture(err)
+		}
 
 		if err := tx.Query(ctx, disableUserStmt, m).Run(); err != nil {
 			return errors.Errorf("disabling user %q: %w", name, err)

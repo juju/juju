@@ -1135,6 +1135,50 @@ func (s *permissionStateSuite) TestUpdatePermissionRevoke(c *tc.C) {
 	c.Check(obtainedUserAccess.Access, tc.Equals, corepermission.AddModelAccess)
 }
 
+func (s *permissionStateSuite) TestUpdatePermissionRevokeLastAdmin(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := tc.Must(c, uuid.NewUUID).String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, name, qualifier, model_type_id, life_id, cloud_uuid)
+			VALUES (?, "test", "prod", 0, 0, 987)
+		`, modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	modelTarget := corepermission.ID{
+		Key:        modelUUID,
+		ObjectType: corepermission.Model,
+	}
+	adminName := usertesting.GenNewName(c, "admin")
+	arg := access.UpdatePermissionArgs{
+		AccessSpec: corepermission.AccessSpec{
+			Target: modelTarget,
+			Access: corepermission.AdminAccess,
+		},
+		Change:  corepermission.Revoke,
+		Subject: adminName,
+	}
+	err = st.UpdatePermission(c.Context(), arg)
+	c.Assert(err, tc.ErrorIs, accesserrors.LastModelAdmin)
+
+	// Add another admin user on the model so we can remove the first one.
+	bobName := usertesting.GenNewName(c, "bob")
+	_, err = st.CreatePermission(c.Context(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: bobName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: modelTarget,
+			Access: corepermission.AdminAccess,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.UpdatePermission(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *tc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	ctx := c.Context()

@@ -79,4 +79,8 @@ const (
 	// UserNeverAccessedModel describes an error that occurs if a user has
 	// never accessed a model.
 	UserNeverAccessedModel = errors.ConstError("user never accessed model")
+
+	// LastModelAdmin describes an error that occurs if an attempt is made to remove a
+	// user and models would be left without an admin user.
+	LastModelAdmin = errors.ConstError("user is the last model admin for 1 or more models")
 )

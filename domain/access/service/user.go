@@ -267,7 +267,7 @@ func (s *UserService) RemoveUser(ctx context.Context, name user.Name) error {
 		return errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
 	}
 	if err := s.st.RemoveUser(ctx, name); err != nil {
-		return errors.Errorf("removing user for %q: %w", name, err)
+		return errors.Capture(err)
 	}
 	return nil
 }
@@ -345,7 +345,7 @@ func (s *UserService) DisableUserAuthentication(ctx context.Context, name user.N
 	}
 
 	if err := s.st.DisableUserAuthentication(ctx, name); err != nil {
-		return errors.Errorf("disabling user %q: %w", name, err)
+		return errors.Capture(err)
 	}
 	return nil
 }

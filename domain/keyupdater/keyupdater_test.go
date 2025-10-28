@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
@@ -112,6 +113,24 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 
 	err = modelbootstrap.CreateLocalModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
 		c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, string(s.modelID)))
+	c.Assert(err, tc.ErrorIsNil)
+
+	anotherUUID := usertesting.GenUserUUID(c)
+	anotherUser := usertesting.GenNewName(c, "another")
+	err = accessState.AddUserWithPermission(
+		c.Context(), anotherUUID,
+		anotherUser,
+		anotherUser.Name(),
+		false,
+		s.userID,
+		permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        modelUUID.String(),
+			},
+			Access: permission.AdminAccess,
+		},
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.createMachine(c, "0")

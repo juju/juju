@@ -174,7 +174,7 @@ func (st *PermissionState) UpdatePermission(ctx context.Context, args access.Upd
 		case corepermission.Grant:
 			return errors.Capture(st.grantPermission(ctx, tx, subjectUUID, args))
 		case corepermission.Revoke:
-			return errors.Capture(st.revokePermission(ctx, tx, args))
+			return errors.Capture(st.revokePermission(ctx, tx, subjectUUID, args))
 		default:
 			return errors.Errorf("change type %q %w", args.Change, coreerrors.NotValid)
 		}
@@ -904,8 +904,44 @@ AND     p.grant_on = $permInOut.grant_on
 	return nil
 }
 
-func (st *PermissionState) revokePermission(ctx context.Context, tx *sqlair.TX, args access.UpdatePermissionArgs) error {
+func (st *PermissionState) checkPotentiallyOrhpanedModel(ctx context.Context, tx *sqlair.TX, revokedUserUUID, modelUUID string) error {
+	model := dbModelUUID{UUID: modelUUID}
+	user := userUUID{UUID: revokedUserUUID}
+	checkAdminStmt, err := st.Prepare(`
+SELECT ua.uuid AS &userUUID.uuid
+FROM   v_user_auth ua
+JOIN   permission p ON ua.uuid = p.grant_to
+WHERE  p.grant_on=$dbModelUUID.uuid
+-- admin permission
+AND    p.access_type_id = 3
+AND    ua.disabled = false
+AND    ua.removed = false
+AND    ua.uuid <> $userUUID.uuid
+`, user, model)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var adminUsers []userUUID
+	err = tx.Query(ctx, checkAdminStmt, user, model).GetAll(&adminUsers)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf(
+			"model would be left without an admin user",
+		).Add(accesserrors.LastModelAdmin)
+	}
+	if err != nil {
+		return errors.Errorf("querying potentially orphaned models: %w", err)
+	}
+	return nil
+}
+
+func (st *PermissionState) revokePermission(ctx context.Context, tx *sqlair.TX, subjectUUID user.UUID, args access.UpdatePermissionArgs) error {
 	newAccess := args.AccessSpec.RevokeAccess()
+	if args.AccessSpec.Target.ObjectType == corepermission.Model &&
+		newAccess != corepermission.AdminAccess {
+		if err := st.checkPotentiallyOrhpanedModel(ctx, tx, subjectUUID.String(), args.AccessSpec.Target.Key); err != nil {
+			return errors.Capture(err)
+		}
+	}
 	if newAccess == corepermission.NoAccess {
 		err := st.deletePermission(ctx, tx, args.Subject, args.AccessSpec.Target)
 		if err != nil {

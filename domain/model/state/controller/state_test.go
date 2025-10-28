@@ -655,7 +655,19 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *tc.C) {
 // the operation fails with a [accesserrors.NotFound] error.
 func (m *stateSuite) TestCreateModelWithRemovedOwner(c *tc.C) {
 	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := accessState.RemoveUser(c.Context(), m.userName)
+
+	someUser := usertesting.GenNewName(c, "test-someuser")
+	userUUID := usertesting.GenUserUUID(c)
+	err := accessState.AddUser(
+		c.Context(),
+		userUUID,
+		someUser,
+		someUser.Name(),
+		false,
+		userUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	err = accessState.RemoveUser(c.Context(), someUser)
 	c.Assert(err, tc.ErrorIsNil)
 
 	modelSt := NewState(m.TxnRunnerFactory())
@@ -669,7 +681,7 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *tc.C) {
 			CloudRegion:   "noexist",
 			Name:          "noregion",
 			Qualifier:     "prod",
-			AdminUsers:    []user.UUID{m.userUUID},
+			AdminUsers:    []user.UUID{userUUID},
 			SecretBackend: juju.BackendName,
 		},
 	)
