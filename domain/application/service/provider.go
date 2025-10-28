@@ -103,7 +103,7 @@ func NewProviderService(
 //
 // If the application does not exist, then a [applicationerrors.ApplicationNotFound]
 // error is returned.
-func (s *ProviderService) GetApplicationStorageInfo(ctx context.Context, uuid coreapplication.UUID) (application.ApplicationStorage, error) {
+func (s *ProviderService) GetApplicationStorageInfo(ctx context.Context, uuid coreapplication.UUID) (map[string]application.ApplicationStorageInfo, error) {
 	return s.storageService.GetApplicationStorageInfo(ctx, uuid)
 }
 

@@ -302,10 +302,10 @@ func (c *MockStateGetApplicationStorageDirectivesCall) DoAndReturn(f func(contex
 }
 
 // GetApplicationStorageInfo mocks base method.
-func (m *MockState) GetApplicationStorageInfo(arg0 context.Context, arg1 application.UUID) (application0.ApplicationStorage, error) {
+func (m *MockState) GetApplicationStorageInfo(arg0 context.Context, arg1 application.UUID) (map[string]application0.ApplicationStorageInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationStorageInfo", arg0, arg1)
-	ret0, _ := ret[0].(application0.ApplicationStorage)
+	ret0, _ := ret[0].(map[string]application0.ApplicationStorageInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -323,19 +323,19 @@ type MockStateGetApplicationStorageInfoCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationStorageInfoCall) Return(arg0 application0.ApplicationStorage, arg1 error) *MockStateGetApplicationStorageInfoCall {
+func (c *MockStateGetApplicationStorageInfoCall) Return(arg0 map[string]application0.ApplicationStorageInfo, arg1 error) *MockStateGetApplicationStorageInfoCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationStorageInfoCall) Do(f func(context.Context, application.UUID) (application0.ApplicationStorage, error)) *MockStateGetApplicationStorageInfoCall {
+func (c *MockStateGetApplicationStorageInfoCall) Do(f func(context.Context, application.UUID) (map[string]application0.ApplicationStorageInfo, error)) *MockStateGetApplicationStorageInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationStorageInfoCall) DoAndReturn(f func(context.Context, application.UUID) (application0.ApplicationStorage, error)) *MockStateGetApplicationStorageInfoCall {
+func (c *MockStateGetApplicationStorageInfoCall) DoAndReturn(f func(context.Context, application.UUID) (map[string]application0.ApplicationStorageInfo, error)) *MockStateGetApplicationStorageInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

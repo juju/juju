@@ -35,6 +35,7 @@ func TestStorageSuite(t *stdtesting.T) {
 	suite.storageHelper.dbGetter = &suite.ModelSuite
 	tc.Run(t, suite)
 }
+
 func (s *storageSuite) TestGetStorageUUIDByID(c *tc.C) {
 	ctx := c.Context()
 
@@ -156,7 +157,7 @@ func (s *applicationStateSuite) TestGetApplicationStorageInfo(c *tc.C) {
 	c.Assert(
 		foundDirectives,
 		tc.DeepEquals,
-		application.ApplicationStorage{
+		map[string]application.ApplicationStorageInfo{
 			"database": {StoragePoolName: "my-ebs", SizeMiB: &directives[0].Size, Count: &d0count},
 			"logs":     {StoragePoolName: "my-rootfs", SizeMiB: &directives[1].Size, Count: &d1count},
 			"cache":    {StoragePoolName: "my-fast", SizeMiB: &directives[2].Size, Count: &d2count},
