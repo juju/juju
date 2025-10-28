@@ -59,6 +59,7 @@ apps:
       - home
       # Needed to that SSO via the web browser can work.
       - desktop
+    completer: usr/share/bash-completion/completions/juju
   fetch-oci:
     daemon: oneshot
     command: wrappers/fetch-oci
@@ -291,8 +292,9 @@ parts:
       go mod download
       go install -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/juju github.com/juju/juju/cmd/jujuc github.com/juju/juju/cmd/plugins/juju-metadata
 
-      mkdir -p ${CRAFT_PART_INSTALL}/bash_completions
-      cp -a etc/bash_completion.d/juju* ${CRAFT_PART_INSTALL}/bash_completions/.
+      for completion in etc/bash_completion.d/*; do
+        install -D ${completion} ../install/usr/share/bash-completion/completions/$(basename ${completion})
+      done
       jujud=${CRAFT_STAGE}/bin/jujud
       version=$($jujud version)
       hash=$(sha256sum $jujud | cut -d " " -f 1)
