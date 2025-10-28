@@ -446,7 +446,7 @@ func (s *Service) GetStorageAttachmentUUIDForUnit(
 		return "", errors.Capture(err)
 	}
 
-	return storageprovisioning.StorageAttachmentUUID(storageAttachmentUUID), nil
+	return storageAttachmentUUID, nil
 }
 
 // WatchStorageAttachmentsForUnit returns a watcher that emits the storage IDs
