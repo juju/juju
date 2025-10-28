@@ -732,6 +732,10 @@ type negativeSpaceConstraintFailure struct {
 	Address     string `db:"address_value"`
 }
 
+type egressCIDR struct {
+	CIDR string `db:"cidr"`
+}
+
 func nilstr[T ~string](s *string) *T {
 	var res *T
 	if s != nil {

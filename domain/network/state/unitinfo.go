@@ -73,14 +73,21 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 			byDevice[addr.Device] = devInfo
 		}
 
-		// We use the same sorting algorithm than in GetUnitAddresses (this is very important,
-		//   otherwise the unit may use different valid IP addresses in different places)
+		// We use the same sorting algorithm than in GetUnitAddresses (this is
+		// very important, otherwise the unit may use different valid IP
+		// addresses in different places)
 		sortedIngressAddresses := ingressAddresses.AllMatchingScope(network.ScopeMatchCloudLocal).Values()
 		return spaceUUID, domainnetwork.UnitNetwork{
 			DeviceInfos:      slices.Collect(maps.Values(byDevice)),
 			IngressAddresses: sortedIngressAddresses,
 		}
 	})
+
+	// All endpoints of the unit will have the same egress subnet.
+	egressCIDRs, err := st.getUnitEgressSubnets(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting unit egress subnets: %w", err)
+	}
 
 	spaceEp := transform.SliceToMap(spaces, func(endpoint spaceEndpoint) (string, string) {
 		return endpoint.EndpointName, endpoint.SpaceUUID
@@ -93,10 +100,50 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 			EndpointName:     name,
 			DeviceInfos:      info.DeviceInfos,
 			IngressAddresses: info.IngressAddresses,
+			EgressSubnets:    egressCIDRs,
 		}, nil
 	})
 
 	return infos, nil
+}
+
+func (st *State) getUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ident := entityUUID{UUID: unitUUID}
+	stmt, err := st.Prepare(`
+SELECT DISTINCT rne.cidr AS &egressCIDR.cidr
+FROM relation_network_egress AS rne
+JOIN relation AS r ON rne.relation_uuid = r.uuid
+JOIN relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
+WHERE ru.unit_uuid = $entityUUID.uuid
+`, egressCIDR{}, entityUUID{})
+	if err != nil {
+		return nil, errors.Errorf("preparing select egress subnets statement: %w", err)
+	}
+
+	var cidrs []egressCIDR
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).GetAll(&cidrs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying egress subnets for unit %q: %w", unitUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if len(cidrs) == 0 {
+		return nil, nil
+	}
+	return transform.Slice(cidrs, func(c egressCIDR) string {
+		return c.CIDR
+	}), nil
 }
 
 // getAllSpacesForEndpoints retrieves all spaces matching with every endpoint
