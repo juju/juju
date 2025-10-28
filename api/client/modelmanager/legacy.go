@@ -42,7 +42,7 @@ func (c *Client) createModelCompat(
 	}
 	info := params.ModelInfo{
 		Name:                    result.Name,
-		Qualifier:               ownerTag.Id(),
+		Qualifier:               model.QualifierFromUserTag(ownerTag).String(),
 		Type:                    result.Type,
 		UUID:                    result.UUID,
 		ControllerUUID:          result.ControllerUUID,
@@ -117,7 +117,7 @@ func (c *Client) listModelSummariesCompat(ctx context.Context, user string, all 
 			}
 			continue
 		} else {
-			qualifier = owner.Id()
+			qualifier = model.QualifierFromUserTag(owner).String()
 		}
 		results[i] = params.ModelSummaryResult{
 			Result: &params.ModelSummary{
@@ -182,7 +182,7 @@ func (c *Client) modelInfoCompat(ctx context.Context, tags []names.ModelTag) ([]
 		info[i] = params.ModelInfoResult{
 			Result: &params.ModelInfo{
 				Name:                    result.Name,
-				Qualifier:               ownerTag.Id(),
+				Qualifier:               model.QualifierFromUserTag(ownerTag).String(),
 				Type:                    result.Type,
 				UUID:                    result.UUID,
 				ControllerUUID:          result.ControllerUUID,

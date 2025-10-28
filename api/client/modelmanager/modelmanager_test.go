@@ -149,7 +149,7 @@ func (s *modelmanagerSuite) TestCreateModelLegacy(c *tc.C) {
 		ProviderType:   "C-123",
 		Cloud:          "nimbus",
 		CloudRegion:    "catbus",
-		Qualifier:      model.Qualifier("alice@domain.com"),
+		Qualifier:      model.Qualifier("alice-domain-com"),
 		Life:           "alive",
 		Status: base.Status{
 			Data: make(map[string]interface{}),
