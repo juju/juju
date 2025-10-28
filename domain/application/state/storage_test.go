@@ -93,7 +93,7 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
 	return poolUUID
 }
 
-func (s *applicationStateSuite) TestGetApplicationStorage(c *tc.C) {
+func (s *applicationStateSuite) TestGetApplicationStorageInfo(c *tc.C) {
 	ctx := c.Context()
 
 	ebsPoolUUID := s.createStoragePool(c, "my-ebs", "ebs")
@@ -147,7 +147,7 @@ func (s *applicationStateSuite) TestGetApplicationStorage(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(appUUID.IsEmpty(), tc.Equals, false)
 
-	foundDirectives, err := s.state.GetApplicationStorage(ctx, appUUID)
+	foundDirectives, err := s.state.GetApplicationStorageInfo(ctx, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	d0count := uint64(directives[0].Count)

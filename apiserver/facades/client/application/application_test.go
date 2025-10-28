@@ -2020,7 +2020,7 @@ func (s *applicationSuite) TestGetApplicationStorageInfo(c *tc.C) {
 	poolName := "my-loop"
 	size := uint64(20)
 	count := uint64(1)
-	s.applicationService.EXPECT().GetApplicationStorage(
+	s.applicationService.EXPECT().GetApplicationStorageInfo(
 		gomock.Any(),
 		appUUID,
 	).Return(

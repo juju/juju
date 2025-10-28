@@ -2322,14 +2322,14 @@ func (api *APIBase) getOneApplicationStorage(ctx context.Context, entity params.
 		return nil, errors.Trace(err)
 	}
 
-	storage, err := api.applicationService.GetApplicationStorage(ctx, appUUID)
+	storage, err := api.applicationService.GetApplicationStorageInfo(ctx, appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %q", appTag.Id())
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	sc := make(map[string]params.StorageDirectives)
+	sc := make(map[string]params.StorageDirectives, len(storage))
 	for name, storageInfo := range storage {
 		sc[name] = params.StorageDirectives{
 			Pool:    storageInfo.StoragePoolName,
