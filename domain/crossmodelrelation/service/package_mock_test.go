@@ -1449,41 +1449,41 @@ func (c *MockModelStateInitialWatchStatementForRemoteConsumedSecretsChangesFromO
 	return c
 }
 
-// IsApplicationLocal mocks base method.
-func (m *MockModelState) IsApplicationLocal(arg0 context.Context, arg1 string) (bool, error) {
+// IsApplicationSynthetic mocks base method.
+func (m *MockModelState) IsApplicationSynthetic(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsApplicationLocal", arg0, arg1)
+	ret := m.ctrl.Call(m, "IsApplicationSynthetic", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// IsApplicationLocal indicates an expected call of IsApplicationLocal.
-func (mr *MockModelStateMockRecorder) IsApplicationLocal(arg0, arg1 any) *MockModelStateIsApplicationLocalCall {
+// IsApplicationSynthetic indicates an expected call of IsApplicationSynthetic.
+func (mr *MockModelStateMockRecorder) IsApplicationSynthetic(arg0, arg1 any) *MockModelStateIsApplicationSyntheticCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationLocal", reflect.TypeOf((*MockModelState)(nil).IsApplicationLocal), arg0, arg1)
-	return &MockModelStateIsApplicationLocalCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationSynthetic", reflect.TypeOf((*MockModelState)(nil).IsApplicationSynthetic), arg0, arg1)
+	return &MockModelStateIsApplicationSyntheticCall{Call: call}
 }
 
-// MockModelStateIsApplicationLocalCall wrap *gomock.Call
-type MockModelStateIsApplicationLocalCall struct {
+// MockModelStateIsApplicationSyntheticCall wrap *gomock.Call
+type MockModelStateIsApplicationSyntheticCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateIsApplicationLocalCall) Return(arg0 bool, arg1 error) *MockModelStateIsApplicationLocalCall {
+func (c *MockModelStateIsApplicationSyntheticCall) Return(arg0 bool, arg1 error) *MockModelStateIsApplicationSyntheticCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateIsApplicationLocalCall) Do(f func(context.Context, string) (bool, error)) *MockModelStateIsApplicationLocalCall {
+func (c *MockModelStateIsApplicationSyntheticCall) Do(f func(context.Context, string) (bool, error)) *MockModelStateIsApplicationSyntheticCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateIsApplicationLocalCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelStateIsApplicationLocalCall {
+func (c *MockModelStateIsApplicationSyntheticCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelStateIsApplicationSyntheticCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

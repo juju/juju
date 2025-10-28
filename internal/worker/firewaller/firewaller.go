@@ -43,6 +43,12 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+const (
+	consumerProviderWorkerPrefix = "consumer-provider "
+	consumerRequirerWorkerPrefix = "consumer-requirer "
+	offererWorkerPrefix          = "offerer "
+)
+
 type newCrossModelFacadeFunc func(context.Context, *api.Info) (CrossModelFirewallerFacadeCloser, error)
 
 // Config defines the operation of a Worker.
@@ -477,7 +483,7 @@ func (fw *Firewaller) subnetsChanged(ctx context.Context) error {
 }
 
 func (fw *Firewaller) relationIngressChanged(ctx context.Context, change *remoteRelationNetworkChange) error {
-	fw.logger.Debugf(ctx, "process remote relation ingress change: %v", change)
+	fw.logger.Tracef(ctx, "process remote relation ingress change: %v", change)
 	relData, ok := fw.relationIngress[change.relationTag]
 	if !ok {
 		relData = &remoteRelationData{
@@ -983,7 +989,7 @@ func (fw *Firewaller) ingressRulesForNonExposedMachineUnit(ctx context.Context,
 	if err != nil || len(srcCIDRs) == 0 {
 		return nil, errors.Trace(err)
 	}
-	fw.logger.Debugf(ctx, "adding remote relation ingress CIDRs %v for non-exposed application %q", srcCIDRs, appTag)
+	fw.logger.Tracef(ctx, "adding remote relation ingress CIDRs %v for non-exposed application %q", srcCIDRs, appTag)
 
 	var rules firewall.IngressRules
 	for _, portRange := range openUnitPortRanges.UniquePortRanges() {
@@ -1582,7 +1588,7 @@ func (fw *Firewaller) handleRelationLifeChange(
 	relationUUID relation.UUID,
 	relationType RelationType,
 ) (bool, domainrelation.RelationDetails, error) {
-	fw.logger.Debugf(ctx, "handling %s relation life change for %q", relationType, relationUUID)
+	fw.logger.Tracef(ctx, "handling %s relation life change for %q", relationType, relationUUID)
 	var (
 		gone bool
 		rel  domainrelation.RelationDetails
@@ -1595,7 +1601,7 @@ func (fw *Firewaller) handleRelationLifeChange(
 	} else if err != nil {
 		return false, rel, errors.Trace(err)
 	}
-	fw.logger.Debugf(ctx, "retrieved (%s) relation %q details: %+v", relationType, relationUUID, rel)
+	fw.logger.Tracef(ctx, "retrieved (%s) relation %q details: %+v", relationType, relationUUID, rel)
 
 	gone = gone || rel.Life == life.Dead || rel.Suspended
 
@@ -1628,7 +1634,7 @@ func (fw *Firewaller) handleRelationLifeChange(
 // - If requirer: watch local egress and publish to remote.
 // - If provider: watch remote egress and apply ingress locally.
 func (fw *Firewaller) startConsumerRelation(ctx context.Context, rel domainrelation.RelationDetails) error {
-	fw.logger.Debugf(ctx, "starting consumer relation watcher for %q", rel.Key.String())
+	fw.logger.Tracef(ctx, "starting consumer relation watcher for %q", rel.Key.String())
 	// For consuming side, we need to identify which endpoint is local and which
 	// is remote.
 	if len(rel.Endpoints) != 2 {
@@ -1641,16 +1647,16 @@ func (fw *Firewaller) startConsumerRelation(ctx context.Context, rel domainrelat
 
 	// We only have to check one of the endpoints to see if it's local.
 	// If it's not local, the other one must be.
-	isLocal, err := fw.crossModelRelationService.IsApplicationLocal(ctx, rel.Endpoints[0].ApplicationName)
+	isSynthetic, err := fw.crossModelRelationService.IsApplicationSynthetic(ctx, rel.Endpoints[0].ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if isLocal {
-		localEndpoint = rel.Endpoints[0]
-		remoteEndpoint = rel.Endpoints[1]
-	} else {
+	if isSynthetic {
 		localEndpoint = rel.Endpoints[1]
 		remoteEndpoint = rel.Endpoints[0]
+	} else {
+		localEndpoint = rel.Endpoints[0]
+		remoteEndpoint = rel.Endpoints[1]
 	}
 
 	// Get the remote model UUID for the remote application.
@@ -1678,9 +1684,9 @@ func (fw *Firewaller) startConsumerRelationRequirer(
 	remoteModelUUID coremodel.UUID,
 ) error {
 	tag := names.NewRelationTag(rel.Key.String())
-	fw.logger.Debugf(ctx, "starting consumer relation requirer watcher for %q", tag.Id())
+	fw.logger.Tracef(ctx, "starting consumer relation requirer watcher for %q", tag.Id())
 
-	workerID := "consumer-requirer " + tag.Id()
+	workerID := consumerRequirerWorkerPrefix + tag.Id()
 	if err := fw.relationWorkerRunner.StartWorker(ctx, workerID, func(ctx context.Context) (worker.Worker, error) {
 		data := &remoteRelationData{
 			fw:                  fw,
@@ -1715,9 +1721,9 @@ func (fw *Firewaller) startConsumerRelationProvider(
 	remoteModelUUID coremodel.UUID,
 ) error {
 	tag := names.NewRelationTag(rel.Key.String())
-	fw.logger.Debugf(ctx, "starting consumer relation provider watcher for %q", tag.Id())
+	fw.logger.Tracef(ctx, "starting consumer relation provider watcher for %q", tag.Id())
 
-	workerID := "consumer-provider " + tag.Id()
+	workerID := consumerProviderWorkerPrefix + tag.Id()
 	if err := fw.relationWorkerRunner.StartWorker(ctx, workerID, func(ctx context.Context) (worker.Worker, error) {
 		data := &remoteRelationData{
 			fw:                  fw,
@@ -1748,7 +1754,7 @@ func (fw *Firewaller) startConsumerRelationProvider(
 // have been published from the consuming model.
 // We only watch if the local endpoint role is provider.
 func (fw *Firewaller) startOffererRelation(ctx context.Context, rel domainrelation.RelationDetails) error {
-	fw.logger.Debugf(ctx, "starting offerer relation watcher for %q", rel.Key.String())
+	fw.logger.Tracef(ctx, "starting offerer relation watcher for %q", rel.Key.String())
 	tag := names.NewRelationTag(rel.Key.String())
 
 	if len(rel.Endpoints) == 0 {
@@ -1757,14 +1763,14 @@ func (fw *Firewaller) startOffererRelation(ctx context.Context, rel domainrelati
 	// We only have to check one of the endpoints to see if it's local.
 	// If it's not local, the other one must be.
 	var localEndpoint domainrelation.Endpoint
-	isLocal, err := fw.crossModelRelationService.IsApplicationLocal(ctx, rel.Endpoints[0].ApplicationName)
+	isSynthetic, err := fw.crossModelRelationService.IsApplicationSynthetic(ctx, rel.Endpoints[0].ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if isLocal {
-		localEndpoint = rel.Endpoints[0]
-	} else {
+	if isSynthetic {
 		localEndpoint = rel.Endpoints[1]
+	} else {
+		localEndpoint = rel.Endpoints[0]
 	}
 
 	// On the offering side, only watch for ingress changes if the endpoint is a
@@ -1777,7 +1783,7 @@ func (fw *Firewaller) startOffererRelation(ctx context.Context, rel domainrelati
 	localApplicationName := localEndpoint.ApplicationName
 
 	// Start the worker which watches for ingress address changes
-	workerID := "offerer " + tag.Id()
+	workerID := offererWorkerPrefix + tag.Id()
 	if err := fw.relationWorkerRunner.StartWorker(ctx, workerID, func(ctx context.Context) (worker.Worker, error) {
 		// Create a fresh relation worker instance for each (re)start to avoid reusing catacombs.
 		data := &remoteRelationData{
@@ -1835,7 +1841,7 @@ func (rd *remoteRelationData) watchLocalIngress() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			fw.logger.Debugf(ctx, "offerer relation ingress addresses for %v changed: %v", rd.tag, cidrs)
+			fw.logger.Tracef(ctx, "offerer relation ingress addresses for %v changed: %v", rd.tag, cidrs)
 			change := &remoteRelationNetworkChange{
 				relationTag:         rd.tag,
 				localApplicationTag: rd.localApplicationTag,
@@ -1858,7 +1864,7 @@ func (rd *remoteRelationData) watchLocalEgressPublishRemote() error {
 	ctx, cancel := rd.scopedContext()
 	defer cancel()
 
-	rd.fw.logger.Debugf(ctx, "watching local egress for %q to publish to remote", rd.tag.Id())
+	rd.fw.logger.Tracef(ctx, "watching local egress for %q to publish to remote", rd.tag.Id())
 
 	defer func() {
 		if rd.crossModelFirewallerFacade != nil {
@@ -1902,7 +1908,7 @@ func (rd *remoteRelationData) watchRemoteEgressApplyLocal() error {
 	ctx, cancel := rd.scopedContext()
 	defer cancel()
 
-	rd.fw.logger.Debugf(ctx, "watching remote egress for %q to apply local ingress", rd.tag.Id())
+	rd.fw.logger.Tracef(ctx, "watching remote egress for %q to apply local ingress", rd.tag.Id())
 
 	apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(ctx, rd.remoteModelUUID.String())
 	if err != nil {

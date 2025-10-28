@@ -139,9 +139,9 @@ type ModelRemoteApplicationState interface {
 	//     is not a remote offerer application.
 	GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error)
 
-	// IsApplicationLocal checks if the given application exists in the model and
-	// is a non-synthetic application.
-	IsApplicationLocal(ctx context.Context, appName string) (bool, error)
+	// IsApplicationSynthetic checks if the given application exists in the model
+	// and is a synthetic application, based on the charm source being 'cmr'.
+	IsApplicationSynthetic(ctx context.Context, appName string) (bool, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -540,13 +540,13 @@ func splitRelationsByType(relations []charm.Relation) (map[string]charm.Relation
 	return provides, requires, nil
 }
 
-// IsApplicationLocal checks if the given application exists in the model and
-// is a non-synthetic application.
-func (s *Service) IsApplicationLocal(ctx context.Context, appName string) (bool, error) {
+// IsApplicationSynthetic checks if the given application exists in the model
+// and is a synthetic application.
+func (s *Service) IsApplicationSynthetic(ctx context.Context, appName string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.modelState.IsApplicationLocal(ctx, appName)
+	return s.modelState.IsApplicationSynthetic(ctx, appName)
 }
 
 // GetOffererModelUUID returns the offering model UUID, based on a given

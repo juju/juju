@@ -2382,7 +2382,7 @@ func (s *modelRemoteApplicationSuite) TestGetOffererModelUUIDNotRemoteOfferer(c 
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
 }
 
-func (s *modelRemoteApplicationSuite) TestCheckIsApplicationLocal(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestCheckIsApplicationSyntheticNot(c *tc.C) {
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, corecharm.NewID).String()
 	offerUUID := tc.Must(c, coreoffer.NewUUID).String()
@@ -2391,18 +2391,18 @@ func (s *modelRemoteApplicationSuite) TestCheckIsApplicationLocal(c *tc.C) {
 	s.createCharm(c, charmUUID)
 	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
-	isLocal, err := s.state.IsApplicationLocal(c.Context(), applicationUUID.String())
+	isSynthetic, err := s.state.IsApplicationSynthetic(c.Context(), applicationUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isLocal, tc.IsTrue)
+	c.Check(isSynthetic, tc.IsFalse)
 }
 
 func (s *modelRemoteApplicationSuite) TestCheckIsApplicationConsumerNotFound(c *tc.C) {
-	isLocal, err := s.state.IsApplicationLocal(c.Context(), "non-existent-app")
+	isSynthetic, err := s.state.IsApplicationSynthetic(c.Context(), "non-existent-app")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isLocal, tc.IsFalse)
+	c.Check(isSynthetic, tc.IsFalse)
 }
 
-func (s *modelRemoteApplicationSuite) TestCheckIsApplicationConsumerSynthetic(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestCheckIsApplicationSynthetic(c *tc.C) {
 	applicationUUID := tc.Must(c, coreapplication.NewUUID).String()
 	charmUUID := tc.Must(c, corecharm.NewID).String()
 	remoteAppUUID := tc.Must(c, coreapplication.NewUUID).String()
@@ -2439,7 +2439,7 @@ func (s *modelRemoteApplicationSuite) TestCheckIsApplicationConsumerSynthetic(c 
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isLocal, err := s.state.IsApplicationLocal(c.Context(), "remote-app")
+	isSynthetic, err := s.state.IsApplicationSynthetic(c.Context(), "remote-app")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isLocal, tc.IsFalse)
+	c.Check(isSynthetic, tc.IsTrue)
 }
