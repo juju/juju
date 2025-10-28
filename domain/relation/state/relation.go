@@ -57,12 +57,6 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 	}
 }
 
-// GetRelationLifeSuspendedNameSpace returns the namespace for watching
-// a relation's life and suspended state.'
-func (st *State) GetRelationLifeSuspendedNameSpace() string {
-	return "custom_relation_life_suspended"
-}
-
 // AddRelation establishes a new relation between two endpoints identified by
 // epIdentifier1 and epIdentifier2.
 // Returns the two endpoints involved in the relation and any error encountered
@@ -566,6 +560,50 @@ WHERE  application_uuid = $entityUUID.uuid
 	}
 
 	return otherApp, nil
+}
+
+// GetRelationLifeSuspendedNameSpace returns the namespace for watching
+// a relation's life and suspended state.'
+func (st *State) GetRelationLifeSuspendedNameSpace() string {
+	return "custom_relation_life_suspended"
+}
+
+// GetRelationLifeSuspendedStatusChange returns a life/suspended status change
+// struct for a specified relation uuid.
+func (st *State) GetRelationLifeSuspendedStatusChange(
+	ctx context.Context,
+	relationUUID string,
+) (internal.RelationLifeSuspendedStatusChange, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return internal.RelationLifeSuspendedStatusChange{}, errors.Capture(err)
+	}
+
+	var relationLifeSuspended lifeAndSuspended
+	var endpoints []domainrelation.Endpoint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		relationLifeSuspended, err = st.getRelationLifeAndSuspended(ctx, tx, relationUUID)
+		if err != nil {
+			return errors.Errorf("getting relation life and suspended status: %w", err)
+		}
+		endpoints, err = st.getRelationEndpoints(ctx, tx, relationUUID)
+		if err != nil {
+			return errors.Errorf("getting relation endpoints: %w", err)
+		}
+		return nil
+	})
+	if errors.Is(err, coreerrors.NotFound) {
+		return internal.RelationLifeSuspendedStatusChange{}, errors.Capture(relationerrors.RelationNotFound)
+	} else if err != nil {
+		return internal.RelationLifeSuspendedStatusChange{}, errors.Capture(err)
+	}
+
+	return internal.RelationLifeSuspendedStatusChange{
+		Life:            relationLifeSuspended.Life,
+		Suspended:       relationLifeSuspended.Suspended,
+		SuspendedReason: relationLifeSuspended.Reason,
+		Endpoints:       endpoints,
+	}, nil
 }
 
 // GetRelationUUIDByID returns the relation UUID based on the relation ID.

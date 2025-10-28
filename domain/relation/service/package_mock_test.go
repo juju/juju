@@ -754,6 +754,83 @@ func (c *MockStateGetRelationEndpointsCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// GetRelationLifeSuspendedNameSpace mocks base method.
+func (m *MockState) GetRelationLifeSuspendedNameSpace() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationLifeSuspendedNameSpace")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetRelationLifeSuspendedNameSpace indicates an expected call of GetRelationLifeSuspendedNameSpace.
+func (mr *MockStateMockRecorder) GetRelationLifeSuspendedNameSpace() *MockStateGetRelationLifeSuspendedNameSpaceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationLifeSuspendedNameSpace", reflect.TypeOf((*MockState)(nil).GetRelationLifeSuspendedNameSpace))
+	return &MockStateGetRelationLifeSuspendedNameSpaceCall{Call: call}
+}
+
+// MockStateGetRelationLifeSuspendedNameSpaceCall wrap *gomock.Call
+type MockStateGetRelationLifeSuspendedNameSpaceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationLifeSuspendedNameSpaceCall) Return(arg0 string) *MockStateGetRelationLifeSuspendedNameSpaceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationLifeSuspendedNameSpaceCall) Do(f func() string) *MockStateGetRelationLifeSuspendedNameSpaceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationLifeSuspendedNameSpaceCall) DoAndReturn(f func() string) *MockStateGetRelationLifeSuspendedNameSpaceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRelationLifeSuspendedStatusChange mocks base method.
+func (m *MockState) GetRelationLifeSuspendedStatusChange(arg0 context.Context, arg1 string) (internal.RelationLifeSuspendedStatusChange, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationLifeSuspendedStatusChange", arg0, arg1)
+	ret0, _ := ret[0].(internal.RelationLifeSuspendedStatusChange)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationLifeSuspendedStatusChange indicates an expected call of GetRelationLifeSuspendedStatusChange.
+func (mr *MockStateMockRecorder) GetRelationLifeSuspendedStatusChange(arg0, arg1 any) *MockStateGetRelationLifeSuspendedStatusChangeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationLifeSuspendedStatusChange", reflect.TypeOf((*MockState)(nil).GetRelationLifeSuspendedStatusChange), arg0, arg1)
+	return &MockStateGetRelationLifeSuspendedStatusChangeCall{Call: call}
+}
+
+// MockStateGetRelationLifeSuspendedStatusChangeCall wrap *gomock.Call
+type MockStateGetRelationLifeSuspendedStatusChangeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationLifeSuspendedStatusChangeCall) Return(arg0 internal.RelationLifeSuspendedStatusChange, arg1 error) *MockStateGetRelationLifeSuspendedStatusChangeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationLifeSuspendedStatusChangeCall) Do(f func(context.Context, string) (internal.RelationLifeSuspendedStatusChange, error)) *MockStateGetRelationLifeSuspendedStatusChangeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationLifeSuspendedStatusChangeCall) DoAndReturn(f func(context.Context, string) (internal.RelationLifeSuspendedStatusChange, error)) *MockStateGetRelationLifeSuspendedStatusChangeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationUUIDByID mocks base method.
 func (m *MockState) GetRelationUUIDByID(arg0 context.Context, arg1 int) (relation.UUID, error) {
 	m.ctrl.T.Helper()
@@ -1886,6 +1963,50 @@ func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) Do(f func(context.Cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) DoAndReturn(f func(context.Context, eventsource.NamespaceQuery, string, eventsource.Mapper, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[[]string], error)) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NewNamespaceWatcher mocks base method.
+func (m *MockWatcherFactory) NewNamespaceWatcher(arg0 context.Context, arg1 eventsource.NamespaceQuery, arg2 string, arg3 eventsource.FilterOption, arg4 ...eventsource.FilterOption) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "NewNamespaceWatcher", varargs...)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewNamespaceWatcher indicates an expected call of NewNamespaceWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewNamespaceWatcher(arg0, arg1, arg2, arg3 any, arg4 ...any) *MockWatcherFactoryNewNamespaceWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1, arg2, arg3}, arg4...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNamespaceWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNamespaceWatcher), varargs...)
+	return &MockWatcherFactoryNewNamespaceWatcherCall{Call: call}
+}
+
+// MockWatcherFactoryNewNamespaceWatcherCall wrap *gomock.Call
+type MockWatcherFactoryNewNamespaceWatcherCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockWatcherFactoryNewNamespaceWatcherCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockWatcherFactoryNewNamespaceWatcherCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockWatcherFactoryNewNamespaceWatcherCall) Do(f func(context.Context, eventsource.NamespaceQuery, string, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[[]string], error)) *MockWatcherFactoryNewNamespaceWatcherCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockWatcherFactoryNewNamespaceWatcherCall) DoAndReturn(f func(context.Context, eventsource.NamespaceQuery, string, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[[]string], error)) *MockWatcherFactoryNewNamespaceWatcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

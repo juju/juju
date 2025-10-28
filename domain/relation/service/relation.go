@@ -20,6 +20,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -125,6 +126,13 @@ type State interface {
 		relationUUID corerelation.UUID,
 		applicationID application.UUID,
 	) (map[string]string, error)
+
+	// GetRelationLifeSuspendedStatusChange returns a life/suspended status change
+	// struct for a specified relation uuid.
+	GetRelationLifeSuspendedStatusChange(
+		ctx context.Context,
+		relationUUID string,
+	) (internal.RelationLifeSuspendedStatusChange, error)
 
 	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
@@ -688,7 +696,7 @@ func (s *Service) GetRelationsStatusForUnit(
 
 	if err := unitUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"%w:%w", applicationerrors.UnitUUIDNotValid, err)
+			"watching relation life suspended status: %w", err).Add(applicationerrors.UnitUUIDNotValid)
 	}
 
 	results, err := s.st.GetRelationsStatusForUnit(ctx, unitUUID)
@@ -822,6 +830,46 @@ func (s *Service) GetRelationUnitSettings(
 		return nil, relationerrors.RelationUnitNotFound
 	}
 	return settings, nil
+}
+
+// GetRelationLifeSuspendedStatusChange returns a life/suspended status change
+// struct for a specified relation uuid.
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation is not found.
+//   - [relationerrors.RelationUUIDNotValid] is returned if the relation uuid is
+//     not valid.
+func (s *Service) GetRelationLifeSuspendedStatusChange(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+) (relation.RelationLifeSuspendedStatusChange, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return relation.RelationLifeSuspendedStatusChange{}, errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
+	change, err := s.st.GetRelationLifeSuspendedStatusChange(ctx, relationUUID.String())
+	if err != nil {
+		return relation.RelationLifeSuspendedStatusChange{}, errors.Capture(err)
+	}
+
+	identifiers := transform.Slice(change.Endpoints, func(in relation.Endpoint) corerelation.EndpointIdentifier {
+		return in.EndpointIdentifier()
+	})
+
+	key, err := corerelation.NewKey(identifiers)
+	if err != nil {
+		return relation.RelationLifeSuspendedStatusChange{}, errors.Errorf("generating relation key: %w", err)
+	}
+
+	return relation.RelationLifeSuspendedStatusChange{
+		Key:             key.String(),
+		Life:            change.Life,
+		Suspended:       change.Suspended,
+		SuspendedReason: change.SuspendedReason,
+	}, nil
 }
 
 // GetRelationUUIDByID returns the relation UUID based on the relation ID.

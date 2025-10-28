@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreerrors "github.com/juju/juju/core/errors"
 	corelease "github.com/juju/juju/core/lease"
 	corelife "github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
@@ -22,6 +21,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/relation/internal"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -571,51 +571,61 @@ func (s *relationServiceSuite) TestGetRelationDetailsRelationUUIDNotValid(c *tc.
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid, tc.Commentf("(Assert) unexpected error: %v", err))
 }
 
-func (s *relationServiceSuite) TestGetRelationKeyByUUID(c *tc.C) {
+func (s *relationServiceSuite) TestGetRelationLifeSuspendedStatusChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	relationUUID := corerelationtesting.GenRelationUUID(c).String()
+	relationUUID := corerelationtesting.GenRelationUUID(c)
 
-	endpoints := []relation.Endpoint{
-		{
-			ApplicationName: "app-1",
-			Relation: internalcharm.Relation{
-				Name: "fake-endpoint-name-1",
-				Role: internalcharm.RoleRequirer,
-			},
-		}, {
-			ApplicationName: "app-2",
-			Relation: internalcharm.Relation{
-				Name: "fake-endpoint-name-2",
-				Role: internalcharm.RoleProvider,
+	result := internal.RelationLifeSuspendedStatusChange{
+		Life:            corelife.Alive,
+		Suspended:       true,
+		SuspendedReason: "it's a test",
+		Endpoints: []relation.Endpoint{
+			{
+				ApplicationName: "app-1",
+				Relation: internalcharm.Relation{
+					Name: "fake-endpoint-name-1",
+					Role: internalcharm.RoleRequirer,
+				},
+			}, {
+				ApplicationName: "app-2",
+				Relation: internalcharm.Relation{
+					Name: "fake-endpoint-name-2",
+					Role: internalcharm.RoleProvider,
+				},
 			},
 		},
 	}
 
-	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relationUUID).Return(endpoints, nil)
+	s.state.EXPECT().GetRelationLifeSuspendedStatusChange(gomock.Any(), relationUUID.String()).Return(result, nil)
 
 	expectedKey := corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2")
 
 	// Act:
-	obtainedKey, err := s.service.GetRelationKeyByUUID(c.Context(), relationUUID)
+	obtained, err := s.service.GetRelationLifeSuspendedStatusChange(c.Context(), relationUUID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedKey.String(), tc.DeepEquals, expectedKey.String())
+	c.Check(obtained, tc.DeepEquals, relation.RelationLifeSuspendedStatusChange{
+		Key:             expectedKey.String(),
+		Life:            result.Life,
+		Suspended:       result.Suspended,
+		SuspendedReason: result.SuspendedReason,
+	})
 }
 
 // TestGetRelationEndpointUUIDRelationUUIDNotValid tests the failure scenario
 // where the provided RelationUUID is not valid.
-func (s *relationServiceSuite) TestGetRelationKeyByUUIDNotValid(c *tc.C) {
+func (s *relationServiceSuite) TestGetRelationLifeSuspendedStatusChangeNotValid(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
 	// Act
-	_, err := s.service.GetRelationKeyByUUID(c.Context(), "bad-relation-uuid")
+	_, err := s.service.GetRelationLifeSuspendedStatusChange(c.Context(), "bad-relation-uuid")
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
 func (s *relationServiceSuite) TestEnterScope(c *tc.C) {
