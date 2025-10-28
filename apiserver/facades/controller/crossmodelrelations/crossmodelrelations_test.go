@@ -1520,9 +1520,7 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelations(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
-		Key: relKey,
-	}, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relKey, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
@@ -1565,7 +1563,7 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID := relationtesting.GenRelationUUID(c)
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{}, errors.New("relation not found"))
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(corerelation.Key{}, errors.New("relation not found"))
 
 	api := s.api(c)
 	results, err := api.WatchEgressAddressesForRelations(c.Context(), params.RemoteEntityArgs{
@@ -1591,9 +1589,7 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsOfferNotFound(c *tc.C)
 	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
-		Key: relKey,
-	}, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relKey, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return("", crossmodelrelationerrors.OfferNotFound)
 
 	api := s.api(c)
@@ -1622,9 +1618,7 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsAuthError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
-		Key: relKey,
-	}, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relKey, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
@@ -1656,9 +1650,7 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsWatcherError(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(domainrelation.RelationDetails{
-		Key: relKey,
-	}, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relKey, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
@@ -1694,9 +1686,7 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsMultipleRelations(c *t
 	relationTag1 := names.NewRelationTag(relKey1.String())
 
 	// First relation succeeds.
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID1).Return(domainrelation.RelationDetails{
-		Key: relKey1,
-	}, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID1.String()).Return(relKey1, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID1).Return(offerUUID1, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID1.String(), relationTag1, gomock.Any(), bakery.LatestVersion).
@@ -1714,8 +1704,8 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsMultipleRelations(c *t
 			return "1", nil
 		})
 
-	// Second relation fails on GetRelationDetails.
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID2).Return(domainrelation.RelationDetails{}, errors.New("not found"))
+	// Second relation fails on GetRelationKeyByUUID.
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID2.String()).Return(corerelation.Key{}, errors.New("not found"))
 
 	api := s.api(c)
 	results, err := api.WatchEgressAddressesForRelations(c.Context(), params.RemoteEntityArgs{

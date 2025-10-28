@@ -787,12 +787,12 @@ func (api *CrossModelRelationsAPIv3) WatchEgressAddressesForRelations(ctx contex
 	}
 	for i, arg := range remoteRelationArgs.Args {
 		relationUUID := corerelation.UUID(arg.Token)
-		relationDetails, err := api.relationService.GetRelationDetails(ctx, relationUUID)
+		relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, relationUUID.String())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		relationTag := names.NewRelationTag(relationDetails.Key.String())
+		relationTag := names.NewRelationTag(relationKey.String())
 
 		if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
