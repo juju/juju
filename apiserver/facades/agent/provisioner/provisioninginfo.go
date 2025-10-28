@@ -6,6 +6,8 @@ package provisioner
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -250,12 +252,10 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		return nil, nil, errors.Errorf("getting machine volume params: %w", err)
 	}
 
-	capturedVolumeIDs := make(
-		map[domainstorageprovisioning.VolumeUUID]struct{}, len(volumeParams),
+	capturedVolumes := make(
+		map[domainstorageprovisioning.VolumeUUID]params.VolumeParams, len(volumeParams),
 	)
-	retValVParams := make([]params.VolumeParams, 0, len(volumeParams))
 	for _, vp := range volumeParams {
-		capturedVolumeIDs[vp.UUID] = struct{}{}
 		vTag, err := names.ParseVolumeTag(names.VolumeTagKind + "-" + vp.ID)
 		if err != nil {
 			return nil, nil, errors.Errorf(
@@ -268,47 +268,45 @@ func (api *ProvisionerAPI) machineVolumeParams(
 			attr[k] = v
 		}
 
-		retValVParams = append(retValVParams, params.VolumeParams{
+		capturedVolumes[vp.UUID] = params.VolumeParams{
 			// We don't set attachment info
 			Attributes: attr,
 			Provider:   vp.Provider,
 			SizeMiB:    vp.RequestedSizeMiB,
 			Tags:       vp.Tags,
 			VolumeTag:  vTag.String(),
-		})
+		}
 	}
 
 	machineTag := names.NewMachineTag(machineName.String())
 	retValVAParams := make([]params.VolumeAttachmentParams, 0, len(attachmentParams))
 	for _, ap := range attachmentParams {
-		if _, has := capturedVolumeIDs[ap.VolumeUUID]; has {
-			// NOTE (tlm): This logic comes from 3.6 where if we supply a volume
-			// param to the caller any associated attachment should not be
-			// included. This is because the code assumes how the environ
-			// works and that if the environ is making a volume there must be an
-			// associate attachment to establish. The better design would be to
-			// pass all the volume and attachment information back and let the
-			// environ storage provider establish what it wants to do. We also
-			// gain the ability then to pass specific attachment information to
-			// the environ which we loose out on here.
-			continue
-		}
-
 		vTag, err := names.ParseVolumeTag(names.VolumeTagKind + "-" + ap.VolumeID)
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"parsing volume attachment volume id to a volume tag: %w", err,
 			)
 		}
-		retValVAParams = append(retValVAParams, params.VolumeAttachmentParams{
+		attachParams := params.VolumeAttachmentParams{
 			MachineTag: machineTag.String(),
 			Provider:   ap.Provider,
 			ReadOnly:   ap.ReadOnly,
 			ProviderId: ap.VolumeProviderID,
 			VolumeTag:  vTag.String(),
-		})
+		}
+
+		// If a vol param exists for this attachment we put the attachment on
+		// the volume params. Otherwise we add the attachment to a seperate
+		// slice.
+		if volParam, exists := capturedVolumes[ap.VolumeUUID]; exists {
+			volParam.Attachment = &attachParams
+			capturedVolumes[ap.VolumeUUID] = volParam
+		} else {
+			retValVAParams = append(retValVAParams, attachParams)
+		}
 	}
-	return retValVParams, retValVAParams, nil
+
+	return slices.Collect(maps.Values(capturedVolumes)), retValVAParams, nil
 }
 
 // machineTags returns machine-specific tags to set on the instance.
