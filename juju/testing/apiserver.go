@@ -6,6 +6,7 @@ package testing
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -47,6 +49,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -116,6 +119,8 @@ type ApiServerSuite struct {
 	// is invoked. Any attributes set here will be added to
 	// the suite's controller model configuration.
 	ControllerModelConfigAttrs map[string]interface{}
+
+	SetJWTAuthInfo func(string)
 
 	// These are exposed for the tests to use.
 	Server            *apiserver.Server
@@ -311,6 +316,12 @@ func (s *ApiServerSuite) setupAPIServer(c *tc.C, controllerCfg controller.Config
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)
 	c.Assert(err, tc.ErrorIsNil)
+
+	mockJWTAuthenticator := &mockJWTAuthenticator{}
+	s.SetJWTAuthInfo = func(token string) {
+		mockJWTAuthenticator.token = token
+	}
+	cfg.JWTAuthenticator = mockJWTAuthenticator
 
 	s.Server, err = apiserver.NewServer(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
@@ -642,6 +653,59 @@ func (noopLogSink) Log([]corelogger.LogRecord) error { return nil }
 
 type mockAuthenticator struct {
 	macaroon.LocalMacaroonAuthenticator
+}
+
+type JWTPermission struct {
+	ID     permission.ID
+	Access permission.Access
+}
+
+type JWTAuthInfo struct {
+	User        string          `json:"user"`
+	Permissions []JWTPermission `json:"permissions"`
+}
+
+type mockPermissionDelegator struct {
+	permissions map[permission.ID]permission.Access
+}
+
+func (m *mockPermissionDelegator) SubjectPermissions(ctx context.Context, userName string, target permission.ID) (permission.Access, error) {
+	access, ok := m.permissions[target]
+	if !ok {
+		return permission.NoAccess, nil
+	}
+	return access, nil
+}
+
+func (m *mockPermissionDelegator) PermissionError(subject names.Tag, permission permission.Access) error {
+	return errors.Unauthorized
+}
+
+type mockJWTAuthenticator struct {
+	jwt.JWTAuthenticator
+
+	token string
+}
+
+func (m *mockJWTAuthenticator) AuthenticateLoginRequest(ctx context.Context, _ string, _ coremodel.UUID, authParams authentication.AuthParams) (authentication.AuthInfo, error) {
+	if authParams.Token == m.token {
+		var info JWTAuthInfo
+		err := json.Unmarshal([]byte(m.token), &info)
+		if err != nil {
+			return authentication.AuthInfo{}, err
+		}
+		permissions := make(map[permission.ID]permission.Access, len(info.Permissions))
+		for _, p := range info.Permissions {
+			permissions[p.ID] = p.Access
+		}
+		return authentication.AuthInfo{
+			Tag: names.NewUserTag(info.User),
+			Delegator: &mockPermissionDelegator{
+				permissions: permissions,
+			},
+		}, nil
+	}
+	return authentication.AuthInfo{}, errors.Unauthorized
 }
 
 type stubWatcherRegistryGetter struct{}
