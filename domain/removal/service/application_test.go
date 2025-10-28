@@ -235,6 +235,15 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c 
 	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
+	sbCfg := &provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{
+			BackendType: vault.BackendType,
+		},
+	}
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
+	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
+
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -273,7 +282,10 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingJujuSecretsDeleteApp
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.DeleteApplicationOwnedSecretContent(gomock.Any(), j.EntityUUID)
+	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(errors.Errorf("the charm is still in use"))
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
+	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
