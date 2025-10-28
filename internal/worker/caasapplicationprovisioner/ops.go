@@ -640,10 +640,11 @@ func reconcileDeadUnitScale(
 	}
 
 	storageUniqueID := getStorageUniqueID(appUUID)
-	if err := ensureScaleWithFsAttachments(
+	err = ensureScaleWithFsAttachments(
 		ctx, appName, app, desiredScale,
 		facade, logger, storageUniqueID,
-	); err != nil && !errors.Is(err, errors.NotFound) {
+	)
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf(
 			"scaling application %q to scale %d: %w",
 			appName,
@@ -831,11 +832,12 @@ func ensureScaleWithFsAttachments(
 	}
 
 	// Ensure PVCs exist.
-	if err := app.EnsurePVCs(
+	err = app.EnsurePVCs(
 		info.Filesystems,
 		info.FilesystemUnitAttachments,
 		storageUniqueID,
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
 	return app.Scale(scaleTarget)
