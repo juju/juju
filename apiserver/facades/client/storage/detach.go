@@ -129,16 +129,6 @@ func (a *StorageAPI) detachStorageAttachment(
 		ctx, storageAttachment, force, wait,
 	)
 
-	// Early exit path. Everything below this point can now be considered error
-	// handling.
-	if err == nil {
-		a.logger.Debugf(
-			ctx, "storage attachment %q removed with uuid %q",
-			storageAttachment, removalUUID,
-		)
-		return nil
-	}
-
 	switch {
 	case errors.HasType[applicationerrors.UnitStorageMinViolation](err):
 		viErr, _ := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
@@ -155,9 +145,15 @@ func (a *StorageAPI) detachStorageAttachment(
 		// resolved that it existed above and so we can safely ignore this
 		// error.
 		return nil
-	default:
+	case err != nil:
 		return errors.Errorf("removing storage: %w", err)
 	}
+
+	a.logger.Debugf(
+		ctx, "storage attachment %q removed with uuid %q",
+		storageAttachment, removalUUID,
+	)
+	return nil
 }
 
 // detachStorageInstanceFromUnit detaches exactly one storage instance for a
