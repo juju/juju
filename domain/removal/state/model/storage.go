@@ -131,7 +131,7 @@ AND    saA.life_id = 0
 
 		if fulfilmentDBVal.Count != fulfilment {
 			return errors.Errorf(
-				"fulfilment expectation %d differes from current value %d",
+				"fulfilment expectation %d differs from current value %d",
 				fulfilment, fulfilmentDBVal.Count,
 			).Add(removalerrors.StorageFulfilmentNotMet)
 		}

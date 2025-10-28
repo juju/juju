@@ -28,7 +28,7 @@ import (
 // with different compositions. A caller can choose to specify a storage id and
 // a unit for which the storage is to be removed from.
 //
-// Alternatively the called is free to not provide a specific unit for the
+// Alternatively the caller is free to not provide a specific unit for the
 // storage to be detached from. In this case all attachments of the storage
 // instances will be removed with the end result being the storage is not used
 // by any unit in the model.
@@ -116,7 +116,7 @@ func (a *StorageAPI) DetachStorage(
 // [StorageAPI.detachStorageInstanceFromUnit] and
 // [StorageAPI.detachStorageAttachment].
 //
-// The returned errors are gaurantted to have been processed for returning to
+// The returned errors are guaranteed to have been processed for returning to
 // the client. The errors are devoid of context for how the client started the
 // operation.
 func (a *StorageAPI) detachStorageAttachment(
@@ -202,9 +202,6 @@ func (a *StorageAPI) detachStorageInstanceFromUnit(
 		GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 			ctx, storageInstanceUUID, unitUUID,
 		)
-	// We purposely ignore not valid errors for the uuids supplied. We have
-	// received these uuids from the domain and not the caller so they can
-	// safely be considered valid.
 	switch {
 	case errors.Is(err, storageerrors.StorageInstanceNotFound):
 		return errors.Errorf("storage %q does not exist", storageID).Add(coreerrors.NotFound)
