@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"gopkg.in/macaroon.v2"
+
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
@@ -52,6 +54,10 @@ type CrossModelRelationService interface {
 	// EnsureUnitsExist ensures that the given synthetic units exist in the local
 	// model.
 	EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error
+
+	// SaveMacaroonForRelation saves the given macaroon for the specified remote
+	// application.
+	SaveMacaroonForRelation(context.Context, corerelation.UUID, *macaroon.Macaroon) error
 
 	// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any
 	// unit of the specified app and returns a watcher which notifies of secret URIs
