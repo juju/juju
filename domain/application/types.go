@@ -208,6 +208,7 @@ type AddUnitArg struct {
 
 // AddIAASUnitArg contains parameters for adding a IAAS unit to state.
 type AddIAASUnitArg struct {
+	internal.CreateIAASUnitStorageArg
 	AddUnitArg
 	Platform deployment.Platform
 
@@ -266,6 +267,11 @@ type SubordinateUnitArg struct {
 	// PrincipalUnitUUID describes the unique id of the principal unit for this
 	// subordinate.
 	PrincipalUnitUUID coreunit.UUID
+}
+
+type SubordinateIAASUnitArg struct {
+	SubordinateUnitArg
+	internal.CreateIAASUnitStorageArg
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.

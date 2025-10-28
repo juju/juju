@@ -13,6 +13,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	coreerrors "github.com/juju/juju/core/errors"
+	coremachine "github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -726,7 +727,7 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 	return nil
 }
 
-// insertUnitStorageOnwership is responsible setting unit ownership records for
+// insertUnitStorageOwnership is responsible setting unit ownership records for
 // the supplied storage instance uuids.
 func (st *State) insertUnitStorageOwnership(
 	ctx context.Context,
@@ -735,6 +736,9 @@ func (st *State) insertUnitStorageOwnership(
 	storageToOwn []domainstorage.StorageInstanceUUID,
 ) error {
 	args := makeInsertUnitStorageOwnerArgs(ctx, unitUUID, storageToOwn)
+	if len(args) == 0 {
+		return nil
+	}
 
 	insertStorageOwnerStmt, err := st.Prepare(`
 INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
@@ -744,14 +748,71 @@ INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
 		return errors.Capture(err)
 	}
 
-	if len(args) == 0 {
-		return nil
-	}
-
 	err = tx.Query(ctx, insertStorageOwnerStmt, args).Run()
 	if err != nil {
 		return errors.Errorf(
 			"setting storage instance unit owner: %w", err,
+		)
+	}
+
+	return nil
+}
+
+// insertMachineVolumeOwnership is responsible setting machine ownership records
+// for the supplied volume uuids.
+func (st *State) insertMachineVolumeOwnership(
+	ctx context.Context,
+	tx *sqlair.TX,
+	machineUUID coremachine.UUID,
+	volumesToOwn []domainstorageprov.VolumeUUID,
+) error {
+	args := makeInsertMachineVolumeOwnerArgs(ctx, machineUUID, volumesToOwn)
+	if len(args) == 0 {
+		return nil
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO machine_volume (*) VALUES ($insertVolumeMachineOwner.*)
+`, insertVolumeMachineOwner{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, args).Run()
+	if err != nil {
+		return errors.Errorf(
+			"setting volume machine owner: %w", err,
+		)
+	}
+
+	return nil
+}
+
+// insertMachineFilesystemOwnership is responsible setting machine ownership
+// records for the supplied filesystem uuids.
+func (st *State) insertMachineFilesystemOwnership(
+	ctx context.Context,
+	tx *sqlair.TX,
+	machineUUID coremachine.UUID,
+	filesystemsToOwn []domainstorageprov.FilesystemUUID,
+) error {
+	args := makeInsertMachineFilesystemOwnerArgs(ctx, machineUUID,
+		filesystemsToOwn)
+	if len(args) == 0 {
+		return nil
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO machine_filesystem (*) VALUES ($insertFilesystemMachineOwner.*)
+`, insertFilesystemMachineOwner{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, args).Run()
+	if err != nil {
+		return errors.Errorf(
+			"setting filesystem machine owner: %w", err,
 		)
 	}
 
@@ -1071,6 +1132,41 @@ func (st *State) makeInsertUnitVolumeAttachmentArgs(
 		})
 	}
 
+	return rval
+}
+
+// makeInsertMachineVolumeOwnerArgs is responsible for making the set of volume
+// machine owner arguments that correspond to the machine and volumes supplied.
+func makeInsertMachineVolumeOwnerArgs(
+	_ context.Context,
+	machineUUID coremachine.UUID,
+	volumesToOwn []domainstorageprov.VolumeUUID,
+) []insertVolumeMachineOwner {
+	rval := make([]insertVolumeMachineOwner, 0, len(volumesToOwn))
+	for _, uuid := range volumesToOwn {
+		rval = append(rval, insertVolumeMachineOwner{
+			MachineUUID: machineUUID.String(),
+			VolumeUUID:  uuid.String(),
+		})
+	}
+	return rval
+}
+
+// makeInsertMachineFilesystemOwnerArgs is responsible for making the set of
+// filesystem machine owner arguments that correspond to the machine and
+// filesystems supplied.
+func makeInsertMachineFilesystemOwnerArgs(
+	_ context.Context,
+	machineUUID coremachine.UUID,
+	filesystemsToOwn []domainstorageprov.FilesystemUUID,
+) []insertFilesystemMachineOwner {
+	rval := make([]insertFilesystemMachineOwner, 0, len(filesystemsToOwn))
+	for _, uuid := range filesystemsToOwn {
+		rval = append(rval, insertFilesystemMachineOwner{
+			MachineUUID:    machineUUID.String(),
+			FilesystemUUID: uuid.String(),
+		})
+	}
 	return rval
 }
 

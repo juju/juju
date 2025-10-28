@@ -97,6 +97,13 @@ type StorageService interface {
 		existingStorage []internal.StorageInstanceComposition,
 	) (internal.CreateUnitStorageArg, error)
 
+	// MakeIAASUnitStorageArgs returns [internal.CreateIAASUnitStorageArg] that
+	// complement the unit storage arguments provided for IAAS units.
+	MakeIAASUnitStorageArgs(
+		ctx context.Context,
+		unitStorageArg internal.CreateUnitStorageArg,
+	) (internal.CreateIAASUnitStorageArg, error)
+
 	// ValidateApplicationStorageDirectiveOverrides checks a set of storage
 	// directive overrides to make sure they are valid with respect to the charms
 	// storage definitions.

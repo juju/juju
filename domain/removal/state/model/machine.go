@@ -641,6 +641,9 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 		"DELETE FROM machine_parent WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM block_device_link_device WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM block_device WHERE machine_uuid = $entityUUID.uuid",
+		// TODO(storage): remove these once storage removal is complete.
+		"DELETE FROM machine_filesystem WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_volume WHERE machine_uuid = $entityUUID.uuid",
 	}
 
 	for _, table := range tables {
