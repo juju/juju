@@ -182,6 +182,7 @@ func DeployApplication(
 		if err != nil {
 			return handleApplicationDomainError(errors.Capture(err))
 		}
+		return nil
 	}
 
 	unitArgs, err := makeIAASUnitArgs(args)
