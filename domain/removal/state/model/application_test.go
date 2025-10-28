@@ -445,7 +445,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 	appUUID := s.createIAASApplication(c, svc, "some-app",
 		applicationservice.AddIAASUnitArg{},
 	)
-
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(unitUUIDs, tc.HasLen, 1)
 
@@ -465,6 +465,8 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 
 	// Now we can delete the application.
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The application should be gone.
@@ -518,6 +520,8 @@ func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C
 		applicationservice.AddIAASUnitArg{},
 	)
 	appUUID2 := s.createIAASApplication(c, svc, "bar")
+	charmUUID1 := s.getCharmUUIDForApplication(c, appUUID1.String())
+	charmUUID2 := s.getCharmUUIDForApplication(c, appUUID2.String())
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
 	c.Assert(unitUUIDs, tc.HasLen, 1)
@@ -535,12 +539,16 @@ func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C
 	// Now we can delete the application.
 	err = st.DeleteApplication(c.Context(), appUUID1.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID1)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkCharmsCount(c, 1)
 
 	// Now we can delete the application and the charm should be removed as
 	// well.
 	err = st.DeleteApplication(c.Context(), appUUID2.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkNoCharmsExist(c)
@@ -549,7 +557,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C
 func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
-
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(unitUUIDs, tc.HasLen, 1)
 
@@ -563,6 +571,9 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The application should be gone.
@@ -710,16 +721,9 @@ func (s *applicationSuite) TestDeleteApplicationWithADanglingResource(c *tc.C) {
 	appUUID := s.createIAASApplication(c, appSvc, "some-app")
 	s.advanceApplicationLife(c, appUUID, life.Dead)
 
-	var charmUUID string
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-SELECT charm_uuid
-FROM application
-WHERE uuid=?`, appUUID).Scan(&charmUUID)
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
 
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision,
        origin_type_id, state_id, created_at)
@@ -732,11 +736,115 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`, "1", charmUUID, "buzz", 1, 0, 0, time.Now())
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteOrphanedResources(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: The application is deleted
 	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.IsFalse)
+
+	s.checkNoCharmsExist(c)
+}
+
+func (s *applicationSuite) TestDeleteCharmIfUnsedAfterApplicationDeletion(c *tc.C) {
+	// Arrange: One application with a charm.
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+
+	// Act: Delete the application and delete the charm
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The application is deleted and the charm is deleted
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+	s.checkNoCharmsExist(c)
+}
+
+func (s *applicationSuite) TestDeleteCharmIfUnsedBeforeApplicationDeletion(c *tc.C) {
+	// Arrange: One application with a charm.
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+
+	// Act: Delete the charm before deleting the application.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.DeleteCharmIfUnused(c.Context(), charmUUID)
+
+	// Assert: delete charm shouldn't return an error because the reference count
+	// is 1 (the application).
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestDeleteCharmReturnConstraintError(c *tc.C) {
+	// Arrange: One application with a charm. And create an unexpected external
+	// reference to the charm to simulate a missing foreign key constraint error.
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS charm_external_reference (
+			uuid TEXT PRIMARY KEY,
+			charm_uuid TEXT,
+			created_at DATETIME,
+			FOREIGN KEY(charm_uuid) REFERENCES charm(uuid)
+		)`)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+		INSERT INTO charm_external_reference (uuid, charm_uuid, created_at)
+		VALUES (?, ?, ?)`, "dangling-charm-ref-1", charmUUID, time.Now())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Try to delete the charm without deleting the application first.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+
+	// Assert: delete charm should return a ConstraintError.
+	c.Assert(err, tc.ErrorMatches, ".*FOREIGN KEY constraint failed.*")
+}
+
+func (s *applicationSuite) TestGetCharmForApplication(c *tc.C) {
+	// Arrange: One application with a charm.
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	expectedCharmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+
+	// Act: Get the charm for the application.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	charmUUID, err := st.GetCharmForApplication(c.Context(), appUUID.String())
+
+	// Assert: The charm UUID is correct.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(charmUUID, tc.Equals, expectedCharmUUID)
+}
+
+func (s *applicationSuite) TestGetCharmForApplicationNotFound(c *tc.C) {
+	// Act: Get the charm for a non-existent application.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	charmUUID, err := st.GetCharmForApplication(c.Context(), "some-application-uuid")
+
+	// Assert: The application is not found. Error is nil and charmUUID is empty.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(charmUUID, tc.Equals, "")
 }
 
 func (s *applicationSuite) TestDeleteApplicationWithSharedObjectstoreResource(c *tc.C) {
@@ -861,6 +969,14 @@ SELECT COUNT(*) FROM machine WHERE life_id = 1 AND uuid IN (%s)
 	err = row.Scan(&dyingCount)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(dyingCount, tc.Equals, len(machineUUIDs))
+}
+
+func (s *applicationSuite) getCharmUUIDForApplication(c *tc.C, appUUID string) string {
+	row := s.DB().QueryRow("SELECT charm_uuid FROM application WHERE uuid = ?", appUUID)
+	var charmUUID string
+	err := row.Scan(&charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return charmUUID
 }
 
 func removeDuplicates[T comparable](uuids []T) []T {

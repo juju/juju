@@ -809,6 +809,145 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	s.checkCharmsCount(c, 1)
 }
 
+// TestDeleteUnitWithDanglingCharmReference ensures that unit removal and
+// charm's cleanup are in two different transactions. So even if the latter fails, the unit
+// is still removed.
+func (s *unitSuite) TestDeleteUnitWithDanglingCharmReference(c *tc.C) {
+	// Arrange: Create an application with a unit, update the application to reference a new charm, and
+	// add a dangling charm_external_reference.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	charmUUID := s.addCharm(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS charm_external_reference (
+			uuid TEXT PRIMARY KEY,
+			charm_uuid TEXT,
+			created_at DATETIME,
+			FOREIGN KEY(charm_uuid) REFERENCES charm(uuid)
+		)`)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+		INSERT INTO charm_external_reference (uuid, charm_uuid, created_at)
+		VALUES (?, ?, ?)`, "dangling-charm-ref-1", charmUUID, time.Now())
+
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `UPDATE application SET charm_uuid = ? WHERE uuid = ?`, charmUUID, appUUID.String())
+		return err
+
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Delete the unit
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The unit is deleted
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+}
+
+func (s *unitSuite) TestGetCharmForUnit(c *tc.C) {
+	// Arrange: One application with a unit and a charm.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	expectedCharmUUID := s.getCharmUUIDForUnit(c, unitUUID.String())
+
+	// Act: Get the charm for the unit.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	charmUUID, err := st.GetCharmForUnit(c.Context(), unitUUID.String())
+
+	// Assert: The charm UUID is correct.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(charmUUID, tc.Equals, expectedCharmUUID)
+}
+
+func (s *unitSuite) TestGetCharmForUnitNotFound(c *tc.C) {
+	// Act: Get the charm for a non-existent unit.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	charmUUID, err := st.GetCharmForUnit(c.Context(), "some-unit-uuid")
+
+	// Assert: The unit is not found. Error is nil and charmUUID is empty.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(charmUUID, tc.Equals, "")
+}
+
+func (s *unitSuite) TestDeleteCharmIfUnusedAfterUnitDeletion(c *tc.C) {
+	// Arrange: Create an application with a unit.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
+	charmUUID := s.getCharmUUIDForUnit(c, unitUUID.String())
+
+	// Act: Delete the application, the unit and the charm.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The unit is deleted and the charm is also deleted as it is unused.
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// Check that the charm is deleted.
+	s.checkNoCharmsExist(c)
+}
+
+func (s *unitSuite) TestDeleteCharmIfUnusedBeforeUnitDeletion(c *tc.C) {
+	// Arrange: Create an application with a unit.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
+	charmUUID := s.getCharmUUIDForUnit(c, unitUUID.String())
+
+	// Act: Delete the charm, the unit and the application.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.DeleteCharmIfUnused(c.Context(), charmUUID)
+
+	// Assert: The charm deletion shouldn't fail as it's still referenced.
+	// And the charm shouldn't be deleted.
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkCharmsCount(c, 1)
+}
+
 // TestDeleteCAASUnitNotAffectingOtherUnits is a regression test where deleting a CAAS unit
 // would remove the k8s pod info for other units.
 func (s *unitSuite) TestDeleteCAASUnitNotAffectingOtherUnits(c *tc.C) {
@@ -891,4 +1030,12 @@ func (s *unitSuite) expectK8sPodCount(c *tc.C, unitUUID unit.UUID, expected int)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, expected)
+}
+
+func (s *unitSuite) getCharmUUIDForUnit(c *tc.C, unitUUID string) string {
+	row := s.DB().QueryRow("SELECT charm_uuid FROM unit WHERE uuid = ?", unitUUID)
+	var charmUUID string
+	err := row.Scan(&charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return charmUUID
 }
