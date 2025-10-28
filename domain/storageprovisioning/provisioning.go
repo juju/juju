@@ -158,7 +158,7 @@ func CalculateStorageInstanceOwnershipScope(
 	} else if composition.FilesystemRequired {
 		provisionScope = composition.FilesystemProvisionScope
 	} else {
-		return -1, storageprovisioningerrors.OwershipScopeIncalculable
+		return -1, storageprovisioningerrors.OwnershipScopeIncalculable
 	}
 	switch provisionScope {
 	case ProvisionScopeMachine:
@@ -166,6 +166,6 @@ func CalculateStorageInstanceOwnershipScope(
 	case ProvisionScopeModel:
 		return OwnershipScopeModel, nil
 	default:
-		return -1, storageprovisioningerrors.OwershipScopeIncalculable
+		return -1, storageprovisioningerrors.OwnershipScopeIncalculable
 	}
 }
