@@ -819,38 +819,38 @@ func (s *remoteApplicationServiceSuite) TestGetOffererModelUUIDNotFound(c *tc.C)
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
 }
 
-func (s *remoteApplicationServiceSuite) TestCheckIsApplicationConsumer(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestCheckIsApplicationSynthetic(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().IsApplicationConsumer(gomock.Any(), "wordpress").Return(true, nil)
+	s.modelState.EXPECT().IsApplicationSynthetic(gomock.Any(), "wordpress").Return(true, nil)
 
 	service := s.service(c)
 
-	isConsumer, err := service.IsApplicationConsumer(c.Context(), "wordpress")
+	isLocal, err := service.IsApplicationSynthetic(c.Context(), "wordpress")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isConsumer, tc.IsTrue)
+	c.Check(isLocal, tc.IsTrue)
 }
 
-func (s *remoteApplicationServiceSuite) TestCheckIsApplicationConsumerNotFound(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestCheckIsApplicationSyntheticNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().IsApplicationConsumer(gomock.Any(), "non-existent").Return(false, nil)
+	s.modelState.EXPECT().IsApplicationSynthetic(gomock.Any(), "non-existent").Return(false, nil)
 
 	service := s.service(c)
 
-	isConsumer, err := service.IsApplicationConsumer(c.Context(), "non-existent")
+	isLocal, err := service.IsApplicationSynthetic(c.Context(), "non-existent")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isConsumer, tc.IsFalse)
+	c.Check(isLocal, tc.IsFalse)
 }
 
-func (s *remoteApplicationServiceSuite) TestCheckIsApplicationConsumerError(c *tc.C) {
+func (s *remoteApplicationServiceSuite) TestCheckIsApplicationSyntheticError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().IsApplicationConsumer(gomock.Any(), "remote-app").Return(false, internalerrors.Errorf("boom"))
+	s.modelState.EXPECT().IsApplicationSynthetic(gomock.Any(), "remote-app").Return(false, internalerrors.Errorf("boom"))
 
 	service := s.service(c)
 
-	isConsumer, err := service.IsApplicationConsumer(c.Context(), "remote-app")
+	isLocal, err := service.IsApplicationSynthetic(c.Context(), "remote-app")
 	c.Assert(err, tc.ErrorMatches, "boom")
-	c.Check(isConsumer, tc.IsFalse)
+	c.Check(isLocal, tc.IsFalse)
 }

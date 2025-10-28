@@ -1627,9 +1627,9 @@ WHERE a.name = $name.name`, modelUUID{}, name{})
 	return coremodel.UUID(result.UUID), nil
 }
 
-// IsApplicationConsumer checks if the given application exists in the model and
-// is a non-synthetic application, in the consumer model.
-func (st *State) IsApplicationConsumer(ctx context.Context, appName string) (bool, error) {
+// IsApplicationSynthetic checks if the given application exists in the model
+// and is a synthetic application, based on the charm source being 'cmr'.
+func (st *State) IsApplicationSynthetic(ctx context.Context, appName string) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -1641,7 +1641,7 @@ FROM   application AS a
 JOIN   charm AS c ON c.uuid = a.charm_uuid
 JOIN   charm_source AS cs ON cs.id = c.source_id
 WHERE  a.name = $name.name 
-AND    cs.name != 'cmr'`, countResult{}, name{})
+AND    cs.name = 'cmr'`, countResult{}, name{})
 	if err != nil {
 		return false, errors.Capture(err)
 	}
