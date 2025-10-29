@@ -584,11 +584,8 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 
 	offererRemoteRelationTag := names.NewRelationTag(relKey.String())
 
-	mac := &bakery.Macaroon{}
 	s.crossModelAuthContext.EXPECT().CreateRemoteRelationMacaroon(gomock.Any(), s.modelUUID, offerUUID.String(), "bob", offererRemoteRelationTag, bakery.LatestVersion).
-		Return(mac, nil)
-
-	s.crossModelRelationService.EXPECT().SaveMacaroonForRelation(gomock.Any(), corerelation.UUID(relationUUID), mac.M())
+		Return(&bakery.Macaroon{}, nil)
 
 	api := s.api(c)
 	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", macaroon.Slice{testMac})

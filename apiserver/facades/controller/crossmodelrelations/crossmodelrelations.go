@@ -439,10 +439,6 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}
-	// Save the macaroon, many different calls try to find it.
-	if err := api.crossModelRelationService.SaveMacaroonForRelation(ctx, corerelation.UUID(relation.RelationToken), relationMacaroon.M()); err != nil {
-		return nil, internalerrors.Errorf("saving macaroon for %q: %w", relation.RelationToken, err)
-	}
 	return &params.ConsumingRelationDetails{
 		// The offering model application UUID is used as the token for the
 		// remote model.
@@ -560,7 +556,6 @@ func (api *CrossModelRelationsAPIv3) getRemoteRelationChangeEvent(
 		ApplicationSettings:     appSettings,
 		ChangedUnits:            unitSettings,
 		InScopeUnits:            change.InScopeUnits,
-		Macaroons:               change.Macaroons,
 	}, nil
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"gopkg.in/macaroon.v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -202,23 +201,6 @@ func (s *baseRelationSuite) setLife(c *tc.C, table string, uuid string, dying li
 	s.query(c, fmt.Sprintf(`
 UPDATE %s SET life_id = ?
 WHERE uuid = ?`, table), dying, uuid)
-}
-
-func (s *baseRelationSuite) addMacaroon(c *tc.C, relUUID string) []byte {
-	mac := newMacaroon(c, "macaroon")
-	macBytes := tc.Must(c, mac.MarshalJSON)
-
-	s.query(c, `
-INSERT INTO application_remote_offerer_relation_macaroon (relation_uuid, macaroon)
-VALUES (?, ?)
-`, relUUID, macBytes)
-	return macBytes
-}
-
-func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
-	mac, err := macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
-	c.Assert(err, tc.ErrorIsNil)
-	return mac
 }
 
 // addRelation inserts a new relation into the database with default relation

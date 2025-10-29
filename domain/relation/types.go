@@ -9,9 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"gopkg.in/macaroon.v2"
-
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
@@ -419,12 +416,6 @@ type FullRelationUnitChange struct {
 
 	// SuspendedReason is an optional message to explain why suspended is true.
 	SuspendedReason string
-
-	// Macaroons are used for authentication.
-	Macaroons macaroon.Slice
-
-	// BakeryVersion is the version of the bakery used to mint macaroons.
-	BakeryVersion bakery.Version
 }
 
 // ConsumerRelationUnitsChange encapsulates a consumer relation event.
