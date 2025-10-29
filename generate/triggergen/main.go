@@ -315,7 +315,7 @@ CREATE TRIGGER trg_log_{{.Name}}_insert
 AFTER INSERT ON {{.Name}} FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 {{$total := len .ColumnInfos}}
 -- update trigger for {{title .Name}}
@@ -325,14 +325,14 @@ WHEN {{range $index, $column := .ColumnInfos}}
 	{{ (generateUpdateCompare $column) }} {{if (notLast $index $total)}}OR{{end}}{{end}}
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for {{title .Name}}
 CREATE TRIGGER trg_log_{{.Name}}_delete
 AFTER DELETE ON {{.Name}} FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;` + "`" + `, columnName, namespaceID))
 	}
 }
