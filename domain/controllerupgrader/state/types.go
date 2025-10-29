@@ -3,6 +3,14 @@
 
 package state
 
+// agentStoreBinary represents an agent binary that exists within the
+// object store.
+type agentStoreBinary struct {
+	ArchitectureID int    `db:"architecture_id"`
+	StreamID       int    `db:"stream_id"`
+	Version        string `db:"version"`
+}
+
 // controllerNodeAgentVersion represents the agent version running for each
 // controller node in the cluster.
 type controllerNodeAgentVersion struct {
