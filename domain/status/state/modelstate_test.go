@@ -2554,23 +2554,6 @@ func (s *modelStateSuite) TestSetInstanceStatusNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *modelStateSuite) TestIsUnitForApplicationTrue(c *tc.C) {
-	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
-
-	ret, err := s.state.IsUnitForApplication(c.Context(), unitUUIDs[0].String(), appUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(ret, tc.IsTrue)
-}
-
-func (s *modelStateSuite) TestIsUnitForApplicationFalse(c *tc.C) {
-	appUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", 1)
-	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "bar", 1)
-
-	ret, err := s.state.IsUnitForApplication(c.Context(), unitUUIDs[0].String(), appUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(ret, tc.IsFalse)
-}
-
 // addRelationStatusWithMessage inserts a relation status into the relation_status table.
 func (s *modelStateSuite) addRelationStatusWithMessage(c *tc.C, relationUUID corerelation.UUID, status corestatus.Status,
 	message string, since time.Time) {

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/offer"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
@@ -71,6 +72,9 @@ func NewWatchableService(
 // the following errors may be returned:
 //   - [crossmodelrelationerrors.OfferNotFound] if the offer doesn't exist.
 func (s *WatchableService) WatchOfferStatus(ctx context.Context, offerUUID offer.UUID) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	uuid, err := s.modelState.GetApplicationUUIDForOffer(ctx, offerUUID.String())
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -115,15 +119,6 @@ func (s *WatchableService) WatchOfferStatus(ctx context.Context, offerUUID offer
 		return mappedEvents, nil
 	}
 
-	var unitForApplicationPredicate eventsource.Predicate = func(changed string) bool {
-		ret, err := s.modelState.IsUnitForApplication(ctx, changed, appUUID.String())
-		if err != nil {
-			s.logger.Warningf(ctx, "checking if unit %q is a unit of application %q: %v", changed, appUUID, err)
-			return false
-		}
-		return ret
-	}
-
 	return s.watcherFactory.NewNotifyMapperWatcher(
 		ctx,
 		fmt.Sprintf("application status watcher for %q", appUUID),
@@ -141,17 +136,17 @@ func (s *WatchableService) WatchOfferStatus(ctx context.Context, offerUUID offer
 		eventsource.PredicateFilter(
 			unitAgentNamespace,
 			changestream.All,
-			unitForApplicationPredicate,
+			eventsource.EqualsPredicate(appUUID.String()),
 		),
 		eventsource.PredicateFilter(
 			unitWorkloadNamespace,
 			changestream.All,
-			unitForApplicationPredicate,
+			eventsource.EqualsPredicate(appUUID.String()),
 		),
 		eventsource.PredicateFilter(
 			unitPodNamespace,
 			changestream.All,
-			unitForApplicationPredicate,
+			eventsource.EqualsPredicate(appUUID.String()),
 		),
 	)
 }

@@ -1410,45 +1410,6 @@ func (c *MockModelStateImportRelationStatusCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
-// IsUnitForApplication mocks base method.
-func (m *MockModelState) IsUnitForApplication(ctx context.Context, unitUUID, applicationUUID string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsUnitForApplication", ctx, unitUUID, applicationUUID)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsUnitForApplication indicates an expected call of IsUnitForApplication.
-func (mr *MockModelStateMockRecorder) IsUnitForApplication(ctx, unitUUID, applicationUUID any) *MockModelStateIsUnitForApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUnitForApplication", reflect.TypeOf((*MockModelState)(nil).IsUnitForApplication), ctx, unitUUID, applicationUUID)
-	return &MockModelStateIsUnitForApplicationCall{Call: call}
-}
-
-// MockModelStateIsUnitForApplicationCall wrap *gomock.Call
-type MockModelStateIsUnitForApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelStateIsUnitForApplicationCall) Return(arg0 bool, arg1 error) *MockModelStateIsUnitForApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelStateIsUnitForApplicationCall) Do(f func(context.Context, string, string) (bool, error)) *MockModelStateIsUnitForApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateIsUnitForApplicationCall) DoAndReturn(f func(context.Context, string, string) (bool, error)) *MockModelStateIsUnitForApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // NamespacesForWatchOfferStatus mocks base method.
 func (m *MockModelState) NamespacesForWatchOfferStatus() (string, string, string, string, string) {
 	m.ctrl.T.Helper()

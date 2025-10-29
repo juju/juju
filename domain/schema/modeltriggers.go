@@ -102,6 +102,21 @@ func customModelTriggers() []func() schema.Patch {
 		relationUnitByEndpointUUID(
 			customNamespaceRelationUnitByEndpointUUID,
 		),
+
+		// Setup triggers for unit agent status changes.
+		unitAgentStatusTriggers(
+			customNamespaceUnitAgentStatus,
+		),
+
+		// Setup triggers for unit workload status changes.
+		unitWorkloadStatusTriggers(
+			customNamespaceUnitWorkloadStatus,
+		),
+
+		// Setup triggers for k8s pod status changes.
+		k8sPodStatusTriggers(
+			customNamespaceK8sPodStatus,
+		),
 	}
 }
 
@@ -591,5 +606,140 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[1]d, OLD.relation_endpoint_uuid, DATETIME('now'));
 END;`, namespaceID))
+	}
+}
+
+// unitAgentStatusTriggers generates the triggers for the unit_agent_status
+// table. Whenever a unit_agent_status is updated, an application's status could
+// change. So we want to emit an event with the application's uuid
+func unitAgentStatusTriggers(namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for unit_agent_status
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+        'custom_unit_agent_status',
+        'Unit agent status changes');
+
+-- insert trigger for unit_agent_status
+CREATE TRIGGER trg_log_custom_unit_agent_status_insert
+AFTER INSERT ON unit_agent_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 1, %[1]d, u.application_uuid, DATETIME('now')
+    FROM unit AS u
+    WHERE u.uuid = NEW.unit_uuid;
+END;
+
+-- update trigger for unit_agent_status
+CREATE TRIGGER trg_log_custom_unit_agent_status_update
+AFTER UPDATE ON unit_agent_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 2, %[1]d, u.application_uuid, DATETIME('now')
+    FROM unit AS u
+    WHERE u.uuid = NEW.unit_uuid;
+END;
+
+-- delete trigger for unit_agent_status
+CREATE TRIGGER trg_log_custom_unit_agent_status_delete
+AFTER DELETE ON unit_agent_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 4, %[1]d, u.application_uuid, DATETIME('now')
+    FROM unit AS u
+    WHERE u.uuid = OLD.unit_uuid;
+END;
+`, namespaceID))
+	}
+}
+
+// unitWorkloadStatusTriggers generates the triggers for the unit_workload_status
+// table. Whenever a unit_workload_status is updated, an application's status
+// could change. So we want to emit an event with the application's uuid
+func unitWorkloadStatusTriggers(namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for unit_workload_status
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+        'custom_unit_workload_status',
+        'Unit workload status changes');
+
+-- insert trigger for unit_workload_status
+CREATE TRIGGER trg_log_custom_unit_workload_status_insert
+AFTER INSERT ON unit_workload_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 1, %[1]d, u.application_uuid, DATETIME('now')
+    FROM unit AS u
+    WHERE u.uuid = NEW.unit_uuid;
+END;
+
+-- update trigger for unit_workload_status
+CREATE TRIGGER trg_log_custom_unit_workload_status_update
+AFTER UPDATE ON unit_workload_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 2, %[1]d, u.application_uuid, DATETIME('now')
+    FROM unit AS u
+    WHERE u.uuid = NEW.unit_uuid;
+END;
+
+-- delete trigger for unit_workload_status
+CREATE TRIGGER trg_log_custom_unit_workload_status_delete
+AFTER DELETE ON unit_workload_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 4, %[1]d, u.application_uuid, DATETIME('now')
+    FROM unit AS u
+    WHERE u.uuid = OLD.unit_uuid;
+END;
+`, namespaceID))
+	}
+}
+
+// k8sPodStatusTriggers generates the triggers for the k8s_pod_status table.
+// Whenever a k8s_pod_status is updated, an application's status could change.
+// So we want to emit an event with the application's uuid
+func k8sPodStatusTriggers(namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for k8s_pod_status
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+        'custom_k8s_pod_status',
+        'K8s pod status changes');
+
+-- insert trigger for k8s_pod_status
+CREATE TRIGGER trg_log_custom_k8s_pod_status_insert
+AFTER INSERT ON k8s_pod_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 1, %[1]d, u.application_uuid, DATETIME('now')
+    FROM unit AS u
+    WHERE u.uuid = NEW.unit_uuid;
+END;
+
+-- update trigger for k8s_pod_status
+CREATE TRIGGER trg_log_custom_k8s_pod_status_update
+AFTER UPDATE ON k8s_pod_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 2, %[1]d, u.application_uuid, DATETIME('now')
+    FROM unit AS u
+    WHERE u.uuid = NEW.unit_uuid;
+END;
+
+-- delete trigger for k8s_pod_status
+CREATE TRIGGER trg_log_custom_k8s_pod_status_delete
+AFTER DELETE ON k8s_pod_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 4, %[1]d, u.application_uuid, DATETIME('now')
+    FROM unit AS u
+    WHERE u.uuid = OLD.unit_uuid;
+END;
+`, namespaceID))
 	}
 }
