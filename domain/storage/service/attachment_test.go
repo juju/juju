@@ -151,3 +151,59 @@ func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnit(
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, storageAttachmentUUID)
 }
+
+// TestGetStorageInstanceAttachmentsInvalidUUID checks that if passed an invalid
+// storage instance uuid the service returns a [coreerrors.NotValid] error.
+func (s *attachmentSuite) TestGetStorageInstanceAttachmentsInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	badStorageUUID := domainstorage.StorageInstanceUUID("invalid-uuid")
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+	)
+	_, err := svc.GetStorageInstanceAttachments(c.Context(), badStorageUUID)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestGetStorageInstanceAttachmentsNotFound checks that if the storage instance
+// does not exist the service returns a
+// [domainstorageerrors.StorageInstanceNotFound] error.
+func (s *attachmentSuite) TestGetStorageInstanceAttachmentsNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	stExp := s.state.EXPECT()
+	stExp.GetStorageInstanceAttachments(gomock.Any(), siUUID).Return(
+		nil, domainstorageerrors.StorageInstanceNotFound,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+	)
+	_, err := svc.GetStorageInstanceAttachments(c.Context(), siUUID)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
+}
+
+func (s *attachmentSuite) TestGetStorageInstanceAttachments(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	saUUID1 := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	saUUID2 := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+
+	stExp := s.state.EXPECT()
+	stExp.GetStorageInstanceAttachments(gomock.Any(), siUUID).Return(
+		[]domainstorageprovisioning.StorageAttachmentUUID{
+			saUUID1, saUUID2,
+		}, nil,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+	)
+	attachments, err := svc.GetStorageInstanceAttachments(c.Context(), siUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(attachments, tc.SameContents, []domainstorageprovisioning.StorageAttachmentUUID{
+		saUUID2, saUUID1,
+	})
+}

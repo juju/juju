@@ -143,7 +143,7 @@ func (s *baseSuite) newUnit(
 INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
 VALUES (?, 0, ?, 1, 0)
 `,
-			charmUUID.String(), "testcharm",
+			charmUUID.String(), charmUUID.String(),
 		)
 		if err != nil {
 			return err
@@ -155,7 +155,8 @@ VALUES (?, 0, ?, 1, 0)
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
 VALUES (?, ?, ?, "0", ?)
 `,
-			appUUID.String(), charmUUID, "testapp", corenetwork.AlphaSpaceId,
+			appUUID.String(), charmUUID, appUUID.String(),
+			corenetwork.AlphaSpaceId,
 		)
 		if err != nil {
 			return err
@@ -176,7 +177,7 @@ INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_
 VALUES (?, ?, ?, ?, ?, 0)
 `,
 			unitUUID.String(),
-			"testapp/0",
+			appUUID.String()+"/0",
 			appUUID.String(),
 			charmUUID.String(),
 			unitNetNodeUUID.String(),
