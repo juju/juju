@@ -296,7 +296,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		}
 
 		// If a vol param exists for this attachment we put the attachment on
-		// the volume params. Otherwise we add the attachment to a seperate
+		// the volume params. Otherwise we add the attachment to a separate
 		// slice.
 		if volParam, exists := capturedVolumes[ap.VolumeUUID]; exists {
 			volParam.Attachment = &attachParams
