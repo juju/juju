@@ -154,6 +154,34 @@ BEGIN
     VALUES(4, %[1]d, OLD.uuid, DATETIME('now'));
 END;
 
+-- machine parent (child) life triggers
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_parent_insert
+AFTER INSERT ON machine_parent FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES(1, %[1]d, NEW.parent_uuid, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_parent_update
+AFTER UPDATE ON machine FOR EACH ROW
+WHEN 
+    NEW.life_id != OLD.life_id
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 2, %[1]d, mp.parent_uuid, DATETIME('now')
+    FROM machine_parent AS mp
+    WHERE mp.machine_uuid = OLD.uuid;
+END;
+
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_parent_delete
+AFTER DELETE ON machine FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 4, %[1]d, mp.parent_uuid, DATETIME('now')
+    FROM machine_parent AS mp
+    WHERE mp.machine_uuid = OLD.uuid;
+END;
+
 -- unit on machine life triggers
 CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_unit_insert
 AFTER INSERT ON unit FOR EACH ROW
@@ -180,6 +208,32 @@ AFTER DELETE ON unit FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     SELECT 4, %[1]d, m.uuid, DATETIME('now', 'utc')
+    FROM machine m
+    WHERE m.net_node_uuid = OLD.net_node_uuid;
+END;
+
+-- machine_filesystem delete trigger
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_filesystem_delete
+AFTER DELETE ON machine_filesystem FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES(4, %[1]d, OLD.machine_uuid, DATETIME('now'));
+END;
+
+-- machine_volume delete trigger
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_volume_delete
+AFTER DELETE ON machine_volume FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES(4, %[1]d, OLD.machine_uuid, DATETIME('now'));
+END;
+
+-- storage_filesystem_attachment on machine net node delete trigger
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_storage_filesystem_attachment_delete
+AFTER DELETE ON storage_filesystem_attachment FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 4, %[1]d, m.uuid, DATETIME('now')
     FROM machine AS m
     WHERE m.net_node_uuid = OLD.net_node_uuid;
  END;`[1:], namespace)

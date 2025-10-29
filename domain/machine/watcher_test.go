@@ -502,7 +502,7 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependantsNotFound(c *tc.C) {
 // TestWatchMachineLifeAndDependants tests the functionality of watching machine
 // lifecycle changes and lifecycle/deletion of dependants.
 func (s *watcherSuite) TestWatchMachineLifeAndDependants(c *tc.C) {
-	_, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+	m, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -526,6 +526,24 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependants(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
+	})
+
+	// Add a container and make sure a change is seen.
+	harness.AddTest(c, func(c *tc.C) {
+		_, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+			Platform: deployment.Platform{
+				Channel: "24.04",
+				OSType:  deployment.Ubuntu,
+			},
+			Directive: deployment.Placement{
+				Type:      deployment.PlacementTypeContainer,
+				Container: deployment.ContainerTypeLXD,
+				Directive: m.MachineName.String(),
+			},
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
 	})
 
 	harness.Run(c, struct{}{})
@@ -607,7 +625,6 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependantsWithStorage(c *tc.C) {
 	fsUUID := s.createAttachedFilesystem(c, mUUID.String())
 	vUUID := s.createAttachedVolume(c, mUUID.String())
 
-	//s.DumpTable(c, "storage_filesystem", "storage_filesystem_attachment", "machine_filesystem", "machine")
 	s.AssertChangeStreamIdle(c)
 
 	watcher, err := s.svc.WatchMachineLifeAndDependants(c.Context(), "0")
