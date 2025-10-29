@@ -1465,8 +1465,9 @@ func (s *storageSuite) addAppUnitWithCharmStorage(
 		_, err = s.DB().ExecContext(
 			ctx,
 			`
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
-VALUES (?, ?, 1, ?, -1)
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min,
+                           count_max, shared)
+VALUES (?, ?, 1, ?, -1, false)
 `,
 			charmUUID.String(), name, cs.CharmMin,
 		)
