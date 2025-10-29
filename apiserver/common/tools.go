@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/os/v2"
