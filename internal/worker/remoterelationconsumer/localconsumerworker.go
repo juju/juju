@@ -149,6 +149,9 @@ type localConsumerWorker struct {
 	offererRelationUnitChanges  chan offererunitrelations.RelationUnitChange
 	offererRelationChanges      chan offererrelations.RelationChange
 
+	secretChangesWatcher watcher.SecretsRevisionWatcher
+	secretChanges        watcher.SecretRevisionChannel
+
 	newConsumerUnitRelationsWorker NewConsumerUnitRelationsWorkerFunc
 	newOffererUnitRelationsWorker  NewOffererUnitRelationsWorkerFunc
 	newOffererRelationsWorker      NewOffererRelationsWorkerFunc
@@ -381,6 +384,24 @@ func (w *localConsumerWorker) loop() (err error) {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
 				}
 			}
+		case changes, ok := <-w.secretChanges:
+			if !ok {
+				select {
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				default:
+					return errors.New("secret changes watcher closed unexpectedly")
+				}
+			}
+
+			w.logger.Debugf(ctx, "secrets changed: %v", changes)
+
+			for _, change := range changes {
+				err := w.crossModelService.UpdateRemoteSecretRevision(ctx, change.URI, change.Revision)
+				if err != nil {
+					return errors.Annotatef(err, "consuming secrets change %#v from remote model %v", changes, w.offererModelUUID)
+				}
+			}
 		}
 	}
 }
@@ -591,12 +612,43 @@ func (w *localConsumerWorker) handleRelationConsumption(
 		return errors.Annotatef(err, "creating unit relation workers for %q", details.UUID)
 	}
 
+	err = w.ensureSecretChangesWatcher(ctx, result.offererApplicationUUID, details.UUID)
+	if err != nil {
+		return errors.Annotate(err, "watching consumed secret changes")
+	}
+
 	// Handle the case where the relation is dying, and ensure we have no
 	// workers still running for it.
 	if details.Life != life.Alive {
 		return w.handleRelationDying(ctx, details.UUID, result.macaroon, !relationKnown)
 	}
 
+	return nil
+}
+
+func (w *localConsumerWorker) ensureSecretChangesWatcher(
+	ctx context.Context, offererApplicationUUID application.UUID, relationUUID corerelation.UUID,
+) error {
+	if w.secretChangesWatcher != nil {
+		return nil
+	}
+	var err error
+	w.secretChangesWatcher, err = w.remoteModelClient.WatchConsumedSecretsChanges(
+		ctx, offererApplicationUUID.String(), relationUUID.String(), w.offerMacaroon)
+	// Controller we are connecting to doesn't support secrets.
+	if errors.Is(err, errors.NotFound) || errors.Is(err, errors.NotImplemented) {
+		return nil
+	}
+	if err != nil {
+		if dischargeErr := w.processDischargeRequiredError(ctx, err, relationUUID); dischargeErr != nil {
+			w.logger.Errorf(ctx, "discharge error processing for consumer unit change for relation %q: %v", relationUUID, dischargeErr)
+		}
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(w.secretChangesWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	w.secretChanges = w.secretChangesWatcher.Changes()
 	return nil
 }
 
@@ -815,8 +867,8 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 	// changes to the units in the consumer model are reflected in the offering
 	// model.
 	if err := w.remoteModelClient.PublishRelationChange(ctx, event); err != nil {
-		if dischargeErr := w.handleDischargeRequiredError(ctx, err, change.RelationUUID); dischargeErr != nil {
-			w.logger.Errorf(ctx, "discharge error handling for consumer unit change for relation %q: %v", change.RelationUUID, dischargeErr)
+		if dischargeErr := w.processDischargeRequiredError(ctx, err, change.RelationUUID); dischargeErr != nil {
+			w.logger.Errorf(ctx, "discharge error processing for consumer unit change for relation %q: %v", change.RelationUUID, dischargeErr)
 		}
 
 		// If the relation no longer exists in the offering model, we should
@@ -880,7 +932,7 @@ func (w *localConsumerWorker) handleDischargeRequiredErrorWhilstDying(ctx contex
 	return internalerrors.Errorf("%w: relation %q", ErrPermissionRevokedWhilstDying, relationUUID)
 }
 
-func (w *localConsumerWorker) handleDischargeRequiredError(ctx context.Context, err error, relationUUID corerelation.UUID) error {
+func (w *localConsumerWorker) processDischargeRequiredError(ctx context.Context, err error, relationUUID corerelation.UUID) error {
 	if params.ErrCode(err) != params.CodeDischargeRequired {
 		return nil
 	}

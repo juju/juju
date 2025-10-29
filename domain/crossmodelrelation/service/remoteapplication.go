@@ -353,12 +353,6 @@ func (s *Service) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmod
 	return s.modelState.GetRemoteApplicationConsumers(ctx)
 }
 
-// ConsumeRemoteSecretChanges applies secret changes received
-// from a remote model to the local model.
-func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
-	return nil
-}
-
 // EnsureUnitsExist ensures that the given synthetic units exist in the local
 // model.
 func (s *Service) EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error {
