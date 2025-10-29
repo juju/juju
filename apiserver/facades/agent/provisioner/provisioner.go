@@ -212,7 +212,7 @@ func (api *ProvisionerAPI) getInstanceID(ctx context.Context, machineName corema
 	machineUUID, err := api.machineService.GetMachineUUID(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return "", apiservererrors.ParamsErrorf(
-			params.CodeNotFound, "machine %q does not exist", machineName,
+			params.CodeNotFound, "machine %q not found", machineName,
 		)
 	}
 	if err != nil {
@@ -249,7 +249,7 @@ func (api *ProvisionerAPI) watchOneMachineContainers(ctx context.Context, arg pa
 	watcher, err := api.machineService.WatchMachineContainerLife(ctx, coremachine.Name(tag.Id()))
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return nothing, apiservererrors.ParamsErrorf(
-			params.CodeNotFound, "machine %q does not exist", tag.Id(),
+			params.CodeNotFound, "machine %q not found", tag.Id(),
 		)
 	} else if err != nil {
 		return nothing, apiservererrors.ServerError(err)
@@ -373,7 +373,7 @@ func (api *ProvisionerAPI) SupportedContainers(ctx context.Context, args params.
 		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(tag.Id()))
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
-				params.CodeNotFound, "machine %q does not exist", tag.Id(),
+				params.CodeNotFound, "machine %q not found", tag.Id(),
 			)
 			continue
 		} else if err != nil {
@@ -384,7 +384,7 @@ func (api *ProvisionerAPI) SupportedContainers(ctx context.Context, args params.
 		containerTypes, err := api.machineService.GetSupportedContainersTypes(ctx, machineUUID)
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
-				params.CodeNotFound, "machine %q does not exist", tag.Id(),
+				params.CodeNotFound, "machine %q not found", tag.Id(),
 			)
 			continue
 		} else if err != nil {
@@ -547,9 +547,11 @@ func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Ent
 		switch {
 		case errors.Is(err, machineerrors.MachineNotFound):
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
-				params.CodeNotFound, "machine %q does not exist", tag.Id(),
+				params.CodeNotFound, "machine %q not found", tag.Id(),
 			)
 			continue
+		case err != nil:
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 
 		az, err := api.machineService.AvailabilityZone(ctx, machineUUID)
@@ -559,7 +561,7 @@ func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Ent
 			continue
 		case errors.Is(err, machineerrors.MachineNotFound):
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
-				params.CodeNotFound, "machine %q does not exist", tag.Id(),
+				params.CodeNotFound, "machine %q not found", tag.Id(),
 			)
 			continue
 		case err != nil:
@@ -628,7 +630,7 @@ func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, machineNa
 	unitNames, err := api.applicationService.GetUnitNamesOnMachine(ctx, machineName)
 	if errors.Is(err, applicationerrors.MachineNotFound) {
 		return nil, errors.Errorf(
-			"machine %q does not exist", machineName,
+			"machine %q not found", machineName,
 		).Add(coreerrors.NotFound)
 	} else if err != nil {
 		return nil, errors.Capture(err)
@@ -645,7 +647,7 @@ func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, machineNa
 		machineNames, err := api.applicationService.GetMachinesForApplication(ctx, appName)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil, errors.Errorf(
-				"application %q does not exist", appName,
+				"application %q not found", appName,
 			).Add(coreerrors.NotFound)
 		} else if err != nil {
 			return nil, errors.Capture(err)
@@ -706,7 +708,7 @@ func (api *ProvisionerAPI) commonApplicationMachineId(ctx context.Context, mName
 	applications, err := api.machineService.GetMachinePrincipalApplications(ctx, mName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.Errorf(
-			"machine %q does not exist", mName,
+			"machine %q not found", mName,
 		).Add(coreerrors.NotFound)
 	} else if err != nil {
 		return nil, errors.Capture(err)
@@ -785,7 +787,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(tag.Id()))
 		switch {
 		case errors.Is(err, machineerrors.MachineNotFound):
-			return errors.Errorf("machine %q does not exist", tag.Id()).Add(
+			return errors.Errorf("machine %q not found", tag.Id()).Add(
 				coreerrors.NotFound,
 			)
 		case err != nil:
@@ -811,7 +813,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 		err = api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, arg.CharmProfiles)
 		switch {
 		case errors.Is(err, machineerrors.MachineNotFound):
-			return errors.Errorf("machine %q does not exist", tag.Id()).Add(
+			return errors.Errorf("machine %q not found", tag.Id()).Add(
 				coreerrors.NotFound,
 			)
 		case errors.Is(err, machineerrors.NotProvisioned):
@@ -890,7 +892,7 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(
 		guestUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(gTag.Id()))
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			results[i].Error = apiservererrors.ParamsErrorf(
-				params.CodeNotFound, "machine %q does not exist", gTag.Id(),
+				params.CodeNotFound, "machine %q not found", gTag.Id(),
 			)
 			continue
 		} else if err != nil {
@@ -1146,7 +1148,7 @@ func (h *containerProfileHandler) ProcessOneContainer(
 ) error {
 	unitNames, err := h.applicationService.GetUnitNamesOnMachine(ctx, guestMachineName)
 	if errors.Is(err, applicationerrors.MachineNotFound) {
-		err := errors.Errorf("machine %q does not exist", guestMachineName).Add(
+		err := errors.Errorf("machine %q not found", guestMachineName).Add(
 			coreerrors.NotFound,
 		)
 		h.SetError(idx, err)
