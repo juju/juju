@@ -1480,6 +1480,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *tc.C)
 	app, _ := s.addApplication(ctrl, "wordpress", true)
 	_, m, _ := s.addUnit(c, ctrl, app)
 	s.machinesCh <- []string{m.Tag().Id()}
+	s.waitForMachineFlush(c)
 	relSubnetCh, mac := s.setupRemoteRelationRequirerRoleConsumingSide(c)
 
 	// Have a unit on the consuming app enter the relation scope.
@@ -1585,6 +1586,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 	app, _ := s.addApplication(ctrl, "mysql", true)
 	_, m, _ := s.addUnit(c, ctrl, app)
 	s.machinesCh <- []string{m.Tag().Id()}
+	s.waitForMachineFlush(c)
 
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1671,6 +1673,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	app, _ := s.addApplication(ctrl, "wordpress", true)
 	_, m, _ := s.addUnit(c, ctrl, app)
 	s.machinesCh <- []string{m.Tag().Id()}
+	s.waitForMachineFlush(c)
 
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
