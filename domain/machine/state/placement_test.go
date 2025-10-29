@@ -15,6 +15,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/domain/application/architecture"
@@ -657,6 +658,86 @@ WHERE m.net_node_uuid = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(directive, tc.Equals, "zone=eu-west-1")
+}
+
+// TestCreateMachineWithName_PopulatesHardwareCharacteristics verifies that machines can be created
+// with their hardware characteristics. This is required for the manual provider.
+func (s *placementSuite) TestCreateMachineWithName_PopulatesHardwareCharacteristics(c *tc.C) {
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	machineUUID1 := machinetesting.GenUUID(c)
+	expectedAzUUID := machinetesting.GenUUID(c)
+
+	azName := "amazing-canonical-cloud-1a"
+	arch := "arm64"
+	mem := uint64(4096)
+	rootDisk := uint64(8192)
+	rootDiskSource := "local"
+	cpuCores := uint64(42)
+	cpuPower := uint64(4200)
+	virtType := "kvm"
+
+	characteristics := instance.HardwareCharacteristics{
+		Arch:             &arch,
+		Mem:              &mem,
+		RootDisk:         &rootDisk,
+		RootDiskSource:   &rootDiskSource,
+		CpuCores:         &cpuCores,
+		CpuPower:         &cpuPower,
+		AvailabilityZone: &azName,
+		VirtType:         &virtType,
+	}
+
+	// Setup the AZ.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			"INSERT INTO availability_zone (name, uuid) VALUES (?, ?)",
+			azName,
+			expectedAzUUID.String(),
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+
+		err = CreateMachineWithName(
+			ctx,
+			tx,
+			s.st,
+			clock.WallClock,
+			"0",
+			CreateMachineArgs{
+				MachineUUID: machineUUID1.String(),
+				NetNodeUUID: netNodeUUID.String(),
+				Platform: deployment.Platform{
+					Architecture: architecture.ARM64,
+				},
+				HardwareCharacteristics: characteristics,
+			},
+		)
+
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the hardware characteristics were stored. Just verify AZ uuid set,
+	// we know rest is fine.
+	var azUuid string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT availability_zone_uuid
+FROM machine_cloud_instance m
+WHERE m.machine_uuid = ?
+`, machineUUID1.String()).Scan(&azUuid)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(azUuid, tc.Equals, expectedAzUUID.String())
 }
 
 func (s *placementSuite) checkSequenceForMachineNamespace(c *tc.C, expected int) {

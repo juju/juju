@@ -21,6 +21,7 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -307,6 +308,40 @@ func insertMachineInstance(
 	mUUID string,
 	hc instance.HardwareCharacteristics,
 ) error {
+	// Check if AZ name is set, if it is, retrieve its UUID and additionally set it when
+	// creating this instance.
+	var azUUID availabilityZoneName
+
+	if hc.AvailabilityZone != nil && *hc.AvailabilityZone != "" {
+		retrieveAZUUID := `
+SELECT &availabilityZoneName.uuid
+FROM   availability_zone
+WHERE  availability_zone.name = $availabilityZoneName.name
+`
+		azName := availabilityZoneName{Name: *hc.AvailabilityZone}
+		retrieveAZUUIDStmt, err := preparer.Prepare(retrieveAZUUID, azName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, retrieveAZUUIDStmt, azName).Get(&azUUID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.Errorf(
+					"%w %q for machine %q",
+					networkerrors.AvailabilityZoneNotFound,
+					*hc.AvailabilityZone,
+					mUUID,
+				)
+			}
+			return errors.Errorf(
+				"retrieving availability zone %q for machine uuid %q: %w",
+				*hc.AvailabilityZone,
+				mUUID,
+				err,
+			)
+		}
+	}
+
 	// Prepare query for setting the machine cloud instance.
 	setInstanceData := `
 INSERT INTO machine_cloud_instance (*)
@@ -326,7 +361,7 @@ VALUES ($instanceData.*);
 		RootDiskSource:       hc.RootDiskSource,
 		CPUCores:             hc.CpuCores,
 		CPUPower:             hc.CpuPower,
-		AvailabilityZoneUUID: hc.AvailabilityZone, // Maybe this is wrong?
+		AvailabilityZoneUUID: &azUUID.UUID,
 		VirtType:             hc.VirtType,
 	}).Run()
 }
