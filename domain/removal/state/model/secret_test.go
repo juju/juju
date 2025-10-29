@@ -21,36 +21,11 @@ func TestSecretSuite(t *testing.T) {
 	tc.Run(t, &secretSuite{})
 }
 
-func (s *secretSuite) TestDeleteApplicationOwnedSecretContent(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	ctx := c.Context()
-	sec := s.addSecretRevisionsAndContent(c)
-	app, _ := s.addAppAndUnit(c)
-
-	_, err := s.DB().ExecContext(
-		ctx,
-		"INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)",
-		sec, app,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = st.DeleteApplicationOwnedSecretContent(ctx, app)
-	c.Assert(err, tc.ErrorIsNil)
-
-	row := s.DB().QueryRowContext(ctx, "SELECT count(*) FROM secret_content")
-
-	var count int
-	err = row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 0)
-}
-
 func (s *secretSuite) TestDeleteUnitOwnedSecretContent(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	ctx := c.Context()
-	sec := s.addSecretRevisionsAndContent(c)
+	sec := s.addSecretWithRevisionsAndContent(c)
 	_, unit := s.addAppAndUnit(c)
 
 	_, err := s.DB().ExecContext(
@@ -71,7 +46,33 @@ func (s *secretSuite) TestDeleteUnitOwnedSecretContent(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
-func (s *secretSuite) addSecretRevisionsAndContent(c *tc.C) string {
+func (s *secretSuite) TestDeleteApplicationOwnedSecrets(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+
+	sec := s.addSecretWithRevisionsAndContent(c)
+	app, _ := s.addAppAndUnit(c)
+
+	_, err := s.DB().ExecContext(
+		ctx, "INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)", sec, app)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteApplicationOwnedSecretContent(ctx, app)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteApplicationOwnedSecrets(ctx, app)
+	c.Assert(err, tc.ErrorIsNil)
+
+	row := s.DB().QueryRowContext(ctx, "SELECT count(*) FROM secret")
+
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *secretSuite) addSecretWithRevisionsAndContent(c *tc.C) string {
 	ctx := c.Context()
 
 	sec := "secret_id"
@@ -79,19 +80,44 @@ func (s *secretSuite) addSecretRevisionsAndContent(c *tc.C) string {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(
-		ctx,
-		"INSERT INTO secret_metadata (secret_id, version, rotate_policy_id) VALUES (?, ?, ?)",
-		sec, 1, 0,
-	)
+		ctx, "INSERT INTO secret_metadata (secret_id, version, rotate_policy_id) VALUES (?, ?, ?)", sec, 1, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		ctx, "INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, ?)", sec, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		ctx, "INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, DATETIME('now'))", sec)
 	c.Assert(err, tc.ErrorIsNil)
 
 	for i := 0; i < 3; i++ {
 		rev := "revision_id_" + strconv.Itoa(i)
 
 		_, err := s.DB().ExecContext(
+			ctx, "INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, ?)", rev, sec, i)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = s.DB().ExecContext(
 			ctx,
-			"INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, ?)",
-			rev, sec, i)
+			"INSERT INTO secret_value_ref (revision_uuid, backend_uuid, revision_id) VALUES (?, ?, ?)",
+			rev, "backend-uuid", 0,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = s.DB().ExecContext(
+			ctx,
+			"INSERT INTO secret_deleted_value_ref (revision_uuid, backend_uuid, revision_id) VALUES (?, ?, ?)",
+			rev, "backend-uuid", 0,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = s.DB().ExecContext(
+			ctx, "INSERT INTO secret_revision_obsolete (revision_uuid) VALUES (?)", rev)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = s.DB().ExecContext(
+			ctx, "INSERT INTO secret_revision_expire (revision_uuid, expire_time) VALUES (?, DATETIME('now'))", rev)
 		c.Assert(err, tc.ErrorIsNil)
 
 		_, err = s.DB().ExecContext(
