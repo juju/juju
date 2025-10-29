@@ -295,7 +295,7 @@ func (s *charmSuite) expectResolveChannel() {
 func minimalModelConfig() map[string]interface{} {
 	return map[string]interface{}{
 		"name":            "test",
-		"type":            "manual",
+		"type":            "unmanaged",
 		"uuid":            coretesting.ModelTag.Id(),
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"firewall-mode":   "instance",

@@ -59,7 +59,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// termination signal is received by the process it's running
 		// in. It has no inputs and its only output is the error it
 		// returns. It depends on the uninstall file having been
-		// written *by the manual provider* at install time; it would
+		// written *by the unmanaged provider* at install time; it would
 		// be Very Wrong Indeed to use SetCanUninstall in conjunction
 		// with this code.
 		terminationName: terminationworker.Manifold(),

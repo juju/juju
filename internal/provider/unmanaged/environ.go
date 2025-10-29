@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package unmanaged
 
 import (
 	"bytes"
@@ -38,12 +38,12 @@ import (
 
 const (
 	// BootstrapInstanceId is the instance ID used
-	// for the manual provider's bootstrap instance.
+	// for the unmanaged provider's bootstrap instance.
 	BootstrapInstanceId instance.Id = "manual:"
 )
 
 var (
-	logger = internallogger.GetLogger("juju.provider.manual")
+	logger = internallogger.GetLogger("juju.provider.unmanaged")
 
 	_ environs.HardwareCharacteristicsDetector = (*manualEnviron)(nil)
 )
@@ -62,9 +62,9 @@ type manualEnviron struct {
 	base corebase.Base
 }
 
-var errNoStartInstance = errors.New("manual provider cannot start instances")
+var errNoStartInstance = errors.New("unmanaged provider cannot start instances")
 
-var errNoStopInstance = errors.New("manual provider cannot stop instances")
+var errNoStopInstance = errors.New("unmanaged provider cannot stop instances")
 
 func (*manualEnviron) StartInstance(ctx context.Context, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	return nil, errNoStartInstance
@@ -81,7 +81,7 @@ func (e *manualEnviron) AllInstances(ctx context.Context) ([]instances.Instance,
 
 // AllRunningInstances implements environs.InstanceBroker.
 func (e *manualEnviron) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
-	// All instances and all running instance is the same for manual.
+	// All instances and all running instance is the same for unmanaged.
 	return e.AllInstances(ctx)
 }
 
@@ -186,7 +186,7 @@ func (e *manualEnviron) AdoptResources(ctx context.Context, controllerUUID strin
 func (e *manualEnviron) SetConfig(ctx context.Context, cfg *config.Config) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	_, err := ManualProvider{}.validate(ctx, cfg, e.cfg.Config)
+	_, err := UnmanagedProvider{}.validate(ctx, cfg, e.cfg.Config)
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func (e *manualEnviron) Instances(ctx context.Context, ids []instance.Id) ([]ins
 	var err error
 	for i, id := range ids {
 		if id == BootstrapInstanceId {
-			result[i] = manualBootstrapInstance{e.host}
+			result[i] = unmanagedBootstrapInstance{e.host}
 			found = true
 		} else {
 			err = environs.ErrPartialInstances
@@ -367,7 +367,7 @@ func (e *manualEnviron) baseAndHardwareCharacteristics() (*instance.HardwareChar
 }
 
 func (*manualEnviron) Provider() environs.EnvironProvider {
-	return ManualProvider{}
+	return UnmanagedProvider{}
 }
 
 func isRunningController() bool {

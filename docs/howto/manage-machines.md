@@ -401,7 +401,7 @@ It is not possible to remove a machine that is currently hosting either a unit o
 ```
 
 ```{note}
-In some situations, even with the `--force` option, the machine on the backing cloud may be left alive. Examples of this include the Manual cloud or if harvest provisioning mode is not set. In addition to those situations, if the client has lost connectivity with the backing cloud, any backing cloud, then the machine may not be destroyed, even if the machine's record has been removed from the Juju database and the client is no longer aware of it.
+In some situations, even with the `--force` option, the machine on the backing cloud may be left alive. Examples of this include the Unmanaged cloud or if harvest provisioning mode is not set. In addition to those situations, if the client has lost connectivity with the backing cloud, any backing cloud, then the machine may not be destroyed, even if the machine's record has been removed from the Juju database and the client is no longer aware of it.
 ```
 
 By using various options, you can also customize various other things, for example, the model or whether to keep the running cloud instance or not.

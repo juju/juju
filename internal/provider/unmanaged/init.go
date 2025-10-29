@@ -1,17 +1,17 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package unmanaged
 
 import "github.com/juju/juju/environs"
 
 const (
-	// providerType is the unique identifier that the manual provider gets
+	// providerType is the unique identifier that the unmanaged provider gets
 	// registered with.
-	providerType = "manual"
+	providerType = "unmanaged"
 )
 
 func init() {
-	p := ManualProvider{}
+	p := UnmanagedProvider{}
 	environs.RegisterProvider(providerType, p, "null")
 }
