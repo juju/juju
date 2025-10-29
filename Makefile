@@ -333,6 +333,10 @@ dqlite-repl: musl-install-if-missing dqlite-install-if-missing
 	${run_cgo_install}
 	mv $(GO_INSTALL_PATH)/cmd $(GO_INSTALL_PATH)/dqlite-repl
 
+.PHONY: watch-jujud
+hotreloading-juju:
+	@./scripts/hotreloading-controller/watch-jujud.sh ./scripts/hotreloading-controller/upload-and-restart-controller.sh
+
 .PHONY: containeragent
 containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
 containeragent:
