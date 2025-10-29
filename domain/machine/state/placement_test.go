@@ -737,7 +737,7 @@ WHERE m.machine_uuid = ?
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(azUuid, tc.Equals, expectedAzUUID.String())
+	c.Check(azUuid, tc.Equals, expectedAzUUID.String())
 }
 
 func (s *placementSuite) checkSequenceForMachineNamespace(c *tc.C, expected int) {

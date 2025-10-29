@@ -23,7 +23,8 @@ type CreateMachineArgs struct {
 	NetNodeUUID string
 	Platform    deployment.Platform
 	Nonce       *string
-	// HardwareCharacteristics contains the hardware characteristics for a manually provisioned machine.
+	// HardwareCharacteristics contains the hardware characteristics for a
+	// manually provisioned machine.
 	HardwareCharacteristics instance.HardwareCharacteristics
 }
 

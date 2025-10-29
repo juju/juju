@@ -308,22 +308,34 @@ func insertMachineInstance(
 	mUUID string,
 	hc instance.HardwareCharacteristics,
 ) error {
+	instData := instanceData{
+		MachineUUID:    mUUID,
+		LifeID:         0,
+		Arch:           hc.Arch,
+		Mem:            hc.Mem,
+		RootDisk:       hc.RootDisk,
+		RootDiskSource: hc.RootDiskSource,
+		CPUCores:       hc.CpuCores,
+		CPUPower:       hc.CpuPower,
+		VirtType:       hc.VirtType,
+	}
+
 	// Check if AZ name is set, if it is, retrieve its UUID and additionally set it when
 	// creating this instance.
-	var azUUID availabilityZoneName
-
 	if hc.AvailabilityZone != nil && *hc.AvailabilityZone != "" {
 		retrieveAZUUID := `
 SELECT &availabilityZoneName.uuid
 FROM   availability_zone
 WHERE  availability_zone.name = $availabilityZoneName.name
 `
+
 		azName := availabilityZoneName{Name: *hc.AvailabilityZone}
 		retrieveAZUUIDStmt, err := preparer.Prepare(retrieveAZUUID, azName)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
+		var azUUID availabilityZoneName
 		if err := tx.Query(ctx, retrieveAZUUIDStmt, azName).Get(&azUUID); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return errors.Errorf(
@@ -340,6 +352,7 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 				err,
 			)
 		}
+		instData.AvailabilityZoneUUID = &azUUID.UUID
 	}
 
 	// Prepare query for setting the machine cloud instance.
@@ -352,18 +365,7 @@ VALUES ($instanceData.*);
 		return errors.Capture(err)
 	}
 
-	return tx.Query(ctx, setInstanceDataStmt, instanceData{
-		MachineUUID:          mUUID,
-		LifeID:               0,
-		Arch:                 hc.Arch,
-		Mem:                  hc.Mem,
-		RootDisk:             hc.RootDisk,
-		RootDiskSource:       hc.RootDiskSource,
-		CPUCores:             hc.CpuCores,
-		CPUPower:             hc.CpuPower,
-		AvailabilityZoneUUID: &azUUID.UUID,
-		VirtType:             hc.VirtType,
-	}).Run()
+	return tx.Query(ctx, setInstanceDataStmt, instData).Run()
 }
 
 func insertMachineStatus(
