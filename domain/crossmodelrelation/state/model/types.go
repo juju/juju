@@ -11,6 +11,7 @@ import (
 
 	corelife "github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -432,4 +433,14 @@ type unitAddress struct {
 	Scope      string         `db:"scope_name"`
 	SpaceUUID  sql.NullString `db:"space_uuid"`
 	CIDR       sql.NullString `db:"cidr"`
+}
+
+// setRelationStatus represents the structure to insert the status of a relation.
+type setRelationStatus struct {
+	// RelationUUID is the unique identifier of the relation.
+	RelationUUID string `db:"relation_uuid"`
+	// Status indicates the current state of a given relation.
+	Status corestatus.Status `db:"status"`
+	// UpdatedAt specifies the timestamp of the insertion
+	UpdatedAt time.Time `db:"updated_at"`
 }

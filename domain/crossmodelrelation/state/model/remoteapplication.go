@@ -17,6 +17,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -160,6 +161,11 @@ func (st *State) AddConsumedRelation(
 
 		// Create the synthetic relation for this consumer.
 		if err := st.insertSyntheticRelation(ctx, tx, args.RelationUUID); err != nil {
+			return errors.Capture(err)
+		}
+
+		// Insert the joined status for the relation.
+		if err := st.insertNewRelationStatus(ctx, tx, args.RelationUUID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -575,6 +581,28 @@ WHERE  name = $charmScope.name;`
 
 	if err := tx.Query(ctx, insertRelationStmt, rel, charmScope).Run(); err != nil {
 		return errors.Errorf("inserting remote relation record: %w", err)
+	}
+	return nil
+}
+
+func (st *State) insertNewRelationStatus(ctx context.Context, tx *sqlair.TX, uuid string) error {
+	status := setRelationStatus{
+		RelationUUID: uuid,
+		Status:       corestatus.Joining,
+		UpdatedAt:    st.clock.Now(),
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
+SELECT $setRelationStatus.relation_uuid, rst.id, $setRelationStatus.updated_at
+FROM   relation_status_type AS rst
+WHERE  rst.name = $setRelationStatus.status`, status)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmt, status).Run(); err != nil {
+		return errors.Capture(err)
 	}
 	return nil
 }

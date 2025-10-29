@@ -213,9 +213,9 @@ func (st *State) insertNewRelationStatus(ctx context.Context, tx *sqlair.TX, uui
 
 	stmt, err := st.Prepare(`
 INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
-SELECT $setRelationStatus.relation_uuid, status.id, $setRelationStatus.updated_at
-FROM   relation_status_type status
-WHERE  status.name = $setRelationStatus.status`, status)
+SELECT $setRelationStatus.relation_uuid, rst.id, $setRelationStatus.updated_at
+FROM   relation_status_type AS rst
+WHERE  rst.name = $setRelationStatus.status`, status)
 	if err != nil {
 		return errors.Capture(err)
 	}
