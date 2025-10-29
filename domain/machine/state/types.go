@@ -137,11 +137,6 @@ type machineName struct {
 	Name string `db:"name"`
 }
 
-type machineInstanceUUID struct {
-	MachineUUID string `db:"machine_uuid"`
-	LifeID      int64  `db:"life_id"`
-}
-
 type count struct {
 	Count int64 `db:"count"`
 }
