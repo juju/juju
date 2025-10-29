@@ -99,7 +99,7 @@ func (st *State) EnsureStorageAttachmentNotAliveWithFulfilment(
 	// being removed. Table aliases suffixed with Rel are attachments onto
 	// related attachments for the same storage the entity is fulfilling.
 	fulfilmentQ := `
-SELECT COUNT(saA.uuid) AS &count.count
+SELECT COUNT(saRel.uuid) AS &count.count
 FROM   storage_attachment saEntity
 JOIN   storage_attachment saRel ON saEntity.unit_uuid = saRel.unit_uuid
 JOIN   storage_instance siEntity ON saEntity.storage_instance_uuid = siEntity.uuid
