@@ -7,11 +7,18 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
@@ -344,4 +351,112 @@ func (s *Service) aliveOrDyingModelsExist(ctx context.Context, modelUUIDs []stri
 		}
 	}
 	return false, nil
+}
+
+func (s *Service) removeUnits(ctx context.Context, uuids []string, destroyStorage, force bool, wait time.Duration) {
+	for _, unitUUID := range uuids {
+		if _, err := s.RemoveUnit(
+			ctx, unit.UUID(unitUUID), destroyStorage, force, wait,
+		); errors.Is(err, applicationerrors.UnitNotFound) {
+			// There could be a chance that the unit has already been removed by
+			// another process. We can safely ignore this error and continue
+			// with the next unit.
+			continue
+		} else if err != nil {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The units are already transitioned to dying and there is
+			// no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of unit %q: %v", unitUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeMachines(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	for _, machineUUID := range uuids {
+		if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); errors.Is(err, machineerrors.MachineNotFound) {
+			// There could be a chance that the machine has already been removed
+			// by another process. We can safely ignore this error and continue
+			// with the next machine.
+			continue
+		} else if err != nil {
+			// If the machine fails to be scheduled for removal, we log out the
+			// error. The machines are already transitioned to dying and there
+			// is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeRelations(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	for _, relationUUID := range uuids {
+		if _, err := s.RemoveRelation(ctx, relation.UUID(relationUUID), force, wait); errors.Is(err, relationerrors.RelationNotFound) {
+			// There could be a chance that the relation has already been
+			// removed by another process. We can safely ignore this error and
+			// continue with the next relation.
+			continue
+		} else if err != nil && !errors.Is(err, removalerrors.RelationIsCrossModel) {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The relations are already transitioned to dying and there
+			// is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of relation %q: %v", relationUUID, err)
+		} else if err == nil {
+			continue
+		}
+
+		// This is a CMR relation, so we need to remove it with
+		// RemoveRemoteRelation.
+		if _, err := s.RemoveRemoteRelation(ctx, relation.UUID(relationUUID), force, wait); errors.Is(err, relationerrors.RelationNotFound) {
+			// There could be a chance that the relation has already been
+			// removed by another process. We can safely ignore this error and
+			// continue with the next relation.
+			continue
+		} else if err != nil {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The relations are already transitioned to dying and there
+			// is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of relation %q: %v", relationUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeApplications(
+	ctx context.Context, uuids []string, destroyStorage, force bool, wait time.Duration,
+) {
+	for _, applicationUUID := range uuids {
+		if _, err := s.RemoveApplication(
+			ctx, application.UUID(applicationUUID), destroyStorage, force, wait,
+		); errors.Is(err, applicationerrors.ApplicationNotFound) {
+			// There could be a chance that the application has already been
+			// removed by another process. We can safely ignore this error and
+			// continue with the next application.
+			continue
+		} else if err != nil && !errors.Is(err, removalerrors.ApplicationIsRemoteOfferer) {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The applications are already transitioned to dying and
+			// there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of application %q: %v", applicationUUID, err)
+		} else if err == nil {
+			continue
+		}
+
+		// This is a remote application offerer, so we need to remove it with
+		// RemoveRemoteApplicationOffererByApplicationUUID.
+		if _, err := s.RemoveRemoteApplicationOffererByApplicationUUID(
+			ctx, application.UUID(applicationUUID), force, wait,
+		); errors.Is(err, applicationerrors.ApplicationNotFound) {
+			// There could be a chance that the application has already been
+			// removed by another process. We can safely ignore this error and
+			// continue with the next application.
+			continue
+		} else if err != nil {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The applications are already transitioned to dying and
+			// there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of application %q: %v", applicationUUID, err)
+		} else if err == nil {
+			continue
+		}
+
+		// TODO: Handle remote application consumers
+	}
 }

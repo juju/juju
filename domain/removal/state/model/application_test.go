@@ -39,7 +39,7 @@ func TestApplicationSuite(t *testing.T) {
 	tc.Run(t, &applicationSuite{})
 }
 
-func (s *applicationSuite) TestApplicationExists(c *tc.C) {
+func (s *applicationSuite) TestApplicationExistsTrue(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
@@ -48,9 +48,23 @@ func (s *applicationSuite) TestApplicationExists(c *tc.C) {
 	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, true)
+}
 
-	exists, err = st.ApplicationExists(c.Context(), "not-today-henry")
+func (s *applicationSuite) TestApplicationExistsFalse(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	exists, err := st.ApplicationExists(c.Context(), "not-today-henry")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+}
+
+func (s *applicationSuite) TestApplicationExistsRemoteApplicationOfferer(c *tc.C) {
+	appUUID, _ := s.createRemoteApplicationOfferer(c, "foo")
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.ApplicationIsRemoteOfferer)
 	c.Check(exists, tc.Equals, false)
 }
 

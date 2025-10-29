@@ -56,6 +56,10 @@ const (
 	// deleted because it still has offer connections
 	ApplicationHasOfferConnections = errors.ConstError("application has offer connections")
 
+	// ApplicationIsRemoteOfferer indicates that an application cannot be deleted
+	// because it is a remote application offerer
+	ApplicationIsRemoteOfferer = errors.ConstError("application is remote")
+
 	// ForceRequired indicates that a removal job requires the force flag to
 	// be set to true in order to proceed.
 	ForceRequired = errors.ConstError("force required for removal job")
