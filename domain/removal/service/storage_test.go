@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
@@ -350,6 +351,171 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceWaitSucc
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestMarkStorageAttachmentAsDeadNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+
+	s.modelState.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), uuid.String(),
+	).Return(-1, storageerrors.StorageAttachmentNotFound)
+
+	svc := s.newService(c)
+	err := svc.MarkStorageAttachmentAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
+}
+
+func (s *storageSuite) TestMarkStorageAttachmentAsDeadStillAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+
+	s.modelState.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), uuid.String(),
+	).Return(life.Alive, nil)
+
+	svc := s.newService(c)
+	err := svc.MarkStorageAttachmentAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *storageSuite) TestMarkStorageAttachmentAsDeadNoCascade(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+
+	cascaded := internal.CascadedStorageProvisionedAttachmentLives{}
+
+	s.modelState.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), uuid.String(),
+	).Return(life.Dying, nil)
+	s.modelState.EXPECT().EnsureStorageAttachmentDeadCascade(
+		gomock.Any(), uuid.String(),
+	).Return(cascaded, nil)
+
+	svc := s.newService(c)
+	err := svc.MarkStorageAttachmentAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestMarkStorageAttachmentAsDeadCascade(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().UTC()
+	s.clock.EXPECT().Now().Return(now).AnyTimes()
+
+	uuid := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	vaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+
+	cascaded := internal.CascadedStorageProvisionedAttachmentLives{
+		FileSystemAttachmentUUIDs: []string{
+			fsaUUID.String(),
+		},
+		VolumeAttachmentUUIDs: []string{
+			vaUUID.String(),
+		},
+		VolumeAttachmentPlanUUIDs: []string{
+			vapUUID.String(),
+		},
+	}
+
+	s.modelState.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), uuid.String(),
+	).Return(life.Dying, nil)
+	s.modelState.EXPECT().EnsureStorageAttachmentDeadCascade(
+		gomock.Any(), uuid.String(),
+	).Return(cascaded, nil)
+
+	s.modelState.EXPECT().FilesystemAttachmentScheduleRemoval(gomock.Any(),
+		tc.Bind(tc.IsNonZeroUUID), fsaUUID.String(), false, now).Return(nil)
+	s.modelState.EXPECT().VolumeAttachmentScheduleRemoval(gomock.Any(),
+		tc.Bind(tc.IsNonZeroUUID), vaUUID.String(), false, now).Return(nil)
+	s.modelState.EXPECT().VolumeAttachmentPlanScheduleRemoval(gomock.Any(),
+		tc.Bind(tc.IsNonZeroUUID), vapUUID.String(), false, now).Return(nil)
+
+	svc := s.newService(c)
+	err := svc.MarkStorageAttachmentAsDead(
+		c.Context(), uuid,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageInstanceNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, storage.NewStorageInstanceUUID)
+
+	cascaded := internal.CascadedStorageFilesystemVolumeLives{}
+	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
+		gomock.Any(), uuid.String(), false,
+	).Return(cascaded, storageerrors.StorageInstanceNotFound)
+
+	svc := s.newService(c)
+	err := svc.RemoveStorageInstance(c.Context(), uuid, false, 0, false)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
+}
+
+func (s *storageSuite) TestRemoveStorageInstance(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().UTC()
+	s.clock.EXPECT().Now().Return(now)
+
+	uuid := tc.Must(c, storage.NewStorageInstanceUUID)
+
+	cascaded := internal.CascadedStorageFilesystemVolumeLives{}
+	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
+		gomock.Any(), uuid.String(), false,
+	).Return(cascaded, nil)
+	s.modelState.EXPECT().StorageInstanceScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), uuid.String(), false, now,
+	).Return(nil)
+
+	svc := s.newService(c)
+	err := svc.RemoveStorageInstance(c.Context(), uuid, false, 0, false)
+	c.Assert(err, tc.ErrorIs, nil)
+}
+
+func (s *storageSuite) TestRemoveStorageInstanceCascade(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().UTC()
+	s.clock.EXPECT().Now().Return(now).AnyTimes()
+
+	uuid := tc.Must(c, storage.NewStorageInstanceUUID)
+	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID).String()
+	volUUID := tc.Must(c, storageprovisioning.NewVolumeUUID).String()
+
+	cascaded := internal.CascadedStorageFilesystemVolumeLives{
+		FileSystemUUID: &fsUUID,
+		VolumeUUID:     &volUUID,
+	}
+	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
+		gomock.Any(), uuid.String(), false,
+	).Return(cascaded, nil)
+	s.modelState.EXPECT().StorageInstanceScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), uuid.String(), false, now,
+	).Return(nil)
+	s.modelState.EXPECT().FilesystemScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), fsUUID, false, now,
+	).Return(nil)
+	s.modelState.EXPECT().VolumeScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), volUUID, false, now,
+	).Return(nil)
+
+	svc := s.newService(c)
+	err := svc.RemoveStorageInstance(c.Context(), uuid, false, 0, false)
+	c.Assert(err, tc.ErrorIs, nil)
 }
 
 func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadNotFound(c *tc.C) {

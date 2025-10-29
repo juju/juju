@@ -94,7 +94,7 @@ func (s *attachmentUUIDSuite) TestUUIDForStorageInstanceAndUnit(c *tc.C) {
 // TestGetStorageInstnaceAttachmentsNotFound asserts that when the storage
 // instance does not exist in the model the caller gets back an error satisfying
 // [domainstorageerrors.StorageInstanceNotFound].
-func (s *attachmentSuite) TestGetStorageInstnaceAttachmentsNotFound(c *tc.C) {
+func (s *attachmentSuite) TestGetStorageInstanceAttachmentsNotFound(c *tc.C) {
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())

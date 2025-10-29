@@ -21,7 +21,7 @@ type State interface {
 	StoragePoolState
 	StorageState
 
-	// GetStorageAttachmentUUIDForStorageIDAndUnit returns the
+	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
 	// [domainstorageprovisioning.StorageAttachmentUUID] associated with the given
 	// storage instance uuid and unit uuid.
 	//

@@ -491,6 +491,167 @@ func (s *Service) MarkStorageAttachmentAsDead(
 
 	return nil
 }
+
+// RemoveStorageInstance ensures that the specified storage instance is no
+// longer alive, scheduling removal jobs if needed and if specified, mark the
+// volume and filesystems for obliteration.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied storage instance UUID is not valid.
+// - [storageerrors.StorageInstanceNotFound] if the storage instance is not
+// found.
+func (s *Service) RemoveStorageInstance(
+	ctx context.Context,
+	uuid storage.StorageInstanceUUID,
+	force bool, wait time.Duration,
+	obliterate bool,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return errors.Errorf(
+			"validating storage instance uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	cascaded, err := s.modelState.EnsureStorageInstanceNotAliveCascade(
+		ctx, uuid.String(), obliterate)
+	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+		return errors.Errorf(
+			"storage instance %q not found", uuid,
+		).Add(storageerrors.StorageInstanceNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"ensuring storage instance %q is not alive: %w", uuid, err,
+		)
+	}
+
+	if force && wait > 0 {
+		if _, err := s.storageInstanceScheduleRemoval(
+			ctx, uuid, false, 0,
+		); err != nil {
+			return errors.Capture(err)
+		}
+	}
+	if _, err := s.storageInstanceScheduleRemoval(
+		ctx, uuid, force, wait,
+	); err != nil {
+		return errors.Capture(err)
+	}
+
+	if cascaded.FileSystemUUID != nil {
+		fsUUID := storageprovisioning.FilesystemUUID(*cascaded.FileSystemUUID)
+		if force && wait > 0 {
+			if _, err := s.filesystemScheduleRemoval(
+				ctx, fsUUID, false, 0,
+			); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		if _, err := s.filesystemScheduleRemoval(
+			ctx, fsUUID, force, wait,
+		); err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	if cascaded.VolumeUUID != nil {
+		volUUID := storageprovisioning.VolumeUUID(*cascaded.VolumeUUID)
+		if force && wait > 0 {
+			if _, err := s.volumeScheduleRemoval(
+				ctx, volUUID, false, 0,
+			); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		if _, err := s.volumeScheduleRemoval(
+			ctx, volUUID, force, wait,
+		); err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) storageInstanceScheduleRemoval(
+	ctx context.Context,
+	siUUID storage.StorageInstanceUUID,
+	force bool, wait time.Duration,
+) (removal.UUID, error) {
+	jobUUID, err := removal.NewUUID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = s.modelState.StorageInstanceScheduleRemoval(
+		ctx, jobUUID.String(), siUUID.String(),
+		force, s.clock.Now().UTC().Add(wait),
+	)
+	if err != nil {
+		return "", errors.Errorf("storage instance %q: %w", siUUID, err)
+	}
+
+	s.logger.Infof(ctx, "scheduled removal job %q for storage instance %q",
+		jobUUID, siUUID)
+	return jobUUID, nil
+}
+
+// processStorageInstanceRemovalJob handles the deletion of a storage instance.
+func (s *Service) processStorageInstanceRemovalJob(
+	ctx context.Context, job removal.Job,
+) error {
+	if job.RemovalType != removal.StorageInstanceJob {
+		return errors.Errorf(
+			"job type: %q not valid for storage instance removal",
+			job.RemovalType,
+		).Add(removalerrors.RemovalJobTypeNotValid)
+	}
+
+	l, err := s.modelState.GetStorageInstanceLife(ctx, job.EntityUUID)
+	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+		// The storage instance has already been removed.
+		return nil
+	} else if err != nil {
+		return errors.Errorf(
+			"getting storage instance %q life: %w", job.EntityUUID, err,
+		)
+	}
+
+	if l == life.Alive {
+		return errors.Errorf(
+			"storage instance %q is alive", job.EntityUUID,
+		).Add(removalerrors.EntityStillAlive)
+	}
+
+	if !job.Force {
+		canRemove, err := s.modelState.CheckStorageInstanceHasNoChildren(
+			ctx, job.EntityUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking storage instance %q has no children: %w",
+				job.EntityUUID, err,
+			)
+		}
+		if !canRemove {
+			return errors.Errorf(
+				"storage instance %q still has children", job.EntityUUID,
+			).Add(removalerrors.StorageInstanceHasChildren)
+		}
+	}
+
+	err = s.modelState.DeleteStorageInstance(ctx, job.EntityUUID)
+	if err != nil {
+		return errors.Errorf(
+			"deleting storage instance %q: %w", job.EntityUUID, err,
+		)
+	}
+
+	return nil
+}
+
 // MarkFilesystemAttachmentAsDead marks the filesystem attachment as dead.
 //
 // The following errors may be returned:
