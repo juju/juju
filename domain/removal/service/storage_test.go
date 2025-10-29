@@ -518,6 +518,98 @@ func (s *storageSuite) TestRemoveStorageInstanceCascade(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, nil)
 }
 
+func (s *storageSuite) TestExecuteJobForStorageInstanceNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageInstanceJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageInstanceLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(-1, storageerrors.StorageInstanceNotFound)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageInstanceStillAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageInstanceJob(c)
+
+	s.modelState.EXPECT().GetStorageInstanceLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Alive, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageInstanceHasChildren(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageInstanceJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageInstanceLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	exp.CheckStorageInstanceHasNoChildren(
+		gomock.Any(), j.EntityUUID,
+	).Return(false, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIs, removalerrors.StorageInstanceHasChildren)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageInstanceForceSkipCheck(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageInstanceJob(c)
+	j.Force = true
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageInstanceLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	exp.DeleteStorageInstance(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String())
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageInstanceSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageInstanceJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageInstanceLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	exp.CheckStorageInstanceHasNoChildren(
+		gomock.Any(), j.EntityUUID,
+	).Return(true, nil)
+	exp.DeleteStorageInstance(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String())
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func newStorageInstanceJob(c *tc.C) removal.Job {
+	jUUID, err := removal.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	return removal.Job{
+		UUID:        jUUID,
+		RemovalType: removal.StorageInstanceJob,
+		EntityUUID:  tc.Must(c, storage.NewStorageInstanceUUID).String(),
+	}
+}
+
 func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -82,6 +82,36 @@ type StorageState interface {
 	// then that record is deleted too.
 	DeleteStorageAttachment(ctx context.Context, rUUID string) error
 
+	// EnsureStorageInstanceNotAliveCascade ensures that there is no storage
+	// instance identified by the input UUID, that is still alive.
+	EnsureStorageInstanceNotAliveCascade(
+		ctx context.Context, siUUID string, obliterate bool,
+	) (internal.CascadedStorageFilesystemVolumeLives, error)
+
+	// GetStorageInstanceLife returns the life of the storage instance with
+	// the input UUID.
+	GetStorageInstanceLife(
+		ctx context.Context, siUUID string,
+	) (life.Life, error)
+
+	// StorageInstancecheduleRemoval schedules a removal job for the storage
+	// instance with the input UUID, qualified with the input force boolean.
+	StorageInstanceScheduleRemoval(
+		ctx context.Context,
+		removalUUID, siUUID string,
+		force bool, when time.Time,
+	) error
+
+	// CheckStorageInstanceHasNoChildren returns true if the storage instance
+	// with the input UUID has no child filesystem or volume.
+	CheckStorageInstanceHasNoChildren(
+		ctx context.Context, siUUID string,
+	) (bool, error)
+
+	// DeleteStorageInstance removes a storage instance from the database
+	// completely.
+	DeleteStorageInstance(ctx context.Context, siUUID string) error
+
 	// GetVolumeLife returns the life of the volume with the input UUID.
 	GetVolumeLife(ctx context.Context, volUUID string) (life.Life, error)
 
