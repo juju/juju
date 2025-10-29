@@ -357,47 +357,37 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Annotate(err, "getting controller config")
 	}
 
-	// Create a new offer auth context. This will be used to bake new
-	// macaroons for offers, and to validate incoming macaroons.
-	// TODO (stickupkid): This should be done in a worker and passed as a
-	// dependency. It operates independently of the API server.
-	crossModelAuthContext, err := newOfferAuthContext(
-		ctx,
-		controllerDomainServices.Access(),
-		controllerDomainServices.Macaroon(),
-		cfg.ControllerUUID,
-		cfg.ControllerModelUUID,
-		controllerConfig,
-		cfg.MacaroonHTTPClient,
-		cfg.Clock,
-		logger,
-	)
+	macaroonService := controllerDomainServices.Macaroon()
+	offersThirdPartyKeyPair, err := macaroonService.GetOffersThirdPartyKey(ctx)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating offer auth context")
+		return nil, errors.Trace(err)
 	}
 
 	httpAuthenticators := []authentication.HTTPAuthenticator{cfg.LocalMacaroonAuthenticator, cfg.JWTAuthenticator}
 	loginAuthenticators := []authentication.LoginAuthenticator{cfg.LocalMacaroonAuthenticator, cfg.JWTAuthenticator}
 
 	shared, err := newSharedServerContext(sharedServerConfig{
-		crossModelAuthContext:   crossModelAuthContext,
-		flightRecorder:          cfg.FlightRecorder,
-		leaseManager:            cfg.LeaseManager,
-		controllerUUID:          cfg.ControllerUUID,
-		controllerModelUUID:     cfg.ControllerModelUUID,
-		controllerConfig:        controllerConfig,
-		logger:                  internallogger.GetLogger("juju.apiserver"),
-		charmhubHTTPClient:      cfg.CharmhubHTTPClient,
-		dbGetter:                cfg.DBGetter,
-		dbDeleter:               cfg.DBDeleter,
-		domainServicesGetter:    cfg.DomainServicesGetter,
-		controllerConfigService: cfg.ControllerConfigService,
-		tracerGetter:            cfg.TracerGetter,
-		objectStoreGetter:       cfg.ObjectStoreGetter,
-		machineTag:              cfg.Tag,
-		dataDir:                 cfg.DataDir,
-		logDir:                  cfg.LogDir,
-		watcherRegistryGetter:   cfg.WatcherRegistryGetter,
+		flightRecorder:           cfg.FlightRecorder,
+		leaseManager:             cfg.LeaseManager,
+		controllerUUID:           cfg.ControllerUUID,
+		controllerModelUUID:      cfg.ControllerModelUUID,
+		controllerConfig:         controllerConfig,
+		loginTokenRefreshURL:     controllerConfig.LoginTokenRefreshURL(),
+		offersThirdPartyKeyPair:  offersThirdPartyKeyPair,
+		logger:                   internallogger.GetLogger("juju.apiserver"),
+		clock:                    cfg.Clock,
+		charmhubHTTPClient:       cfg.CharmhubHTTPClient,
+		macaroonHTTPClient:       cfg.MacaroonHTTPClient,
+		dbGetter:                 cfg.DBGetter,
+		dbDeleter:                cfg.DBDeleter,
+		domainServicesGetter:     cfg.DomainServicesGetter,
+		controllerDomainServices: controllerDomainServices,
+		tracerGetter:             cfg.TracerGetter,
+		objectStoreGetter:        cfg.ObjectStoreGetter,
+		machineTag:               cfg.Tag,
+		dataDir:                  cfg.DataDir,
+		logDir:                   cfg.LogDir,
+		watcherRegistryGetter:    cfg.WatcherRegistryGetter,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -634,7 +624,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 
 	ctx := srv.catacomb.Context(context.Background())
 
-	controllerConfigService := srv.shared.controllerConfigService
+	controllerConfigService := srv.shared.controllerDomainServices.ControllerConfig()
 	controllerConfigWatcher, err := controllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -903,7 +893,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, "register")
 
 	// HTTP handler for application offer macaroon authentication.
-	if err := handlerscrossmodel.AddOfferAuthHandlers(srv.shared.crossModelAuthContext, srv.mux); err != nil {
+	if err := handlerscrossmodel.AddOfferAuthHandlers(srv.shared, srv.shared.offersThirdPartyKeyPair, srv.mux); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1090,6 +1080,14 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	apiObserver.Join(req.Context(), req, connectionID)
 	defer apiObserver.Leave(req.Context())
 
+	// Create a new offer auth context. This will be used to bake new
+	// macaroons for offers, and to validate incoming macaroons.
+	crossModelAuthContext, err := srv.shared.NewCrossModelAuthContext(req.Context(), req.Host)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to create offer auth context: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID, modelOnlyLogin := httpcontext.RequestModelUUID(req.Context())
 
@@ -1118,6 +1116,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 			connectionID,
 			apiObserver,
 			req.Host,
+			crossModelAuthContext,
 		); err != nil {
 			logger.Errorf(ctx, "error serving RPCs: %v", err)
 		}
@@ -1132,6 +1131,7 @@ func (srv *Server) serveConn(
 	connectionID uint64,
 	apiObserver observer.Observer,
 	host string,
+	crossModelAuthContext facade.CrossModelAuthContext,
 ) error {
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
@@ -1184,6 +1184,7 @@ func (srv *Server) serveConn(
 		controllerOnlyLogin,
 		connectionID,
 		host,
+		crossModelAuthContext,
 	)
 	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
@@ -1240,23 +1241,20 @@ func newOfferAuthContext(
 	ctx context.Context,
 	accessService AccessService,
 	macaroonService MacaroonService,
+	keyPair *bakery.KeyPair,
+	host,
 	controllerUUID string,
 	controllerModelUUID coremodel.UUID,
-	controllerConfig controller.Config,
+	loginTokenRefreshURL string,
 	httpClient crossmodelbakery.HTTPClient,
 	clock clock.Clock,
 	logger corelogger.Logger,
 ) (*crossmodel.AuthContext, error) {
-	key, err := macaroonService.GetOffersThirdPartyKey(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting offers third party key")
-	}
-
 	bakery, err := getMacaroonBakeryByURL(
-		controllerConfig.LoginTokenRefreshURL(),
+		loginTokenRefreshURL,
 		macaroonService,
-		key,
-		controllerUUID,
+		keyPair,
+		host,
 		controllerModelUUID,
 		httpClient,
 		clock,
@@ -1270,7 +1268,7 @@ func newOfferAuthContext(
 	return crossmodel.NewAuthContext(
 		accessService,
 		bakery,
-		key,
+		keyPair,
 		controllerUUID,
 		controllerModelUUID,
 		clock,
@@ -1290,7 +1288,7 @@ func getMacaroonBakeryByURL(
 	endpoint string,
 	macaroonService MacaroonService,
 	key *bakery.KeyPair,
-	controllerUUD string,
+	host string,
 	controllerModelUUID coremodel.UUID,
 	httpClient crossmodelbakery.HTTPClient,
 	clock clock.Clock,
@@ -1304,7 +1302,7 @@ func getMacaroonBakeryByURL(
 	if endpoint == "" {
 		// Create an endpoint that will be used for third-party caveats
 		// that require discharge from the local controller.
-		endpoint := localEndpointURL(controllerUUD)
+		endpoint := localEndpointURL(host)
 		return crossmodelbakery.NewLocalOfferBakery(
 			key,
 			location, endpoint,
@@ -1328,26 +1326,10 @@ func getMacaroonBakeryByURL(
 	)
 }
 
-func localEndpointURL(controllerUUID string) string {
-	// The controllerUUID is a facsimile of the server hostname, for the
-	// purposes of macaroon validation. This is for two reasons:
-	//
-	//  1. We don't have a DNS name for the controllers when in HA, so if a
-	//     connection is made to one node in the cluster, and the connection
-	//     is reestablished to another node, the macaroon will fail to validate
-	//     if the other node has a different hostname. The underlying data
-	//     store for a macaroon is across the cluster, so there is no reason
-	//     why you can't validate a macaroon on a different node to the one
-	//     that created it.
-	//  2. The controllerUUID is unique across other controllers, so it should
-	//     be safe enough to prevent collisions.
-	//
-	// Based on this change above, we could increase the expiry time of a
-	// macaroon to be longer than 3 minutes, as we don't have to worry about
-	// a node in the cluster being unavailable for a short period of time.
+func localEndpointURL(serverHost string) string {
 	return (&url.URL{
 		Scheme: "https",
-		Host:   controllerUUID,
+		Host:   serverHost,
 		Path:   localOfferAccessLocationPath,
 	}).String()
 }

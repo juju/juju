@@ -80,6 +80,10 @@ func (testingAPIRootHandler) ModelUUID() model.UUID {
 	return ""
 }
 
+func (testingAPIRootHandler) CrossModelAuthContext() facade.CrossModelAuthContext {
+	return nil
+}
+
 // WatcherRegistry returns a new WatcherRegistry.
 func (testingAPIRootHandler) WatcherRegistry() watcherregistry.WatcherRegistry {
 	return nil
