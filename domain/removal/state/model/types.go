@@ -6,6 +6,8 @@ package model
 import (
 	"database/sql"
 	"time"
+
+	"github.com/juju/collections/set"
 )
 
 // removalJob represents a record in the removal table
@@ -30,7 +32,7 @@ type objectStoreUUID struct {
 	UUID sql.Null[string] `db:"uuid"`
 }
 
-// entityUUIDs is a slice of entityUUID, used to hold multiple UUIDs.
+// uuids is a slice of identifiers, used to hold multiple UUIDs.
 type uuids []string
 
 // entityUUID holds a UUID in string form.
@@ -108,4 +110,26 @@ type storageAttachmentDetachInfo struct {
 	LifeID           int    `db:"life_id"`
 	UnitLifeID       int    `db:"unit_life_id"`
 	UnitUUID         string `db:"unit_uuid"`
+}
+
+type secretRevision struct {
+	// UUID uniquely identifies a secret revision.
+	UUID string `db:"uuid"`
+
+	// SecretUUID identifies the secret for this revision.
+	SecretUUID string `db:"secret_id"`
+}
+
+type secretRevisions []secretRevision
+
+func (srs secretRevisions) split() (uuids, uuids) {
+	revisionUUIDs := make([]string, len(srs))
+	secretUUIDs := set.NewStrings()
+
+	for i, sr := range srs {
+		revisionUUIDs[i] = sr.UUID
+		secretUUIDs.Add(sr.SecretUUID)
+	}
+
+	return revisionUUIDs, secretUUIDs.Values()
 }
