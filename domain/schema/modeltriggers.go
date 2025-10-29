@@ -117,6 +117,11 @@ func customModelTriggers() []func() schema.Patch {
 		k8sPodStatusTriggers(
 			customNamespaceK8sPodStatus,
 		),
+
+		// Setup trigger for relation life or suspended changes.
+		relationLifeSuspended(
+			customNamespaceRelationLifeSuspended,
+		),
 	}
 }
 
@@ -741,5 +746,37 @@ BEGIN
     WHERE u.uuid = OLD.unit_uuid;
 END;
 `, namespaceID))
+	}
+}
+
+// relationLifeSuspended generates the triggers for the
+// relation table based on the relation  UUID.
+func relationLifeSuspended(namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for Relation
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+        'custom_relation_life_suspended',
+        'Life or Suspended changes for a relation');
+
+-- update trigger for Relation
+CREATE TRIGGER trg_log_custom_relation_life_suspended_update
+AFTER UPDATE ON relation FOR EACH ROW
+WHEN
+    NEW.life_id != OLD.life_id OR
+    NEW.suspended != OLD.suspended
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[1]d, NEW.uuid, DATETIME('now'));
+END;
+
+-- delete trigger for Relation
+CREATE TRIGGER trg_log_custom_relation_life_suspended_delete
+AFTER DELETE ON relation FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[1]d, OLD.uuid, DATETIME('now'));
+END;`, namespaceID))
 	}
 }

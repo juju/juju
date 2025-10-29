@@ -3,6 +3,11 @@
 
 package internal
 
+import (
+	"github.com/juju/juju/core/life"
+	domainrelation "github.com/juju/juju/domain/relation"
+)
+
 // WatcherRelationUnitsData contains data returned by the
 // WatcherRelationUnitsData state method. This ensures that the
 // order of the strings cannot be misinterpreted.
@@ -11,4 +16,19 @@ type WatcherRelationUnitsData struct {
 	RelationUnitNS            string
 	ApplicationSettingsHashNS string
 	UnitSettingsHashNS        string
+}
+
+// RelationLifeSuspendedStatusChange describes the life and suspended status
+// of a relation. Endpoints are included to create a relation key for the
+// domain version of this structure.
+type RelationLifeSuspendedStatusChange struct {
+	// Life is the life of the relation.
+	Life life.Value
+	// Suspended is the suspended status of the relation.
+	Suspended bool
+	// SuspendedReason is an optional message to explain why suspended is true.
+	SuspendedReason string
+	// Endpoints is the endpoints of the relation, used to create a
+	// relation key.
+	Endpoints []domainrelation.Endpoint
 }

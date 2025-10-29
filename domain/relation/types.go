@@ -131,6 +131,28 @@ type RelationUnitsWatcher interface {
 	watcher.Watcher[watcher.RelationUnitsChange]
 }
 
+// RelationLifeSuspendedStatusChange describes the life
+// and suspended status of a relation.
+type RelationLifeSuspendedStatusChange struct {
+	// Key is the relation key of the changed relation.
+	Key string
+
+	// Life is the life of the relation.
+	Life life.Value
+
+	// Suspended is the suspended status of the relation.
+	Suspended bool
+
+	// SuspendedReason is an optional message to explain why suspended is true.
+	SuspendedReason string
+}
+
+// RelationSuspendedStatusWatcher sends changes when the
+// life or suspended status of specific relations change.
+type RelationSuspendedStatusWatcher interface {
+	watcher.Watcher[RelationLifeSuspendedStatusChange]
+}
+
 // CandidateEndpointIdentifier is the natural key of a relation endpoint when
 // trying to relate two applications. It is used as a parameter for AddRelation,
 // as AddRelation will try to infer endpoints from a given ApplicationName if
