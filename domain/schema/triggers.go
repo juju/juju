@@ -135,10 +135,8 @@ AFTER INSERT ON unit FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
 	SELECT 1, %[1]d, m.name, DATETIME('now')
-	FROM unit AS u
-	JOIN net_node AS n ON n.uuid = u.net_node_uuid
-	JOIN machine AS m ON m.net_node_uuid = n.uuid
-	WHERE u.uuid = NEW.uuid;
+	FROM machine AS m
+	WHERE m.net_node_uuid = NEW.net_node_uuid;
 END;
 
 CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_update
@@ -148,10 +146,8 @@ WHEN
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
 	SELECT 2, %[1]d, m.name, DATETIME('now')
-	FROM unit AS u
-	JOIN net_node AS n ON n.uuid = u.net_node_uuid
-	JOIN machine AS m ON m.net_node_uuid = n.uuid
-	WHERE u.uuid = OLD.uuid;
+	FROM machine AS m
+	WHERE m.net_node_uuid = OLD.net_node_uuid;
 END;
 
 CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_delete
@@ -159,10 +155,8 @@ AFTER DELETE ON unit FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
 	SELECT 4, %[1]d, m.name, DATETIME('now')
-	FROM unit AS u
-	JOIN net_node AS n ON n.uuid = u.net_node_uuid
-	LEFT JOIN machine AS m ON m.net_node_uuid = n.uuid
-	WHERE u.uuid = OLD.uuid;
+	FROM machine AS m
+	WHERE m.net_node_uuid = OLD.net_node_uuid;
  END;`[1:], namespace)
 		return schema.MakePatch(stmt)
 	}
