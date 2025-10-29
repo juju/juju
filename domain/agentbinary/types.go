@@ -69,6 +69,15 @@ func AgentBinaryCompactOnVersion(a, b AgentBinary) bool {
 	return a.Version.Compare(b.Version) == 0
 }
 
+// AgentBinaryNotMatchingVersion provides a helper closure to use with the
+// slices package for filtering agent binaries that do match the supplied
+// version.
+func AgentBinaryNotMatchingVersion(v semversion.Number) func(AgentBinary) bool {
+	return func(a AgentBinary) bool {
+		return a.Version.Compare(v) != 0
+	}
+}
+
 // AgentBinaryHighestVersion is a func for use with [slices.MaxFunc] to extract
 // the highest [AgentBinary.Version] available in a slice.
 //

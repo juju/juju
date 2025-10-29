@@ -104,6 +104,64 @@ func (_ *typesSuite) TestAgentBinaryHighestVersion(c *tc.C) {
 	c.Check(ver, mc, AgentBinary{Version: version3})
 }
 
+// TestAgentBinaryNotMatchinVersion tests the [AgentBinaryNotMatchingVersion]
+// with [slices.Delete] to confirm that it removes all [AgentBinaries] that do
+// match a target version.
+func (*typesSuite) TestAgentBinaryNotMatchinVersion(c *tc.C) {
+	versionToMatch, err := semversion.Parse("4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	version1 := versionToMatch
+	version2, err := semversion.Parse("4.0-beta1")
+	c.Assert(err, tc.ErrorIsNil)
+	version3, err := semversion.Parse("4.1.0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	agentBinaries := []AgentBinary{
+		{
+			Architecture: AMD64,
+			Stream:       AgentStreamReleased,
+			Version:      version1,
+		},
+		{
+			Architecture: ARM64,
+			Stream:       AgentStreamProposed,
+			Version:      version1,
+		},
+		{
+			Architecture: S390X,
+			Stream:       AgentStreamReleased,
+			Version:      version2,
+		},
+		{
+			Architecture: S390X,
+			Stream:       AgentStreamReleased,
+			Version:      version3,
+		},
+		{
+			Architecture: ARM64,
+			Stream:       AgentStreamReleased,
+			Version:      version3,
+		},
+	}
+
+	agentBinaries = slices.DeleteFunc(
+		agentBinaries, AgentBinaryNotMatchingVersion(versionToMatch),
+	)
+	c.Check(agentBinaries, tc.SameContents, []AgentBinary{
+		{
+			Architecture: AMD64,
+			Stream:       AgentStreamReleased,
+			Version:      version1,
+		},
+		{
+			Architecture: ARM64,
+			Stream:       AgentStreamProposed,
+			Version:      version1,
+		},
+	})
+}
+
 // TestArchitectureFromStringNotRecognised ensures that if the string
 // architecture is not recognised then the returned Architecture is 0 with a
 // false conversion value.
