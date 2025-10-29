@@ -405,11 +405,23 @@ func calculateFilesystemAttachmentMountPoint(
 func calculateFilesystemTemplateAttachmentMountPoint(
 	storageName,
 	charmStorageLocation string,
+	maxCount int,
 	idx int,
 ) string {
 	refLocation := charmStorageLocation
 	if charmStorageLocation == "" {
 		refLocation = defaultFilesystemAttachmentDir()
+	}
+
+	// TODO (tlm): This is a hack for the 4.0 release that needs to be removed.
+	// The postgresql charm does not correctly ask Juju what the mount point is
+	// for an attachment and assumes the mounted location will be exactly where
+	// the charm has suggested.
+	//
+	// We can only support this case when the maxCount is 1 and a location has
+	// been offered.
+	if charmStorageLocation != "" && maxCount == 1 {
+		return path.Join(charmStorageLocation, storageName)
 	}
 
 	// The decision was to always append the storage name and index to the ref
@@ -427,14 +439,15 @@ func calculateFilesystemTemplateAttachmentMountPoint(
 func calculateFilesystemTemplateAttachmentMountPoints(
 	storageName,
 	charmStorageLocation string,
+	maxCount int,
 	count int,
 ) []string {
 	retVal := make([]string, 0, count)
-	for range count {
+	for i := range count {
 		retVal = append(
 			retVal,
 			calculateFilesystemTemplateAttachmentMountPoint(
-				storageName, charmStorageLocation, len(retVal),
+				storageName, charmStorageLocation, maxCount, i,
 			),
 		)
 	}
@@ -827,6 +840,7 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 		mountPoints := calculateFilesystemTemplateAttachmentMountPoints(
 			fsTemplate.StorageName,
 			fsTemplate.CharmLocationHint,
+			fsTemplate.MaxCount,
 			fsTemplate.Count,
 		)
 

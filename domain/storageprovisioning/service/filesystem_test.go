@@ -487,6 +487,47 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 	c.Check(result, tc.DeepEquals, expectedResult)
 }
 
+// TestGetFilesystemsTemplateForApplication tests the caller gets filesystem
+// templates back.
+func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationSingleton(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	stateTemplates := []internal.FilesystemTemplate{{
+		StorageName:       "a",
+		Count:             1,
+		MaxCount:          1,
+		SizeMiB:           1234,
+		ProviderType:      "foo",
+		ReadOnly:          true,
+		CharmLocationHint: "/bar",
+		Attributes: map[string]string{
+			"laz": "baz",
+		},
+	}}
+	s.state.EXPECT().GetFilesystemTemplatesForApplication(gomock.Any(), appUUID).
+		Return(stateTemplates, nil)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	expectedResult := []storageprovisioning.FilesystemTemplate{{
+		StorageName:  "a",
+		Count:        1,
+		MaxCount:     1,
+		MountPoints:  []string{"/bar/a"},
+		SizeMiB:      1234,
+		ProviderType: "foo",
+		ReadOnly:     true,
+		Location:     "/bar",
+		Attributes: map[string]string{
+			"laz": "baz",
+		},
+	}}
+	c.Check(result, tc.DeepEquals, expectedResult)
+}
+
 // TestGetFilesystemsTemplateForApplicationErrors tests the caller gets an error when
 // the state errors.
 func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationErrors(c *tc.C) {
