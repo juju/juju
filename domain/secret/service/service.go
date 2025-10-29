@@ -1021,5 +1021,8 @@ func (s *SecretService) GetLatestRevisions(ctx context.Context, uris []*secrets.
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if len(uris) == 0 {
+		return nil, nil
+	}
 	return s.secretState.GetLatestRevisions(ctx, uris)
 }
