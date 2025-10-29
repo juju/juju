@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type userStateSuite struct {
@@ -775,6 +776,58 @@ WHERE uuid = ?
 
 }
 
+func (s *userStateSuite) TestRemoveUserLastAdmin(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory())
+
+	modelUUID := tc.Must(c, uuid.NewUUID).String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		cloudUUID := tc.Must(c, uuid.NewUUID).String()
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
+			VALUES (?, "fluffy", 7, "test-endpoint", true)
+		`, cloudUUID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, name, qualifier, model_type_id, life_id, cloud_uuid)
+			VALUES (?, "test", "prod", 0, 0, ?)
+		`, modelUUID, cloudUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add admin user.
+	adminUUID := tc.Must(c, user.NewUUID)
+	adminName := usertesting.GenNewName(c, "admin")
+	err = st.AddUserWithPermission(
+		c.Context(), adminUUID,
+		adminName, "admin",
+		false,
+		adminUUID,
+		s.modelAdminAccess(modelUUID),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.RemoveUser(c.Context(), adminName)
+	c.Assert(err, tc.ErrorIs, usererrors.LastModelAdmin)
+
+	// Add another admin user on the model so we can remove the first one.
+	anotherUUID := tc.Must(c, user.NewUUID)
+	anotherName := usertesting.GenNewName(c, "another")
+	err = st.AddUserWithPermission(
+		c.Context(), anotherUUID,
+		anotherName, "another",
+		false,
+		anotherUUID,
+		s.modelAdminAccess(modelUUID),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.RemoveUser(c.Context(), adminName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestRemoveUserSSHKeys is here to test that when we remove a user from the
 // Juju database we delete all ssh keys for the user.
 func (s *userStateSuite) TestRemoveUserSSHKeys(c *tc.C) {
@@ -1346,6 +1399,58 @@ WHERE user_uuid = ?
 	c.Check(disabled, tc.Equals, true)
 }
 
+func (s *userStateSuite) TestDisableUserAuthenticationLastAdmin(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory())
+
+	modelUUID := tc.Must(c, uuid.NewUUID).String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		cloudUUID := tc.Must(c, uuid.NewUUID).String()
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
+			VALUES (?, "fluffy", 7, "test-endpoint", true)
+		`, cloudUUID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, name, qualifier, model_type_id, life_id, cloud_uuid)
+			VALUES (?, "test", "prod", 0, 0, ?)
+		`, modelUUID, cloudUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add admin user.
+	adminUUID := tc.Must(c, user.NewUUID)
+	adminName := usertesting.GenNewName(c, "admin")
+	err = st.AddUserWithPermission(
+		c.Context(), adminUUID,
+		adminName, "admin",
+		false,
+		adminUUID,
+		s.modelAdminAccess(modelUUID),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DisableUserAuthentication(c.Context(), adminName)
+	c.Assert(err, tc.ErrorIs, usererrors.LastModelAdmin)
+
+	// Add another admin user on the model so we can remove the first one.
+	anotherUUID := tc.Must(c, user.NewUUID)
+	anotherName := usertesting.GenNewName(c, "another")
+	err = st.AddUserWithPermission(
+		c.Context(), anotherUUID,
+		anotherName, "another",
+		false,
+		anotherUUID,
+		s.modelAdminAccess(modelUUID),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DisableUserAuthentication(c.Context(), adminName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestEnableUserAuthentication asserts that we can enable a user.
 func (s *userStateSuite) TestEnableUserAuthentication(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
@@ -1548,6 +1653,16 @@ func (s *userStateSuite) controllerLoginAccess() permission.AccessSpec {
 		Target: permission.ID{
 			ObjectType: permission.Controller,
 			Key:        s.controllerUUID,
+		},
+	}
+}
+
+func (s *userStateSuite) modelAdminAccess(modelUUID string) permission.AccessSpec {
+	return permission.AccessSpec{
+		Access: permission.AdminAccess,
+		Target: permission.ID{
+			ObjectType: permission.Model,
+			Key:        modelUUID,
 		},
 	}
 }
