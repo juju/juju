@@ -7,11 +7,9 @@ import (
 	"context"
 	"slices"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
@@ -81,66 +79,19 @@ type AgentBinaryFilterFunc func(
 
 type GetProviderFunc func(ctx context.Context) (environs.BootstrapEnviron, error)
 
-// SimpleStreamsAgentFinder provides helper methods for fetching
-// the binaries from simplestreams. This abstraction helps us mock the dependencies in tests.
-type SimpleStreamsAgentFinder interface {
-	// GetPreferredSimpleStreams returns the preferred streams for the given version and stream.
-	GetPreferredSimpleStreams(
-		vers *semversion.Number,
-		forceDevel bool,
-		stream string,
-	) []string
-
-	// AgentBinaryFilter filters agent binaries based on the given parameters.
+// AgentFinder provides helper methods for fetching
+// the binaries from a store. This abstraction allows us to implement fetching
+// binaries either from the controller and model store or simplestreams.
+type AgentFinder interface {
+	// SearchForAgentVersions filters agent binaries based on the given parameters.
 	// It returns a list of agent binaries that match the filter criteria.
-	AgentBinaryFilter(
+	SearchForAgentVersions(
 		ctx context.Context,
-		ss envtools.SimplestreamsFetcher,
-		env environs.BootstrapEnviron,
-		majorVersion,
-		minorVersion int,
-		streams []string,
+		version semversion.Number,
+		stream *agentbinary.Stream,
 		filter coretools.Filter,
-	) (coretools.List, error)
-
-	GetProvider(ctx context.Context) (environs.BootstrapEnviron, error)
-}
-
-// AgentFinder is a wrapper to expose helper functions for fetching
-// the binaries from simplestreams. It conforms to [SimpleStreamsAgentFinder].
-type AgentFinder struct {
-	GetPreferredSimpleStreamsFn GetPreferredSimpleStreamsFunc
-	AgentBinaryFilterFn         AgentBinaryFilterFunc
-	GetProviderFn               GetProviderFunc
-}
-
-// NewAgentFinder returns a new AgentFinder that exposes helper methods.
-func NewAgentFinder(
-	getPreferredSimpleStreamsFn GetPreferredSimpleStreamsFunc,
-	agentBinaryFilterFn AgentBinaryFilterFunc,
-	getProviderFn GetProviderFunc,
-) *AgentFinder {
-	return &AgentFinder{
-		GetPreferredSimpleStreamsFn: getPreferredSimpleStreamsFn,
-		AgentBinaryFilterFn:         agentBinaryFilterFn,
-		GetProviderFn:               getProviderFn,
-	}
-}
-
-// GetPreferredSimpleStreams returns the streams to use when fetching the agents from simplestreams.
-func (a AgentFinder) GetPreferredSimpleStreams(vers *semversion.Number, forceDevel bool, stream string) []string {
-	return a.GetPreferredSimpleStreamsFn(vers, forceDevel, stream)
-}
-
-// AgentBinaryFilter returns the agents from the provided streams that match the
-// supplied major and minor versions. It further narrows the results using the given filter.
-func (a AgentFinder) AgentBinaryFilter(ctx context.Context, ss envtools.SimplestreamsFetcher, env environs.BootstrapEnviron, majorVersion, minorVersion int, streams []string, filter coretools.Filter) (coretools.List, error) {
-	return a.AgentBinaryFilterFn(ctx, ss, env, majorVersion, minorVersion, streams, filter)
-}
-
-// GetProvider returns a provider.
-func (a AgentFinder) GetProvider(ctx context.Context) (environs.BootstrapEnviron, error) {
-	return a.GetProviderFn(ctx)
+	) ([]semversion.Number, error)
+	Name() string
 }
 
 // StreamAgentBinaryFinder exposes helper methods for fetching
@@ -149,7 +100,7 @@ type StreamAgentBinaryFinder struct {
 	ctrlSt  AgentFinderControllerState
 	modelSt AgentFinderControllerModelState
 
-	agentFinder SimpleStreamsAgentFinder
+	agentFinders map[string]AgentFinder
 }
 
 // NewStreamAgentBinaryFinder returns a new StreamAgentBinaryFinder to assist
@@ -157,12 +108,19 @@ type StreamAgentBinaryFinder struct {
 func NewStreamAgentBinaryFinder(
 	ctrlSt AgentFinderControllerState,
 	modelSt AgentFinderControllerModelState,
-	agentFinder SimpleStreamsAgentFinder,
+	agentFinders ...AgentFinder,
 ) *StreamAgentBinaryFinder {
+	agentFindersMap := make(map[string]AgentFinder)
+	for _, finder := range agentFinders {
+		agentFindersMap[finder.Name()] = finder
+	}
 	return &StreamAgentBinaryFinder{
 		ctrlSt:      ctrlSt,
 		modelSt:     modelSt,
 		agentFinder: agentFinder,
+		ctrlSt:       ctrlSt,
+		modelSt:      modelSt,
+		agentFinders: agentFindersMap,
 	}
 }
 
