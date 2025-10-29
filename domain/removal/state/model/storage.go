@@ -421,6 +421,97 @@ WHERE  sa.uuid = $entityUUID.uuid`
 	}))
 }
 
+// EnsureStorageInstanceNotAliveCascade ensures that there is no storage
+// instance identified by the input UUID, that is still alive.
+//
+// The following errors may be returned:
+// - [storageerrors.StorageInstanceNotFound] if the storage instance no longer
+// exists in the model.
+func (st *State) EnsureStorageInstanceNotAliveCascade(
+	ctx context.Context, siUUID string, obliterate bool,
+) (internal.CascadedStorageFilesystemVolumeLives, error) {
+	var cascaded internal.CascadedStorageFilesystemVolumeLives
+	db, err := st.DB(ctx)
+	if err != nil {
+		return cascaded, errors.Capture(err)
+	}
+
+	input := entityUUID{UUID: siUUID}
+
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   storage_instance
+WHERE  uuid = $entityUUID.uuid`, input)
+	if err != nil {
+		return cascaded, errors.Errorf(
+			"preparing storage instance exists query: %w", err,
+		)
+	}
+
+	attachmentCountStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   storage_attachment
+WHERE  storage_instance_uuid = $entityUUID.uuid`, input, count{})
+	if err != nil {
+		return cascaded, errors.Errorf(
+			"preparing storage attachment count query: %w", err,
+		)
+	}
+
+	var result internal.CascadedStorageInstanceLives
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, existsStmt, input).Get(&input)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageerrors.StorageInstanceNotFound
+		} else if err != nil {
+			return errors.Errorf(
+				"running storage instance exists query: %w", err,
+			)
+		}
+
+		cnt := count{}
+		err = tx.Query(ctx, attachmentCountStmt, input).Get(&cnt)
+		if err != nil {
+			return errors.Errorf(
+				"running storage attachment count query: %w", err,
+			)
+		}
+		if cnt.Count > 0 {
+			return removalerrors.StorageInstanceStillAttached
+		}
+
+		result, err = st.ensureStorageInstancesNotAliveCascade(
+			ctx, tx, []entityUUID{input}, obliterate)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return cascaded, errors.Capture(err)
+	}
+
+	// TODO(storage): re-write this singular case to use hand crafted queries.
+	if l := len(result.FileSystemUUIDs); l > 1 {
+		return cascaded, errors.Errorf(
+			"unexpected number of fs for singular storage instance %q removal",
+			siUUID,
+		)
+	} else if l == 1 {
+		cascaded.FileSystemUUID = &result.FileSystemUUIDs[0]
+	}
+	if l := len(result.VolumeUUIDs); l > 1 {
+		return cascaded, errors.Errorf(
+			"unexpected number of vol for singular storage instance %q removal",
+			siUUID,
+		)
+	} else if l == 1 {
+		cascaded.VolumeUUID = &result.VolumeUUIDs[0]
+	}
+
+	return cascaded, nil
+}
 // GetVolumeLife returns the life of the volume with the input UUID.
 //
 // The following errors may be returned:

@@ -144,3 +144,11 @@ func (srs secretRevisions) split() (uuids, uuids) {
 
 	return revisionUUIDs, secretUUIDs.Values()
 }
+
+type status struct {
+	StatusID int `db:"status_id"`
+}
+
+type storageRemoval struct {
+	Obliterate bool `db:"obliterate"`
+}
