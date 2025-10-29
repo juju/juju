@@ -17,6 +17,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc/params"
 )
@@ -280,17 +281,71 @@ func (w *srvRemoteRelationWatcher) Next(ctx context.Context) (params.RemoteRelat
 
 // srvRelationStatusWatcher defines the API wrapping a RelationStatusWatcher.
 type srvRelationStatusWatcher struct {
+	watcher         crossmodelrelations.RelationStatusWatcher
+	relationService RelationService
 }
 
-func newRelationStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	return &srvRelationStatusWatcher{}, nil
+func newRelationStatusWatcher(_ context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+	id := ctx.ID()
+	auth := ctx.Auth()
+
+	// TODO(wallyworld Oct 2017) - enhance this watcher to support
+	// anonymous api calls with macaroons. (All watchers in the file, see 3.6)
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	watcherRegistry := ctx.WatcherRegistry()
+	w, err := watcherRegistry.Get(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	watcher, ok := w.(crossmodelrelations.RelationStatusWatcher)
+	if !ok {
+		return nil, internalerrors.Errorf("watcher id: %q is not a RelationStatusWatcher", id).Add(apiservererrors.ErrUnknownWatcher)
+	}
+
+	return &srvRelationStatusWatcher{
+		relationService: ctx.DomainServices().Relation(),
+		watcher:         watcher,
+	}, nil
 }
 
 // Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvRelationStatusWatcher.
 func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLifeSuspendedStatusWatchResult, error) {
-	return params.RelationLifeSuspendedStatusWatchResult{}, nil
+	select {
+	case <-ctx.Done():
+		return params.RelationLifeSuspendedStatusWatchResult{}, ctx.Err()
+	case _, ok := <-w.watcher.Changes():
+		if !ok {
+			return params.RelationLifeSuspendedStatusWatchResult{}, apiservererrors.ErrStoppedWatcher
+		}
+		// TODO (hml) only send the change if not migrating
+		// If we are migrating, we do not want to inform remote watchers that
+		// the relation is dead before they have had a chance to be redirected
+		// to the new controller. Check other watchers in this file as well.
+		relationUUID := w.watcher.RelationUUID()
+		change, err := w.relationService.GetRelationLifeSuspendedStatusChange(ctx, relationUUID)
+		if err != nil {
+			return params.RelationLifeSuspendedStatusWatchResult{
+				Error: apiservererrors.ServerError(err),
+			}, nil
+		}
+
+		return params.RelationLifeSuspendedStatusWatchResult{
+			Changes: []params.RelationLifeSuspendedStatusChange{
+				{
+					Key:             change.Key,
+					Life:            change.Life,
+					Suspended:       change.Suspended,
+					SuspendedReason: change.SuspendedReason,
+				},
+			},
+		}, nil
+	}
 }
 
 // srvOfferStatusWatcher defines the API wrapping a
