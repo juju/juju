@@ -16,6 +16,7 @@ import (
 
 type infoSuite struct {
 	linkLayerBaseSuite
+	relationCount int
 }
 
 func TestInfoSuite(t *testing.T) {
@@ -316,6 +317,154 @@ func (s *infoSuite) TestIsCaasUnit(c *tc.C) {
 	c.Assert(isCaasCaas, tc.Equals, true)
 }
 
+// TestGetUnitEgressSubnetsWithMultipleCIDRs tests retrieving egress subnets
+// when a unit has multiple relations with egress CIDRs.
+func (s *infoSuite) TestGetUnitEgressSubnetsWithMultipleCIDRs(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	charmUUID := s.addCharm(c)
+	spaceUUID := s.addSpace(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	endpoint1UUID := s.addApplicationEndpoint(c, appUUID, charmUUID, "endpoint1", spaceUUID)
+	endpoint2UUID := s.addApplicationEndpoint(c, appUUID, charmUUID, "endpoint2", spaceUUID)
+
+	relation1UUID := s.addRelation(c)
+	relation2UUID := s.addRelation(c)
+
+	relationEndpoint1UUID := s.addRelationEndpoint(c, relation1UUID, endpoint1UUID)
+	relationEndpoint2UUID := s.addRelationEndpoint(c, relation2UUID, endpoint2UUID)
+
+	s.addRelationUnit(c, relationEndpoint1UUID, string(unitUUID))
+	s.addRelationUnit(c, relationEndpoint2UUID, string(unitUUID))
+
+	// Add egress CIDRs.
+	s.addRelationNetworkEgress(c, relation1UUID, "10.0.1.0/24")
+	s.addRelationNetworkEgress(c, relation1UUID, "10.0.2.0/24")
+	s.addRelationNetworkEgress(c, relation2UUID, "10.0.3.0/24")
+
+	// Act
+	cidrs, err := s.state.getUnitEgressSubnets(c.Context(), string(unitUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cidrs, tc.SameContents, []string{"10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"})
+}
+
+// TestGetUnitEgressSubnetsWithNoRelations tests retrieving egress subnets when
+// a unit has no relations
+func (s *infoSuite) TestGetUnitEgressSubnetsWithNoRelations(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	charmUUID := s.addCharm(c)
+	spaceUUID := s.addSpace(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	cidrs, err := s.state.getUnitEgressSubnets(c.Context(), string(unitUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cidrs, tc.HasLen, 0)
+}
+
+// TestGetUnitEgressSubnetsWithRelationsButNoEgress tests retrieving egress
+// subnets when relations exist but have no egress CIDRs.
+func (s *infoSuite) TestGetUnitEgressSubnetsWithRelationsButNoEgress(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	charmUUID := s.addCharm(c)
+	spaceUUID := s.addSpace(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	endpointUUID := s.addApplicationEndpoint(c, appUUID, charmUUID, "endpoint1", spaceUUID)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID := s.addRelationEndpoint(c, relationUUID, endpointUUID)
+	s.addRelationUnit(c, relationEndpointUUID, string(unitUUID))
+
+	// Act
+	cidrs, err := s.state.getUnitEgressSubnets(c.Context(), string(unitUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cidrs, tc.HasLen, 0)
+}
+
+// TestGetUnitEgressSubnetsDeduplicated tests that duplicate CIDRs across
+// relations are deduplicated.
+func (s *infoSuite) TestGetUnitEgressSubnetsDeduplicated(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	charmUUID := s.addCharm(c)
+	spaceUUID := s.addSpace(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	endpoint1UUID := s.addApplicationEndpoint(c, appUUID, charmUUID, "endpoint1", spaceUUID)
+	endpoint2UUID := s.addApplicationEndpoint(c, appUUID, charmUUID, "endpoint2", spaceUUID)
+
+	relation1UUID := s.addRelation(c)
+	relation2UUID := s.addRelation(c)
+
+	relationEndpoint1UUID := s.addRelationEndpoint(c, relation1UUID, endpoint1UUID)
+	relationEndpoint2UUID := s.addRelationEndpoint(c, relation2UUID, endpoint2UUID)
+
+	s.addRelationUnit(c, relationEndpoint1UUID, string(unitUUID))
+	s.addRelationUnit(c, relationEndpoint2UUID, string(unitUUID))
+
+	// Add the same CIDR to both relations.
+	s.addRelationNetworkEgress(c, relation1UUID, "10.0.1.0/24")
+	s.addRelationNetworkEgress(c, relation2UUID, "10.0.1.0/24")
+
+	// Act
+	cidrs, err := s.state.getUnitEgressSubnets(c.Context(), string(unitUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cidrs, tc.HasLen, 1)
+	c.Check(cidrs, tc.DeepEquals, []string{"10.0.1.0/24"})
+}
+
+// TestGetUnitEndpointNetworksWithEgressSubnets tests the integration of egress subnets in GetUnitEndpointNetworks
+func (s *infoSuite) TestGetUnitEndpointNetworksWithEgressSubnets(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice)
+	spaceUUID := corenetwork.AlphaSpaceId.String()
+	cidr := "10.0.0.0/24"
+	subnetUUID := s.addSubnet(c, cidr, spaceUUID)
+	expectedAddr := "10.0.0.1"
+	s.addIPAddressWithSubnetAndScope(c, deviceUUID, nodeUUID, subnetUUID, expectedAddr, corenetwork.ScopeCloudLocal)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Add endpoint
+	endpointName := "endpoint1"
+	endpointUUID := s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, "")
+
+	// Add relation with egress
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID := s.addRelationEndpoint(c, relationUUID, endpointUUID)
+	s.addRelationUnit(c, relationEndpointUUID, string(unitUUID))
+	s.addRelationNetworkEgress(c, relationUUID, "192.168.1.0/24")
+	s.addRelationNetworkEgress(c, relationUUID, "192.168.2.0/24")
+
+	// Act
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(networks, tc.HasLen, 1)
+	c.Check(networks[0].EgressSubnets, tc.SameContents, []string{"192.168.1.0/24", "192.168.2.0/24"})
+	c.Check(networks[0].EndpointName, tc.Equals, endpointName)
+	c.Check(networks[0].IngressAddresses, tc.DeepEquals, []string{expectedAddr})
+}
+
 // Helper methods
 
 // addApplicationEndpoint creates a charm relation and an application endpoint
@@ -337,4 +486,34 @@ INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid, s
 VALUES (?, ?,?, ?)`,
 		appEndpointUUID, appUUID, relationUUID, spacePtr)
 	return appEndpointUUID
+}
+
+// addRelation creates a relation in the database, returning its UUID.
+func (s *infoSuite) addRelation(c *tc.C) string {
+	relationUUID := uuid.MustNewUUID().String()
+	s.relationCount++
+	s.query(c, `INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, 0, ?, 0)`,
+		relationUUID, s.relationCount)
+	return relationUUID
+}
+
+// addRelationEndpoint creates a relation_endpoint linking a relation to an application endpoint.
+func (s *infoSuite) addRelationEndpoint(c *tc.C, relationUUID, endpointUUID string) string {
+	relationEndpointUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)`,
+		relationEndpointUUID, relationUUID, endpointUUID)
+	return relationEndpointUUID
+}
+
+// addRelationUnit creates a relation_unit linking a relation endpoint to a unit.
+func (s *infoSuite) addRelationUnit(c *tc.C, relationEndpointUUID, unitUUID string) {
+	relationUnitUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)`,
+		relationUnitUUID, relationEndpointUUID, unitUUID)
+}
+
+// addRelationNetworkEgress adds an egress CIDR to a relation.
+func (s *infoSuite) addRelationNetworkEgress(c *tc.C, relationUUID, cidr string) {
+	s.query(c, `INSERT INTO relation_network_egress (relation_uuid, cidr) VALUES (?, ?)`,
+		relationUUID, cidr)
 }
