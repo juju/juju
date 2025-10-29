@@ -150,7 +150,7 @@ FOR EACH ROW
 	WHEN NEW.provision_scope_id = 1
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.net_node_uuid, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.net_node_uuid, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for storage attachment entity.
@@ -161,7 +161,7 @@ FOR EACH ROW
 	AND NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, NEW.net_node_uuid, DATETIME('now'));
+    VALUES (2, %[2]d, NEW.net_node_uuid, DATETIME('now', 'utc'));
 END;
 
 -- delete trigger for storage attachment entity. Note the use of the OLD value
@@ -172,7 +172,7 @@ FOR EACH ROW
 	WHEN OLD.provision_scope_id = 1
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.net_node_uuid, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.net_node_uuid, DATETIME('now', 'utc'));
 END;
 `,
 		storageAttachmentTable, namespace,
@@ -225,7 +225,7 @@ BEGIN
     SELECT 1,
            %[2]d,
            NEW.net_node_uuid,
-           DATETIME('now')
+           DATETIME('now', 'utc')
     FROM   storage_%[1]s s
     WHERE  1 == (SELECT COUNT(*)
                  FROM   storage_%[1]s_attachment
@@ -245,7 +245,7 @@ BEGIN
     SELECT DISTINCT 2,
            			%[2]d,
            			a.net_node_uuid,
-           			DATETIME('now')
+           			DATETIME('now', 'utc')
     FROM  storage_%[1]s_attachment a
     WHERE storage_%[1]s_uuid = NEW.uuid;
 END;
@@ -259,7 +259,7 @@ BEGIN
     SELECT DISTINCT 4,
            			%[2]d,
            			OLD.net_node_uuid,
-           			DATETIME('now')
+           			DATETIME('now', 'utc')
     FROM   storage_%[1]s s
     WHERE  0 == (SELECT COUNT(*)
                  FROM   storage_%[1]s_attachment
@@ -302,7 +302,7 @@ FOR EACH ROW
 	WHEN NEW.provision_scope_id = 0
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[3]d, NEW.%[2]s, DATETIME('now'));
+    VALUES (1, %[3]d, NEW.%[2]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for storage entity.
@@ -313,7 +313,7 @@ FOR EACH ROW
 	AND NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[3]d, NEW.%[2]s, DATETIME('now'));
+    VALUES (2, %[3]d, NEW.%[2]s, DATETIME('now', 'utc'));
 END;
 
 -- delete trigger for storage entity. Note the use of the OLD value in the
@@ -324,7 +324,7 @@ FOR EACH ROW
 	WHEN OLD.provision_scope_id = 0
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[3]d, OLD.%[2]s, DATETIME('now'));
+    VALUES (4, %[3]d, OLD.%[2]s, DATETIME('now', 'utc'));
 END;
 `,
 		storageTable, changeColumn, namespace,
@@ -352,7 +352,7 @@ WHEN
 	NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[1]d, NEW.uuid, DATETIME('now'));
+    VALUES (2, %[1]d, NEW.uuid, DATETIME('now', 'utc'));
 END;
 
 -- storage_attachment for delete.
@@ -360,7 +360,7 @@ CREATE TRIGGER trg_log_custom_storage_attachment_lifecycle_delete
 AFTER DELETE ON storage_attachment FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[1]d, OLD.uuid, DATETIME('now'));
+    VALUES (4, %[1]d, OLD.uuid, DATETIME('now', 'utc'));
 END;
 
 -- storage_instance_filesystem for insert.
@@ -368,9 +368,9 @@ CREATE TRIGGER trg_log_custom_storage_attachment_storage_instance_filesystem_ins
 AFTER INSERT ON storage_instance_filesystem FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_attachment sa
-	WHERE sa.storage_instance_uuid = NEW.storage_instance_uuid;
+    SELECT 1, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_attachment sa
+    WHERE sa.storage_instance_uuid = NEW.storage_instance_uuid;
 END;
 
 -- storage_instance_volume for insert.
@@ -378,9 +378,9 @@ CREATE TRIGGER trg_log_custom_storage_attachment_storage_instance_volume_insert
 AFTER INSERT ON storage_instance_volume FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_attachment sa
-	WHERE sa.storage_instance_uuid = NEW.storage_instance_uuid;
+    SELECT 1, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_attachment sa
+    WHERE sa.storage_instance_uuid = NEW.storage_instance_uuid;
 END;
 
 -- storage_volume_attachment for insert.
@@ -388,10 +388,10 @@ CREATE TRIGGER trg_log_custom_storage_attachment_storage_volume_attachment_inser
 AFTER INSERT ON storage_volume_attachment FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_instance_volume siv
-	JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
-	WHERE siv.storage_volume_uuid = NEW.storage_volume_uuid;
+    SELECT 1, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_instance_volume siv
+    JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
+    WHERE siv.storage_volume_uuid = NEW.storage_volume_uuid;
 END;
 
 -- storage_volume_attachment for update.
@@ -399,10 +399,10 @@ CREATE TRIGGER trg_log_custom_storage_attachment_storage_volume_attachment_updat
 AFTER UPDATE ON storage_volume_attachment FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 2, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_instance_volume siv
-	JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
-	WHERE siv.storage_volume_uuid = NEW.storage_volume_uuid;
+    SELECT 2, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_instance_volume siv
+    JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
+    WHERE siv.storage_volume_uuid = NEW.storage_volume_uuid;
 END;
 
 -- storage_volume_attachment for delete.
@@ -410,10 +410,10 @@ CREATE TRIGGER trg_log_custom_storage_attachment_storage_volume_attachment_delet
 AFTER DELETE ON storage_volume_attachment FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 4, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_instance_volume siv
-	JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
-	WHERE siv.storage_volume_uuid = OLD.storage_volume_uuid;
+    SELECT 4, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_instance_volume siv
+    JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
+    WHERE siv.storage_volume_uuid = OLD.storage_volume_uuid;
 END;
 
 -- storage_filesystem_attachment for insert.
@@ -421,10 +421,10 @@ CREATE TRIGGER trg_log_custom_storage_attachment_storage_filesystem_attachment_i
 AFTER INSERT ON storage_filesystem_attachment FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_instance_filesystem sif
-	JOIN storage_attachment sa ON sa.storage_instance_uuid = sif.storage_instance_uuid
-	WHERE sif.storage_filesystem_uuid = NEW.storage_filesystem_uuid;
+    SELECT 1, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_instance_filesystem sif
+    JOIN storage_attachment sa ON sa.storage_instance_uuid = sif.storage_instance_uuid
+    WHERE sif.storage_filesystem_uuid = NEW.storage_filesystem_uuid;
 END;
 
 -- storage_filesystem_attachment for update.
@@ -432,10 +432,10 @@ CREATE TRIGGER trg_log_custom_storage_attachment_storage_filesystem_attachment_u
 AFTER UPDATE ON storage_filesystem_attachment FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 2, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_instance_filesystem sif
-	JOIN storage_attachment sa ON sa.storage_instance_uuid = sif.storage_instance_uuid
-	WHERE sif.storage_filesystem_uuid = NEW.storage_filesystem_uuid;
+    SELECT 2, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_instance_filesystem sif
+    JOIN storage_attachment sa ON sa.storage_instance_uuid = sif.storage_instance_uuid
+    WHERE sif.storage_filesystem_uuid = NEW.storage_filesystem_uuid;
 END;
 
 -- storage_filesystem_attachment for delete.
@@ -443,10 +443,10 @@ CREATE TRIGGER trg_log_custom_storage_attachment_storage_filesystem_attachment_d
 AFTER DELETE ON storage_filesystem_attachment FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 4, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_instance_filesystem sif
-	JOIN storage_attachment sa ON sa.storage_instance_uuid = sif.storage_instance_uuid
-	WHERE sif.storage_filesystem_uuid = OLD.storage_filesystem_uuid;
+    SELECT 4, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_instance_filesystem sif
+    JOIN storage_attachment sa ON sa.storage_instance_uuid = sif.storage_instance_uuid
+    WHERE sif.storage_filesystem_uuid = OLD.storage_filesystem_uuid;
 END;
 
 -- block_device for update.
@@ -454,11 +454,11 @@ CREATE TRIGGER trg_log_custom_storage_attachment_block_device_update
 AFTER UPDATE ON block_device FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 2, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_volume_attachment sva
-	JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sva.storage_volume_uuid
-	JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
-	WHERE sva.block_device_uuid = NEW.uuid;
+    SELECT 2, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_volume_attachment sva
+    JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sva.storage_volume_uuid
+    JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
+    WHERE sva.block_device_uuid = NEW.uuid;
 END;
 
 -- block_device_link_device for insert.
@@ -466,11 +466,11 @@ CREATE TRIGGER trg_log_custom_storage_attachment_block_device_link_device_insert
 AFTER INSERT ON block_device_link_device FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_volume_attachment sva
-	JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sva.storage_volume_uuid
-	JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
-	WHERE sva.block_device_uuid = NEW.block_device_uuid;
+    SELECT 1, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_volume_attachment sva
+    JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sva.storage_volume_uuid
+    JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
+    WHERE sva.block_device_uuid = NEW.block_device_uuid;
 END;
 
 -- block_device_link_device for update.
@@ -478,11 +478,11 @@ CREATE TRIGGER trg_log_custom_storage_attachment_block_device_link_device_update
 AFTER UPDATE ON block_device_link_device FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 2, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_volume_attachment sva
-	JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sva.storage_volume_uuid
-	JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
-	WHERE sva.block_device_uuid = NEW.block_device_uuid;
+    SELECT 2, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_volume_attachment sva
+    JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sva.storage_volume_uuid
+    JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
+    WHERE sva.block_device_uuid = NEW.block_device_uuid;
 END;
 
 -- block_device_link_device for delete.
@@ -490,11 +490,11 @@ CREATE TRIGGER trg_log_custom_storage_attachment_block_device_link_device_delete
 AFTER DELETE ON block_device_link_device FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 4, %[1]d, sa.uuid, DATETIME('now')
-	FROM storage_volume_attachment sva
-	JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sva.storage_volume_uuid
-	JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
-	WHERE sva.block_device_uuid = OLD.block_device_uuid;
+    SELECT 4, %[1]d, sa.uuid, DATETIME('now', 'utc')
+    FROM storage_volume_attachment sva
+    JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sva.storage_volume_uuid
+    JOIN storage_attachment sa ON sa.storage_instance_uuid = siv.storage_instance_uuid
+    WHERE sva.block_device_uuid = OLD.block_device_uuid;
 END;
 `[1:], namespace)
 	return func() schema.Patch { return schema.MakePatch(stmt) }
@@ -518,7 +518,7 @@ CREATE TRIGGER trg_log_custom_operation_task_status_pending_insert
 AFTER INSERT ON operation_task_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, ots.task_uuid, DATETIME('now')
+    SELECT 1, %[1]d, ots.task_uuid, DATETIME('now', 'utc')
     FROM operation_task_status AS ots
     JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
     WHERE ots.task_uuid = NEW.task_uuid 
@@ -529,7 +529,7 @@ CREATE TRIGGER trg_log_custom_operation_task_status_pending_update
 AFTER UPDATE ON operation_task_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 2, %[1]d, ots.task_uuid, DATETIME('now')
+    SELECT 2, %[1]d, ots.task_uuid, DATETIME('now', 'utc')
     FROM operation_task_status AS ots
     JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
     WHERE ots.task_uuid = NEW.task_uuid 
@@ -554,7 +554,7 @@ CREATE TRIGGER trg_log_custom_operation_task_status_pending_or_aborting_insert
 AFTER INSERT ON operation_task_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, ots.task_uuid, DATETIME('now')
+    SELECT 1, %[1]d, ots.task_uuid, DATETIME('now', 'utc')
     FROM operation_task_status AS ots
     JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
     WHERE ots.task_uuid = NEW.task_uuid 
@@ -567,7 +567,7 @@ CREATE TRIGGER trg_log_custom_operation_task_status_pending_or_aborting_update
 AFTER UPDATE ON operation_task_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 2, %[1]d, ots.task_uuid, DATETIME('now')
+    SELECT 2, %[1]d, ots.task_uuid, DATETIME('now', 'utc')
     FROM operation_task_status AS ots
     JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
     WHERE ots.task_uuid = NEW.task_uuid 
@@ -596,7 +596,7 @@ CREATE TRIGGER trg_log_custom_relation_unit_insert
 AFTER INSERT ON relation_unit FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[1]d, NEW.relation_endpoint_uuid, DATETIME('now'));
+    VALUES (1, %[1]d, NEW.relation_endpoint_uuid, DATETIME('now', 'utc'));
 END;
 
 -- delete trigger for RelationUnit
@@ -604,7 +604,7 @@ CREATE TRIGGER trg_log_custom_relation_unit_delete
 AFTER DELETE ON relation_unit FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[1]d, OLD.relation_endpoint_uuid, DATETIME('now'));
+    VALUES (4, %[1]d, OLD.relation_endpoint_uuid, DATETIME('now', 'utc'));
 END;`, namespaceID))
 	}
 }
@@ -626,7 +626,7 @@ CREATE TRIGGER trg_log_custom_unit_agent_status_insert
 AFTER INSERT ON unit_agent_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, u.application_uuid, DATETIME('now')
+    SELECT 1, %[1]d, u.application_uuid, DATETIME('now', 'utc')
     FROM unit AS u
     WHERE u.uuid = NEW.unit_uuid;
 END;
@@ -636,7 +636,7 @@ CREATE TRIGGER trg_log_custom_unit_agent_status_update
 AFTER UPDATE ON unit_agent_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 2, %[1]d, u.application_uuid, DATETIME('now')
+    SELECT 2, %[1]d, u.application_uuid, DATETIME('now', 'utc')
     FROM unit AS u
     WHERE u.uuid = NEW.unit_uuid;
 END;
@@ -646,7 +646,7 @@ CREATE TRIGGER trg_log_custom_unit_agent_status_delete
 AFTER DELETE ON unit_agent_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 4, %[1]d, u.application_uuid, DATETIME('now')
+    SELECT 4, %[1]d, u.application_uuid, DATETIME('now', 'utc')
     FROM unit AS u
     WHERE u.uuid = OLD.unit_uuid;
 END;
@@ -671,7 +671,7 @@ CREATE TRIGGER trg_log_custom_unit_workload_status_insert
 AFTER INSERT ON unit_workload_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, u.application_uuid, DATETIME('now')
+    SELECT 1, %[1]d, u.application_uuid, DATETIME('now', 'utc')
     FROM unit AS u
     WHERE u.uuid = NEW.unit_uuid;
 END;
@@ -681,7 +681,7 @@ CREATE TRIGGER trg_log_custom_unit_workload_status_update
 AFTER UPDATE ON unit_workload_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 2, %[1]d, u.application_uuid, DATETIME('now')
+    SELECT 2, %[1]d, u.application_uuid, DATETIME('now', 'utc')
     FROM unit AS u
     WHERE u.uuid = NEW.unit_uuid;
 END;
@@ -691,7 +691,7 @@ CREATE TRIGGER trg_log_custom_unit_workload_status_delete
 AFTER DELETE ON unit_workload_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 4, %[1]d, u.application_uuid, DATETIME('now')
+    SELECT 4, %[1]d, u.application_uuid, DATETIME('now', 'utc')
     FROM unit AS u
     WHERE u.uuid = OLD.unit_uuid;
 END;
@@ -716,7 +716,7 @@ CREATE TRIGGER trg_log_custom_k8s_pod_status_insert
 AFTER INSERT ON k8s_pod_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, u.application_uuid, DATETIME('now')
+    SELECT 1, %[1]d, u.application_uuid, DATETIME('now', 'utc')
     FROM unit AS u
     WHERE u.uuid = NEW.unit_uuid;
 END;
@@ -726,7 +726,7 @@ CREATE TRIGGER trg_log_custom_k8s_pod_status_update
 AFTER UPDATE ON k8s_pod_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 2, %[1]d, u.application_uuid, DATETIME('now')
+    SELECT 2, %[1]d, u.application_uuid, DATETIME('now', 'utc')
     FROM unit AS u
     WHERE u.uuid = NEW.unit_uuid;
 END;
@@ -736,7 +736,7 @@ CREATE TRIGGER trg_log_custom_k8s_pod_status_delete
 AFTER DELETE ON k8s_pod_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 4, %[1]d, u.application_uuid, DATETIME('now')
+    SELECT 4, %[1]d, u.application_uuid, DATETIME('now', 'utc')
     FROM unit AS u
     WHERE u.uuid = OLD.unit_uuid;
 END;
