@@ -176,7 +176,8 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 			Channel: base.Channel.String(),
 			OSType:  osType,
 		},
-		Directive: parsedPlacement,
+		Directive:               parsedPlacement,
+		HardwareCharacteristics: p.HardwareCharacteristics,
 	})
 
 	return addedMachine.MachineName, err

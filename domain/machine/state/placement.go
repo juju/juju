@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
 	domainarchitecture "github.com/juju/juju/domain/application/architecture"
@@ -20,6 +21,7 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -41,11 +43,12 @@ func PlaceMachine(
 	switch args.Directive.Type {
 	case deployment.PlacementTypeUnset:
 		machineName, err := CreateMachine(ctx, tx, preparer, clock, CreateMachineArgs{
-			MachineUUID: args.MachineUUID.String(),
-			NetNodeUUID: args.NetNodeUUID.String(),
-			Platform:    args.Platform,
-			Nonce:       args.Nonce,
-			Constraints: args.Constraints,
+			MachineUUID:             args.MachineUUID.String(),
+			NetNodeUUID:             args.NetNodeUUID.String(),
+			Platform:                args.Platform,
+			Nonce:                   args.Nonce,
+			Constraints:             args.Constraints,
+			HardwareCharacteristics: args.HardwareCharacteristics,
 		})
 		return []coremachine.Name{machineName}, errors.Capture(err)
 
@@ -192,7 +195,7 @@ VALUES ($insertMachine.*);
 		return errors.Errorf("inserting machine constraints: %w", err)
 	}
 
-	if err := insertMachineInstance(ctx, tx, preparer, args.MachineUUID); err != nil {
+	if err := insertMachineInstance(ctx, tx, preparer, args.MachineUUID, args.HardwareCharacteristics); err != nil {
 		return errors.Errorf("inserting machine instance: %w", err)
 	}
 
@@ -303,21 +306,66 @@ func insertMachineInstance(
 	tx *sqlair.TX,
 	preparer domain.Preparer,
 	mUUID string,
+	hc instance.HardwareCharacteristics,
 ) error {
+	instData := instanceData{
+		MachineUUID:    mUUID,
+		LifeID:         0,
+		Arch:           hc.Arch,
+		Mem:            hc.Mem,
+		RootDisk:       hc.RootDisk,
+		RootDiskSource: hc.RootDiskSource,
+		CPUCores:       hc.CpuCores,
+		CPUPower:       hc.CpuPower,
+		VirtType:       hc.VirtType,
+	}
+
+	// Check if AZ name is set, if it is, retrieve its UUID and additionally set it when
+	// creating this instance.
+	if hc.AvailabilityZone != nil && *hc.AvailabilityZone != "" {
+		retrieveAZUUID := `
+SELECT &availabilityZoneName.uuid
+FROM   availability_zone
+WHERE  availability_zone.name = $availabilityZoneName.name
+`
+
+		azName := availabilityZoneName{Name: *hc.AvailabilityZone}
+		retrieveAZUUIDStmt, err := preparer.Prepare(retrieveAZUUID, azName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		var azUUID availabilityZoneName
+		if err := tx.Query(ctx, retrieveAZUUIDStmt, azName).Get(&azUUID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.Errorf(
+					"%w %q for machine %q",
+					networkerrors.AvailabilityZoneNotFound,
+					*hc.AvailabilityZone,
+					mUUID,
+				)
+			}
+			return errors.Errorf(
+				"retrieving availability zone %q for machine uuid %q: %w",
+				*hc.AvailabilityZone,
+				mUUID,
+				err,
+			)
+		}
+		instData.AvailabilityZoneUUID = &azUUID.UUID
+	}
+
 	// Prepare query for setting the machine cloud instance.
 	setInstanceData := `
 INSERT INTO machine_cloud_instance (*)
-VALUES ($machineInstanceUUID.*);
+VALUES ($instanceData.*);
 `
-	setInstanceDataStmt, err := preparer.Prepare(setInstanceData, machineInstanceUUID{})
+	setInstanceDataStmt, err := preparer.Prepare(setInstanceData, instanceData{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	return tx.Query(ctx, setInstanceDataStmt, machineInstanceUUID{
-		MachineUUID: mUUID,
-		LifeID:      0,
-	}).Run()
+	return tx.Query(ctx, setInstanceDataStmt, instData).Run()
 }
 
 func insertMachineStatus(

@@ -23,6 +23,9 @@ type CreateMachineArgs struct {
 	NetNodeUUID string
 	Platform    deployment.Platform
 	Nonce       *string
+	// HardwareCharacteristics contains the hardware characteristics for a
+	// manually provisioned machine.
+	HardwareCharacteristics instance.HardwareCharacteristics
 }
 
 // instanceData represents the struct to be inserted into the instance_data
@@ -133,11 +136,6 @@ type availabilityZoneName struct {
 
 type machineName struct {
 	Name string `db:"name"`
-}
-
-type machineInstanceUUID struct {
-	MachineUUID string `db:"machine_uuid"`
-	LifeID      int64  `db:"life_id"`
 }
 
 type count struct {
