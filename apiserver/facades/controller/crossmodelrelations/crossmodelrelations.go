@@ -558,13 +558,82 @@ func (api *CrossModelRelationsAPIv3) getRemoteRelationChangeEvent(
 	}, nil
 }
 
+// RelationStatusWatcher contains methods necessary to wrap
+// a NotifyWatcher to provide a common RelationStatusWatcher.
+type RelationStatusWatcher interface {
+	watcher.NotifyWatcher
+	RelationUUID() corerelation.UUID
+}
+
+type relationStatusWatcherShim struct {
+	watcher.NotifyWatcher
+	relationUUID corerelation.UUID
+}
+
+// RelationUUID returns the relation UUID for the RelationStatusWatcher.
+func (w *relationStatusWatcherShim) RelationUUID() corerelation.UUID {
+	return w.relationUUID
+}
+
 // WatchRelationsSuspendedStatus starts a RelationStatusWatcher for
 // watching the life and suspended status of a relation.
 func (api *CrossModelRelationsAPIv3) WatchRelationsSuspendedStatus(
 	ctx context.Context,
 	remoteRelationArgs params.RemoteEntityArgs,
 ) (params.RelationStatusWatchResults, error) {
-	return params.RelationStatusWatchResults{}, nil
+	results := params.RelationStatusWatchResults{
+		Results: make([]params.RelationLifeSuspendedStatusWatchResult, len(remoteRelationArgs.Args)),
+	}
+
+	for i, arg := range remoteRelationArgs.Args {
+		relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, arg.Token)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(
+				internalerrors.Errorf("getting relation key for %q: %w", arg.Token, err))
+			continue
+		}
+		relationTag := names.NewRelationTag(relationKey.String())
+
+		relationUUID := corerelation.UUID(arg.Token)
+		if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		w, err := api.relationService.WatchRelationLifeSuspendedStatus(ctx, relationUUID)
+
+		if errors.Is(err, relationerrors.RelationNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "relation %q not found", relationUUID)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		watcherID, _, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, &relationStatusWatcherShim{
+			NotifyWatcher: w,
+			relationUUID:  relationUUID,
+		})
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		relationChange, err := api.relationService.GetRelationLifeSuspendedStatusChange(ctx, relationUUID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i] = params.RelationLifeSuspendedStatusWatchResult{
+			RelationStatusWatcherId: watcherID,
+			Changes: []params.RelationLifeSuspendedStatusChange{
+				{
+					Key:             relationChange.Key,
+					Life:            relationChange.Life,
+					Suspended:       relationChange.Suspended,
+					SuspendedReason: relationChange.SuspendedReason,
+				},
+			},
+		}
+	}
+	return results, nil
 }
 
 type OfferWatcher interface {
