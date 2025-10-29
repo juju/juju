@@ -656,21 +656,21 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_application_status_insert",
 		"trg_log_application_status_update",
 
-		"trg_log_k8s_pod_status_delete",
-		"trg_log_k8s_pod_status_insert",
-		"trg_log_k8s_pod_status_update",
+		"trg_log_custom_k8s_pod_status_delete",
+		"trg_log_custom_k8s_pod_status_insert",
+		"trg_log_custom_k8s_pod_status_update",
 
 		"trg_log_offer_delete",
 		"trg_log_offer_insert",
 		"trg_log_offer_update",
 
-		"trg_log_unit_agent_status_delete",
-		"trg_log_unit_agent_status_insert",
-		"trg_log_unit_agent_status_update",
+		"trg_log_custom_unit_agent_status_delete",
+		"trg_log_custom_unit_agent_status_insert",
+		"trg_log_custom_unit_agent_status_update",
 
-		"trg_log_unit_workload_status_delete",
-		"trg_log_unit_workload_status_insert",
-		"trg_log_unit_workload_status_update",
+		"trg_log_custom_unit_workload_status_delete",
+		"trg_log_custom_unit_workload_status_insert",
+		"trg_log_custom_unit_workload_status_update",
 
 		"trg_relation_network_egress_immutable_update",
 		"trg_relation_network_ingress_immutable_update",

@@ -27,7 +27,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/operation-triggers.gen.go -package=triggers -tables=operation_task_log
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer,application_remote_consumer,relation_network_ingress,relation_network_egress
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/offer-triggers.gen.go -package=triggers -tables=offer
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/status-triggers.gen.go -package=triggers -tables=application_status,unit_agent_status,unit_workload_status,k8s_pod_status
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/status-triggers.gen.go -package=triggers -tables=application_status
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -56,6 +56,9 @@ const (
 	customNamespaceOperatingTaskStatusPending
 	customNamespaceOperatingTaskStatusPendingOrAborting
 	customNamespaceRelationUnitByEndpointUUID
+	customNamespaceUnitAgentStatus
+	customNamespaceUnitWorkloadStatus
+	customNamespaceK8sPodStatus
 )
 
 const (
@@ -98,9 +101,6 @@ const (
 	tableCrossModelRelationApplicationRemoteConsumers
 	tableOffer
 	tableApplicationStatus
-	tableUnitAgentStatus
-	tableUnitWorkloadStatus
-	tableK8sPodStatus
 	tableRelationNetworkIngress
 	tableRelationNetworkEgress
 )
@@ -185,9 +185,6 @@ func ModelDDL() *schema.Schema {
 			tableCrossModelRelationApplicationRemoteConsumers),
 		triggers.ChangeLogTriggersForOffer("uuid", tableOffer),
 		triggers.ChangeLogTriggersForApplicationStatus("application_uuid", tableApplicationStatus),
-		triggers.ChangeLogTriggersForUnitAgentStatus("unit_uuid", tableUnitAgentStatus),
-		triggers.ChangeLogTriggersForUnitWorkloadStatus("unit_uuid", tableUnitWorkloadStatus),
-		triggers.ChangeLogTriggersForK8sPodStatus("unit_uuid", tableK8sPodStatus),
 		triggers.ChangeLogTriggersForRelationNetworkIngress("relation_uuid", tableRelationNetworkIngress),
 		triggers.ChangeLogTriggersForRelationNetworkEgress("relation_uuid", tableRelationNetworkEgress),
 	)

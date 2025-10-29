@@ -235,10 +235,6 @@ type ModelState interface {
 	// specified offer belongs to.
 	GetApplicationUUIDForOffer(context.Context, string) (string, error)
 
-	// IsUnitForApplication returns true if the specified unit is a unit of the
-	// specified application.
-	IsUnitForApplication(ctx context.Context, unitUUID, applicationUUID string) (bool, error)
-
 	// NamespacesForWatchOfferStatus returns the namespace string identifiers
 	// for application status changes.
 	NamespacesForWatchOfferStatus() (offer, application, unitAgent, unitWorkload, unitPod string)

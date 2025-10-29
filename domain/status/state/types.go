@@ -17,10 +17,6 @@ import (
 	"github.com/juju/juju/domain/status"
 )
 
-type count struct {
-	Count int `db:"count"`
-}
-
 type applicationUUID struct {
 	UUID string `db:"uuid"`
 }

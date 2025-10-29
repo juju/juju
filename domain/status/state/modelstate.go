@@ -2363,44 +2363,10 @@ VALUES ($setMachineStatus.*)
 	})
 }
 
-// IsUnitForApplication returns true if the specified unit belongs to the
-// application.
-func (st *ModelState) IsUnitForApplication(ctx context.Context, uUUID, appUUID string) (bool, error) {
-	unitIdent := unitUUID{UnitUUID: uUUID}
-	applicationIdent := applicationUUID{UUID: appUUID}
-
-	db, err := st.DB(ctx)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	stmt, err := st.Prepare(`
-SELECT COUNT(*) AS &count.count FROM unit
-WHERE uuid = $unitUUID.uuid
-AND application_uuid = $applicationUUID.uuid;
-`, count{}, unitIdent, applicationIdent)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	var count count
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, unitIdent, applicationIdent).Get(&count); err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	return count.Count == 1, nil
-}
-
 // NamespacesForWatchOfferStatus returns the namespace string identifiers
 // for application status changes.
 func (s *ModelState) NamespacesForWatchOfferStatus() (offer, application, unitAgent, unitWorkload, unitPod string) {
-	return "offer", "application_status", "unit_agent_status", "unit_workload_status", "k8s_pod_status"
+	return "offer", "application_status", "custom_unit_agent_status", "custom_unit_workload_status", "custom_k8s_pod_status"
 }
 
 func encodeIPAddress(address machineSpaceAddress) (corenetwork.SpaceAddress, error) {
