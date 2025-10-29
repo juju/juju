@@ -11,19 +11,23 @@ import (
 
 	"github.com/juju/juju/core/semversion"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/testhelpers"
-	internaltesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+)
+
+var (
+	released            = domainagentbinary.AgentStreamReleased
+	agentStreamReleased = &released
 )
 
 type agentFinderSuite struct {
 	testhelpers.IsolationSuite
 
-	ctrlSt       *MockAgentFinderControllerState
-	modelSt      *MockAgentFinderControllerModelState
-	agentFinder  *MockSimpleStreamsAgentFinder
-	bootstrapEnv *MockBootstrapEnviron
+	ctrlSt                    *MockAgentFinderControllerState
+	modelSt                   *MockAgentFinderControllerModelState
+	ssAgentFinder             *MockAgentFinder
+	ctrlModelCacheAgentFinder *MockAgentFinder
+	bootstrapEnv              *MockBootstrapEnviron
 }
 
 // TestAgentFinderSuite runs the test methods in agentFinderSuite.
@@ -37,13 +41,19 @@ func (s *agentFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.ctrlSt = NewMockAgentFinderControllerState(ctrl)
 	s.modelSt = NewMockAgentFinderControllerModelState(ctrl)
-	s.agentFinder = NewMockSimpleStreamsAgentFinder(ctrl)
+	s.ssAgentFinder = NewMockAgentFinder(ctrl)
+	s.ctrlModelCacheAgentFinder = NewMockAgentFinder(ctrl)
 	s.bootstrapEnv = NewMockBootstrapEnviron(ctrl)
+
+	s.ssAgentFinder.EXPECT().Name().Return("SimpleStreamsAgentFinder")
+	s.ctrlModelCacheAgentFinder.EXPECT().Name().
+		Return("ControllerAndModelCacheAgentFinder")
 
 	c.Cleanup(func() {
 		s.ctrlSt = nil
 		s.modelSt = nil
-		s.agentFinder = nil
+		s.ssAgentFinder = nil
+		s.ctrlModelCacheAgentFinder = nil
 		s.bootstrapEnv = nil
 	})
 
@@ -57,7 +67,8 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitectures(c *tc.C) {
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 
 	version, err := semversion.Parse("4.0.7")
@@ -90,7 +101,8 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesWithMissingA
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 
 	version, err := semversion.Parse("4.0.7")
@@ -133,7 +145,8 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesFallbackToSi
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 
 	version, err := semversion.Parse("4.0.7")
@@ -165,34 +178,14 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesFallbackToSi
 	// We now have to resort to simplestreams.
 	gomock.InOrder(
 		// Look for amd64 agent.
-		s.agentFinder.EXPECT().GetProvider(gomock.Any()).
-			Return(s.bootstrapEnv, nil),
-		s.agentFinder.EXPECT().AgentBinaryFilter(gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major, version.Minor, []string{"released"}, coretools.Filter{Number: version, Arch: "amd64"}).
-			Return(coretools.List{&coretools.Tools{
-				Version: semversion.Binary{
-					Number:  version,
-					Release: "ubuntu",
-					Arch:    "amd64",
-				},
-				URL:    "url",
-				SHA256: "sha256",
-				Size:   1234,
-			}}, nil),
+		s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+			agentStreamReleased, coretools.Filter{Number: version, Arch: "amd64"}).
+			Return([]semversion.Number{version}, nil),
 
 		// Look for arm64 agent.
-		s.agentFinder.EXPECT().GetProvider(gomock.Any()).
-			Return(s.bootstrapEnv, nil),
-		s.agentFinder.EXPECT().AgentBinaryFilter(gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major, version.Minor, []string{"released"}, coretools.Filter{Number: version, Arch: "arm64"}).
-			Return(coretools.List{&coretools.Tools{
-				Version: semversion.Binary{
-					Number:  version,
-					Release: "ubuntu",
-					Arch:    "arm64",
-				},
-				URL:    "url",
-				SHA256: "sha256",
-				Size:   1234,
-			}}, nil),
+		s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+			agentStreamReleased, coretools.Filter{Number: version, Arch: "arm64"}).
+			Return([]semversion.Number{version}, nil),
 	)
 
 	ok, err := binaryFinder.HasBinariesForVersionAndArchitectures(
@@ -212,7 +205,8 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesNoneAvailabl
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 
 	version, err := semversion.Parse("4.0.7")
@@ -240,10 +234,9 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesNoneAvailabl
 
 	// We now have to resort to simplestreams.
 	// Look for amd64 agent. Unfortunately, it doesn't exist here.
-	s.agentFinder.EXPECT().GetProvider(gomock.Any()).
-		Return(s.bootstrapEnv, nil)
-	s.agentFinder.EXPECT().AgentBinaryFilter(gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major, version.Minor, []string{"released"}, coretools.Filter{Number: version, Arch: "amd64"}).
-		Return(coretools.List{}, nil)
+	s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		agentStreamReleased, coretools.Filter{Number: version, Arch: "amd64"}).
+		Return([]semversion.Number{}, nil)
 
 	ok, err := binaryFinder.HasBinariesForVersionAndArchitectures(
 		c.Context(),
@@ -262,7 +255,8 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitectures(c *tc
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 
 	version, err := semversion.Parse("4.0.7")
@@ -293,7 +287,8 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesWithMi
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 
 	version, err := semversion.Parse("4.0.7")
@@ -334,7 +329,8 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesWithDi
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 
 	version, err := semversion.Parse("4.0.7")
@@ -372,7 +368,8 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesFallba
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 
 	version, err := semversion.Parse("4.0.7")
@@ -401,34 +398,14 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesFallba
 	// We now have to resort to simplestreams.
 	gomock.InOrder(
 		// Look for amd64 agent.
-		s.agentFinder.EXPECT().GetProvider(gomock.Any()).
-			Return(s.bootstrapEnv, nil),
-		s.agentFinder.EXPECT().AgentBinaryFilter(gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major, version.Minor, []string{"released"}, coretools.Filter{Number: version, Arch: "amd64"}).
-			Return(coretools.List{&coretools.Tools{
-				Version: semversion.Binary{
-					Number:  version,
-					Release: "ubuntu",
-					Arch:    "amd64",
-				},
-				URL:    "url",
-				SHA256: "sha256",
-				Size:   1234,
-			}}, nil),
+		s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+			agentStreamReleased, coretools.Filter{Number: version, Arch: "amd64"}).
+			Return([]semversion.Number{version}, nil),
 
 		// Look for arm64 agent.
-		s.agentFinder.EXPECT().GetProvider(gomock.Any()).
-			Return(s.bootstrapEnv, nil),
-		s.agentFinder.EXPECT().AgentBinaryFilter(gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major, version.Minor, []string{"released"}, coretools.Filter{Number: version, Arch: "arm64"}).
-			Return(coretools.List{&coretools.Tools{
-				Version: semversion.Binary{
-					Number:  version,
-					Release: "ubuntu",
-					Arch:    "arm64",
-				},
-				URL:    "url",
-				SHA256: "sha256",
-				Size:   1234,
-			}}, nil),
+		s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+			agentStreamReleased, coretools.Filter{Number: version, Arch: "arm64"}).
+			Return([]semversion.Number{version}, nil),
 	)
 
 	ok, err := binaryFinder.HasBinariesForVersionStreamAndArchitectures(
@@ -450,7 +427,8 @@ func (s *agentFinderSuite) TestTestHasBinariesForVersionStreamAndArchitecturesNo
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 
 	version, err := semversion.Parse("4.0.7")
@@ -476,10 +454,9 @@ func (s *agentFinderSuite) TestTestHasBinariesForVersionStreamAndArchitecturesNo
 
 	// We now have to resort to simplestreams.
 	// Look for amd64 agent. Unfortunately, it doesn't exist here.
-	s.agentFinder.EXPECT().GetProvider(gomock.Any()).
-		Return(s.bootstrapEnv, nil)
-	s.agentFinder.EXPECT().AgentBinaryFilter(gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major, version.Minor, []string{"released"}, coretools.Filter{Number: version, Arch: "amd64"}).
-		Return(coretools.List{}, nil)
+	s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		agentStreamReleased, coretools.Filter{Number: version, Arch: "amd64"}).
+		Return([]semversion.Number{}, nil)
 
 	ok, err := binaryFinder.HasBinariesForVersionStreamAndArchitectures(
 		c.Context(),
@@ -500,61 +477,102 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailable(c *tc.C) {
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).
 		Return(version, nil)
-	s.agentFinder.EXPECT().GetProvider(gomock.Any()).
-		Return(s.bootstrapEnv, nil)
-	modelAttrs := internaltesting.FakeConfig().Merge(internaltesting.Attrs{
-		"agent-stream": "released",
-		"development":  true,
-	})
-	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
-	c.Assert(err, tc.ErrorIsNil)
-	s.bootstrapEnv.EXPECT().Config().Return(modelCfg)
-	s.agentFinder.EXPECT().GetPreferredSimpleStreams(&version, true, "released").
-		Return([]string{"released"})
 	anotherVersion, err := semversion.Parse("4.0.9")
 	c.Assert(err, tc.ErrorIsNil)
 	highestVersion, err := semversion.Parse("4.0.10")
 	c.Assert(err, tc.ErrorIsNil)
-	s.agentFinder.EXPECT().AgentBinaryFilter(gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major, version.Minor, []string{"released"}, coretools.Filter{}).
-		Return(coretools.List{
-			&coretools.Tools{
-				Version: semversion.Binary{
-					Number:  version,
-					Release: "ubuntu",
-					Arch:    "amd64",
-				},
-				URL:    "url",
-				SHA256: "sha256-1",
-				Size:   123,
-			},
+	s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		nil, coretools.Filter{}).Return(
+		[]semversion.Number{
+			version,
 			// This one is the highest patch version.
-			&coretools.Tools{
-				Version: semversion.Binary{
-					Number:  highestVersion,
-					Release: "ubuntu",
-					Arch:    "amd64",
-				},
-				URL:    "url",
-				SHA256: "sha256-3",
-				Size:   123,
-			},
-			&coretools.Tools{
-				Version: semversion.Binary{
-					Number:  anotherVersion,
-					Release: "ubuntu",
-					Arch:    "amd64",
-				},
-				URL:    "url",
-				SHA256: "sha256-2",
-				Size:   123,
-			},
+			highestVersion,
+			anotherVersion,
+		}, nil)
+	s.ctrlModelCacheAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		nil, coretools.Filter{}).Return(
+		[]semversion.Number{
+			version,
+		}, nil)
+
+	highestPatch, err := binaryFinder.GetHighestPatchVersionAvailable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(highestPatch, tc.DeepEquals, highestVersion)
+}
+
+// TestGetHighestPatchVersionAvailableFromSimpleStreams tests getting the highest patch version
+// from simplestreams when controllerandmodel cache returns empty.
+func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableFromSimpleStreams(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	binaryFinder := NewStreamAgentBinaryFinder(
+		s.ctrlSt,
+		s.modelSt,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
+	)
+	version, err := semversion.Parse("4.0.7")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).
+		Return(version, nil)
+	anotherVersion, err := semversion.Parse("4.0.9")
+	c.Assert(err, tc.ErrorIsNil)
+	highestVersion, err := semversion.Parse("4.0.10")
+	c.Assert(err, tc.ErrorIsNil)
+	s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		nil, coretools.Filter{}).Return(
+		[]semversion.Number{
+			version,
+			// This one is the highest patch version.
+			highestVersion,
+			anotherVersion,
+		}, nil)
+	s.ctrlModelCacheAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		nil, coretools.Filter{}).Return(
+		[]semversion.Number{}, nil)
+
+	highestPatch, err := binaryFinder.GetHighestPatchVersionAvailable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(highestPatch, tc.DeepEquals, highestVersion)
+}
+
+// TestGetHighestPatchVersionAvailableFromCache tests getting the highest patch version
+// from controllerandmodel cache when simplestreams returns empty.
+func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableFromCache(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	binaryFinder := NewStreamAgentBinaryFinder(
+		s.ctrlSt,
+		s.modelSt,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
+	)
+	version, err := semversion.Parse("4.0.7")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).
+		Return(version, nil)
+	anotherVersion, err := semversion.Parse("4.0.9")
+	c.Assert(err, tc.ErrorIsNil)
+	highestVersion, err := semversion.Parse("4.0.10")
+	c.Assert(err, tc.ErrorIsNil)
+	s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		nil, coretools.Filter{}).Return(
+		[]semversion.Number{}, nil)
+	s.ctrlModelCacheAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		nil, coretools.Filter{}).Return(
+		[]semversion.Number{
+			version,
+			// This one is the highest patch version.
+			highestVersion,
+			anotherVersion,
 		}, nil)
 
 	highestPatch, err := binaryFinder.GetHighestPatchVersionAvailable(c.Context())
@@ -569,29 +587,20 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableNoBinariesFound(c 
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).
 		Return(version, nil)
-	s.agentFinder.EXPECT().GetProvider(gomock.Any()).
-		Return(s.bootstrapEnv, nil)
-	modelAttrs := internaltesting.FakeConfig().Merge(internaltesting.Attrs{
-		"agent-stream": "released",
-		"development":  true,
-	})
-	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
-	c.Assert(err, tc.ErrorIsNil)
-	s.bootstrapEnv.EXPECT().Config().Return(modelCfg)
-	s.agentFinder.EXPECT().GetPreferredSimpleStreams(&version, true, "released").
-		Return([]string{"released"})
-
-	s.agentFinder.EXPECT().AgentBinaryFilter(
-		gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major,
-		version.Minor, []string{"released"}, coretools.Filter{},
-	).Return(coretools.List{}, nil)
+	s.ssAgentFinder.EXPECT().SearchForAgentVersions(
+		gomock.Any(), version, nil, coretools.Filter{},
+	).Return([]semversion.Number{}, nil)
+	s.ctrlModelCacheAgentFinder.EXPECT().SearchForAgentVersions(
+		gomock.Any(), version, nil, coretools.Filter{},
+	).Return([]semversion.Number{}, nil)
 
 	_, err = binaryFinder.GetHighestPatchVersionAvailable(c.Context())
 	c.Assert(err, tc.ErrorMatches, "no binary agent found for version 4.0.7")
@@ -604,53 +613,88 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableForStream(c *tc.C)
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).
 		Return(version, nil)
-	s.agentFinder.EXPECT().GetProvider(gomock.Any()).
-		Return(s.bootstrapEnv, nil)
 	anotherVersion, err := semversion.Parse("4.0.9")
 	c.Assert(err, tc.ErrorIsNil)
 	highestVersion, err := semversion.Parse("4.0.10")
 	c.Assert(err, tc.ErrorIsNil)
-	s.agentFinder.EXPECT().AgentBinaryFilter(gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major, version.Minor, []string{"released"}, coretools.Filter{}).
-		Return(coretools.List{
-			&coretools.Tools{
-				Version: semversion.Binary{
-					Number:  version,
-					Release: "ubuntu",
-					Arch:    "amd64",
-				},
-				URL:    "url",
-				SHA256: "sha256-1",
-				Size:   123,
-			},
-			// This one is the highest patch version.
-			&coretools.Tools{
-				Version: semversion.Binary{
-					Number:  highestVersion,
-					Release: "ubuntu",
-					Arch:    "amd64",
-				},
-				URL:    "url",
-				SHA256: "sha256-3",
-				Size:   123,
-			},
-			&coretools.Tools{
-				Version: semversion.Binary{
-					Number:  anotherVersion,
-					Release: "ubuntu",
-					Arch:    "amd64",
-				},
-				URL:    "url",
-				SHA256: "sha256-2",
-				Size:   123,
-			},
-		}, nil)
+	s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		agentStreamReleased, coretools.Filter{}).
+		Return([]semversion.Number{version, highestVersion, anotherVersion}, nil)
+	s.ctrlModelCacheAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		agentStreamReleased, coretools.Filter{}).
+		Return([]semversion.Number{anotherVersion}, nil)
+
+	highestPatch, err := binaryFinder.GetHighestPatchVersionAvailableForStream(c.Context(), domainagentbinary.AgentStreamReleased)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(highestPatch, tc.DeepEquals, highestVersion)
+}
+
+// TestGetHighestPatchVersionAvailableForStreamFromSimpleStreams is similar to
+// TestGetHighestPatchVersionAvailableFromSimpleStreams
+// but here we supply a stream in the function under test.
+func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableForStreamFromSimpleStreams(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	binaryFinder := NewStreamAgentBinaryFinder(
+		s.ctrlSt,
+		s.modelSt,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
+	)
+	version, err := semversion.Parse("4.0.7")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).
+		Return(version, nil)
+	anotherVersion, err := semversion.Parse("4.0.9")
+	c.Assert(err, tc.ErrorIsNil)
+	highestVersion, err := semversion.Parse("4.0.10")
+	c.Assert(err, tc.ErrorIsNil)
+	s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		agentStreamReleased, coretools.Filter{}).
+		Return([]semversion.Number{version, highestVersion, anotherVersion}, nil)
+	s.ctrlModelCacheAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		agentStreamReleased, coretools.Filter{}).
+		Return([]semversion.Number{}, nil)
+
+	highestPatch, err := binaryFinder.GetHighestPatchVersionAvailableForStream(c.Context(), domainagentbinary.AgentStreamReleased)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(highestPatch, tc.DeepEquals, highestVersion)
+}
+
+// TestGetHighestPatchVersionAvailableForStreamFromCache is similar to
+// TestGetHighestPatchVersionAvailableFromCache
+// but here we supply a stream in the function under test.
+func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableForStreamFromCache(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	binaryFinder := NewStreamAgentBinaryFinder(
+		s.ctrlSt,
+		s.modelSt,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
+	)
+	version, err := semversion.Parse("4.0.7")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).
+		Return(version, nil)
+	anotherVersion, err := semversion.Parse("4.0.9")
+	c.Assert(err, tc.ErrorIsNil)
+	highestVersion, err := semversion.Parse("4.0.10")
+	c.Assert(err, tc.ErrorIsNil)
+	s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		agentStreamReleased, coretools.Filter{}).
+		Return([]semversion.Number{}, nil)
+	s.ctrlModelCacheAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		agentStreamReleased, coretools.Filter{}).
+		Return([]semversion.Number{version, highestVersion, anotherVersion}, nil)
 
 	highestPatch, err := binaryFinder.GetHighestPatchVersionAvailableForStream(c.Context(), domainagentbinary.AgentStreamReleased)
 	c.Assert(err, tc.ErrorIsNil)
@@ -664,17 +708,20 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableForStreamNoBinarie
 	binaryFinder := NewStreamAgentBinaryFinder(
 		s.ctrlSt,
 		s.modelSt,
-		s.agentFinder,
+		s.ssAgentFinder,
+		s.ctrlModelCacheAgentFinder,
 	)
 	version, err := semversion.Parse("4.0.7")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).
 		Return(version, nil)
-	s.agentFinder.EXPECT().GetProvider(gomock.Any()).
-		Return(s.bootstrapEnv, nil)
-	s.agentFinder.EXPECT().AgentBinaryFilter(gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major, version.Minor, []string{"released"}, coretools.Filter{}).
-		Return(coretools.List{}, nil)
+	s.ssAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		agentStreamReleased, coretools.Filter{}).
+		Return([]semversion.Number{}, nil)
+	s.ctrlModelCacheAgentFinder.EXPECT().SearchForAgentVersions(gomock.Any(), version,
+		agentStreamReleased, coretools.Filter{}).
+		Return([]semversion.Number{}, nil)
 
 	_, err = binaryFinder.GetHighestPatchVersionAvailableForStream(c.Context(), domainagentbinary.AgentStreamReleased)
 	c.Assert(err, tc.ErrorMatches, "no binary agent found for version 4.0.7")
