@@ -708,6 +708,10 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(ctx context.Con
 }
 
 func (api *CrossModelRelationsAPIv3) getSecretChanges(ctx context.Context, uriStr []string) ([]params.SecretRevisionChange, error) {
+	// Secret api does the right thing, but no need to call it unnecessarily.
+	if len(uriStr) == 0 {
+		return nil, nil
+	}
 	uris := make([]*secrets.URI, len(uriStr))
 	for i, s := range uriStr {
 		uri, err := secrets.ParseURI(s)

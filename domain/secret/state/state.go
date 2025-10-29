@@ -1215,6 +1215,9 @@ WHERE  sr.secret_id = $secretInfo.secret_id
 // GetLatestRevisions returns the latest secret revisions for the specified URIs, keyed on secret ID.
 // An error satisfying [secreterrors.SecretNotFound] is return if any of the secreta do not exist.
 func (st State) GetLatestRevisions(ctx context.Context, uris []*coresecrets.URI) (map[string]int, error) {
+	if len(uris) == 0 {
+		return nil, nil
+	}
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1240,10 +1243,10 @@ GROUP BY sr.secret_id
 	var latestRevisions []lastestSecretRevision
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, uriStr).GetAll(&latestRevisions)
-		if err != nil {
-			return errors.Capture(err)
+		if err == nil || errors.Is(err, sqlair.ErrNoRows) {
+			return nil
 		}
-		return nil
+		return errors.Capture(err)
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}

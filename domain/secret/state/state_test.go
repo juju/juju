@@ -300,6 +300,14 @@ func (s *stateSuite) TestGetLatestRevisionsSomeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
 }
 
+func (s *stateSuite) TestGetLatestRevisionsNone(c *tc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	got, err := st.GetLatestRevisions(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 0)
+}
+
 func (s *stateSuite) TestGetRotatePolicy(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
