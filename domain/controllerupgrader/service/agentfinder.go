@@ -32,6 +32,13 @@ type AgentFinderControllerState interface {
 		architectures []agentbinary.Architecture,
 		stream agentbinary.Stream,
 	) (map[agentbinary.Architecture]bool, error)
+
+	// GetAgentVersionsWithStream is responsible for searching the available
+	// agent versions that are cached in the controller.
+	GetAgentVersionsWithStream(
+		ctx context.Context,
+		stream *agentbinary.Stream,
+	) ([]semversion.Number, error)
 }
 
 // AgentFinderControllerModelState defines the interface for interacting with the
@@ -47,6 +54,13 @@ type AgentFinderControllerModelState interface {
 
 	// GetModelAgentStream returns the currently used stream for the agent.
 	GetModelAgentStream(ctx context.Context) (agentbinary.Stream, error)
+
+	// GetAgentVersionsWithStream is responsible for searching the available
+	// agent versions that are cached in the model.
+	GetAgentVersionsWithStream(
+		ctx context.Context,
+		stream *agentbinary.Stream,
+	) ([]semversion.Number, error)
 }
 
 type GetPreferredSimpleStreamsFunc func(
