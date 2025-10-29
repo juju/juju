@@ -287,6 +287,47 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeWithObliterate(c 
 	c.Check(volumeObliterate, tc.IsTrue)
 }
 
+func (s *storageSuite) TestGetStorageInstanceLifeNotFound(c *tc.C) {
+	siUUID := "some-storage-instance-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetStorageInstanceLife(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
+}
+
+func (s *storageSuite) TestGetStorageInstanceLifeAlive(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetStorageInstanceLife(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.DeepEquals, life.Alive)
+}
+
+func (s *storageSuite) TestGetStorageInstanceLifeDying(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	s.setStorageInstanceLife(c, siUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetStorageInstanceLife(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.DeepEquals, life.Dying)
+}
+
+func (s *storageSuite) TestGetStorageInstanceLifeDead(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	s.setStorageInstanceLife(c, siUUID, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetStorageInstanceLife(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.DeepEquals, life.Dead)
+}
+
 func (s *storageSuite) TestGetVolumeLife(c *tc.C) {
 	volUUID := s.addVolume(c)
 
@@ -884,6 +925,29 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 	c.Assert(err, tc.ErrorIsNil)
 
 	return storageInstance, storageAttachment
+}
+
+func (s *storageSuite) addStorageInstance(c *tc.C) string {
+	ctx := c.Context()
+
+	charm := "some-charm-name"
+
+	storagePool := "some-storage-pool-uuid"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+		storagePool, "loop", "loop")
+	c.Assert(err, tc.ErrorIsNil)
+
+	storageInstance := "some-storage-instance-uuid"
+	_, err = s.DB().Exec(`
+INSERT INTO storage_instance (
+    uuid, storage_id, storage_kind_id, storage_pool_uuid, requested_size_mib,
+    charm_name, storage_name, life_id
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		storageInstance, charm+"/0", 1, storagePool, 100, charm, "storage", 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return storageInstance
 }
 
 func (s *storageSuite) addVolume(c *tc.C) string {

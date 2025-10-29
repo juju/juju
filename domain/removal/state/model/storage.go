@@ -512,6 +512,48 @@ WHERE  storage_instance_uuid = $entityUUID.uuid`, input, count{})
 
 	return cascaded, nil
 }
+
+// GetStorageInstanceLife returns the life of the storage instance with the
+// input UUID.
+//
+// The following errors may be returned:
+// - [storageerrors.StorageInstanceNotFound] if the storage instance no longer
+// exists in the model.
+func (st *State) GetStorageInstanceLife(
+	ctx context.Context, siUUID string,
+) (life.Life, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var saLife entityLife
+	input := entityUUID{UUID: siUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   storage_instance
+WHERE  uuid = $entityUUID.uuid`, saLife, input)
+	if err != nil {
+		return -1, errors.Errorf("preparing storage instance life query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, input).Get(&saLife)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageerrors.StorageInstanceNotFound
+		} else if err != nil {
+			return errors.Errorf("running storage instance life query: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	return life.Life(saLife.Life), nil
+}
 // GetVolumeLife returns the life of the volume with the input UUID.
 //
 // The following errors may be returned:
