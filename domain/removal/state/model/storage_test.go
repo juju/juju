@@ -125,6 +125,41 @@ func (s *storageSuite) TestGetStorageAttachmentLifeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
+func (s *storageSuite) TestEnsureStorageAttachmentDeadCascadeNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	saUUID := "some-storage-attachment-uuid"
+	_, err := st.EnsureStorageAttachmentDeadCascade(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
+}
+
+func (s *storageSuite) TestEnsureStorageAttachmentDeadCascade(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	siUUID, saUUID := s.addAppUnitStorage(c)
+	volUUID, vaUUID, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+	fsUUID, fsaUUID := s.addAttachedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	s.setStorageAttachmentLife(c, saUUID, 1)
+
+	cascaded, err := st.EnsureStorageAttachmentDeadCascade(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals,
+		internal.CascadedStorageProvisionedAttachmentLives{
+			FileSystemAttachmentUUIDs: []string{fsaUUID},
+			VolumeAttachmentUUIDs:     []string{vaUUID},
+			VolumeAttachmentPlanUUIDs: []string{vapUUID},
+		},
+	)
+
+	res := s.DB().QueryRow(
+		"SELECT life_id FROM storage_attachment WHERE uuid = ?", saUUID)
+	var lifeId int
+	c.Assert(res.Scan(&lifeId), tc.ErrorIsNil)
+	c.Check(lifeId, tc.Equals, 2)
+}
+
 func (s *storageSuite) TestDeleteStorageAttachmentSuccess(c *tc.C) {
 	siUUID, saUUID := s.addAppUnitStorage(c)
 
@@ -883,5 +918,29 @@ func (s *storageSuite) setStorageAttachmentDead(c *tc.C, saUUID string) {
 		"UPDATE storage_attachment SET life_id = 1 WHERE uuid = ?",
 		saUUID,
 	)
+}
+
+func (s *storageSuite) setStorageAttachmentLife(
+	c *tc.C, saUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_attachment SET life_id = ? WHERE uuid = ?", lifeId, saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) addStorageInstanceVolume(
+	c *tc.C, siUUID, volUUID string,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES (?, ?)`, siUUID, volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) addStorageInstanceFilesystem(
+	c *tc.C, siUUID, fsUUID string,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
+VALUES (?, ?)`, siUUID, fsUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }

@@ -31,6 +31,7 @@ import (
 type StorageAPI struct {
 	blockDeviceService         BlockDeviceService
 	applicationService         ApplicationService
+	removalService             RemovalService
 	storageProvisioningService StorageProvisioningService
 	watcherRegistry            facade.WatcherRegistry
 	accessUnit                 common.GetAuthFunc
@@ -40,6 +41,7 @@ type StorageAPI struct {
 func newStorageAPI(
 	blockDeviceService BlockDeviceService,
 	applicationService ApplicationService,
+	removalService RemovalService,
 	storageProvisioningService StorageProvisioningService,
 	watcherRegistry facade.WatcherRegistry,
 	accessUnit common.GetAuthFunc,
@@ -48,6 +50,7 @@ func newStorageAPI(
 	return &StorageAPI{
 		blockDeviceService:         blockDeviceService,
 		applicationService:         applicationService,
+		removalService:             removalService,
 		storageProvisioningService: storageProvisioningService,
 		watcherRegistry:            watcherRegistry,
 		accessUnit:                 accessUnit,
@@ -146,6 +149,8 @@ func (s *StorageAPI) DestroyUnitStorageAttachments(ctx context.Context, args par
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
+	// NOTE: this is a no-op since the storage attachment goes to dying through
+	// the cascade removal of a unit.
 	return result, nil
 }
 
@@ -488,8 +493,75 @@ func (s *StorageAPI) WatchStorageAttachments(ctx context.Context, args params.St
 // RemoveStorageAttachments removes the specified storage
 // attachments from state.
 func (s *StorageAPI) RemoveStorageAttachments(ctx context.Context, args params.StorageAttachmentIds) (params.ErrorResults, error) {
+	canAccess, err := s.accessUnit(ctx)
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+
+	one := func(id params.StorageAttachmentId) error {
+		unitTag, err := names.ParseUnitTag(id.UnitTag)
+		if err != nil {
+			return internalerrors.Errorf(
+				"parsing unit tag %q: %w", id.UnitTag, err,
+			)
+		}
+		if !canAccess(unitTag) {
+			return apiservererrors.ErrPerm
+		}
+		storageTag, err := names.ParseStorageTag(id.StorageTag)
+		if err != nil {
+			return internalerrors.Errorf(
+				"parsing storage tag %q: %w", id.StorageTag, err,
+			)
+		}
+
+		unitUUID, err := s.getUnitUUID(ctx, unitTag)
+		if err != nil {
+			return internalerrors.Capture(err)
+		}
+		uuid, err := s.storageProvisioningService.GetStorageAttachmentUUIDForUnit(
+			ctx, storageTag.Id(), unitUUID)
+		switch {
+		case errors.Is(err, domainstorageerrors.StorageAttachmentNotFound):
+			// Storage attachment was already removed.
+			return nil
+		case errors.Is(err, applicationerrors.UnitNotFound):
+			return internalerrors.Errorf(
+				"unit %q not found", unitTag.Id(),
+			).Add(coreerrors.NotFound)
+		case errors.Is(err, domainstorageerrors.StorageInstanceNotFound):
+			return internalerrors.Errorf(
+				"storage instance not found for %q %q",
+				storageTag.Id(), unitTag.Id(),
+			).Add(coreerrors.NotFound)
+		case err != nil:
+			return internalerrors.Errorf(
+				"getting storage attachment uuid for %q unit %q: %w",
+				storageTag.Id(), id.UnitTag, err,
+			)
+		}
+
+		err = s.removalService.MarkStorageAttachmentAsDead(ctx, uuid)
+		if errors.Is(err, domainstorageerrors.StorageAttachmentNotFound) {
+			// Storage attachment was already removed.
+			return nil
+		} else if err != nil {
+			return internalerrors.Errorf(
+				"marking storage attachment for %q unit %q as dead: %w",
+				storageTag.Id(), id.UnitTag, err,
+			)
+		}
+		return nil
+	}
+
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Ids)),
+	}
+	for i, id := range args.Ids {
+		err := one(id)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return results, nil
 }

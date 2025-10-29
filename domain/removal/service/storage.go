@@ -70,6 +70,13 @@ type StorageState interface {
 	// with the input UUID.
 	GetStorageAttachmentLife(ctx context.Context, rUUID string) (life.Life, error)
 
+	// EnsureStorageAttachmentDeadCascade ensures that the storage attachment is
+	// dead and that all filesystem attachments, volume attachments and volume
+	// attachment plans are dying.
+	EnsureStorageAttachmentDeadCascade(
+		ctx context.Context, uuid string,
+	) (internal.CascadedStorageProvisionedAttachmentLives, error)
+
 	// DeleteStorageAttachment removes a unit storage attachment from the
 	// database completely. If the unit attached to the storage was its owner,
 	// then that record is deleted too.
@@ -105,6 +112,19 @@ type StorageState interface {
 	// attachment indicated by the supplied UUID.
 	MarkFilesystemAttachmentAsDead(ctx context.Context, rUUID string) error
 
+	// DeleteFilesystemAttachment removes the filesystem attachment with the
+	// input UUID.
+	DeleteFilesystemAttachment(ctx context.Context, fsaUUID string) error
+
+	// FilesystemAttachmentScheduleRemoval schedules a removal job for the
+	// filesystem attachment with the input UUID, qualified with the input force
+	// boolean.
+	FilesystemAttachmentScheduleRemoval(
+		ctx context.Context,
+		removalUUID, fsaUUID string,
+		force bool, when time.Time,
+	) error
+
 	// GetVolumeAttachmentLife returns the life of the volume attachment
 	// indicated by the supplied UUID.
 	GetVolumeAttachmentLife(
@@ -115,6 +135,17 @@ type StorageState interface {
 	// attachment indicated by the supplied UUID.
 	MarkVolumeAttachmentAsDead(ctx context.Context, rUUID string) error
 
+	// DeleteVolumeAttachment removes the volume attachment with the input UUID.
+	DeleteVolumeAttachment(ctx context.Context, vaUUID string) error
+
+	// VolumeAttachmentScheduleRemoval schedules a removal job for the volume
+	// attachment with the input UUID, qualified with the input force boolean.
+	VolumeAttachmentScheduleRemoval(
+		ctx context.Context,
+		removalUUID, vaUUID string,
+		force bool, when time.Time,
+	) error
+
 	// GetVolumeAttachmentPlanLife returns the life of the volume attachment
 	// plan indicated by the supplied UUID.
 	GetVolumeAttachmentPlanLife(
@@ -124,6 +155,19 @@ type StorageState interface {
 	// MarkVolumeAttachmentPlanAsDead updates the life to dead of the volume
 	// attachment plan indicated by the supplied UUID.
 	MarkVolumeAttachmentPlanAsDead(ctx context.Context, rUUID string) error
+
+	// DeleteVolumeAttachmentPlan removes the volume attachment plan with the
+	// input UUID.
+	DeleteVolumeAttachmentPlan(ctx context.Context, vapUUID string) error
+
+	// VolumeAttachmentPlanScheduleRemoval schedules a removal job for the
+	// volume attachment plan with the input UUID, qualified with the input
+	// force boolean.
+	VolumeAttachmentPlanScheduleRemoval(
+		ctx context.Context,
+		removalUUID, vaUUID string,
+		force bool, when time.Time,
+	) error
 }
 
 // RemoveStorageAttachment checks if a storage attachment with the input UUID
@@ -355,6 +399,98 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 	return nil
 }
 
+// MarkStorageAttachmentAsDead marks the storage attachment as dead and cascade
+// removes the filesystem attachments, volume attachments and volume attachment
+// plans.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied storage attachment UUID is not
+// valid.
+// - [storageerrors.StorageAttachmentNotFound] if the storage attachmemt is not
+// found.
+// - [removalerrors.EntityStillAlive] if the storage attachment is alive.
+func (s *Service) MarkStorageAttachmentAsDead(
+	ctx context.Context, uuid storageprovisioning.StorageAttachmentUUID,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return errors.Errorf(
+			"validating storage attachment uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	l, err := s.modelState.GetStorageAttachmentLife(ctx, uuid.String())
+	if errors.Is(err, storageerrors.StorageAttachmentNotFound) {
+		return errors.Errorf(
+			"storage attachment %q not found", uuid,
+		).Add(storageerrors.StorageAttachmentNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"getting storage attachment %q life: %w", uuid, err,
+		)
+	}
+
+	if l == life.Alive {
+		return errors.Errorf(
+			"storage attachment %q is alive", uuid,
+		).Add(removalerrors.EntityStillAlive)
+	}
+
+	cascade, err := s.modelState.EnsureStorageAttachmentDeadCascade(
+		ctx, uuid.String())
+	if errors.Is(err, storageerrors.StorageAttachmentNotFound) {
+		return errors.Errorf(
+			"storage attachment %q not found", uuid,
+		).Add(storageerrors.StorageAttachmentNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"ensuring storage attachment %q is dead: %w", uuid, err,
+		)
+	}
+
+	// NOTE: filesystem attachments, volume attachments and volume attachment
+	// plans have their removal jobs scheduled when the storage attachment goes
+	// to dying. But due to the entities not also going to dying, it is
+	// important that we schedule these here too, for completeness.
+
+	for _, fsaUUID := range cascade.FileSystemAttachmentUUIDs {
+		uuid := storageprovisioning.FilesystemAttachmentUUID(fsaUUID)
+		_, err := s.filesystemAttachmentScheduleRemoval(ctx, uuid, false, 0)
+		if err != nil {
+			return errors.Errorf(
+				"scheduling filesystem attachment %q removal job: %w",
+				uuid, err,
+			)
+		}
+	}
+
+	for _, vaUUID := range cascade.VolumeAttachmentUUIDs {
+		uuid := storageprovisioning.VolumeAttachmentUUID(vaUUID)
+		_, err := s.volumeAttachmentScheduleRemoval(ctx, uuid, false, 0)
+		if err != nil {
+			return errors.Errorf(
+				"scheduling volume attachment %q removal job: %w",
+				uuid, err,
+			)
+		}
+	}
+
+	for _, vapUUID := range cascade.VolumeAttachmentPlanUUIDs {
+		uuid := storageprovisioning.VolumeAttachmentPlanUUID(vapUUID)
+		_, err := s.volumeAttachmentPlanScheduleRemoval(ctx, uuid, false, 0)
+		if err != nil {
+			return errors.Errorf(
+				"scheduling volume attachment plan %q removal job: %w",
+				uuid, err,
+			)
+		}
+	}
+
+	return nil
+}
 // MarkFilesystemAttachmentAsDead marks the filesystem attachment as dead.
 //
 // The following errors may be returned:
@@ -698,6 +834,201 @@ func (s *Service) processStorageVolumeRemovalJob(
 	if err != nil {
 		return errors.Errorf(
 			"deleting volume %q: %w", job.EntityUUID, err,
+		)
+	}
+
+	return nil
+}
+
+func (s *Service) filesystemAttachmentScheduleRemoval(
+	ctx context.Context,
+	fsaUUID storageprovisioning.FilesystemAttachmentUUID,
+	force bool, wait time.Duration,
+) (removal.UUID, error) {
+	jobUUID, err := removal.NewUUID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = s.modelState.FilesystemAttachmentScheduleRemoval(
+		ctx, jobUUID.String(), fsaUUID.String(),
+		force, s.clock.Now().UTC().Add(wait),
+	)
+	if err != nil {
+		return "", errors.Errorf("filesystem attachment %q: %w", fsaUUID, err)
+	}
+
+	s.logger.Infof(ctx, "scheduled removal job %q for filesystem attachment %q",
+		jobUUID, fsaUUID)
+	return jobUUID, nil
+}
+
+// processStorageFilesystemAttachmentRemovalJob handles the deletion of the
+// filesystem attachment.
+func (s *Service) processStorageFilesystemAttachmentRemovalJob(
+	ctx context.Context, job removal.Job,
+) error {
+	if job.RemovalType != removal.StorageFilesystemAttachmentJob {
+		return errors.Errorf(
+			"job type: %q not valid for storage filesystem attachment removal",
+			job.RemovalType,
+		).Add(removalerrors.RemovalJobTypeNotValid)
+	}
+
+	l, err := s.modelState.GetFilesystemAttachmentLife(ctx, job.EntityUUID)
+	if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
+		// The filesystem attachment has already been removed.
+		return nil
+	} else if err != nil {
+		return errors.Errorf(
+			"getting filesystem attachment %q life: %w", job.EntityUUID, err,
+		)
+	}
+
+	if l == life.Alive {
+		return errors.Errorf(
+			"filesystem attachment %q is alive", job.EntityUUID,
+		).Add(removalerrors.EntityStillAlive)
+	} else if !job.Force && l == life.Dying {
+		return errors.Errorf(
+			"filesystem attachment %q is not dead", job.EntityUUID,
+		).Add(removalerrors.EntityNotDead)
+	}
+
+	err = s.modelState.DeleteFilesystemAttachment(ctx, job.EntityUUID)
+	if err != nil {
+		return errors.Errorf(
+			"deleting filesystem attachment %q: %w", job.EntityUUID, err,
+		)
+	}
+
+	return nil
+}
+
+func (s *Service) volumeAttachmentScheduleRemoval(
+	ctx context.Context,
+	vaUUID storageprovisioning.VolumeAttachmentUUID,
+	force bool, wait time.Duration,
+) (removal.UUID, error) {
+	jobUUID, err := removal.NewUUID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = s.modelState.VolumeAttachmentScheduleRemoval(
+		ctx, jobUUID.String(), vaUUID.String(),
+		force, s.clock.Now().UTC().Add(wait),
+	)
+	if err != nil {
+		return "", errors.Errorf("volume attachment %q: %w", vaUUID, err)
+	}
+
+	s.logger.Infof(ctx, "scheduled removal job %q for volume attachment %q",
+		jobUUID, vaUUID)
+	return jobUUID, nil
+}
+
+// processStorageVolumeAttachmentRemovalJob handles the deletion of the
+// volume attachment.
+func (s *Service) processStorageVolumeAttachmentRemovalJob(
+	ctx context.Context, job removal.Job,
+) error {
+	if job.RemovalType != removal.StorageVolumeAttachmentJob {
+		return errors.Errorf(
+			"job type: %q not valid for storage volume attachment removal",
+			job.RemovalType,
+		).Add(removalerrors.RemovalJobTypeNotValid)
+	}
+
+	l, err := s.modelState.GetVolumeAttachmentLife(ctx, job.EntityUUID)
+	if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+		// The volume attachment has already been removed.
+		return nil
+	} else if err != nil {
+		return errors.Errorf(
+			"getting volume attachment %q life: %w", job.EntityUUID, err,
+		)
+	}
+
+	if l == life.Alive {
+		return errors.Errorf(
+			"volume attachment %q is alive", job.EntityUUID,
+		).Add(removalerrors.EntityStillAlive)
+	} else if !job.Force && l == life.Dying {
+		return errors.Errorf(
+			"volume attachment %q is not dead", job.EntityUUID,
+		).Add(removalerrors.EntityNotDead)
+	}
+
+	err = s.modelState.DeleteVolumeAttachment(ctx, job.EntityUUID)
+	if err != nil {
+		return errors.Errorf(
+			"deleting volume attachment %q: %w", job.EntityUUID, err,
+		)
+	}
+
+	return nil
+}
+
+func (s *Service) volumeAttachmentPlanScheduleRemoval(
+	ctx context.Context,
+	vapUUID storageprovisioning.VolumeAttachmentPlanUUID,
+	force bool, wait time.Duration,
+) (removal.UUID, error) {
+	jobUUID, err := removal.NewUUID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = s.modelState.VolumeAttachmentPlanScheduleRemoval(
+		ctx, jobUUID.String(), vapUUID.String(),
+		force, s.clock.Now().UTC().Add(wait),
+	)
+	if err != nil {
+		return "", errors.Errorf("volume attachment plan %q: %w", vapUUID, err)
+	}
+
+	s.logger.Infof(ctx, "scheduled removal job %q for volume attachment plan %q",
+		jobUUID, vapUUID)
+	return jobUUID, nil
+}
+
+// processStorageVolumeAttachmentPlanRemovalJob handles the deletion of the
+// volume attachment.
+func (s *Service) processStorageVolumeAttachmentPlanRemovalJob(
+	ctx context.Context, job removal.Job,
+) error {
+	if job.RemovalType != removal.StorageVolumeAttachmentPlanJob {
+		return errors.Errorf(
+			"job type: %q not valid for storage volume attachment plan removal",
+			job.RemovalType,
+		).Add(removalerrors.RemovalJobTypeNotValid)
+	}
+
+	l, err := s.modelState.GetVolumeAttachmentPlanLife(ctx, job.EntityUUID)
+	if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
+		// The volume attachment plan has already been removed.
+		return nil
+	} else if err != nil {
+		return errors.Errorf(
+			"getting volume attachment plan %q life: %w", job.EntityUUID, err,
+		)
+	}
+
+	if l == life.Alive {
+		return errors.Errorf(
+			"volume attachment plan %q is alive", job.EntityUUID,
+		).Add(removalerrors.EntityStillAlive)
+	} else if !job.Force && l == life.Dying {
+		return errors.Errorf(
+			"volume attachment %q plan is not dead", job.EntityUUID,
+		).Add(removalerrors.EntityNotDead)
+	}
+
+	err = s.modelState.DeleteVolumeAttachmentPlan(ctx, job.EntityUUID)
+	if err != nil {
+		return errors.Errorf(
+			"deleting volume attachment plan %q: %w", job.EntityUUID, err,
 		)
 	}
 

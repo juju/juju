@@ -589,6 +589,13 @@ type RemovalService interface {
 	// LeaveScope updates the relation to indicate that the unit represented by
 	// the input relation unit UUID is not in the implied relation scope.
 	LeaveScope(ctx context.Context, relationID corerelation.UnitUUID) error
+
+	// MarkStorageAttachmentAsDead marks the storage attachment as dead and
+	// cascade removes the filesystem attachments, volume attachments and volume
+	// attachment plans.
+	MarkStorageAttachmentAsDead(
+		ctx context.Context, uuid storageprovisioning.StorageAttachmentUUID,
+	) error
 }
 
 // BlockDeviceService provides methods to watch and manage block devices.

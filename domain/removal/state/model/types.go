@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 )
 
 // removalJob represents a record in the removal table
@@ -39,6 +40,16 @@ type uuids []string
 type entityUUID struct {
 	// UUID uniquely identifies a domain entity.
 	UUID string `db:"uuid"`
+}
+
+// entityUUIDs is a slice of entityUUID, used to hold multiple UUIDs.
+type entityUUIDs []entityUUID
+
+// uuids returns the uuids held in the entityUUIDs typed slice.
+func (u entityUUIDs) uuids() uuids {
+	return transform.Slice(u, func(u entityUUID) string {
+		return u.UUID
+	})
 }
 
 // entityAssociationCount holds a Count in int form and the UUID in string form
