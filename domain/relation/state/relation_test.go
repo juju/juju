@@ -2374,7 +2374,6 @@ func (s *relationSuite) TestGetFullRelationUnitsChange(c *tc.C) {
 	s.addRelationUnitSetting(c, relUnitUUID, "foo", "bar")
 	s.addRelationApplicationSetting(c, withSettingRelationEndpointUUID, "baz", "simple")
 	s.setRelationSuspended(c, relationUUID)
-	expectedMacBytes := s.addMacaroon(c, relationUUID.String())
 	expected := domainrelation.FullRelationUnitChange{
 		RelationUnitChange: domainrelation.RelationUnitChange{
 			RelationUUID: relationUUID,
@@ -2402,11 +2401,6 @@ func (s *relationSuite) TestGetFullRelationUnitsChange(c *tc.C) {
 	mc.AddExpr("_.RelationUnitChange.InScopeUnits", tc.SameContents, []int{0, 3})
 	mc.AddExpr("_.Macaroons", tc.Ignore)
 	c.Check(obtained, mc, expected)
-	if c.Check(obtained.Macaroons, tc.HasLen, 1) {
-		obtainedMac := obtained.Macaroons[0]
-		obtainedMacBytes := tc.Must(c, obtainedMac.MarshalJSON)
-		c.Check(obtainedMacBytes, tc.DeepEquals, expectedMacBytes)
-	}
 }
 
 func (s *relationSuite) TestGetFullRelationUnitsChangeRelationNotFound(c *tc.C) {

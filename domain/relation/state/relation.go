@@ -17,7 +17,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
@@ -31,7 +30,6 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -1181,7 +1179,6 @@ func (st *State) GetFullRelationUnitsChange(
 	var settings []relationSetting
 	var unitRelationData map[string]domainrelation.RelationData
 	var relationLifeSuspended lifeAndSuspended
-	var relationMacaroon *macaroon.Macaroon
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		relationLifeSuspended, err = st.getRelationLifeAndSuspended(ctx, tx, relationUUID.String())
 		if err != nil {
@@ -1196,11 +1193,6 @@ func (st *State) GetFullRelationUnitsChange(
 		unitRelationData, err = st.getUnitsRelationData(ctx, tx, relationUUID.String(), applicationUUID.String())
 		if err != nil {
 			return errors.Errorf("getting unit relation data: %w", err)
-		}
-
-		relationMacaroon, err = st.getMacaroonForRelation(ctx, tx, relationUUID.String())
-		if err != nil {
-			return errors.Errorf("getting relation macaroon: %w", err)
 		}
 
 		return nil
@@ -1244,48 +1236,7 @@ func (st *State) GetFullRelationUnitsChange(
 		},
 		Suspended:       relationLifeSuspended.Suspended,
 		SuspendedReason: relationLifeSuspended.Reason,
-		Macaroons:       []*macaroon.Macaroon{relationMacaroon},
-		// TODO: find bakery version and ApplicationOrOfferToken value.
 	}, nil
-}
-
-func (st *State) getMacaroonForRelation(ctx context.Context, tx *sqlair.TX, relationUUID string) (*macaroon.Macaroon, error) {
-	type relationMacaroon struct {
-		Macaroon []byte `db:"macaroon"`
-	}
-
-	stmt, err := st.Prepare(`
-SELECT &relationMacaroon.macaroon
-FROM   application_remote_offerer_relation_macaroon
-WHERE  relation_uuid = $entityUUID.uuid
-`, entityUUID{}, relationMacaroon{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result relationMacaroon
-	err = tx.Query(ctx, stmt, entityUUID{UUID: relationUUID}).Get(&result)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf("macaroon for relation %q not found", relationUUID).
-			Add(crossmodelrelationerrors.MacaroonNotFound)
-	}
-
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return decodeMacaroon(result.Macaroon)
-}
-
-func decodeMacaroon(data []byte) (*macaroon.Macaroon, error) {
-	if len(data) == 0 {
-		return nil, nil
-	}
-
-	var m macaroon.Macaroon
-	if err := m.UnmarshalJSON(data); err != nil {
-		return nil, errors.Errorf("unmarshalling macaroon: %w", err)
-	}
-	return &m, nil
 }
 
 // GetRelationUnitsChanges returns RelationUnitChange for the given relation
