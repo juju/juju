@@ -241,6 +241,15 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Capture(err)
 	}
 
+	// The unit agent itself attempts to delete the unit's secrets,
+	// but we must make sure here in the event that the agent is down.
+	// A case has been made for the unit to create and update its own
+	// secrets directly, but for deletion we could safely remove that
+	// functionality and rely only on this code path.
+	if err := s.deleteUnitOwnedSecrets(ctx, unit.UUID(job.EntityUUID)); err != nil {
+		return errors.Capture(err)
+	}
+
 	charmUUID, err := s.modelState.GetCharmForUnit(ctx, job.EntityUUID)
 	if err != nil {
 		return errors.Errorf("getting charm for unit %q: %w", job.EntityUUID, err)

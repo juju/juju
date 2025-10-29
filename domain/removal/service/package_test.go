@@ -12,23 +12,27 @@ import (
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	provider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/removal/service ControllerDBState,ModelDBState,Provider
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leadership_mock_test.go github.com/juju/juju/core/leadership Revoker
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination secretprovider_mock_test.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider,SecretsBackend
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
 
 	modelUUID model.UUID
 
-	controllerState *MockControllerDBState
-	modelState      *MockModelDBState
-	clock           *MockClock
-	revoker         *MockRevoker
-	provider        *MockProvider
+	controllerState       *MockControllerDBState
+	modelState            *MockModelDBState
+	clock                 *MockClock
+	revoker               *MockRevoker
+	provider              *MockProvider
+	secretBackendProvider *MockSecretBackendProvider
+	secretBackend         *MockSecretsBackend
 }
 
 func (s *baseSuite) newService(c *tc.C) *Service {
@@ -37,8 +41,11 @@ func (s *baseSuite) newService(c *tc.C) *Service {
 		modelState:        s.modelState,
 		leadershipRevoker: s.revoker,
 		modelUUID:         s.modelUUID,
-		provider: func(ctx context.Context) (Provider, error) {
+		providerGetter: func(context.Context) (Provider, error) {
 			return s.provider, nil
+		},
+		secretBackendProviderGetter: func(string) (provider.SecretBackendProvider, error) {
+			return s.secretBackendProvider, nil
 		},
 		clock:  s.clock,
 		logger: loggertesting.WrapCheckLog(c),
@@ -55,6 +62,8 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.clock = NewMockClock(ctrl)
 	s.revoker = NewMockRevoker(ctrl)
 	s.provider = NewMockProvider(ctrl)
+	s.secretBackendProvider = NewMockSecretBackendProvider(ctrl)
+	s.secretBackend = NewMockSecretsBackend(ctrl)
 
 	c.Cleanup(func() {
 		s.modelState = nil

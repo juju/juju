@@ -192,12 +192,22 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 		return errors.Errorf("application %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
+	// The unit agent itself attempts to delete the applications's secrets if it
+	// is the leader, but we must make sure here in the event that the agent is
+	// down. A case has been made for the unit to create and update its own
+	// secrets directly, but for deletion we could safely remove that
+	// functionality and rely only on this code path.
+	if err := s.deleteApplicationOwnedSecrets(ctx, coreapplication.UUID(job.EntityUUID)); err != nil {
+		return errors.Capture(err)
+	}
+
 	// Get the CharmUUID before deleting the application, because after deletion
 	// we won't be able to look it up.
 	charmUUID, err := s.modelState.GetCharmForApplication(ctx, job.EntityUUID)
 	if err != nil {
 		return errors.Errorf("getting charm for application %q: %w", job.EntityUUID, err)
 	}
+
 	if err := s.modelState.DeleteApplication(ctx, job.EntityUUID, job.Force); errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// The application has already been removed.
 		// Indicate success so that this job will be deleted.

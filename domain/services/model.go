@@ -488,41 +488,30 @@ func (s *ModelServices) BlockCommand() *blockcommandservice.Service {
 // resources for the current model.
 func (s *ModelServices) Resource() *resourceservice.Service {
 	containerImageResourceStoreGetter := func() coreresourcestore.ResourceStore {
+		log := s.logger.Child("containerimageresourcestore")
 		return containerimageresourcestoreservice.NewService(
-			containerimageresourcestorestate.NewState(
-				changestream.NewTxnRunnerFactory(s.modelDB),
-				s.logger.Child("containerimageresourcestore.state"),
-			),
+			containerimageresourcestorestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 			s.logger.Child("containerimageresourcestore.service"),
 		)
 	}
-	resourceStoreFactory := store.NewResourceStoreFactory(
-		s.modelObjectStoreGetter,
-		containerImageResourceStoreGetter,
-	)
+
+	log := s.logger.Child("resource")
 	return resourceservice.NewService(
-		resourcestate.NewState(
-			changestream.NewTxnRunnerFactory(s.modelDB),
-			s.clock,
-			s.logger.Child("resource.state"),
-		),
-		resourceStoreFactory,
-		s.logger.Child("resource.service"),
+		resourcestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
+		store.NewResourceStoreFactory(s.modelObjectStoreGetter, containerImageResourceStoreGetter),
+		log,
 	)
 }
 
 // Relation returns the service for persisting and retrieving relations
 // for the current model.
 func (s *ModelServices) Relation() *relationservice.WatchableService {
+	log := s.logger.Child("relation")
 	return relationservice.NewWatchableService(
-		relationstate.NewState(
-			changestream.NewTxnRunnerFactory(s.modelDB),
-			s.clock,
-			s.logger.Child("relation.state"),
-		),
+		relationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
 		s.modelWatcherFactory("relation.watcher"),
 		domain.NewLeaseService(s.leaseManager),
-		s.logger.Child("relation.service"),
+		log,
 	)
 }
 
@@ -530,7 +519,6 @@ func (s *ModelServices) Relation() *relationservice.WatchableService {
 // with entity removals in the current model.
 func (s *ModelServices) Removal() *removalservice.WatchableService {
 	log := s.logger.Child("removal")
-
 	return removalservice.NewWatchableService(
 		removalstatecontroller.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
 		removalstatemodel.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
@@ -566,35 +554,25 @@ func (s *ModelServices) ModelProvider() *modelproviderservice.Service {
 // CrossModelRelation returns the service for persisting and retrieving
 // cross model relations for the current model and the controller model.
 func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.WatchableService {
-	logger := s.logger.Child("crossmodelrelation")
-
+	log := s.logger.Child("crossmodelrelation")
 	return crossmodelrelationservice.NewWatchableService(
-		crossmodelrelationstatecontroller.NewState(
-			changestream.NewTxnRunnerFactory(s.controllerDB),
-			logger.Child("state.controller")),
-		crossmodelrelationstatemodel.NewState(
-			changestream.NewTxnRunnerFactory(s.modelDB),
-			s.modelUUID,
-			s.clock,
-			logger.Child("state.model"),
-		),
-		domain.NewStatusHistory(logger, s.clock),
+		crossmodelrelationstatecontroller.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
+		crossmodelrelationstatemodel.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID, s.clock, log),
+		domain.NewStatusHistory(log, s.clock),
 		s.modelWatcherFactory("crossmodelrelation"),
 		s.clock,
-		logger.Child("service"),
+		log,
 	)
 }
 
 // Operation returns a service for persisting and retrieving operations and
 // tasks for the current model.
 func (s *ModelServices) Operation() *operationservice.WatchableService {
+	log := s.logger.Child("operation")
 	return operationservice.NewWatchableService(
-		operationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
-			s.clock,
-			s.logger.Child("operation.state"),
-		),
+		operationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
 		s.clock,
-		s.logger.Child("operation"),
+		log,
 		s.modelObjectStoreGetter,
 		domain.NewLeaseService(s.leaseManager),
 		s.modelWatcherFactory("operation"),
