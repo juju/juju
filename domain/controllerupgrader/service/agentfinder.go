@@ -115,9 +115,6 @@ func NewStreamAgentBinaryFinder(
 		agentFindersMap[finder.Name()] = finder
 	}
 	return &StreamAgentBinaryFinder{
-		ctrlSt:      ctrlSt,
-		modelSt:     modelSt,
-		agentFinder: agentFinder,
 		ctrlSt:       ctrlSt,
 		modelSt:      modelSt,
 		agentFinders: agentFindersMap,
