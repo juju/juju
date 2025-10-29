@@ -48,6 +48,10 @@ const (
 	// still hosts units
 	MachineHasUnits = errors.ConstError("machine has units")
 
+	// MachineHasStorge indicates that a machine cannont be deleted because it
+	// still has storage.
+	MachineHasStorage = errors.ConstError("machine has storage")
+
 	// OfferHasRelations indicates that an offer cannot be deleted because it
 	// still has relations
 	OfferHasRelations = errors.ConstError("offer has relations")

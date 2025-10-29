@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -893,6 +894,62 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnitsWithDeadUnits(c *tc.C
 	s.checkMachineLife(c, machineUUID.String(), life.Dead)
 }
 
+func (s *machineSuite) TestMarkMachineAsDeadMachineHasStorageAttachedFilesystem(c *tc.C) {
+	machineUUID := s.addMachine(c, "0")
+	s.createAttachedFilesystem(c, machineUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, coremachine.UUID(machineUUID), life.Dying)
+
+	err := st.MarkMachineAsDead(c.Context(), machineUUID)
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasStorage)
+
+	s.checkMachineLife(c, machineUUID, life.Dying)
+}
+
+func (s *machineSuite) TestMarkMachineAsDeadMachineHasStorageAttachedVolume(c *tc.C) {
+	machineUUID := s.addMachine(c, "0")
+	s.createAttachedVolume(c, machineUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, coremachine.UUID(machineUUID), life.Dying)
+
+	err := st.MarkMachineAsDead(c.Context(), machineUUID)
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasStorage)
+
+	s.checkMachineLife(c, machineUUID, life.Dying)
+}
+
+func (s *machineSuite) TestMarkMachineAsDeadMachineHasStorageMachineFilesystem(c *tc.C) {
+	machineUUID := s.addMachine(c, "0")
+	s.createMachineFilesystem(c, machineUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, coremachine.UUID(machineUUID), life.Dying)
+
+	err := st.MarkMachineAsDead(c.Context(), machineUUID)
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasStorage)
+
+	s.checkMachineLife(c, machineUUID, life.Dying)
+}
+
+func (s *machineSuite) TestMarkMachineAsDeadMachineHasStorageMachineVolume(c *tc.C) {
+	machineUUID := s.addMachine(c, "0")
+	s.createMachineVolume(c, machineUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, coremachine.UUID(machineUUID), life.Dying)
+
+	err := st.MarkMachineAsDead(c.Context(), machineUUID)
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasStorage)
+
+	s.checkMachineLife(c, machineUUID, life.Dying)
+}
+
 func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
 	svc := s.setupMachineService(c)
 	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
@@ -1289,4 +1346,109 @@ func (s *machineSuite) TestDeleteMachineWithLinkLayerDevice(c *tc.C) {
 	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device WHERE uuid = ?", lldChildUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+func (s *machineSuite) createMachineFilesystem(
+	c *tc.C, machineUUID string,
+) string {
+	fsUUID := "some-fs-uuid"
+	txn := func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)
+		`, fsUUID, "0", 0, 0)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO machine_filesystem (machine_uuid, filesystem_uuid) VALUES (?, ?)
+		`, machineUUID, fsUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	err := s.ModelTxnRunner().StdTxn(c.Context(), txn)
+	c.Assert(err, tc.ErrorIsNil)
+	return fsUUID
+}
+
+func (s *machineSuite) createMachineVolume(
+	c *tc.C, machineUUID string,
+) string {
+	volUUID := "some-vol-uuid"
+	txn := func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)
+		`, volUUID, "0", 0, 0)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO machine_volume (machine_uuid, volume_uuid) VALUES (?, ?)
+		`, machineUUID, volUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	err := s.ModelTxnRunner().StdTxn(c.Context(), txn)
+	c.Assert(err, tc.ErrorIsNil)
+	return volUUID
+}
+
+func (s *machineSuite) createAttachedVolume(
+	c *tc.C, machineUUID string,
+) string {
+	volUUID := "some-other-vol-uuid"
+	vaUUID := "some-other-vol-attachment-uuid"
+	txn := func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
+VALUES (?, ?, ?, ?)
+		`, volUUID, "1", 0, 0)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, life_id,
+                                       provision_scope_id, net_node_uuid)
+VALUES (?, ?, ?, ?, (SELECT net_node_uuid FROM machine WHERE uuid = ?))
+		`, vaUUID, volUUID, 0, 0, machineUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	err := s.ModelTxnRunner().StdTxn(c.Context(), txn)
+	c.Assert(err, tc.ErrorIsNil)
+	return volUUID
+}
+
+func (s *machineSuite) createAttachedFilesystem(
+	c *tc.C, machineUUID string,
+) string {
+	fsUUID := "some-other-fs-uuid"
+	faUUID := "some-other-fs-attachment-uuid"
+	txn := func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, ?, ?)
+		`, fsUUID, "1", 0, 0)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid,
+                                          life_id, provision_scope_id,
+                                          net_node_uuid)
+VALUES (?, ?, ?, ?, (SELECT net_node_uuid FROM machine WHERE uuid = ?))
+		`, faUUID, fsUUID, 0, 0, machineUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	err := s.ModelTxnRunner().StdTxn(c.Context(), txn)
+	c.Assert(err, tc.ErrorIsNil)
+	return fsUUID
 }

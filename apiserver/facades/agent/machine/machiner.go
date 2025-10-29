@@ -223,14 +223,28 @@ func (api *MachinerAPI) EnsureDead(ctx context.Context, args params.Entities) (p
 
 		err = api.removalService.MarkMachineAsDead(ctx, machineUUID)
 		if errors.Is(err, machineerrors.MachineNotFound) {
-			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", tag.Id())
+			results.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeNotFound,
+				"machine %q not found", tag.Id(),
+			)
 			continue
 		} else if errors.Is(err, removalerrors.MachineHasContainers) {
-			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeMachineHasContainers, "machine %q hosts containers", tag.Id())
+			results.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeMachineHasContainers,
+				"machine %q hosts containers", tag.Id(),
+			)
 			continue
 		} else if errors.Is(err, removalerrors.MachineHasUnits) {
-			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeHasAssignedUnits, "machine %q hosts units", tag.Id())
+			results.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeHasAssignedUnits,
+				"machine %q hosts units", tag.Id(),
+			)
 			continue
+		} else if errors.Is(err, removalerrors.MachineHasStorage) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeMachineHasAttachedStorage,
+				"machine %q has attached storage", tag.Id(),
+			)
 		} else if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

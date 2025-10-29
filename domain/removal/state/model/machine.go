@@ -395,6 +395,7 @@ AND     lld.mac_address IS NOT NULL;`, entityUUID{UUID: machineUUID}, linkLayerD
 // - [removalerrors.EntityStillAlive] if the machine is alive.
 // - [removalerrors.MachineHasContainers] if the machine hosts containers.
 // - [removalerrors.MachineHasUnits] if the machine hosts units.
+// - [removalerrors.MachineHasStorage] if the machine hosts units.
 func (st *State) MarkMachineAsDead(ctx context.Context, mUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -596,6 +597,44 @@ AND unit.life_id != 2
 		return errors.Capture(err)
 	}
 
+	countFilesystemsOnMachine, err := st.Prepare(`
+SELECT SUM(count) AS &count.count FROM (
+	SELECT    COUNT(*) AS count
+	FROM      storage_filesystem sf
+	JOIN      machine_filesystem mf ON mf.filesystem_uuid = sf.uuid
+	WHERE     mf.machine_uuid = $entityUUID.uuid
+	UNION
+	SELECT    COUNT(*) AS count
+	FROM      storage_filesystem_attachment sfa
+	JOIN      machine m ON m.net_node_uuid = sfa.net_node_uuid
+	LEFT JOIN machine_filesystem mf ON mf.machine_uuid = m.uuid
+	WHERE     m.uuid = $entityUUID.uuid AND
+	          mf.filesystem_uuid IS NULL
+)
+`, count{}, machineUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	countVolumesOnMachine, err := st.Prepare(`
+SELECT SUM(count) AS &count.count FROM (
+	SELECT    COUNT(*) AS count
+	FROM      storage_volume sv
+	JOIN      machine_volume mv ON mv.volume_uuid = sv.uuid
+	WHERE     mv.machine_uuid = $entityUUID.uuid
+	UNION
+	SELECT    COUNT(*) AS count
+	FROM      storage_volume_attachment sva
+	JOIN      machine m ON m.net_node_uuid = sva.net_node_uuid
+	LEFT JOIN machine_volume mv ON mv.machine_uuid = m.uuid
+	WHERE     m.uuid = $entityUUID.uuid AND
+	          mv.volume_uuid IS NULL
+)
+`, count{}, machineUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	var containerCount count
 	err = tx.Query(ctx, countContainersOnMachine, machineUUIDParam).Get(&containerCount)
 	if err != nil {
@@ -612,6 +651,25 @@ AND unit.life_id != 2
 	} else if unitCount.Count > 0 {
 		return errors.Errorf("cannot delete machine %q, it hosts has %d unit(s)", machineUUIDParam.UUID, unitCount.Count).
 			Add(removalerrors.MachineHasUnits)
+	}
+
+	var filesystemCount count
+	err = tx.Query(ctx, countFilesystemsOnMachine, machineUUIDParam).Get(
+		&filesystemCount)
+	if err != nil {
+		return errors.Errorf("getting filesystem count: %w", err)
+	}
+	var volumeCount count
+	err = tx.Query(ctx, countVolumesOnMachine, machineUUIDParam).Get(
+		&volumeCount)
+	if err != nil {
+		return errors.Errorf("getting volume count: %w", err)
+	}
+	if filesystemCount.Count > 0 || volumeCount.Count > 0 {
+		return errors.Errorf(
+			"cannot delete machine %q, has %d filesystems(s) and %d volume(s)",
+			machineUUIDParam.UUID, filesystemCount.Count, volumeCount.Count,
+		).Add(removalerrors.MachineHasStorage)
 	}
 
 	return nil
