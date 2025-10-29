@@ -393,17 +393,19 @@ AND    user.removed = false
 
 func (st *UserState) checkPotentiallyOrhpanedModels(ctx context.Context, tx *sqlair.TX, uuid string) error {
 	checkAdminStmt, err := st.Prepare(`
-SELECT model.uuid AS &dbModelUUID.uuid,
-       (SELECT count(*) FROM v_user_auth ua
-        JOIN   permission p ON ua.uuid = p.grant_to
-        WHERE  p.grant_on=model.uuid
-        -- admin permission
-        AND    p.access_type_id = 3
-        AND    ua.disabled = false
-        AND    ua.removed = false
-        AND    ua.uuid <> $userUUID.uuid) AS num_other_admins
-FROM   model
-WHERE  num_other_admins = 0
+SELECT m.uuid AS &dbModelUUID.uuid
+FROM   model m
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM v_user_auth AS ua
+    JOIN permission AS p ON ua.uuid = p.grant_to
+    WHERE p.grant_on = m.uuid
+      -- admin permission
+      AND p.access_type_id = 3 
+      AND ua.disabled = false
+      AND ua.removed = false
+      AND ua.uuid <> $userUUID.uuid
+)
 `, userUUID{}, dbModelUUID{})
 	if err != nil {
 		return errors.Capture(err)
