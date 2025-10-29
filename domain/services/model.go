@@ -97,6 +97,7 @@ import (
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/resource/store"
 )
@@ -615,17 +616,25 @@ func (s *ModelServices) ChangeStream() *changestreamservice.Service {
 func (s *ModelServices) ControllerUpgraderService() *controllerupgraderservice.Service {
 	controllerSt := controllerupgraderstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB))
 	controllerModelSt := controllerupgraderstate.NewControllerModelState(changestream.NewTxnRunnerFactory(s.modelDB))
-	agentFinder := controllerupgraderservice.NewAgentFinder(
-		envtools.PreferredStreams,
-		envtools.FindTools,
-		providertracker.ProviderRunner[environs.BootstrapEnviron](
-			s.providerFactory, s.modelUUID.String(),
-		),
-	)
+	simpleStreamsAgentFinder := controllerupgraderservice.
+		NewSimpleStreamsAgentFinder(
+			envtools.PreferredStreams,
+			envtools.FindTools,
+			providertracker.ProviderRunner[environs.BootstrapEnviron](
+				s.providerFactory, s.modelUUID.String(),
+			),
+			simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory()),
+		)
+	controllerAndModelCacheAgentFinder := controllerupgraderservice.
+		NewControllerAndModelCacheAgentFinder(
+			controllerSt,
+			controllerModelSt,
+		)
 	agentBinaryFinder := controllerupgraderservice.NewStreamAgentBinaryFinder(
 		controllerSt,
 		controllerModelSt,
-		agentFinder,
+		simpleStreamsAgentFinder,
+		controllerAndModelCacheAgentFinder,
 	)
 	return controllerupgraderservice.NewService(
 		agentBinaryFinder,
