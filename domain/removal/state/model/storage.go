@@ -1497,6 +1497,44 @@ DELETE FROM storage_volume_attachment WHERE uuid = $entityUUID.uuid
 	return errors.Capture(err)
 }
 
+// VolumeAttachmentScheduleRemoval schedules a removal job for the volume
+// attachment with the input UUID, qualified with the input force boolean.
+func (st *State) VolumeAttachmentScheduleRemoval(
+	ctx context.Context,
+	removalUUID, vaUUID string,
+	force bool, when time.Time,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	removalRec := removalJob{
+		UUID:          removalUUID,
+		RemovalTypeID: uint64(removal.StorageVolumeAttachmentJob),
+		EntityUUID:    vaUUID,
+		Force:         force,
+		ScheduledFor:  when,
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO removal (*) VALUES ($removalJob.*)
+`, removalRec)
+	if err != nil {
+		return errors.Errorf("preparing volume attachment removal: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, removalRec).Run()
+		if err != nil {
+			return errors.Errorf(
+				"scheduling volume attachment removal: %w", err,
+			)
+		}
+		return nil
+	}))
+}
+
 // GetVolumeAttachmentPlanLife returns the life of the volume attachment plan
 // indicated by the supplied UUID.
 //
