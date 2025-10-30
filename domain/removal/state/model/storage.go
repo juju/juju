@@ -1138,6 +1138,73 @@ WHERE  filesystem_uuid = $entityUUID.uuid
 	return nil
 }
 
+// CheckVolumeBackedFilesystemCrossProvisioned returns true if the specified
+// uuid is a filesystem that is volume backed, where the filesystem is not
+// owned by a machine, where the filesystem is machine provisioned and where
+// the volume is model provisioned. This is to handle filesystems that will
+// never be de-provisioned by a provisioner.
+func (st *State) CheckVolumeBackedFilesystemCrossProvisioned(
+	ctx context.Context, fsUUID string,
+) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	inputUUID := entityUUID{UUID: fsUUID}
+
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_filesystem
+WHERE  uuid = $entityUUID.uuid
+`, inputUUID)
+	if err != nil {
+		return false, errors.Errorf(
+			"preparing storage filesystem exists query: %w", err,
+		)
+	}
+
+	crossProvisionedStmt, err := st.Prepare(`
+SELECT    COUNT(sf.uuid) AS &count.count
+FROM      storage_filesystem sf
+JOIN      storage_instance_filesystem sif ON sf.uuid = sif.storage_filesystem_uuid
+JOIN      storage_instance_volume siv ON sif.storage_instance_uuid = siv.storage_instance_uuid
+JOIN      storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+LEFT JOIN machine_filesystem mf ON sf.uuid = mf.filesystem_uuid
+WHERE     sf.uuid = $entityUUID.uuid AND
+          sf.provision_scope_id != sv.provision_scope_id AND
+          mf.machine_uuid IS NULL
+`, inputUUID, count{})
+	if err != nil {
+		return false, errors.Errorf(
+			"preparing storage filesystem check cross-provisioned query: %w",
+			err,
+		)
+	}
+
+	var res count
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, existsStmt, inputUUID).Get(&inputUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.FilesystemNotFound
+		} else if err != nil {
+			return errors.Errorf("storage filesystem exists query: %w", err)
+		}
+		err = tx.Query(ctx, crossProvisionedStmt, inputUUID).Get(&res)
+		if err != nil {
+			return errors.Errorf(
+				"storage filesystem check cross-provisioned query: %w", err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return res.Count != 0, nil
+}
+
 // DeleteFilesystem deletes the filesystem specified by the input UUID. It also
 // deletes the storage instance filesystem relation if it still exists.
 func (st *State) DeleteFilesystem(ctx context.Context, rUUID string) error {

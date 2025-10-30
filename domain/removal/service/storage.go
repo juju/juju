@@ -143,6 +143,15 @@ type StorageState interface {
 	// input UUID and status value.
 	SetFilesystemStatus(ctx context.Context, fsUUID string, status int) error
 
+	// CheckVolumeBackedFilesystemCrossProvisioned returns true if the specified
+	// uuid is a filesystem that is volume backed, where the filesystem is not
+	// owned by a machine, where the filesystem is machine provisioned and where
+	// the volume is model provisioned. This is to handle filesystems that will
+	// never be de-provisioned by a provisioner.
+	CheckVolumeBackedFilesystemCrossProvisioned(
+		ctx context.Context, fsUUID string,
+	) (bool, error)
+
 	// DeleteFilesystem removes the filesystem with the input UUID.
 	DeleteFilesystem(ctx context.Context, fsUUID string) error
 
@@ -998,18 +1007,41 @@ func (s *Service) processStorageFilesystemRemovalJob(
 		).Add(removalerrors.EntityNotDead)
 	} else if !job.Force {
 		sv, err := s.modelState.GetFilesystemStatus(ctx, job.EntityUUID)
-		if err != nil {
+		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+			// The filesystem has already been removed.
+			return nil
+		} else if err != nil {
 			return errors.Errorf(
 				"getting filesystem %q status: %w", job.EntityUUID, err,
 			)
 		}
-		if sv != int(status.StorageFilesystemStatusTypeTombstone) {
-			return errors.Errorf(
-				"filesystem %s status is not tombstone", job.EntityUUID,
-			).Add(removalerrors.StorageFilesystemNoTombstone)
+		if sv == int(status.StorageFilesystemStatusTypeTombstone) {
+			goto deleteFilesystem
 		}
+		// A filesystem that is machine provisioned, but backed by a volume that
+		// is model provisioned, it is impossible for it to reach the tombstone
+		// status, since there is no storage provisioner responsible for it.
+		canRemove, err := s.modelState.CheckVolumeBackedFilesystemCrossProvisioned(
+			ctx, job.EntityUUID,
+		)
+		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+			// The filesystem has already been removed.
+			return nil
+		} else if err != nil {
+			return errors.Errorf(
+				"checking filesystem %q is cross-provisioned: %w",
+				job.EntityUUID, err,
+			)
+		}
+		if canRemove {
+			goto deleteFilesystem
+		}
+		return errors.Errorf(
+			"filesystem %s status is not tombstone", job.EntityUUID,
+		).Add(removalerrors.StorageFilesystemNoTombstone)
 	}
 
+deleteFilesystem:
 	err = s.modelState.DeleteFilesystem(ctx, job.EntityUUID)
 	if err != nil {
 		return errors.Errorf(

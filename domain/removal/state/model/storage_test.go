@@ -5,6 +5,7 @@ package model
 
 import (
 	"database/sql"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -672,7 +673,7 @@ func (s *storageSuite) TestGetFilesystemLife(c *tc.C) {
 func (s *storageSuite) TestGetFilesystemLifeNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.GetFilesystemLife(c.Context(), "some-vol-uuid")
+	_, err := st.GetFilesystemLife(c.Context(), "some-fs-uuid")
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
 }
 
@@ -736,6 +737,99 @@ func (s *storageSuite) TestSetFilesystemStatusGetFilesystemStatus(c *tc.C) {
 		c.Check(err, tc.ErrorIsNil)
 		c.Check(statusId, tc.Equals, i)
 	}
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), "some-fs-uuid")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedFilesystemOnlyMachineProvisioned(c *tc.C) {
+	fsUUID := s.addMachineProvisionedFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedFilesystemOnlyModelProvisioned(c *tc.C) {
+	fsUUID := s.addModelProvisionedFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedMachineOwned(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addMachineProvisionedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addModelProvisionedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	mUUID := s.addMachine(c)
+	s.addMachineFilesystem(c, mUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedAllModelProvisioned(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addModelProvisionedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addModelProvisionedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedAllMachineProvisioned(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addMachineProvisionedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addMachineProvisionedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisioned(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addMachineProvisionedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addModelProvisionedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsTrue)
 }
 
 func (s *storageSuite) TestDeleteFilesystem(c *tc.C) {
@@ -1553,6 +1647,42 @@ func (s *storageSuite) addVolume(c *tc.C) string {
 	volUUID := "some-vol-uuid"
 	_, err := s.DB().ExecContext(ctx,
 		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		volUUID, "some-vol", 0, indeterminateProvisioningScope(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, ?)",
+		volUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volUUID
+}
+
+func (s *storageSuite) addMachineProvisionedVolume(c *tc.C) string {
+	ctx := c.Context()
+
+	volUUID := "some-vol-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		volUUID, "some-vol", 0, 1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, ?)",
+		volUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volUUID
+}
+
+func (s *storageSuite) addModelProvisionedVolume(c *tc.C) string {
+	ctx := c.Context()
+
+	volUUID := "some-vol-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
 		volUUID, "some-vol", 0, 0,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1576,6 +1706,42 @@ func (s *storageSuite) bindVolumeToStorageInstance(c *tc.C, siUUID, volUUID stri
 }
 
 func (s *storageSuite) addFilesystem(c *tc.C) string {
+	ctx := c.Context()
+
+	fsUUID := "some-fs-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		fsUUID, "some-fs", 0, indeterminateProvisioningScope(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, ?)",
+		fsUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID
+}
+
+func (s *storageSuite) addMachineProvisionedFilesystem(c *tc.C) string {
+	ctx := c.Context()
+
+	fsUUID := "some-fs-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		fsUUID, "some-fs", 0, 1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, ?)",
+		fsUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID
+}
+
+func (s *storageSuite) addModelProvisionedFilesystem(c *tc.C) string {
 	ctx := c.Context()
 
 	fsUUID := "some-fs-uuid"
@@ -1615,12 +1781,12 @@ func (s *storageSuite) addAttachedFilesystem(c *tc.C) (string, string) {
 
 	fsUUID := "some-fs-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
-		fsUUID, "some-fs", 0, 0)
+		fsUUID, "some-fs", 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	fsaUUID := "some-fsa-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
-		fsaUUID, fsUUID, netNodeUUID, 0, 0)
+		fsaUUID, fsUUID, netNodeUUID, 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	return fsUUID, fsaUUID
@@ -1638,12 +1804,12 @@ func (s *storageSuite) addAttachedVolume(c *tc.C) (string, string) {
 
 	volUUID := "some-vol-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
-		volUUID, "some-vol", 0, 0)
+		volUUID, "some-vol", 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	vaUUID := "some-va-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
-		vaUUID, volUUID, netNodeUUID, 0, 0)
+		vaUUID, volUUID, netNodeUUID, 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	return volUUID, vaUUID
@@ -1663,17 +1829,17 @@ func (s *storageSuite) addAttachedVolumeWithPlan(c *tc.C) (string, string, strin
 
 	volUUID := "some-vol-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
-		volUUID, "some-vol", 0, 0)
+		volUUID, "some-vol", 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	vaUUID := "some-va-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
-		vaUUID, volUUID, netNodeUUID, 0, 0)
+		vaUUID, volUUID, netNodeUUID, 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	vapUUID := "some-vap-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume_attachment_plan (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
-		vapUUID, volUUID, netNodeUUID, 0, 0)
+		vapUUID, volUUID, netNodeUUID, 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	return volUUID, vaUUID, vapUUID
@@ -1799,4 +1965,8 @@ func (s *storageSuite) addMachineFilesystem(c *tc.C, machineUUID, fsUUID string)
 		machineUUID, fsUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func indeterminateProvisioningScope() int {
+	return rand.Intn(2)
 }

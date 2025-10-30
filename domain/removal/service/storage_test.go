@@ -1248,9 +1248,32 @@ func (s *storageSuite) TestExecuteJobForStorageFilesystemNotTombstone(c *tc.C) {
 	exp.GetFilesystemStatus(
 		gomock.Any(), j.EntityUUID,
 	).Return(int(domainstatus.StorageFilesystemStatusTypeDestroying), nil)
+	exp.CheckVolumeBackedFilesystemCrossProvisioned(
+		gomock.Any(), j.EntityUUID,
+	).Return(false, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.StorageFilesystemNoTombstone)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageFilesystemNotTombstoneVolumeBackedCrossProvisioned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageFilesystemJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetFilesystemLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetFilesystemStatus(
+		gomock.Any(), j.EntityUUID,
+	).Return(int(domainstatus.StorageFilesystemStatusTypeDestroying), nil)
+	exp.CheckVolumeBackedFilesystemCrossProvisioned(
+		gomock.Any(), j.EntityUUID,
+	).Return(true, nil)
+	exp.DeleteFilesystem(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String())
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestExecuteJobForStorageFilesystemSuccess(c *tc.C) {
