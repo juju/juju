@@ -595,6 +595,37 @@ func (s *storageSuite) TestFilesystemScheduleRemovalSuccess(c *tc.C) {
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
+func (s *storageSuite) TestSetFilesystemStatusNotFound(c *tc.C) {
+	fsUUID := "some-filesystem-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.SetFilesystemStatus(c.Context(), fsUUID, 0)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+func (s *storageSuite) TestGetFilesystemStatusNotFound(c *tc.C) {
+	fsUUID := "some-filesystem-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetFilesystemStatus(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+func (s *storageSuite) TestSetFilesystemStatusGetFilesystemStatus(c *tc.C) {
+	ctx := c.Context()
+
+	fsUUID := s.addFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	for i := 0; i <= 7; i++ {
+		err := st.SetFilesystemStatus(ctx, fsUUID, i)
+		c.Check(err, tc.ErrorIsNil)
+		statusId, err := st.GetFilesystemStatus(ctx, fsUUID)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(statusId, tc.Equals, i)
+	}
+}
+
 func (s *storageSuite) TestDeleteFilesystem(c *tc.C) {
 	fsUUID := s.addFilesystem(c)
 

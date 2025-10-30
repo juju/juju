@@ -1005,6 +1005,126 @@ func (st *State) FilesystemScheduleRemoval(
 	}))
 }
 
+// GetFilesystemStatus returns the status of the filesystem indicated by the
+// input UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemNotFound] when the filesystem does not
+// exist.
+func (st *State) GetFilesystemStatus(
+	ctx context.Context, fsUUID string,
+) (int, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	inputUUID := entityUUID{UUID: fsUUID}
+
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_filesystem
+WHERE  uuid = $entityUUID.uuid
+`, inputUUID)
+	if err != nil {
+		return -1, errors.Errorf(
+			"preparing storage filesystem exists query: %w", err,
+		)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &status.*
+FROM   storage_filesystem_status
+WHERE  filesystem_uuid = $entityUUID.uuid
+`, inputUUID, status{})
+	if err != nil {
+		return -1, errors.Errorf(
+			"preparing storage filesystem status query: %w", err,
+		)
+	}
+
+	var ret status
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, existsStmt, inputUUID).Get(&inputUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.FilesystemNotFound
+		} else if err != nil {
+			return errors.Errorf("storage filesystem exists query: %w", err)
+		}
+		err = tx.Query(ctx, stmt, inputUUID).Get(&ret)
+		if err != nil {
+			return errors.Errorf("storage filesystem status query: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	return ret.StatusID, nil
+}
+
+// SetFilesystemStatus changes the status of the filesystem indicated by the
+// input UUID and status value.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemNotFound] when the filesystem does not
+// exist.
+func (st *State) SetFilesystemStatus(
+	ctx context.Context, fsUUID string, statusId int,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	inputUUID := entityUUID{UUID: fsUUID}
+	inputStatus := status{StatusID: statusId}
+
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_filesystem
+WHERE  uuid = $entityUUID.uuid
+`, inputUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing storage filesystem exists query: %w", err,
+		)
+	}
+
+	stmt, err := st.Prepare(`
+UPDATE storage_filesystem_status
+SET    status_id=$status.status_id,
+       message='',
+       updated_at=DATETIME('now')
+WHERE  filesystem_uuid = $entityUUID.uuid
+`, inputUUID, inputStatus)
+	if err != nil {
+		return errors.Errorf(
+			"preparing storage filesystem status update: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, existsStmt, inputUUID).Get(&inputUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.FilesystemNotFound
+		} else if err != nil {
+			return errors.Errorf("storage filesystem exists query: %w", err)
+		}
+		err = tx.Query(ctx, stmt, inputUUID, inputStatus).Run()
+		if err != nil {
+			return errors.Errorf("storage filesystem status query: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
 // DeleteFilesystem deletes the filesystem specified by the input UUID. It also
 // deletes the storage instance filesystem relation if it still exists.
 func (st *State) DeleteFilesystem(ctx context.Context, rUUID string) error {
