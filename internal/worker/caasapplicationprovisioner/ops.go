@@ -279,7 +279,7 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	storageUniqueID := getStorageUniqueID(appUUID)
 	filesystems := []internalstorage.KubernetesFilesystemParams{}
 	for _, fst := range pi.FilesystemTemplates {
-		for _, mountPoint := range fst.MountPoints {
+		for _, attachment := range fst.Attachments {
 			fsp := internalstorage.KubernetesFilesystemParams{
 				StorageName: fst.StorageName,
 				Size:        fst.SizeMiB,
@@ -288,8 +288,8 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 					return k, v
 				}),
 				Attachment: &internalstorage.KubernetesFilesystemAttachmentParams{
-					ReadOnly: fst.ReadOnly,
-					Path:     mountPoint,
+					ReadOnly: attachment.ReadOnly,
+					Path:     attachment.MountPoint,
 				},
 				ResourceTags: pi.StorageResourceTags,
 			}
