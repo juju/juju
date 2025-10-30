@@ -539,6 +539,29 @@ VALUES (?, ?, (SELECT id FROM charm_storage_kind WHERE kind = ?), ?, 0, 10, ?)`,
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// newFilesystemCharmStorageWithLocationAndCount is a testing utility for
+// creating new charm filesystem storage instance with location and count
+// attributes.
+func (s *baseSuite) newFilesystemCharmStorageWithLocationAndCount(
+	c *tc.C, charmUUID, name, location string, countMin, countMax int,
+) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, read_only, count_min, count_max, location)
+VALUES (?, ?, 1, false, ?, ?, ?)
+`,
+			charmUUID, name, countMin, countMax, location,
+		)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // newBlockDevice creates a new block device for the given machine.
 func (s *baseSuite) newBlockDevice(
 	c *tc.C,

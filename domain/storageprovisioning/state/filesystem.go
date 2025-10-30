@@ -609,6 +609,7 @@ SELECT &filesystemAttachmentParams.* FROM (
     SELECT    sf.provider_id,
               mci.instance_id AS machine_instance_id,
               cs.location AS charm_storage_location,
+              cs.count_max AS charm_storage_count_max,
               sfa.mount_point,
               cs.read_only AS charm_storage_read_only,
               sp.type AS storage_pool_type
@@ -658,12 +659,13 @@ SELECT &filesystemAttachmentParams.* FROM (
 	}
 
 	return storageprovisioning.FilesystemAttachmentParams{
+		CharmStorageCountMax: dbVal.CharmStorageCountMax,
 		CharmStorageLocation: dbVal.CharmStorageLocation.V,
+		CharmStorageReadOnly: dbVal.CharmStorageReadOnly.V,
 		MachineInstanceID:    dbVal.MachineInstanceID.V,
 		MountPoint:           dbVal.MountPoint.V,
 		Provider:             dbVal.StoragePoolType,
 		ProviderID:           dbVal.ProviderID.V,
-		ReadOnly:             dbVal.CharmStorageReadOnly.V,
 	}, nil
 }
 

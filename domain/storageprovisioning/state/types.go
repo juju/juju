@@ -111,6 +111,7 @@ func (l filesystemLives) Iter(yield func(string, life.Life) bool) {
 // filesystemAttachmentParams represents the attachment params for a filesystem
 // attachment from the model database.
 type filesystemAttachmentParams struct {
+	CharmStorageCountMax int              `db:"charm_storage_count_max"`
 	CharmStorageLocation sql.Null[string] `db:"charm_storage_location"`
 	CharmStorageReadOnly sql.Null[bool]   `db:"charm_storage_read_only"`
 	MachineInstanceID    sql.Null[string] `db:"machine_instance_id"`

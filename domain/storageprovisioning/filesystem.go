@@ -100,10 +100,19 @@ type FilesystemAttachment struct {
 // FilesystemAttachmentParams defines the set of parameters that a caller needs
 // to know in order to provision a filesystem attachment in the model.
 type FilesystemAttachmentParams struct {
+	// CharmStorageMaxCount defines the maximum number of storage instances that
+	// may exist for this storage on the unit. This value is guaranteed to be a
+	// non negative integer. If the charm has no defined maximum 0 will be used.
+	CharmStorageCountMax int
+
 	// CharmStorageLocation defines the recommended mount location for the
 	// filesystem attachment as directed by the charm. If this filesystem
 	// attachment cannot be linked to a charm storage a zero value will be used.
 	CharmStorageLocation string
+
+	// CharmStorageReadOnly indicates if the charm wants this attachment to be
+	// readonly.
+	CharmStorageReadOnly bool
 
 	// MachineInstanceID is the is the cloud instance id given to the machine
 	// this filesystem attachment is on to. If the attachment is not onto a
@@ -121,9 +130,6 @@ type FilesystemAttachmentParams struct {
 	// ProviderID is the unique ID given to the filesystem from the storage
 	// provider.
 	ProviderID string
-
-	// ReadOnly indicates whether the filesystem is to be mounted read-only.
-	ReadOnly bool
 }
 
 // FilesystemTemplate represents the required information to supply a Kubernetes
