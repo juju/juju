@@ -1228,7 +1228,9 @@ WHERE  uuid = $entityUUID.uuid`, fsaLife, fsaUUID)
 }
 
 // MarkFilesystemAttachmentAsDead updates the life to dead of the filesystem
-// attachment indicated by the supplied UUID.
+// attachment indicated by the supplied UUID. If the filesystem attachment is
+// the last filesystem attachment of a dying filesystem, then mark that
+// filesystem as dead.
 //
 // The following errors may be returned:
 // - [storageprovisioningerrors.FilesystemAttachmentNotFound] there is no
@@ -1258,7 +1260,36 @@ SET    life_id = 2
 WHERE  uuid = $entityUUID.uuid`, fsaUUID)
 	if err != nil {
 		return errors.Errorf(
-			"preparing filesystem attachment exists query: %w", err,
+			"preparing mark filesystem attachment exists dead: %w", err,
+		)
+	}
+
+	remainingAttachmentsStmt, err := st.Prepare(`
+SELECT COUNT(sfaB.uuid) AS &count.count
+FROM   storage_filesystem_attachment sfaA
+JOIN   storage_filesystem_attachment sfaB ON sfaB.storage_filesystem_uuid = sfaA.storage_filesystem_uuid
+WHERE  sfaA.uuid = $entityUUID.uuid AND
+       sfaB.uuid != $entityUUID.uuid
+`, fsaUUID, count{})
+	if err != nil {
+		return errors.Errorf(
+			"preparing remaining filesystem attachment exists query: %w", err,
+		)
+	}
+
+	markDyingFilesystemDeadStmt, err := st.Prepare(`
+WITH fs AS (
+	SELECT storage_filesystem_uuid
+	FROM   storage_filesystem_attachment
+	WHERE  uuid = $entityUUID.uuid
+)
+UPDATE storage_filesystem
+SET    life_id = 2
+WHERE  life_id = 1 AND uuid IN fs
+`, fsaUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing mark dying filesystem dead query: %w", err,
 		)
 	}
 
@@ -1276,6 +1307,24 @@ WHERE  uuid = $entityUUID.uuid`, fsaUUID)
 		if err != nil {
 			return errors.Errorf(
 				"running mark filesystem attachment dead query: %w", err,
+			)
+		}
+
+		var remaining count
+		err = tx.Query(ctx, remainingAttachmentsStmt, fsaUUID).Get(&remaining)
+		if err != nil {
+			return errors.Errorf(
+				"running remaining filesystem attachment query: %w", err,
+			)
+		}
+		if remaining.Count > 0 {
+			return nil
+		}
+
+		err = tx.Query(ctx, markDyingFilesystemDeadStmt, fsaUUID).Run()
+		if err != nil {
+			return errors.Errorf(
+				"running mark dying filesystem dead query: %w", err,
 			)
 		}
 

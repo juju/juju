@@ -675,7 +675,7 @@ func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadNotFound(c *tc.C) {
 func (s *storageSuite) TestMarkFilesystemAttachmentAsDead(c *tc.C) {
 	ctx := c.Context()
 
-	_, fsaUUID := s.addAttachedFilesystem(c)
+	fsUUID, fsaUUID := s.addAttachedFilesystem(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := st.MarkFilesystemAttachmentAsDead(ctx, fsaUUID)
@@ -687,6 +687,40 @@ func (s *storageSuite) TestMarkFilesystemAttachmentAsDead(c *tc.C) {
 		fsaUUID,
 	)
 	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Filesystem should still be Alive
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 0)
+}
+
+func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadWithDyingFilesystem(c *tc.C) {
+	ctx := c.Context()
+
+	fsUUID, fsaUUID := s.addAttachedFilesystem(c)
+	s.setFilesystemLife(c, fsUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkFilesystemAttachmentAsDead(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Filesystem Attachment should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_filesystem_attachment WHERE uuid = ?",
+		fsaUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Filesystem should be Dead too
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID,
+	)
 	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 2)
 }
