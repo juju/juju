@@ -91,18 +91,17 @@ AND    life_id = 0`, unitUUID)
 		return cascaded, errors.Errorf("advancing unit life: %w", err)
 	}
 
-	sAttachments, err := st.ensureUnitStorageAttachmentsNotAlive(ctx, tx, uUUID)
+	cascaded.CascadedStorageAttachmentLives, err = st.ensureUnitStorageAttachmentsNotAlive(ctx, tx, uUUID)
 	if err != nil {
 		return cascaded, errors.Errorf("setting unit storage attachment lives to dying: %w", err)
 	}
-	cascaded.StorageAttachmentUUIDs = sAttachments
 
 	if destroyStorage {
-		sInstances, err := st.ensureUnitOwnedStorageInstancesNotAlive(ctx, tx, uUUID)
+		// TODO(storage): wire through obliterate seperately from destroy.
+		cascaded.CascadedStorageInstanceLives, err = st.ensureUnitOwnedStorageInstancesNotAlive(ctx, tx, uUUID, destroyStorage)
 		if err != nil {
 			return cascaded, errors.Errorf("setting unit storage instance lives to dying: %w", err)
 		}
-		cascaded.StorageInstanceUUIDs = sInstances
 	}
 
 	if checkMachine {
@@ -112,7 +111,7 @@ AND    life_id = 0`, unitUUID)
 		}
 		if mUUID != "" {
 			cascaded.MachineUUID = &mUUID
-			cascaded.CascadedStorageLives = cascaded.CascadedStorageLives.Merge(machineStorageCascaded)
+			cascaded.CascadedStorageInstanceLives = cascaded.CascadedStorageInstanceLives.Merge(machineStorageCascaded)
 		}
 	}
 
@@ -121,7 +120,9 @@ AND    life_id = 0`, unitUUID)
 
 func (st *State) ensureUnitStorageAttachmentsNotAlive(
 	ctx context.Context, tx *sqlair.TX, uUUID string,
-) ([]string, error) {
+) (internal.CascadedStorageAttachmentLives, error) {
+	var cascaded internal.CascadedStorageAttachmentLives
+
 	unitUUID := entityUUID{UUID: uUUID}
 
 	stmt, err := st.Prepare(`
@@ -130,15 +131,24 @@ FROM   storage_attachment
 WHERE  unit_uuid = $entityUUID.uuid
 AND    life_id = 0`, unitUUID)
 	if err != nil {
-		return nil, errors.Errorf("preparing live storage attachments query: %w", err)
+		return cascaded, errors.Errorf(
+			"preparing live storage attachments query: %w", err,
+		)
 	}
 
 	var attachments []entityUUID
 	if err = tx.Query(ctx, stmt, unitUUID).GetAll(&attachments); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil, nil
+			return cascaded, nil
 		}
-		return nil, errors.Errorf("running live storage attachments query: %w", err)
+		return cascaded, errors.Errorf(
+			"running live storage attachments query: %w", err,
+		)
+	}
+
+	for _, v := range attachments {
+		cascaded.StorageAttachmentUUIDs = append(
+			cascaded.StorageAttachmentUUIDs, v.UUID)
 	}
 
 	stmt, err = st.Prepare(`
@@ -147,18 +157,103 @@ SET    life_id = 1
 WHERE  unit_uuid = $entityUUID.uuid
 AND    life_id = 0`, unitUUID)
 	if err != nil {
-		return nil, errors.Errorf("preparing live storage attachments update: %w", err)
+		return cascaded, errors.Errorf(
+			"preparing live storage attachments update: %w", err,
+		)
 	}
 
 	if err = tx.Query(ctx, stmt, unitUUID).Run(); err != nil {
-		return nil, errors.Errorf("running live storage attachments update: %w", err)
+		return cascaded, errors.Errorf(
+			"running live storage attachments update: %w", err,
+		)
 	}
-	return transform.Slice(attachments, func(a entityUUID) string { return a.UUID }), nil
+
+	sfaStmt, err := st.Prepare(`
+SELECT sfa.uuid AS &entityUUID.uuid
+FROM   storage_attachment sa
+       JOIN storage_instance_filesystem sif ON sa.storage_instance_uuid = sif.storage_instance_uuid
+       JOIN storage_filesystem_attachment sfa ON sif.storage_filesystem_uuid = sfa.storage_filesystem_uuid
+WHERE  sa.unit_uuid = $entityUUID.uuid
+AND    sfa.life_id = 0`, entityUUID{})
+	if err != nil {
+		return cascaded, errors.Errorf(
+			"preparing live unit filesystem attachments query: %w", err,
+		)
+	}
+
+	var sfaUUIDs entityUUIDs
+	err = tx.Query(ctx, sfaStmt, unitUUID).GetAll(&sfaUUIDs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return cascaded, errors.Errorf(
+			"running live unit filesystem attachments query: %w", err,
+		)
+	}
+
+	for _, v := range sfaUUIDs {
+		cascaded.FileSystemAttachmentUUIDs = append(
+			cascaded.FileSystemAttachmentUUIDs, v.UUID)
+	}
+
+	svaStmt, err := st.Prepare(`
+SELECT sva.uuid AS &entityUUID.uuid
+FROM   storage_attachment sa
+       JOIN storage_instance_volume siv ON sa.storage_instance_uuid = siv.storage_instance_uuid
+       JOIN storage_volume_attachment sva ON siv.storage_volume_uuid = sva.storage_volume_uuid
+WHERE  sa.unit_uuid = $entityUUID.uuid
+AND    sva.life_id = 0`, entityUUID{})
+	if err != nil {
+		return cascaded, errors.Errorf(
+			"preparing live unit volume attachments query: %w", err,
+		)
+	}
+
+	var svaUUIDs entityUUIDs
+	err = tx.Query(ctx, svaStmt, unitUUID).GetAll(&svaUUIDs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return cascaded, errors.Errorf(
+			"running live unit volume attachments query: %w", err,
+		)
+	}
+
+	for _, v := range svaUUIDs {
+		cascaded.VolumeAttachmentUUIDs = append(
+			cascaded.VolumeAttachmentUUIDs, v.UUID)
+	}
+
+	svapStmt, err := st.Prepare(`
+SELECT svap.uuid AS &entityUUID.uuid
+FROM   storage_attachment sa
+       JOIN storage_instance_volume siv ON sa.storage_instance_uuid = siv.storage_instance_uuid
+       JOIN storage_volume_attachment_plan svap ON siv.storage_volume_uuid = svap.storage_volume_uuid
+WHERE  sa.unit_uuid = $entityUUID.uuid
+AND    svap.life_id = 0`, unitUUID)
+	if err != nil {
+		return cascaded, errors.Errorf(
+			"preparing live unit volume attachment plans query: %w", err,
+		)
+	}
+
+	var svapUUIDs entityUUIDs
+	err = tx.Query(ctx, svapStmt, unitUUID).GetAll(&svapUUIDs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return cascaded, errors.Errorf(
+			"running live unit volume attachment plans query: %w", err,
+		)
+	}
+
+	for _, v := range svapUUIDs {
+		cascaded.VolumeAttachmentPlanUUIDs = append(
+			cascaded.VolumeAttachmentPlanUUIDs, v.UUID)
+	}
+
+	return cascaded, nil
 }
 
 func (st *State) ensureUnitOwnedStorageInstancesNotAlive(
-	ctx context.Context, tx *sqlair.TX, uUUID string,
-) ([]string, error) {
+	ctx context.Context, tx *sqlair.TX, uUUID string, obliterate bool,
+) (internal.CascadedStorageInstanceLives, error) {
+	var cascaded internal.CascadedStorageInstanceLives
+
 	unitUUID := entityUUID{UUID: uUUID}
 
 	stmt, err := st.Prepare(`
@@ -166,43 +261,32 @@ SELECT si.uuid AS &entityUUID.uuid
 FROM   storage_unit_owner so 
 JOIN   storage_instance si ON so.storage_instance_uuid = si.uuid
 WHERE  so.unit_uuid = $entityUUID.uuid
-AND    si.life_id = 0`, unitUUID)
+AND    si.life_id = 0`, entityUUID{})
 	if err != nil {
-		return nil, errors.Errorf("preparing live storage instances query: %w", err)
+		return cascaded, errors.Errorf(
+			"preparing live storage instances query: %w", err,
+		)
 	}
 
-	var instances []entityUUID
+	var instances entityUUIDs
 	if err = tx.Query(ctx, stmt, unitUUID).GetAll(&instances); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil, nil
+			return cascaded, nil
 		}
-		return nil, errors.Errorf("running live storage instances query: %w", err)
+		return cascaded, errors.Errorf(
+			"running live storage instances query: %w", err,
+		)
 	}
 
-	result := transform.Slice(instances, func(a entityUUID) string { return a.UUID })
-	instanceUUIDs := uuids(result)
-
-	stmt, err = st.Prepare(`
-UPDATE storage_instance
-SET    life_id = 1
-WHERE  uuid IN ($uuids[:])
-AND    life_id = 0`, instanceUUIDs)
-	if err != nil {
-		return nil, errors.Errorf("preparing live storage instances update: %w", err)
-	}
-
-	if err = tx.Query(ctx, stmt, instanceUUIDs).Run(); err != nil {
-		return nil, errors.Errorf("running live storage instances update: %w", err)
-	}
-	return result, nil
+	return st.ensureStorageInstancesNotAliveCascade(ctx, tx, instances, obliterate)
 }
 
 // markMachineAsDyingIfAllUnitsAreNotAlive checks if all the units on the
 // machine are not alive. If this is the case, it marks the machine as dying.
 func (st *State) markMachineAsDyingIfAllUnitsAreNotAlive(
 	ctx context.Context, tx *sqlair.TX, uUUID string,
-) (string, internal.CascadedStorageLives, error) {
-	var cascaded internal.CascadedStorageLives
+) (string, internal.CascadedStorageInstanceLives, error) {
+	var cascaded internal.CascadedStorageInstanceLives
 	unitUUID := entityUUID{UUID: uUUID}
 
 	lastUnitStmt, err := st.Prepare(`
