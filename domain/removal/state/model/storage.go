@@ -1148,6 +1148,13 @@ func (st *State) DeleteFilesystem(ctx context.Context, rUUID string) error {
 
 	fsUUID := entityUUID{UUID: rUUID}
 
+	deleteMachineFilesystemStmt, err := st.Prepare(`
+DELETE FROM machine_filesystem WHERE filesystem_uuid = $entityUUID.uuid
+`, fsUUID)
+	if err != nil {
+		return errors.Errorf("preparing machine filesystem deletion: %w", err)
+	}
+
 	deleteStorageInstanceFilesystemStmt, err := st.Prepare(`
 DELETE FROM storage_instance_filesystem WHERE storage_filesystem_uuid = $entityUUID.uuid
 `, fsUUID)
@@ -1174,6 +1181,10 @@ DELETE FROM storage_filesystem WHERE uuid = $entityUUID.uuid
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, deleteMachineFilesystemStmt, fsUUID).Run()
+		if err != nil {
+			return errors.Errorf("deleting machine filesystem: %w", err)
+		}
 		err = tx.Query(ctx, deleteStorageInstanceFilesystemStmt, fsUUID).Run()
 		if err != nil {
 			return errors.Errorf(

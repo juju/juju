@@ -663,6 +663,28 @@ func (s *storageSuite) TestDeleteFilesystem(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestDeleteFilesystemWithMachineFilesystem(c *tc.C) {
+	fsUUID := s.addFilesystem(c)
+	machineUUID := s.addMachine(c)
+	s.addMachineFilesystem(c, machineUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteFilesystem(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Filesystem is gone.
+	var dummy string
+	row := s.DB().QueryRow(
+		"SELECT uuid FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+	// Machine filesystem is gone.
+	row = s.DB().QueryRow(
+		"SELECT filesystem_uuid FROM machine_filesystem WHERE filesystem_uuid = ?",
+		fsUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
 func (s *storageSuite) TestDeleteFilesystemWithInstance(c *tc.C) {
 	siUUID, _ := s.addAppUnitStorage(c)
 	fsUUID := s.addFilesystem(c)
