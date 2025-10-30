@@ -1146,6 +1146,37 @@ func (s *storageSuite) TestDeleteVolumeAttachmentPlan(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestVolumeAttachmentPlanScheduleRemoval(c *tc.C) {
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.VolumeAttachmentPlanScheduleRemoval(
+		c.Context(), "removal-uuid", vapUUID, false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	row := s.DB().QueryRow(
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal WHERE uuid = ?",
+		"removal-uuid",
+	)
+	var (
+		removalTypeID int
+		rUUID         string
+		force         bool
+		scheduledFor  time.Time
+	)
+	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalTypeID, tc.Equals, 10)
+	c.Check(rUUID, tc.Equals, vapUUID)
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
+}
+
 // addAppUnitStorage sets up a unit with a storage attachment.
 // The storage instance and attachment UUIDs are returned.
 func (s *storageSuite) addAppUnitStorage(c *tc.C) (string, string) {
