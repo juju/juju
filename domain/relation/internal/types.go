@@ -18,10 +18,10 @@ type WatcherRelationUnitsData struct {
 	UnitSettingsHashNS        string
 }
 
-// RelationLifeSuspendedStatusChange describes the life and suspended status
+// RelationLifeSuspendedStatus describes the life and suspended status
 // of a relation. Endpoints are included to create a relation key for the
 // domain version of this structure.
-type RelationLifeSuspendedStatusChange struct {
+type RelationLifeSuspendedStatus struct {
 	// Life is the life of the relation.
 	Life life.Value
 	// Suspended is the suspended status of the relation.

@@ -103,23 +103,22 @@ type WatcherFactory interface {
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
-	// NewNamespaceWatcher returns a new watcher that filters changes from the input
-	// base watcher's db/queue. Change-log events will be emitted only if the filter
-	// accepts them, and dispatching the notifications via the Changes channel. A
-	// filter option is required, though additional filter options can be provided.
-	NewNamespaceWatcher(
-		ctx context.Context,
-		initialQuery eventsource.NamespaceQuery,
-		summary string,
-		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
-	) (watcher.StringsWatcher, error)
-
 	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
 	// input base watcher's db/queue.
 	NewNotifyMapperWatcher(
 		ctx context.Context,
 		summary string,
 		mapper eventsource.Mapper,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+
+	// NewNotifyWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		ctx context.Context,
+		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
@@ -145,26 +144,22 @@ func NewWatchableService(
 	}
 }
 
-// WatchRelationLifeSuspendedStatus returns a watcher that send the
-// the relation uuid of the given relation when there are changes to
-// its life or suspended status.
+// WatchRelationLifeSuspendedStatus returns a watcher that notifies when
+// there are changes to the given relation's life or suspended status.
 func (s *WatchableService) WatchRelationLifeSuspendedStatus(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
-) (watcher.StringsWatcher, error) {
+) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := relationUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"watching relation life suspended status: %w", err).Add(applicationerrors.UnitUUIDNotValid)
+			"watching relation life suspended status: %w", err).Add(relationerrors.RelationUUIDNotValid)
 	}
 
-	return s.watcherFactory.NewNamespaceWatcher(
+	return s.watcherFactory.NewNotifyWatcher(
 		ctx,
-		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
-			return []string{relationUUID.String()}, nil
-		},
 		fmt.Sprintf("watch relation life suspended status for %q", relationUUID),
 		eventsource.PredicateFilter(
 			s.st.GetRelationLifeSuspendedNameSpace(),

@@ -117,6 +117,13 @@ type RelationService interface {
 	// GetRelationKeyByUUID returns the relation key for the given UUID.
 	GetRelationKeyByUUID(ctx context.Context, relationUUID string) (corerelation.Key, error)
 
+	// GetRelationLifeSuspendedStatus returns a life/suspended status change
+	// struct for a specified relation uuid.
+	GetRelationLifeSuspendedStatus(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+	) (relation.RelationLifeSuspendedStatus, error)
+
 	// GetRelationUnitUUID returns the relation unit UUID for the given unit for
 	// the given relation.
 	GetRelationUnitUUID(
@@ -129,7 +136,7 @@ type RelationService interface {
 	// unit settings for a remote relation. If the unit has not yet entered
 	// scope, it will force the unit to enter scope. All settings will be
 	// replaced with the provided settings.
-	// This will ensure that the application, relation and units exist and that
+	// This will ensure that the relation, application, and its units exist and that
 	// they are alive.
 	SetRelationRemoteApplicationAndUnitSettings(
 		ctx context.Context,
@@ -143,6 +150,13 @@ type RelationService interface {
 	// remote relation in the local model. The relation must be a cross-model
 	// relation.
 	SetRemoteRelationSuspendedState(ctx context.Context, relationUUID corerelation.UUID, suspended bool, reason string) error
+
+	// WatchRelationLifeSuspendedStatus returns a watcher that notifies when
+	// there are changes to the given relation's life or suspended status.
+	WatchRelationLifeSuspendedStatus(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+	) (watcher.NotifyWatcher, error)
 
 	// WatchRelationUnits returns a watcher for changes to the units
 	// in the given relation in the local model.

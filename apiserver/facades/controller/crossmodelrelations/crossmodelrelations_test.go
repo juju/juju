@@ -35,6 +35,7 @@ import (
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	domainlife "github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -817,6 +818,87 @@ func (s *facadeSuite) TestWatchOfferStatusAuthError(c *tc.C) {
 	results, err := s.api(c).WatchOfferStatus(c.Context(), params.OfferArgs{
 		Args: []params.OfferArg{{
 			OfferUUID:     offerUUID.String(),
+			BakeryVersion: bakery.LatestVersion,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, "boom")
+}
+
+func (s *facadeSuite) TestWatchRelationsSuspendedStatusNotFound(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relationUUID := s.expectCheckRelationMacaroons(c, nil)
+
+	s.relationService.EXPECT().WatchRelationLifeSuspendedStatus(gomock.Any(), relationUUID).Return(nil, relationerrors.RelationNotFound)
+
+	results, err := s.api(c).WatchRelationsSuspendedStatus(c.Context(), params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:         relationUUID.String(),
+			BakeryVersion: bakery.LatestVersion,
+			Macaroons:     macaroon.Slice{testMac},
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *facadeSuite) TestWatchRelationsSuspendedStatus(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relationUUID := s.expectCheckRelationMacaroons(c, nil)
+
+	changes := s.expectWatchRelationLifeSuspendedStatus(ctrl, relationUUID)
+	changes <- struct{}{}
+
+	s.relationService.EXPECT().GetRelationLifeSuspendedStatus(gomock.Any(), relationUUID).Return(
+		domainrelation.RelationLifeSuspendedStatus{Key: "key", Life: life.Alive, Suspended: true}, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, w worker.Worker) (string, error) {
+			watch, ok := w.(RelationStatusWatcher)
+			if c.Check(ok, tc.IsTrue) {
+				c.Check(watch.RelationUUID(), tc.Equals, relationUUID)
+			}
+			return "42", nil
+		})
+
+	results, err := s.api(c).WatchRelationsSuspendedStatus(c.Context(), params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:         relationUUID.String(),
+			BakeryVersion: bakery.LatestVersion,
+			Macaroons:     macaroon.Slice{testMac},
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[0].RelationStatusWatcherId, tc.Equals, "42")
+	c.Assert(results.Results[0].Changes, tc.HasLen, 1)
+	c.Check(results.Results[0].Changes[0], tc.DeepEquals,
+		params.RelationLifeSuspendedStatusChange{Key: "key", Life: life.Alive, Suspended: true})
+}
+
+func (s *facadeSuite) TestWatchRelationsSuspendedStatusAuthError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	relationUUID := s.expectCheckRelationMacaroons(c, errors.New("boom"))
+
+	results, err := s.api(c).WatchRelationsSuspendedStatus(c.Context(), params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:         relationUUID.String(),
 			BakeryVersion: bakery.LatestVersion,
 		}},
 	})
@@ -1801,6 +1883,35 @@ func (s *facadeSuite) expectWatchOfferStatus(ctrl *gomock.Controller, offerUUID 
 	changes := make(chan struct{}, 1)
 	mockWatcher.EXPECT().Changes().Return(changes)
 	s.statusService.EXPECT().WatchOfferStatus(gomock.Any(), offerUUID).Return(mockWatcher, nil)
+	return changes
+}
+
+func (s *facadeSuite) expectCheckRelationMacaroons(c *tc.C, err error) corerelation.UUID {
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	relationKey, _ := corerelation.NewKeyFromString("one:one two:two")
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relationUUID.String()).Return(relationKey, nil)
+
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relationUUID).Return(offerUUID, nil)
+
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().CheckRelationMacaroons(
+		gomock.Any(),
+		s.modelUUID.String(),
+		offerUUID.String(),
+		names.NewRelationTag(relationKey.String()),
+		gomock.Any(),
+		bakery.LatestVersion,
+	).Return(err)
+	return relationUUID
+}
+
+func (s *facadeSuite) expectWatchRelationLifeSuspendedStatus(ctrl *gomock.Controller, relationUUID corerelation.UUID) chan struct{} {
+	mockWatcher := NewMockNotifyWatcher(ctrl)
+	changes := make(chan struct{}, 1)
+	mockWatcher.EXPECT().Changes().Return(changes)
+	s.relationService.EXPECT().WatchRelationLifeSuspendedStatus(gomock.Any(), relationUUID).Return(mockWatcher, nil)
 	return changes
 }
 

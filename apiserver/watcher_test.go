@@ -10,14 +10,28 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
-	application "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/offer"
-	relation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
+
+func TestOfferStatusWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &offerStatusWatcherSuite{})
+}
+
+func TestRelationStatusWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &relationStatusWatcherSuite{})
+}
+
+func TestRemoteRelationWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &remoteRelationWatcherSuite{})
+}
 
 type offerStatusWatcherSuite struct {
 	testhelpers.IsolationSuite
@@ -26,10 +40,6 @@ type offerStatusWatcherSuite struct {
 	watcher       *MockOfferWatcher
 
 	api *srvOfferStatusWatcher
-}
-
-func TestOfferStatusWatcherSuite(t *stdtesting.T) {
-	tc.Run(t, &offerStatusWatcherSuite{})
 }
 
 func (s *offerStatusWatcherSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -42,6 +52,12 @@ func (s *offerStatusWatcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 		statusService: s.statusService,
 		watcher:       s.watcher,
 	}
+
+	c.Cleanup(func() {
+		s.statusService = nil
+		s.watcher = nil
+		s.api = nil
+	})
 
 	return ctrl
 }
@@ -79,10 +95,6 @@ type remoteRelationWatcherSuite struct {
 	api *srvRemoteRelationWatcher
 }
 
-func TestRemoteRelationWatcherSuite(t *stdtesting.T) {
-	tc.Run(t, &remoteRelationWatcherSuite{})
-}
-
 func (s *remoteRelationWatcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -93,6 +105,12 @@ func (s *remoteRelationWatcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 		relationService: s.relationService,
 		watcher:         s.watcher,
 	}
+
+	c.Cleanup(func() {
+		s.relationService = nil
+		s.watcher = nil
+		s.api = nil
+	})
 
 	return ctrl
 }
@@ -204,5 +222,64 @@ func (s *remoteRelationWatcherSuite) TestNextNoApplicationSettingsChange(c *tc.C
 			UnitId:   2,
 			Settings: unitSettings["foo/2"],
 		}},
+	})
+}
+
+type relationStatusWatcherSuite struct {
+	testhelpers.IsolationSuite
+
+	relationService *MockRelationService
+	watcher         *MockRelationStatusWatcher
+
+	api *srvRelationStatusWatcher
+}
+
+func (s *relationStatusWatcherSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.relationService = NewMockRelationService(ctrl)
+	s.watcher = NewMockRelationStatusWatcher(ctrl)
+
+	s.api = &srvRelationStatusWatcher{
+		relationService: s.relationService,
+		watcher:         s.watcher,
+	}
+
+	c.Cleanup(func() {
+		s.relationService = nil
+		s.watcher = nil
+		s.api = nil
+	})
+
+	return ctrl
+}
+func (s *relationStatusWatcherSuite) TestNext(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+
+	changes := make(chan struct{}, 1)
+	changes <- struct{}{}
+	s.watcher.EXPECT().Changes().Return(changes)
+	s.watcher.EXPECT().RelationUUID().Return(relationUUID)
+	s.relationService.EXPECT().GetRelationLifeSuspendedStatus(gomock.Any(), relationUUID).Return(
+		domainrelation.RelationLifeSuspendedStatus{
+			Key:             "key",
+			Life:            life.Alive,
+			Suspended:       true,
+			SuspendedReason: "it's a test",
+		}, nil)
+
+	res, err := s.api.Next(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(res.Error, tc.IsNil)
+	c.Assert(res.Changes, tc.HasLen, 1)
+	c.Check(res.Changes[0], tc.DeepEquals, params.RelationLifeSuspendedStatusChange{
+		Key:             "key",
+		Life:            life.Alive,
+		Suspended:       true,
+		SuspendedReason: "it's a test",
 	})
 }

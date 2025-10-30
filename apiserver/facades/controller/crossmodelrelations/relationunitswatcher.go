@@ -91,7 +91,7 @@ func (w *relationChangesWatcher) RelationToken() corerelation.UUID {
 	return w.offerRelationUUID
 }
 
-// Changes is part of RelationUnitsWatcher.
+// Changes is part of the watcher.Watcher interface.
 func (w *relationChangesWatcher) Changes() <-chan params.RelationUnitsChange {
 	return w.out
 }

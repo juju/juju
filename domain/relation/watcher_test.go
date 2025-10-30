@@ -404,11 +404,8 @@ func (s *watcherSuite) TestWatchRelationLifeSuspendedStatus(c *tc.C) {
 			return nil
 		})
 		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[[]string]) {
-		// Assert: received changed of relation uuid.
-		w.Check(
-			watchertest.StringSliceAssert(relationUUID.String()),
-		)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
 	// Act 1: set the relation to suspended.
@@ -422,21 +419,18 @@ func (s *watcherSuite) TestWatchRelationLifeSuspendedStatus(c *tc.C) {
 			return nil
 		})
 		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[[]string]) {
-		// Assert: received changed of relation uuid.
-		w.Check(
-			watchertest.StringSliceAssert(relationUUID.String()),
-		)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
 	// Act 3: add a relation unrelated to the current unit.
 	harness.AddTest(c, func(c *tc.C) {
 		_ = s.setupSecondRelationNotFound(c)
-	}, func(w watchertest.WatcherC[[]string]) {
+	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
-	harness.Run(c, []string{relationUUID.String()})
+	harness.Run(c, struct{}{})
 }
 
 func (s *watcherSuite) setupSecondAppAndRelate(

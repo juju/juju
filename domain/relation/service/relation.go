@@ -127,12 +127,12 @@ type State interface {
 		applicationID application.UUID,
 	) (map[string]string, error)
 
-	// GetRelationLifeSuspendedStatusChange returns a life/suspended status change
+	// GetRelationLifeSuspendedStatus returns a life/suspended status
 	// struct for a specified relation uuid.
-	GetRelationLifeSuspendedStatusChange(
+	GetRelationLifeSuspendedStatus(
 		ctx context.Context,
 		relationUUID string,
-	) (internal.RelationLifeSuspendedStatusChange, error)
+	) (internal.RelationLifeSuspendedStatus, error)
 
 	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
@@ -832,27 +832,27 @@ func (s *Service) GetRelationUnitSettings(
 	return settings, nil
 }
 
-// GetRelationLifeSuspendedStatusChange returns a life/suspended status change
+// GetRelationLifeSuspendedStatus returns a life/suspended status
 // struct for a specified relation uuid.
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if the relation is not found.
 //   - [relationerrors.RelationUUIDNotValid] is returned if the relation uuid is
 //     not valid.
-func (s *Service) GetRelationLifeSuspendedStatusChange(
+func (s *Service) GetRelationLifeSuspendedStatus(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
-) (relation.RelationLifeSuspendedStatusChange, error) {
+) (relation.RelationLifeSuspendedStatus, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := relationUUID.Validate(); err != nil {
-		return relation.RelationLifeSuspendedStatusChange{}, errors.Errorf(
+		return relation.RelationLifeSuspendedStatus{}, errors.Errorf(
 			"%w:%w", relationerrors.RelationUUIDNotValid, err)
 	}
 
-	change, err := s.st.GetRelationLifeSuspendedStatusChange(ctx, relationUUID.String())
+	change, err := s.st.GetRelationLifeSuspendedStatus(ctx, relationUUID.String())
 	if err != nil {
-		return relation.RelationLifeSuspendedStatusChange{}, errors.Capture(err)
+		return relation.RelationLifeSuspendedStatus{}, errors.Capture(err)
 	}
 
 	identifiers := transform.Slice(change.Endpoints, func(in relation.Endpoint) corerelation.EndpointIdentifier {
@@ -861,10 +861,10 @@ func (s *Service) GetRelationLifeSuspendedStatusChange(
 
 	key, err := corerelation.NewKey(identifiers)
 	if err != nil {
-		return relation.RelationLifeSuspendedStatusChange{}, errors.Errorf("generating relation key: %w", err)
+		return relation.RelationLifeSuspendedStatus{}, errors.Errorf("generating relation key: %w", err)
 	}
 
-	return relation.RelationLifeSuspendedStatusChange{
+	return relation.RelationLifeSuspendedStatus{
 		Key:             key.String(),
 		Life:            change.Life,
 		Suspended:       change.Suspended,

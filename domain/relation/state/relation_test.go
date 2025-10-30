@@ -1496,7 +1496,7 @@ func (s *relationSuite) TestGetRelationEndpoints(c *tc.C) {
 	c.Check(obtainedEndpoints, tc.SameContents, expectedEndpoints)
 }
 
-func (s *relationSuite) TestGetRelationLifeSuspendedStatusChange(c *tc.C) {
+func (s *relationSuite) TestGetRelationLifeSuspendedStatus(c *tc.C) {
 	// Arrange: Add two endpoints and a relation on them.
 	relationID := 7
 
@@ -1534,7 +1534,7 @@ func (s *relationSuite) TestGetRelationLifeSuspendedStatusChange(c *tc.C) {
 	expectedEndpoints := []domainrelation.Endpoint{endpoint1, endpoint2}
 
 	// Act: Get relation endpoints.
-	obtained, err := s.state.GetRelationLifeSuspendedStatusChange(c.Context(), relationUUID.String())
+	obtained, err := s.state.GetRelationLifeSuspendedStatus(c.Context(), relationUUID.String())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
