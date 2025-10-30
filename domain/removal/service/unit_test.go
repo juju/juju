@@ -18,6 +18,8 @@ import (
 	removal "github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -47,7 +49,9 @@ func (s *unitSuite) TestRemoveUnitNoForceMachineAndStorageSuccess(c *tc.C) {
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(internal.CascadedUnitLives{
 		MachineUUID: &mUUID,
 		CascadedStorageLives: internal.CascadedStorageLives{
-			StorageAttachmentUUIDs: []string{saUUID},
+			CascadedStorageAttachmentLives: internal.CascadedStorageAttachmentLives{
+				StorageAttachmentUUIDs: []string{saUUID},
+			},
 		},
 	}, nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)
@@ -109,6 +113,73 @@ func (s *unitSuite) TestRemoveUnitNotFound(c *tc.C) {
 
 	_, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, false, 0)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitSuite) TestRemoveUnitCascadeStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	volUUID := tc.Must(c, storageprovisioning.NewVolumeUUID)
+	vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID)
+	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+
+	when := time.Now().UTC()
+	s.clock.EXPECT().Now().Return(when).AnyTimes()
+
+	cascaded := internal.CascadedUnitLives{
+		CascadedStorageLives: internal.CascadedStorageLives{
+			CascadedStorageInstanceLives: internal.CascadedStorageInstanceLives{
+				StorageInstanceUUIDs: []string{siUUID.String()},
+				FileSystemUUIDs:      []string{fsUUID.String()},
+				VolumeUUIDs:          []string{volUUID.String()},
+			},
+			CascadedStorageAttachmentLives: internal.CascadedStorageAttachmentLives{
+				StorageAttachmentUUIDs:    []string{saUUID.String()},
+				FileSystemAttachmentUUIDs: []string{fsaUUID.String()},
+				VolumeAttachmentUUIDs:     []string{vaUUID.String()},
+				VolumeAttachmentPlanUUIDs: []string{vapUUID.String()},
+			},
+		},
+	}
+
+	exp := s.modelState.EXPECT()
+	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
+	exp.EnsureUnitNotAliveCascade(
+		gomock.Any(), uUUID.String(), false,
+	).Return(cascaded, nil)
+	exp.UnitScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), uUUID.String(), false, when,
+	).Return(nil)
+	exp.StorageInstanceScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), siUUID.String(), false, when,
+	).Return(nil)
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), saUUID.String(), false, when,
+	).Return(nil)
+	exp.FilesystemScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), fsUUID.String(), false, when,
+	).Return(nil)
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), fsaUUID.String(), false, when,
+	).Return(nil)
+	exp.VolumeScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), volUUID.String(), false, when,
+	).Return(nil)
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), vaUUID.String(), false, when,
+	).Return(nil)
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), vapUUID.String(), false, when,
+	).Return(nil)
+
+	svc := s.newService(c)
+	jobUUID, err := svc.RemoveUnit(c.Context(), uUUID, false, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
 func (s *unitSuite) TestProcessRemovalJobInvalidJobType(c *tc.C) {
