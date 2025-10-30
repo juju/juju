@@ -479,6 +479,37 @@ func (s *storageSuite) TestVolumeScheduleRemovalSuccess(c *tc.C) {
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
+func (s *storageSuite) TestSetVolumeStatusNotFound(c *tc.C) {
+	volUUID := "some-volume-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.SetVolumeStatus(c.Context(), volUUID, 0)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *storageSuite) TestGetVolumeStatusNotFound(c *tc.C) {
+	volUUID := "some-volume-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetVolumeStatus(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *storageSuite) TestSetVolumeStatusGetVolumeStatus(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID := s.addVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	for i := 0; i <= 7; i++ {
+		err := st.SetVolumeStatus(ctx, volUUID, i)
+		c.Check(err, tc.ErrorIsNil)
+		statusId, err := st.GetVolumeStatus(ctx, volUUID)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(statusId, tc.Equals, i)
+	}
+}
+
 func (s *storageSuite) TestDeleteVolume(c *tc.C) {
 	volUUID := s.addVolume(c)
 

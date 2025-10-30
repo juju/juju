@@ -758,6 +758,121 @@ func (st *State) VolumeScheduleRemoval(
 	}))
 }
 
+// GetVolumeStatus returns the status of the volume indicated by the input UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when the volume does not exist.
+func (st *State) GetVolumeStatus(
+	ctx context.Context, volUUID string,
+) (int, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	inputUUID := entityUUID{UUID: volUUID}
+
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_volume
+WHERE  uuid = $entityUUID.uuid
+`, inputUUID)
+	if err != nil {
+		return -1, errors.Errorf(
+			"preparing storage volume exists query: %w", err,
+		)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &status.*
+FROM   storage_volume_status
+WHERE  volume_uuid = $entityUUID.uuid
+`, inputUUID, status{})
+	if err != nil {
+		return -1, errors.Errorf(
+			"preparing storage volume status query: %w", err,
+		)
+	}
+
+	var ret status
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, existsStmt, inputUUID).Get(&inputUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.VolumeNotFound
+		} else if err != nil {
+			return errors.Errorf("storage volume exists query: %w", err)
+		}
+		err = tx.Query(ctx, stmt, inputUUID).Get(&ret)
+		if err != nil {
+			return errors.Errorf("storage volume status query: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	return ret.StatusID, nil
+}
+
+// SetVolumeStatus changes the status of the volume indicated by the input UUID
+// and status value.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when the volume does not exist.
+func (st *State) SetVolumeStatus(
+	ctx context.Context, volUUID string, statusId int,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	inputUUID := entityUUID{UUID: volUUID}
+	inputStatus := status{StatusID: statusId}
+
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_volume
+WHERE  uuid = $entityUUID.uuid
+`, inputUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing storage volume exists query: %w", err,
+		)
+	}
+
+	stmt, err := st.Prepare(`
+UPDATE storage_volume_status
+SET    status_id=$status.status_id,
+       message='',
+       updated_at=DATETIME('now')
+WHERE  volume_uuid = $entityUUID.uuid
+`, inputUUID, inputStatus)
+	if err != nil {
+		return errors.Errorf("preparing storage volume status update: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, existsStmt, inputUUID).Get(&inputUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return storageprovisioningerrors.VolumeNotFound
+		} else if err != nil {
+			return errors.Errorf("storage volume exists query: %w", err)
+		}
+		err = tx.Query(ctx, stmt, inputUUID, inputStatus).Run()
+		if err != nil {
+			return errors.Errorf("storage volume status query: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
 // DeleteVolume deletes the volume specified by the input UUID. It also deletes
 // the storage instance volume relation if it still exists.
 func (st *State) DeleteVolume(ctx context.Context, rUUID string) error {
