@@ -358,6 +358,40 @@ func (s *storageSuite) TestStorageInstanceScheduleRemoval(c *tc.C) {
 	c.Check(force, tc.Equals, false)
 	c.Check(scheduledFor, tc.Equals, when)
 }
+
+func (s *storageSuite) TestCheckStorageInstanceHasNoChildrenWithFilesystem(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	res, err := st.CheckStorageInstanceHasNoChildren(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckStorageInstanceHasNoChildrenWithVolume(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	volUUID := s.addVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	res, err := st.CheckStorageInstanceHasNoChildren(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckStorageInstanceHasNoChildrenWithoutChildren(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	res, err := st.CheckStorageInstanceHasNoChildren(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.IsTrue)
+}
 func (s *storageSuite) TestGetVolumeLife(c *tc.C) {
 	volUUID := s.addVolume(c)
 

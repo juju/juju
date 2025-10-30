@@ -590,6 +590,52 @@ func (st *State) StorageInstanceScheduleRemoval(
 		return nil
 	}))
 }
+
+// CheckStorageInstanceHasNoChildren returns true if the storage instance
+// with the input UUID has no child filesystem or volume.
+func (st *State) CheckStorageInstanceHasNoChildren(
+	ctx context.Context, siUUID string,
+) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	input := entityUUID{UUID: siUUID}
+
+	stmt, err := st.Prepare(`
+SELECT SUM(n) AS &count.count FROM (
+	SELECT    COUNT(*) AS n
+	FROM      storage_instance_volume
+	WHERE     storage_instance_uuid = $entityUUID.uuid
+	UNION
+	SELECT    COUNT(*) AS n
+	FROM      storage_instance_filesystem
+	WHERE     storage_instance_uuid = $entityUUID.uuid
+)`, input, count{})
+	if err != nil {
+		return false, errors.Errorf(
+			"preparing storage instance check no children query: %w", err,
+		)
+	}
+
+	var result count
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, input).Get(&result)
+		if err != nil {
+			return errors.Errorf(
+				"running storage instance check no children query: %w", err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	hasNoChildren := result.Count == 0
+	return hasNoChildren, nil
+}
 // GetVolumeLife returns the life of the volume with the input UUID.
 //
 // The following errors may be returned:
