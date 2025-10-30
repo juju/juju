@@ -696,6 +696,45 @@ func (c *MockModelStateGetModelEgressSubnetsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// GetOfferConnections mocks base method.
+func (m *MockModelState) GetOfferConnections(arg0 context.Context, arg1 []string) (map[string][]crossmodelrelation.OfferConnection, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOfferConnections", arg0, arg1)
+	ret0, _ := ret[0].(map[string][]crossmodelrelation.OfferConnection)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOfferConnections indicates an expected call of GetOfferConnections.
+func (mr *MockModelStateMockRecorder) GetOfferConnections(arg0, arg1 any) *MockModelStateGetOfferConnectionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferConnections", reflect.TypeOf((*MockModelState)(nil).GetOfferConnections), arg0, arg1)
+	return &MockModelStateGetOfferConnectionsCall{Call: call}
+}
+
+// MockModelStateGetOfferConnectionsCall wrap *gomock.Call
+type MockModelStateGetOfferConnectionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetOfferConnectionsCall) Return(arg0 map[string][]crossmodelrelation.OfferConnection, arg1 error) *MockModelStateGetOfferConnectionsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetOfferConnectionsCall) Do(f func(context.Context, []string) (map[string][]crossmodelrelation.OfferConnection, error)) *MockModelStateGetOfferConnectionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetOfferConnectionsCall) DoAndReturn(f func(context.Context, []string) (map[string][]crossmodelrelation.OfferConnection, error)) *MockModelStateGetOfferConnectionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetOfferDetails mocks base method.
 func (m *MockModelState) GetOfferDetails(arg0 context.Context, arg1 crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
 	m.ctrl.T.Helper()
