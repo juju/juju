@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/status"
+	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
@@ -115,6 +117,14 @@ type StorageState interface {
 	// GetVolumeLife returns the life of the volume with the input UUID.
 	GetVolumeLife(ctx context.Context, volUUID string) (life.Life, error)
 
+	// GetVolumeStatus returns the status of the volume indicated by the input
+	// UUID.
+	GetVolumeStatus(ctx context.Context, volUUID string) (int, error)
+
+	// SetVolumeStatus changes the status of the volume indicated by the input
+	// UUID and status value.
+	SetVolumeStatus(ctx context.Context, volUUID string, status int) error
+
 	// VolumeScheduleRemoval schedules a removal job for the volume with the
 	// input UUID, qualified with the input force boolean.
 	VolumeScheduleRemoval(ctx context.Context, removalUUID, volUUID string, force bool, when time.Time) error
@@ -124,6 +134,14 @@ type StorageState interface {
 
 	// GetFilesystemLife returns the life of the filesystem with the input UUID.
 	GetFilesystemLife(ctx context.Context, fsUUID string) (life.Life, error)
+
+	// GetFilesystemStatus returns the status of the filesystem indicated by the
+	// input UUID.
+	GetFilesystemStatus(ctx context.Context, fsUUID string) (int, error)
+
+	// SetFilesystemStatus changes the status of the filesystem indicated by the
+	// input UUID and status value.
+	SetFilesystemStatus(ctx context.Context, fsUUID string, status int) error
 
 	// DeleteFilesystem removes the filesystem with the input UUID.
 	DeleteFilesystem(ctx context.Context, fsUUID string) error
@@ -404,8 +422,10 @@ func (s *Service) storageAttachmentScheduleRemoval(
 // we transitioned to "dying".
 func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job removal.Job) error {
 	if job.RemovalType != removal.StorageAttachmentJob {
-		return errors.Errorf("job type: %q not valid for storage attachment removal", job.RemovalType).Add(
-			removalerrors.RemovalJobTypeNotValid)
+		return errors.Errorf(
+			"job type: %q not valid for storage attachment removal",
+			job.RemovalType,
+		).Add(removalerrors.RemovalJobTypeNotValid)
 	}
 
 	l, err := s.modelState.GetStorageAttachmentLife(ctx, job.EntityUUID)
@@ -415,11 +435,72 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 		return nil
 	}
 	if err != nil {
-		return errors.Errorf("getting storage attachment %q life: %w", job.EntityUUID, err)
+		return errors.Errorf(
+			"getting storage attachment %q life: %w", job.EntityUUID, err,
+		)
 	}
 
 	if l == life.Alive {
-		return errors.Errorf("storage attachment %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
+		return errors.Errorf(
+			"storage attachment %q is alive", job.EntityUUID,
+		).Add(removalerrors.EntityStillAlive)
+	} else if !job.Force && l == life.Dying {
+		return errors.Errorf(
+			"storage attachment %q is not dead", job.EntityUUID,
+		).Add(removalerrors.EntityNotDead)
+	}
+
+	if job.Force && l == life.Dying {
+		cascade, err := s.modelState.EnsureStorageAttachmentDeadCascade(
+			ctx, job.EntityUUID)
+		if errors.Is(err, storageerrors.StorageAttachmentNotFound) {
+			return errors.Errorf(
+				"storage attachment %q not found", job.EntityUUID,
+			).Add(storageerrors.StorageAttachmentNotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"ensuring storage attachment %q is dead: %w",
+				job.EntityUUID, err,
+			)
+		}
+
+		// NOTE: filesystem attachments, volume attachments and volume attachment
+		// plans have their removal jobs scheduled when the storage attachment goes
+		// to dying. But due to the entities not also going to dying, it is
+		// important that we schedule these here too, for completeness.
+
+		for _, fsaUUID := range cascade.FileSystemAttachmentUUIDs {
+			uuid := storageprovisioning.FilesystemAttachmentUUID(fsaUUID)
+			_, err := s.filesystemAttachmentScheduleRemoval(ctx, uuid, false, 0)
+			if err != nil {
+				return errors.Errorf(
+					"scheduling filesystem attachment %q removal job: %w",
+					uuid, err,
+				)
+			}
+		}
+
+		for _, vaUUID := range cascade.VolumeAttachmentUUIDs {
+			uuid := storageprovisioning.VolumeAttachmentUUID(vaUUID)
+			_, err := s.volumeAttachmentScheduleRemoval(ctx, uuid, false, 0)
+			if err != nil {
+				return errors.Errorf(
+					"scheduling volume attachment %q removal job: %w",
+					uuid, err,
+				)
+			}
+		}
+
+		for _, vapUUID := range cascade.VolumeAttachmentPlanUUIDs {
+			uuid := storageprovisioning.VolumeAttachmentPlanUUID(vapUUID)
+			_, err := s.volumeAttachmentPlanScheduleRemoval(ctx, uuid, false, 0)
+			if err != nil {
+				return errors.Errorf(
+					"scheduling volume attachment plan %q removal job: %w",
+					uuid, err,
+				)
+			}
+		}
 	}
 
 	if err := s.modelState.DeleteStorageAttachment(ctx, job.EntityUUID); err != nil {
@@ -849,17 +930,17 @@ func (s *Service) RemoveDeadFilesystem(
 		).Add(storageprovisioningerrors.FilesystemNotDead)
 	}
 
-	_, err = s.filesystemScheduleRemoval(ctx, uuid, false, 0)
+	tombstone := int(status.StorageFilesystemStatusTypeTombstone)
+	err = s.modelState.SetFilesystemStatus(ctx, uuid.String(), tombstone)
 	if err != nil {
-		return errors.Errorf("scheduling removal job for filesystem %q: %w",
-			uuid, err)
+		return errors.Errorf(
+			"setting filesystem tombstone status for %q: %w", uuid, err,
+		)
 	}
 
 	return nil
 }
 
-// filesystemScheduleRemoval should only be scheduled once the filesystem is
-// dead, or a force removal.
 func (s *Service) filesystemScheduleRemoval(
 	ctx context.Context,
 	fsUUID storageprovisioning.FilesystemUUID,
@@ -884,10 +965,9 @@ func (s *Service) filesystemScheduleRemoval(
 }
 
 // processStorageFilesystemRemovalJob handles the deletion of the filesystem.
-// If the filesystem is still alive, the job will not delete the filesystem. It is
-// expected that the filesystem job is only scheduled once the filesystem is not
-// only dead, but also handled by the storageprovisioner. The only exception to
-// this is a scheduled filesystem removal job for force removal.
+// For a non-forced removal job, the filesystem is deleted once the life is dead
+// and the status is tombstone. For forced removal job, deletion of a filesystem
+// happens once the filesystem is no longer alive.
 func (s *Service) processStorageFilesystemRemovalJob(
 	ctx context.Context, job removal.Job,
 ) error {
@@ -912,6 +992,22 @@ func (s *Service) processStorageFilesystemRemovalJob(
 		return errors.Errorf(
 			"filesystem %q is alive", job.EntityUUID,
 		).Add(removalerrors.EntityStillAlive)
+	} else if !job.Force && l == life.Dying {
+		return errors.Errorf(
+			"filesystem %q is not dead", job.EntityUUID,
+		).Add(removalerrors.EntityNotDead)
+	} else if !job.Force {
+		sv, err := s.modelState.GetFilesystemStatus(ctx, job.EntityUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting filesystem %q status: %w", job.EntityUUID, err,
+			)
+		}
+		if sv != int(status.StorageFilesystemStatusTypeTombstone) {
+			return errors.Errorf(
+				"filesystem %s status is not tombstone", job.EntityUUID,
+			).Add(removalerrors.StorageFilesystemNoTombstone)
+		}
 	}
 
 	err = s.modelState.DeleteFilesystem(ctx, job.EntityUUID)
@@ -956,17 +1052,17 @@ func (s *Service) RemoveDeadVolume(
 		).Add(storageprovisioningerrors.VolumeNotDead)
 	}
 
-	_, err = s.volumeScheduleRemoval(ctx, uuid, false, 0)
+	tombstone := int(status.StorageVolumeStatusTypeTombstone)
+	err = s.modelState.SetVolumeStatus(ctx, uuid.String(), tombstone)
 	if err != nil {
-		return errors.Errorf("scheduling removal job for volume %q: %w",
-			uuid, err)
+		return errors.Errorf(
+			"setting volume tombstone status for %q: %w", uuid, err,
+		)
 	}
 
 	return nil
 }
 
-// volumeScheduleRemoval should only be scheduled once the volume is dead, or a
-// force removal.
 func (s *Service) volumeScheduleRemoval(
 	ctx context.Context,
 	volUUID storageprovisioning.VolumeUUID,
@@ -991,10 +1087,9 @@ func (s *Service) volumeScheduleRemoval(
 }
 
 // processStorageVolumeRemovalJob handles the deletion of the volume.
-// If the volume is still alive, the job will not delete the volume. It is
-// expected that the volume job is only scheduled once the volume is not only
-// dead, but also handled by the storageprovisioner. The only exception to
-// this is a scheduled volume removal job for force removal.
+// For a non-forced removal job, the volume is deleted once the life is dead and
+// the status is tombstone. For forced removal job, deletion of a volume happens
+// once the volume is no longer alive.
 func (s *Service) processStorageVolumeRemovalJob(
 	ctx context.Context, job removal.Job,
 ) error {
@@ -1019,6 +1114,22 @@ func (s *Service) processStorageVolumeRemovalJob(
 		return errors.Errorf(
 			"volume %q is alive", job.EntityUUID,
 		).Add(removalerrors.EntityStillAlive)
+	} else if !job.Force && l == life.Dying {
+		return errors.Errorf(
+			"volume %q is not dead", job.EntityUUID,
+		).Add(removalerrors.EntityNotDead)
+	} else if !job.Force {
+		sv, err := s.modelState.GetVolumeStatus(ctx, job.EntityUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting volume %q status: %w", job.EntityUUID, err,
+			)
+		}
+		if sv != int(status.StorageFilesystemStatusTypeTombstone) {
+			return errors.Errorf(
+				"volume %q status is not tombstone", job.EntityUUID,
+			).Add(removalerrors.StorageVolumeNoTombstone)
+		}
 	}
 
 	err = s.modelState.DeleteVolume(ctx, job.EntityUUID)
