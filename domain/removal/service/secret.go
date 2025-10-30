@@ -46,10 +46,17 @@ func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID corea
 	}
 
 	if sb == nil {
-		return errors.Capture(s.modelState.DeleteApplicationOwnedSecretContent(ctx, aUUID.String()))
+		if err := s.modelState.DeleteApplicationOwnedSecretContent(ctx, aUUID.String()); err != nil {
+			return errors.Errorf("deleting secret content: %w", err)
+		}
 	}
 
 	// TODO: Use the secret back-end to remove secrets.
+
+	if err := s.modelState.DeleteApplicationOwnedSecrets(ctx, aUUID.String()); err != nil {
+		return errors.Errorf("deleting secret metadata: %w", err)
+	}
+
 	return nil
 }
 
@@ -60,10 +67,17 @@ func (s *Service) deleteUnitOwnedSecrets(ctx context.Context, uUUID coreunit.UUI
 	}
 
 	if sb == nil {
-		return errors.Capture(s.modelState.DeleteUnitOwnedSecretContent(ctx, uUUID.String()))
+		if err := s.modelState.DeleteUnitOwnedSecretContent(ctx, uUUID.String()); err != nil {
+			return errors.Errorf("deleting secret content: %w", err)
+		}
 	}
 
 	// TODO: Use the secret back-end to remove secrets.
+
+	if err := s.modelState.DeleteUnitOwnedSecrets(ctx, uUUID.String()); err != nil {
+		return errors.Errorf("deleting secret metadata: %w", err)
+	}
+
 	return nil
 }
 
