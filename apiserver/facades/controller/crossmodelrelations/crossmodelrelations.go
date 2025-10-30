@@ -14,7 +14,6 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
@@ -482,7 +481,7 @@ func (api *CrossModelRelationsAPIv3) WatchRelationChanges(
 func (api *CrossModelRelationsAPIv3) watchOneRelationChanges(
 	ctx context.Context,
 	arg params.RemoteEntityArg,
-) (common.RelationUnitsWatcher, params.RemoteRelationChangeEvent, error) {
+) (RelationChangesWatcher, params.RemoteRelationChangeEvent, error) {
 	var empty params.RemoteRelationChangeEvent
 	// relationToken is the relation UUID.
 	relationToken := arg.Token

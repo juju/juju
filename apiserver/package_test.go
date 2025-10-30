@@ -15,9 +15,9 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination registration_proxy_mock_test.go github.com/juju/juju/internal/proxy Proxier
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination provider_factory_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination tools_mock_test.go github.com/juju/juju/apiserver AgentBinaryStore,BlockChecker,ControllerConfigService
-//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination service_mock_test.go github.com/juju/juju/apiserver StatusService
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination services_mock_test.go github.com/juju/juju/internal/services ControllerDomainServices
-//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination offer_watcher_mock_test.go github.com/juju/juju/apiserver/facades/controller/crossmodelrelations OfferWatcher
+//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination service_mock_test.go github.com/juju/juju/apiserver StatusService,RelationService
+//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination offer_watcher_mock_test.go github.com/juju/juju/apiserver/facades/controller/crossmodelrelations OfferWatcher,RelationChangesWatcher
 
 type StubDBGetter struct{}
 
