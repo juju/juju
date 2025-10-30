@@ -14,6 +14,10 @@ const (
 	// the relation.
 	ApplicationNotFoundForRelation = errors.ConstError("application not found in relation")
 
+	// BothEndpointsRemote describes an error that occurs when attempting to
+	// create a relation where both endpoints are remote (CMR) applications.
+	BothEndpointsRemote = errors.ConstError("both endpoints are remote applications")
+
 	// CompatibleEndpointsNotFound is returned when no matching relation is found when trying
 	// to relate two application
 	CompatibleEndpointsNotFound = errors.ConstError("no compatible endpoints found between applications")
