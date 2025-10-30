@@ -616,7 +616,7 @@ func (api *CrossModelRelationsAPIv3) WatchRelationsSuspendedStatus(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		relationChange, err := api.relationService.GetRelationLifeSuspendedStatusChange(ctx, relationUUID)
+		relationChange, err := api.relationService.GetRelationLifeSuspendedStatus(ctx, relationUUID)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

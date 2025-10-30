@@ -263,8 +263,8 @@ func (s *relationStatusWatcherSuite) TestNext(c *tc.C) {
 	changes <- struct{}{}
 	s.watcher.EXPECT().Changes().Return(changes)
 	s.watcher.EXPECT().RelationUUID().Return(relationUUID)
-	s.relationService.EXPECT().GetRelationLifeSuspendedStatusChange(gomock.Any(), relationUUID).Return(
-		domainrelation.RelationLifeSuspendedStatusChange{
+	s.relationService.EXPECT().GetRelationLifeSuspendedStatus(gomock.Any(), relationUUID).Return(
+		domainrelation.RelationLifeSuspendedStatus{
 			Key:             "key",
 			Life:            life.Alive,
 			Suspended:       true,

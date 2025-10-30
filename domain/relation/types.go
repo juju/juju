@@ -128,9 +128,9 @@ type RelationUnitsWatcher interface {
 	watcher.Watcher[watcher.RelationUnitsChange]
 }
 
-// RelationLifeSuspendedStatusChange describes the life
+// RelationLifeSuspendedStatus describes the life
 // and suspended status of a relation.
-type RelationLifeSuspendedStatusChange struct {
+type RelationLifeSuspendedStatus struct {
 	// Key is the relation key of the changed relation.
 	Key string
 
@@ -142,12 +142,6 @@ type RelationLifeSuspendedStatusChange struct {
 
 	// SuspendedReason is an optional message to explain why suspended is true.
 	SuspendedReason string
-}
-
-// RelationSuspendedStatusWatcher sends changes when the
-// life or suspended status of specific relations change.
-type RelationSuspendedStatusWatcher interface {
-	watcher.Watcher[RelationLifeSuspendedStatusChange]
 }
 
 // CandidateEndpointIdentifier is the natural key of a relation endpoint when

@@ -328,7 +328,7 @@ func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLif
 		// the relation is dead before they have had a chance to be redirected
 		// to the new controller. Check other watchers in this file as well.
 		relationUUID := w.watcher.RelationUUID()
-		change, err := w.relationService.GetRelationLifeSuspendedStatusChange(ctx, relationUUID)
+		change, err := w.relationService.GetRelationLifeSuspendedStatus(ctx, relationUUID)
 		if err != nil {
 			return params.RelationLifeSuspendedStatusWatchResult{
 				Error: apiservererrors.ServerError(err),

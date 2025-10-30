@@ -571,13 +571,13 @@ func (s *relationServiceSuite) TestGetRelationDetailsRelationUUIDNotValid(c *tc.
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid, tc.Commentf("(Assert) unexpected error: %v", err))
 }
 
-func (s *relationServiceSuite) TestGetRelationLifeSuspendedStatusChange(c *tc.C) {
+func (s *relationServiceSuite) TestGetRelationLifeSuspendedStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
-	result := internal.RelationLifeSuspendedStatusChange{
+	result := internal.RelationLifeSuspendedStatus{
 		Life:            corelife.Alive,
 		Suspended:       true,
 		SuspendedReason: "it's a test",
@@ -598,16 +598,16 @@ func (s *relationServiceSuite) TestGetRelationLifeSuspendedStatusChange(c *tc.C)
 		},
 	}
 
-	s.state.EXPECT().GetRelationLifeSuspendedStatusChange(gomock.Any(), relationUUID.String()).Return(result, nil)
+	s.state.EXPECT().GetRelationLifeSuspendedStatus(gomock.Any(), relationUUID.String()).Return(result, nil)
 
 	expectedKey := corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2")
 
 	// Act:
-	obtained, err := s.service.GetRelationLifeSuspendedStatusChange(c.Context(), relationUUID)
+	obtained, err := s.service.GetRelationLifeSuspendedStatus(c.Context(), relationUUID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtained, tc.DeepEquals, relation.RelationLifeSuspendedStatusChange{
+	c.Check(obtained, tc.DeepEquals, relation.RelationLifeSuspendedStatus{
 		Key:             expectedKey.String(),
 		Life:            result.Life,
 		Suspended:       result.Suspended,
@@ -617,12 +617,12 @@ func (s *relationServiceSuite) TestGetRelationLifeSuspendedStatusChange(c *tc.C)
 
 // TestGetRelationEndpointUUIDRelationUUIDNotValid tests the failure scenario
 // where the provided RelationUUID is not valid.
-func (s *relationServiceSuite) TestGetRelationLifeSuspendedStatusChangeNotValid(c *tc.C) {
+func (s *relationServiceSuite) TestGetRelationLifeSuspendedStatusNotValid(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
 	// Act
-	_, err := s.service.GetRelationLifeSuspendedStatusChange(c.Context(), "bad-relation-uuid")
+	_, err := s.service.GetRelationLifeSuspendedStatus(c.Context(), "bad-relation-uuid")
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUUIDNotValid)

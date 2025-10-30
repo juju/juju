@@ -566,15 +566,15 @@ func (st *State) GetRelationLifeSuspendedNameSpace() string {
 	return "custom_relation_life_suspended"
 }
 
-// GetRelationLifeSuspendedStatusChange returns a life/suspended status change
+// GetRelationLifeSuspendedStatus returns a life/suspended status
 // struct for a specified relation uuid.
-func (st *State) GetRelationLifeSuspendedStatusChange(
+func (st *State) GetRelationLifeSuspendedStatus(
 	ctx context.Context,
 	relationUUID string,
-) (internal.RelationLifeSuspendedStatusChange, error) {
+) (internal.RelationLifeSuspendedStatus, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return internal.RelationLifeSuspendedStatusChange{}, errors.Capture(err)
+		return internal.RelationLifeSuspendedStatus{}, errors.Capture(err)
 	}
 
 	var relationLifeSuspended lifeAndSuspended
@@ -591,12 +591,12 @@ func (st *State) GetRelationLifeSuspendedStatusChange(
 		return nil
 	})
 	if errors.Is(err, coreerrors.NotFound) {
-		return internal.RelationLifeSuspendedStatusChange{}, errors.Capture(relationerrors.RelationNotFound)
+		return internal.RelationLifeSuspendedStatus{}, errors.Capture(relationerrors.RelationNotFound)
 	} else if err != nil {
-		return internal.RelationLifeSuspendedStatusChange{}, errors.Capture(err)
+		return internal.RelationLifeSuspendedStatus{}, errors.Capture(err)
 	}
 
-	return internal.RelationLifeSuspendedStatusChange{
+	return internal.RelationLifeSuspendedStatus{
 		Life:            relationLifeSuspended.Life,
 		Suspended:       relationLifeSuspended.Suspended,
 		SuspendedReason: relationLifeSuspended.Reason,

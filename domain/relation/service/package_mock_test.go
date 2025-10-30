@@ -792,41 +792,41 @@ func (c *MockStateGetRelationLifeSuspendedNameSpaceCall) DoAndReturn(f func() st
 	return c
 }
 
-// GetRelationLifeSuspendedStatusChange mocks base method.
-func (m *MockState) GetRelationLifeSuspendedStatusChange(arg0 context.Context, arg1 string) (internal.RelationLifeSuspendedStatusChange, error) {
+// GetRelationLifeSuspendedStatus mocks base method.
+func (m *MockState) GetRelationLifeSuspendedStatus(arg0 context.Context, arg1 string) (internal.RelationLifeSuspendedStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationLifeSuspendedStatusChange", arg0, arg1)
-	ret0, _ := ret[0].(internal.RelationLifeSuspendedStatusChange)
+	ret := m.ctrl.Call(m, "GetRelationLifeSuspendedStatus", arg0, arg1)
+	ret0, _ := ret[0].(internal.RelationLifeSuspendedStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetRelationLifeSuspendedStatusChange indicates an expected call of GetRelationLifeSuspendedStatusChange.
-func (mr *MockStateMockRecorder) GetRelationLifeSuspendedStatusChange(arg0, arg1 any) *MockStateGetRelationLifeSuspendedStatusChangeCall {
+// GetRelationLifeSuspendedStatus indicates an expected call of GetRelationLifeSuspendedStatus.
+func (mr *MockStateMockRecorder) GetRelationLifeSuspendedStatus(arg0, arg1 any) *MockStateGetRelationLifeSuspendedStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationLifeSuspendedStatusChange", reflect.TypeOf((*MockState)(nil).GetRelationLifeSuspendedStatusChange), arg0, arg1)
-	return &MockStateGetRelationLifeSuspendedStatusChangeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationLifeSuspendedStatus", reflect.TypeOf((*MockState)(nil).GetRelationLifeSuspendedStatus), arg0, arg1)
+	return &MockStateGetRelationLifeSuspendedStatusCall{Call: call}
 }
 
-// MockStateGetRelationLifeSuspendedStatusChangeCall wrap *gomock.Call
-type MockStateGetRelationLifeSuspendedStatusChangeCall struct {
+// MockStateGetRelationLifeSuspendedStatusCall wrap *gomock.Call
+type MockStateGetRelationLifeSuspendedStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetRelationLifeSuspendedStatusChangeCall) Return(arg0 internal.RelationLifeSuspendedStatusChange, arg1 error) *MockStateGetRelationLifeSuspendedStatusChangeCall {
+func (c *MockStateGetRelationLifeSuspendedStatusCall) Return(arg0 internal.RelationLifeSuspendedStatus, arg1 error) *MockStateGetRelationLifeSuspendedStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetRelationLifeSuspendedStatusChangeCall) Do(f func(context.Context, string) (internal.RelationLifeSuspendedStatusChange, error)) *MockStateGetRelationLifeSuspendedStatusChangeCall {
+func (c *MockStateGetRelationLifeSuspendedStatusCall) Do(f func(context.Context, string) (internal.RelationLifeSuspendedStatus, error)) *MockStateGetRelationLifeSuspendedStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetRelationLifeSuspendedStatusChangeCall) DoAndReturn(f func(context.Context, string) (internal.RelationLifeSuspendedStatusChange, error)) *MockStateGetRelationLifeSuspendedStatusChangeCall {
+func (c *MockStateGetRelationLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, string) (internal.RelationLifeSuspendedStatus, error)) *MockStateGetRelationLifeSuspendedStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

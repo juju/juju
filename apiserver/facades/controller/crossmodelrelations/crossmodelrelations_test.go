@@ -862,8 +862,8 @@ func (s *facadeSuite) TestWatchRelationsSuspendedStatus(c *tc.C) {
 	changes := s.expectWatchRelationLifeSuspendedStatus(ctrl, relationUUID)
 	changes <- struct{}{}
 
-	s.relationService.EXPECT().GetRelationLifeSuspendedStatusChange(gomock.Any(), relationUUID).Return(
-		domainrelation.RelationLifeSuspendedStatusChange{Key: "key", Life: life.Alive, Suspended: true}, nil)
+	s.relationService.EXPECT().GetRelationLifeSuspendedStatus(gomock.Any(), relationUUID).Return(
+		domainrelation.RelationLifeSuspendedStatus{Key: "key", Life: life.Alive, Suspended: true}, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, w worker.Worker) (string, error) {
 			watch, ok := w.(RelationStatusWatcher)

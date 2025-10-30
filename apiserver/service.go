@@ -98,12 +98,12 @@ type RelationService interface {
 	// given relation.
 	GetInScopeUnits(context.Context, application.UUID, relation.UUID) ([]unit.Name, error)
 
-	// GetRelationLifeSuspendedStatusChange returns a life/suspended status change
+	// GetRelationLifeSuspendedStatus returns a life/suspended status
 	// struct for a specified relation uuid.
-	GetRelationLifeSuspendedStatusChange(
+	GetRelationLifeSuspendedStatus(
 		ctx context.Context,
 		relationUUID relation.UUID,
-	) (domainrelation.RelationLifeSuspendedStatusChange, error)
+	) (domainrelation.RelationLifeSuspendedStatus, error)
 
 	// GetSettingsForApplication returns the settings for the given application.
 	GetSettingsForApplication(context.Context, application.UUID) (map[string]interface{}, error)
