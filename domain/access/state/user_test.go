@@ -62,7 +62,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *tc.C) {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, "123", "bob", "Bob", false, true, "123", time.Now())
+		`, "123", "bob", "Bob", false, true, "123", database.FormatStringTime(time.Now()))
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -71,7 +71,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *tc.C) {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, "124", "bob", "Bob", false, true, "123", time.Now())
+		`, "124", "bob", "Bob", false, true, "123", database.FormatStringTime(time.Now()))
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -80,7 +80,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *tc.C) {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, "125", "bob", "Bob", false, true, "123", time.Now())
+		`, "125", "bob", "Bob", false, true, "123", database.FormatStringTime(time.Now()))
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -90,7 +90,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *tc.C) {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, "126", "bob", "Bob", false, false, "123", time.Now())
+		`, "126", "bob", "Bob", false, false, "123", database.FormatStringTime(time.Now()))
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -101,7 +101,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *tc.C) {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, "127", "bob", "Bob", false, false, "123", time.Now())
+		`, "127", "bob", "Bob", false, false, "123", database.FormatStringTime(time.Now()))
 		return err
 	})
 	c.Assert(database.IsErrConstraintUnique(err), tc.IsTrue)
@@ -150,14 +150,14 @@ WHERE uuid = ?
 	var uuid, name, displayName string
 	var creatorUUID user.UUID
 	var removed bool
-	var createdAt time.Time
+	var createdAt database.NullStringTime
 	err = row.Scan(&uuid, &name, &displayName, &removed, &creatorUUID, &createdAt)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, "admin")
 	c.Check(removed, tc.Equals, false)
 	c.Check(displayName, tc.Equals, "admin")
 	c.Check(creatorUUID, tc.Equals, adminUUID)
-	c.Check(createdAt, tc.NotNil)
+	c.Check(createdAt.Valid, tc.IsTrue)
 }
 
 // TestAddUser asserts a new user is added, enabled, and has
@@ -1549,13 +1549,13 @@ WHERE user_uuid = ?
 	`, adminUUID)
 	c.Assert(row.Err(), tc.ErrorIsNil)
 
-	var lastLogin time.Time
+	var lastLogin database.StringTime
 	var dbModelUUID string
 	var dbUserUUID string
 	err = row.Scan(&dbUserUUID, &dbModelUUID, &lastLogin)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(lastLogin.UTC(), tc.Equals, loginTime.Truncate(time.Second).UTC())
+	c.Assert(lastLogin.Time, tc.Equals, loginTime.Truncate(time.Second).UTC())
 	c.Assert(dbUserUUID, tc.Equals, string(adminUUID))
 	c.Assert(dbModelUUID, tc.Equals, string(modelUUID))
 }

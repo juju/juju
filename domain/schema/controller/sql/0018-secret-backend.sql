@@ -1,12 +1,12 @@
 -- Controller database tables for secret backends.
 
 CREATE TABLE secret_backend_type (
-    id INT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     type TEXT NOT NULL,
     description TEXT,
     CONSTRAINT chk_empty_type
     CHECK (type != '')
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_secret_backend_type_type
 ON secret_backend_type (type);
@@ -26,7 +26,7 @@ CREATE TABLE secret_backend (
     CONSTRAINT fk_secret_backend_type_id
     FOREIGN KEY (backend_type_id)
     REFERENCES secret_backend_type (id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_secret_backend_name
 ON secret_backend (name);
@@ -34,7 +34,7 @@ ON secret_backend (name);
 CREATE TABLE secret_backend_config (
     backend_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
-    content TEXT NOT NULL,
+    content BLOB NOT NULL,
     CONSTRAINT chk_empty_name
     CHECK (name != ''),
     CONSTRAINT chk_empty_content
@@ -44,15 +44,15 @@ CREATE TABLE secret_backend_config (
     CONSTRAINT fk_secret_backend_config_backend_uuid
     FOREIGN KEY (backend_uuid)
     REFERENCES secret_backend (uuid)
-);
+) STRICT;
 
 CREATE TABLE secret_backend_rotation (
     backend_uuid TEXT NOT NULL PRIMARY KEY,
-    next_rotation_time DATETIME NOT NULL,
+    next_rotation_time TEXT NOT NULL,
     CONSTRAINT fk_secret_backend_rotation_secret_backend_uuid
     FOREIGN KEY (backend_uuid)
     REFERENCES secret_backend (uuid)
-);
+) STRICT;
 
 CREATE TABLE secret_backend_reference (
     secret_backend_uuid TEXT NOT NULL,
@@ -66,7 +66,7 @@ CREATE TABLE secret_backend_reference (
     CONSTRAINT fk_secret_backend_reference_secret_backend_uuid
     FOREIGN KEY (secret_backend_uuid)
     REFERENCES secret_backend (uuid)
-);
+) STRICT;
 
 CREATE TABLE model_secret_backend (
     model_uuid TEXT NOT NULL PRIMARY KEY,
@@ -77,7 +77,7 @@ CREATE TABLE model_secret_backend (
     CONSTRAINT fk_model_secret_backend_secret_backend_uuid
     FOREIGN KEY (secret_backend_uuid)
     REFERENCES secret_backend (uuid)
-);
+) STRICT;
 
 CREATE VIEW v_model_secret_backend AS
 SELECT

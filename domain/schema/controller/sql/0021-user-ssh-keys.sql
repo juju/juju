@@ -1,7 +1,7 @@
 CREATE TABLE ssh_fingerprint_hash_algorithm (
-    id INT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     algorithm TEXT NOT NULL
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_ssh_fingerprint_hash_algorithm_algorithm
 ON ssh_fingerprint_hash_algorithm (algorithm);
@@ -16,14 +16,14 @@ CREATE TABLE user_public_ssh_key (
     -- value in public_key. This column exists to make an index for deletion.
     comment TEXT NOT NULL,
     fingerprint_hash_algorithm_id INT NOT NULL,
-    fingerprint TEXT NOT NULL,
-    public_key TEXT NOT NULL,
+    fingerprint BLOB NOT NULL,
+    public_key BLOB NOT NULL,
     user_uuid TEXT NOT NULL,
     FOREIGN KEY (fingerprint_hash_algorithm_id)
     REFERENCES ssh_fingerprint_hash_algorithm (id),
     FOREIGN KEY (user_uuid)
     REFERENCES user (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_user_public_ssh_key_user_fingerprint
 ON user_public_ssh_key (user_uuid, fingerprint);

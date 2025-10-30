@@ -6,14 +6,14 @@ CREATE TABLE model_namespace (
     CONSTRAINT fk_model_uuid
     FOREIGN KEY (model_uuid)
     REFERENCES model (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_namespace_model_uuid ON model_namespace (namespace, model_uuid);
 
 CREATE TABLE model_type (
-    id INT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     type TEXT NOT NULL
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_model_type_type
 ON model_type (type);
@@ -29,7 +29,7 @@ CREATE TABLE model (
     -- over several transactions with any one of them possibly failing. We write true
     -- to this field when we are happy that the model can safely be used after all
     -- operations have been completed.
-    activated BOOLEAN DEFAULT FALSE NOT NULL,
+    activated INTEGER DEFAULT 0 NOT NULL,
     cloud_uuid TEXT NOT NULL,
     cloud_region_uuid TEXT,
     cloud_credential_uuid TEXT,

@@ -4,10 +4,9 @@
 package state
 
 import (
-	"time"
-
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -36,10 +35,10 @@ type dbUser struct {
 	CreatorName string `db:"created_by_name"`
 
 	// CreatedAt is the time that the user was created at.
-	CreatedAt time.Time `db:"created_at"`
+	CreatedAt database.StringTime `db:"created_at"`
 
 	// LastLogin is the last time the user logged in.
-	LastLogin time.Time `db:"last_login"`
+	LastLogin database.NullStringTime `db:"last_login"`
 
 	// Disabled is true if the user is disabled.
 	Disabled bool `db:"disabled"`
@@ -70,8 +69,8 @@ func (u dbUser) toCoreUser() (coreuser.User, error) {
 		DisplayName: u.DisplayName,
 		CreatorUUID: coreuser.UUID(u.CreatorUUID),
 		CreatorName: creatorName,
-		CreatedAt:   u.CreatedAt,
-		LastLogin:   u.LastLogin,
+		CreatedAt:   u.CreatedAt.Time,
+		LastLogin:   u.LastLogin.Time,
 		Disabled:    u.Disabled,
 	}, nil
 }
@@ -101,7 +100,7 @@ type dbPermissionUser struct {
 	CreatorName string `db:"created_by_name"`
 
 	// CreatedAt is the time that the user was created at.
-	CreatedAt time.Time `db:"created_at"`
+	CreatedAt database.StringTime `db:"created_at"`
 
 	// Disabled is true if the user is disabled.
 	Disabled bool `db:"disabled"`
@@ -128,7 +127,7 @@ func (u dbPermissionUser) toCoreUserAccess() (corepermission.UserAccess, error) 
 		DisplayName: u.DisplayName,
 		UserName:    name,
 		CreatedBy:   creatorName,
-		DateCreated: u.CreatedAt,
+		DateCreated: u.CreatedAt.Time,
 	}, nil
 }
 
@@ -191,9 +190,9 @@ type permInOut struct {
 // dbModelLastLogin is a struct used to record a users logging in to a particular
 // model.
 type dbModelLastLogin struct {
-	UserUUID  string    `db:"user_uuid"`
-	ModelUUID string    `db:"model_uuid"`
-	Time      time.Time `db:"time"`
+	UserUUID  string `db:"user_uuid"`
+	ModelUUID string `db:"model_uuid"`
+	Time      string `db:"time"`
 }
 
 // dbModelUUID is a struct used to record a model UUID from the database.

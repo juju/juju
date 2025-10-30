@@ -1,7 +1,7 @@
 CREATE TABLE permission_access_type (
-    id INT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     type TEXT NOT NULL
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_permission_access_type
 ON permission_access_type (type);
@@ -17,9 +17,9 @@ INSERT INTO permission_access_type VALUES
 (6, 'superuser');
 
 CREATE TABLE permission_object_type (
-    id INT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     type TEXT NOT NULL
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_permission_object_type
 ON permission_object_type (type);
@@ -32,7 +32,7 @@ INSERT INTO permission_object_type VALUES
 (3, 'offer');
 
 CREATE TABLE permission_object_access (
-    id INT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     access_type_id INT NOT NULL,
     object_type_id INT NOT NULL,
     CONSTRAINT fk_permission_access_type
@@ -41,7 +41,7 @@ CREATE TABLE permission_object_access (
     CONSTRAINT fk_permission_object_type
     FOREIGN KEY (object_type_id)
     REFERENCES permission_object_type (id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_permission_object_access
 ON permission_object_access (access_type_id, object_type_id);
@@ -73,7 +73,7 @@ CREATE TABLE permission (
     CONSTRAINT fk_permission_object_access
     FOREIGN KEY (access_type_id, object_type_id)
     REFERENCES permission_object_access (access_type_id, object_type_id)
-);
+) STRICT;
 
 -- Allow only 1 combination of grant_on and grant_to
 -- Otherwise we will get conflicting permissions.

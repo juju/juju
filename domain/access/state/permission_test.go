@@ -85,6 +85,8 @@ func (s *permissionStateSuite) TestCreatePermissionModel(c *tc.C) {
 func (s *permissionStateSuite) TestCreatePermissionCloud(c *tc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
+	s.DumpTable(c, "user")
+
 	name := usertesting.GenNewName(c, "bob")
 	spec := corepermission.UserAccessSpec{
 		User: name,
@@ -1342,7 +1344,7 @@ func (s *permissionStateSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, userUUID, name, name, external, false, createdByUUID, time.Now())
+		`, userUUID, name, name, external, false, createdByUUID, time.Now().UTC().Format(time.RFC3339Nano))
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

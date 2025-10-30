@@ -1,7 +1,7 @@
 CREATE TABLE architecture (
-    id INT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     name TEXT NOT NULL
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_architecture_name
 ON architecture (name);

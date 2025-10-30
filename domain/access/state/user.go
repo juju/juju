@@ -763,7 +763,7 @@ func AddUser(
 		DisplayName: displayName,
 		External:    external,
 		CreatorUUID: creatorUuid.String(),
-		CreatedAt:   time.Now(),
+		CreatedAt:   internaldatabase.StringTime{Time: time.Now()},
 	}
 
 	addUserQuery := `
@@ -874,7 +874,7 @@ ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET
 		mll := dbModelLastLogin{
 			UserUUID:  userUUID.String(),
 			ModelUUID: modelUUID.String(),
-			Time:      lastLogin.Truncate(time.Second),
+			Time:      internaldatabase.FormatStringTime(lastLogin.Truncate(time.Second)),
 		}
 
 		if err := tx.Query(ctx, insertModelLoginStmt, mll).Run(); err != nil {
@@ -947,8 +947,8 @@ ORDER BY time DESC LIMIT 1;
 			return errors.Errorf("running query getLastModelLoginTime: %w", err)
 		}
 
-		lastConnection = mll.Time
-		return nil
+		lastConnection, err = internaldatabase.ParseStringTime(mll.Time)
+		return errors.Capture(err)
 	})
 	if err != nil {
 		return time.Time{}, errors.Capture(err)
