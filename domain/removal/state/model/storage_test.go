@@ -707,6 +707,37 @@ func (s *storageSuite) TestDeleteFilesystemAttachment(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestFilesystemAttachmentScheduleRemoval(c *tc.C) {
+	_, fsaUUID := s.addAttachedFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.FilesystemAttachmentScheduleRemoval(
+		c.Context(), "removal-uuid", fsaUUID, false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	row := s.DB().QueryRow(
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal WHERE uuid = ?",
+		"removal-uuid",
+	)
+	var (
+		removalTypeID int
+		rUUID         string
+		force         bool
+		scheduledFor  time.Time
+	)
+	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalTypeID, tc.Equals, 11)
+	c.Check(rUUID, tc.Equals, fsaUUID)
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
+}
+
 func (s *storageSuite) TestMarkVolumeAttachmentAsDeadNotFound(c *tc.C) {
 	ctx := c.Context()
 

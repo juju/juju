@@ -1320,6 +1320,45 @@ DELETE FROM storage_filesystem_attachment WHERE uuid = $entityUUID.uuid
 	return errors.Capture(err)
 }
 
+// FilesystemAttachmentScheduleRemoval schedules a removal job for the
+// filesystem attachment with the input UUID, qualified with the input force
+// boolean.
+func (st *State) FilesystemAttachmentScheduleRemoval(
+	ctx context.Context,
+	removalUUID, fsaUUID string,
+	force bool, when time.Time,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	removalRec := removalJob{
+		UUID:          removalUUID,
+		RemovalTypeID: uint64(removal.StorageFilesystemAttachmentJob),
+		EntityUUID:    fsaUUID,
+		Force:         force,
+		ScheduledFor:  when,
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO removal (*) VALUES ($removalJob.*)
+`, removalRec)
+	if err != nil {
+		return errors.Errorf("preparing filesystem attachment removal: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, removalRec).Run()
+		if err != nil {
+			return errors.Errorf(
+				"scheduling filesystem attachment removal: %w", err,
+			)
+		}
+		return nil
+	}))
+}
+
 // GetVolumeAttachmentLife returns the life of the volume attachment indicated
 // by the supplied UUID.
 //
