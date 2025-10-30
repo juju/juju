@@ -823,7 +823,7 @@ func (s *baseSuite) checkLife(c *tc.C, qry, uuid string, expectedLife life.Life)
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, int(expectedLife))
+	c.Check(lifeID, tc.Equals, int(expectedLife), tc.Commentf("q: %s", qry))
 }
 
 func (s *baseSuite) advanceRemoteApplicationOffererLife(c *tc.C, remoteAppUUID string, newLife life.Life) {
