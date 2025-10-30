@@ -530,6 +530,44 @@ func (c *MockModelDBStateDeleteApplicationOwnedSecretContentCall) DoAndReturn(f 
 	return c
 }
 
+// DeleteApplicationOwnedSecrets mocks base method.
+func (m *MockModelDBState) DeleteApplicationOwnedSecrets(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteApplicationOwnedSecrets", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteApplicationOwnedSecrets indicates an expected call of DeleteApplicationOwnedSecrets.
+func (mr *MockModelDBStateMockRecorder) DeleteApplicationOwnedSecrets(arg0, arg1 any) *MockModelDBStateDeleteApplicationOwnedSecretsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteApplicationOwnedSecrets", reflect.TypeOf((*MockModelDBState)(nil).DeleteApplicationOwnedSecrets), arg0, arg1)
+	return &MockModelDBStateDeleteApplicationOwnedSecretsCall{Call: call}
+}
+
+// MockModelDBStateDeleteApplicationOwnedSecretsCall wrap *gomock.Call
+type MockModelDBStateDeleteApplicationOwnedSecretsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateDeleteApplicationOwnedSecretsCall) Return(arg0 error) *MockModelDBStateDeleteApplicationOwnedSecretsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateDeleteApplicationOwnedSecretsCall) Do(f func(context.Context, string) error) *MockModelDBStateDeleteApplicationOwnedSecretsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateDeleteApplicationOwnedSecretsCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteApplicationOwnedSecretsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteCharmIfUnused mocks base method.
 func (m *MockModelDBState) DeleteCharmIfUnused(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -1058,6 +1096,44 @@ func (c *MockModelDBStateDeleteUnitOwnedSecretContentCall) Do(f func(context.Con
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateDeleteUnitOwnedSecretContentCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteUnitOwnedSecretContentCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteUnitOwnedSecrets mocks base method.
+func (m *MockModelDBState) DeleteUnitOwnedSecrets(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteUnitOwnedSecrets", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteUnitOwnedSecrets indicates an expected call of DeleteUnitOwnedSecrets.
+func (mr *MockModelDBStateMockRecorder) DeleteUnitOwnedSecrets(arg0, arg1 any) *MockModelDBStateDeleteUnitOwnedSecretsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnitOwnedSecrets", reflect.TypeOf((*MockModelDBState)(nil).DeleteUnitOwnedSecrets), arg0, arg1)
+	return &MockModelDBStateDeleteUnitOwnedSecretsCall{Call: call}
+}
+
+// MockModelDBStateDeleteUnitOwnedSecretsCall wrap *gomock.Call
+type MockModelDBStateDeleteUnitOwnedSecretsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateDeleteUnitOwnedSecretsCall) Return(arg0 error) *MockModelDBStateDeleteUnitOwnedSecretsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateDeleteUnitOwnedSecretsCall) Do(f func(context.Context, string) error) *MockModelDBStateDeleteUnitOwnedSecretsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateDeleteUnitOwnedSecretsCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteUnitOwnedSecretsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

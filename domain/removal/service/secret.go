@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/internal/secrets/provider/juju"
 )
 
+// SecretModelState describes functionality required for deleting
+// secret data asscociated with removed entities.
 type SecretModelState interface {
 	// DeleteApplicationOwnedSecretContent deletes content for all
 	// secrets owned by the application with the input UUID.
@@ -23,6 +25,18 @@ type SecretModelState interface {
 	// secrets owned by the unit with the input UUID.
 	// It must only be called in the context of unit removal.
 	DeleteUnitOwnedSecretContent(ctx context.Context, uUUID string) error
+
+	// DeleteApplicationOwnedSecrets deletes all data for secrets owned by the
+	// application with the input UUID.
+	// This does not include secret content, which should be handled by
+	// interaction with the secret back-end.
+	DeleteApplicationOwnedSecrets(ctx context.Context, aUUID string) error
+
+	// DeleteUnitOwnedSecrets deletes all data for secrets owned by the
+	// unit with the input UUID.
+	// This does not include secret content, which should be handled by
+	// interaction with the secret back-end.
+	DeleteUnitOwnedSecrets(ctx context.Context, uUUID string) error
 }
 
 func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID coreapplication.UUID) error {
