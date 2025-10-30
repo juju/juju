@@ -16,6 +16,8 @@ import (
 	removal "github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	provider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -113,7 +115,9 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithUnitsAndStorag
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false, false).Return(internal.CascadedApplicationLives{
 		UnitUUIDs: []string{"unit-1", "unit-2"},
 		CascadedStorageLives: internal.CascadedStorageLives{
-			StorageAttachmentUUIDs: []string{"st-att-unit-1", "st-att-unit-2"},
+			CascadedStorageAttachmentLives: internal.CascadedStorageAttachmentLives{
+				StorageAttachmentUUIDs: []string{"st-att-unit-1", "st-att-unit-2"},
+			},
 		},
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
@@ -170,6 +174,73 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithRelations(c *t
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-2", false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestRemoveApplicationCascadeStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	volUUID := tc.Must(c, storageprovisioning.NewVolumeUUID)
+	vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID)
+	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+
+	when := time.Now().UTC()
+	s.clock.EXPECT().Now().Return(when).AnyTimes()
+
+	cascaded := internal.CascadedApplicationLives{
+		CascadedStorageLives: internal.CascadedStorageLives{
+			CascadedStorageInstanceLives: internal.CascadedStorageInstanceLives{
+				StorageInstanceUUIDs: []string{siUUID.String()},
+				FileSystemUUIDs:      []string{fsUUID.String()},
+				VolumeUUIDs:          []string{volUUID.String()},
+			},
+			CascadedStorageAttachmentLives: internal.CascadedStorageAttachmentLives{
+				StorageAttachmentUUIDs:    []string{saUUID.String()},
+				FileSystemAttachmentUUIDs: []string{fsaUUID.String()},
+				VolumeAttachmentUUIDs:     []string{vaUUID.String()},
+				VolumeAttachmentPlanUUIDs: []string{vapUUID.String()},
+			},
+		},
+	}
+
+	exp := s.modelState.EXPECT()
+	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
+	exp.EnsureApplicationNotAliveCascade(
+		gomock.Any(), appUUID.String(), false, false,
+	).Return(cascaded, nil)
+	exp.ApplicationScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), appUUID.String(), false, when,
+	).Return(nil)
+	exp.StorageInstanceScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), siUUID.String(), false, when,
+	).Return(nil)
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), saUUID.String(), false, when,
+	).Return(nil)
+	exp.FilesystemScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), fsUUID.String(), false, when,
+	).Return(nil)
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), fsaUUID.String(), false, when,
+	).Return(nil)
+	exp.VolumeScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), volUUID.String(), false, when,
+	).Return(nil)
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), vaUUID.String(), false, when,
+	).Return(nil)
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), vapUUID.String(), false, when,
+	).Return(nil)
+
+	svc := s.newService(c)
+	jobUUID, err := svc.RemoveApplication(c.Context(), appUUID, false, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
