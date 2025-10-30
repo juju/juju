@@ -609,12 +609,8 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 		FilesystemTemplates: []storageprovisioning.FilesystemTemplate{{
 			StorageName:  "data",
 			Count:        1,
-			MaxCount:     1,
 			SizeMiB:      100,
 			ProviderType: "kubernetes",
-			ReadOnly:     false,
-			Location:     "/charm-defined-location",
-			MountPoints:  []string{"/charm-defined-location/data/0"},
 			Attributes: map[string]string{
 				"attr-foo": "attr-bar",
 			},
@@ -790,11 +786,8 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 	fsTemplates := []storageprovisioning.FilesystemTemplate{{
 		StorageName:  "data",
 		Count:        1,
-		MaxCount:     1,
 		SizeMiB:      100,
 		ProviderType: "kubernetes",
-		ReadOnly:     false,
-		Location:     "/charm-defined-location",
 		Attributes: map[string]string{
 			"attr-foo": "attr-bar",
 		},

@@ -376,7 +376,7 @@ func (s *Service) GetFilesystemAttachmentParams(
 		params.CharmStorageLocation,
 		// Storage for a charm is considered a singleton when the max count is 1.
 		params.CharmStorageCountMax == 1,
-		uuid,
+		uuid.String(),
 	)
 	return params, nil
 }
@@ -388,14 +388,14 @@ func (s *Service) GetFilesystemAttachmentParams(
 //
 // If the charmSuggestedLocation is non zero and the storage being attached is
 // a singleton the verbatim location will be returned to the caller. Otherwise
-// the attachment UUID will be appended to the location to ensure uniqueness.
+// the attachment id will be appended to the location to ensure uniqueness.
 //
 // This function guarantees to be idempotent given the same attachment and charm
 // location and singleton status.
 func calculateFilesystemAttachmentMountPoint(
 	charmSuggestedLocation string,
 	isSingelton bool,
-	uuid storageprovisioning.FilesystemAttachmentUUID,
+	id string,
 ) string {
 	refLocation := charmSuggestedLocation
 	if charmSuggestedLocation == "" {
@@ -413,8 +413,8 @@ func calculateFilesystemAttachmentMountPoint(
 	}
 
 	// Multiple attachments are expected for this storage so we append the
-	// attachement uuid to form a unique mount point.
-	return path.Join(refLocation, uuid.String())
+	// attachement id to form a unique mount point.
+	return path.Join(refLocation, id)
 }
 
 // calculateFilesystemTemplateAttachmentMountPoint calculates the mount point
@@ -452,23 +452,31 @@ func calculateFilesystemTemplateAttachmentMountPoint(
 	return path.Join(refLocation, storageName, strconv.Itoa(idx))
 }
 
-// calculateFilesystemTemplateAttachmentMountPoints calculates all of the mount
-// points for a filesystem template based on the desired count. The result is
-// a slice equaling count in length with a unique mount point.
-func calculateFilesystemTemplateAttachmentMountPoints(
+// calculateFilesystemAttachmentTemplates calculates all of the
+// [storageprovisioning.FilesystemAttachmentTemplate]s for the supplied args.
+func calculateFilesystemAttachmentTemplates(
 	storageName,
 	charmStorageLocation string,
-	maxCount int,
+	isSingleton bool,
+	readOnly bool,
 	count int,
-) []string {
-	retVal := make([]string, 0, count)
+) []storageprovisioning.FilesystemAttachmentTemplate {
+	retVal := make([]storageprovisioning.FilesystemAttachmentTemplate, 0, count)
 	for i := range count {
-		retVal = append(
-			retVal,
-			calculateFilesystemTemplateAttachmentMountPoint(
-				storageName, charmStorageLocation, maxCount, i,
-			),
+		id := strconv.Itoa(i)
+		if charmStorageLocation == "" {
+			// If the charmStorageLocation is zero we need to make sure the id
+			// value is unique across all storage names.
+			id = storageName + "-" + id
+		}
+		mountPoint := calculateFilesystemAttachmentMountPoint(
+			charmStorageLocation, isSingleton, id,
 		)
+
+		retVal = append(retVal, storageprovisioning.FilesystemAttachmentTemplate{
+			MountPoint: mountPoint,
+			ReadOnly:   readOnly,
+		})
 	}
 	return retVal
 }
@@ -856,21 +864,19 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 
 	retVal := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
 	for _, fsTemplate := range fsTemplates {
-		mountPoints := calculateFilesystemTemplateAttachmentMountPoints(
+		attachments := calculateFilesystemAttachmentTemplates(
 			fsTemplate.StorageName,
 			fsTemplate.CharmLocationHint,
-			fsTemplate.MaxCount,
+			fsTemplate.MaxCount == 1,
+			fsTemplate.ReadOnly,
 			fsTemplate.Count,
 		)
 
 		mountTemplate := storageprovisioning.FilesystemTemplate{
+			Attachments:  attachments,
 			Attributes:   fsTemplate.Attributes,
 			Count:        fsTemplate.Count,
-			Location:     fsTemplate.CharmLocationHint,
-			MaxCount:     fsTemplate.MaxCount,
-			MountPoints:  mountPoints,
 			ProviderType: fsTemplate.ProviderType,
-			ReadOnly:     fsTemplate.ReadOnly,
 			SizeMiB:      fsTemplate.SizeMiB,
 			StorageName:  fsTemplate.StorageName,
 		}

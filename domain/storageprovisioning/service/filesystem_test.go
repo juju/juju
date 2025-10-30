@@ -472,14 +472,20 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := []storageprovisioning.FilesystemTemplate{{
+		Attachments: []storageprovisioning.FilesystemAttachmentTemplate{
+			{
+				MountPoint: "/bar/0",
+				ReadOnly:   true,
+			},
+			{
+				MountPoint: "/bar/1",
+				ReadOnly:   true,
+			},
+		},
 		StorageName:  "a",
 		Count:        2,
-		MaxCount:     10,
-		MountPoints:  []string{"/bar/a/0", "/bar/a/1"},
 		SizeMiB:      1234,
 		ProviderType: "foo",
-		ReadOnly:     true,
-		Location:     "/bar",
 		Attributes: map[string]string{
 			"laz": "baz",
 		},
@@ -513,14 +519,60 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationSingleton(c *t
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := []storageprovisioning.FilesystemTemplate{{
+		Attachments: []storageprovisioning.FilesystemAttachmentTemplate{
+			{
+				MountPoint: "/bar",
+				ReadOnly:   true,
+			},
+		},
+		StorageName:  "a",
+		Count:        1,
+		SizeMiB:      1234,
+		ProviderType: "foo",
+		Attributes: map[string]string{
+			"laz": "baz",
+		},
+	}}
+	c.Check(result, tc.DeepEquals, expectedResult)
+}
+
+// TestGetFilesystemsTemplateForApplicationNoCharmLocation tests that when the
+// charm has not specified a preferred location we use the default location with
+// a combination of the storage name and attachment index. This ensures that
+// mount points are unique over many storage instances.
+func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationNoCharmLocation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	stateTemplates := []internal.FilesystemTemplate{{
 		StorageName:  "a",
 		Count:        1,
 		MaxCount:     1,
-		MountPoints:  []string{"/bar/a"},
 		SizeMiB:      1234,
 		ProviderType: "foo",
 		ReadOnly:     true,
-		Location:     "/bar",
+		Attributes: map[string]string{
+			"laz": "baz",
+		},
+	}}
+	s.state.EXPECT().GetFilesystemTemplatesForApplication(gomock.Any(), appUUID).
+		Return(stateTemplates, nil)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	expectedResult := []storageprovisioning.FilesystemTemplate{{
+		Attachments: []storageprovisioning.FilesystemAttachmentTemplate{
+			{
+				MountPoint: "/var/lib/juju/storage/a-0",
+				ReadOnly:   true,
+			},
+		},
+		StorageName:  "a",
+		Count:        1,
+		SizeMiB:      1234,
+		ProviderType: "foo",
 		Attributes: map[string]string{
 			"laz": "baz",
 		},

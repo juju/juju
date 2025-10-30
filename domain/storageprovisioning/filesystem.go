@@ -136,6 +136,9 @@ type FilesystemAttachmentParams struct {
 // PVC template/Pod template, such that the required Filsystems for a new unit
 // of the supplied application are created and mounted correctly.
 type FilesystemTemplate struct {
+	// Attachments describes the attachment templates for this filesystem.
+	Attachments []FilesystemAttachmentTemplate
+
 	// Attributes are a set of key value pairs that are supplied to the provider
 	// or provisioner to facilitate this filesystem(s).
 	Attributes map[string]string
@@ -143,25 +146,9 @@ type FilesystemTemplate struct {
 	// Count is the number of filesystem(s) to mount for this storage.
 	Count int
 
-	// Location is a path to hint where the filesystem(s) should be mounted for
-	// the charm to access. It is not the exact path the filesystem(s) will be
-	// mounted.
-	Location string
-
-	// MaxCount is the maxium number of filesystems for this storage.
-	MaxCount int
-
-	// MountPoints is the set of mounts points that each storage instance should
-	// be mounted at. The number of mount points in this slice is guaranteed to
-	// be the same as [FilesystemTemplate.Count]
-	MountPoints []string
-
 	// ProviderType is the name of the provider to be used to provision this
 	// filesystem(s).
 	ProviderType string
-
-	// ReadOnly is true if this filesystem(s) or the mount should be read-only.
-	ReadOnly bool
 
 	// SizeMiB is the number of mebibytes to allocate for this filesystem or
 	// each of these filesystems.
@@ -170,6 +157,18 @@ type FilesystemTemplate struct {
 	// StorageName is the name of the storage as defined in the charm for this
 	// application.
 	StorageName string
+}
+
+// FilesystemAttachmentTemplate describes an attachment that MUST be made as
+// part of a [FilesystemTemplate].
+type FilesystemAttachmentTemplate struct {
+	// ReadOnly is true when the charm has specified the filesystem to be read
+	// only mounted.
+	ReadOnly bool
+
+	// MountPoint is the location where the filesystem attachment should be
+	// made.
+	MountPoint string
 }
 
 // FilesystemProvisionedInfo is information set by the storage provisioner for
