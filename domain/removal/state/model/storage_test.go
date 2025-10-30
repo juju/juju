@@ -750,7 +750,7 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDeadNotFound(c *tc.C) {
 func (s *storageSuite) TestMarkVolumeAttachmentAsDead(c *tc.C) {
 	ctx := c.Context()
 
-	_, vaUUID := s.addAttachedVolume(c)
+	volUUID, vaUUID := s.addAttachedVolume(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := st.MarkVolumeAttachmentAsDead(ctx, vaUUID)
@@ -761,6 +761,39 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDead(c *tc.C) {
 		"SELECT life_id FROM storage_volume_attachment WHERE uuid = ?", vaUUID,
 	)
 	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Alive still
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 0)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolume(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID, vaUUID := s.addAttachedVolume(c)
+	s.setVolumeLife(c, volUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentAsDead(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment WHERE uuid = ?", vaUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Dead too
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
 	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 2)
 }
@@ -1409,6 +1442,20 @@ func (s *storageSuite) setStorageInstanceLife(
 	c *tc.C, siUUID string, lifeId int,
 ) {
 	_, err := s.DB().Exec("UPDATE storage_instance SET life_id = ? WHERE uuid = ?", lifeId, siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setVolumeLife(
+	c *tc.C, volUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_volume SET life_id = ? WHERE uuid = ?", lifeId, volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setFilesystemLife(
+	c *tc.C, fsUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_filesystem SET life_id = ? WHERE uuid = ?", lifeId, fsUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

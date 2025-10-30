@@ -1406,7 +1406,8 @@ WHERE  uuid = $entityUUID.uuid`, vaLife, vaUUID)
 }
 
 // MarkVolumeAttachmentAsDead updates the life to dead of the volume attachment
-// indicated by the supplied UUID.
+// indicated by the supplied UUID. If the volume attachment is the last volume
+// attachment of a dying volume, then mark that volume as dead.
 //
 // The following errors may be returned:
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] there is no
@@ -1436,7 +1437,36 @@ SET    life_id = 2
 WHERE  uuid = $entityUUID.uuid`, vaUUID)
 	if err != nil {
 		return errors.Errorf(
-			"preparing volume attachment exists query: %w", err,
+			"preparing mark volume attachment dead query: %w", err,
+		)
+	}
+
+	remainingAttachmentsStmt, err := st.Prepare(`
+SELECT COUNT(svaB.uuid) AS &count.count
+FROM   storage_volume_attachment svaA
+JOIN   storage_volume_attachment svaB ON svaB.storage_volume_uuid = svaA.storage_volume_uuid
+WHERE  svaA.uuid = $entityUUID.uuid AND
+       svaB.uuid != $entityUUID.uuid
+`, vaUUID, count{})
+	if err != nil {
+		return errors.Errorf(
+			"preparing remaining volume attachment exists query: %w", err,
+		)
+	}
+
+	markDyingVolumeDeadStmt, err := st.Prepare(`
+WITH vol AS (
+	SELECT storage_volume_uuid
+	FROM   storage_volume_attachment
+	WHERE  uuid = $entityUUID.uuid
+)
+UPDATE storage_volume
+SET    life_id = 2
+WHERE  life_id = 1 AND uuid IN vol
+`, vaUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing mark dying volume dead query: %w", err,
 		)
 	}
 
@@ -1454,6 +1484,24 @@ WHERE  uuid = $entityUUID.uuid`, vaUUID)
 		if err != nil {
 			return errors.Errorf(
 				"running mark volume attachment dead query: %w", err,
+			)
+		}
+
+		var remaining count
+		err = tx.Query(ctx, remainingAttachmentsStmt, vaUUID).Get(&remaining)
+		if err != nil {
+			return errors.Errorf(
+				"running remaining volume attachment query: %w", err,
+			)
+		}
+		if remaining.Count > 0 {
+			return nil
+		}
+
+		err = tx.Query(ctx, markDyingVolumeDeadStmt, vaUUID).Run()
+		if err != nil {
+			return errors.Errorf(
+				"running mark dying volume dead query: %w", err,
 			)
 		}
 
