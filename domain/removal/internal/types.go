@@ -3,45 +3,27 @@
 
 package internal
 
-// CascadedStorageInstanceLives contains identifiers for entities that were
-// ensured to be "dying" along with a storage instance. It is intended to
-// inform the service layer which entities should have removal jobs scheduled
-// for them.
-// Note that there is no IsEmpty method for this struct; an instance always
-// has an attachment to something.
-type CascadedStorageInstanceLives struct {
+// CascadedStorageFilesystemVolumeLives contains the filesystem or volume
+// indentifiers for a single storage instance that were ensured to be "dying".
+type CascadedStorageFilesystemVolumeLives struct {
 	// FileSystemUUID identifes a file-system that the storage instance was
 	// attached to. They are removed if provisioned with "machine" scope
 	// and have no other storage instance attachments.
 	FileSystemUUID *string
 
-	// FileSystemAttachmentUUID identifies the actual attachment of the storage
-	// instance to a file-system. It can be removed even when the attached
-	// file-system is not.
-	FileSystemAttachmentUUID *string
-
 	// VolumeUUID identifes a volume that the storage instance was attached to.
 	// They are removed if provisioned with "machine" scope and have no
 	// other storage instance attachments.
 	VolumeUUID *string
-
-	// VolumeAttachmentUUID identifies the actual attachment of the storage
-	// instance to a volume. It can be removed even when the attached
-	// volume is not.
-	VolumeAttachmentUUID *string
-
-	// VolumeAttachmentPlanUUID identifies the plan for actioning a volume
-	// attachment that is run on the actual attached machine.
-	VolumeAttachmentPlanUUID *string
 }
 
-// CascadedStorageLives identifies all storage entities that transitioned to
-// "dying" as part of another entity removal.
-type CascadedStorageLives struct {
-	// StorageAttachmentUUIDs identify storage attachments for dying units
-	// that were alive, but are now also dying.
-	StorageAttachmentUUIDs []string
-
+// CascadedStorageInstanceLives contains identifiers for entities that were
+// ensured to be "dying" along with storage instances. It is intended to
+// inform the service layer which entities should have removal jobs scheduled
+// for them.
+// Note that there is no IsEmpty method for this struct; an instance always
+// has an attachment to something.
+type CascadedStorageInstanceLives struct {
 	// StorageInstanceUUIDs contain machine-scoped storage instances that have
 	// had a life advancement along with the machine/app/unit.
 	// Note that we do not invoke storage instance destruction along with unit
@@ -53,59 +35,90 @@ type CascadedStorageLives struct {
 	// to dying with the machine/app/unit.
 	FileSystemUUIDs []string
 
-	// FileSystemAttachmentUUIDs identify any file-system attachments that
-	// transitioned to dying with the machine/app/unit.
-	FileSystemAttachmentUUIDs []string
-
 	// VolumeUUIDs identify any volumes that transitioned
 	// to dying with the machine/app/unit.
 	VolumeUUIDs []string
+}
 
-	// VolumeAttachmentUUIDs identify any volume attachments that transitioned
-	// to dying with the machine/app/unit.
+// Merge appends all EntityUUIDs from one CascadedStorageInstanceLives into
+// another and returns the result
+func (c CascadedStorageInstanceLives) Merge(i CascadedStorageInstanceLives) CascadedStorageInstanceLives {
+	c.StorageInstanceUUIDs = append(c.StorageInstanceUUIDs, i.StorageInstanceUUIDs...)
+	c.FileSystemUUIDs = append(c.FileSystemUUIDs, i.FileSystemUUIDs...)
+	c.VolumeUUIDs = append(c.VolumeUUIDs, i.VolumeUUIDs...)
+
+	return c
+}
+
+// CascadedStorageAttachmentLives contains identifiers for entities that will
+// need to die along with storage attachments, but are not yet dying. It is
+// intended to inform the service layer which entities should have force removal
+// jobs scheduled for them.
+// Note that there is no IsEmpty method for this struct; an instance always
+// has an attachment to something.
+type CascadedStorageAttachmentLives struct {
+	// StorageAttachmentUUIDs identify storage attachments for dying units
+	// that were alive, but are now also dying.
+	StorageAttachmentUUIDs []string
+
+	// FileSystemAttachmentUUIDs identify any file-system attachments that
+	// will eventually die, but need force removal jobs created.
+	FileSystemAttachmentUUIDs []string
+
+	// VolumeAttachmentUUIDs identify any volume attachments that will
+	// eventually die, but need force removal jobs created.
 	VolumeAttachmentUUIDs []string
 
-	// VolumeAttachmentUUIDs identify any volume attachments that transitioned
-	// to dying with the machine/app/unit.
+	// VolumeAttachmentUUIDs identify any volume attachments that will
+	// eventually die, but need force removal jobs created.
 	VolumeAttachmentPlanUUIDs []string
 }
 
-// Merge appends all EntityUUIDs from one CascadedStorageLives into another
-// and returns the result
-func (c CascadedStorageLives) Merge(i CascadedStorageLives) CascadedStorageLives {
-	c.StorageInstanceUUIDs = append(c.StorageInstanceUUIDs, i.StorageInstanceUUIDs...)
+// CascadedStorageProvisionedAttachmentLives contains identifiers for entities
+// that were ensured to be "dying" along with death of a storage instance.
+// It is intended to inform the service layer which entities should have removal
+// jobs scheduled for them.
+// Note that there is no IsEmpty method for this struct; an instance always
+// has an attachment to something.
+type CascadedStorageProvisionedAttachmentLives struct {
+	// FileSystemAttachmentUUIDs identify any file-system attachments that
+	// transitioned to dying with the storage attachment.
+	FileSystemAttachmentUUIDs []string
+
+	// VolumeAttachmentUUIDs identify any volume attachments that transitioned
+	// to dying with the storage attachment.
+	VolumeAttachmentUUIDs []string
+
+	// VolumeAttachmentUUIDs identify any volume attachments that transitioned
+	// to dying with the storage attachment.
+	VolumeAttachmentPlanUUIDs []string
+}
+
+// Merge appends all EntityUUIDs from one CascadedStorageAttachmentLives into
+// another and returns the result
+func (c CascadedStorageAttachmentLives) Merge(i CascadedStorageAttachmentLives) CascadedStorageAttachmentLives {
 	c.StorageAttachmentUUIDs = append(c.StorageAttachmentUUIDs, i.StorageAttachmentUUIDs...)
-	c.FileSystemUUIDs = append(c.FileSystemUUIDs, i.FileSystemUUIDs...)
 	c.FileSystemAttachmentUUIDs = append(c.FileSystemAttachmentUUIDs, i.FileSystemAttachmentUUIDs...)
-	c.VolumeUUIDs = append(c.VolumeUUIDs, i.VolumeUUIDs...)
 	c.VolumeAttachmentUUIDs = append(c.VolumeAttachmentUUIDs, i.VolumeAttachmentUUIDs...)
 	c.VolumeAttachmentPlanUUIDs = append(c.VolumeAttachmentPlanUUIDs, i.VolumeAttachmentPlanUUIDs...)
 
 	return c
 }
 
-// MergeInstance merges the result of cascading the destruction of a single
-// storage instance into this value and returns the result.
-func (c CascadedStorageLives) MergeInstance(i CascadedStorageInstanceLives) CascadedStorageLives {
-	if i.FileSystemAttachmentUUID != nil {
-		c.FileSystemAttachmentUUIDs = append(c.FileSystemAttachmentUUIDs, *i.FileSystemAttachmentUUID)
-	}
+// CascadedStorageLives identifies all storage entities that transitioned to
+// "dying" as part of another entity removal.
+type CascadedStorageLives struct {
+	CascadedStorageInstanceLives
+	CascadedStorageAttachmentLives
+}
 
-	if i.VolumeAttachmentUUID != nil {
-		c.VolumeAttachmentUUIDs = append(c.VolumeAttachmentUUIDs, *i.VolumeAttachmentUUID)
-	}
-
-	if i.VolumeAttachmentPlanUUID != nil {
-		c.VolumeAttachmentPlanUUIDs = append(c.VolumeAttachmentPlanUUIDs, *i.VolumeAttachmentPlanUUID)
-	}
-
-	if i.FileSystemUUID != nil {
-		c.FileSystemUUIDs = append(c.FileSystemUUIDs, *i.FileSystemUUID)
-	}
-
-	if i.VolumeUUID != nil {
-		c.VolumeUUIDs = append(c.VolumeUUIDs, *i.VolumeUUID)
-	}
+// Merge appends all EntityUUIDs from one CascadedStorageLives into another and
+// returns the result
+func (c CascadedStorageLives) Merge(i CascadedStorageLives) CascadedStorageLives {
+	c.CascadedStorageAttachmentLives = c.CascadedStorageAttachmentLives.Merge(
+		i.CascadedStorageAttachmentLives)
+	c.CascadedStorageInstanceLives = c.CascadedStorageInstanceLives.Merge(
+		i.CascadedStorageInstanceLives)
 
 	return c
 }
