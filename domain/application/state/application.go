@@ -1662,7 +1662,7 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Errorf("refreshing application endpoint bindings: %w", err)
 		}
 		if params.Channel != nil {
-			if err := st.updateApplicationChannel(ctx, tx, *params.Channel, appID); err != nil {
+			if err := st.upsertApplicationChannel(ctx, tx, *params.Channel, appID); err != nil {
 				return errors.Errorf("updating application channel: %w", err)
 			}
 		}
@@ -1689,25 +1689,26 @@ WHERE  uuid = $entityUUID.uuid
 	return nil
 }
 
-func (st *State) updateApplicationChannel(ctx context.Context, tx *sqlair.TX, channel deployment.Channel, appID coreapplication.UUID) error {
+func (st *State) upsertApplicationChannel(ctx context.Context, tx *sqlair.TX, channel deployment.Channel, appID coreapplication.UUID) error {
 	appChannel := applicationChannel{
 		ApplicationID: appID,
 		Track:         channel.Track,
 		Risk:          string(channel.Risk),
 		Branch:        channel.Branch,
 	}
-	updateAppChannelStmt, err := st.Prepare(`
-UPDATE application_channel
-SET track = $applicationChannel.track,
-	risk  = $applicationChannel.risk,
-	branch = $applicationChannel.branch
-WHERE application_uuid = $applicationChannel.application_uuid;
+	upsertAppChannelStmt, err := st.Prepare(`
+INSERT INTO application_channel (*)
+VALUES ($applicationChannel.*)
+ON CONFLICT(application_uuid, track, risk, branch) DO UPDATE SET
+	track = excluded.track,
+	risk = excluded.risk,
+	branch = excluded.branch;
 `, applicationChannel{})
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := tx.Query(ctx, updateAppChannelStmt, appChannel).Run(); err != nil {
-		return errors.Errorf("setting application channel: %w", err)
+	if err := tx.Query(ctx, upsertAppChannelStmt, appChannel).Run(); err != nil {
+		return errors.Errorf("upserting application channel: %w", err)
 	}
 	return nil
 }

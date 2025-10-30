@@ -198,6 +198,63 @@ SELECT track, risk, branch FROM application_channel WHERE application_uuid = ?`
 	})
 }
 
+func (s *applicationRefreshSuite) TestSetApplicationCharmFromEmptyChannel(c *tc.C) {
+	// Arrange
+	appName := "my-app"
+	// Create an application with a charm.
+	platform := deployment.Platform{
+		Channel:      "22.04/stable",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	originalCharm := charm.Charm{
+		Metadata: charm.Metadata{
+			Name: appName,
+		},
+		Manifest:      s.minimalManifest(c),
+		ReferenceName: appName,
+		Source:        charm.LocalSource,
+		Revision:      42,
+	}
+
+	appID, _, err := s.state.CreateIAASApplication(c.Context(), appName, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform:          platform,
+			Charm:             originalCharm,
+			CharmDownloadInfo: nil,
+		},
+	}, nil)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to create application %q", appName))
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+	})
+
+	// Act
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{
+		Channel: &deployment.Channel{
+			Track:  "track",
+			Risk:   "edge",
+			Branch: "branch",
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	var channel applicationChannel
+	applicationChannelStmt := `
+SELECT track, risk, branch FROM application_channel WHERE application_uuid = ?`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, applicationChannelStmt, appID).Scan(&channel.Track, &channel.Risk, &channel.Branch)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(channel, tc.DeepEquals, applicationChannel{
+		Track:  "track",
+		Risk:   "edge",
+		Branch: "branch",
+	})
+}
+
 // TestSetApplicationCharmErrorWithRelation verifies that an application charm cannot
 // be updated if an established relation is suppressed.
 func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRelationSuppressed(c *tc.C) {
