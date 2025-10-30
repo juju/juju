@@ -1288,6 +1288,37 @@ WHERE  uuid = $entityUUID.uuid`, fsaUUID)
 	return nil
 }
 
+// DeleteFilesystemAttachment removes the filesystem attachment with the
+// input UUID.
+func (st *State) DeleteFilesystemAttachment(
+	ctx context.Context, fsaUUID string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	uuid := entityUUID{UUID: fsaUUID}
+
+	deleteStmt, err := st.Prepare(`
+DELETE FROM storage_filesystem_attachment WHERE uuid = $entityUUID.uuid
+`, uuid)
+	if err != nil {
+		return errors.Errorf(
+			"preparing filesystem attachment deletion: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, deleteStmt, uuid).Run()
+		if err != nil {
+			return errors.Errorf("deleting filesystem attachment: %w", err)
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
+}
 // GetVolumeAttachmentLife returns the life of the volume attachment indicated
 // by the supplied UUID.
 //

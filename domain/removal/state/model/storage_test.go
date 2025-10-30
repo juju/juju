@@ -691,6 +691,22 @@ func (s *storageSuite) TestMarkFilesystemAttachmentAsDead(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 2)
 }
 
+func (s *storageSuite) TestDeleteFilesystemAttachment(c *tc.C) {
+	ctx := c.Context()
+
+	_, fsaUUID := s.addAttachedFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteFilesystemAttachment(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Instance is gone.
+	var dummy string
+	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_filesystem_attachment WHERE uuid = ?", fsaUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
 func (s *storageSuite) TestMarkVolumeAttachmentAsDeadNotFound(c *tc.C) {
 	ctx := c.Context()
 
