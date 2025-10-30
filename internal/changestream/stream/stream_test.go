@@ -347,7 +347,7 @@ func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *tc.C) {
 
 	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
 		ch := make(chan time.Time, 1)
-		ch <- time.Now()
+		ch <- time.Now().UTC()
 		return ch
 	}).AnyTimes()
 
@@ -443,7 +443,7 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *tc.C) {
 		ch := make(chan time.Time)
 		go func() {
 			select {
-			case ch <- time.Now():
+			case ch <- time.Now().UTC():
 			case <-done:
 			}
 		}()
@@ -589,7 +589,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *tc.C) {
 	s.insertNamespace(c, 1000, "foo")
 
 	var inserts []change
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		ch := change{
 			id:   1000,
 			uuid: uuid.MustNewUUID().String(),
@@ -600,11 +600,11 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *tc.C) {
 
 	// Force a coalesce change through, we should not see three changes, instead
 	// we should just see one.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		s.insertChange(c, inserts[len(inserts)-1])
 	}
 
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		ch := change{
 			id:   1000,
 			uuid: uuid.MustNewUUID().String(),
@@ -650,7 +650,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *tc.C) {
 	s.insertNamespace(c, 2000, "bar")
 
 	var inserts []change
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		ch := change{
 			id:   ((i % 2) + 1) * 1000,
 			uuid: uuid.MustNewUUID().String(),
@@ -700,7 +700,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *tc.C) {
 	s.insertNamespace(c, 2000, "bar")
 
 	var inserts []change
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		ch := change{
 			id:   ((i % 2) + 1) * 1000,
 			uuid: uuid.MustNewUUID().String(),
@@ -711,11 +711,11 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *tc.C) {
 
 	// Force a coalesce change through, we should not see three changes, instead
 	// we should just see one.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		s.insertChange(c, inserts[len(inserts)-1])
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		ch := change{
 			id:   ((i % 2) + 1) * 1000,
 			uuid: uuid.MustNewUUID().String(),
@@ -766,7 +766,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *tc.C) 
 	s.insertNamespace(c, 3000, "baz")
 
 	var inserts []change
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		ch := change{
 			id:   ((i % 2) + 1) * 1000,
 			uuid: uuid.MustNewUUID().String(),
@@ -788,7 +788,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *tc.C) 
 	// so we should only see one change.
 	s.insertChange(c, inserts[len(inserts)-1])
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		ch := change{
 			id:   ((i % 2) + 1) * 1000,
 			uuid: uuid.MustNewUUID().String(),
@@ -929,7 +929,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 	stream := New(id, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
-	for i := 0; i < changestream.DefaultNumTermWatermarks; i++ {
+	for range changestream.DefaultNumTermWatermarks {
 		chg := change{
 			id:   1000,
 			uuid: uuid.MustNewUUID().String(),
@@ -955,7 +955,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 	// the change. This is because we wait until after the done channel is
 	// closed before we update the watermark.
 	syncPoint := func(c *tc.C) map[string]any {
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			data := stream.Report()
 			if strings.Contains(data["watermarks"].(string), strconv.Itoa(changestream.DefaultNumTermWatermarks)) {
 				return data
@@ -973,7 +973,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 	})
 
 	select {
-	case ch <- time.Now():
+	case ch <- time.Now().UTC():
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for timer")
 	}
@@ -1044,7 +1044,7 @@ func (s *streamSuite) TestWatermarkWrite(c *tc.C) {
 	}
 
 	select {
-	case ch <- time.Now():
+	case ch <- time.Now().UTC():
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for timer")
 	}
@@ -1108,7 +1108,7 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *tc.C) {
 	}
 
 	select {
-	case ch <- time.Now():
+	case ch <- time.Now().UTC():
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for timer")
 	}
@@ -1156,7 +1156,7 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *tc.C) {
 	defer workertest.DirtyKill(c, stream)
 
 	// Insert the first change, which will be the first watermark.
-	insertAndWitness := func(c *tc.C, id int) {
+	insertAndWitness := func(c *tc.C) {
 		chg := change{
 			id:   1000,
 			uuid: uuid.MustNewUUID().String(),
@@ -1173,11 +1173,11 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *tc.C) {
 	}
 
 	for i := 0; i < changestream.DefaultNumTermWatermarks+2; i++ {
-		insertAndWitness(c, i+1)
+		insertAndWitness(c)
 	}
 
 	select {
-	case ch <- time.Now():
+	case ch <- time.Now().UTC():
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for timer")
 	}

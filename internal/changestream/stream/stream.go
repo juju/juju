@@ -299,7 +299,7 @@ func (s *Stream) loop() error {
 			watermarkTimer.Reset(jitter(defaultWatermarkInterval, 0.1))
 
 		default:
-			begin := s.clock.Now()
+			begin := s.clock.Now().UTC()
 			changes, err := s.readChanges()
 			if err != nil {
 				// If the context was canceled, we're unsure if it's because
@@ -322,7 +322,7 @@ func (s *Stream) loop() error {
 
 			// We only want to record successful changes retrieve
 			// queries on the metrics.
-			s.metrics.ChangesRequestDurationObserve(s.clock.Now().Sub(begin).Seconds())
+			s.metrics.ChangesRequestDurationObserve(s.clock.Now().UTC().Sub(begin).Seconds())
 
 			if len(changes) == 0 {
 				// The following uses the back-off strategy for polling the
@@ -541,7 +541,7 @@ const (
 INSERT INTO change_log_witness
 	(controller_id, lower_bound, upper_bound, updated_at)
 VALUES
-	(?, -1, -1, datetime())
+	(?, -1, -1, DATETIME('now', 'utc'))
 ON CONFLICT (controller_id) DO NOTHING;
 `
 )
@@ -572,7 +572,7 @@ UPDATE change_log_witness
 SET
 	lower_bound = ?,
 	upper_bound = ?,
-	updated_at = datetime()
+	updated_at = DATETIME('now', 'utc')
 WHERE controller_id = ?;
 `
 )
