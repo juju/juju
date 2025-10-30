@@ -392,6 +392,45 @@ func (s *storageSuite) TestCheckStorageInstanceHasNoChildrenWithoutChildren(c *t
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.IsTrue)
 }
+
+func (s *storageSuite) TestDeleteStorageInstance(c *tc.C) {
+	ctx := c.Context()
+
+	siUUID := s.addStorageInstance(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteStorageInstance(ctx, siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Instance is gone.
+	var dummy string
+	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *storageSuite) TestDeleteStorageInstanceWithUnitOwned(c *tc.C) {
+	ctx := c.Context()
+
+	siUUID, saUUID := s.addAppUnitStorage(c)
+	s.deleteStorageAttachment(c, saUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteStorageInstance(ctx, siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Instance is gone.
+	var dummy string
+	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+
+	// The attached unit was the owner, so the owner record is gone.
+	row = s.DB().QueryRowContext(
+		ctx, "SELECT unit_uuid FROM storage_unit_owner WHERE storage_instance_uuid = ?", siUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
 func (s *storageSuite) TestGetVolumeLife(c *tc.C) {
 	volUUID := s.addVolume(c)
 

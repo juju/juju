@@ -636,6 +636,52 @@ SELECT SUM(n) AS &count.count FROM (
 	hasNoChildren := result.Count == 0
 	return hasNoChildren, nil
 }
+
+// DeleteStorageInstance removes a storage instance from the database
+// completely.
+func (st *State) DeleteStorageInstance(
+	ctx context.Context, siUUID string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	input := entityUUID{UUID: siUUID}
+
+	deleteUnitOwnerStmt, err := st.Prepare(`
+DELETE FROM storage_unit_owner WHERE storage_instance_uuid = $entityUUID.uuid
+`, input)
+	if err != nil {
+		return errors.Errorf(
+			"preparing storage instance status deletion: %w", err,
+		)
+	}
+
+	deleteStorageInstanceStmt, err := st.Prepare(`
+DELETE FROM storage_instance WHERE uuid = $entityUUID.uuid
+`, input)
+	if err != nil {
+		return errors.Errorf(
+			"preparing storage instance deletion: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, deleteUnitOwnerStmt, input).Run()
+		if err != nil {
+			return errors.Errorf("deleting storage unit owner: %w", err)
+		}
+		err = tx.Query(ctx, deleteStorageInstanceStmt, input).Run()
+		if err != nil {
+			return errors.Errorf("deleting storage instance: %w", err)
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
+}
+
 // GetVolumeLife returns the life of the volume with the input UUID.
 //
 // The following errors may be returned:
