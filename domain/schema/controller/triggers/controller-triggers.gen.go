@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_controller_api_address_insert
 AFTER INSERT ON controller_api_address FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ControllerApiAddress
@@ -35,14 +35,14 @@ WHEN
 	NEW.scope != OLD.scope 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ControllerApiAddress
 CREATE TRIGGER trg_log_controller_api_address_delete
 AFTER DELETE ON controller_api_address FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }
@@ -60,7 +60,7 @@ CREATE TRIGGER trg_log_controller_config_insert
 AFTER INSERT ON controller_config FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ControllerConfig
@@ -71,14 +71,14 @@ WHEN
 	(NEW.value != OLD.value OR (NEW.value IS NOT NULL AND OLD.value IS NULL) OR (NEW.value IS NULL AND OLD.value IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ControllerConfig
 CREATE TRIGGER trg_log_controller_config_delete
 AFTER DELETE ON controller_config FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }
@@ -96,7 +96,7 @@ CREATE TRIGGER trg_log_controller_node_insert
 AFTER INSERT ON controller_node FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ControllerNode
@@ -108,14 +108,14 @@ WHEN
 	(NEW.dqlite_bind_address != OLD.dqlite_bind_address OR (NEW.dqlite_bind_address IS NOT NULL AND OLD.dqlite_bind_address IS NULL) OR (NEW.dqlite_bind_address IS NULL AND OLD.dqlite_bind_address IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_delete
 AFTER DELETE ON controller_node FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }
@@ -133,7 +133,7 @@ CREATE TRIGGER trg_log_external_controller_insert
 AFTER INSERT ON external_controller FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ExternalController
@@ -145,14 +145,14 @@ WHEN
 	NEW.ca_cert != OLD.ca_cert 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ExternalController
 CREATE TRIGGER trg_log_external_controller_delete
 AFTER DELETE ON external_controller FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

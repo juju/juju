@@ -103,7 +103,7 @@ CREATE TRIGGER trg_log_custom_%[2]s_%[3]s_lifecycle_insert
 AFTER INSERT ON %[2]s FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[1]d, NEW.%[3]s, DATETIME('now'));
+    VALUES (1, %[1]d, NEW.%[3]s, DATETIME('now', 'utc'));
 END;
 
 CREATE TRIGGER trg_log_custom_%[2]s_%[3]s_lifecycle_update
@@ -112,15 +112,15 @@ WHEN
 	NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[1]d, OLD.%[3]s, DATETIME('now'));
+    VALUES (2, %[1]d, OLD.%[3]s, DATETIME('now', 'utc'));
 END;
 
 CREATE TRIGGER trg_log_custom_%[2]s_%[3]s_lifecycle_delete
 AFTER DELETE ON %[2]s FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[1]d, OLD.%[3]s, DATETIME('now'));
- END;`[1:], namespace, tableName, field)
+    VALUES (4, %[1]d, OLD.%[3]s, DATETIME('now', 'utc'));
+END;`[1:], namespace, tableName, field)
 		return schema.MakePatch(stmt)
 	}
 }
@@ -134,9 +134,9 @@ CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_insert
 AFTER INSERT ON unit FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-	SELECT 1, %[1]d, m.name, DATETIME('now')
-	FROM machine AS m
-	WHERE m.net_node_uuid = NEW.net_node_uuid;
+    SELECT 1, %[1]d, m.name, DATETIME('now', 'utc')
+    FROM machine AS m
+    WHERE m.net_node_uuid = NEW.net_node_uuid;
 END;
 
 CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_update
@@ -145,18 +145,18 @@ WHEN
 	NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-	SELECT 2, %[1]d, m.name, DATETIME('now')
-	FROM machine AS m
-	WHERE m.net_node_uuid = OLD.net_node_uuid;
+    SELECT 2, %[1]d, m.name, DATETIME('now', 'utc')
+    FROM machine AS m
+    WHERE m.net_node_uuid = OLD.net_node_uuid;
 END;
 
 CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_delete
 AFTER DELETE ON unit FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-	SELECT 4, %[1]d, m.name, DATETIME('now')
-	FROM machine AS m
-	WHERE m.net_node_uuid = OLD.net_node_uuid;
+    SELECT 4, %[1]d, m.name, DATETIME('now', 'utc')
+    FROM machine AS m
+    WHERE m.net_node_uuid = OLD.net_node_uuid;
  END;`[1:], namespace)
 		return schema.MakePatch(stmt)
 	}

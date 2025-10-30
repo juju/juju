@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_model_config_insert
 AFTER INSERT ON model_config FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ModelConfig
@@ -33,14 +33,14 @@ WHEN
 	NEW.value != OLD.value 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ModelConfig
 CREATE TRIGGER trg_log_model_config_delete
 AFTER DELETE ON model_config FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

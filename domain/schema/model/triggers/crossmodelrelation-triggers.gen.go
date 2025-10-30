@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_application_remote_consumer_insert
 AFTER INSERT ON application_remote_consumer FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ApplicationRemoteConsumer
@@ -36,14 +36,14 @@ WHEN
 	NEW.life_id != OLD.life_id 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ApplicationRemoteConsumer
 CREATE TRIGGER trg_log_application_remote_consumer_delete
 AFTER DELETE ON application_remote_consumer FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }
@@ -61,7 +61,7 @@ CREATE TRIGGER trg_log_application_remote_offerer_insert
 AFTER INSERT ON application_remote_offerer FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ApplicationRemoteOfferer
@@ -78,14 +78,14 @@ WHEN
 	NEW.macaroon != OLD.macaroon 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ApplicationRemoteOfferer
 CREATE TRIGGER trg_log_application_remote_offerer_delete
 AFTER DELETE ON application_remote_offerer FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }
@@ -103,7 +103,7 @@ CREATE TRIGGER trg_log_relation_network_egress_insert
 AFTER INSERT ON relation_network_egress FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for RelationNetworkEgress
@@ -114,14 +114,14 @@ WHEN
 	NEW.cidr != OLD.cidr 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for RelationNetworkEgress
 CREATE TRIGGER trg_log_relation_network_egress_delete
 AFTER DELETE ON relation_network_egress FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }
@@ -139,7 +139,7 @@ CREATE TRIGGER trg_log_relation_network_ingress_insert
 AFTER INSERT ON relation_network_ingress FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for RelationNetworkIngress
@@ -150,14 +150,14 @@ WHEN
 	NEW.cidr != OLD.cidr 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for RelationNetworkIngress
 CREATE TRIGGER trg_log_relation_network_ingress_delete
 AFTER DELETE ON relation_network_ingress FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

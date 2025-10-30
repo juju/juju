@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_block_device_insert
 AFTER INSERT ON block_device FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for BlockDevice
@@ -44,14 +44,14 @@ WHEN
 	(NEW.filesystem_type != OLD.filesystem_type OR (NEW.filesystem_type IS NOT NULL AND OLD.filesystem_type IS NULL) OR (NEW.filesystem_type IS NULL AND OLD.filesystem_type IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for BlockDevice
 CREATE TRIGGER trg_log_block_device_delete
 AFTER DELETE ON block_device FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

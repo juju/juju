@@ -283,7 +283,7 @@ CREATE TRIGGER trg_log_machine_insert_life_start_time
 AFTER INSERT ON machine FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[1]d, NEW.name, DATETIME('now'));
+    VALUES (1, %[1]d, NEW.name, DATETIME('now', 'utc'));
 END;
 
 CREATE TRIGGER trg_log_machine_update_life_start_time
@@ -293,14 +293,14 @@ WHEN
 	(NEW.agent_started_at != OLD.agent_started_at OR (NEW.agent_started_at IS NOT NULL AND OLD.agent_started_at IS NULL) OR (NEW.agent_started_at IS NULL AND OLD.agent_started_at IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[1]d, OLD.name, DATETIME('now'));
+    VALUES (2, %[1]d, OLD.name, DATETIME('now', 'utc'));
 END;
 
 CREATE TRIGGER trg_log_machine_delete_life_start_time
 AFTER DELETE ON machine FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[1]d, OLD.name, DATETIME('now'));
+    VALUES (4, %[1]d, OLD.name, DATETIME('now', 'utc'));
 END;
 `, customNamespaceMachineLifeAndStartTime))
 	})
@@ -317,7 +317,7 @@ WHEN
 	NEW.target_version != OLD.target_version
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[1]d, NEW.target_version, DATETIME('now'));
+    VALUES (2, %[1]d, NEW.target_version, DATETIME('now', 'utc'));
 END;
 `,
 			tableAgentVersion))

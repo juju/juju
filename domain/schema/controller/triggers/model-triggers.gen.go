@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_model_insert
 AFTER INSERT ON model FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for Model
@@ -40,14 +40,14 @@ WHEN
 	NEW.qualifier != OLD.qualifier 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for Model
 CREATE TRIGGER trg_log_model_delete
 AFTER DELETE ON model FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

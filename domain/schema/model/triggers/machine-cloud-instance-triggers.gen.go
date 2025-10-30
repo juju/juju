@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_machine_cloud_instance_insert
 AFTER INSERT ON machine_cloud_instance FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for MachineCloudInstance
@@ -43,14 +43,14 @@ WHEN
 	(NEW.virt_type != OLD.virt_type OR (NEW.virt_type IS NOT NULL AND OLD.virt_type IS NULL) OR (NEW.virt_type IS NULL AND OLD.virt_type IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for MachineCloudInstance
 CREATE TRIGGER trg_log_machine_cloud_instance_delete
 AFTER DELETE ON machine_cloud_instance FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

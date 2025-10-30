@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_upgrade_info_insert
 AFTER INSERT ON upgrade_info FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for UpgradeInfo
@@ -35,14 +35,14 @@ WHEN
 	NEW.state_type_id != OLD.state_type_id 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for UpgradeInfo
 CREATE TRIGGER trg_log_upgrade_info_delete
 AFTER DELETE ON upgrade_info FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }
@@ -60,7 +60,7 @@ CREATE TRIGGER trg_log_upgrade_info_controller_node_insert
 AFTER INSERT ON upgrade_info_controller_node FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for UpgradeInfoControllerNode
@@ -73,14 +73,14 @@ WHEN
 	(NEW.node_upgrade_completed_at != OLD.node_upgrade_completed_at OR (NEW.node_upgrade_completed_at IS NOT NULL AND OLD.node_upgrade_completed_at IS NULL) OR (NEW.node_upgrade_completed_at IS NULL AND OLD.node_upgrade_completed_at IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for UpgradeInfoControllerNode
 CREATE TRIGGER trg_log_upgrade_info_controller_node_delete
 AFTER DELETE ON upgrade_info_controller_node FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

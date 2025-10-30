@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_model_migration_minion_sync_insert
 AFTER INSERT ON model_migration_minion_sync FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ModelMigrationMinionSync
@@ -37,14 +37,14 @@ WHEN
 	(NEW.success != OLD.success OR (NEW.success IS NOT NULL AND OLD.success IS NULL) OR (NEW.success IS NULL AND OLD.success IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ModelMigrationMinionSync
 CREATE TRIGGER trg_log_model_migration_minion_sync_delete
 AFTER DELETE ON model_migration_minion_sync FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }
@@ -62,7 +62,7 @@ CREATE TRIGGER trg_log_model_migration_status_insert
 AFTER INSERT ON model_migration_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ModelMigrationStatus
@@ -78,14 +78,14 @@ WHEN
 	(NEW.status != OLD.status OR (NEW.status IS NOT NULL AND OLD.status IS NULL) OR (NEW.status IS NULL AND OLD.status IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ModelMigrationStatus
 CREATE TRIGGER trg_log_model_migration_status_delete
 AFTER DELETE ON model_migration_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

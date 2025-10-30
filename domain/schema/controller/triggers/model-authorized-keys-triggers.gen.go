@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_model_authorized_keys_insert
 AFTER INSERT ON model_authorized_keys FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ModelAuthorizedKeys
@@ -33,14 +33,14 @@ WHEN
 	NEW.user_public_ssh_key_id != OLD.user_public_ssh_key_id 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ModelAuthorizedKeys
 CREATE TRIGGER trg_log_model_authorized_keys_delete
 AFTER DELETE ON model_authorized_keys FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

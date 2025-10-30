@@ -89,7 +89,7 @@ func (s *baseSuite) expectBackoffAnyTimes(done chan struct{}) {
 		ch := make(chan time.Time)
 		go func() {
 			select {
-			case ch <- time.Now():
+			case ch <- time.Now().UTC():
 			case <-done:
 				return
 			}
@@ -112,5 +112,5 @@ func (s *baseSuite) expectMetrics() {
 }
 
 func (s *baseSuite) expectClock() {
-	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
 }

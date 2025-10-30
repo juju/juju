@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_machine_insert
 AFTER INSERT ON machine FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for Machine
@@ -42,14 +42,14 @@ WHEN
 	(NEW.keep_instance != OLD.keep_instance OR (NEW.keep_instance IS NOT NULL AND OLD.keep_instance IS NULL) OR (NEW.keep_instance IS NULL AND OLD.keep_instance IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for Machine
 CREATE TRIGGER trg_log_machine_delete
 AFTER DELETE ON machine FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }
@@ -67,7 +67,7 @@ CREATE TRIGGER trg_log_machine_lxd_profile_insert
 AFTER INSERT ON machine_lxd_profile FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for MachineLxdProfile
@@ -79,14 +79,14 @@ WHEN
 	NEW.array_index != OLD.array_index 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for MachineLxdProfile
 CREATE TRIGGER trg_log_machine_lxd_profile_delete
 AFTER DELETE ON machine_lxd_profile FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

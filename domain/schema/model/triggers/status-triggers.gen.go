@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_application_status_insert
 AFTER INSERT ON application_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ApplicationStatus
@@ -36,14 +36,14 @@ WHEN
 	(NEW.updated_at != OLD.updated_at OR (NEW.updated_at IS NOT NULL AND OLD.updated_at IS NULL) OR (NEW.updated_at IS NULL AND OLD.updated_at IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ApplicationStatus
 CREATE TRIGGER trg_log_application_status_delete
 AFTER DELETE ON application_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }

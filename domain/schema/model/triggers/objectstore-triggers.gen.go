@@ -22,7 +22,7 @@ CREATE TRIGGER trg_log_object_store_metadata_path_insert
 AFTER INSERT ON object_store_metadata_path FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ObjectStoreMetadataPath
@@ -33,14 +33,14 @@ WHEN
 	NEW.metadata_uuid != OLD.metadata_uuid 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
 -- delete trigger for ObjectStoreMetadataPath
 CREATE TRIGGER trg_log_object_store_metadata_path_delete
 AFTER DELETE ON object_store_metadata_path FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;`, columnName, namespaceID))
 	}
 }
