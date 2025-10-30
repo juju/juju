@@ -117,39 +117,9 @@ WHERE  application_uuid = $entityUUID.uuid`
 		return errors.Errorf("preparing secret deletion temp table: %w", err)
 	}
 
-	// Deletions by secret revision UUID.
-	rds := []string{
-		"DELETE FROM secret_value_ref WHERE revision_uuid IN ($uuids[:])",
-		"DELETE FROM secret_deleted_value_ref WHERE revision_uuid IN ($uuids[:])",
-		"DELETE FROM secret_revision_obsolete WHERE revision_uuid IN ($uuids[:])",
-		"DELETE FROM secret_revision_expire WHERE revision_uuid IN ($uuids[:])",
-	}
-	rdStmts := make([]*sqlair.Statement, len(rds))
-	for i, q := range rds {
-		rdStmts[i], err = sqlair.Prepare(q, uuids{})
-		if err != nil {
-			return errors.Capture(err)
-		}
-	}
-
-	// Deletions by secret UUID.
-	sds := []string{
-		"DELETE FROM secret_revision WHERE secret_id IN ($uuids[:])",
-		"DELETE FROM secret_unit_consumer WHERE secret_id IN ($uuids[:])",
-		"DELETE FROM secret_remote_unit_consumer WHERE secret_id IN ($uuids[:])",
-		"DELETE FROM secret_rotation WHERE secret_id IN ($uuids[:])",
-		"DELETE FROM secret_reference WHERE secret_id IN ($uuids[:])",
-		"DELETE FROM secret_permission WHERE secret_id IN ($uuids[:])",
-		"DELETE FROM secret_application_owner WHERE secret_id IN ($uuids[:])",
-		"DELETE FROM secret_metadata WHERE secret_id IN ($uuids[:])",
-		"DELETE FROM secret WHERE id IN ($uuids[:])",
-	}
-	sdStmts := make([]*sqlair.Statement, len(sds))
-	for i, q := range sds {
-		sdStmts[i], err = sqlair.Prepare(q, uuids{})
-		if err != nil {
-			return errors.Capture(err)
-		}
+	rdStmts, sdStmts, err := st.prepareSecretDeletions()
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -181,4 +151,106 @@ WHERE  application_uuid = $entityUUID.uuid`
 	}
 
 	return nil
+}
+
+// DeleteUnitOwnedSecrets deletes all data for secrets owned by the
+// unit with the input UUID.
+// This does not include secret content, which should be handled by
+// interaction with the secret back-end.
+func (st *State) DeleteUnitOwnedSecrets(ctx context.Context, uUUID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	unitUUID := entityUUID{UUID: uUUID}
+
+	// We need to materialise this up-front, because once we delete the
+	// unit_secret_owner records, we still need to delete the secret records.
+	q := `
+SELECT (r.uuid, r.secret_id) AS (&secretRevision.*)
+FROM   secret_unit_owner o JOIN secret_revision r ON o.secret_id = o.secret_id
+WHERE  unit_uuid = $entityUUID.uuid`
+	ownedStmt, err := st.Prepare(q, secretRevision{}, unitUUID)
+	if err != nil {
+		return errors.Errorf("preparing secret deletion temp table: %w", err)
+	}
+
+	rdStmts, sdStmts, err := st.prepareSecretDeletions()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var srs secretRevisions
+		if err := tx.Query(ctx, ownedStmt, unitUUID).GetAll(&srs); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return errors.Errorf("running unit secret revision query: %w", err)
+		}
+
+		rUUIDs, sUUIDs := srs.split()
+
+		for i, stmt := range rdStmts {
+			if err := tx.Query(ctx, stmt, rUUIDs).Run(); err != nil {
+				return errors.Errorf("running unit secret revision deletion statement at index %d: %w", i, err)
+			}
+		}
+
+		for i, stmt := range sdStmts {
+			if err := tx.Query(ctx, stmt, sUUIDs).Run(); err != nil {
+				return errors.Errorf("running unit secret deletion statement at index %d: %w", i, err)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) prepareSecretDeletions() ([]*sqlair.Statement, []*sqlair.Statement, error) {
+	var err error
+	dummy := uuids{}
+
+	// Deletions by secret revision UUID.
+	rds := []string{
+		"DELETE FROM secret_value_ref WHERE revision_uuid IN ($uuids[:])",
+		"DELETE FROM secret_deleted_value_ref WHERE revision_uuid IN ($uuids[:])",
+		"DELETE FROM secret_revision_obsolete WHERE revision_uuid IN ($uuids[:])",
+		"DELETE FROM secret_revision_expire WHERE revision_uuid IN ($uuids[:])",
+	}
+	rdStmts := make([]*sqlair.Statement, len(rds))
+	for i, q := range rds {
+		rdStmts[i], err = sqlair.Prepare(q, dummy)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
+		}
+	}
+
+	// Deletions by secret UUID.
+	sds := []string{
+		"DELETE FROM secret_revision WHERE secret_id IN ($uuids[:])",
+		"DELETE FROM secret_unit_consumer WHERE secret_id IN ($uuids[:])",
+		"DELETE FROM secret_remote_unit_consumer WHERE secret_id IN ($uuids[:])",
+		"DELETE FROM secret_rotation WHERE secret_id IN ($uuids[:])",
+		"DELETE FROM secret_reference WHERE secret_id IN ($uuids[:])",
+		"DELETE FROM secret_permission WHERE secret_id IN ($uuids[:])",
+		"DELETE FROM secret_application_owner WHERE secret_id IN ($uuids[:])",
+		"DELETE FROM secret_unit_owner WHERE secret_id IN ($uuids[:])",
+		"DELETE FROM secret_metadata WHERE secret_id IN ($uuids[:])",
+		"DELETE FROM secret WHERE id IN ($uuids[:])",
+	}
+	sdStmts := make([]*sqlair.Statement, len(sds))
+	for i, q := range sds {
+		sdStmts[i], err = sqlair.Prepare(q, dummy)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
+		}
+	}
+
+	return rdStmts, sdStmts, nil
 }

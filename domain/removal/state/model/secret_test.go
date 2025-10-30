@@ -21,7 +21,7 @@ func TestSecretSuite(t *testing.T) {
 	tc.Run(t, &secretSuite{})
 }
 
-func (s *secretSuite) TestDeleteUnitOwnedSecretContent(c *tc.C) {
+func (s *secretSuite) TestDeleteUnitOwnedSecrets(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	ctx := c.Context()
@@ -38,7 +38,10 @@ func (s *secretSuite) TestDeleteUnitOwnedSecretContent(c *tc.C) {
 	err = st.DeleteUnitOwnedSecretContent(ctx, unit)
 	c.Assert(err, tc.ErrorIsNil)
 
-	row := s.DB().QueryRowContext(ctx, "SELECT count(*) FROM secret_content")
+	err = st.DeleteUnitOwnedSecrets(ctx, unit)
+	c.Assert(err, tc.ErrorIsNil)
+
+	row := s.DB().QueryRowContext(ctx, "SELECT count(*) FROM secret")
 
 	var count int
 	err = row.Scan(&count)
