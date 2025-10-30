@@ -191,6 +191,7 @@ func (w *dbReplWorker) loop() (err error) {
 	}()
 
 	// Run the main REPL loop.
+	lineBuildUp := new(strings.Builder)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -198,9 +199,10 @@ func (w *dbReplWorker) loop() (err error) {
 		default:
 		}
 
-		line.SetPrompt("repl (" + w.currentNamespace + ")> ")
-		if err != nil {
-			return errors.Annotate(err, "failed to read input")
+		if lineBuildUp.Len() == 0 {
+			line.SetPrompt("repl (" + w.currentNamespace + ")> ")
+		} else {
+			line.SetPrompt("... ")
 		}
 
 		input, err := line.Readline()
@@ -213,12 +215,20 @@ func (w *dbReplWorker) loop() (err error) {
 		} else if err == io.EOF {
 			return nil
 		}
+
 		input = strings.TrimSpace(input)
 		if input == "" {
 			continue
+		} else if strings.HasSuffix(input, "\\") {
+			_, _ = lineBuildUp.WriteString(input[:len(input)-1])
+			_, _ = lineBuildUp.WriteString(" ")
+			continue
 		}
+		_, _ = lineBuildUp.WriteString(input)
 
-		args := strings.Split(input, " ")
+		compiled := lineBuildUp.String()
+
+		args := strings.Split(compiled, " ")
 		if len(args) == 0 {
 			continue
 		}
@@ -250,10 +260,12 @@ func (w *dbReplWorker) loop() (err error) {
 			w.describeCluster(ctx)
 
 		default:
-			if err := w.executeQuery(ctx, w.currentDB, input); err != nil {
+			if err := w.executeQuery(ctx, w.currentDB, compiled); err != nil {
 				w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
 			}
 		}
+
+		lineBuildUp.Reset()
 	}
 }
 
@@ -652,9 +664,9 @@ func (w *dbReplWorker) executeQuery(ctx context.Context, db database.TxnRunner, 
 		headerStyle := color.New(color.Bold)
 		var sb strings.Builder
 
-		// Use the ansiterm tabwriter because the stdlib tabwriter contains a bug
-		// which breaks if there are color codes. Our own tabwriter implementation
-		// doesn't have this issue.
+		// Use the ansiterm tabwriter because the stdlib tabwriter contains a
+		// bug which breaks if there are color codes. Our own tabwriter
+		// implementation doesn't have this issue.
 		writer := ansiterm.NewTabWriter(&sb, 0, 8, 1, '\t', 0)
 		for _, col := range columns {
 			_, _ = headerStyle.Fprintf(writer, "%s\t", col)

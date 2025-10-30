@@ -4,7 +4,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"database/sql"
 	"flag"
@@ -18,10 +17,12 @@ import (
 
 	"github.com/canonical/go-dqlite/v2/client"
 	"github.com/canonical/sqlair"
-	"github.com/gosuri/uitable"
+	"github.com/chzyer/readline"
+	"github.com/fatih/color"
+	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
-	"github.com/peterh/liner"
 
+	"github.com/juju/juju/core/database"
 	databaseschema "github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database/app"
@@ -127,27 +128,43 @@ func main() {
 		panic(err)
 	}
 
-	if _, err := schema.Ensure(ctx, &txnRunner{
+	runner := &txnRunner{
 		db: db,
-	}); err != nil {
+	}
+
+	if _, err := schema.Ensure(ctx, runner); err != nil {
 		panic(err)
 	}
 
 	go func() {
 		defer cancel()
 
-		line := liner.NewLiner()
-		defer line.Close()
-
-		// Only load history if the flag is set.
-		if file != nil {
-			scanner := bufio.NewScanner(file)
-			for scanner.Scan() {
-				line.AppendHistory(scanner.Text())
-			}
+		history, err := os.CreateTemp("", "juju-repl")
+		if err != nil {
+			panic(err)
 		}
+		defer func() {
+			_ = history.Close()
+			if err := os.Remove(history.Name()); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to remove history file: %v\n", err)
+			}
+		}()
 
-		var lineBuildUp strings.Builder
+		line, err := readline.NewEx(&readline.Config{
+			Stdin:               readline.NewCancelableStdin(os.Stdin),
+			Stdout:              os.Stdout,
+			Stderr:              os.Stderr,
+			HistoryFile:         history.Name(),
+			InterruptPrompt:     "^C",
+			HistorySearchFold:   true,
+			FuncFilterInputRune: filterInput,
+		})
+		if err != nil {
+			panic(err)
+		}
+		defer func() { _ = line.Close() }()
+
+		lineBuildUp := new(strings.Builder)
 		for {
 			select {
 			case <-ctx.Done():
@@ -155,49 +172,57 @@ func main() {
 			default:
 			}
 
-			input, err := line.Prompt("dqlite> ")
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				return
+			if lineBuildUp.Len() == 0 {
+				line.SetPrompt("dqlite> ")
+			} else {
+				line.SetPrompt("... ")
 			}
-			if input == ".exit" {
-				return
-			}
-			if strings.Index(input, ".dump") == 0 {
-				if err := dumpDB(ctx, db, path, *dbTypeFlag); err != nil {
-					fmt.Fprintln(os.Stderr, "Error: ", err)
+
+			input, err := line.Readline()
+			if err == readline.ErrInterrupt {
+				if len(input) == 0 {
+					return
+				} else {
+					continue
 				}
+			} else if err == io.EOF {
 				return
 			}
 
-			lineBuildUp.WriteString(input + " ")
-			if !strings.HasSuffix(strings.TrimSpace(input), ";") {
+			input = strings.TrimSpace(input)
+			if input == "" {
+				continue
+			} else if strings.HasSuffix(input, "\\") {
+				_, _ = lineBuildUp.WriteString(input[:len(input)-1])
+				_, _ = lineBuildUp.WriteString(" ")
+				continue
+			}
+			_, _ = lineBuildUp.WriteString(input)
+
+			compiled := lineBuildUp.String()
+
+			args := strings.Split(compiled, " ")
+			if len(args) == 0 {
 				continue
 			}
 
-			func() {
-				defer lineBuildUp.Reset()
-				defer line.AppendHistory(lineBuildUp.String())
+			switch args[0] {
+			case ".exit", ".quit":
+				return
+			case ".dump":
+				if err := dumpDB(ctx, db, path, *dbTypeFlag); err != nil {
+					fmt.Fprintln(os.Stderr, "Error: ", err)
+				}
+			default:
 
 				// Process the input query.
-				result, err := processQuery(ctx, db, lineBuildUp.String())
-				if err != nil {
+				if err := processQuery(ctx, runner, lineBuildUp.String()); err != nil {
 					fmt.Fprintln(os.Stderr, "Error: ", err)
-				} else {
-					if result != "" {
-						fmt.Println()
-						fmt.Println(result)
-					}
-
-					// This can fail, so we don't care if it errors out.
-					if file != nil {
-						fmt.Fprintln(file, lineBuildUp.String())
-						_ = file.Sync()
-					}
 				}
-			}()
+			}
+
+			lineBuildUp.Reset()
+
 		}
 	}()
 
@@ -280,79 +305,71 @@ func StdTxn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) e
 	return defaultTransactionRunner.StdTxn(ctx, db, fn)
 }
 
-func processQuery(ctx context.Context, db *sql.DB, line string) (string, error) {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return "", fmt.Errorf("begin transaction: %w", err)
-	}
-
-	rows, err := tx.Query(line)
-	if err != nil {
-		err = fmt.Errorf("query: %w", err)
-		if rbErr := tx.Rollback(); rbErr != nil {
-			return "", fmt.Errorf("unable to rollback: %v", err)
-		}
-		return "", err
-	}
-	defer rows.Close()
-
-	columns, err := rows.Columns()
-	if err != nil {
-		err = fmt.Errorf("columns: %w", err)
-		if rbErr := tx.Rollback(); rbErr != nil {
-			return "", fmt.Errorf("unable to rollback: %v", err)
-		}
-		return "", err
-	}
-	n := len(columns)
-
-	table := uitable.New()
-	table.Wrap = true
-	table.MaxColWidth = 120
-
-	p := func(values ...any) {
-		table.AddRow(values...)
-	}
-	var cols []any
-	for i, column := range columns {
-		if strings.Contains(column, "date") || strings.Contains(column, "time") {
-			table.RightAlign(i)
+func processQuery(ctx context.Context, db database.TxnRunner, query string, args ...any) error {
+	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, query, args...)
+		if err != nil {
+			return err
 		}
 
-		cols = append(cols, strings.ToUpper(column))
-	}
-	p(cols...)
-	p()
+		defer func() { _ = rows.Close() }()
 
-	for rows.Next() {
-		row := make([]interface{}, n)
-		rowPointers := make([]interface{}, n)
-		for i := range row {
-			rowPointers[i] = &row[i]
+		columns, err := rows.Columns()
+		if err != nil {
+			return err
 		}
+		n := len(columns)
 
-		if err := rows.Scan(rowPointers...); err != nil {
-			err = fmt.Errorf("scan: %w", err)
-			if rbErr := tx.Rollback(); rbErr != nil {
-				return "", fmt.Errorf("unable to rollback: %v", err)
+		headerStyle := color.New(color.Bold)
+		var sb strings.Builder
+
+		// Use the ansiterm tabwriter because the stdlib tabwriter contains a
+		// bug which breaks if there are color codes. Our own tabwriter
+		// implementation doesn't have this issue.
+		writer := ansiterm.NewTabWriter(&sb, 0, 8, 1, '\t', 0)
+		for _, col := range columns {
+			_, _ = headerStyle.Fprintf(writer, "%s\t", col)
+		}
+		_, _ = fmt.Fprintln(writer)
+
+		for rows.Next() {
+			row := make([]interface{}, n)
+			rowPointers := make([]interface{}, n)
+			for i := range row {
+				rowPointers[i] = &row[i]
 			}
-			return "", err
+
+			if err := rows.Scan(rowPointers...); err != nil {
+				return err
+			}
+
+			for _, column := range row {
+				_, _ = fmt.Fprintf(writer, "%v\t", column)
+			}
+			_, _ = fmt.Fprintln(writer)
 		}
 
-		p(row...)
-	}
-
-	if err := rows.Err(); err != nil {
-		err = fmt.Errorf("rows: %w", err)
-		if rbErr := tx.Rollback(); rbErr != nil {
-			return "", fmt.Errorf("unable to rollback: %v", err)
+		if err := rows.Err(); err != nil {
+			return err
 		}
-		return "", err
-	}
 
-	if err := tx.Commit(); err != nil {
-		return "", fmt.Errorf("commit: %w", err)
-	}
+		if err := writer.Flush(); err != nil {
+			return err
+		}
 
-	return table.String(), nil
+		_, _ = fmt.Fprintln(os.Stdout, sb.String())
+
+		return err
+	})
+}
+
+// filterInput is used to exclude characters
+// from being accepted from stdin.
+func filterInput(r rune) (rune, bool) {
+	switch r {
+	// block CtrlZ feature
+	case readline.CharCtrlZ:
+		return r, false
+	}
+	return r, true
 }
