@@ -508,6 +508,7 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependants(c *tc.C) {
 			OSType:  deployment.Ubuntu,
 		},
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.AssertChangeStreamIdle(c)
 
@@ -617,6 +618,8 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependantsWithStorage(c *tc.C) {
 			OSType:  deployment.Ubuntu,
 		},
 	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	mUUID, err := s.svc.GetMachineUUID(c.Context(), m.MachineName)
 	c.Assert(err, tc.ErrorIsNil)
 

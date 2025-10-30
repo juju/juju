@@ -228,7 +228,7 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 }
 
 // ensureMachineStorageInstancesNotAliveCascade transitions any "alive"
-// storage instances that are provisioned wholey by the machine to "dying".
+// storage instances that are provisioned by the machine to "dying".
 // It does not cause detachment of those storage instances, this must be
 // handled by the the removal of a unit.
 func (st *State) ensureMachineStorageInstancesNotAliveCascade(

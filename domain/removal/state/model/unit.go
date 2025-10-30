@@ -97,7 +97,7 @@ AND    life_id = 0`, unitUUID)
 	}
 
 	if destroyStorage {
-		// TODO(storage): wire through obliterate seperately from destroy.
+		// TODO(storage): wire through obliterate separately from destroy.
 		cascaded.CascadedStorageInstanceLives, err = st.ensureUnitOwnedStorageInstancesNotAlive(ctx, tx, uUUID, destroyStorage)
 		if err != nil {
 			return cascaded, errors.Errorf("setting unit storage instance lives to dying: %w", err)

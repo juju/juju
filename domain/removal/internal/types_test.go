@@ -100,7 +100,3 @@ func (s *typesSuite) TestCascadedApplicationLivesEmpty(c *tc.C) {
 	cal.RelationUUIDs = []string{"burp"}
 	c.Check(cal.IsEmpty(), tc.IsFalse)
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}
