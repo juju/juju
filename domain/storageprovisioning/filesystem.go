@@ -136,19 +136,25 @@ type FilesystemAttachmentParams struct {
 // PVC template/Pod template, such that the required Filsystems for a new unit
 // of the supplied application are created and mounted correctly.
 type FilesystemTemplate struct {
-	// StorageName is the name of the storage as defined in the charm for this
-	// application.
-	StorageName string
+	// Attributes are a set of key value pairs that are supplied to the provider
+	// or provisioner to facilitate this filesystem(s).
+	Attributes map[string]string
 
 	// Count is the number of filesystem(s) to mount for this storage.
 	Count int
 
+	// Location is a path to hint where the filesystem(s) should be mounted for
+	// the charm to access. It is not the exact path the filesystem(s) will be
+	// mounted.
+	Location string
+
 	// MaxCount is the maxium number of filesystems for this storage.
 	MaxCount int
 
-	// SizeMiB is the number of mebibytes to allocate for this filesystem or
-	// each of these filesystems.
-	SizeMiB uint64
+	// MountPoints is the set of mounts points that each storage instance should
+	// be mounted at. The number of mount points in this slice is guaranteed to
+	// be the same as [FilesystemTemplate.Count]
+	MountPoints []string
 
 	// ProviderType is the name of the provider to be used to provision this
 	// filesystem(s).
@@ -157,19 +163,13 @@ type FilesystemTemplate struct {
 	// ReadOnly is true if this filesystem(s) or the mount should be read-only.
 	ReadOnly bool
 
-	// Location is a path to hint where the filesystem(s) should be mounted for
-	// the charm to access. It is not the exact path the filesystem(s) will be
-	// mounted.
-	Location string
+	// SizeMiB is the number of mebibytes to allocate for this filesystem or
+	// each of these filesystems.
+	SizeMiB uint64
 
-	// MountPoints is the set of mounts points that each storage instance should
-	// be mounted at. The number of mount points in this slice is guaranteed to
-	// be the same as [FilesystemTemplate.Count]
-	MountPoints []string
-
-	// Attributes are a set of key value pairs that are supplied to the provider
-	// or provisioner to facilitate this filesystem(s).
-	Attributes map[string]string
+	// StorageName is the name of the storage as defined in the charm for this
+	// application.
+	StorageName string
 }
 
 // FilesystemProvisionedInfo is information set by the storage provisioner for
