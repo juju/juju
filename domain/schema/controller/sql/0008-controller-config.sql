@@ -1,7 +1,7 @@
 CREATE TABLE controller_config (
     "key" TEXT NOT NULL PRIMARY KEY,
-    value TEXT
-);
+    value BLOB
+) STRICT;
 
 CREATE VIEW v_controller_config AS
 SELECT

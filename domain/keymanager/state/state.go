@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/domain/keymanager"
 	keyerrors "github.com/juju/juju/domain/keymanager/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	jujudb "github.com/juju/juju/internal/database"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -160,7 +160,7 @@ AND fingerprint = $userPublicKeyInsert.fingerprint
 	// exists and nothing more needs to be done.
 	if err == nil {
 		return row.Id, nil
-	} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	} else if !errors.Is(err, sqlair.ErrNoRows) {
 		return 0, errors.Errorf(
 			"fetching existing user %q key id when ensuring public key: %w",
 			key.UserId, err,
@@ -242,8 +242,8 @@ INSERT INTO model_authorized_keys (*) VALUES ($modelAuthorizedKey.*)
 			row := userPublicKeyInsert{
 				Comment:                  publicKey.Comment,
 				FingerprintHashAlgorithm: publicKey.FingerprintHash.String(),
-				Fingerprint:              publicKey.Fingerprint,
-				PublicKey:                publicKey.Key,
+				Fingerprint:              internaldatabase.NullBlob{Data: publicKey.Fingerprint, Valid: true},
+				PublicKey:                internaldatabase.NullBlob{Data: publicKey.Key, Valid: true},
 				UserId:                   userUUID.String(),
 			}
 
@@ -264,7 +264,7 @@ INSERT INTO model_authorized_keys (*) VALUES ($modelAuthorizedKey.*)
 				ModelUUID:          modelUUID.String(),
 			}
 			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
-			if jujudb.IsErrConstraintPrimaryKey(err) {
+			if internaldatabase.IsErrConstraintPrimaryKey(err) {
 				return errors.Errorf(
 					"adding key %d for user %q to model %q, key already exists",
 					i, userUUID, modelUUID,
@@ -344,8 +344,8 @@ ON CONFLICT DO NOTHING
 			row := userPublicKeyInsert{
 				Comment:                  publicKey.Comment,
 				FingerprintHashAlgorithm: publicKey.FingerprintHash.String(),
-				Fingerprint:              publicKey.Fingerprint,
-				PublicKey:                publicKey.Key,
+				Fingerprint:              internaldatabase.NullBlob{Data: publicKey.Fingerprint, Valid: true},
+				PublicKey:                internaldatabase.NullBlob{Data: publicKey.Key, Valid: true},
 				UserId:                   userUUID.String(),
 			}
 
@@ -366,7 +366,7 @@ ON CONFLICT DO NOTHING
 			}
 
 			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
-			if err != nil && !jujudb.IsErrConstraintPrimaryKey(err) {
+			if err != nil && !internaldatabase.IsErrConstraintPrimaryKey(err) {
 				return errors.Errorf(
 					"ensuring key %d for user %q on model %q: %w",
 					i, userUUID, modelUUID, err,

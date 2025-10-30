@@ -1,7 +1,7 @@
 CREATE TABLE model_last_login (
     model_uuid TEXT NOT NULL,
     user_uuid TEXT NOT NULL,
-    time TIMESTAMP NOT NULL,
+    time TEXT NOT NULL,
     PRIMARY KEY (model_uuid, user_uuid),
     CONSTRAINT fk_model_last_login_model
     FOREIGN KEY (model_uuid)
@@ -9,7 +9,7 @@ CREATE TABLE model_last_login (
     CONSTRAINT fk_model_last_login_user
     FOREIGN KEY (user_uuid)
     REFERENCES user (uuid)
-);
+) STRICT;
 
 CREATE VIEW v_user_last_login AS
 -- We cannot select last_login as MAX directly here because it returns a sqlite

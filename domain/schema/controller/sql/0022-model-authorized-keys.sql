@@ -6,7 +6,7 @@ CREATE TABLE model_authorized_keys (
     REFERENCES user_public_ssh_key (id),
     FOREIGN KEY (model_uuid)
     REFERENCES model (uuid)
-);
+) STRICT;
 
 --CREATE UNIQUE INDEX idx_model_authorized_keys_composite
 --ON model_authorized_keys (model_uuid, user_public_ssh_key_id);

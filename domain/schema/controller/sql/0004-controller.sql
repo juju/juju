@@ -3,12 +3,12 @@ CREATE TABLE controller (
     model_uuid TEXT NOT NULL,
     target_version TEXT NOT NULL,
     api_port TEXT,
-    cert TEXT,
-    ca_cert TEXT,
-    private_key TEXT,
-    ca_private_key TEXT,
-    system_identity TEXT
-);
+    cert BLOB,
+    ca_cert BLOB,
+    private_key BLOB,
+    ca_private_key BLOB,
+    system_identity BLOB
+) STRICT;
 
 -- A unique constraint over a constant index ensures only 1 entry matching the
 -- condition can exist.

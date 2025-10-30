@@ -146,7 +146,7 @@ type SecretBackendConfig struct {
 	// Name is the name of one record of the secret backend config.
 	Name string `db:"name"`
 	// Content is the content of the secret backend config.
-	Content string `db:"content"`
+	Content []byte `db:"content"`
 }
 
 // SecretBackendRow represents a single joined result from secret_backend and

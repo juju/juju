@@ -2,7 +2,7 @@ CREATE TABLE controller_node (
     controller_id TEXT NOT NULL PRIMARY KEY,
     dqlite_node_id TEXT,              -- This is the uint64 from Dqlite NodeInfo, stored as text.
     dqlite_bind_address TEXT          -- IP address (no port) that Dqlite is bound to.
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_controller_node_dqlite_node
 ON controller_node (dqlite_node_id);
@@ -22,7 +22,7 @@ CREATE TABLE controller_node_agent_version (
     CONSTRAINT fk_controller_node_agent_version_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id)
-);
+) STRICT;
 
 CREATE TABLE controller_api_address (
     controller_id TEXT NOT NULL,
@@ -30,14 +30,14 @@ CREATE TABLE controller_api_address (
     -- e.g. 192.168.1.2:17070 or [2001:db8:0000:0000:0000:0000:0000:00001]:17070.
     address TEXT NOT NULL,
     -- Represents whether the API address is available for agents usage.
-    is_agent BOOLEAN DEFAULT FALSE,
+    is_agent INTEGER DEFAULT 0,
     -- Represents the context an address may apply to. E.g. public, private.
-    scope TXT NOT NULL,
+    scope TEXT NOT NULL,
     CONSTRAINT fk_controller_api_address_controller
     FOREIGN KEY (controller_id)
     REFERENCES controller_node (controller_id),
     PRIMARY KEY (controller_id, address)
-);
+) STRICT;
 
 CREATE TABLE controller_node_password (
     controller_id TEXT NOT NULL PRIMARY KEY,
@@ -49,4 +49,4 @@ CREATE TABLE controller_node_password (
     CONSTRAINT fk_controller_node_password_hash_algorithm
     FOREIGN KEY (password_hash_algorithm_id)
     REFERENCES password_hash_algorithm (id)
-);
+) STRICT;

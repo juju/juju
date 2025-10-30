@@ -3,7 +3,7 @@ CREATE TABLE object_store_metadata (
     sha_256 TEXT NOT NULL,
     sha_384 TEXT NOT NULL,
     size INT NOT NULL
-);
+) STRICT;
 
 -- Add a unique index for each hash and a composite unique index for both hashes
 -- to ensure that the same hash is not stored multiple times.
@@ -16,7 +16,7 @@ CREATE TABLE object_store_metadata_path (
     CONSTRAINT fk_object_store_metadata_metadata_uuid
     FOREIGN KEY (metadata_uuid)
     REFERENCES object_store_metadata (uuid)
-);
+) STRICT;
 
 CREATE VIEW v_object_store_metadata AS
 SELECT
@@ -30,9 +30,9 @@ LEFT JOIN object_store_metadata_path AS osmp
     ON osm.uuid = osmp.metadata_uuid;
 
 CREATE TABLE object_store_drain_phase_type (
-    id INT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     type TEXT
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_object_store_drain_phase_type_type
 ON object_store_drain_phase_type (type);
@@ -49,7 +49,7 @@ CREATE TABLE object_store_drain_info (
     CONSTRAINT fk_object_store_drain_info_object_store_drain_phase_type
     FOREIGN KEY (phase_type_id)
     REFERENCES object_store_drain_phase_type (id)
-);
+) STRICT;
 
 -- A unique constraint over a constant index ensures only 1 entry matching the 
 -- condition can exist. This states, that multiple draining can exist if they're
