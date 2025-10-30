@@ -4,8 +4,10 @@
 package apiserver
 
 import (
+	"net/http"
 	stdtesting "testing"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,8 +21,7 @@ import (
 )
 
 type sharedServerContextSuite struct {
-	controllerConfigService *MockControllerConfigService
-	crossModelAuthContext   *MockCrossModelAuthContext
+	controllerDomainServices *MockControllerDomainServices
 }
 
 func TestSharedServerContextSuite(t *stdtesting.T) {
@@ -64,29 +65,36 @@ func (s *sharedServerContextSuite) newConfig(c *tc.C) sharedServerConfig {
 	controllerConfig := testing.FakeControllerConfig()
 
 	return sharedServerConfig{
-		crossModelAuthContext:   s.crossModelAuthContext,
-		leaseManager:            &lease.Manager{},
-		controllerConfig:        controllerConfig,
-		controllerConfigService: s.controllerConfigService,
-		logger:                  loggertesting.WrapCheckLog(c),
-		dbGetter:                StubDBGetter{},
-		dbDeleter:               StubDBDeleter{},
-		domainServicesGetter:    &StubDomainServicesGetter{},
-		watcherRegistryGetter:   &StubWatcherRegistryGetter{},
-		tracerGetter:            &StubTracerGetter{},
-		flightRecorder:          flightrecorder.NoopRecorder{},
-		objectStoreGetter:       &StubObjectStoreGetter{},
-		machineTag:              names.NewMachineTag("0"),
-		dataDir:                 c.MkDir(),
-		logDir:                  c.MkDir(),
-		controllerUUID:          testing.ControllerTag.Id(),
-		controllerModelUUID:     model.UUID(testing.ModelTag.Id()),
+		leaseManager:             &lease.Manager{},
+		controllerConfig:         controllerConfig,
+		controllerDomainServices: s.controllerDomainServices,
+		logger:                   loggertesting.WrapCheckLog(c),
+		dbGetter:                 StubDBGetter{},
+		dbDeleter:                StubDBDeleter{},
+		domainServicesGetter:     &StubDomainServicesGetter{},
+		watcherRegistryGetter:    &StubWatcherRegistryGetter{},
+		tracerGetter:             &StubTracerGetter{},
+		flightRecorder:           flightrecorder.NoopRecorder{},
+		objectStoreGetter:        &StubObjectStoreGetter{},
+		machineTag:               names.NewMachineTag("0"),
+		dataDir:                  c.MkDir(),
+		logDir:                   c.MkDir(),
+		controllerUUID:           testing.ControllerTag.Id(),
+		controllerModelUUID:      model.UUID(testing.ModelTag.Id()),
+		charmhubHTTPClient:       stubHTTPClient{},
+		macaroonHTTPClient:       stubHTTPClient{},
+		offersThirdPartyKeyPair:  bakery.MustGenerateKey(),
 	}
 }
 
 func (s *sharedServerContextSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.crossModelAuthContext = NewMockCrossModelAuthContext(ctrl)
+	s.controllerDomainServices = NewMockControllerDomainServices(ctrl)
 	return ctrl
+}
+
+type stubHTTPClient struct{}
+
+func (stubHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	return nil, nil
 }

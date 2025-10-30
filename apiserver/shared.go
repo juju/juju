@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -34,16 +36,14 @@ import (
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
-	// crossModelAuthContext provides methods to create and authorize macaroons
-	// for cross model operations.
-	crossModelAuthContext facade.CrossModelAuthContext
-
 	// flightRecorder is the flight recorder for the server.
 	flightRecorder flightrecorder.FlightRecorder
 
 	leaseManager       lease.Manager
 	logger             corelogger.Logger
+	clock              clock.Clock
 	charmhubHTTPClient facade.HTTPClient
+	macaroonHTTPClient facade.HTTPClient
 
 	// dbGetter is used to access databases from the API server. Along with
 	// creating a new database for new models and during model migrations.
@@ -55,8 +55,8 @@ type sharedServerContext struct {
 
 	// DomainServicesGetter is used to get the domain services for controllers
 	// and models.
-	domainServicesGetter    services.DomainServicesGetter
-	controllerConfigService ControllerConfigService
+	domainServicesGetter     services.DomainServicesGetter
+	controllerDomainServices services.ControllerDomainServices
 
 	// TraceGetter is used to get the tracer for the API server.
 	tracerGetter trace.TracerGetter
@@ -76,6 +76,9 @@ type sharedServerContext struct {
 	controllerConfig controller.Config
 	features         set.Strings
 
+	loginTokenRefreshURL    string
+	offersThirdPartyKeyPair *bakery.KeyPair
+
 	// controllerModelUUID is the UUID of the controller model.
 	controllerModelUUID model.UUID
 
@@ -85,31 +88,31 @@ type sharedServerContext struct {
 }
 
 type sharedServerConfig struct {
-	crossModelAuthContext facade.CrossModelAuthContext
-	flightRecorder        flightrecorder.FlightRecorder
-	leaseManager          lease.Manager
-	controllerUUID        string
-	controllerModelUUID   model.UUID
-	controllerConfig      controller.Config
-	logger                corelogger.Logger
-	charmhubHTTPClient    facade.HTTPClient
+	flightRecorder          flightrecorder.FlightRecorder
+	leaseManager            lease.Manager
+	controllerUUID          string
+	controllerModelUUID     model.UUID
+	controllerConfig        controller.Config
+	loginTokenRefreshURL    string
+	offersThirdPartyKeyPair *bakery.KeyPair
+	logger                  corelogger.Logger
+	clock                   clock.Clock
+	charmhubHTTPClient      facade.HTTPClient
+	macaroonHTTPClient      facade.HTTPClient
 
-	dbGetter                changestream.WatchableDBGetter
-	dbDeleter               database.DBDeleter
-	domainServicesGetter    services.DomainServicesGetter
-	controllerConfigService ControllerConfigService
-	tracerGetter            trace.TracerGetter
-	objectStoreGetter       objectstore.ObjectStoreGetter
-	watcherRegistryGetter   watcherregistry.WatcherRegistryGetter
-	machineTag              names.Tag
-	dataDir                 string
-	logDir                  string
+	dbGetter                 changestream.WatchableDBGetter
+	dbDeleter                database.DBDeleter
+	domainServicesGetter     services.DomainServicesGetter
+	controllerDomainServices services.ControllerDomainServices
+	tracerGetter             trace.TracerGetter
+	objectStoreGetter        objectstore.ObjectStoreGetter
+	watcherRegistryGetter    watcherregistry.WatcherRegistryGetter
+	machineTag               names.Tag
+	dataDir                  string
+	logDir                   string
 }
 
 func (c *sharedServerConfig) validate() error {
-	if c.crossModelAuthContext == nil {
-		return errors.NotValidf("nil crossModelAuthContext")
-	}
 	if c.flightRecorder == nil {
 		return errors.NotValidf("nil flightRecorder")
 	}
@@ -131,8 +134,8 @@ func (c *sharedServerConfig) validate() error {
 	if c.domainServicesGetter == nil {
 		return errors.NotValidf("nil domainServicesGetter")
 	}
-	if c.controllerConfigService == nil {
-		return errors.NotValidf("nil controllerConfigService")
+	if c.controllerDomainServices == nil {
+		return errors.NotValidf("nil controllerDomainServices")
 	}
 	if c.tracerGetter == nil {
 		return errors.NotValidf("nil tracerGetter")
@@ -146,6 +149,15 @@ func (c *sharedServerConfig) validate() error {
 	if c.machineTag == nil {
 		return errors.NotValidf("empty machineTag")
 	}
+	if c.charmhubHTTPClient == nil {
+		return errors.NotValidf("nil charmhubHTTPClient")
+	}
+	if c.macaroonHTTPClient == nil {
+		return errors.NotValidf("nil macaroonHTTPClient")
+	}
+	if c.offersThirdPartyKeyPair == nil {
+		return errors.NotValidf("nil offersThirdPartyKeyPair")
+	}
 	return nil
 }
 
@@ -154,26 +166,51 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		return nil, errors.Trace(err)
 	}
 	return &sharedServerContext{
-		crossModelAuthContext:   config.crossModelAuthContext,
-		flightRecorder:          config.flightRecorder,
-		leaseManager:            config.leaseManager,
-		logger:                  config.logger,
-		controllerUUID:          config.controllerUUID,
-		controllerModelUUID:     config.controllerModelUUID,
-		controllerConfig:        config.controllerConfig,
-		charmhubHTTPClient:      config.charmhubHTTPClient,
-		dbGetter:                config.dbGetter,
-		dbDeleter:               config.dbDeleter,
-		domainServicesGetter:    config.domainServicesGetter,
-		controllerConfigService: config.controllerConfigService,
-		tracerGetter:            config.tracerGetter,
-		objectStoreGetter:       config.objectStoreGetter,
-		watcherRegistryGetter:   config.watcherRegistryGetter,
-		machineTag:              config.machineTag,
-		dataDir:                 config.dataDir,
-		logDir:                  config.logDir,
-		features:                config.controllerConfig.Features(),
+		flightRecorder:           config.flightRecorder,
+		leaseManager:             config.leaseManager,
+		logger:                   config.logger,
+		clock:                    config.clock,
+		controllerUUID:           config.controllerUUID,
+		controllerModelUUID:      config.controllerModelUUID,
+		controllerConfig:         config.controllerConfig,
+		loginTokenRefreshURL:     config.loginTokenRefreshURL,
+		offersThirdPartyKeyPair:  config.offersThirdPartyKeyPair,
+		charmhubHTTPClient:       config.charmhubHTTPClient,
+		macaroonHTTPClient:       config.macaroonHTTPClient,
+		dbGetter:                 config.dbGetter,
+		dbDeleter:                config.dbDeleter,
+		domainServicesGetter:     config.domainServicesGetter,
+		controllerDomainServices: config.controllerDomainServices,
+		tracerGetter:             config.tracerGetter,
+		objectStoreGetter:        config.objectStoreGetter,
+		watcherRegistryGetter:    config.watcherRegistryGetter,
+		machineTag:               config.machineTag,
+		dataDir:                  config.dataDir,
+		logDir:                   config.logDir,
+		features:                 config.controllerConfig.Features(),
 	}, nil
+}
+
+// NewCrossModelAuthContext returns a new CrossModelAuthContext for the given
+// server host.
+func (c *sharedServerContext) NewCrossModelAuthContext(ctx context.Context, serverHost string) (facade.CrossModelAuthContext, error) {
+	crossModelAuthContext, err := newOfferAuthContext(
+		ctx,
+		c.controllerDomainServices.Access(),
+		c.controllerDomainServices.Macaroon(),
+		c.offersThirdPartyKeyPair,
+		serverHost,
+		c.controllerUUID,
+		c.controllerModelUUID,
+		c.loginTokenRefreshURL,
+		c.macaroonHTTPClient,
+		c.clock,
+		c.logger,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return crossModelAuthContext, nil
 }
 
 func (c *sharedServerContext) updateControllerConfig(ctx context.Context, config controller.Config) {

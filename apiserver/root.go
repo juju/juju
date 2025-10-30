@@ -113,6 +113,10 @@ type apiHandler struct {
 	// serverHost is the host:port of the API server that the client
 	// connected to.
 	serverHost string
+
+	// crossModelAuthContext is the cross model authentication context
+	// used for cross model operations.
+	crossModelAuthContext facade.CrossModelAuthContext
 }
 
 var _ = (*apiHandler)(nil)
@@ -141,6 +145,7 @@ func newAPIHandler(
 	controllerOnlyLogin bool,
 	connectionID uint64,
 	serverHost string,
+	crossModelAuthContext facade.CrossModelAuthContext,
 ) (*apiHandler, error) {
 	exists, err := domainServices.Model().CheckModelExists(ctx, modelUUID)
 	if err != nil {
@@ -175,6 +180,7 @@ func newAPIHandler(
 		controllerOnlyLogin:   controllerOnlyLogin,
 		connectionID:          connectionID,
 		serverHost:            serverHost,
+		crossModelAuthContext: crossModelAuthContext,
 	}
 
 	return r, nil
@@ -230,6 +236,12 @@ func (r *apiHandler) SharedContext() *sharedServerContext {
 // Authorizer returns the authorizer used for accessing API method calls.
 func (r *apiHandler) Authorizer() facade.Authorizer {
 	return r
+}
+
+// CrossModelAuthContext provides methods to create and authorize macaroons
+// for cross model operations.
+func (r *apiHandler) CrossModelAuthContext() facade.CrossModelAuthContext {
+	return r.crossModelAuthContext
 }
 
 // ModelUUID returns the UUID of the model that the API is operating on.
@@ -396,6 +408,9 @@ type apiRootHandler interface {
 	WatcherRegistry() watcherregistry.WatcherRegistry
 	// Authorizer returns the authorizer used for accessing API method calls.
 	Authorizer() facade.Authorizer
+	// CrossModelAuthContext provides methods to create and authorize macaroons
+	// for cross model operations.
+	CrossModelAuthContext() facade.CrossModelAuthContext
 	// ModelUUID returns the UUID of the model that the API is operating on.
 	ModelUUID() model.UUID
 }
@@ -417,6 +432,7 @@ type apiRoot struct {
 	objectMutex           sync.RWMutex
 	objectCache           map[objectKey]reflect.Value
 	requestRecorder       facade.RequestRecorder
+	crossModelAuthContext facade.CrossModelAuthContext
 
 	// modelUUID is the UUID of the model that the client is connected to.
 	// All facades for a given context will be scoped to the model UUID.
@@ -449,6 +465,7 @@ func newAPIRoot(
 		objectCache:           make(map[objectKey]reflect.Value),
 		requestRecorder:       requestRecorder,
 		modelUUID:             root.ModelUUID(),
+		crossModelAuthContext: root.CrossModelAuthContext(),
 	}, nil
 }
 
@@ -572,7 +589,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 			// check.
 			return reflect.Value{}, err
 		}
-		obj, err := factory(ctx, r.facadeContext(objKey))
+		obj, err := factory(ctx, r.createFacadeContext(objKey))
 		if err != nil {
 			return reflect.Value{}, err
 		}
@@ -633,7 +650,7 @@ func (r *apiRoot) dispose(key objectKey) {
 	delete(r.objectCache, key)
 }
 
-func (r *apiRoot) facadeContext(key objectKey) *facadeContext {
+func (r *apiRoot) createFacadeContext(key objectKey) *facadeContext {
 	return &facadeContext{
 		r:   r,
 		key: key,
@@ -697,7 +714,7 @@ func (ctx *facadeContext) Auth() facade.Authorizer {
 // CrossModelAuthContext provides methods to create and authorize macaroons
 // for cross model operations.
 func (ctx *facadeContext) CrossModelAuthContext() facade.CrossModelAuthContext {
-	return ctx.r.shared.crossModelAuthContext
+	return ctx.r.crossModelAuthContext
 }
 
 // Dispose is part of the facade.ModelContext interface.

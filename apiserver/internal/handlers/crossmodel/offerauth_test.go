@@ -19,7 +19,7 @@ type crossModelHandlerSuite struct {
 	mux *apiserverhttp.Mux
 	srv *httptest.Server
 
-	authContext *MockOfferAuthContext
+	authContextProvider *MockCrossModelAuthContextProvider
 }
 
 func TestObjectsHandlerSuite(t *testing.T) {
@@ -38,30 +38,24 @@ func (s *crossModelHandlerSuite) TearDownTest(c *tc.C) {
 func (s *crossModelHandlerSuite) TestAddOfferAuthHandlers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authContext.EXPECT().OfferThirdPartyKey().Return(bakery.MustGenerateKey())
-
-	err := AddOfferAuthHandlers(s.authContext, s.mux)
+	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *crossModelHandlerSuite) TestAddOfferAuthHandlersRegisterTwice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authContext.EXPECT().OfferThirdPartyKey().Return(bakery.MustGenerateKey()).Times(2)
-
-	err := AddOfferAuthHandlers(s.authContext, s.mux)
+	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = AddOfferAuthHandlers(s.authContext, s.mux)
+	err = AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *crossModelHandlerSuite) TestServePOST(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authContext.EXPECT().OfferThirdPartyKey().Return(bakery.MustGenerateKey())
-
-	err := AddOfferAuthHandlers(s.authContext, s.mux)
+	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux)
 	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := http.Post(s.srv.URL+localOfferAccessLocationPath+"/discharge", "application/octet-stream", nil)
@@ -73,9 +67,7 @@ func (s *crossModelHandlerSuite) TestServePOST(c *tc.C) {
 func (s *crossModelHandlerSuite) TestServeGET(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authContext.EXPECT().OfferThirdPartyKey().Return(bakery.MustGenerateKey())
-
-	err := AddOfferAuthHandlers(s.authContext, s.mux)
+	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux)
 	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := http.Get(s.srv.URL + localOfferAccessLocationPath + "/publickey")
@@ -87,10 +79,10 @@ func (s *crossModelHandlerSuite) TestServeGET(c *tc.C) {
 func (s *crossModelHandlerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.authContext = NewMockOfferAuthContext(ctrl)
+	s.authContextProvider = NewMockCrossModelAuthContextProvider(ctrl)
 
 	c.Cleanup(func() {
-		s.authContext = nil
+		s.authContextProvider = nil
 	})
 
 	return ctrl
