@@ -883,6 +883,15 @@ func (st *State) DeleteVolume(ctx context.Context, rUUID string) error {
 
 	volUUID := entityUUID{UUID: rUUID}
 
+	deleteMachineVolumeStmt, err := st.Prepare(`
+DELETE FROM machine_volume WHERE volume_uuid = $entityUUID.uuid
+`, volUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing in machine volume deletion: %w", err,
+		)
+	}
+
 	deleteStorageInstanceVolumeStmt, err := st.Prepare(`
 DELETE FROM storage_instance_volume WHERE storage_volume_uuid = $entityUUID.uuid
 `, volUUID)
@@ -905,10 +914,14 @@ DELETE FROM storage_volume_status WHERE volume_uuid = $entityUUID.uuid
 DELETE FROM storage_volume WHERE uuid = $entityUUID.uuid
 `, volUUID)
 	if err != nil {
-		return errors.Errorf("preparing volumee deletion: %w", err)
+		return errors.Errorf("preparing volume deletion: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, deleteMachineVolumeStmt, volUUID).Run()
+		if err != nil {
+			return errors.Errorf("deleting machine volume: %w", err)
+		}
 		err = tx.Query(ctx, deleteStorageInstanceVolumeStmt, volUUID).Run()
 		if err != nil {
 			return errors.Errorf(

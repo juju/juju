@@ -547,6 +547,28 @@ func (s *storageSuite) TestDeleteVolumeWithInstance(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestDeleteVolumeWithMachineVolume(c *tc.C) {
+	volUUID := s.addVolume(c)
+	machineUUID := s.addMachine(c)
+	s.addMachineVolume(c, machineUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteVolume(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume is gone.
+	var dummy string
+	row := s.DB().QueryRow(
+		"SELECT uuid FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+	// Machine volume is gone.
+	row = s.DB().QueryRow(
+		"SELECT volume_uuid FROM machine_volume WHERE volume_uuid = ?",
+		volUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
 func (s *storageSuite) TestGetFilesystemLife(c *tc.C) {
 	fsUUID := s.addFilesystem(c)
 
@@ -1515,5 +1537,42 @@ func (s *storageSuite) deleteStorageAttachment(
 	c *tc.C, saUUID string,
 ) {
 	_, err := s.DB().Exec("DELETE FROM storage_attachment WHERE uuid = ?", saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) addMachine(c *tc.C) string {
+	ctx := c.Context()
+
+	node := "some-net-node-uuid"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", node)
+	c.Assert(err, tc.ErrorIsNil)
+
+	machine := "some-machine-uuid"
+	_, err = s.DB().ExecContext(
+		ctx,
+		"INSERT INTO machine (uuid, name, life_id, net_node_uuid) VALUES (?, ?, ?, ?)",
+		machine, machine, 0, node)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return machine
+}
+
+func (s *storageSuite) addMachineVolume(c *tc.C, machineUUID, volUUID string) {
+	ctx := c.Context()
+
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO machine_volume (machine_uuid, volume_uuid) VALUES (?, ?)",
+		machineUUID, volUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) addMachineFilesystem(c *tc.C, machineUUID, fsUUID string) {
+	ctx := c.Context()
+
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO machine_filesystem (machine_uuid, filesystem_uuid) VALUES (?, ?)",
+		machineUUID, fsUUID,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 }
