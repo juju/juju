@@ -1426,6 +1426,36 @@ WHERE  uuid = $entityUUID.uuid`, vaUUID)
 	return nil
 }
 
+// DeleteVolumeAttachment removes the volume attachment with the input UUID.
+func (st *State) DeleteVolumeAttachment(
+	ctx context.Context, vaUUID string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	uuid := entityUUID{UUID: vaUUID}
+
+	deleteStmt, err := st.Prepare(`
+DELETE FROM storage_volume_attachment WHERE uuid = $entityUUID.uuid
+`, uuid)
+	if err != nil {
+		return errors.Errorf(
+			"preparing volume attachment deletion: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, deleteStmt, uuid).Run()
+		if err != nil {
+			return errors.Errorf("deleting volume attachment: %w", err)
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
+}
 // GetVolumeAttachmentPlanLife returns the life of the volume attachment plan
 // indicated by the supplied UUID.
 //
