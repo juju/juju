@@ -328,6 +328,36 @@ func (s *storageSuite) TestGetStorageInstanceLifeDead(c *tc.C) {
 	c.Check(l, tc.DeepEquals, life.Dead)
 }
 
+func (s *storageSuite) TestStorageInstanceScheduleRemoval(c *tc.C) {
+	_, attachment := s.addAppUnitStorage(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.StorageInstanceScheduleRemoval(
+		c.Context(), "removal-uuid", attachment, false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	row := s.DB().QueryRow(
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal WHERE uuid = ?",
+		"removal-uuid",
+	)
+	var (
+		removalTypeID int
+		rUUID         string
+		force         bool
+		scheduledFor  time.Time
+	)
+	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalTypeID, tc.Equals, 5)
+	c.Check(rUUID, tc.Equals, attachment)
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
+}
 func (s *storageSuite) TestGetVolumeLife(c *tc.C) {
 	volUUID := s.addVolume(c)
 
