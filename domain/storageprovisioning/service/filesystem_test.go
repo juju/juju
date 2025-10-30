@@ -810,39 +810,49 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParamsNotFoundAtLife(c *tc.C) 
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
 }
 
-// TestGetFilesystemAttachmentParams is a happy path test of
-// [Service.GetFilesystemAttachmentParams].
-func (s *filesystemSuite) TestGetFilesystemAttachmentParams(c *tc.C) {
+// TestGetFilesystemAttachmentParamsMountCalcSingelton tests that when a
+// filesystem attachment has no mount point set the service layer correctly
+// calculates one based off of the charm storage location.
+//
+// In this case the storage is considered a singleton so it gets mounted
+// verbatim for the location the charm specified.
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcSingelton(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	fsaUUID := domaintesting.GenFilesystemAttachmentUUID(c)
 
-	s.state.EXPECT().GetFilesystemAttachmentParams(gomock.Any(), fsaUUID).Return(
+	stExp := s.state.EXPECT()
+	stExp.GetFilesystemAttachmentParams(gomock.Any(), fsaUUID).Return(
 		storageprovisioning.FilesystemAttachmentParams{
-			CharmStorageLocation: "/var",
+			CharmStorageCountMax: 1,
+			CharmStorageLocation: "/mnt/charm1",
+			CharmStorageReadOnly: false,
 			MachineInstanceID:    "inst-1",
-			MountPoint:           "/var/foo",
+			MountPoint:           "", // No mount point has been set.
 			Provider:             "myprovider",
 			ProviderID:           "p-123",
-			ReadOnly:             true,
 		}, nil,
 	)
 
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	params, err := svc.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
-		CharmStorageLocation: "/var",
+		CharmStorageCountMax: 1,
+		CharmStorageLocation: "/mnt/charm1",
+		CharmStorageReadOnly: false,
 		MachineInstanceID:    "inst-1",
-		MountPoint:           "/var/foo",
+		MountPoint:           "/mnt/charm1",
 		Provider:             "myprovider",
 		ProviderID:           "p-123",
-		ReadOnly:             true,
 	})
 }
 
 // TestGetFilesystemAttachmentParamsMountCalc tests that when a filesystem
 // attachment has no mount point set the service layer correctly calculates one
 // based off of the charm storage location.
+//
+// In this case the storage is not considered a singleton so it MUST get mounted
+// at a location under the charm storage location that is unique.
 func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalc(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	fsaUUID := domaintesting.GenFilesystemAttachmentUUID(c)
@@ -850,12 +860,13 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalc(c *tc.C) {
 	stExp := s.state.EXPECT()
 	stExp.GetFilesystemAttachmentParams(gomock.Any(), fsaUUID).Return(
 		storageprovisioning.FilesystemAttachmentParams{
+			CharmStorageCountMax: 3,
 			CharmStorageLocation: "/mnt/charm1",
+			CharmStorageReadOnly: false,
 			MachineInstanceID:    "inst-1",
 			MountPoint:           "", // No mount point has been set.
 			Provider:             "myprovider",
 			ProviderID:           "p-123",
-			ReadOnly:             true,
 		}, nil,
 	)
 
@@ -863,18 +874,23 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalc(c *tc.C) {
 	params, err := svc.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
+		CharmStorageCountMax: 3,
 		CharmStorageLocation: "/mnt/charm1",
+		CharmStorageReadOnly: false,
 		MachineInstanceID:    "inst-1",
 		MountPoint:           "/mnt/charm1/" + fsaUUID.String(),
 		Provider:             "myprovider",
 		ProviderID:           "p-123",
-		ReadOnly:             true,
 	})
 }
 
 // TestGetFilesystemAttachmentParamsMountCalcNoCharmLocation tests that when a
 // filesystem attachment has no mount point set and no charm storage location
 // has been set the default Juju location is used in the calculated mount point.
+//
+// We specifically want to see that even though the charm storage can be
+// considered a singleton (max count of 1) because no charm location is set
+// the attachment must be made at a unique location under /var/lib/juju/storage.
 func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcNoCharmLocation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	fsaUUID := domaintesting.GenFilesystemAttachmentUUID(c)
@@ -882,12 +898,13 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcNoCharmLocat
 	stExp := s.state.EXPECT()
 	stExp.GetFilesystemAttachmentParams(gomock.Any(), fsaUUID).Return(
 		storageprovisioning.FilesystemAttachmentParams{
+			CharmStorageCountMax: 1,  // Purposely set to 1 to appear as a singelton.
 			CharmStorageLocation: "", // No charm storage location set.
+			CharmStorageReadOnly: true,
 			MachineInstanceID:    "inst-1",
 			MountPoint:           "", // No mount point has been set.
 			Provider:             "myprovider",
 			ProviderID:           "p-123",
-			ReadOnly:             true,
 		}, nil,
 	)
 
@@ -895,13 +912,14 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcNoCharmLocat
 	params, err := svc.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
+		CharmStorageCountMax: 1,
 		CharmStorageLocation: "",
+		CharmStorageReadOnly: true,
 		MachineInstanceID:    "inst-1",
 		// Default storage location of /var/lib/juju/storage is used.
 		MountPoint: "/var/lib/juju/storage/" + fsaUUID.String(),
 		Provider:   "myprovider",
 		ProviderID: "p-123",
-		ReadOnly:   true,
 	})
 }
 

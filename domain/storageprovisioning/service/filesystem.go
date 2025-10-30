@@ -374,27 +374,46 @@ func (s *Service) GetFilesystemAttachmentParams(
 
 	params.MountPoint = calculateFilesystemAttachmentMountPoint(
 		params.CharmStorageLocation,
+		// Storage for a charm is considered a singleton when the max count is 1.
+		params.CharmStorageCountMax == 1,
 		uuid,
 	)
 	return params, nil
 }
 
 // calculateFilesystemAttachmentMountPoint calculates the mount point for a
-// filesystem attachment. If the charmStorageLocation supplied is empty the the
-// value from [defaultFilesystemAttachmentDir] will be used as the base of the
-// mount point.
+// filesystem attachment. If the charmSuggestedLocation supplied is empty then
+// the value from [defaultFilesystemAttachmentDir] will be used as the base of
+// the mount point.
+//
+// If the charmSuggestedLocation is non zero and the storage being attached is
+// a singleton the verbatim location will be returned to the caller. Otherwise
+// the attachment UUID will be appended to the location to ensure uniqueness.
 //
 // This function guarantees to be idempotent given the same attachment and charm
-// location.
+// location and singleton status.
 func calculateFilesystemAttachmentMountPoint(
-	charmStorageLocation string,
+	charmSuggestedLocation string,
+	isSingelton bool,
 	uuid storageprovisioning.FilesystemAttachmentUUID,
 ) string {
-	refLocation := charmStorageLocation
-	if charmStorageLocation == "" {
+	refLocation := charmSuggestedLocation
+	if charmSuggestedLocation == "" {
 		refLocation = defaultFilesystemAttachmentDir()
+		// We purposely disable singleton storage when using the default
+		// location. This ensures that multiple attachments for different
+		// storage do not collide.
+		isSingelton = false
 	}
 
+	// If only one attachment of this storage can ever be made then we return
+	// the verbatim refLocation asked for.
+	if isSingelton {
+		return refLocation
+	}
+
+	// Multiple attachments are expected for this storage so we append the
+	// attachement uuid to form a unique mount point.
 	return path.Join(refLocation, uuid.String())
 }
 
@@ -421,7 +440,7 @@ func calculateFilesystemTemplateAttachmentMountPoint(
 	// We can only support this case when the maxCount is 1 and a location has
 	// been offered.
 	if charmStorageLocation != "" && maxCount == 1 {
-		return path.Join(charmStorageLocation, storageName)
+		return path.Join(refLocation, storageName)
 	}
 
 	// The decision was to always append the storage name and index to the ref
