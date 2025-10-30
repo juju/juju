@@ -715,6 +715,93 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDead(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *storageSuite) TestExecuteJobForVolumeAttachmentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newVolumeAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetVolumeAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForVolumeAttachmentStillAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newVolumeAttachmentJob(c)
+
+	s.modelState.EXPECT().GetVolumeAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Alive, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *storageSuite) TestExecuteJobForVolumeAttachmentDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newVolumeAttachmentJob(c)
+
+	s.modelState.EXPECT().GetVolumeAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)
+}
+
+func (s *storageSuite) TestExecuteJobForVolumeAttachmentDyingForce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	when := time.Now().UTC()
+	s.clock.EXPECT().Now().Return(when).AnyTimes()
+
+	j := newVolumeAttachmentJob(c)
+	j.Force = true
+
+	s.modelState.EXPECT().GetVolumeAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	s.modelState.EXPECT().DeleteVolumeAttachment(
+		gomock.Any(), j.EntityUUID,
+	).Return(nil)
+	s.modelState.EXPECT().DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForVolumeAttachmentSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newVolumeAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetVolumeAttachmentLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.DeleteVolumeAttachment(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String())
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func newVolumeAttachmentJob(c *tc.C) removal.Job {
+	jUUID, err := removal.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	return removal.Job{
+		UUID:        jUUID,
+		RemovalType: removal.StorageVolumeAttachmentJob,
+		EntityUUID:  tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID).String(),
+	}
+}
+
 func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
