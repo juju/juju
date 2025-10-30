@@ -379,7 +379,7 @@ type RemoteRelationChangeEvent struct {
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
 
 	// InScopeUnits contains the ids of all units that are currently
-	// in scope of the relation.
+	// in scope of the relation for the application
 	InScopeUnits []int `json:"in-scope-units,omitempty"`
 
 	// Macaroons are used for authentication.

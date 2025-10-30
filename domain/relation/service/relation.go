@@ -1053,7 +1053,7 @@ func (s *Service) GetRelationUnits(
 	return s.st.GetRelationUnitsChanges(ctx, relationUUID, applicationUUID)
 }
 
-// GetRelationUnits returns the current state of the relation units.
+// GetFullRelationUnitChange returns the current state of the relation units.
 func (s *Service) GetFullRelationUnitChange(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
@@ -1064,14 +1064,62 @@ func (s *Service) GetFullRelationUnitChange(
 
 	if err := relationUUID.Validate(); err != nil {
 		return relation.FullRelationUnitChange{}, errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+			"validating relation uuid: %w", err).Add(relationerrors.RelationUUIDNotValid)
 	}
+
 	if err := applicationUUID.Validate(); err != nil {
 		return relation.FullRelationUnitChange{}, errors.Errorf(
-			"%w:%w", applicationerrors.ApplicationUUIDNotValid, err)
+			"validating application uuid: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
 	}
 
 	return s.st.GetFullRelationUnitsChange(ctx, relationUUID, applicationUUID)
+}
+
+// GetInScopeUnits returns the units of an application that are in scope for the
+// given relation.
+func (s *Service) GetInScopeUnits(
+	ctx context.Context,
+	applicationUUID application.UUID,
+	relationUUID corerelation.UUID,
+) ([]unit.Name, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"validating relation uuid: %w", err).Add(relationerrors.RelationUUIDNotValid)
+	}
+
+	if err := applicationUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"validating application uuid: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
+	}
+
+	// TODO: implement this
+	return []unit.Name{}, nil
+}
+
+// GetUnitSettingsForUnits returns the settings for the given units.
+func (s *Service) GetUnitSettingsForUnits(ctx context.Context, unitNames []unit.Name) (map[unit.Name]map[string]interface{}, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// TODO: implement this
+	return nil, nil
+}
+
+// GetSettingsForApplication returns the settings for the given application.
+func (s *Service) GetSettingsForApplication(ctx context.Context, applicationUUID application.UUID) (map[string]interface{}, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := applicationUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"validating application uuid: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
+	}
+
+	// TODO: implement this
+	return nil, nil
 }
 
 // GetConsumerRelationUnitsChange returns the versions of the relation units

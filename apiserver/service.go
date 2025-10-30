@@ -10,13 +10,17 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	userservice "github.com/juju/juju/domain/access/service"
+	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/proxy"
 )
 
@@ -83,4 +87,20 @@ type StatusService interface {
 	// where the application or offer has been removed. Then a Terminated status is
 	// returned.
 	GetOfferStatus(context.Context, offer.UUID) (status.StatusInfo, error)
+}
+
+// RelationService provides access to the relation service.
+type RelationService interface {
+	// GetRelationUnits returns the current state of the relation units.
+	GetFullRelationUnitChange(context.Context, relation.UUID, application.UUID) (domainrelation.FullRelationUnitChange, error)
+
+	// GetInScopeUnits returns the units of an application that are in scope for the
+	// given relation.
+	GetInScopeUnits(context.Context, application.UUID, relation.UUID) ([]unit.Name, error)
+
+	// GetUnitSettingsForUnits returns the settings for the given units.
+	GetUnitSettingsForUnits(context.Context, []unit.Name) (map[unit.Name]map[string]interface{}, error)
+
+	// GetSettingsForApplication returns the settings for the given application.
+	GetSettingsForApplication(context.Context, application.UUID) (map[string]interface{}, error)
 }

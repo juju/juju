@@ -32,11 +32,22 @@ type RelationUnitsWatcherService interface {
 
 // RelationChangesWatcher represents a relation.RelationUnitsWatcher at the
 // apiserver level (different type for changes).
-type RelationChangesWatcher = watcher.Watcher[params.RelationUnitsChange]
+type RelationChangesWatcher interface {
+	watcher.Watcher[params.RelationUnitsChange]
+
+	// ApplicationToken returns the application token of the relation.
+	ApplicationToken() coreapplication.UUID
+
+	// RelationToken returns the relation token of the relation.
+	RelationToken() corerelation.UUID
+}
 
 // wrappedRelationUnitsWatcher wraps a domain level NotifyWatcher from
 // WatchRelationUnits in an apiserver level one, taking responsibility
 // for the source watcher's lifetime.
+//
+// TODO: This watcher can be slimmed down substantially, as not all the data
+// emitted is used by this watcher's consumers
 func wrappedRelationChangesWatcher(
 	source watcher.NotifyWatcher,
 	offerApplicationUUID coreapplication.UUID,
@@ -68,6 +79,16 @@ type relationChangesWatcher struct {
 	offerApplicationUUID coreapplication.UUID
 	offerRelationUUID    corerelation.UUID
 	data                 relation.ConsumerRelationUnitsChange
+}
+
+// ApplicationToken returns the application token of the relation.
+func (w *relationChangesWatcher) ApplicationToken() coreapplication.UUID {
+	return w.offerApplicationUUID
+}
+
+// RelationToken returns the relation token of the relation.
+func (w *relationChangesWatcher) RelationToken() corerelation.UUID {
+	return w.offerRelationUUID
 }
 
 // Changes is part of RelationUnitsWatcher.

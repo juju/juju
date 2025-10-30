@@ -6,6 +6,7 @@ package apiserver
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/internal"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc/params"
@@ -177,14 +179,103 @@ func (w *srvRelationUnitsWatcher) Next(ctx context.Context) (params.RelationUnit
 // fully-expanded params.RemoteRelationChangeEvents so they can be
 // used across model/controller boundaries.
 type srvRemoteRelationWatcher struct {
+	watcher         crossmodelrelations.RelationChangesWatcher
+	relationService RelationService
 }
 
 func newRemoteRelationWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	return &srvRemoteRelationWatcher{}, nil
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
+	auth := context.Auth()
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	id := context.ID()
+	watcherRegistry := context.WatcherRegistry()
+
+	w, err := watcherRegistry.Get(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(crossmodelrelations.RelationChangesWatcher)
+	if !ok {
+		return nil, errors.Errorf("watcher id: %s is not a crossmodelrelations.RelationChangesWatcher", id)
+	}
+
+	domainServices := context.DomainServices()
+
+	return &srvRemoteRelationWatcher{
+		watcher:         watcher,
+		relationService: domainServices.Relation(),
+	}, nil
 }
 
 func (w *srvRemoteRelationWatcher) Next(ctx context.Context) (params.RemoteRelationWatchResult, error) {
-	return params.RemoteRelationWatchResult{}, nil
+	select {
+	case <-ctx.Done():
+		return params.RemoteRelationWatchResult{}, ctx.Err()
+	case change, ok := <-w.watcher.Changes():
+		if !ok {
+			return params.RemoteRelationWatchResult{}, apiservererrors.ErrStoppedWatcher
+		}
+
+		var departed []int
+		for _, unitName := range change.Departed {
+			num := unit.Name(unitName).Number()
+			departed = append(departed, num)
+		}
+
+		relationUUID := w.watcher.RelationToken()
+		applicationUUID := w.watcher.ApplicationToken()
+
+		inScopeUnitNames, err := w.relationService.GetInScopeUnits(ctx, applicationUUID, relationUUID)
+		if err != nil {
+			return params.RemoteRelationWatchResult{
+				Error: apiservererrors.ServerError(err),
+			}, nil
+		}
+
+		changedUnitNames := transform.MapToSlice(change.Changed,
+			func(k string, _ params.UnitSettings) []unit.Name { return []unit.Name{unit.Name(k)} })
+
+		changedUnitSettings, err := w.relationService.GetUnitSettingsForUnits(ctx, changedUnitNames)
+		if err != nil {
+			return params.RemoteRelationWatchResult{
+				Error: apiservererrors.ServerError(err),
+			}, nil
+		}
+		changedUnitSettingsParams := transform.MapToSlice(changedUnitSettings,
+			func(k unit.Name, v map[string]interface{}) []params.RemoteRelationUnitChange {
+				return []params.RemoteRelationUnitChange{{
+					UnitId:   k.Number(),
+					Settings: v,
+				}}
+			})
+
+		var appSettings map[string]interface{}
+		if len(change.AppChanged) > 0 {
+			var err error
+			appSettings, err = w.relationService.GetSettingsForApplication(ctx, applicationUUID)
+			if err != nil {
+				return params.RemoteRelationWatchResult{
+					Error: apiservererrors.ServerError(err),
+				}, nil
+			}
+		}
+
+		return params.RemoteRelationWatchResult{
+			Changes: params.RemoteRelationChangeEvent{
+				RelationToken:           relationUUID.String(),
+				ApplicationOrOfferToken: applicationUUID.String(),
+				DepartedUnits:           departed,
+				InScopeUnits:            transform.Slice(inScopeUnitNames, func(n unit.Name) int { return n.Number() }),
+				UnitCount:               len(inScopeUnitNames),
+				ApplicationSettings:     appSettings,
+				ChangedUnits:            changedUnitSettingsParams,
+			},
+		}, nil
+	}
 }
 
 // srvRelationStatusWatcher defines the API wrapping a RelationStatusWatcher.
