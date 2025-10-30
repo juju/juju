@@ -688,7 +688,7 @@ func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entit
 		return result, errors.Trace(err)
 	}
 
-	w, err := s.secretsTriggers.WatchObsolete(ctx, owners...)
+	w, err := s.secretsTriggers.WatchObsoleteSecrets(ctx, owners...)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -717,13 +717,10 @@ func (s *SecretsManagerAPI) WatchDeleted(ctx context.Context, args params.Entiti
 		return result, errors.Trace(err)
 	}
 
-	// TODO - implement me.
-	_ = owners
-	w := corewatcher.TODO[[]string]()
-	//w, err := s.secretsTriggers.WatchDeleted(ctx, owners...)
-	//if err != nil {
-	//	return result, errors.Trace(err)
-	//}
+	w, err := s.secretsTriggers.WatchDeletedSecrets(ctx, owners...)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	id, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, s.watcherRegistry, w)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)

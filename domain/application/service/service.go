@@ -351,7 +351,7 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 // WatchApplicationsWithPendingCharms returns a watcher that observes changes to
 // applications that have pending charms.
 func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()

@@ -249,7 +249,7 @@ func (s *WatchableService) WatchRelatedUnits(
 	unitUUID unit.UUID,
 	relationUUID corerelation.UUID,
 ) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := unitUUID.Validate(); err != nil {

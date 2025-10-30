@@ -1033,7 +1033,7 @@ func (s *Service) GetLatestPendingCharmhubCharm(ctx context.Context, name string
 
 // WatchCharms returns a watcher that observes changes to charms.
 func (s *WatchableService) WatchCharms(ctx context.Context) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return s.watcherFactory.NewUUIDsWatcher(

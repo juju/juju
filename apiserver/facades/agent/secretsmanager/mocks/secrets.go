@@ -86,46 +86,90 @@ func (c *MockSecretTriggersSecretRotatedCall) DoAndReturn(f func(context.Context
 	return c
 }
 
-// WatchObsolete mocks base method.
-func (m *MockSecretTriggers) WatchObsolete(ctx context.Context, owners ...service.CharmSecretOwner) (watcher.StringsWatcher, error) {
+// WatchDeletedSecrets mocks base method.
+func (m *MockSecretTriggers) WatchDeletedSecrets(ctx context.Context, owners ...service.CharmSecretOwner) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx}
 	for _, a := range owners {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "WatchObsolete", varargs...)
+	ret := m.ctrl.Call(m, "WatchDeletedSecrets", varargs...)
 	ret0, _ := ret[0].(watcher.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchObsolete indicates an expected call of WatchObsolete.
-func (mr *MockSecretTriggersMockRecorder) WatchObsolete(ctx any, owners ...any) *MockSecretTriggersWatchObsoleteCall {
+// WatchDeletedSecrets indicates an expected call of WatchDeletedSecrets.
+func (mr *MockSecretTriggersMockRecorder) WatchDeletedSecrets(ctx any, owners ...any) *MockSecretTriggersWatchDeletedSecretsCall {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{ctx}, owners...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretTriggers)(nil).WatchObsolete), varargs...)
-	return &MockSecretTriggersWatchObsoleteCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchDeletedSecrets", reflect.TypeOf((*MockSecretTriggers)(nil).WatchDeletedSecrets), varargs...)
+	return &MockSecretTriggersWatchDeletedSecretsCall{Call: call}
 }
 
-// MockSecretTriggersWatchObsoleteCall wrap *gomock.Call
-type MockSecretTriggersWatchObsoleteCall struct {
+// MockSecretTriggersWatchDeletedSecretsCall wrap *gomock.Call
+type MockSecretTriggersWatchDeletedSecretsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSecretTriggersWatchObsoleteCall) Return(arg0 watcher.StringsWatcher, arg1 error) *MockSecretTriggersWatchObsoleteCall {
+func (c *MockSecretTriggersWatchDeletedSecretsCall) Return(arg0 watcher.StringsWatcher, arg1 error) *MockSecretTriggersWatchDeletedSecretsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretTriggersWatchObsoleteCall) Do(f func(context.Context, ...service.CharmSecretOwner) (watcher.StringsWatcher, error)) *MockSecretTriggersWatchObsoleteCall {
+func (c *MockSecretTriggersWatchDeletedSecretsCall) Do(f func(context.Context, ...service.CharmSecretOwner) (watcher.StringsWatcher, error)) *MockSecretTriggersWatchDeletedSecretsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretTriggersWatchObsoleteCall) DoAndReturn(f func(context.Context, ...service.CharmSecretOwner) (watcher.StringsWatcher, error)) *MockSecretTriggersWatchObsoleteCall {
+func (c *MockSecretTriggersWatchDeletedSecretsCall) DoAndReturn(f func(context.Context, ...service.CharmSecretOwner) (watcher.StringsWatcher, error)) *MockSecretTriggersWatchDeletedSecretsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchObsoleteSecrets mocks base method.
+func (m *MockSecretTriggers) WatchObsoleteSecrets(ctx context.Context, owners ...service.CharmSecretOwner) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx}
+	for _, a := range owners {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WatchObsoleteSecrets", varargs...)
+	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchObsoleteSecrets indicates an expected call of WatchObsoleteSecrets.
+func (mr *MockSecretTriggersMockRecorder) WatchObsoleteSecrets(ctx any, owners ...any) *MockSecretTriggersWatchObsoleteSecretsCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx}, owners...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsoleteSecrets", reflect.TypeOf((*MockSecretTriggers)(nil).WatchObsoleteSecrets), varargs...)
+	return &MockSecretTriggersWatchObsoleteSecretsCall{Call: call}
+}
+
+// MockSecretTriggersWatchObsoleteSecretsCall wrap *gomock.Call
+type MockSecretTriggersWatchObsoleteSecretsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretTriggersWatchObsoleteSecretsCall) Return(arg0 watcher.StringsWatcher, arg1 error) *MockSecretTriggersWatchObsoleteSecretsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretTriggersWatchObsoleteSecretsCall) Do(f func(context.Context, ...service.CharmSecretOwner) (watcher.StringsWatcher, error)) *MockSecretTriggersWatchObsoleteSecretsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretTriggersWatchObsoleteSecretsCall) DoAndReturn(f func(context.Context, ...service.CharmSecretOwner) (watcher.StringsWatcher, error)) *MockSecretTriggersWatchObsoleteSecretsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

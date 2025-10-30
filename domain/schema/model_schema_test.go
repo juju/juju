@@ -636,6 +636,8 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_custom_machine_unit_name_lifecycle_delete",
 		"trg_log_custom_machine_unit_name_lifecycle_update",
 
+		"trg_log_custom_secret_revision_delete",
+
 		"trg_log_custom_storage_attachment_unit_uuid_lifecycle_delete",
 		"trg_log_custom_storage_attachment_unit_uuid_lifecycle_insert",
 		"trg_log_custom_storage_attachment_unit_uuid_lifecycle_update",

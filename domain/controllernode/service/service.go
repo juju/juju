@@ -401,7 +401,7 @@ func NewWatchableService(
 // WatchControllerNodes returns a watcher that observes changes to the
 // controller nodes.
 func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
@@ -418,7 +418,7 @@ func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.No
 // WatchControllerAPIAddresses returns a watcher that observes changes to the
 // controller api addresses.
 func (s *WatchableService) WatchControllerAPIAddresses(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(

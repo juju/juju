@@ -1966,7 +1966,7 @@ func (c *changeEvent) Type() changestream.ChangeType {
 // when it receives obsolete revision events and secret change events.
 // Only owned secret events and owned obsolete revision events will be processed.
 // When secret change event and its corresponding obsolete revision event are received together,
-// only secret change will be sent if the secret has been removed.
+// the secret obsolete event will be omitted if the secret has been removed.
 func (s *serviceSuite) TestWatchObsoleteMapperSendObsoleteRevisionAndRemovedURIs(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -2036,14 +2036,11 @@ func (s *serviceSuite) TestWatchObsoleteMapperSendObsoleteRevisionAndRemovedURIs
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.HasLen, 3)
+	c.Assert(result, tc.HasLen, 2)
 	revisionChange3 := result[0]
 	revisionChange1 := result[1]
 	c.Assert(revisionChange3, tc.Equals, ownedURI.ID+"/3")
 	c.Assert(revisionChange1, tc.Equals, ownedURI.ID+"/1")
-
-	secretChange := result[2]
-	c.Assert(secretChange, tc.Equals, removedOwnedURI.ID)
 }
 
 // TestWatchObsoleteMapperSendObsoleteRevisions tests the behavior of the mapper function
@@ -2100,7 +2097,7 @@ func (s *serviceSuite) TestWatchObsoleteMapperSendObsoleteRevisions(c *tc.C) {
 	c.Assert(revisionChange1, tc.Equals, ownedURI.ID+"/1")
 }
 
-// TestWatchObsoleteMapperSendRemovedURIs tests the behavior of the mapper function
+// TestWatchDeletedMapperSendRemovedURIs tests the behavior of the mapper function
 // when it receives secret change events.
 // Only owned secret change events will be processed if the secret has been removed.
 func (s *serviceSuite) TestWatchObsoleteMapperSendRemovedURIs(c *tc.C) {
@@ -2125,11 +2122,12 @@ func (s *serviceSuite) TestWatchObsoleteMapperSendRemovedURIs(c *tc.C) {
 		),
 	)
 
-	mapper := obsoleteWatcherMapperFunc(
+	mapper := deletedWatcherMapperFunc(
 		loggertesting.WrapCheckLog(c),
 		s.state,
+		[]string{removedOwnedURI1.ID, removedOwnedURI2.ID},
 		appOwners, unitOwners,
-		"secret_metadata", "secret_revision_obsolete",
+		"secret_metadata", "custom_deleted_secret_revision_by_id",
 	)
 	result, err := mapper(
 		c.Context(),
@@ -2188,18 +2186,21 @@ func (s *serviceSuite) TestWatchObsolete(c *tc.C) {
 	var namespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
 		return []string{}, nil
 	}
+	appUUID := tc.Must(c, uuid.NewUUID).String()
+	unit1UUID := tc.Must(c, uuid.NewUUID).String()
+	unit2UUID := tc.Must(c, uuid.NewUUID).String()
+	s.state.EXPECT().GetApplicationUUIDsForNames(gomock.Any(), domainsecret.ApplicationOwners{"mysql"}).
+		Return([]string{appUUID}, nil)
+	s.state.EXPECT().GetUnitUUIDsForNames(gomock.Any(), domainsecret.UnitOwners{"mysql/0", "mysql/1"}).
+		Return([]string{unit1UUID, unit2UUID}, nil)
 	s.state.EXPECT().InitialWatchStatementForObsoleteRevision(
-		domainsecret.ApplicationOwners([]string{"mysql"}),
-		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+		domainsecret.ApplicationOwners{appUUID},
+		domainsecret.UnitOwners{unit1UUID, unit2UUID},
 	).Return("secret_revision_obsolete", namespaceQuery)
-	s.state.EXPECT().InitialWatchStatementForOwnedSecrets(
-		domainsecret.ApplicationOwners([]string{"mysql"}),
-		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return("secret_metadata", namespaceQuery)
 
 	svc := NewWatchableService(
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
-	w, err := svc.WatchObsolete(c.Context(),
+	w, err := svc.WatchObsoleteSecrets(c.Context(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,
 			ID:   "mysql",

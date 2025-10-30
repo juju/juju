@@ -699,7 +699,7 @@ func (s *Service) GetBlockDeviceForVolumeAttachment(
 func (s *Service) WatchModelProvisionedVolumes(
 	ctx context.Context,
 ) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedVolumes()
@@ -759,7 +759,7 @@ func (s *Service) WatchMachineProvisionedVolumes(
 func (s *Service) WatchModelProvisionedVolumeAttachments(
 	ctx context.Context,
 ) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedVolumeAttachments()

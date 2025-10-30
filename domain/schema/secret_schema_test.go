@@ -75,7 +75,7 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRotation, 1)
 	s.assertChangeLogCount(c, 4, tableSecretRotation, 1)
 
-	// secret_revision table triggers.
+	// secret_obsolete_revision table triggers.
 	revisionUUID := utils.MustNewUUID().String()
 	s.assertChangeLogCount(c, 1, tableSecretRevisionObsolete, 0)
 	s.assertChangeLogCount(c, 2, tableSecretRevisionObsolete, 0)

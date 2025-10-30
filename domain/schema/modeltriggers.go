@@ -103,6 +103,12 @@ func customModelTriggers() []func() schema.Patch {
 			customNamespaceRelationUnitByEndpointUUID,
 		),
 
+		// Setup trigger for deleted secret revisions notifying
+		// the secretURI/revision identifier.
+		deletedSecretRevision(
+			customNamespaceDeletedSecretRevisionID,
+		),
+
 		// Setup triggers for unit agent status changes.
 		unitAgentStatusTriggers(
 			customNamespaceUnitAgentStatus,
@@ -610,6 +616,25 @@ AFTER DELETE ON relation_unit FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[1]d, OLD.relation_endpoint_uuid, DATETIME('now'));
+END;`, namespaceID))
+	}
+}
+
+func deletedSecretRevision(namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for record.
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+        'custom_deleted_secret_revision_by_id',
+        'Deleted secret revisions based on uri/revision_id');
+
+-- delete trigger for secret revision.
+CREATE TRIGGER trg_log_custom_secret_revision_delete
+AFTER DELETE ON secret_revision FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[1]d, CONCAT(OLD.secret_id, '/', OLD.revision), DATETIME('now', 'utc'));
 END;`, namespaceID))
 	}
 }

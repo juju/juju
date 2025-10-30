@@ -22,7 +22,8 @@ import (
 type SecretTriggers interface {
 	WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.SecretTriggerWatcher, error)
 	WatchSecretsRotationChanges(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.SecretTriggerWatcher, error)
-	WatchObsolete(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.StringsWatcher, error)
+	WatchObsoleteSecrets(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.StringsWatcher, error)
+	WatchDeletedSecrets(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.StringsWatcher, error)
 	SecretRotated(ctx context.Context, uri *secrets.URI, params secretservice.SecretRotatedParams) error
 }
 

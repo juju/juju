@@ -567,11 +567,42 @@ func (s *stateSuite) TestCreateUserSecretWithValueReference(c *tc.C) {
 	c.Assert(ref, tc.DeepEquals, &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"})
 }
 
-func (s *stateSuite) createOwnedSecrets(c *tc.C) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
+func (s *stateSuite) TestGetApplicationUUIDsForNames(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	s.setupUnits(c, "mysql")
-	s.setupUnits(c, "mariadb")
+	appUUID, _ := s.setupUnits(c, "mysql")
+
+	gotUUIDs, err := st.GetApplicationUUIDsForNames(c.Context(), []string{"mysql", "mariadb"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotUUIDs, tc.SameContents, []string{appUUID})
+}
+
+func (s *stateSuite) TestGetUnitUUIDsForNames(c *tc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	_, unitUUIDs := s.setupUnits(c, "mysql")
+
+	gotUUIDs, err := st.GetUnitUUIDsForNames(c.Context(), []string{"mysql/0", "mysql/1", "mariadb/6"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotUUIDs, tc.SameContents, unitUUIDs)
+}
+
+type ownedSecretInfo struct {
+	appUUID      string
+	appSecretURI *coresecrets.URI
+
+	unitUUID      string
+	unitSecretURI *coresecrets.URI
+
+	otherAppUUID  string
+	otherUnitUUID string
+}
+
+func (s *stateSuite) createOwnedSecrets(c *tc.C) ownedSecretInfo {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	appUUID, unitUUIDs := s.setupUnits(c, "mysql")
+	otherAppUUID, otherUnitUUIDs := s.setupUnits(c, "mariadb")
 
 	ctx := c.Context()
 	uri1 := coresecrets.NewURI()
@@ -589,32 +620,39 @@ func (s *stateSuite) createOwnedSecrets(c *tc.C) (appSecretURI *coresecrets.URI,
 	}
 	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/1", sp2)
 	c.Assert(err, tc.ErrorIsNil)
-	return uri1, uri2
+	return ownedSecretInfo{
+		appUUID:       appUUID,
+		appSecretURI:  uri1,
+		unitUUID:      unitUUIDs[1],
+		unitSecretURI: uri2,
+		otherAppUUID:  otherAppUUID,
+		otherUnitUUID: otherUnitUUIDs[0],
+	}
 }
 
 func (s *stateSuite) TestGetOwnedSecretIDsForForAppOwners(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	uri1, _ := s.createOwnedSecrets(c)
-	gotURIs, err := st.GetOwnedSecretIDs(c.Context(), domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners)
+	info := s.createOwnedSecrets(c)
+	gotURIs, err := st.GetOwnedSecretIDs(c.Context(), []string{info.appUUID}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotURIs, tc.SameContents, []string{uri1.ID})
+	c.Assert(gotURIs, tc.SameContents, []string{info.appSecretURI.ID})
 }
 
 func (s *stateSuite) TestGetOwnedSecretIDsForForUnitOwners(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	_, uri2 := s.createOwnedSecrets(c)
-	gotURIs, err := st.GetOwnedSecretIDs(c.Context(), domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/1"})
+	info := s.createOwnedSecrets(c)
+	gotURIs, err := st.GetOwnedSecretIDs(c.Context(), nil, []string{info.unitUUID})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotURIs, tc.SameContents, []string{uri2.ID})
+	c.Assert(gotURIs, tc.SameContents, []string{info.unitSecretURI.ID})
 }
 
 func (s *stateSuite) TestGetOwnedSecretIDsWithEmptyResult(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	s.createOwnedSecrets(c)
-	gotURIs, err := st.GetOwnedSecretIDs(c.Context(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/1"})
+	info := s.createOwnedSecrets(c)
+	gotURIs, err := st.GetOwnedSecretIDs(c.Context(), []string{info.otherAppUUID}, []string{info.otherUnitUUID})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotURIs, tc.HasLen, 0)
 }
@@ -3246,12 +3284,23 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 	}})
 }
 
-func (s *stateSuite) prepareSecretObsoleteRevisions(c *tc.C, st *State) (
-	*coresecrets.URI, *coresecrets.URI, *coresecrets.URI, *coresecrets.URI,
-) {
+type obsoleteSecretInfo struct {
+	appUUID  string
+	unitUUID string
+
+	app2UUID  string
+	unit2UUID string
+
+	uri1 *coresecrets.URI
+	uri2 *coresecrets.URI
+	uri3 *coresecrets.URI
+	uri4 *coresecrets.URI
+}
+
+func (s *stateSuite) prepareSecretObsoleteRevisions(c *tc.C, st *State) obsoleteSecretInfo {
 	ctx := c.Context()
-	s.setupUnits(c, "mysql")
-	s.setupUnits(c, "mediawiki")
+	appUUID, unitUUIDs := s.setupUnits(c, "mysql")
+	app2UUID, unit2UUIDs := s.setupUnits(c, "mediawiki")
 
 	sp := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3279,27 +3328,36 @@ func (s *stateSuite) prepareSecretObsoleteRevisions(c *tc.C, st *State) (
 	err = createCharmUnitSecret(ctx, st, 1, uri4, "mediawiki/0", sp)
 	c.Assert(err, tc.ErrorIsNil)
 	updateSecretContent(c, st, uri4)
-	return uri1, uri2, uri3, uri4
+	return obsoleteSecretInfo{
+		appUUID:   appUUID,
+		unitUUID:  unitUUIDs[0],
+		app2UUID:  app2UUID,
+		unit2UUID: unit2UUIDs[0],
+		uri1:      uri1,
+		uri2:      uri2,
+		uri3:      uri3,
+		uri4:      uri4,
+	}
 }
 
 func (s *stateSuite) TestInitialWatchStatementForObsoleteRevision(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	uri1, uri2, uri3, uri4 := s.prepareSecretObsoleteRevisions(c, st)
+	info := s.prepareSecretObsoleteRevisions(c, st)
 	ctx := c.Context()
 
 	tableName, f := st.InitialWatchStatementForObsoleteRevision(
-		[]string{"mysql", "mediawiki"},
-		[]string{"mysql/0", "mediawiki/0"},
+		[]string{info.appUUID, info.app2UUID},
+		[]string{info.unitUUID, info.unit2UUID},
 	)
 	c.Assert(tableName, tc.Equals, "secret_revision_obsolete")
 	revisionUUIDs, err := f(ctx, s.TxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(revisionUUIDs, tc.SameContents, []string{
-		getRevUUID(c, s.DB(), uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1),
-		getRevUUID(c, s.DB(), uri3, 1),
-		getRevUUID(c, s.DB(), uri4, 1),
+		getRevUUID(c, s.DB(), info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri2, 1),
+		getRevUUID(c, s.DB(), info.uri3, 1),
+		getRevUUID(c, s.DB(), info.uri4, 1),
 	})
 }
 
@@ -3327,7 +3385,7 @@ WHERE secret_id = ? AND revision = ?
 func (s *stateSuite) TestGetRevisionIDsForObsolete(c *tc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	uri1, uri2, uri3, uri4 := s.prepareSecretObsoleteRevisions(c, st)
+	info := s.prepareSecretObsoleteRevisions(c, st)
 	ctx := c.Context()
 
 	result, err := st.GetRevisionIDsForObsolete(ctx,
@@ -3339,135 +3397,135 @@ func (s *stateSuite) TestGetRevisionIDsForObsolete(c *tc.C) {
 	// no owners, revUUIDs.
 	result, err = st.GetRevisionIDsForObsolete(ctx,
 		nil, nil,
-		getRevUUID(c, s.DB(), uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1),
-		getRevUUID(c, s.DB(), uri3, 1),
-		getRevUUID(c, s.DB(), uri4, 1),
-		getRevUUID(c, s.DB(), uri1, 2),
-		getRevUUID(c, s.DB(), uri2, 2),
-		getRevUUID(c, s.DB(), uri3, 2),
-		getRevUUID(c, s.DB(), uri4, 2),
+		getRevUUID(c, s.DB(), info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri2, 1),
+		getRevUUID(c, s.DB(), info.uri3, 1),
+		getRevUUID(c, s.DB(), info.uri4, 1),
+		getRevUUID(c, s.DB(), info.uri1, 2),
+		getRevUUID(c, s.DB(), info.uri2, 2),
+		getRevUUID(c, s.DB(), info.uri3, 2),
+		getRevUUID(c, s.DB(), info.uri4, 2),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[string]string{
-		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1): revID(uri2, 1),
-		getRevUUID(c, s.DB(), uri3, 1): revID(uri3, 1),
-		getRevUUID(c, s.DB(), uri4, 1): revID(uri4, 1),
+		getRevUUID(c, s.DB(), info.uri1, 1): revID(info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri2, 1): revID(info.uri2, 1),
+		getRevUUID(c, s.DB(), info.uri3, 1): revID(info.uri3, 1),
+		getRevUUID(c, s.DB(), info.uri4, 1): revID(info.uri4, 1),
 	})
 
 	// appOwners, unitOwners, revUUIDs.
 	result, err = st.GetRevisionIDsForObsolete(ctx,
 		[]string{
-			"mysql",
-			"mediawiki",
+			info.appUUID,
+			info.app2UUID,
 		},
 		[]string{
-			"mysql/0",
-			"mediawiki/0",
+			info.unitUUID,
+			info.unit2UUID,
 		},
-		getRevUUID(c, s.DB(), uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1),
-		getRevUUID(c, s.DB(), uri3, 1),
-		getRevUUID(c, s.DB(), uri4, 1),
-		getRevUUID(c, s.DB(), uri1, 2),
-		getRevUUID(c, s.DB(), uri2, 2),
-		getRevUUID(c, s.DB(), uri3, 2),
-		getRevUUID(c, s.DB(), uri4, 2),
+		getRevUUID(c, s.DB(), info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri2, 1),
+		getRevUUID(c, s.DB(), info.uri3, 1),
+		getRevUUID(c, s.DB(), info.uri4, 1),
+		getRevUUID(c, s.DB(), info.uri1, 2),
+		getRevUUID(c, s.DB(), info.uri2, 2),
+		getRevUUID(c, s.DB(), info.uri3, 2),
+		getRevUUID(c, s.DB(), info.uri4, 2),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[string]string{
-		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1): revID(uri2, 1),
-		getRevUUID(c, s.DB(), uri3, 1): revID(uri3, 1),
-		getRevUUID(c, s.DB(), uri4, 1): revID(uri4, 1),
+		getRevUUID(c, s.DB(), info.uri1, 1): revID(info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri2, 1): revID(info.uri2, 1),
+		getRevUUID(c, s.DB(), info.uri3, 1): revID(info.uri3, 1),
+		getRevUUID(c, s.DB(), info.uri4, 1): revID(info.uri4, 1),
 	})
 
 	// appOwners, unitOwners, no revisions.
 	result, err = st.GetRevisionIDsForObsolete(ctx,
 		[]string{
-			"mysql",
-			"mediawiki",
+			info.appUUID,
+			info.app2UUID,
 		},
 		[]string{
-			"mysql/0",
-			"mediawiki/0",
+			info.unitUUID,
+			info.unit2UUID,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[string]string{
-		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1): revID(uri2, 1),
-		getRevUUID(c, s.DB(), uri3, 1): revID(uri3, 1),
-		getRevUUID(c, s.DB(), uri4, 1): revID(uri4, 1),
+		getRevUUID(c, s.DB(), info.uri1, 1): revID(info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri2, 1): revID(info.uri2, 1),
+		getRevUUID(c, s.DB(), info.uri3, 1): revID(info.uri3, 1),
+		getRevUUID(c, s.DB(), info.uri4, 1): revID(info.uri4, 1),
 	})
 
 	// appOwners, unitOwners, revUUIDs(with unknown app owned revisions).
 	result, err = st.GetRevisionIDsForObsolete(ctx,
 		[]string{
-			"mysql",
+			info.appUUID,
 		},
 		[]string{
-			"mysql/0",
-			"mediawiki/0",
+			info.unitUUID,
+			info.unit2UUID,
 		},
-		getRevUUID(c, s.DB(), uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1),
-		getRevUUID(c, s.DB(), uri3, 1),
-		getRevUUID(c, s.DB(), uri4, 1),
-		getRevUUID(c, s.DB(), uri1, 2),
-		getRevUUID(c, s.DB(), uri2, 2),
-		getRevUUID(c, s.DB(), uri3, 2),
-		getRevUUID(c, s.DB(), uri4, 2),
+		getRevUUID(c, s.DB(), info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri2, 1),
+		getRevUUID(c, s.DB(), info.uri3, 1),
+		getRevUUID(c, s.DB(), info.uri4, 1),
+		getRevUUID(c, s.DB(), info.uri1, 2),
+		getRevUUID(c, s.DB(), info.uri2, 2),
+		getRevUUID(c, s.DB(), info.uri3, 2),
+		getRevUUID(c, s.DB(), info.uri4, 2),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[string]string{
-		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1): revID(uri2, 1),
-		getRevUUID(c, s.DB(), uri4, 1): revID(uri4, 1),
+		getRevUUID(c, s.DB(), info.uri1, 1): revID(info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri2, 1): revID(info.uri2, 1),
+		getRevUUID(c, s.DB(), info.uri4, 1): revID(info.uri4, 1),
 	})
 
 	// appOwners, unitOwners, revUUIDs(with unknown unit owned revisions).
 	result, err = st.GetRevisionIDsForObsolete(ctx,
 		[]string{
-			"mysql",
-			"mediawiki",
+			info.appUUID,
+			info.app2UUID,
 		},
 		[]string{
-			"mysql/0",
+			info.unitUUID,
 		},
-		getRevUUID(c, s.DB(), uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1),
-		getRevUUID(c, s.DB(), uri3, 1),
-		getRevUUID(c, s.DB(), uri4, 1),
-		getRevUUID(c, s.DB(), uri1, 2),
-		getRevUUID(c, s.DB(), uri2, 2),
-		getRevUUID(c, s.DB(), uri3, 2),
-		getRevUUID(c, s.DB(), uri4, 2),
+		getRevUUID(c, s.DB(), info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri2, 1),
+		getRevUUID(c, s.DB(), info.uri3, 1),
+		getRevUUID(c, s.DB(), info.uri4, 1),
+		getRevUUID(c, s.DB(), info.uri1, 2),
+		getRevUUID(c, s.DB(), info.uri2, 2),
+		getRevUUID(c, s.DB(), info.uri3, 2),
+		getRevUUID(c, s.DB(), info.uri4, 2),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[string]string{
-		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1): revID(uri2, 1),
-		getRevUUID(c, s.DB(), uri3, 1): revID(uri3, 1),
+		getRevUUID(c, s.DB(), info.uri1, 1): revID(info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri2, 1): revID(info.uri2, 1),
+		getRevUUID(c, s.DB(), info.uri3, 1): revID(info.uri3, 1),
 	})
 
 	// appOwners, unitOwners, revUUIDs(with part of the owned revisions).
 	result, err = st.GetRevisionIDsForObsolete(ctx,
 		[]string{
-			"mysql",
-			"mediawiki",
+			info.appUUID,
+			info.app2UUID,
 		},
 		[]string{
-			"mysql/0",
-			"mediawiki/0",
+			info.unitUUID,
+			info.unit2UUID,
 		},
-		getRevUUID(c, s.DB(), uri1, 1),
-		getRevUUID(c, s.DB(), uri1, 2),
+		getRevUUID(c, s.DB(), info.uri1, 1),
+		getRevUUID(c, s.DB(), info.uri1, 2),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[string]string{
-		getRevUUID(c, s.DB(), uri1, 1): revID(uri1, 1),
+		getRevUUID(c, s.DB(), info.uri1, 1): revID(info.uri1, 1),
 	})
 }
 
@@ -4313,93 +4371,4 @@ func (s *stateSuite) TestChangeSecretBackendFailed(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "either valueRef or data must be set")
 	err = st.ChangeSecretBackend(ctx, uuid.MustNewUUID(), valueRefInput, dataInput)
 	c.Assert(err, tc.ErrorMatches, "both valueRef and data cannot be set")
-}
-
-func (s *stateSuite) TestInitialWatchStatementForSecretMatadataGetForBothAppAndUnitOwners(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-	ctx := c.Context()
-
-	s.setupUnits(c, "mysql")
-
-	sp := domainsecret.UpsertSecretParams{
-		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
-	}
-	uri1 := coresecrets.NewURI()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-	c.Assert(err, tc.ErrorIsNil)
-
-	uri2 := coresecrets.NewURI()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
-	c.Assert(err, tc.ErrorIsNil)
-	updateSecretContent(c, st, uri2)
-
-	tableName, f := st.InitialWatchStatementForOwnedSecrets(domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"})
-	c.Check(tableName, tc.Equals, "secret_metadata")
-	result, err := f(ctx, s.TxnRunner())
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(result, tc.SameContents, []string{
-		uri1.ID,
-		uri2.ID,
-	})
-}
-
-func (s *stateSuite) TestInitialWatchStatementForSecretMatadataGetForAppOwners(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-	ctx := c.Context()
-
-	s.setupUnits(c, "mysql")
-
-	sp := domainsecret.UpsertSecretParams{
-		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
-	}
-	uri1 := coresecrets.NewURI()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-	c.Assert(err, tc.ErrorIsNil)
-
-	uri2 := coresecrets.NewURI()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
-	c.Assert(err, tc.ErrorIsNil)
-	updateSecretContent(c, st, uri2)
-
-	tableName, f := st.InitialWatchStatementForOwnedSecrets(domainsecret.ApplicationOwners{"mysql"}, nil)
-	c.Check(tableName, tc.Equals, "secret_metadata")
-	result, err := f(ctx, s.TxnRunner())
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(result, tc.SameContents, []string{
-		uri1.ID,
-	})
-
-}
-
-func (s *stateSuite) TestInitialWatchStatementForSecretMatadataGetForUnitOwners(c *tc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-	ctx := c.Context()
-
-	s.setupUnits(c, "mysql")
-
-	sp := domainsecret.UpsertSecretParams{
-		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
-	}
-	uri1 := coresecrets.NewURI()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-	c.Assert(err, tc.ErrorIsNil)
-
-	uri2 := coresecrets.NewURI()
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
-	c.Assert(err, tc.ErrorIsNil)
-	updateSecretContent(c, st, uri2)
-
-	tableName, f := st.InitialWatchStatementForOwnedSecrets(nil, domainsecret.UnitOwners{"mysql/0"})
-	c.Check(tableName, tc.Equals, "secret_metadata")
-	result, err := f(ctx, s.TxnRunner())
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(result, tc.SameContents, []string{
-		uri2.ID,
-	})
 }

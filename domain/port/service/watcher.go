@@ -93,7 +93,7 @@ type WatcherState interface {
 // event contains the machine name which is associated with the changed port
 // range.
 func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	table, statement := s.st.InitialWatchMachineOpenedPortsStatement()
@@ -110,7 +110,7 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher
 // watcher emits events for changes to the opened ports table that are associated
 // with the given application
 func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.UUID) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyMapperWatcher(
