@@ -1068,6 +1068,22 @@ VALUES (?, ?, ?, 0)
 	return unitUUID.String(), rval
 }
 
+func (s *storageSuite) TestDeleteVolumeAttachmentPlan(c *tc.C) {
+	ctx := c.Context()
+
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteVolumeAttachmentPlan(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Attachment is gone.
+	var dummy string
+	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_volume_attachment_plan WHERE uuid = ?", vapUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
 // addAppUnitStorage sets up a unit with a storage attachment.
 // The storage instance and attachment UUIDs are returned.
 func (s *storageSuite) addAppUnitStorage(c *tc.C) (string, string) {
@@ -1209,7 +1225,7 @@ func (s *storageSuite) addAttachedFilesystem(c *tc.C) (string, string) {
 	ctx := c.Context()
 
 	netNodeUUID := "some-net-node-uuid"
-	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)",
+	_, err := s.DB().ExecContext(ctx, "INSERT OR IGNORE INTO net_node (uuid) VALUES (?)",
 		netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1257,7 +1273,7 @@ func (s *storageSuite) addAttachedVolumeWithPlan(c *tc.C) (string, string, strin
 	ctx := c.Context()
 
 	netNodeUUID := "some-net-node-uuid"
-	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)",
+	_, err := s.DB().ExecContext(ctx, "INSERT OR IGNORE INTO net_node (uuid) VALUES (?)",
 		netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1296,6 +1312,13 @@ func (s *storageSuite) setStorageAttachmentLife(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *storageSuite) setStorageInstanceLife(
+	c *tc.C, siUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_instance SET life_id = ? WHERE uuid = ?", lifeId, siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *storageSuite) addStorageInstanceVolume(
 	c *tc.C, siUUID, volUUID string,
 ) {
@@ -1311,5 +1334,12 @@ func (s *storageSuite) addStorageInstanceFilesystem(
 	_, err := s.DB().Exec(`
 INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
 VALUES (?, ?)`, siUUID, fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) deleteStorageAttachment(
+	c *tc.C, saUUID string,
+) {
+	_, err := s.DB().Exec("DELETE FROM storage_attachment WHERE uuid = ?", saUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
