@@ -520,6 +520,162 @@ func (s *addRelationSuite) TestAddRelationWithCIDRsNonCMRFails(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported, tc.Commentf("should fail when adding CIDRs to non-CMR relation"))
 }
 
+func (s *addRelationSuite) TestAddRelationBothEndpointsRemoteFails(c *tc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	// Add two remote applications (both CMR)
+	remoteAppUUID1 := s.addRemoteApplication(c, "remote-app-1")
+	remoteAppUUID2 := s.addRemoteApplication(c, "remote-app-2")
+
+	s.addApplicationEndpointFromRelation(c, remoteAppUUID1, relProvider)
+	s.addApplicationEndpointFromRelation(c, remoteAppUUID2, relRequirer)
+
+	// Act - try to add relation between two remote applications
+	_, _, err := s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "remote-app-1",
+		EndpointName:    "prov",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "remote-app-2",
+		EndpointName:    "req",
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.BothEndpointsRemote,
+		tc.Commentf("should fail when both endpoints are remote applications"))
+}
+
+func (s *addRelationSuite) TestAddRelationFirstEndpointRemoteSucceeds(c *tc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	// Add a remote application and a local application
+	remoteAppUUID := s.addRemoteApplication(c, "remote-app")
+	localAppUUID := s.addApplication(c, "local-app")
+
+	s.addApplicationEndpointFromRelation(c, remoteAppUUID, relProvider)
+	s.addApplicationEndpointFromRelation(c, localAppUUID, relRequirer)
+
+	// Act - add relation with first endpoint remote
+	ep1, ep2, err := s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "remote-app",
+		EndpointName:    "prov",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "local-app",
+		EndpointName:    "req",
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil,
+		tc.Commentf("should succeed when first endpoint is remote and second is local"))
+	c.Check(ep1, tc.Equals, domainrelation.Endpoint{
+		ApplicationName: "remote-app",
+		Relation:        relProvider,
+	})
+	c.Check(ep2, tc.Equals, domainrelation.Endpoint{
+		ApplicationName: "local-app",
+		Relation:        relRequirer,
+	})
+}
+
+func (s *addRelationSuite) TestAddRelationSecondEndpointRemoteSucceeds(c *tc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	// Add a local application and a remote application
+	localAppUUID := s.addApplication(c, "local-app")
+	remoteAppUUID := s.addRemoteApplication(c, "remote-app")
+
+	s.addApplicationEndpointFromRelation(c, localAppUUID, relProvider)
+	s.addApplicationEndpointFromRelation(c, remoteAppUUID, relRequirer)
+
+	// Act - add relation with second endpoint remote
+	ep1, ep2, err := s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "local-app",
+		EndpointName:    "prov",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "remote-app",
+		EndpointName:    "req",
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil,
+		tc.Commentf("should succeed when first endpoint is local and second is remote"))
+	c.Check(ep1, tc.Equals, domainrelation.Endpoint{
+		ApplicationName: "local-app",
+		Relation:        relProvider,
+	})
+	c.Check(ep2, tc.Equals, domainrelation.Endpoint{
+		ApplicationName: "remote-app",
+		Relation:        relRequirer,
+	})
+}
+
+func (s *addRelationSuite) TestAddRelationBothEndpointsLocalSucceeds(c *tc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	// Add two local applications (not CMR)
+	appUUID1 := s.addApplication(c, "application-1")
+	appUUID2 := s.addApplication(c, "application-2")
+
+	s.addApplicationEndpointFromRelation(c, appUUID1, relProvider)
+	s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
+
+	// Act - add relation between two local applications
+	ep1, ep2, err := s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "prov",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "req",
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil,
+		tc.Commentf("should succeed when both endpoints are local applications"))
+	c.Check(ep1, tc.Equals, domainrelation.Endpoint{
+		ApplicationName: "application-1",
+		Relation:        relProvider,
+	})
+	c.Check(ep2, tc.Equals, domainrelation.Endpoint{
+		ApplicationName: "application-2",
+		Relation:        relRequirer,
+	})
+}
+
 func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 	// Arrange:
 	db, err := s.state.DB(c.Context())

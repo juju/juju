@@ -63,15 +63,17 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 // The following error types can be expected to be returned:
 //   - [relationerrors.AmbiguousRelation] is returned if the endpoint
 //     identifiers can refer to several possible relations.
-//   - [applicationerrors.ApplicationNotAlive] is returned if one of the application
-//     is not alive.
+//   - [applicationerrors.ApplicationNotAlive] is returned if one of the
+//     application is not alive.
+//   - [relationerrors.BothEndpointsRemote] is returned if both endpoints are
+//     remote applications.
 //   - [relationerrors.CompatibleEndpointsNotFound] is returned if the endpoint
 //     identifiers relates to correct endpoints yet not compatible (ex provider
 //     with provider)
 //   - [relationerrors.RelationAlreadyExists] is returned  if the inferred
 //     relation already exists.
-//   - [relationerrors.RelationEndpointNotFound] is returned if no endpoint can be
-//     inferred from one of the identifier.
+//   - [relationerrors.RelationEndpointNotFound] is returned if no endpoint can
+//     be inferred from one of the identifier.
 func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 domainrelation.CandidateEndpointIdentifier, cidrs ...string) (
 	domainrelation.Endpoint,
 	domainrelation.Endpoint,
@@ -90,6 +92,11 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 d
 			return errors.Errorf("cannot relate endpoints %q and %q: %w",
 				epIdentifier1,
 				epIdentifier2, err)
+		}
+
+		// Make sure both endpoints are not remote applications.
+		if err := st.checkBothEndpointsNotRemote(ctx, tx, ep1, ep2); err != nil {
+			return errors.Capture(err)
 		}
 
 		id, err := sequencestate.NextValue(ctx, st, tx, domainrelation.SequenceNamespace)
@@ -3841,9 +3848,6 @@ WHERE  re.relation_uuid = $entityUUID.uuid
 AND    cs.name = 'cmr'
 	`, rows{}, ident)
 	if err != nil {
-		return false, errors.Errorf("preparing relation exists query: %w", err)
-	}
-	if err != nil {
 		return false, errors.Errorf("preparing statement: %w", err)
 	}
 
@@ -3877,6 +3881,37 @@ ON CONFLICT (relation_uuid, cidr) DO NOTHING
 	if err := tx.Query(ctx, insertStmt, egress).Run(); err != nil {
 		return errors.Errorf("inserting CIDRs %v for relation %q: %w", cidrs, relUUID, err)
 	}
+	return nil
+}
+
+func (st *State) checkBothEndpointsNotRemote(ctx context.Context, tx *sqlair.TX, ep1, ep2 Endpoint) error {
+	type endpointUUIDs []string
+	uuids := endpointUUIDs{ep1.ApplicationEndpointUUID.String(), ep2.ApplicationEndpointUUID.String()}
+
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &rows.count
+FROM   application_endpoint AS ae
+JOIN   application AS a ON ae.application_uuid = a.uuid
+JOIN   charm AS c ON a.charm_uuid = c.uuid
+JOIN   charm_source AS cs ON c.source_id = cs.id
+WHERE  ae.uuid IN ($endpointUUIDs[:])
+AND    cs.name = 'cmr'
+	`, rows{}, uuids)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var count rows
+	err = tx.Query(ctx, stmt, uuids).Get(&count)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// If both endpoints are CMR (count == 2), return an error.
+	if count.Count == 2 {
+		return errors.Errorf("unable to integrate two cross model applications together").Add(relationerrors.BothEndpointsRemote)
+	}
+
 	return nil
 }
 
