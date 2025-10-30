@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/blockdevice"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -20,6 +21,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	domainremoval "github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
@@ -415,7 +417,7 @@ func (a *StorageAPI) removeStorageInstance(
 	}
 
 	if arg.DestroyAttachments {
-		saUUIDs, err := a.storageService.GetStorageAttachmentUUIDsForStorageInstance(
+		saUUIDs, err := a.storageService.GetStorageInstanceAttachments(
 			ctx, uuid)
 		if errors.Is(err, storageerrors.StorageInstanceNotFound) {
 			return errors.Errorf("storage %q does not exist", tag.Id()).Add(

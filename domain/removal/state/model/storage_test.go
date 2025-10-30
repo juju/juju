@@ -1642,6 +1642,7 @@ func (s *storageSuite) setStorageAttachmentDead(c *tc.C, saUUID string) {
 		"UPDATE storage_attachment SET life_id = 1 WHERE uuid = ?",
 		saUUID,
 	)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) setStorageAttachmentLife(
