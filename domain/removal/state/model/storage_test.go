@@ -569,6 +569,51 @@ func (s *storageSuite) TestDeleteVolumeWithMachineVolume(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestGetVolumeAttachmentLifeNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetVolumeAttachmentLife(ctx, "some-va-uuid")
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentLifeAlive(c *tc.C) {
+	ctx := c.Context()
+
+	_, vaUUID := s.addAttachedVolume(c)
+	s.setVolumeAttachmentLife(c, vaUUID, 0)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentLife(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentLifeDying(c *tc.C) {
+	ctx := c.Context()
+
+	_, vaUUID := s.addAttachedVolume(c)
+	s.setVolumeAttachmentLife(c, vaUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentLife(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dying)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentLifeDead(c *tc.C) {
+	ctx := c.Context()
+
+	_, vaUUID := s.addAttachedVolume(c)
+	s.setVolumeAttachmentLife(c, vaUUID, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentLife(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dead)
+}
+
 func (s *storageSuite) TestGetFilesystemLife(c *tc.C) {
 	fsUUID := s.addFilesystem(c)
 
