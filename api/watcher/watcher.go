@@ -417,7 +417,7 @@ func (w *remoteRelationWatcher) loop(initialChange params.RemoteRelationChangeEv
 		// Send out the initial event or subsequent change.
 		case w.out <- change:
 			if w.logger.IsLevelEnabled(corelogger.TRACE) {
-				w.logger.Tracef(context.TODO(), "sent remote relation change %# v", pretty.Formatter(change))
+				w.logger.Tracef(context.TODO(), "sent remote relation change %#v", pretty.Formatter(change))
 			}
 		case <-w.tomb.Dying():
 			return nil

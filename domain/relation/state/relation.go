@@ -1227,10 +1227,12 @@ func (st *State) GetFullRelationUnitsChange(
 		return domainrelation.FullRelationUnitChange{}, errors.Capture(err)
 	}
 
-	var settings []relationSetting
-	var unitRelationData map[string]domainrelation.RelationData
-	var relationLifeSuspended lifeAndSuspended
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	var (
+		settings              []relationSetting
+		unitRelationData      map[string]domainrelation.RelationData
+		relationLifeSuspended lifeAndSuspended
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		relationLifeSuspended, err = st.getRelationLifeAndSuspended(ctx, tx, relationUUID.String())
 		if err != nil {
 			return errors.Capture(err)
@@ -1247,10 +1249,7 @@ func (st *State) GetFullRelationUnitsChange(
 		}
 
 		return nil
-	})
-	if errors.Is(err, coreerrors.NotFound) {
-		return domainrelation.FullRelationUnitChange{}, errors.Capture(relationerrors.RelationNotFound)
-	} else if err != nil {
+	}); err != nil {
 		return domainrelation.FullRelationUnitChange{}, errors.Capture(err)
 	}
 
@@ -1258,15 +1257,20 @@ func (st *State) GetFullRelationUnitsChange(
 	appSettings := transform.SliceToMap(settings, func(s relationSetting) (string, string) {
 		return s.Key, s.Value
 	})
-	inScopeUnits := make([]int, 0)
-	allUnits := make([]int, 0, len(unitRelationData))
-	unitSettings := make([]domainrelation.UnitSettings, 0)
+
+	var (
+		inScopeUnits []int
+		unitSettings []domainrelation.UnitSettings
+		allUnits     = make([]int, 0, len(unitRelationData))
+	)
 	for unitName, data := range unitRelationData {
 		id := unit.Name(unitName).Number()
+
 		allUnits = append(allUnits, id)
 		if !data.InScope {
 			continue
 		}
+
 		inScopeUnits = append(inScopeUnits, id)
 		if len(data.UnitData) == 0 {
 			continue
@@ -3833,15 +3837,13 @@ func (st *State) getUnitsRelationData(
 	relUUID string,
 	appID string,
 ) (map[string]domainrelation.RelationData, error) {
-	var result map[string]domainrelation.RelationData
-
 	relUnits, err := st.getRelationUnitsWithUnits(ctx, tx, relUUID, appID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	// For each relation unit, get settings and fill in RelationData.
-	result = make(map[string]domainrelation.RelationData, len(relUnits))
+	result := make(map[string]domainrelation.RelationData, len(relUnits))
 	for _, relUnit := range relUnits {
 		// Units without a relation unit are out of scope. Relation unit
 		// settings only exist for relations in scope.

@@ -531,17 +531,17 @@ func (api *CrossModelRelationsAPIv3) getRemoteRelationChangeEvent(
 	}
 
 	var (
-		appSettings  map[string]interface{}
+		appSettings  map[string]any
 		unitSettings []params.RemoteRelationUnitChange
 	)
 	if change.ApplicationSettings != nil {
-		appSettings = transform.Map(change.ApplicationSettings, func(k string, v string) (string, interface{}) { return k, v })
+		appSettings = transform.Map(change.ApplicationSettings, func(k string, v string) (string, any) { return k, v })
 	}
 	if change.UnitsSettings != nil {
 		unitSettings = transform.Slice(change.UnitsSettings, func(in relation.UnitSettings) params.RemoteRelationUnitChange {
 			return params.RemoteRelationUnitChange{
 				UnitId:   in.UnitID,
-				Settings: transform.Map(in.Settings, func(k string, v string) (string, interface{}) { return k, v }),
+				Settings: transform.Map(in.Settings, func(k string, v string) (string, any) { return k, v }),
 			}
 		})
 	}
