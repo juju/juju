@@ -1865,7 +1865,8 @@ INSERT INTO removal (*) VALUES ($removalJob.*)
 // ensureStorageInstancesNotAliveCascade ensures that the storage instances
 // identified by the input UUIDs are no longer alive.
 // Filesystems and Volumes that are associated to the storage instances are also
-// ensured to be no longer alive
+// ensured to be no longer alive. If a Filesystem or Volume id not attached,
+// then it goes straight to dead.
 func (st *State) ensureStorageInstancesNotAliveCascade(
 	ctx context.Context, tx *sqlair.TX, siUUIDs entityUUIDs, obliterate bool,
 ) (internal.CascadedStorageInstanceLives, error) {
@@ -1895,28 +1896,78 @@ WHERE  uuid IN ($uuids[:])
 	cascaded.StorageInstanceUUIDs = input
 
 	qry := `
+SELECT    sf.uuid AS &entityUUID.uuid
+FROM      storage_instance_filesystem sif
+JOIN      storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+LEFT JOIN storage_filesystem_attachment sfa ON sfa.storage_filesystem_uuid = sf.uuid
+WHERE     sif.storage_instance_uuid IN ($uuids[:])
+AND       sf.life_id != 2 AND
+          sfa.uuid IS NULL`
+
+	del := `
+UPDATE storage_filesystem
+SET    life_id = 2,
+       obliterate_on_cleanup = $storageRemoval.obliterate
+WHERE  uuid IN ($uuids[:])`
+
+	deadFilesystemUUIDs, err := st.ensureStorageEntitiesNotAlive(
+		ctx, tx, siUUIDs, "filesystem", qry, del, removal,
+	)
+	if err != nil {
+		return cascaded, errors.Capture(err)
+	}
+	cascaded.FileSystemUUIDs = append(cascaded.FileSystemUUIDs,
+		deadFilesystemUUIDs...)
+
+	qry = `
 SELECT f.uuid AS &entityUUID.uuid
 FROM   storage_instance_filesystem i
-       JOIN storage_filesystem f ON i.storage_filesystem_uuid = f.uuid
+JOIN   storage_filesystem f ON i.storage_filesystem_uuid = f.uuid
 WHERE  i.storage_instance_uuid IN ($uuids[:])
 AND    f.life_id = 0`
 
-	del := `
+	del = `
 UPDATE storage_filesystem
 SET    life_id = 1,
        obliterate_on_cleanup = $storageRemoval.obliterate
 WHERE  uuid IN ($uuids[:])`
 
-	if cascaded.FileSystemUUIDs, err = st.ensureStorageEntitiesNotAlive(
+	dyingFilesystemUUIDs, err := st.ensureStorageEntitiesNotAlive(
 		ctx, tx, siUUIDs, "filesystem", qry, del, removal,
-	); err != nil {
+	)
+	if err != nil {
 		return cascaded, errors.Capture(err)
 	}
+	cascaded.FileSystemUUIDs = append(cascaded.FileSystemUUIDs,
+		dyingFilesystemUUIDs...)
+
+	qry = `
+SELECT    sv.uuid AS &entityUUID.uuid
+FROM      storage_instance_volume siv
+JOIN      storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+LEFT JOIN storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
+WHERE     siv.storage_instance_uuid IN ($uuids[:])
+AND       sv.life_id != 2 AND
+          sva.uuid IS NULL`
+
+	del = `
+UPDATE storage_volume
+SET    life_id = 2,
+       obliterate_on_cleanup = $storageRemoval.obliterate
+WHERE  uuid IN ($uuids[:])`
+
+	deadVolumeUUIDs, err := st.ensureStorageEntitiesNotAlive(
+		ctx, tx, siUUIDs, "volume", qry, del, removal,
+	)
+	if err != nil {
+		return cascaded, errors.Capture(err)
+	}
+	cascaded.VolumeUUIDs = append(cascaded.VolumeUUIDs, deadVolumeUUIDs...)
 
 	qry = `
 SELECT &entityUUID.uuid
 FROM   storage_instance_volume i
-       JOIN storage_volume v ON i.storage_volume_uuid = v.uuid
+JOIN   storage_volume v ON i.storage_volume_uuid = v.uuid
 WHERE  i.storage_instance_uuid IN ($uuids[:])
 AND    v.life_id = 0`
 
@@ -1926,11 +1977,13 @@ SET    life_id = 1,
        obliterate_on_cleanup = $storageRemoval.obliterate
 WHERE  uuid IN ($uuids[:])`
 
-	if cascaded.VolumeUUIDs, err = st.ensureStorageEntitiesNotAlive(
+	dyingVolumeUUIDs, err := st.ensureStorageEntitiesNotAlive(
 		ctx, tx, siUUIDs, "volume", qry, del, removal,
-	); err != nil {
+	)
+	if err != nil {
 		return cascaded, errors.Capture(err)
 	}
+	cascaded.VolumeUUIDs = append(cascaded.VolumeUUIDs, dyingVolumeUUIDs...)
 
 	return cascaded, nil
 }

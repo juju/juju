@@ -197,11 +197,11 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeStillAttached(c *
 	c.Assert(err, tc.ErrorIs, removalerrors.StorageInstanceStillAttached)
 }
 
-func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascade(c *tc.C) {
+func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttached(c *tc.C) {
 	siUUID := s.addStorageInstance(c)
-	fsUUID := s.addFilesystem(c)
+	fsUUID, _ := s.addAttachedFilesystem(c)
 	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
-	volUUID := s.addVolume(c)
+	volUUID, _ := s.addAttachedVolume(c)
 	s.addStorageInstanceVolume(c, siUUID, volUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -242,6 +242,51 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascade(c *tc.C) {
 	c.Check(volumeObliterate, tc.IsFalse)
 }
 
+func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeDetached(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	cascaded, err := st.EnsureStorageInstanceNotAliveCascade(
+		c.Context(), siUUID, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals,
+		internal.CascadedStorageFilesystemVolumeLives{
+			FileSystemUUID: &fsUUID,
+			VolumeUUID:     &volUUID,
+		},
+	)
+
+	var storageInstanceLife int
+	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
+	c.Check(storageInstanceLife, tc.Equals, 1)
+
+	var filesystemLife int
+	res = s.DB().QueryRow("SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Assert(res.Scan(&filesystemLife), tc.ErrorIsNil)
+	c.Check(filesystemLife, tc.Equals, 2)
+
+	var volumeLife int
+	res = s.DB().QueryRow("SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Assert(res.Scan(&volumeLife), tc.ErrorIsNil)
+	c.Check(volumeLife, tc.Equals, 2)
+
+	var filesystemObliterate bool
+	res = s.DB().QueryRow("SELECT ifnull(obliterate_on_cleanup, false) FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Assert(res.Scan(&filesystemObliterate), tc.ErrorIsNil)
+	c.Check(filesystemObliterate, tc.IsFalse)
+
+	var volumeObliterate bool
+	res = s.DB().QueryRow("SELECT ifnull(obliterate_on_cleanup, false) FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Assert(res.Scan(&volumeObliterate), tc.ErrorIsNil)
+	c.Check(volumeObliterate, tc.IsFalse)
+}
+
 func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeWithObliterate(c *tc.C) {
 	siUUID := s.addStorageInstance(c)
 	fsUUID := s.addFilesystem(c)
@@ -269,12 +314,12 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeWithObliterate(c 
 	var filesystemLife int
 	res = s.DB().QueryRow("SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID)
 	c.Assert(res.Scan(&filesystemLife), tc.ErrorIsNil)
-	c.Check(filesystemLife, tc.Equals, 1)
+	c.Check(filesystemLife, tc.Equals, 2)
 
 	var volumeLife int
 	res = s.DB().QueryRow("SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID)
 	c.Assert(res.Scan(&volumeLife), tc.ErrorIsNil)
-	c.Check(volumeLife, tc.Equals, 1)
+	c.Check(volumeLife, tc.Equals, 2)
 
 	var filesystemObliterate bool
 	res = s.DB().QueryRow("SELECT ifnull(obliterate_on_cleanup, false) FROM storage_filesystem WHERE uuid = ?", fsUUID)
@@ -1587,7 +1632,7 @@ func (s *storageSuite) addAttachedVolume(c *tc.C) (string, string) {
 	ctx := c.Context()
 
 	netNodeUUID := "some-net-node-uuid"
-	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)",
+	_, err := s.DB().ExecContext(ctx, "INSERT OR IGNORE INTO net_node (uuid) VALUES (?)",
 		netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
