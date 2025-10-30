@@ -182,6 +182,12 @@ INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
 VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), relationUUID, endpointUUID)
 }
 
+func (s *baseSuite) addRelationIngressNetwork(c *tc.C, relationUUID, ingress string) {
+	s.query(c, `
+INSERT INTO relation_network_ingress (relation_uuid, cidr)
+VALUES (?, ?)`, relationUUID, ingress)
+}
+
 // addOffer inserts a new offer with offer_endpoints into the database. Returns
 // the offer uuid.
 func (s *baseSuite) addOffer(c *tc.C, offerName string, endpointUUIDs []string) offer.UUID {

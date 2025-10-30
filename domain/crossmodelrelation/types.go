@@ -6,12 +6,14 @@ package crossmodelrelation
 import (
 	"maps"
 	"slices"
+	"time"
 
 	"gopkg.in/macaroon.v2"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
@@ -100,6 +102,36 @@ type OfferDetail struct {
 type ConsumeDetails struct {
 	OfferUUID string
 	Endpoints []OfferEndpoint
+}
+
+// OfferDetailWithConnections contains details about an offer and its connections.
+type OfferDetailWithConnections struct {
+	OfferDetail
+	OfferConnections []OfferConnection
+}
+
+// OfferConnection holds details about a connection to an offer.
+type OfferConnection struct {
+	// Username is the name of the user consuming the offer.
+	Username string
+
+	// RelationId is the id of the relation for this connection.
+	RelationId int
+
+	// Endpoint is the endpoint being connected to.
+	Endpoint string
+
+	// Status is the status of the offer connection.
+	Status status.Status
+
+	// Message is the status message of the offer connection.
+	Message string
+
+	// Since is when the status value was last changed.
+	Since *time.Time
+
+	// IngressSubnets is the list of subnets from which traffic will originate.
+	IngressSubnets []string
 }
 
 // OfferEndpoint contains details of charm endpoints as needed for offer
