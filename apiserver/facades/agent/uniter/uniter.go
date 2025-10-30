@@ -2398,7 +2398,7 @@ func (u *UniterAPI) watchOneUnitRelations(ctx context.Context, tag names.UnitTag
 		return nothing, internalerrors.Capture(updatedError)
 	}
 
-	watcherId, initial, err := internal.EnsureRegisterWatcher[[]string](ctx, u.watcherRegistry, watch)
+	watcherId, initial, err := internal.EnsureRegisterWatcher(ctx, u.watcherRegistry, watch)
 	if err != nil {
 		return nothing, nil
 	}

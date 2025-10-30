@@ -56,8 +56,8 @@ func isAgentOrUser(auth facade.Authorizer) bool {
 
 func newNotifyWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
-	// TODO(wallyworld) - enhance this watcher to support
-	// anonymous api calls with macaroons.
+	// TODO(wallyworld) - enhance this watcher to support anonymous api calls
+	// with macaroons.
 	if auth.GetAuthTag() != nil && !isAgentOrUser(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -102,8 +102,8 @@ type srvStringsWatcher struct {
 
 func newStringsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
-	// TODO(wallyworld) - enhance this watcher to support
-	// anonymous api calls with macaroons.
+	// TODO(wallyworld) - enhance this watcher to support anonymous api calls
+	// with macaroons.
 	if auth.GetAuthTag() != nil && !isAgentOrUser(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -121,9 +121,9 @@ func newStringsWatcher(_ context.Context, context facade.ModelContext) (facade.F
 	}, nil
 }
 
-// Next returns when a change has occurred to an entity of the
-// collection being watched since the most recent call to Next
-// or the Watch call that created the srvStringsWatcher.
+// Next returns when a change has occurred to an entity of the collection being
+// watched since the most recent call to Next or the Watch call that created the
+// srvStringsWatcher.
 func (w *srvStringsWatcher) Next(ctx context.Context) (params.StringsWatchResult, error) {
 	changes, err := internal.FirstResult[[]string](ctx, w.watcher)
 	if err != nil {
@@ -134,9 +134,9 @@ func (w *srvStringsWatcher) Next(ctx context.Context) (params.StringsWatchResult
 	}, nil
 }
 
-// srvRelationUnitsWatcher defines the API wrapping a RelationUnitsWatcher.
-// It notifies about units entering and leaving the scope of a RelationUnit,
-// and changes to the settings of those units known to have entered.
+// srvRelationUnitsWatcher defines the API wrapping a RelationUnitsWatcher. It
+// notifies about units entering and leaving the scope of a RelationUnit, and
+// changes to the settings of those units known to have entered.
 type srvRelationUnitsWatcher struct {
 	watcherCommon
 	watcher common.RelationUnitsWatcher
@@ -144,8 +144,8 @@ type srvRelationUnitsWatcher struct {
 
 func newRelationUnitsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
-	// TODO(wallyworld) - enhance this watcher to support
-	// anonymous api calls with macaroons.
+	// TODO(wallyworld) - enhance this watcher to support anonymous api calls
+	// with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -163,11 +163,11 @@ func newRelationUnitsWatcher(_ context.Context, context facade.ModelContext) (fa
 	}, nil
 }
 
-// Next returns when a change has occurred to an entity of the
-// collection being watched since the most recent call to Next
-// or the Watch call that created the srvRelationUnitsWatcher.
+// Next returns when a change has occurred to an entity of the collection being
+// watched since the most recent call to Next or the Watch call that created the
+// srvRelationUnitsWatcher.
 func (w *srvRelationUnitsWatcher) Next(ctx context.Context) (params.RelationUnitsWatchResult, error) {
-	changes, err := internal.FirstResult[params.RelationUnitsChange](ctx, w.watcher)
+	changes, err := internal.FirstResult(ctx, w.watcher)
 	if err != nil {
 		return params.RelationUnitsWatchResult{}, errors.Trace(err)
 	}
@@ -176,18 +176,18 @@ func (w *srvRelationUnitsWatcher) Next(ctx context.Context) (params.RelationUnit
 	}, nil
 }
 
-// srvRemoteRelationWatcher defines the API wrapping a
-// RelationUnitsWatcher but serving the events it emits as
-// fully-expanded params.RemoteRelationChangeEvents so they can be
-// used across model/controller boundaries.
+// srvRemoteRelationWatcher defines the API wrapping a RelationUnitsWatcher but
+// serving the events it emits as fully-expanded
+// params.RemoteRelationChangeEvents so they can be used across model/controller
+// boundaries.
 type srvRemoteRelationWatcher struct {
 	watcher         crossmodelrelations.RelationChangesWatcher
 	relationService RelationService
 }
 
 func newRemoteRelationWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	// TODO(wallyworld) - enhance this watcher to support
-	// anonymous api calls with macaroons.
+	// TODO(wallyworld) - enhance this watcher to support anonymous api calls
+	// with macaroons.
 	auth := context.Auth()
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
@@ -494,7 +494,7 @@ func NewModelSummaryWatcher(context facade.ModelContext) (*SrvModelSummaryWatche
 		//
 		// This is useful because the AllWatcher is reused for
 		// both the WatchAll (requires model access rights) and
-		// the WatchAllModels (requring controller superuser
+		// the WatchAllModels (requiring controller superuser
 		// rights) API calls.
 		return nil, apiservererrors.ErrPerm
 	}
