@@ -1378,6 +1378,51 @@ func (s *storageSuite) TestVolumeAttachmentPlanScheduleRemoval(c *tc.C) {
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
+func (s *storageSuite) TestGetVolumeAttachmentPlanLifeNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetVolumeAttachmentPlanLife(ctx, "some-vap-uuid")
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentPlanLifeAlive(c *tc.C) {
+	ctx := c.Context()
+
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeAttachmentPlanLife(c, vapUUID, 0)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentPlanLife(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentPlanLifeDying(c *tc.C) {
+	ctx := c.Context()
+
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeAttachmentPlanLife(c, vapUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentPlanLife(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dying)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentPlanLifeDead(c *tc.C) {
+	ctx := c.Context()
+
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeAttachmentPlanLife(c, vapUUID, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentPlanLife(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dead)
+}
+
 // addAppUnitStorage sets up a unit with a storage attachment.
 // The storage instance and attachment UUIDs are returned.
 func (s *storageSuite) addAppUnitStorage(c *tc.C) (string, string) {
