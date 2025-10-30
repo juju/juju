@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 
@@ -28,7 +26,6 @@ import (
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelmanager"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -313,17 +310,6 @@ func (c *loginCommand) existingControllerLogin(ctx *cmd.Context, store jujuclien
 	return c.login(ctx, currentAccountDetails, dial)
 }
 
-func cookieURL(host string) (*url.URL, error) {
-	if strings.Contains(host, ":") {
-		var err error
-		host, _, err = net.SplitHostPort(host)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return url.Parse(host)
-}
-
 // publicControllerLogin logs into the public controller at the given
 // host. The currentAccountDetails parameter holds existing account
 // information about the controller account.
@@ -353,11 +339,6 @@ func (c *loginCommand) publicControllerLogin(
 		APIEndpoints: []string{host},
 	}
 
-	cookieURL, err := cookieURL(host)
-	if err != nil {
-		return fail(err)
-	}
-
 	// Make a direct API connection because we don't yet know the
 	// controller UUID so can't store the thus-incomplete controller
 	// details to make a conventional connection.
@@ -382,26 +363,23 @@ func (c *loginCommand) publicControllerLogin(
 	}
 
 	var oidcLogin bool
-	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
-		loggo.GetLogger("juju.cmd.loginprovider"),
-		c.SessionTokenLoginFactory().NewLoginProvider(
-			sessionToken,
-			ctx.Stderr,
-			func(t string) {
-				oidcLogin = true
-				sessionToken = t
-			},
-		),
-		api.NewLegacyLoginProvider(nil, "", "", nil, bclient, cookieURL),
+	// Set an additional login provider to attempt OIDC login first,
+	// before falling back to legacy login.
+	dialOpts.AdditionalLoginProvider = c.SessionTokenLoginFactory().NewLoginProvider(
+		sessionToken,
+		ctx.Stderr,
+		func(t string) {
+			oidcLogin = true
+			sessionToken = t
+		},
 	)
 
 	// Keep track of existing interactors as the dial callback will create
 	// new ones each time it gets invoked.
 	var existing []httpbakery.Interactor
-	for _, i := range bclient.InteractionMethods {
-		existing = append(existing, i)
-	}
+	existing = append(existing, bclient.InteractionMethods...)
 
+	var password string
 	dial := func(d *jujuclient.AccountDetails) (api.Connection, error) {
 		// Attach an interactor which will be invoked if we attempt to
 		// login without a password and the remote controller does not
@@ -417,7 +395,7 @@ func (c *loginCommand) publicControllerLogin(
 						return c.noPromptPassword, nil
 					}
 					fmt.Fprintln(ctx.Stderr, "reading password from stdin...")
-					password, err := readLine(ctx.Stdin)
+					password, err = readLine(ctx.Stdin)
 					if err != nil {
 						return "", err
 					}
@@ -430,7 +408,8 @@ func (c *loginCommand) publicControllerLogin(
 				// func. As other password getters may rely on
 				// this we just provide a wrapper that calls
 				// pollster with the correct label.
-				return c.pollster.EnterPassword("password")
+				password, err = c.pollster.EnterPassword("password")
+				return password, err
 			})}
 		// Add in any default interactors from the base client.
 		for _, i := range existing {
@@ -457,6 +436,7 @@ func (c *loginCommand) publicControllerLogin(
 	ctrlDetails.ControllerUUID = conn.ControllerTag().Id()
 	ctrlDetails.OIDCLogin = oidcLogin
 	accountDetails.SessionToken = sessionToken
+	accountDetails.Password = password
 	return conn, ctrlDetails, accountDetails, nil
 }
 

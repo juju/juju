@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package loginprovider_test
+package api_test
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/internal/loginprovider"
 )
 
 type tryInOrderLoginProviderSuite struct{}
@@ -29,11 +28,11 @@ func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *gc.C) {
 	p3 := &mockLoginProvider{header: header, token: "successful-login-token"}
 
 	logger := loggo.GetLogger("juju.cmd.loginprovider")
-	lp := loginprovider.NewTryInOrderLoginProvider(logger, p1, p2)
+	lp := api.NewTryInOrderLoginProvider(logger, p1, p2)
 	_, err := lp.Login(context.Background(), nil)
 	c.Assert(err, gc.ErrorMatches, "provider 2 error")
 
-	lp = loginprovider.NewTryInOrderLoginProvider(logger, p1, p2, p3)
+	lp = api.NewTryInOrderLoginProvider(logger, p1, p2, p3)
 	_, err = lp.AuthHeader()
 	c.Check(err, gc.ErrorMatches, api.ErrorLoginFirst.Error())
 	_, err = lp.Login(context.Background(), nil)
@@ -44,9 +43,10 @@ func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *gc.C) {
 }
 
 type mockLoginProvider struct {
-	err    error
-	token  string
-	header http.Header
+	err           error
+	loginCallback func()
+	token         string
+	header        http.Header
 }
 
 func (p *mockLoginProvider) AuthHeader() (http.Header, error) {
@@ -54,5 +54,8 @@ func (p *mockLoginProvider) AuthHeader() (http.Header, error) {
 }
 
 func (p *mockLoginProvider) Login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {
+	if p.loginCallback != nil {
+		p.loginCallback()
+	}
 	return &api.LoginResultParams{}, p.err
 }

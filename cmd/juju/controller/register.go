@@ -27,7 +27,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelmanager"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corelogger "github.com/juju/juju/core/logger"
@@ -282,31 +280,22 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 		return errRet(errors.Trace(err))
 	}
 
-	cookieURL, err := cookieURL(host)
-	if err != nil {
-		return errRet(err)
-	}
-
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bclient
 
 	var supportsOIDCLogin bool
 	var sessionToken string
 
-	// we set up a login provider that will first try to log in using
-	// oauth device flow, failing that it will try to log in using
-	// user-pass or macaroons.
-	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
-		loggo.GetLogger("juju.cmd.loginprovider"),
-		api.NewSessionTokenLoginProvider(
-			"",
-			ctx.Stderr,
-			func(t string) {
-				supportsOIDCLogin = true
-				sessionToken = t
-			},
-		),
-		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
+	// we set an additional login provider that try to log in using
+	// oauth device flow. If this fails login using user-pass / macaroons
+	// will still be attempted.
+	dialOpts.AdditionalLoginProvider = api.NewSessionTokenLoginProvider(
+		"",
+		ctx.Stderr,
+		func(t string) {
+			supportsOIDCLogin = true
+			sessionToken = t
+		},
 	)
 
 	conn, err := c.apiOpen(&api.Info{
