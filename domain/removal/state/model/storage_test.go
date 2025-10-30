@@ -707,6 +707,51 @@ func (s *storageSuite) TestDeleteFilesystemWithInstance(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestGetFilesystemAttachmentLifeNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetFilesystemAttachmentLife(ctx, "some-fsa-uuid")
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
+func (s *storageSuite) TestGetFilesystemAttachmentLifeAlive(c *tc.C) {
+	ctx := c.Context()
+
+	_, fsaUUID := s.addAttachedFilesystem(c)
+	s.setFilesystemAttachmentLife(c, fsaUUID, 0)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetFilesystemAttachmentLife(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+}
+
+func (s *storageSuite) TestGetFilesystemAttachmentLifeDying(c *tc.C) {
+	ctx := c.Context()
+
+	_, fsaUUID := s.addAttachedFilesystem(c)
+	s.setFilesystemAttachmentLife(c, fsaUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetFilesystemAttachmentLife(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dying)
+}
+
+func (s *storageSuite) TestGetFilesystemAttachmentLifeDead(c *tc.C) {
+	ctx := c.Context()
+
+	_, fsaUUID := s.addAttachedFilesystem(c)
+	s.setFilesystemAttachmentLife(c, fsaUUID, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetFilesystemAttachmentLife(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dead)
+}
+
 func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadNotFound(c *tc.C) {
 	ctx := c.Context()
 
@@ -1534,6 +1579,27 @@ func (s *storageSuite) setFilesystemLife(
 	c *tc.C, fsUUID string, lifeId int,
 ) {
 	_, err := s.DB().Exec("UPDATE storage_filesystem SET life_id = ? WHERE uuid = ?", lifeId, fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setFilesystemAttachmentLife(
+	c *tc.C, fsaUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_filesystem_attachment SET life_id = ? WHERE uuid = ?", lifeId, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setVolumeAttachmentLife(
+	c *tc.C, vaUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_volume_attachment SET life_id = ? WHERE uuid = ?", lifeId, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setVolumeAttachmentPlanLife(
+	c *tc.C, vapUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_volume_attachment_plan SET life_id = ? WHERE uuid = ?", lifeId, vapUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
