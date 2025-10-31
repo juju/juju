@@ -1582,15 +1582,22 @@ WHERE  uuid = $entityUUID.uuid`, vaUUID)
 	}
 
 	remainingAttachmentsStmt, err := st.Prepare(`
-SELECT COUNT(svaB.uuid) AS &count.count
-FROM   storage_volume_attachment svaA
-JOIN   storage_volume_attachment svaB ON svaB.storage_volume_uuid = svaA.storage_volume_uuid
-WHERE  svaA.uuid = $entityUUID.uuid AND
-       svaB.uuid != $entityUUID.uuid
+SELECT SUM(count) AS &count.count FROM (
+    SELECT COUNT(svaB.uuid) AS count
+    FROM   storage_volume_attachment svaA
+    JOIN   storage_volume_attachment svaB ON svaB.storage_volume_uuid = svaA.storage_volume_uuid
+    WHERE  svaA.uuid = $entityUUID.uuid AND
+           svaB.uuid != $entityUUID.uuid
+    UNION
+    SELECT COUNT(svap.uuid) AS count
+    FROM   storage_volume_attachment sva
+    JOIN   storage_volume_attachment_plan svap ON sva.storage_volume_uuid = svap.storage_volume_uuid
+    WHERE  sva.uuid = $entityUUID.uuid
+)
 `, vaUUID, count{})
 	if err != nil {
 		return errors.Errorf(
-			"preparing remaining volume attachment exists query: %w", err,
+			"preparing remaining volume attachment/plan exists query: %w", err,
 		)
 	}
 
@@ -1804,6 +1811,42 @@ WHERE  uuid = $entityUUID.uuid`, vapUUID)
 		)
 	}
 
+	remainingAttachmentsStmt, err := st.Prepare(`
+SELECT SUM(count) AS &count.count FROM (
+    SELECT COUNT(svapB.uuid) AS count
+    FROM   storage_volume_attachment_plan svapA
+    JOIN   storage_volume_attachment_plan svapB ON svapB.storage_volume_uuid = svapA.storage_volume_uuid
+    WHERE  svapA.uuid = $entityUUID.uuid AND
+           svapB.uuid != $entityUUID.uuid
+    UNION
+    SELECT COUNT(sva.uuid) AS count
+    FROM   storage_volume_attachment_plan svap
+    JOIN   storage_volume_attachment sva ON svap.storage_volume_uuid = sva.storage_volume_uuid
+    WHERE  svap.uuid = $entityUUID.uuid
+)
+`, vapUUID, count{})
+	if err != nil {
+		return errors.Errorf(
+			"preparing remaining volume attachment/plan exists query: %w", err,
+		)
+	}
+
+	markDyingVolumeDeadStmt, err := st.Prepare(`
+WITH vol AS (
+	SELECT storage_volume_uuid
+	FROM   storage_volume_attachment_plan
+	WHERE  uuid = $entityUUID.uuid
+)
+UPDATE storage_volume
+SET    life_id = 2
+WHERE  life_id = 1 AND uuid IN vol
+`, vapUUID)
+	if err != nil {
+		return errors.Errorf(
+			"preparing mark dying volume dead query: %w", err,
+		)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, existsStmt, vapUUID).Get(&vapUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -1818,6 +1861,24 @@ WHERE  uuid = $entityUUID.uuid`, vapUUID)
 		if err != nil {
 			return errors.Errorf(
 				"running mark volume attachment plan dead query: %w", err,
+			)
+		}
+
+		var remaining count
+		err = tx.Query(ctx, remainingAttachmentsStmt, vapUUID).Get(&remaining)
+		if err != nil {
+			return errors.Errorf(
+				"running remaining volume attachment/plan query: %w", err,
+			)
+		}
+		if remaining.Count > 0 {
+			return nil
+		}
+
+		err = tx.Query(ctx, markDyingVolumeDeadStmt, vapUUID).Run()
+		if err != nil {
+			return errors.Errorf(
+				"running mark dying volume dead query: %w", err,
 			)
 		}
 

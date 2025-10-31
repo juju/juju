@@ -1105,6 +1105,32 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolume(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 2)
 }
 
+func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolumeButPlanBlocking(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID, vaUUID, _ := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeLife(c, volUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentAsDead(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment WHERE uuid = ?", vaUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Dying still
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+}
+
 func (s *storageSuite) TestDeleteVolumeAttachment(c *tc.C) {
 	ctx := c.Context()
 
@@ -1159,6 +1185,59 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadNotFound(c *tc.C) {
 	err := st.MarkVolumeAttachmentPlanAsDead(ctx, "some-vap-uuid")
 	c.Assert(err, tc.ErrorIs,
 		storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolume(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID, vaUUID, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeLife(c, volUUID, 1)
+	s.deleteVolumeAttachment(c, vaUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentPlanAsDead(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment plan should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment_plan WHERE uuid = ?", vapUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Dead too
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolumeButVolumeAttachmentBlocking(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeLife(c, volUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentPlanAsDead(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment plan should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment_plan WHERE uuid = ?", vapUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Dying still
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
@@ -1927,6 +2006,13 @@ func (s *storageSuite) deleteStorageAttachment(
 	c *tc.C, saUUID string,
 ) {
 	_, err := s.DB().Exec("DELETE FROM storage_attachment WHERE uuid = ?", saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) deleteVolumeAttachment(
+	c *tc.C, vaUUID string,
+) {
+	_, err := s.DB().Exec("DELETE FROM storage_volume_attachment WHERE uuid = ?", vaUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
