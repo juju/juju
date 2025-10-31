@@ -25,8 +25,8 @@ import (
 type State interface {
 	CreateUpgrade(context.Context, semversion.Number, semversion.Number) (upgrade.UUID, error)
 
-	// GetAllModelUUIDs returns all model uuids in the controller. If no
-	// models exist in the controller and empty list is returned.
+	// GetAllModelUUIDs returns all model uuids in the controller that are
+	// alive. If no models exist in the controller an empty list is returned.
 	GetAllModelUUIDs(context.Context) ([]coremodel.UUID, error)
 
 	SetControllerReady(context.Context, upgrade.UUID, string) error
