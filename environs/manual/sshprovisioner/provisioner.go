@@ -32,16 +32,22 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 		}
 	}()
 
+	// Optionally, ubuntuUserPrivateKey may be supplied to use when we connect to the
+	// the machine as the ubuntu user (for provisioning check or hardware characteristics),
+	// this is useful for API clients that manage their own SSH keys and the key isn't present
+	// on the machine that is running this code. I.e., the juju terraform provider.
+	ubuntuUserPrivateKey := args.UbuntuUserPrivateKey
+
 	// Create the "ubuntu" user and initialise passwordless sudo. We populate
 	// the ubuntu user's authorized_keys file with the public keys in the current
 	// user's ~/.ssh directory. The authenticationworker will later update the
 	// ubuntu user's authorized_keys.
 	if err = InitUbuntuUser(args.Host, args.User,
-		args.AuthorizedKeys, args.PrivateKey, args.Stdin, args.Stdout); err != nil {
+		args.AuthorizedKeys, args.PrivateKey, ubuntuUserPrivateKey, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
 
-	machineParams, err := gatherMachineParams(args.Host)
+	machineParams, err := gatherMachineParams(args.Host, ubuntuUserPrivateKey)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +70,7 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 	}
 
 	// Finally, provision the machine agent.
-	err = runProvisionScript(provisioningScript, args.Host, args.Stderr)
+	err = runProvisionScript(provisioningScript, args.Host, args.Stderr, ubuntuUserPrivateKey)
 	if err != nil {
 		return machineId, err
 	}
