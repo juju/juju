@@ -55,7 +55,6 @@ var nixVals = map[osVarType]string{
 	logDir:               NixLogDir,
 	dataDir:              NixDataDir,
 	transientDataDir:     NixTransientDataDir,
-	storageDir:           "/var/lib/juju/storage",
 	confDir:              "/etc/juju",
 	jujuExec:             "/usr/bin/juju-exec",
 	jujuDumpLogs:         "/usr/bin/juju-dumplogs",
@@ -73,7 +72,6 @@ var winVals = map[osVarType]string{
 	logDir:           "C:/Juju/log",
 	dataDir:          "C:/Juju/lib/juju",
 	transientDataDir: "C:/Juju/lib/juju-transient",
-	storageDir:       "C:/Juju/lib/juju/storage",
 	confDir:          "C:/Juju/etc",
 	jujuExec:         "C:/Juju/bin/juju-exec.exe",
 	jujuDumpLogs:     "C:/Juju/bin/juju-dumplogs.exe",
@@ -147,12 +145,6 @@ func MetricsSpoolDir(os OS) string {
 // api certificate pool.
 func CertDir(os OS) string {
 	return osVal(os, certDir)
-}
-
-// StorageDir returns a filesystem path to the folder used by juju to
-// mount machine-level storage.
-func StorageDir(os OS) string {
-	return osVal(os, storageDir)
 }
 
 // ConfDir returns the path to the directory where Juju may store

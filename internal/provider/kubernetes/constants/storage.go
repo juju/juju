@@ -6,7 +6,6 @@ package constants
 import (
 	"regexp"
 
-	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -41,9 +40,6 @@ func QualifiedStorageClassName(namespace, storageClass string) string {
 }
 
 var (
-	// StorageBaseDir is the base storage dir for the k8s series.
-	StorageBaseDir = getK8sStorageBaseDir()
-
 	// LegacyPVNameRegexp matches how Juju labels persistent volumes.
 	// The pattern is: juju-<storagename>-<digit>
 	LegacyPVNameRegexp = regexp.MustCompile(`^juju-(?P<storageName>\D+)-\d+$`)
@@ -52,7 +48,3 @@ var (
 	// The pattern is: <storagename>-<digit>
 	PVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\w+$`)
 )
-
-func getK8sStorageBaseDir() string {
-	return paths.StorageDir(paths.OSUnixLike)
-}
