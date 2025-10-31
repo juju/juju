@@ -86,7 +86,7 @@ ON CONFLICT (backend_uuid, name) DO UPDATE SET
 		err = tx.Query(ctx, upsertConfigStmt, SecretBackendConfig{
 			ID:      id,
 			Name:    k,
-			Content: v,
+			Content: []byte(v),
 		}).Run()
 		if err != nil {
 			return errors.Errorf("cannot upsert secret backend config for %q: %w", id, err)

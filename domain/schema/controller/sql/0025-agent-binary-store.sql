@@ -14,7 +14,7 @@ CREATE TABLE agent_binary_store (
     CONSTRAINT fk_agent_binary_metadata_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id)
-);
+) STRICT;
 
 CREATE VIEW v_agent_binary_store AS
 SELECT

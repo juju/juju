@@ -3,7 +3,11 @@
 
 package state
 
-import "database/sql/driver"
+import (
+	"database/sql/driver"
+
+	"github.com/juju/juju/internal/database"
+)
 
 // publicKey represents a single row from the user public key table.
 type publicKey struct {
@@ -47,11 +51,11 @@ type userPublicKeyIds []userPublicKeyId
 // userPublicKeyInsert describes the data input needed for inserting new public
 // keys for a user.
 type userPublicKeyInsert struct {
-	Comment                  string `db:"comment"`
-	FingerprintHashAlgorithm string `db:"algorithm"`
-	Fingerprint              string `db:"fingerprint"`
-	PublicKey                string `db:"public_key"`
-	UserId                   string `db:"user_uuid"`
+	Comment                  string            `db:"comment"`
+	FingerprintHashAlgorithm string            `db:"algorithm"`
+	Fingerprint              database.NullBlob `db:"fingerprint"`
+	PublicKey                database.NullBlob `db:"public_key"`
+	UserId                   string            `db:"user_uuid"`
 }
 
 // userUUIDValue represents a user id for associating public keys with.
