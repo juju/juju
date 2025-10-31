@@ -220,12 +220,6 @@ func (s *Service) CheckFilesystemForIDExists(
 	return s.st.CheckFilesystemForIDExists(ctx, id)
 }
 
-// defaultFilesystemAttachmentDir returns the default directory where filesystem
-// attachments will be mounted to.
-func defaultFilesystemAttachmentDir() string {
-	return "/var/lib/juju/storage"
-}
-
 // GetFilesystemAttachmentForMachine retrieves the [storageprovisioning.FilesystemAttachment]
 // for the supplied net node uuid and filesystem id.
 //
@@ -399,7 +393,7 @@ func calculateFilesystemAttachmentMountPoint(
 ) string {
 	refLocation := charmSuggestedLocation
 	if charmSuggestedLocation == "" {
-		refLocation = defaultFilesystemAttachmentDir()
+		refLocation = storageprovisioning.DefaultFilesystemAttachmentDir
 		// We purposely disable singleton storage when using the default
 		// location. This ensures that multiple attachments for different
 		// storage do not collide.
@@ -415,41 +409,6 @@ func calculateFilesystemAttachmentMountPoint(
 	// Multiple attachments are expected for this storage so we append the
 	// attachement id to form a unique mount point.
 	return path.Join(refLocation, id)
-}
-
-// calculateFilesystemTemplateAttachmentMountPoint calculates the mount point
-// for a filesystem attachment on a Kubernetes pod. Because it is not know at
-// the time of calculating this value the exact composition of the attachments
-// we use the storage name and index to build uniqueness.
-func calculateFilesystemTemplateAttachmentMountPoint(
-	storageName,
-	charmStorageLocation string,
-	maxCount int,
-	idx int,
-) string {
-	refLocation := charmStorageLocation
-	if charmStorageLocation == "" {
-		refLocation = defaultFilesystemAttachmentDir()
-	}
-
-	// TODO (tlm): This is a hack for the 4.0 release that needs to be removed.
-	// The postgresql charm does not correctly ask Juju what the mount point is
-	// for an attachment and assumes the mounted location will be exactly where
-	// the charm has suggested.
-	//
-	// We can only support this case when the maxCount is 1 and a location has
-	// been offered.
-	if charmStorageLocation != "" && maxCount == 1 {
-		return path.Join(refLocation, storageName)
-	}
-
-	// The decision was to always append the storage name and index to the ref
-	// location even when the storage is a singleton was done to avoid conflicts
-	// with other charm storage. Because this calculation has no insight into
-	// if the charm has made a mistake specified the same storage location for
-	// multiple storage names. Doing it this way makes this calculation always
-	// safe.
-	return path.Join(refLocation, storageName, strconv.Itoa(idx))
 }
 
 // calculateFilesystemAttachmentTemplates calculates all of the
