@@ -1699,7 +1699,7 @@ func (st *State) upsertApplicationChannel(ctx context.Context, tx *sqlair.TX, ch
 	upsertAppChannelStmt, err := st.Prepare(`
 INSERT INTO application_channel (*)
 VALUES ($applicationChannel.*)
-ON CONFLICT(application_uuid, track, risk, branch) DO UPDATE SET
+ON CONFLICT(application_uuid) DO UPDATE SET
 	track = excluded.track,
 	risk = excluded.risk,
 	branch = excluded.branch;

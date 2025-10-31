@@ -204,7 +204,7 @@ CREATE TABLE application_channel (
     CONSTRAINT fk_application_origin_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
-    PRIMARY KEY (application_uuid, track, risk, branch)
+    PRIMARY KEY (application_uuid)
 );
 
 CREATE TABLE application_status (
