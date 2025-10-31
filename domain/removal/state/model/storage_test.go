@@ -5,6 +5,7 @@ package model
 
 import (
 	"database/sql"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -125,6 +126,41 @@ func (s *storageSuite) TestGetStorageAttachmentLifeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
+func (s *storageSuite) TestEnsureStorageAttachmentDeadCascadeNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	saUUID := "some-storage-attachment-uuid"
+	_, err := st.EnsureStorageAttachmentDeadCascade(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
+}
+
+func (s *storageSuite) TestEnsureStorageAttachmentDeadCascade(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	siUUID, saUUID := s.addAppUnitStorage(c)
+	volUUID, vaUUID, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+	fsUUID, fsaUUID := s.addAttachedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	s.setStorageAttachmentLife(c, saUUID, 1)
+
+	cascaded, err := st.EnsureStorageAttachmentDeadCascade(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals,
+		internal.CascadedStorageProvisionedAttachmentLives{
+			FileSystemAttachmentUUIDs: []string{fsaUUID},
+			VolumeAttachmentUUIDs:     []string{vaUUID},
+			VolumeAttachmentPlanUUIDs: []string{vapUUID},
+		},
+	)
+
+	res := s.DB().QueryRow(
+		"SELECT life_id FROM storage_attachment WHERE uuid = ?", saUUID)
+	var lifeId int
+	c.Assert(res.Scan(&lifeId), tc.ErrorIsNil)
+	c.Check(lifeId, tc.Equals, 2)
+}
+
 func (s *storageSuite) TestDeleteStorageAttachmentSuccess(c *tc.C) {
 	siUUID, saUUID := s.addAppUnitStorage(c)
 
@@ -136,6 +172,303 @@ func (s *storageSuite) TestDeleteStorageAttachmentSuccess(c *tc.C) {
 	// Attachment is gone.
 	var dummy string
 	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_attachment WHERE uuid = ?", saUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+
+	// The attached unit was the owner, so the owner record is gone.
+	row = s.DB().QueryRowContext(
+		ctx, "SELECT unit_uuid FROM storage_unit_owner WHERE storage_instance_uuid = ?", siUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeNotFound(c *tc.C) {
+	siUUID := "some-storage-instance-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.EnsureStorageInstanceNotAliveCascade(c.Context(), siUUID, false)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
+}
+
+func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeStillAttached(c *tc.C) {
+	siUUID, _ := s.addAppUnitStorage(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.EnsureStorageInstanceNotAliveCascade(c.Context(), siUUID, false)
+	c.Assert(err, tc.ErrorIs, removalerrors.StorageInstanceStillAttached)
+}
+
+func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttached(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID, _ := s.addAttachedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID, _ := s.addAttachedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	cascaded, err := st.EnsureStorageInstanceNotAliveCascade(
+		c.Context(), siUUID, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals,
+		internal.CascadedStorageFilesystemVolumeLives{
+			FileSystemUUID: &fsUUID,
+			VolumeUUID:     &volUUID,
+		},
+	)
+
+	var storageInstanceLife int
+	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
+	c.Check(storageInstanceLife, tc.Equals, 1)
+
+	var filesystemLife int
+	res = s.DB().QueryRow("SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Assert(res.Scan(&filesystemLife), tc.ErrorIsNil)
+	c.Check(filesystemLife, tc.Equals, 1)
+
+	var volumeLife int
+	res = s.DB().QueryRow("SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Assert(res.Scan(&volumeLife), tc.ErrorIsNil)
+	c.Check(volumeLife, tc.Equals, 1)
+
+	var filesystemObliterate bool
+	res = s.DB().QueryRow("SELECT ifnull(obliterate_on_cleanup, false) FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Assert(res.Scan(&filesystemObliterate), tc.ErrorIsNil)
+	c.Check(filesystemObliterate, tc.IsFalse)
+
+	var volumeObliterate bool
+	res = s.DB().QueryRow("SELECT ifnull(obliterate_on_cleanup, false) FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Assert(res.Scan(&volumeObliterate), tc.ErrorIsNil)
+	c.Check(volumeObliterate, tc.IsFalse)
+}
+
+func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeDetached(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	cascaded, err := st.EnsureStorageInstanceNotAliveCascade(
+		c.Context(), siUUID, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals,
+		internal.CascadedStorageFilesystemVolumeLives{
+			FileSystemUUID: &fsUUID,
+			VolumeUUID:     &volUUID,
+		},
+	)
+
+	var storageInstanceLife int
+	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
+	c.Check(storageInstanceLife, tc.Equals, 1)
+
+	var filesystemLife int
+	res = s.DB().QueryRow("SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Assert(res.Scan(&filesystemLife), tc.ErrorIsNil)
+	c.Check(filesystemLife, tc.Equals, 2)
+
+	var volumeLife int
+	res = s.DB().QueryRow("SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Assert(res.Scan(&volumeLife), tc.ErrorIsNil)
+	c.Check(volumeLife, tc.Equals, 2)
+
+	var filesystemObliterate bool
+	res = s.DB().QueryRow("SELECT ifnull(obliterate_on_cleanup, false) FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Assert(res.Scan(&filesystemObliterate), tc.ErrorIsNil)
+	c.Check(filesystemObliterate, tc.IsFalse)
+
+	var volumeObliterate bool
+	res = s.DB().QueryRow("SELECT ifnull(obliterate_on_cleanup, false) FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Assert(res.Scan(&volumeObliterate), tc.ErrorIsNil)
+	c.Check(volumeObliterate, tc.IsFalse)
+}
+
+func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeWithObliterate(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	cascaded, err := st.EnsureStorageInstanceNotAliveCascade(
+		c.Context(), siUUID, true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals,
+		internal.CascadedStorageFilesystemVolumeLives{
+			FileSystemUUID: &fsUUID,
+			VolumeUUID:     &volUUID,
+		},
+	)
+
+	var storageInstanceLife int
+	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
+	c.Check(storageInstanceLife, tc.Equals, 1)
+
+	var filesystemLife int
+	res = s.DB().QueryRow("SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Assert(res.Scan(&filesystemLife), tc.ErrorIsNil)
+	c.Check(filesystemLife, tc.Equals, 2)
+
+	var volumeLife int
+	res = s.DB().QueryRow("SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Assert(res.Scan(&volumeLife), tc.ErrorIsNil)
+	c.Check(volumeLife, tc.Equals, 2)
+
+	var filesystemObliterate bool
+	res = s.DB().QueryRow("SELECT ifnull(obliterate_on_cleanup, false) FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Assert(res.Scan(&filesystemObliterate), tc.ErrorIsNil)
+	c.Check(filesystemObliterate, tc.IsTrue)
+
+	var volumeObliterate bool
+	res = s.DB().QueryRow("SELECT ifnull(obliterate_on_cleanup, false) FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Assert(res.Scan(&volumeObliterate), tc.ErrorIsNil)
+	c.Check(volumeObliterate, tc.IsTrue)
+}
+
+func (s *storageSuite) TestGetStorageInstanceLifeNotFound(c *tc.C) {
+	siUUID := "some-storage-instance-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetStorageInstanceLife(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
+}
+
+func (s *storageSuite) TestGetStorageInstanceLifeAlive(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetStorageInstanceLife(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.DeepEquals, life.Alive)
+}
+
+func (s *storageSuite) TestGetStorageInstanceLifeDying(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	s.setStorageInstanceLife(c, siUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetStorageInstanceLife(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.DeepEquals, life.Dying)
+}
+
+func (s *storageSuite) TestGetStorageInstanceLifeDead(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	s.setStorageInstanceLife(c, siUUID, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetStorageInstanceLife(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.DeepEquals, life.Dead)
+}
+
+func (s *storageSuite) TestStorageInstanceScheduleRemoval(c *tc.C) {
+	_, attachment := s.addAppUnitStorage(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.StorageInstanceScheduleRemoval(
+		c.Context(), "removal-uuid", attachment, false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	row := s.DB().QueryRow(
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal WHERE uuid = ?",
+		"removal-uuid",
+	)
+	var (
+		removalTypeID int
+		rUUID         string
+		force         bool
+		scheduledFor  time.Time
+	)
+	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalTypeID, tc.Equals, 5)
+	c.Check(rUUID, tc.Equals, attachment)
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *storageSuite) TestCheckStorageInstanceHasNoChildrenWithFilesystem(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	res, err := st.CheckStorageInstanceHasNoChildren(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckStorageInstanceHasNoChildrenWithVolume(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	volUUID := s.addVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	res, err := st.CheckStorageInstanceHasNoChildren(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckStorageInstanceHasNoChildrenWithoutChildren(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	res, err := st.CheckStorageInstanceHasNoChildren(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.IsTrue)
+}
+
+func (s *storageSuite) TestDeleteStorageInstance(c *tc.C) {
+	ctx := c.Context()
+
+	siUUID := s.addStorageInstance(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteStorageInstance(ctx, siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Instance is gone.
+	var dummy string
+	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *storageSuite) TestDeleteStorageInstanceWithUnitOwned(c *tc.C) {
+	ctx := c.Context()
+
+	siUUID, saUUID := s.addAppUnitStorage(c)
+	s.deleteStorageAttachment(c, saUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteStorageInstance(ctx, siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Instance is gone.
+	var dummy string
+	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_instance WHERE uuid = ?", siUUID)
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 
 	// The attached unit was the owner, so the owner record is gone.
@@ -192,6 +525,37 @@ func (s *storageSuite) TestVolumeScheduleRemovalSuccess(c *tc.C) {
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
+func (s *storageSuite) TestSetVolumeStatusNotFound(c *tc.C) {
+	volUUID := "some-volume-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.SetVolumeStatus(c.Context(), volUUID, 0)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *storageSuite) TestGetVolumeStatusNotFound(c *tc.C) {
+	volUUID := "some-volume-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetVolumeStatus(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *storageSuite) TestSetVolumeStatusGetVolumeStatus(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID := s.addVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	for i := 0; i <= 7; i++ {
+		err := st.SetVolumeStatus(ctx, volUUID, i)
+		c.Check(err, tc.ErrorIsNil)
+		statusId, err := st.GetVolumeStatus(ctx, volUUID)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(statusId, tc.Equals, i)
+	}
+}
+
 func (s *storageSuite) TestDeleteVolume(c *tc.C) {
 	volUUID := s.addVolume(c)
 
@@ -229,6 +593,73 @@ func (s *storageSuite) TestDeleteVolumeWithInstance(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestDeleteVolumeWithMachineVolume(c *tc.C) {
+	volUUID := s.addVolume(c)
+	machineUUID := s.addMachine(c)
+	s.addMachineVolume(c, machineUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteVolume(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume is gone.
+	var dummy string
+	row := s.DB().QueryRow(
+		"SELECT uuid FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+	// Machine volume is gone.
+	row = s.DB().QueryRow(
+		"SELECT volume_uuid FROM machine_volume WHERE volume_uuid = ?",
+		volUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentLifeNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetVolumeAttachmentLife(ctx, "some-va-uuid")
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentLifeAlive(c *tc.C) {
+	ctx := c.Context()
+
+	_, vaUUID := s.addAttachedVolume(c)
+	s.setVolumeAttachmentLife(c, vaUUID, 0)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentLife(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentLifeDying(c *tc.C) {
+	ctx := c.Context()
+
+	_, vaUUID := s.addAttachedVolume(c)
+	s.setVolumeAttachmentLife(c, vaUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentLife(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dying)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentLifeDead(c *tc.C) {
+	ctx := c.Context()
+
+	_, vaUUID := s.addAttachedVolume(c)
+	s.setVolumeAttachmentLife(c, vaUUID, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentLife(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dead)
+}
+
 func (s *storageSuite) TestGetFilesystemLife(c *tc.C) {
 	fsUUID := s.addFilesystem(c)
 
@@ -242,7 +673,7 @@ func (s *storageSuite) TestGetFilesystemLife(c *tc.C) {
 func (s *storageSuite) TestGetFilesystemLifeNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.GetFilesystemLife(c.Context(), "some-vol-uuid")
+	_, err := st.GetFilesystemLife(c.Context(), "some-fs-uuid")
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
 }
 
@@ -277,6 +708,130 @@ func (s *storageSuite) TestFilesystemScheduleRemovalSuccess(c *tc.C) {
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
+func (s *storageSuite) TestSetFilesystemStatusNotFound(c *tc.C) {
+	fsUUID := "some-filesystem-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.SetFilesystemStatus(c.Context(), fsUUID, 0)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+func (s *storageSuite) TestGetFilesystemStatusNotFound(c *tc.C) {
+	fsUUID := "some-filesystem-uuid"
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetFilesystemStatus(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+func (s *storageSuite) TestSetFilesystemStatusGetFilesystemStatus(c *tc.C) {
+	ctx := c.Context()
+
+	fsUUID := s.addFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	for i := 0; i <= 7; i++ {
+		err := st.SetFilesystemStatus(ctx, fsUUID, i)
+		c.Check(err, tc.ErrorIsNil)
+		statusId, err := st.GetFilesystemStatus(ctx, fsUUID)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(statusId, tc.Equals, i)
+	}
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), "some-fs-uuid")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedFilesystemOnlyMachineProvisioned(c *tc.C) {
+	fsUUID := s.addMachineProvisionedFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedFilesystemOnlyModelProvisioned(c *tc.C) {
+	fsUUID := s.addModelProvisionedFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedMachineOwned(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addMachineProvisionedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addModelProvisionedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	mUUID := s.addMachine(c)
+	s.addMachineFilesystem(c, mUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedAllModelProvisioned(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addModelProvisionedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addModelProvisionedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisionedAllMachineProvisioned(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addMachineProvisionedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addMachineProvisionedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsFalse)
+}
+
+func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisioned(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addMachineProvisionedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID := s.addModelProvisionedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	x, err := st.CheckVolumeBackedFilesystemCrossProvisioned(
+		c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(x, tc.IsTrue)
+}
+
 func (s *storageSuite) TestDeleteFilesystem(c *tc.C) {
 	fsUUID := s.addFilesystem(c)
 
@@ -289,6 +844,28 @@ func (s *storageSuite) TestDeleteFilesystem(c *tc.C) {
 	var dummy string
 	row := s.DB().QueryRow(
 		"SELECT uuid FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *storageSuite) TestDeleteFilesystemWithMachineFilesystem(c *tc.C) {
+	fsUUID := s.addFilesystem(c)
+	machineUUID := s.addMachine(c)
+	s.addMachineFilesystem(c, machineUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteFilesystem(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Filesystem is gone.
+	var dummy string
+	row := s.DB().QueryRow(
+		"SELECT uuid FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+	// Machine filesystem is gone.
+	row = s.DB().QueryRow(
+		"SELECT filesystem_uuid FROM machine_filesystem WHERE filesystem_uuid = ?",
+		fsUUID)
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
@@ -314,6 +891,51 @@ func (s *storageSuite) TestDeleteFilesystemWithInstance(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestGetFilesystemAttachmentLifeNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetFilesystemAttachmentLife(ctx, "some-fsa-uuid")
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
+func (s *storageSuite) TestGetFilesystemAttachmentLifeAlive(c *tc.C) {
+	ctx := c.Context()
+
+	_, fsaUUID := s.addAttachedFilesystem(c)
+	s.setFilesystemAttachmentLife(c, fsaUUID, 0)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetFilesystemAttachmentLife(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+}
+
+func (s *storageSuite) TestGetFilesystemAttachmentLifeDying(c *tc.C) {
+	ctx := c.Context()
+
+	_, fsaUUID := s.addAttachedFilesystem(c)
+	s.setFilesystemAttachmentLife(c, fsaUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetFilesystemAttachmentLife(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dying)
+}
+
+func (s *storageSuite) TestGetFilesystemAttachmentLifeDead(c *tc.C) {
+	ctx := c.Context()
+
+	_, fsaUUID := s.addAttachedFilesystem(c)
+	s.setFilesystemAttachmentLife(c, fsaUUID, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetFilesystemAttachmentLife(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dead)
+}
+
 func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadNotFound(c *tc.C) {
 	ctx := c.Context()
 
@@ -326,7 +948,7 @@ func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadNotFound(c *tc.C) {
 func (s *storageSuite) TestMarkFilesystemAttachmentAsDead(c *tc.C) {
 	ctx := c.Context()
 
-	_, fsaUUID := s.addAttachedFilesystem(c)
+	fsUUID, fsaUUID := s.addAttachedFilesystem(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := st.MarkFilesystemAttachmentAsDead(ctx, fsaUUID)
@@ -340,6 +962,87 @@ func (s *storageSuite) TestMarkFilesystemAttachmentAsDead(c *tc.C) {
 	var lifeID int
 	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 2)
+
+	// Filesystem should still be Alive
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 0)
+}
+
+func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadWithDyingFilesystem(c *tc.C) {
+	ctx := c.Context()
+
+	fsUUID, fsaUUID := s.addAttachedFilesystem(c)
+	s.setFilesystemLife(c, fsUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkFilesystemAttachmentAsDead(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Filesystem Attachment should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_filesystem_attachment WHERE uuid = ?",
+		fsaUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Filesystem should be Dead too
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+}
+
+func (s *storageSuite) TestDeleteFilesystemAttachment(c *tc.C) {
+	ctx := c.Context()
+
+	_, fsaUUID := s.addAttachedFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteFilesystemAttachment(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Attachment is gone.
+	var dummy string
+	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_filesystem_attachment WHERE uuid = ?", fsaUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *storageSuite) TestFilesystemAttachmentScheduleRemoval(c *tc.C) {
+	_, fsaUUID := s.addAttachedFilesystem(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.FilesystemAttachmentScheduleRemoval(
+		c.Context(), "removal-uuid", fsaUUID, false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	row := s.DB().QueryRow(
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal WHERE uuid = ?",
+		"removal-uuid",
+	)
+	var (
+		removalTypeID int
+		rUUID         string
+		force         bool
+		scheduledFor  time.Time
+	)
+	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalTypeID, tc.Equals, 11)
+	c.Check(rUUID, tc.Equals, fsaUUID)
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentAsDeadNotFound(c *tc.C) {
@@ -354,7 +1057,7 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDeadNotFound(c *tc.C) {
 func (s *storageSuite) TestMarkVolumeAttachmentAsDead(c *tc.C) {
 	ctx := c.Context()
 
-	_, vaUUID := s.addAttachedVolume(c)
+	volUUID, vaUUID := s.addAttachedVolume(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := st.MarkVolumeAttachmentAsDead(ctx, vaUUID)
@@ -367,6 +1070,112 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDead(c *tc.C) {
 	var lifeID int
 	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Alive still
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 0)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolume(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID, vaUUID := s.addAttachedVolume(c)
+	s.setVolumeLife(c, volUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentAsDead(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment WHERE uuid = ?", vaUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Dead too
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolumeButPlanBlocking(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID, vaUUID, _ := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeLife(c, volUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentAsDead(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment WHERE uuid = ?", vaUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Dying still
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+}
+
+func (s *storageSuite) TestDeleteVolumeAttachment(c *tc.C) {
+	ctx := c.Context()
+
+	_, vaUUID := s.addAttachedVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteVolumeAttachment(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Attachment is gone.
+	var dummy string
+	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_volume_attachment WHERE uuid = ?", vaUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *storageSuite) TestVolumeAttachmentScheduleRemoval(c *tc.C) {
+	_, vaUUID := s.addAttachedVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.VolumeAttachmentScheduleRemoval(
+		c.Context(), "removal-uuid", vaUUID, false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	row := s.DB().QueryRow(
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal WHERE uuid = ?",
+		"removal-uuid",
+	)
+	var (
+		removalTypeID int
+		rUUID         string
+		force         bool
+		scheduledFor  time.Time
+	)
+	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalTypeID, tc.Equals, 9)
+	c.Check(rUUID, tc.Equals, vaUUID)
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadNotFound(c *tc.C) {
@@ -376,6 +1185,59 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadNotFound(c *tc.C) {
 	err := st.MarkVolumeAttachmentPlanAsDead(ctx, "some-vap-uuid")
 	c.Assert(err, tc.ErrorIs,
 		storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolume(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID, vaUUID, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeLife(c, volUUID, 1)
+	s.deleteVolumeAttachment(c, vaUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentPlanAsDead(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment plan should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment_plan WHERE uuid = ?", vapUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Dead too
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolumeButVolumeAttachmentBlocking(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeLife(c, volUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentPlanAsDead(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment plan should be Dead
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment_plan WHERE uuid = ?", vapUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Dying still
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
@@ -687,6 +1549,98 @@ VALUES (?, ?, ?, 0)
 	return unitUUID.String(), rval
 }
 
+func (s *storageSuite) TestDeleteVolumeAttachmentPlan(c *tc.C) {
+	ctx := c.Context()
+
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteVolumeAttachmentPlan(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Attachment is gone.
+	var dummy string
+	row := s.DB().QueryRowContext(ctx, "SELECT uuid FROM storage_volume_attachment_plan WHERE uuid = ?", vapUUID)
+	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *storageSuite) TestVolumeAttachmentPlanScheduleRemoval(c *tc.C) {
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.VolumeAttachmentPlanScheduleRemoval(
+		c.Context(), "removal-uuid", vapUUID, false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	row := s.DB().QueryRow(
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal WHERE uuid = ?",
+		"removal-uuid",
+	)
+	var (
+		removalTypeID int
+		rUUID         string
+		force         bool
+		scheduledFor  time.Time
+	)
+	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalTypeID, tc.Equals, 10)
+	c.Check(rUUID, tc.Equals, vapUUID)
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentPlanLifeNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetVolumeAttachmentPlanLife(ctx, "some-vap-uuid")
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentPlanLifeAlive(c *tc.C) {
+	ctx := c.Context()
+
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeAttachmentPlanLife(c, vapUUID, 0)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentPlanLife(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentPlanLifeDying(c *tc.C) {
+	ctx := c.Context()
+
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeAttachmentPlanLife(c, vapUUID, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentPlanLife(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dying)
+}
+
+func (s *storageSuite) TestGetVolumeAttachmentPlanLifeDead(c *tc.C) {
+	ctx := c.Context()
+
+	_, _, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeAttachmentPlanLife(c, vapUUID, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	l, err := st.GetVolumeAttachmentPlanLife(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dead)
+}
+
 // addAppUnitStorage sets up a unit with a storage attachment.
 // The storage instance and attachment UUIDs are returned.
 func (s *storageSuite) addAppUnitStorage(c *tc.C) (string, string) {
@@ -743,7 +1697,66 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 	return storageInstance, storageAttachment
 }
 
+func (s *storageSuite) addStorageInstance(c *tc.C) string {
+	ctx := c.Context()
+
+	charm := "some-charm-name"
+
+	storagePool := "some-storage-pool-uuid"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+		storagePool, "loop", "loop")
+	c.Assert(err, tc.ErrorIsNil)
+
+	storageInstance := "some-storage-instance-uuid"
+	_, err = s.DB().Exec(`
+INSERT INTO storage_instance (
+    uuid, storage_id, storage_kind_id, storage_pool_uuid, requested_size_mib,
+    charm_name, storage_name, life_id
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		storageInstance, charm+"/0", 1, storagePool, 100, charm, "storage", 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return storageInstance
+}
+
 func (s *storageSuite) addVolume(c *tc.C) string {
+	ctx := c.Context()
+
+	volUUID := "some-vol-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		volUUID, "some-vol", 0, indeterminateProvisioningScope(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, ?)",
+		volUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volUUID
+}
+
+func (s *storageSuite) addMachineProvisionedVolume(c *tc.C) string {
+	ctx := c.Context()
+
+	volUUID := "some-vol-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		volUUID, "some-vol", 0, 1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, ?)",
+		volUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volUUID
+}
+
+func (s *storageSuite) addModelProvisionedVolume(c *tc.C) string {
 	ctx := c.Context()
 
 	volUUID := "some-vol-uuid"
@@ -777,6 +1790,42 @@ func (s *storageSuite) addFilesystem(c *tc.C) string {
 	fsUUID := "some-fs-uuid"
 	_, err := s.DB().ExecContext(ctx,
 		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		fsUUID, "some-fs", 0, indeterminateProvisioningScope(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, ?)",
+		fsUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID
+}
+
+func (s *storageSuite) addMachineProvisionedFilesystem(c *tc.C) string {
+	ctx := c.Context()
+
+	fsUUID := "some-fs-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		fsUUID, "some-fs", 0, 1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, ?)",
+		fsUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID
+}
+
+func (s *storageSuite) addModelProvisionedFilesystem(c *tc.C) string {
+	ctx := c.Context()
+
+	fsUUID := "some-fs-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
 		fsUUID, "some-fs", 0, 0,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -805,18 +1854,18 @@ func (s *storageSuite) addAttachedFilesystem(c *tc.C) (string, string) {
 	ctx := c.Context()
 
 	netNodeUUID := "some-net-node-uuid"
-	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)",
+	_, err := s.DB().ExecContext(ctx, "INSERT OR IGNORE INTO net_node (uuid) VALUES (?)",
 		netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	fsUUID := "some-fs-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
-		fsUUID, "some-fs", 0, 0)
+		fsUUID, "some-fs", 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	fsaUUID := "some-fsa-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
-		fsaUUID, fsUUID, netNodeUUID, 0, 0)
+		fsaUUID, fsUUID, netNodeUUID, 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	return fsUUID, fsaUUID
@@ -828,18 +1877,18 @@ func (s *storageSuite) addAttachedVolume(c *tc.C) (string, string) {
 	ctx := c.Context()
 
 	netNodeUUID := "some-net-node-uuid"
-	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)",
+	_, err := s.DB().ExecContext(ctx, "INSERT OR IGNORE INTO net_node (uuid) VALUES (?)",
 		netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	volUUID := "some-vol-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
-		volUUID, "some-vol", 0, 0)
+		volUUID, "some-vol", 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	vaUUID := "some-va-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
-		vaUUID, volUUID, netNodeUUID, 0, 0)
+		vaUUID, volUUID, netNodeUUID, 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	return volUUID, vaUUID
@@ -853,23 +1902,23 @@ func (s *storageSuite) addAttachedVolumeWithPlan(c *tc.C) (string, string, strin
 	ctx := c.Context()
 
 	netNodeUUID := "some-net-node-uuid"
-	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)",
+	_, err := s.DB().ExecContext(ctx, "INSERT OR IGNORE INTO net_node (uuid) VALUES (?)",
 		netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	volUUID := "some-vol-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
-		volUUID, "some-vol", 0, 0)
+		volUUID, "some-vol", 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	vaUUID := "some-va-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
-		vaUUID, volUUID, netNodeUUID, 0, 0)
+		vaUUID, volUUID, netNodeUUID, 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	vapUUID := "some-vap-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume_attachment_plan (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
-		vapUUID, volUUID, netNodeUUID, 0, 0)
+		vapUUID, volUUID, netNodeUUID, 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
 	return volUUID, vaUUID, vapUUID
@@ -884,4 +1933,126 @@ func (s *storageSuite) setStorageAttachmentDead(c *tc.C, saUUID string) {
 		saUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setStorageAttachmentLife(
+	c *tc.C, saUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_attachment SET life_id = ? WHERE uuid = ?", lifeId, saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setStorageInstanceLife(
+	c *tc.C, siUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_instance SET life_id = ? WHERE uuid = ?", lifeId, siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setVolumeLife(
+	c *tc.C, volUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_volume SET life_id = ? WHERE uuid = ?", lifeId, volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setFilesystemLife(
+	c *tc.C, fsUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_filesystem SET life_id = ? WHERE uuid = ?", lifeId, fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setFilesystemAttachmentLife(
+	c *tc.C, fsaUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_filesystem_attachment SET life_id = ? WHERE uuid = ?", lifeId, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setVolumeAttachmentLife(
+	c *tc.C, vaUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_volume_attachment SET life_id = ? WHERE uuid = ?", lifeId, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) setVolumeAttachmentPlanLife(
+	c *tc.C, vapUUID string, lifeId int,
+) {
+	_, err := s.DB().Exec("UPDATE storage_volume_attachment_plan SET life_id = ? WHERE uuid = ?", lifeId, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) addStorageInstanceVolume(
+	c *tc.C, siUUID, volUUID string,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES (?, ?)`, siUUID, volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) addStorageInstanceFilesystem(
+	c *tc.C, siUUID, fsUUID string,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
+VALUES (?, ?)`, siUUID, fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) deleteStorageAttachment(
+	c *tc.C, saUUID string,
+) {
+	_, err := s.DB().Exec("DELETE FROM storage_attachment WHERE uuid = ?", saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) deleteVolumeAttachment(
+	c *tc.C, vaUUID string,
+) {
+	_, err := s.DB().Exec("DELETE FROM storage_volume_attachment WHERE uuid = ?", vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) addMachine(c *tc.C) string {
+	ctx := c.Context()
+
+	node := "some-net-node-uuid"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", node)
+	c.Assert(err, tc.ErrorIsNil)
+
+	machine := "some-machine-uuid"
+	_, err = s.DB().ExecContext(
+		ctx,
+		"INSERT INTO machine (uuid, name, life_id, net_node_uuid) VALUES (?, ?, ?, ?)",
+		machine, machine, 0, node)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return machine
+}
+
+func (s *storageSuite) addMachineVolume(c *tc.C, machineUUID, volUUID string) {
+	ctx := c.Context()
+
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO machine_volume (machine_uuid, volume_uuid) VALUES (?, ?)",
+		machineUUID, volUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) addMachineFilesystem(c *tc.C, machineUUID, fsUUID string) {
+	ctx := c.Context()
+
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO machine_filesystem (machine_uuid, filesystem_uuid) VALUES (?, ?)",
+		machineUUID, fsUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func indeterminateProvisioningScope() int {
+	return rand.Intn(2)
 }

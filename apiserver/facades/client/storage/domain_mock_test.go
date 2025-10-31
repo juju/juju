@@ -250,6 +250,44 @@ func (c *MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall) DoAndReturn
 	return c
 }
 
+// RemoveStorageInstance mocks base method.
+func (m *MockRemovalService) RemoveStorageInstance(arg0 context.Context, arg1 storage.StorageInstanceUUID, arg2 bool, arg3 time.Duration, arg4 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveStorageInstance", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveStorageInstance indicates an expected call of RemoveStorageInstance.
+func (mr *MockRemovalServiceMockRecorder) RemoveStorageInstance(arg0, arg1, arg2, arg3, arg4 any) *MockRemovalServiceRemoveStorageInstanceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveStorageInstance", reflect.TypeOf((*MockRemovalService)(nil).RemoveStorageInstance), arg0, arg1, arg2, arg3, arg4)
+	return &MockRemovalServiceRemoveStorageInstanceCall{Call: call}
+}
+
+// MockRemovalServiceRemoveStorageInstanceCall wrap *gomock.Call
+type MockRemovalServiceRemoveStorageInstanceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemovalServiceRemoveStorageInstanceCall) Return(arg0 error) *MockRemovalServiceRemoveStorageInstanceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemovalServiceRemoveStorageInstanceCall) Do(f func(context.Context, storage.StorageInstanceUUID, bool, time.Duration, bool) error) *MockRemovalServiceRemoveStorageInstanceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemovalServiceRemoveStorageInstanceCall) DoAndReturn(f func(context.Context, storage.StorageInstanceUUID, bool, time.Duration, bool) error) *MockRemovalServiceRemoveStorageInstanceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockStorageService is a mock of StorageService interface.
 type MockStorageService struct {
 	ctrl     *gomock.Controller

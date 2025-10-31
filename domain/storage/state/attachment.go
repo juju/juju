@@ -120,8 +120,8 @@ AND    unit_uuid = $unitUUID.uuid`,
 // slice.
 //
 // The following errors may be returned:
-// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound]
-// if the storage instance for the supplied uuid does not exist.
+// - [domainstorageerrors.StorageInstanceNotFound] if the storage instance for
+// the supplied uuid does not exist.
 func (s *State) GetStorageInstanceAttachments(
 	ctx context.Context,
 	uuid domainstorage.StorageInstanceUUID,

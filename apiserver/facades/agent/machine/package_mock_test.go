@@ -419,41 +419,41 @@ func (c *MockMachineServiceSetMachineHostnameCall) DoAndReturn(f func(context.Co
 	return c
 }
 
-// WatchMachineAndMachineUnitLife mocks base method.
-func (m *MockMachineService) WatchMachineAndMachineUnitLife(arg0 context.Context, arg1 machine.Name) (watcher.Watcher[struct{}], error) {
+// WatchMachineLifeAndDependants mocks base method.
+func (m *MockMachineService) WatchMachineLifeAndDependants(arg0 context.Context, arg1 machine.Name) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchMachineAndMachineUnitLife", arg0, arg1)
+	ret := m.ctrl.Call(m, "WatchMachineLifeAndDependants", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchMachineAndMachineUnitLife indicates an expected call of WatchMachineAndMachineUnitLife.
-func (mr *MockMachineServiceMockRecorder) WatchMachineAndMachineUnitLife(arg0, arg1 any) *MockMachineServiceWatchMachineAndMachineUnitLifeCall {
+// WatchMachineLifeAndDependants indicates an expected call of WatchMachineLifeAndDependants.
+func (mr *MockMachineServiceMockRecorder) WatchMachineLifeAndDependants(arg0, arg1 any) *MockMachineServiceWatchMachineLifeAndDependantsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachineAndMachineUnitLife", reflect.TypeOf((*MockMachineService)(nil).WatchMachineAndMachineUnitLife), arg0, arg1)
-	return &MockMachineServiceWatchMachineAndMachineUnitLifeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachineLifeAndDependants", reflect.TypeOf((*MockMachineService)(nil).WatchMachineLifeAndDependants), arg0, arg1)
+	return &MockMachineServiceWatchMachineLifeAndDependantsCall{Call: call}
 }
 
-// MockMachineServiceWatchMachineAndMachineUnitLifeCall wrap *gomock.Call
-type MockMachineServiceWatchMachineAndMachineUnitLifeCall struct {
+// MockMachineServiceWatchMachineLifeAndDependantsCall wrap *gomock.Call
+type MockMachineServiceWatchMachineLifeAndDependantsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceWatchMachineAndMachineUnitLifeCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockMachineServiceWatchMachineAndMachineUnitLifeCall {
+func (c *MockMachineServiceWatchMachineLifeAndDependantsCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockMachineServiceWatchMachineLifeAndDependantsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceWatchMachineAndMachineUnitLifeCall) Do(f func(context.Context, machine.Name) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchMachineAndMachineUnitLifeCall {
+func (c *MockMachineServiceWatchMachineLifeAndDependantsCall) Do(f func(context.Context, machine.Name) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchMachineLifeAndDependantsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceWatchMachineAndMachineUnitLifeCall) DoAndReturn(f func(context.Context, machine.Name) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchMachineAndMachineUnitLifeCall {
+func (c *MockMachineServiceWatchMachineLifeAndDependantsCall) DoAndReturn(f func(context.Context, machine.Name) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchMachineLifeAndDependantsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

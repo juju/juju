@@ -108,6 +108,7 @@ func newUniterAPIWithServices(
 	storageAPI, err := newStorageAPI(
 		services.BlockDeviceService,
 		services.ApplicationService,
+		services.RemovalService,
 		services.StorageProvisioningService,
 		watcherRegistry,
 		accessUnit,

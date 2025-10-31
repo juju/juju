@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/blockdevice"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -20,6 +21,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	domainremoval "github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
@@ -54,6 +56,16 @@ type RemovalService interface {
 		force bool,
 		wait time.Duration,
 	) (domainremoval.UUID, error)
+
+	// RemoveStorageInstance ensures that the specified storage instance is no
+	// longer alive, scheduling removal jobs if needed and if specified, mark the
+	// volume and filesystems for obliteration.
+	RemoveStorageInstance(
+		ctx context.Context,
+		uuid domainstorage.StorageInstanceUUID,
+		force bool, wait time.Duration,
+		obliterate bool,
+	) error
 }
 
 // StorageService defines apis on the storage service.
@@ -349,8 +361,98 @@ func (a *StorageAPI) AddToUnit(ctx context.Context, args params.StoragesAddParam
 // destroyed, then the associated cloud storage will be destroyed first;
 // otherwise it will only be released from Juju's control.
 func (a *StorageAPI) Remove(ctx context.Context, args params.RemoveStorage) (params.ErrorResults, error) {
-	result := make([]params.ErrorResult, len(args.Storage))
-	return params.ErrorResults{Results: result}, nil
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.ErrorResults{}, errors.Capture(err)
+	}
+
+	one := func(arg params.RemoveStorageInstance) error {
+		tag, err := names.ParseStorageTag(arg.Tag)
+		if err != nil {
+			return errors.New("invalid storage tag").Add(coreerrors.NotValid)
+		}
+		return a.removeStorageInstance(ctx, tag, arg)
+	}
+
+	results := make([]params.ErrorResult, 0, len(args.Storage))
+	for _, v := range args.Storage {
+		var result params.ErrorResult
+		err := one(v)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		}
+		results = append(results, result)
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+// removeStorageInstance performs the operations to remove a storage instance
+// for the corresponding Remove facade method.
+func (a *StorageAPI) removeStorageInstance(
+	ctx context.Context, tag names.StorageTag, arg params.RemoveStorageInstance,
+) error {
+	force := false
+	if arg.Force != nil {
+		force = *arg.Force
+	}
+	wait := time.Duration(0)
+	if arg.MaxWait != nil {
+		wait = *arg.MaxWait
+	}
+	if wait < 0 {
+		return errors.Errorf(
+			"max wait time cannot be a negative number",
+		).Add(coreerrors.NotValid)
+	}
+
+	uuid, err := a.storageService.GetStorageInstanceUUIDForID(ctx, tag.Id())
+	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+		return errors.Errorf("storage %q does not exist", tag.Id()).Add(
+			coreerrors.NotFound,
+		)
+	} else if err != nil {
+		return errors.Errorf(
+			"getting storage instance uuid for storage id %q: %w",
+			tag.Id(), err,
+		)
+	}
+
+	if arg.DestroyAttachments {
+		saUUIDs, err := a.storageService.GetStorageInstanceAttachments(
+			ctx, uuid)
+		if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+			return errors.Errorf("storage %q does not exist", tag.Id()).Add(
+				coreerrors.NotFound,
+			)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting attachments of storage instance %q: %w",
+				tag.Id(), err,
+			)
+		}
+		for _, saUUID := range saUUIDs {
+			_, err := a.removalService.RemoveStorageAttachmentFromAliveUnit(
+				ctx, saUUID, force, wait)
+			if err != nil {
+				return errors.Errorf(
+					"removing storage attachment %q for storage %q:",
+					saUUID, tag.Id(),
+				)
+			}
+		}
+	}
+
+	obliterate := arg.DestroyStorage
+	err = a.removalService.RemoveStorageInstance(
+		ctx, uuid, force, wait, obliterate)
+	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+		return errors.Errorf("storage %q does not exist", tag.Id()).Add(
+			coreerrors.NotFound,
+		)
+	} else if err != nil {
+		return errors.Errorf("removing storage %q: %w", tag.Id(), err)
+	}
+
+	return nil
 }
 
 // Attach attaches existing storage instances to units.

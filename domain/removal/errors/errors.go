@@ -48,6 +48,10 @@ const (
 	// still hosts units
 	MachineHasUnits = errors.ConstError("machine has units")
 
+	// MachineHasStorge indicates that a machine cannont be deleted because it
+	// still has storage.
+	MachineHasStorage = errors.ConstError("machine has storage")
+
 	// OfferHasRelations indicates that an offer cannot be deleted because it
 	// still has relations
 	OfferHasRelations = errors.ConstError("offer has relations")
@@ -67,4 +71,20 @@ const (
 	// StorageFulfilmentNotMet indicates that removing a storage entity from
 	// the model the fulfilment expectation was not met.
 	StorageFulfilmentNotMet = errors.ConstError("storage fulfilment not met")
+
+	// StorageFilesystemNoTombstoned indicates that the filesystem is dead but
+	// cannot be removed until it has the tombstone status.
+	StorageFilesystemNoTombstone = errors.ConstError("filesystem status is not tombstone")
+
+	// StorageVolumeNoTombstoned indicates that the volume is dead but
+	// cannot be removed until it has the tombstone status.
+	StorageVolumeNoTombstone = errors.ConstError("volume status is not tombstone")
+
+	// StorageInstanceHasChildren indicates that the storage instance cannot
+	// be dead until it has no children.
+	StorageInstanceHasChildren = errors.ConstError("storage instance has children")
+
+	// StorageInstanceStillAttached indicates that the storage instance cannot
+	// be removed without force as it still has attachments.
+	StorageInstanceStillAttached = errors.ConstError("storage instance still attached")
 )

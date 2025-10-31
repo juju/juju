@@ -108,7 +108,7 @@ END;
 
 CREATE TRIGGER trg_log_custom_%[2]s_%[3]s_lifecycle_update
 AFTER UPDATE ON %[2]s FOR EACH ROW
-WHEN 
+WHEN
 	NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
@@ -125,39 +125,138 @@ END;`[1:], namespace, tableName, field)
 	}
 }
 
-func triggerMachineUnitLifecycle(namespace int) func() schema.Patch {
+func triggerMachineLifecycleWithDependants(namespace int) func() schema.Patch {
 	return func() schema.Patch {
 		stmt := fmt.Sprintf(`
-INSERT INTO change_log_namespace VALUES (%[1]d, 'custom_machine_unit_name_lifecycle', 'Changes to the lifecycle of machines units (name) entities');
+INSERT INTO change_log_namespace VALUES (%[1]d, 'custom_machine_uuid_lifecycle_with_dependants', 'Changes to the lifecycle of machines, machine units and storage entities for the machine');
 
-CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_insert
+-- machine life triggers
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_insert
+AFTER INSERT ON machine FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES(1, %[1]d, NEW.uuid, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_update
+AFTER UPDATE ON machine FOR EACH ROW
+WHEN
+    NEW.life_id != OLD.life_id
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES(2, %[1]d, OLD.uuid, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_delete
+AFTER DELETE ON machine FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES(4, %[1]d, OLD.uuid, DATETIME('now'));
+END;
+
+-- machine parent (child) life triggers
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_parent_insert
+AFTER INSERT ON machine_parent FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES(1, %[1]d, NEW.parent_uuid, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_parent_update
+AFTER UPDATE ON machine FOR EACH ROW
+WHEN
+    NEW.life_id != OLD.life_id
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 2, %[1]d, mp.parent_uuid, DATETIME('now')
+    FROM machine_parent AS mp
+    WHERE mp.machine_uuid = OLD.uuid;
+END;
+
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_parent_delete
+AFTER DELETE ON machine FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 4, %[1]d, mp.parent_uuid, DATETIME('now')
+    FROM machine_parent AS mp
+    WHERE mp.machine_uuid = OLD.uuid;
+END;
+
+-- unit on machine life triggers
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_unit_insert
 AFTER INSERT ON unit FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 1, %[1]d, m.name, DATETIME('now', 'utc')
+    SELECT 1, %[1]d, m.uuid, DATETIME('now', 'utc')
     FROM machine AS m
     WHERE m.net_node_uuid = NEW.net_node_uuid;
 END;
 
-CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_update
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_unit_update
 AFTER UPDATE ON unit FOR EACH ROW
-WHEN 
-	NEW.life_id != OLD.life_id
+WHEN
+    NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 2, %[1]d, m.name, DATETIME('now', 'utc')
+    SELECT 2, %[1]d, m.uuid, DATETIME('now', 'utc')
     FROM machine AS m
     WHERE m.net_node_uuid = OLD.net_node_uuid;
 END;
 
-CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_delete
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_unit_delete
 AFTER DELETE ON unit FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 4, %[1]d, m.name, DATETIME('now', 'utc')
+    SELECT 4, %[1]d, m.uuid, DATETIME('now', 'utc')
+    FROM machine m
+    WHERE m.net_node_uuid = OLD.net_node_uuid;
+END;
+
+-- machine_filesystem delete trigger
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_filesystem_delete
+AFTER DELETE ON machine_filesystem FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES(4, %[1]d, OLD.machine_uuid, DATETIME('now'));
+END;
+
+-- machine_volume delete trigger
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_volume_delete
+AFTER DELETE ON machine_volume FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES(4, %[1]d, OLD.machine_uuid, DATETIME('now'));
+END;
+
+-- storage_filesystem_attachment on machine net node delete trigger
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_storage_filesystem_attachment_delete
+AFTER DELETE ON storage_filesystem_attachment FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 4, %[1]d, m.uuid, DATETIME('now')
     FROM machine AS m
     WHERE m.net_node_uuid = OLD.net_node_uuid;
- END;`[1:], namespace)
+END;
+
+-- storage_volume_attachment on machine net node delete trigger
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_storage_volume_attachment_delete
+AFTER DELETE ON storage_volume_attachment FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 4, %[1]d, m.uuid, DATETIME('now')
+    FROM machine AS m
+    WHERE m.net_node_uuid = OLD.net_node_uuid;
+END;
+
+-- storage_volume_attachment_plan on machine net node delete trigger
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_storage_volume_attachment_plan_delete
+AFTER DELETE ON storage_volume_attachment_plan FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 4, %[1]d, m.uuid, DATETIME('now')
+    FROM machine AS m
+    WHERE m.net_node_uuid = OLD.net_node_uuid;
+END;`[1:], namespace)
 		return schema.MakePatch(stmt)
 	}
 }

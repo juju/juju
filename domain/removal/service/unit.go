@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
@@ -137,8 +138,105 @@ func (s *Service) RemoveUnit(
 	}
 
 	for _, a := range cascaded.StorageAttachmentUUIDs {
+		if force && wait > 0 {
+			if _, err := s.storageAttachmentScheduleRemoval(
+				ctx, storageprovisioning.StorageAttachmentUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
 		if _, err := s.storageAttachmentScheduleRemoval(
 			ctx, storageprovisioning.StorageAttachmentUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	for _, a := range cascaded.StorageInstanceUUIDs {
+		if force && wait > 0 {
+			if _, err := s.storageInstanceScheduleRemoval(
+				ctx, storage.StorageInstanceUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.storageInstanceScheduleRemoval(
+			ctx, storage.StorageInstanceUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	for _, a := range cascaded.FileSystemAttachmentUUIDs {
+		if force && wait > 0 {
+			if _, err := s.filesystemAttachmentScheduleRemoval(
+				ctx, storageprovisioning.FilesystemAttachmentUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.filesystemAttachmentScheduleRemoval(
+			ctx, storageprovisioning.FilesystemAttachmentUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	for _, a := range cascaded.VolumeAttachmentUUIDs {
+		if force && wait > 0 {
+			if _, err := s.volumeAttachmentScheduleRemoval(
+				ctx, storageprovisioning.VolumeAttachmentUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.volumeAttachmentScheduleRemoval(
+			ctx, storageprovisioning.VolumeAttachmentUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	for _, a := range cascaded.VolumeAttachmentPlanUUIDs {
+		if force && wait > 0 {
+			if _, err := s.volumeAttachmentPlanScheduleRemoval(
+				ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.volumeAttachmentPlanScheduleRemoval(
+			ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	for _, a := range cascaded.FileSystemUUIDs {
+		if force && wait > 0 {
+			if _, err := s.filesystemScheduleRemoval(
+				ctx, storageprovisioning.FilesystemUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.filesystemScheduleRemoval(
+			ctx, storageprovisioning.FilesystemUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	for _, a := range cascaded.VolumeUUIDs {
+		if force && wait > 0 {
+			if _, err := s.volumeScheduleRemoval(
+				ctx, storageprovisioning.VolumeUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.volumeScheduleRemoval(
+			ctx, storageprovisioning.VolumeUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}

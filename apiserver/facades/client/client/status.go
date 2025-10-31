@@ -9,6 +9,7 @@ import (
 	"maps"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -1309,11 +1310,16 @@ func processStorage(
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
+	zeroTime := time.UnixMicro(0).UTC()
 	storageMap := map[string]*params.StorageDetails{}
 	for _, v := range storageInstances {
 		details := params.StorageDetails{
 			StorageTag: names.NewStorageTag(v.ID).String(),
 			Life:       v.Life,
+			Status: params.EntityStatus{
+				Status: status.Unknown,
+				Since:  &zeroTime,
+			},
 		}
 		if v.Owner != nil {
 			details.OwnerTag = names.NewUnitTag(v.Owner.String()).String()

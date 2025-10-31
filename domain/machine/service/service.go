@@ -145,9 +145,9 @@ type State interface {
 	// tracking machine lifecycle events in the model.
 	NamespaceForMachineLife() string
 
-	// NamespaceForMachineAndMachineUnitLife returns the namespace string used
-	// for tracking machine and machine unit lifecycle events in the model.
-	NamespaceForMachineAndMachineUnitLife() (string, string)
+	// NamespaceForMachineLifeAndDependants returns the namespace string used
+	// for tracking machine lifecycle events and dependants in the model.
+	NamespaceForMachineLifeAndDependants() string
 
 	// InitialMachineContainerLifeStatement returns the table and the initial
 	// watch statement for watching life changes of container machines.

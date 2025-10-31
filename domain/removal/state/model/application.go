@@ -201,7 +201,7 @@ AND    life_id = 0`, applicationUUID)
 				res.MachineUUIDs = append(res.MachineUUIDs, *cascaded.MachineUUID)
 			}
 
-			res.StorageAttachmentUUIDs = append(res.StorageAttachmentUUIDs, cascaded.StorageAttachmentUUIDs...)
+			res.CascadedStorageLives = res.CascadedStorageLives.Merge(cascaded.CascadedStorageLives)
 		}
 
 		return nil

@@ -225,7 +225,8 @@ INSERT INTO storage_volume_status_value VALUES
 (3, 'attached'),
 (4, 'detaching'),
 (5, 'detached'),
-(6, 'destroying');
+(6, 'destroying'),
+(7, 'tombstone');
 
 CREATE TABLE storage_volume_status (
     volume_uuid TEXT NOT NULL PRIMARY KEY,
@@ -351,7 +352,8 @@ INSERT INTO storage_filesystem_status_value VALUES
 (3, 'attached'),
 (4, 'detaching'),
 (5, 'detached'),
-(6, 'destroying');
+(6, 'destroying'),
+(7, 'tombstone');
 
 CREATE TABLE storage_filesystem_status (
     filesystem_uuid TEXT NOT NULL PRIMARY KEY,

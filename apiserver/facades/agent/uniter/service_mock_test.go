@@ -3196,6 +3196,44 @@ func (c *MockRemovalServiceLeaveScopeCall) DoAndReturn(f func(context.Context, r
 	return c
 }
 
+// MarkStorageAttachmentAsDead mocks base method.
+func (m *MockRemovalService) MarkStorageAttachmentAsDead(arg0 context.Context, arg1 storageprovisioning.StorageAttachmentUUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkStorageAttachmentAsDead", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkStorageAttachmentAsDead indicates an expected call of MarkStorageAttachmentAsDead.
+func (mr *MockRemovalServiceMockRecorder) MarkStorageAttachmentAsDead(arg0, arg1 any) *MockRemovalServiceMarkStorageAttachmentAsDeadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkStorageAttachmentAsDead", reflect.TypeOf((*MockRemovalService)(nil).MarkStorageAttachmentAsDead), arg0, arg1)
+	return &MockRemovalServiceMarkStorageAttachmentAsDeadCall{Call: call}
+}
+
+// MockRemovalServiceMarkStorageAttachmentAsDeadCall wrap *gomock.Call
+type MockRemovalServiceMarkStorageAttachmentAsDeadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemovalServiceMarkStorageAttachmentAsDeadCall) Return(arg0 error) *MockRemovalServiceMarkStorageAttachmentAsDeadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemovalServiceMarkStorageAttachmentAsDeadCall) Do(f func(context.Context, storageprovisioning.StorageAttachmentUUID) error) *MockRemovalServiceMarkStorageAttachmentAsDeadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemovalServiceMarkStorageAttachmentAsDeadCall) DoAndReturn(f func(context.Context, storageprovisioning.StorageAttachmentUUID) error) *MockRemovalServiceMarkStorageAttachmentAsDeadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MarkUnitAsDead mocks base method.
 func (m *MockRemovalService) MarkUnitAsDead(arg0 context.Context, arg1 unit.UUID) error {
 	m.ctrl.T.Helper()
