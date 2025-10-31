@@ -12,8 +12,10 @@ const (
 // ProhibitedFilesystemAttachmentLocations returns a list of locations for which
 // a filesystem attachment is prohibited from being requested to mount at.
 func ProhibitedFilesystemAttachmentLocations() []string {
+	const kubernetesCharmDir = "/charm"
+
 	return []string{
-		"/charm", // Used by Kubernetes provider
+		kubernetesCharmDir,
 		DefaultFilesystemAttachmentDir,
 	}
 }
