@@ -607,6 +607,12 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 			},
 		},
 		FilesystemTemplates: []storageprovisioning.FilesystemTemplate{{
+			Attachments: []storageprovisioning.FilesystemAttachmentTemplate{
+				{
+					MountPoint: "/charm-defined-location/data/0",
+					ReadOnly:   false,
+				},
+			},
 			StorageName:  "data",
 			Count:        1,
 			SizeMiB:      100,
