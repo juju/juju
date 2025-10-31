@@ -181,6 +181,7 @@ func (w *srvRelationUnitsWatcher) Next(ctx context.Context) (params.RelationUnit
 // params.RemoteRelationChangeEvents so they can be used across model/controller
 // boundaries.
 type srvRemoteRelationWatcher struct {
+	watcherCommon
 	watcher         crossmodelrelations.RelationChangesWatcher
 	relationService RelationService
 }
@@ -208,6 +209,7 @@ func newRemoteRelationWatcher(_ context.Context, context facade.ModelContext) (f
 	domainServices := context.DomainServices()
 
 	return &srvRemoteRelationWatcher{
+		watcherCommon:   newWatcherCommon(context),
 		watcher:         watcher,
 		relationService: domainServices.Relation(),
 	}, nil
@@ -282,13 +284,14 @@ func (w *srvRemoteRelationWatcher) Next(ctx context.Context) (params.RemoteRelat
 
 // srvRelationStatusWatcher defines the API wrapping a RelationStatusWatcher.
 type srvRelationStatusWatcher struct {
+	watcherCommon
 	watcher         crossmodelrelations.RelationStatusWatcher
 	relationService RelationService
 }
 
-func newRelationStatusWatcher(_ context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-	id := ctx.ID()
-	auth := ctx.Auth()
+func newRelationStatusWatcher(ctx context.Context, context facade.ModelContext) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
 
 	// TODO(wallyworld Oct 2017) - enhance this watcher to support
 	// anonymous api calls with macaroons. (All watchers in the file, see 3.6)
@@ -296,7 +299,7 @@ func newRelationStatusWatcher(_ context.Context, ctx facade.ModelContext) (facad
 		return nil, apiservererrors.ErrPerm
 	}
 
-	watcherRegistry := ctx.WatcherRegistry()
+	watcherRegistry := context.WatcherRegistry()
 	w, err := watcherRegistry.Get(id)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -308,7 +311,8 @@ func newRelationStatusWatcher(_ context.Context, ctx facade.ModelContext) (facad
 	}
 
 	return &srvRelationStatusWatcher{
-		relationService: ctx.DomainServices().Relation(),
+		watcherCommon:   newWatcherCommon(context),
+		relationService: context.DomainServices().Relation(),
 		watcher:         watcher,
 	}, nil
 }
@@ -324,6 +328,7 @@ func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLif
 		if !ok {
 			return params.RelationLifeSuspendedStatusWatchResult{}, apiservererrors.ErrStoppedWatcher
 		}
+
 		// TODO (hml) only send the change if not migrating
 		// If we are migrating, we do not want to inform remote watchers that
 		// the relation is dead before they have had a chance to be redirected
@@ -352,6 +357,7 @@ func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLif
 // srvOfferStatusWatcher defines the API wrapping a
 // crossmodelrelations.OfferStatusWatcher.
 type srvOfferStatusWatcher struct {
+	watcherCommon
 	watcher       crossmodelrelations.OfferWatcher
 	statusService StatusService
 }
@@ -372,6 +378,7 @@ func newOfferStatusWatcher(_ context.Context, context facade.ModelContext) (faca
 	domainServices := context.DomainServices()
 
 	return &srvOfferStatusWatcher{
+		watcherCommon: newWatcherCommon(context),
 		watcher:       watcher,
 		statusService: domainServices.Status(),
 	}, nil
