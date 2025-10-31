@@ -1365,6 +1365,118 @@ func (st *State) GetRelationUnitsChanges(
 	}, nil
 }
 
+// GetInScopeUnits returns the units of an application that are in scope for the
+// given relation.
+func (st *State) GetInScopeUnits(ctx context.Context, appUUID, relUUID string) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	applicationUUID := applicationUUID{UUID: appUUID}
+	relationUUID := relationUUID{UUID: relUUID}
+
+	stmt, err := st.Prepare(`
+SELECT u.name AS &name.name
+FROM   unit AS u
+JOIN   relation_unit AS ru ON u.uuid = ru.unit_uuid
+JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+WHERE  u.application_uuid = $applicationUUID.application_uuid
+AND    re.relation_uuid = $relationUUID.uuid
+`, name{}, applicationUUID, relationUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []name
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf("application %q does not exist", appUUID).
+				Add(applicationerrors.ApplicationNotFound)
+		}
+
+		exists, err = st.checkRelationExistsByUUID(ctx, tx, relUUID)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf("relation %q does not exist", relUUID).
+				Add(relationerrors.RelationNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, applicationUUID, relationUUID).GetAll(&result)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(result, func(res name) string { return res.Name }), nil
+}
+
+// GetUnitSettingsForUnits returns the settings for the given units, indexed by
+// the unit name
+func (st *State) GetUnitSettingsForUnits(ctx context.Context, relUUID string, uNames []string) ([]domainrelation.UnitSettings, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	unitNames := names(uNames)
+	relationUUID := relationUUID{UUID: relUUID}
+
+	stmt, err := st.Prepare(`
+SELECT
+    u.name AS &relationUnitSettingName.name,
+    rus."key" AS &relationUnitSettingName.key,
+    rus."value" AS &relationUnitSettingName.value
+FROM relation_unit_setting AS rus
+JOIN relation_unit AS ru ON rus.relation_unit_uuid = ru.uuid
+JOIN relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+JOIN unit u ON u.uuid = ru.unit_uuid
+WHERE u.name IN ($names[:])
+AND re.relation_uuid = $relationUUID.uuid
+`, relationUnitSettingName{}, unitNames, relationUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var relationUnitSettings []relationUnitSettingName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, unitNames, relationUUID).GetAll(&relationUnitSettings)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("getting unit settings: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	index := make(map[string]map[string]string)
+	for _, relationUnitSetting := range relationUnitSettings {
+		if _, ok := index[relationUnitSetting.UnitName]; !ok {
+			index[relationUnitSetting.UnitName] = make(map[string]string)
+		}
+		index[relationUnitSetting.UnitName][relationUnitSetting.Key] = relationUnitSetting.Value
+	}
+
+	res := []domainrelation.UnitSettings{}
+	for unitName, settings := range index {
+		unitID := unit.Name(unitName).Number()
+		res = append(res, domainrelation.UnitSettings{
+			UnitID:   unitID,
+			Settings: settings,
+		})
+	}
+
+	return res, nil
+}
+
 // getRelationUnit returns the unit UUID and the relation unit UUID for the
 // given relation and unit name.
 //

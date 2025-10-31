@@ -105,6 +105,13 @@ type State interface {
 		applicationUUID application.UUID,
 	) (relation.FullRelationUnitChange, error)
 
+	// GetInScopeUnits returns the units of an application that are in scope for the
+	// given relation.
+	GetInScopeUnits(ctx context.Context, applicationUUID, relationUUID string) ([]string, error)
+
+	// GetUnitSettingsForUnits returns the settings for the given units
+	GetUnitSettingsForUnits(ctx context.Context, relationUUID string, unitNames []string) ([]relation.UnitSettings, error)
+
 	// GetGoalStateRelationDataForApplication returns GoalStateRelationData for
 	// all relations the given application is in, modulo peer relations.
 	GetGoalStateRelationDataForApplication(
@@ -1095,31 +1102,33 @@ func (s *Service) GetInScopeUnits(
 			"validating application uuid: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
 	}
 
-	// TODO: implement this
-	return []unit.Name{}, nil
-}
-
-// GetUnitSettingsForUnits returns the settings for the given units.
-func (s *Service) GetUnitSettingsForUnits(ctx context.Context, unitNames []unit.Name) (map[unit.Name]map[string]interface{}, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// TODO: implement this
-	return nil, nil
-}
-
-// GetSettingsForApplication returns the settings for the given application.
-func (s *Service) GetSettingsForApplication(ctx context.Context, applicationUUID application.UUID) (map[string]interface{}, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := applicationUUID.Validate(); err != nil {
-		return nil, errors.Errorf(
-			"validating application uuid: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
+	unitNames, err := s.st.GetInScopeUnits(ctx, applicationUUID.String(), relationUUID.String())
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
 
-	// TODO: implement this
-	return nil, nil
+	return transform.SliceOrErr(unitNames, unit.NewName)
+}
+
+// GetUnitSettingsForUnits returns the settings for the given units, indexed by
+// the unit name
+func (s *Service) GetUnitSettingsForUnits(ctx context.Context, relationUUID corerelation.UUID, unitNames []unit.Name) ([]relation.UnitSettings, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	for _, unitName := range unitNames {
+		if err := unitName.Validate(); err != nil {
+			return nil, err
+		}
+	}
+
+	settings, err := s.st.GetUnitSettingsForUnits(ctx, relationUUID.String(), transform.Slice(unitNames,
+		func(in unit.Name) string { return in.String() }))
+	if err != nil {
+		return nil, err
+	}
+
+	return settings, nil
 }
 
 // GetConsumerRelationUnitsChange returns the versions of the relation units
