@@ -283,7 +283,7 @@ func (s *AgentBinaryStore) GetAgentBinaryWithSHA256(
 
 	hasAgentBinary, sha256Sum, err := s.st.GetAgentBinarySHA256(ctx, ver, stream)
 	if err != nil {
-		return nil, 0, "", errors.Errorf("checking availability of agent binary in controller store: %w", err)
+		return nil, 0, "", errors.Errorf("checking availability of agent binary in agent binary store: %w", err)
 	}
 
 	if !hasAgentBinary {
@@ -296,10 +296,9 @@ func (s *AgentBinaryStore) GetAgentBinaryWithSHA256(
 	}
 	reader, size, err := store.GetBySHA256(ctx, sha256Sum)
 	if errors.Is(err, intobjectstoreerrors.ObjectNotFound) {
-		return nil, 0, "", errors.New("agent binary not found in controller store").Add(agentbinaryerrors.NotFound)
+		return nil, 0, "", errors.New("agent binary not found in agent binary object store").Add(agentbinaryerrors.NotFound)
 	} else if err != nil {
-		return nil, 0, "", errors.Errorf("getting agent binary with sha %q from controller object store: %w", sha256Sum, err)
-
+		return nil, 0, "", errors.Errorf("getting agent binary with sha %q from agent binary object store: %w", sha256Sum, err)
 	}
 	return reader, size, sha256Sum, nil
 }

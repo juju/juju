@@ -33,6 +33,70 @@ type AgentBinaryDiscoverableStore interface {
 	) (io.ReadCloser, int64, string, error)
 }
 
+type AgentBinaryLocalStore interface {
+	// AddAgentBinaryWithSHA256 adds a new agent binary to the object store and saves its metadata to the database.
+	// The following errors can be returned:
+	// - [coreerrors.NotSupported] if the architecture is not supported.
+	// - [agentbinaryerrors.AlreadyExists] if an agent binary already exists for
+	// this version and architecture.
+	// - [agentbinaryerrors.ObjectNotFound] if there was a problem referencing the
+	// agent binary metadata with the previously saved binary object. This error
+	// should be considered an internal problem. It is discussed here to make the
+	// caller aware of future problems.
+	// - [coreerrors.NotValid] if the agent version is not valid.
+	// - [agentbinaryerrors.HashMismatch] when the expected sha does not match that
+	// which was computed against the binary data.
+	AddAgentBinaryWithSHA256(
+		ctx context.Context, r io.Reader,
+		version coreagentbinary.Version,
+		size int64, sha256 string,
+	) error
+
+	// GetAgentBinaryWithSHA256 retrieves the agent binary corresponding to the given version
+	// and stream from an external store.
+	// The caller is responsible for closing the returned reader.
+	//
+	// The following errors may be returned:
+	// - [domainagenterrors.NotFound] if the agent binary metadata does not exist.
+	GetAgentBinaryWithSHA256(
+		context.Context,
+		coreagentbinary.Version,
+		agentbinary.Stream,
+	) (io.ReadCloser, int64, string, error)
+
+	// AddAgentBinaryWithSHA384 adds a new agent binary to the store and saves its
+	// metadata to the database.
+	//
+	// The following errors can be returned:
+	// - [github.com/juju/juju/core/errors.NotSupported] if the architecture is
+	// not supported.
+	// - [github.com/juju/juju/domain/agentbinary/errors.AlreadyExists] if an
+	// agent binary already exists for this version architecture and stream.
+	// - [agentbinaryerrors.ObjectNotFound] if there was a problem referencing
+	// the agent binary metadata with the previously saved binary object. This
+	// error should be considered an internal problem. It is discussed here to
+	// make the caller aware of future problems.
+	// - [coreerrors.NotValid] when the agent version is not considered valid.
+	// - [agentbinaryerrors.HashMismatch] when the expected sha does not match
+	// that which was computed against the binary data.
+	AddAgentBinaryWithSHA384(
+		ctx context.Context,
+		r io.Reader,
+		version coreagentbinary.Version,
+		size int64,
+		sha384 string,
+	) error
+
+	// GetAgentBinaryUsingSHA256 returns the agent binary associated with the given
+	// SHA256 sum. The following errors can be expected:
+	// - [agentbinaryerrors.NotFound] when no agent binaries exist for the provided
+	// sha.
+	GetAgentBinaryUsingSHA256(
+		ctx context.Context,
+		sha256Sum string,
+	) (io.ReadCloser, int64, error)
+}
+
 type ModelState interface {
 	// GetAgentStream returns the stream currently in use by the model.
 	GetAgentStream(ctx context.Context) (agentbinary.Stream, error)
@@ -61,7 +125,7 @@ type AgentBinaryService struct {
 	controllerState              ControllerState
 	externalStores               []AgentBinaryDiscoverableStore
 	modelState                   ModelState
-	store                        *AgentBinaryStore
+	store                        AgentBinaryLocalStore
 }
 
 // NewAgentBinaryService returns a new instance of AgentBinaryService.
@@ -73,7 +137,7 @@ func NewAgentBinaryService(
 	agentBinaryFilter AgentBinaryFilter,
 	controllerState ControllerState,
 	modelState ModelState,
-	store *AgentBinaryStore,
+	store AgentBinaryLocalStore,
 	externalStores ...AgentBinaryDiscoverableStore,
 ) *AgentBinaryService {
 	return &AgentBinaryService{
