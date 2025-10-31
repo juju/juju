@@ -627,6 +627,7 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependantsWithStorage(c *tc.C) {
 	mvUUID := s.createMachineVolume(c, mUUID.String())
 	fsUUID := s.createAttachedFilesystem(c, mUUID.String())
 	vUUID := s.createAttachedVolume(c, mUUID.String())
+	pvUUID := s.createPlanAttachedVolume(c, mUUID.String())
 
 	s.AssertChangeStreamIdle(c)
 
@@ -654,6 +655,12 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependantsWithStorage(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		s.deleteVolume(c, vUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteVolume(c, pvUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -1005,6 +1012,12 @@ DELETE FROM storage_volume_attachment WHERE storage_volume_uuid = ?
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
+DELETE FROM storage_volume_attachment_plan WHERE storage_volume_uuid = ?
+			`, volUUID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
 DELETE FROM storage_volume WHERE uuid = ?
 			`, volUUID)
 		if err != nil {
@@ -1080,6 +1093,34 @@ VALUES (?, ?, ?, ?)
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, life_id,
                                        provision_scope_id, net_node_uuid)
+VALUES (?, ?, ?, ?, (SELECT net_node_uuid FROM machine WHERE uuid = ?))
+		`, vaUUID, volUUID, 0, 0, machineUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	err := s.ModelTxnRunner().StdTxn(c.Context(), txn)
+	c.Assert(err, tc.ErrorIsNil)
+	return volUUID
+}
+
+func (s *watcherSuite) createPlanAttachedVolume(
+	c *tc.C, machineUUID string,
+) string {
+	volUUID := tc.Must(c, storageprovisioning.NewVolumeUUID).String()
+	vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID).String()
+	txn := func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
+VALUES (?, ?, ?, ?)
+		`, volUUID, "2", 0, 0)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_volume_attachment_plan (uuid, storage_volume_uuid, life_id,
+                                            provision_scope_id, net_node_uuid)
 VALUES (?, ?, ?, ?, (SELECT net_node_uuid FROM machine WHERE uuid = ?))
 		`, vaUUID, volUUID, 0, 0, machineUUID)
 		if err != nil {

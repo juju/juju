@@ -246,6 +246,16 @@ BEGIN
     SELECT 4, %[1]d, m.uuid, DATETIME('now')
     FROM machine AS m
     WHERE m.net_node_uuid = OLD.net_node_uuid;
+END;
+
+-- storage_volume_attachment_plan on machine net node delete trigger
+CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_storage_volume_attachment_plan_delete
+AFTER DELETE ON storage_volume_attachment_plan FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 4, %[1]d, m.uuid, DATETIME('now')
+    FROM machine AS m
+    WHERE m.net_node_uuid = OLD.net_node_uuid;
 END;`[1:], namespace)
 		return schema.MakePatch(stmt)
 	}
