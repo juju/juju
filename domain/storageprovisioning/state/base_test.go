@@ -587,8 +587,9 @@ func (s *baseSuite) newFilesystemCharmStorageWithLocationAndCount(
 		_, err := tx.ExecContext(
 			ctx,
 			`
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, read_only, count_min, count_max, location)
-VALUES (?, ?, 1, false, ?, ?, ?)
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, read_only,
+                           count_min, count_max, location, shared)
+VALUES (?, ?, 1, false, ?, ?, ?, false)
 `,
 			charmUUID, name, countMin, countMax, location,
 		)
