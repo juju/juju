@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/internal/auth"
@@ -527,6 +529,49 @@ func (s *loginSuite) TestOtherModel(c *tc.C) {
 	err = st.Login(c.Context(), userTag, pass, "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertRemoteModel(c, st, names.NewModelTag(s.DefaultModelUUID.String()))
+}
+
+func (s *loginSuite) TestLoginExternalUser(c *tc.C) {
+	userTag := names.NewUserTag("alice@canonical.com")
+	name := user.NameFromTag(userTag)
+
+	accessService := s.ControllerDomainServices(c).Access()
+
+	// assert the external user does not exist yet
+	_, err := accessService.GetUserByName(c.Context(), name)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
+
+	conn := s.openAPIWithoutLogin(c)
+
+	// setting up mock JWT authenticator
+	info := jujutesting.JWTAuthInfo{
+		User: userTag.Id(),
+		Permissions: []jujutesting.JWTPermission{{
+			ID: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+			Access: permission.LoginAccess,
+		}},
+	}
+	data, err := json.Marshal(info)
+	c.Assert(err, tc.ErrorIsNil)
+	s.SetJWTAuthInfo(string(data))
+
+	var result params.LoginResult
+	request := &params.LoginRequest{
+		AuthTag:       userTag.String(),
+		Token:         string(data),
+		ClientVersion: jujuversion.Current.String(),
+	}
+	err = conn.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.UserInfo, tc.NotNil)
+
+	// assert the user now exists
+	user, err := accessService.GetUserByName(c.Context(), name)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(user.UUID.String(), tc.NotZero)
 }
 
 func (s *loginSuite) loginLocalUser(c *tc.C, info *api.Info) (names.UserTag, params.LoginResult) {
