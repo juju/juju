@@ -39,6 +39,8 @@ var (
 
 	// Prevent the SQL commands from being printed to the console on startup.
 	quietFlag = flag.Bool("q", false, "Quiet mode")
+	// Detached mode just create the sqlite files but don't start the server.'
+	detachedFlag = flag.Bool("d", false, "Detached mode")
 
 	// Having a history of sql commands is useful for debugging and
 	// for re-running commands.
@@ -134,6 +136,10 @@ func main() {
 
 	if _, err := schema.Ensure(ctx, runner); err != nil {
 		panic(err)
+	}
+
+	if *detachedFlag {
+		return
 	}
 
 	go func() {
