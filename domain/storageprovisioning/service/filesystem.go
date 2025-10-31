@@ -377,8 +377,8 @@ func (s *Service) GetFilesystemAttachmentParams(
 
 // calculateFilesystemAttachmentMountPoint calculates the mount point for a
 // filesystem attachment. If the charmSuggestedLocation supplied is empty then
-// the value from [defaultFilesystemAttachmentDir] will be used as the base of
-// the mount point.
+// the value from [storageprovisioning.DefaultFilesystemAttachmentDir] will be
+// used as the base of the mount point.
 //
 // If the charmSuggestedLocation is non zero and the storage being attached is
 // a singleton the verbatim location will be returned to the caller. Otherwise

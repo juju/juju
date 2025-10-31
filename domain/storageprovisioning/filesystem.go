@@ -114,8 +114,8 @@ type FilesystemAttachmentParams struct {
 	// readonly.
 	CharmStorageReadOnly bool
 
-	// MachineInstanceID is the is the cloud instance id given to the machine
-	// this filesystem attachment is on to. If the attachment is not onto a
+	// MachineInstanceID is the cloud instance id given to the machine this
+	// filesystem attachment is on to. If the attachment is not onto a
 	// machine or no cloud instance id exists a zero value will be supplied.
 	MachineInstanceID string
 
