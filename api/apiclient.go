@@ -145,7 +145,8 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	bakeryClient.Client.Transport = &hostSwitchingTransport{
 		primaryHost: dialResult.controllerRootAddr.Host,
 		primary: jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
-			TLSConfig: dialResult.tlsConfig,
+			TLSConfig:         dialResult.tlsConfig,
+			DisableKeepAlives: true,
 		}),
 		fallback: http.DefaultTransport,
 	}
