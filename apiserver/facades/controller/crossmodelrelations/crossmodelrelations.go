@@ -146,7 +146,7 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 	}
 
 	switch {
-	case change.Life != life.Alive:
+	case isNotAlive(change.Life):
 		// Relations only transition to dying and are removed, so we can safely
 		// just remove the relation and return early.
 		forceCleanup := change.ForceCleanup != nil && *change.ForceCleanup
@@ -910,6 +910,18 @@ func constructRelationTag(key corerelation.Key) (names.RelationTag, error) {
 		return names.RelationTag{}, errors.NotValidf("relation key %q", key)
 	}
 	return names.NewRelationTag(relationKey), nil
+}
+
+func isNotAlive(l life.Value) bool {
+	// We just don't know the value of the life value, as it wasn't returned
+	// in the change. This will be compatible with both 3.x and 4.x controllers.
+	// Thus we assume that the life is alive.
+	if l == "" {
+		return false
+	}
+
+	// Check if the life is not alive.
+	return life.IsNotAlive(l)
 }
 
 func ptr[T any](v T) *T {
