@@ -38,7 +38,7 @@ var (
 	dbPathFlag = flag.String("db-path", "", "Path to the database")
 
 	// Prevent the SQL commands from being printed to the console on startup.
-	quiteFlag = flag.Bool("q", false, "Quite mode")
+	quietFlag = flag.Bool("q", false, "Quiet mode")
 
 	// Having a history of sql commands is useful for debugging and
 	// for re-running commands.
@@ -70,7 +70,7 @@ func main() {
 	default:
 		panic("unknown database type")
 	}
-	if !*quiteFlag {
+	if !*quietFlag {
 		schema.Hook(func(i int, stmt string) (string, error) {
 			fmt.Printf("-- Applying patch %d\n%s\n", i, stmt)
 			return stmt, nil
@@ -242,7 +242,7 @@ func dumpDB(ctx context.Context, db *sql.DB, path, name string) error {
 
 	for _, file := range files {
 		filePath := filepath.Join(path, file.Name)
-		fmt.Println("Dumping file", path)
+		fmt.Println("Dumping file", filePath)
 
 		err := os.WriteFile(filePath, file.Data, 0600)
 		if err != nil {
