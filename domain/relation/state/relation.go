@@ -410,13 +410,13 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]domainrelation.Re
 		}
 
 		// Get all endpoints for these relations in one query.
-		endpointsByRelation, err := st.getRelationEndpointsBatch(ctx, tx, relationUUIDs)
+		endpointsByRelation, err := st.getRelationEndpointsByRelationUUIDs(ctx, tx, relationUUIDs)
 		if err != nil {
 			return errors.Errorf("getting relation endpoints: %w", err)
 		}
 
 		// Get in-scope unit counts for these relations in one query.
-		inScopeCountsByRelation, err := st.countInScopeRelationsBatch(ctx, tx, relationUUIDs)
+		inScopeCountsByRelation, err := st.countInScopeRelationsByRelationUUIDs(ctx, tx, relationUUIDs)
 		if err != nil {
 			return errors.Errorf("counting in-scope relations: %w", err)
 		}
@@ -424,13 +424,22 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]domainrelation.Re
 		// Assemble the final results.
 		relationsDetails = make([]domainrelation.RelationDetailsResult, len(relations))
 		for i, rel := range relations {
+			// Check that indeed we have the resulting data for this relation.
+			endpoints, ok := endpointsByRelation[rel.UUID.String()]
+			if !ok {
+				return errors.Errorf("missing endpoints for relation %s", rel.UUID.String())
+			}
+			inScopeCount, ok := inScopeCountsByRelation[rel.UUID.String()]
+			if !ok {
+				return errors.Errorf("missing in-scope unit count for relation %s", rel.UUID.String())
+			}
 			relationsDetails[i] = domainrelation.RelationDetailsResult{
 				Life:         rel.Life,
-				UUID:         corerelation.UUID(rel.UUID),
+				UUID:         rel.UUID,
 				ID:           rel.ID,
 				Suspended:    rel.Suspended,
-				Endpoints:    endpointsByRelation[rel.UUID.String()],
-				InScopeUnits: inScopeCountsByRelation[rel.UUID.String()],
+				Endpoints:    endpoints,
+				InScopeUnits: inScopeCount,
 			}
 		}
 		return nil
@@ -3230,23 +3239,6 @@ WHERE  main.uuid = $search.uuid
 	return check(searched.Life), nil
 }
 
-// getAllRelations retrieves all relations from the database, returning a slice
-// of relationUUID or an error.
-func (st *State) getAllRelations(ctx context.Context, tx *sqlair.TX) ([]relationUUID, error) {
-	var result []relationUUID
-
-	stmt, err := st.Prepare(`
-SELECT &relationUUID.*
-FROM   relation
-`, relationUUID{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	err = tx.Query(ctx, stmt).GetAll(&result)
-
-	return result, errors.Capture(err)
-}
-
 func (st *State) getAllNonSyntheticRelationsWithDetails(ctx context.Context, tx *sqlair.TX) ([]domainrelation.RelationDetailsResult, error) {
 	var result []relationWithDetails
 
@@ -3280,9 +3272,10 @@ WHERE  oc.remote_relation_uuid IS NULL
 	return converted, nil
 }
 
-// getRelationEndpointsBatch retrieves endpoints for multiple relations in a
-// single query, returning a map from relation UUID to a slice of endpoints.
-func (st *State) getRelationEndpointsBatch(ctx context.Context, tx *sqlair.TX, relationUUIDs []string) (map[string][]domainrelation.Endpoint, error) {
+// getRelationEndpointsByRelationUUIDs retrieves endpoints for multiple
+// relations in a single query, returning a map from relation UUID to a slice of
+// endpoints.
+func (st *State) getRelationEndpointsByRelationUUIDs(ctx context.Context, tx *sqlair.TX, relationUUIDs []string) (map[string][]domainrelation.Endpoint, error) {
 	if len(relationUUIDs) == 0 {
 		return make(map[string][]domainrelation.Endpoint), nil
 	}
@@ -3314,9 +3307,9 @@ WHERE  relation_uuid IN ($relationUUIDsInput[:])
 	return result, nil
 }
 
-// countInScopeRelationsBatch counts the number of units in scope for each
-// relation in a single query, returning a map from relation UUID to count.
-func (st *State) countInScopeRelationsBatch(ctx context.Context, tx *sqlair.TX, relationUUIDs []string) (map[string]int, error) {
+// countInScopeRelationsByRelationUUIDs counts the number of units in scope for
+// each relation in a single query, returning a map from relation UUID to count.
+func (st *State) countInScopeRelationsByRelationUUIDs(ctx context.Context, tx *sqlair.TX, relationUUIDs []string) (map[string]int, error) {
 	if len(relationUUIDs) == 0 {
 		return make(map[string]int), nil
 	}
@@ -3341,7 +3334,12 @@ GROUP BY re.relation_uuid
 		return nil, errors.Capture(err)
 	}
 
+	// Initialize all relations with count 0, then update with actual counts.
+	// This ensures relations with no units have a count of 0 rather than being missing.
 	result := make(map[string]int)
+	for _, uuid := range relationUUIDs {
+		result[uuid] = 0
+	}
 	for _, c := range counts {
 		result[c.RelationUUID] = c.Count
 	}
