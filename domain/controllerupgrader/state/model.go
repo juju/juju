@@ -353,3 +353,45 @@ FROM   agent_version
 
 	return agentbinary.Stream(stream.StreamID), errors.Capture(err)
 }
+
+// GetAgentVersionsWithStream is responsible for searching the available versions
+// in the agent binary store.
+// TODO(adisazhar123): at the moment, `stream` isn't modeled in the model DB
+// so it's a noop. This is for a future effort to match the given `stream` when
+// grabbing the agents.
+func (s *ControllerModelState) GetAgentVersionsWithStream(
+	ctx context.Context,
+	_ *agentbinary.Stream,
+) ([]semversion.Number, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return []semversion.Number{}, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT &binaryVersion.*
+FROM   agent_binary_store
+`, binaryVersion{})
+
+	var binaries []binaryVersion
+	db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&binaries)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+
+	versions := make([]semversion.Number, 0, len(binaries))
+	for _, binary := range binaries {
+		version, err := semversion.Parse(binary.Version)
+		if err != nil {
+			return []semversion.Number{}, errors.Capture(err)
+		}
+		versions = append(versions, version)
+	}
+
+	return versions, nil
+}

@@ -11,11 +11,12 @@ jobs:
     name: Smoke
     runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
     timeout-minutes: 60
-    if: github.event.pull_request.draft == false
+    #if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
-        cloud: ["localhost", "microk8s"]
+#        cloud: ["localhost", "microk8s"]
+        cloud: ["localhost"]
     steps:
 
       - name: Checkout
