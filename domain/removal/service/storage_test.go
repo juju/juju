@@ -458,7 +458,7 @@ func (s *storageSuite) TestRemoveStorageInstanceNotFound(c *tc.C) {
 
 	cascaded := internal.CascadedStorageFilesystemVolumeLives{}
 	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
-		gomock.Any(), uuid.String(), false,
+		gomock.Any(), uuid.String(), false, false,
 	).Return(cascaded, storageerrors.StorageInstanceNotFound)
 
 	svc := s.newService(c)
@@ -476,7 +476,7 @@ func (s *storageSuite) TestRemoveStorageInstance(c *tc.C) {
 
 	cascaded := internal.CascadedStorageFilesystemVolumeLives{}
 	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
-		gomock.Any(), uuid.String(), false,
+		gomock.Any(), uuid.String(), false, false,
 	).Return(cascaded, nil)
 	s.modelState.EXPECT().StorageInstanceScheduleRemoval(
 		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), uuid.String(), false, now,
@@ -484,6 +484,27 @@ func (s *storageSuite) TestRemoveStorageInstance(c *tc.C) {
 
 	svc := s.newService(c)
 	err := svc.RemoveStorageInstance(c.Context(), uuid, false, 0, false)
+	c.Assert(err, tc.ErrorIs, nil)
+}
+
+func (s *storageSuite) TestRemoveStorageInstanceObliterate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().UTC()
+	s.clock.EXPECT().Now().Return(now)
+
+	uuid := tc.Must(c, storage.NewStorageInstanceUUID)
+
+	cascaded := internal.CascadedStorageFilesystemVolumeLives{}
+	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
+		gomock.Any(), uuid.String(), false, true,
+	).Return(cascaded, nil)
+	s.modelState.EXPECT().StorageInstanceScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), uuid.String(), true, now,
+	).Return(nil)
+
+	svc := s.newService(c)
+	err := svc.RemoveStorageInstance(c.Context(), uuid, true, 0, false)
 	c.Assert(err, tc.ErrorIs, nil)
 }
 
@@ -502,7 +523,7 @@ func (s *storageSuite) TestRemoveStorageInstanceCascade(c *tc.C) {
 		VolumeUUID:     &volUUID,
 	}
 	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
-		gomock.Any(), uuid.String(), false,
+		gomock.Any(), uuid.String(), false, false,
 	).Return(cascaded, nil)
 	s.modelState.EXPECT().StorageInstanceScheduleRemoval(
 		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), uuid.String(), false, now,
@@ -516,6 +537,38 @@ func (s *storageSuite) TestRemoveStorageInstanceCascade(c *tc.C) {
 
 	svc := s.newService(c)
 	err := svc.RemoveStorageInstance(c.Context(), uuid, false, 0, false)
+	c.Assert(err, tc.ErrorIs, nil)
+}
+
+func (s *storageSuite) TestRemoveStorageInstanceCascadeForce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().UTC()
+	s.clock.EXPECT().Now().Return(now).AnyTimes()
+
+	uuid := tc.Must(c, storage.NewStorageInstanceUUID)
+	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID).String()
+	volUUID := tc.Must(c, storageprovisioning.NewVolumeUUID).String()
+
+	cascaded := internal.CascadedStorageFilesystemVolumeLives{
+		FileSystemUUID: &fsUUID,
+		VolumeUUID:     &volUUID,
+	}
+	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
+		gomock.Any(), uuid.String(), false, true,
+	).Return(cascaded, nil)
+	s.modelState.EXPECT().StorageInstanceScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), uuid.String(), true, now,
+	).Return(nil)
+	s.modelState.EXPECT().FilesystemScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), fsUUID, true, now,
+	).Return(nil)
+	s.modelState.EXPECT().VolumeScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), volUUID, true, now,
+	).Return(nil)
+
+	svc := s.newService(c)
+	err := svc.RemoveStorageInstance(c.Context(), uuid, true, 0, false)
 	c.Assert(err, tc.ErrorIs, nil)
 }
 
