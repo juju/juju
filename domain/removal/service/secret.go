@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/internal/secrets/provider/juju"
 )
 
+// SecretModelState describes functionality required for deleting
+// secret data asscociated with removed entities.
 type SecretModelState interface {
 	// DeleteApplicationOwnedSecretContent deletes content for all
 	// secrets owned by the application with the input UUID.
@@ -23,6 +25,18 @@ type SecretModelState interface {
 	// secrets owned by the unit with the input UUID.
 	// It must only be called in the context of unit removal.
 	DeleteUnitOwnedSecretContent(ctx context.Context, uUUID string) error
+
+	// DeleteApplicationOwnedSecrets deletes all data for secrets owned by the
+	// application with the input UUID.
+	// This does not include secret content, which should be handled by
+	// interaction with the secret back-end.
+	DeleteApplicationOwnedSecrets(ctx context.Context, aUUID string) error
+
+	// DeleteUnitOwnedSecrets deletes all data for secrets owned by the
+	// unit with the input UUID.
+	// This does not include secret content, which should be handled by
+	// interaction with the secret back-end.
+	DeleteUnitOwnedSecrets(ctx context.Context, uUUID string) error
 }
 
 func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID coreapplication.UUID) error {
@@ -32,10 +46,17 @@ func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID corea
 	}
 
 	if sb == nil {
-		return errors.Capture(s.modelState.DeleteApplicationOwnedSecretContent(ctx, aUUID.String()))
+		if err := s.modelState.DeleteApplicationOwnedSecretContent(ctx, aUUID.String()); err != nil {
+			return errors.Errorf("deleting secret content: %w", err)
+		}
 	}
 
 	// TODO: Use the secret back-end to remove secrets.
+
+	if err := s.modelState.DeleteApplicationOwnedSecrets(ctx, aUUID.String()); err != nil {
+		return errors.Errorf("deleting secret metadata: %w", err)
+	}
+
 	return nil
 }
 
@@ -46,10 +67,17 @@ func (s *Service) deleteUnitOwnedSecrets(ctx context.Context, uUUID coreunit.UUI
 	}
 
 	if sb == nil {
-		return errors.Capture(s.modelState.DeleteUnitOwnedSecretContent(ctx, uUUID.String()))
+		if err := s.modelState.DeleteUnitOwnedSecretContent(ctx, uUUID.String()); err != nil {
+			return errors.Errorf("deleting secret content: %w", err)
+		}
 	}
 
 	// TODO: Use the secret back-end to remove secrets.
+
+	if err := s.modelState.DeleteUnitOwnedSecrets(ctx, uUUID.String()); err != nil {
+		return errors.Errorf("deleting secret metadata: %w", err)
+	}
+
 	return nil
 }
 
