@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/semversion"
+	_ "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/gate"
 )
