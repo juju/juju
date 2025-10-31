@@ -834,14 +834,19 @@ func (st *State) GetRelationsStatusForUnit(
 	}
 
 	stmt, err := st.Prepare(`
+WITH in_scope_relation AS (
+    SELECT re.relation_uuid
+    FROM relation_endpoint AS re
+    JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
+    WHERE ru.unit_uuid = $unitUUIDArg.unit_uuid
+)
 SELECT re.relation_uuid AS &relationUnitStatus.relation_uuid,
-       ru.uuid IS NOT NULL AS &relationUnitStatus.in_scope,
+       re.relation_uuid IN in_scope_relation AS &relationUnitStatus.in_scope,
        r.suspended AS &relationUnitStatus.suspended
 FROM      relation_endpoint AS re
 JOIN      relation AS r ON re.relation_uuid = r.uuid
 JOIN      application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN      unit AS u ON ae.application_uuid = u.application_uuid
-LEFT JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
 WHERE     u.uuid = $unitUUIDArg.unit_uuid
 `, uuid, relationUnitStatus{})
 	if err != nil {
