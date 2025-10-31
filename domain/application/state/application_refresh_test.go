@@ -184,6 +184,13 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmChangeChannel(c *tc.C) 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM application_channel WHERE application_uuid = ?", appID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(count, tc.Equals, 1)
+
 	var channel applicationChannel
 	applicationChannelStmt := `
 SELECT track, risk, branch FROM application_channel WHERE application_uuid = ?`
@@ -228,6 +235,12 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmFromEmptyChannel(c *tc.
 	charmID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 	})
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM application_channel WHERE application_uuid = ?", appID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(count, tc.Equals, 0)
 
 	// Act
 	err = s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{
@@ -240,6 +253,12 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmFromEmptyChannel(c *tc.
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM application_channel WHERE application_uuid = ?", appID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(count, tc.Equals, 1)
 
 	var channel applicationChannel
 	applicationChannelStmt := `
