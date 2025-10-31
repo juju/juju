@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -1438,6 +1439,89 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert): %v",
 		errors.ErrorStack(err)))
 	c.Assert(results, tc.SameContents, expectedResults)
+}
+
+// TestGetRelationsStatusForUnitSubordinate tests the behavior with subordinate
+// application. In this case, we can have several units of a same application
+// (the subordinate) that are not meant to be in scope of all application they
+// relate to.
+// Ex: app-one, app-two, subordinate, related by juju-info
+// - app-one is in relation with subordinate/0 on juju-info
+// - app-two is in relation with subordinate/1 on juju-info
+// Once everything is up, the right status for subordinate/0 would be:
+// - relation (app-one:juju-info subordinate:juju-info) : in scope = true,
+// - relation (app-two:juju-info subordinate:juju-info) : in scope = false,
+func (s *relationSuite) TestGetRelationsStatusForUnitSubordinate(c *tc.C) {
+	// Arrange: Add a relation with two endpoints.
+	appCharm := s.addCharm(c)
+	subCharm := s.addCharm(c)
+	app1 := s.addApplication(c, appCharm, "app-one")
+	app2 := s.addApplication(c, appCharm, "app-two")
+	sub := s.addApplication(c, subCharm, "sub")
+
+	appEpDef := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:  "juju-info",
+			Role:  charm.RoleProvider,
+			Scope: charm.ScopeGlobal,
+		},
+	}
+	app1EpDef := appEpDef
+	app1EpDef.ApplicationName = "app-one"
+	app2EpDef := appEpDef
+	app2EpDef.ApplicationName = "app-two"
+
+	subEpDef := domainrelation.Endpoint{
+		ApplicationName: "sub",
+		Relation: charm.Relation{
+			Name:  "juju-info",
+			Role:  charm.RoleRequirer,
+			Scope: charm.ScopeGlobal,
+		},
+	}
+	charmRelApp := s.addCharmRelation(c, appCharm, appEpDef.Relation)
+	charmSubApp := s.addCharmRelation(c, subCharm, subEpDef.Relation)
+	app1Ep := s.addApplicationEndpoint(c, app1, charmRelApp)
+	app2Ep := s.addApplicationEndpoint(c, app2, charmRelApp)
+	subEp := s.addApplicationEndpoint(c, sub, charmSubApp)
+	relSub1 := s.addRelation(c)
+	relSub2 := s.addRelation(c)
+	s.addRelationEndpoint(c, relSub1, app1Ep)
+	s.addRelationEndpoint(c, relSub2, app2Ep)
+	sub1RelEp := s.addRelationEndpoint(c, relSub1, subEp)
+	sub2RelEp := s.addRelationEndpoint(c, relSub2, subEp)
+
+	// Arrange: Add units for both subordinates
+	unit1UUID := s.addUnit(c, "sub/1", sub, subCharm)
+	unit2UUID := s.addUnit(c, "sub/2", sub, subCharm)
+
+	// Arrange: Add unit to relation and set relation status.
+	s.addRelationUnit(c, unit1UUID, sub1RelEp)
+	s.addRelationUnit(c, unit2UUID, sub2RelEp)
+
+	// Act: Get relation status for units.
+	result1 := tc.Must2(c, s.state.GetRelationsStatusForUnit, c.Context(), unit1UUID)
+	result2 := tc.Must2(c, s.state.GetRelationsStatusForUnit, c.Context(), unit2UUID)
+
+	// Assert:
+	getInScope := func(status domainrelation.RelationUnitStatusResult) (string, bool) {
+		var otherApp string
+		for _, ep := range status.Endpoints {
+			if ep.ApplicationName != "sub" {
+				otherApp = ep.ApplicationName
+				break
+			}
+		}
+		return otherApp, status.InScope
+	}
+	c.Assert(transform.SliceToMap(result1, getInScope), tc.DeepEquals, map[string]bool{
+		"app-one": true,
+		"app-two": false,
+	})
+	c.Assert(transform.SliceToMap(result2, getInScope), tc.DeepEquals, map[string]bool{
+		"app-one": false,
+		"app-two": true,
+	})
 }
 
 // TestGetRelationStatusesForUnitEmptyResult checks that an empty slice is
