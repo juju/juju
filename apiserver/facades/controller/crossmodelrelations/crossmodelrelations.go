@@ -109,7 +109,7 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 		return err
 	}
 
-	api.logger.Debugf(ctx, "publishing relation changes for relation %q", relationUUID)
+	api.logger.Tracef(ctx, "publishing relation changes for relation %q", relationUUID)
 
 	// Ensure that we have a relation and that it isn't dead.
 	// If the relation is not found or dead, we simply skip publishing
