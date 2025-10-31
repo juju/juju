@@ -893,7 +893,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, "register")
 
 	// HTTP handler for application offer macaroon authentication.
-	if err := handlerscrossmodel.AddOfferAuthHandlers(srv.shared, srv.shared.offersThirdPartyKeyPair, srv.mux); err != nil {
+	if err := handlerscrossmodel.AddOfferAuthHandlers(srv.shared, srv.shared.offersThirdPartyKeyPair, srv.mux, srv.shared.logger); err != nil {
 		return nil, errors.Trace(err)
 	}
 

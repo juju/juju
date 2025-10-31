@@ -31,10 +31,10 @@ type CrossModelAuthContextProvider interface {
 
 // AddOfferAuthHandlers adds the HTTP handlers used for application offer
 // macaroon authentication.
-func AddOfferAuthHandlers(authContextProvider CrossModelAuthContextProvider, keyPair *bakery.KeyPair, mux *apiserverhttp.Mux) error {
+func AddOfferAuthHandlers(authContextProvider CrossModelAuthContextProvider, keyPair *bakery.KeyPair, mux *apiserverhttp.Mux, logger logger.Logger) error {
 	appOfferDischargeMux := http.NewServeMux()
 
-	appOfferHandler := &localOfferAuthHandler{authContextProvider: authContextProvider}
+	appOfferHandler := &localOfferAuthHandler{authContextProvider: authContextProvider, logger: logger}
 	discharger := httpbakery.NewDischarger(httpbakery.DischargerParams{
 		Key:     keyPair,
 		Checker: httpbakery.ThirdPartyCaveatCheckerFunc(appOfferHandler.checkThirdPartyCaveat),

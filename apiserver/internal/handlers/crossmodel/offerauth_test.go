@@ -13,6 +13,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type crossModelHandlerSuite struct {
@@ -38,24 +39,24 @@ func (s *crossModelHandlerSuite) TearDownTest(c *tc.C) {
 func (s *crossModelHandlerSuite) TestAddOfferAuthHandlers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux)
+	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *crossModelHandlerSuite) TestAddOfferAuthHandlersRegisterTwice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux)
+	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux)
+	err = AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *crossModelHandlerSuite) TestServePOST(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux)
+	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := http.Post(s.srv.URL+localOfferAccessLocationPath+"/discharge", "application/octet-stream", nil)
@@ -67,7 +68,7 @@ func (s *crossModelHandlerSuite) TestServePOST(c *tc.C) {
 func (s *crossModelHandlerSuite) TestServeGET(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux)
+	err := AddOfferAuthHandlers(s.authContextProvider, bakery.MustGenerateKey(), s.mux, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := http.Get(s.srv.URL + localOfferAccessLocationPath + "/publickey")
