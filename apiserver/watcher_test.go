@@ -140,14 +140,17 @@ func (s *remoteRelationWatcherSuite) TestNext(c *tc.C) {
 	inScopeUnitNames := []unit.Name{"foo/1", "foo/2", "foo/3"}
 	s.relationService.EXPECT().GetInScopeUnits(gomock.Any(), appUUID, relUUID).Return(inScopeUnitNames, nil)
 
-	unitSettings := map[unit.Name]map[string]interface{}{
-		"foo/1": {"thing": 1},
-		"foo/2": {"thing": 2},
-	}
-	s.relationService.EXPECT().GetUnitSettingsForUnits(gomock.Any(), gomock.InAnyOrder([]unit.Name{"foo/1", "foo/2"})).Return(unitSettings, nil)
+	unitSettings := []domainrelation.UnitSettings{{
+		UnitID:   1,
+		Settings: map[string]string{"thing1": "thing2"},
+	}, {
+		UnitID:   2,
+		Settings: map[string]string{"thing2": "thing1"},
+	}}
+	s.relationService.EXPECT().GetUnitSettingsForUnits(gomock.Any(), relUUID, gomock.InAnyOrder([]unit.Name{"foo/1", "foo/2"})).Return(unitSettings, nil)
 
-	appSettings := map[string]interface{}{"foo": 1}
-	s.relationService.EXPECT().GetSettingsForApplication(gomock.Any(), appUUID).Return(appSettings, nil)
+	appSettings := map[string]string{"foo": "bar"}
+	s.relationService.EXPECT().GetRelationApplicationSettings(gomock.Any(), relUUID, appUUID).Return(appSettings, nil)
 
 	res, err := s.api.Next(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -162,13 +165,13 @@ func (s *remoteRelationWatcherSuite) TestNext(c *tc.C) {
 		DepartedUnits:           []int{0},
 		InScopeUnits:            []int{1, 2, 3},
 		UnitCount:               3,
-		ApplicationSettings:     appSettings,
+		ApplicationSettings:     map[string]interface{}{"foo": "bar"},
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   1,
-			Settings: unitSettings["foo/1"],
+			Settings: map[string]interface{}{"thing1": "thing2"},
 		}, {
 			UnitId:   2,
-			Settings: unitSettings["foo/2"],
+			Settings: map[string]interface{}{"thing2": "thing1"},
 		}},
 	})
 }
@@ -195,11 +198,14 @@ func (s *remoteRelationWatcherSuite) TestNextNoApplicationSettingsChange(c *tc.C
 	inScopeUnitNames := []unit.Name{"foo/1", "foo/2", "foo/3"}
 	s.relationService.EXPECT().GetInScopeUnits(gomock.Any(), appUUID, relUUID).Return(inScopeUnitNames, nil)
 
-	unitSettings := map[unit.Name]map[string]interface{}{
-		"foo/1": {"thing": 1},
-		"foo/2": {"thing": 2},
-	}
-	s.relationService.EXPECT().GetUnitSettingsForUnits(gomock.Any(), gomock.InAnyOrder([]unit.Name{"foo/1", "foo/2"})).Return(unitSettings, nil)
+	unitSettings := []domainrelation.UnitSettings{{
+		UnitID:   1,
+		Settings: map[string]string{"thing1": "thing2"},
+	}, {
+		UnitID:   2,
+		Settings: map[string]string{"thing2": "thing1"},
+	}}
+	s.relationService.EXPECT().GetUnitSettingsForUnits(gomock.Any(), relUUID, gomock.InAnyOrder([]unit.Name{"foo/1", "foo/2"})).Return(unitSettings, nil)
 
 	res, err := s.api.Next(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -217,10 +223,10 @@ func (s *remoteRelationWatcherSuite) TestNextNoApplicationSettingsChange(c *tc.C
 		ApplicationSettings:     nil,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   1,
-			Settings: unitSettings["foo/1"],
+			Settings: map[string]interface{}{"thing1": "thing2"},
 		}, {
 			UnitId:   2,
-			Settings: unitSettings["foo/2"],
+			Settings: map[string]interface{}{"thing2": "thing1"},
 		}},
 	})
 }

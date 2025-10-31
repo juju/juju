@@ -17,6 +17,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/relation"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc/params"
@@ -240,24 +241,24 @@ func (w *srvRemoteRelationWatcher) Next(ctx context.Context) (params.RemoteRelat
 		changedUnitNames := transform.MapToSlice(change.Changed,
 			func(k string, _ params.UnitSettings) []unit.Name { return []unit.Name{unit.Name(k)} })
 
-		changedUnitSettings, err := w.relationService.GetUnitSettingsForUnits(ctx, changedUnitNames)
+		changedUnitSettings, err := w.relationService.GetUnitSettingsForUnits(ctx, relationUUID, changedUnitNames)
 		if err != nil {
 			return params.RemoteRelationWatchResult{
 				Error: apiservererrors.ServerError(err),
 			}, nil
 		}
-		changedUnitSettingsParams := transform.MapToSlice(changedUnitSettings,
-			func(k unit.Name, v map[string]interface{}) []params.RemoteRelationUnitChange {
-				return []params.RemoteRelationUnitChange{{
-					UnitId:   k.Number(),
-					Settings: v,
-				}}
+		changedUnitSettingsParams := transform.Slice(changedUnitSettings,
+			func(in relation.UnitSettings) params.RemoteRelationUnitChange {
+				return params.RemoteRelationUnitChange{
+					UnitId:   in.UnitID,
+					Settings: transform.Map(in.Settings, func(k string, v string) (string, interface{}) { return k, v }),
+				}
 			})
 
-		var appSettings map[string]interface{}
+		var appSettings map[string]string
 		if len(change.AppChanged) > 0 {
 			var err error
-			appSettings, err = w.relationService.GetSettingsForApplication(ctx, applicationUUID)
+			appSettings, err = w.relationService.GetRelationApplicationSettings(ctx, relationUUID, applicationUUID)
 			if err != nil {
 				return params.RemoteRelationWatchResult{
 					Error: apiservererrors.ServerError(err),
@@ -272,7 +273,7 @@ func (w *srvRemoteRelationWatcher) Next(ctx context.Context) (params.RemoteRelat
 				DepartedUnits:           departed,
 				InScopeUnits:            transform.Slice(inScopeUnitNames, func(n unit.Name) int { return n.Number() }),
 				UnitCount:               len(inScopeUnitNames),
-				ApplicationSettings:     appSettings,
+				ApplicationSettings:     transform.Map(appSettings, func(k string, v string) (string, interface{}) { return k, v }),
 				ChangedUnits:            changedUnitSettingsParams,
 			},
 		}, nil

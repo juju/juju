@@ -1287,6 +1287,75 @@ func (s *relationServiceSuite) TestGetFullRelationUnitChangeFail(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, boom)
 }
 
+func (s *relationServiceSuite) TestGetInScopeUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	s.state.EXPECT().GetInScopeUnits(gomock.Any(), appUUID.String(), relUUID.String()).Return([]string{"foo/1", "foo/2"}, nil)
+
+	// Act
+	unitNames, err := s.service.GetInScopeUnits(c.Context(), appUUID, relUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(unitNames, tc.DeepEquals, []coreunit.Name{"foo/1", "foo/2"})
+}
+
+func (s *relationServiceSuite) TestGetInScopeUnitsFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	boom := errors.Errorf("boom")
+	s.state.EXPECT().GetInScopeUnits(gomock.Any(), appUUID.String(), relUUID.String()).Return(nil, boom)
+
+	// Act
+	_, err := s.service.GetInScopeUnits(c.Context(), appUUID, relUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, boom)
+}
+
+func (s *relationServiceSuite) TestGetUnitSettingsForUnits(c *tc.C) {
+	// Arrange
+	unitNames := []coreunit.Name{"app/0", "app/1"}
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	res := []relation.UnitSettings{{
+		UnitID:   0,
+		Settings: map[string]string{"foo": "bar"},
+	}, {
+		UnitID:   1,
+		Settings: map[string]string{"foo": "baz"},
+	}}
+	s.state.EXPECT().GetUnitSettingsForUnits(gomock.Any(), relUUID.String(), []string{"app/0", "app/1"}).Return(res, nil)
+
+	// Act
+	obtained, err := s.service.GetUnitSettingsForUnits(c.Context(), relUUID, unitNames)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtained, tc.DeepEquals, res)
+}
+
+func (s *relationServiceSuite) TestGetUnitSettingsForUnitsError(c *tc.C) {
+	// Arrange
+	unitNames := []coreunit.Name{"app/0", "app/1"}
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	boom := errors.Errorf("boom")
+	s.state.EXPECT().GetUnitSettingsForUnits(gomock.Any(), relUUID.String(), []string{"app/0", "app/1"}).Return(nil, boom)
+
+	// Act
+	_, err := s.service.GetUnitSettingsForUnits(c.Context(), relUUID, unitNames)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, boom)
+}
+
 func (s *relationServiceSuite) TestGetFullRelationUnitChangeRelationUUIDNotValid(c *tc.C) {
 	// Act
 	_, err := s.service.GetFullRelationUnitChange(c.Context(), "bad-uuid", tc.Must(c, coreapplication.NewUUID))

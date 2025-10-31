@@ -105,9 +105,10 @@ type RelationService interface {
 		relationUUID relation.UUID,
 	) (domainrelation.RelationLifeSuspendedStatus, error)
 
-	// GetSettingsForApplication returns the settings for the given application.
-	GetSettingsForApplication(context.Context, application.UUID) (map[string]interface{}, error)
-
 	// GetUnitSettingsForUnits returns the settings for the given units.
-	GetUnitSettingsForUnits(context.Context, []unit.Name) (map[unit.Name]map[string]interface{}, error)
+	GetUnitSettingsForUnits(context.Context, relation.UUID, []unit.Name) ([]domainrelation.UnitSettings, error)
+
+	// GetRelationApplicationSettings returns the application settings
+	// for the given application and relation identifier combination.
+	GetRelationApplicationSettings(context.Context, relation.UUID, application.UUID) (map[string]string, error)
 }

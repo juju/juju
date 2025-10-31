@@ -2615,6 +2615,121 @@ func (s *relationSuite) TestGetFullRelationUnitsChangeRelationNotFound(c *tc.C) 
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestGetInScopeUnits(c *tc.C) {
+	// Arrange
+	charm1RelationUUID := s.fakeCharmRelationProvidesUUID
+	charm2RelationUUID := s.addCharmRelationWithDefaults(c, s.fakeCharmUUID2)
+
+	app1epUUID := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charm1RelationUUID)
+	app2epUUID := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charm2RelationUUID)
+
+	app1unit0 := s.addUnit(c, "app1/0", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	app1unit1 := s.addUnit(c, "app1/1", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	s.addUnit(c, "app1/2", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	app2unit0 := s.addUnit(c, "app2/0", s.fakeApplicationUUID2, s.fakeCharmUUID2)
+	app2unit1 := s.addUnit(c, "app2/1", s.fakeApplicationUUID2, s.fakeCharmUUID2)
+
+	relUUID := s.addRelation(c)
+	app1RelEpUUID := s.addRelationEndpoint(c, relUUID, app1epUUID)
+	app2RelEpUUID := s.addRelationEndpoint(c, relUUID, app2epUUID)
+
+	// Arrange: for app 1, units 0 and 1 are in scope
+	s.addRelationUnit(c, app1unit0, app1RelEpUUID)
+	s.addRelationUnit(c, app1unit1, app1RelEpUUID)
+	s.addRelationUnit(c, app2unit0, app2RelEpUUID)
+	s.addRelationUnit(c, app2unit1, app2RelEpUUID)
+
+	// Act
+	units, err := s.state.GetInScopeUnits(c.Context(), s.fakeApplicationUUID1.String(), relUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.SameContents, []string{"app1/0", "app1/1"})
+}
+
+func (s *relationSuite) TestGetInScopeUnitsApplicationNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetInScopeUnits(c.Context(), "not-found", "not-found")
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *relationSuite) TestGetInScopeUnitsRelationNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetInScopeUnits(c.Context(), s.fakeApplicationUUID1.String(), "not-found")
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestGetUnitSetingsForUnits(c *tc.C) {
+	// Arrange
+	app1epUUID := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
+
+	unit0 := s.addUnit(c, "app1/0", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	unit1 := s.addUnit(c, "app1/1", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	s.addUnit(c, "app1/2", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	relUUID := s.addRelation(c)
+	relEp := s.addRelationEndpoint(c, relUUID, app1epUUID)
+
+	unit0RelUnit := s.addRelationUnit(c, unit0, relEp)
+	unit1RelUnit := s.addRelationUnit(c, unit1, relEp)
+	s.addRelationUnitSetting(c, unit0RelUnit, "foo", "bar")
+	s.addRelationUnitSetting(c, unit1RelUnit, "bar", "foo")
+
+	// Act
+	unitSettings, err := s.state.GetUnitSettingsForUnits(c.Context(), relUUID.String(), []string{"app1/0", "app1/1", "app1/2"})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitSettings, tc.SameContents, []domainrelation.UnitSettings{{
+		UnitID:   0,
+		Settings: map[string]string{"foo": "bar"},
+	}, {
+		UnitID:   1,
+		Settings: map[string]string{"bar": "foo"},
+	}})
+}
+
+func (s *relationSuite) TestGetUnitSettingForUnitsMultipleRelations(c *tc.C) {
+	app1epUUID := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
+
+	unit := s.addUnit(c, "app1/0", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	rel0UUID := s.addRelation(c)
+	rel0Ep := s.addRelationEndpoint(c, rel0UUID, app1epUUID)
+	rel1UUID := s.addRelation(c)
+	rel1Ep := s.addRelationEndpoint(c, rel1UUID, app1epUUID)
+
+	rel0RelUnit := s.addRelationUnit(c, unit, rel0Ep)
+	rel1RelUnit := s.addRelationUnit(c, unit, rel1Ep)
+	s.addRelationUnitSetting(c, rel0RelUnit, "foo", "bar")
+	s.addRelationUnitSetting(c, rel1RelUnit, "bar", "foo")
+
+	// Act
+	unitSettings, err := s.state.GetUnitSettingsForUnits(c.Context(), rel0UUID.String(), []string{"app1/0"})
+
+	// Assert - only rel 0 settings are returned
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitSettings, tc.SameContents, []domainrelation.UnitSettings{{
+		UnitID:   0,
+		Settings: map[string]string{"foo": "bar"},
+	}})
+}
+
+func (s *relationSuite) TestGetUnitSettingsForUnitsNoUnits(c *tc.C) {
+	// Arrange
+	relUUID := s.addRelation(c)
+
+	// Act
+	unitSettings, err := s.state.GetUnitSettingsForUnits(c.Context(), relUUID.String(), []string{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitSettings, tc.HasLen, 0)
+}
+
 func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 	// Arrange
 	// - 1 application with no settings hash => will return a version of 0

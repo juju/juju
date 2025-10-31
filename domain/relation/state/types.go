@@ -35,6 +35,8 @@ type applicationUUID struct {
 	UUID string `db:"application_uuid"`
 }
 
+type names []string
+
 type name struct {
 	Name string `db:"name"`
 }
@@ -165,6 +167,12 @@ type relationUnitSetting struct {
 	UUID  string `db:"relation_unit_uuid"`
 	Key   string `db:"key"`
 	Value string `db:"value"`
+}
+
+type relationUnitSettingName struct {
+	UnitName string `db:"name"`
+	Key      string `db:"key"`
+	Value    string `db:"value"`
 }
 
 type applicationSettingsHash struct {
