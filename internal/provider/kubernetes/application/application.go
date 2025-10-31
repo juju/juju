@@ -209,15 +209,15 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 	var handleVolume handleVolumeFunc = func(
 		v corev1.Volume,
-		params jujustorage.KubernetesFilesystemAttachmentParams,
+		attachParams jujustorage.KubernetesFilesystemAttachmentParams,
 	) (*corev1.VolumeMount, error) {
 		if err := storage.PushUniqueVolume(podSpec, v, false); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return &corev1.VolumeMount{
 			Name:      v.Name,
-			ReadOnly:  params.ReadOnly,
-			MountPath: params.Path,
+			ReadOnly:  attachParams.ReadOnly,
+			MountPath: attachParams.Path,
 		}, nil
 	}
 
