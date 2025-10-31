@@ -480,8 +480,11 @@ func (op *DestroyApplicationOperation) deleteSecrets() error {
 					continue
 				}
 				if err = op.SecretContentDeleter(uri, rev.Revision); err != nil {
+					if errors.Is(err, errors.NotFound) {
+						continue
+					}
 					if op.FatalError(err) {
-						return errors.Annotatef(err, "deleting external  content for %s/%d", uri.ID, rev.Revision)
+						return errors.Annotatef(err, "deleting external content for %s/%d", uri.ID, rev.Revision)
 					}
 				}
 			}

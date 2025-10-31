@@ -3535,6 +3535,48 @@ func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesOwnedSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesOwnedExternalSecrets(c *gc.C) {
+	backendState := state.NewSecretBackends(s.State)
+	p := state.CreateSecretBackendParams{
+		Name:        "myvault",
+		BackendType: "vault",
+		Config:      map[string]interface{}{"foo.key": "bar"},
+	}
+	backendID, err := backendState.CreateSecretBackend(p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.mysql.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef: &secrets.ValueRef{
+				BackendID:  backendID,
+				RevisionID: "rev-id",
+			},
+		},
+	}
+	_, err = store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	op := s.mysql.DestroyOperation()
+	var deleted *secrets.URI
+	op.SecretContentDeleter = func(uri *secrets.URI, rev int) error {
+		deleted = uri
+		// Return not found here to ensure it is ignored.
+		return errors.NotFound
+	}
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deleted, gc.NotNil)
+	c.Assert(deleted.ID, gc.Equals, uri.ID)
+
+	_, err = store.GetSecret(uri)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ApplicationSuite) TestDestroyNoRemoveKeepsOwnedSecrets(c *gc.C) {
 	// Create a relation so destroy does not remove.
 	_, err := s.mysql.AddUnit(state.AddUnitParams{})
