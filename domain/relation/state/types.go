@@ -358,3 +358,31 @@ type relationStatus struct {
 	Message      string     `db:"message"`
 	Since        *time.Time `db:"updated_at"`
 }
+
+type getRelation struct {
+	UUID      string     `db:"uuid"`
+	ID        int        `db:"relation_id"`
+	Life      life.Value `db:"value"`
+	Suspended bool       `db:"suspended"`
+}
+
+type relationWithDetails struct {
+	UUID      string     `db:"uuid"`
+	ID        int        `db:"relation_id"`
+	Life      life.Value `db:"life"`
+	Suspended bool       `db:"suspended"`
+}
+
+// endpointWithRelationUUID combines an Endpoint with its Relation UUID, needed
+// for returning relation endpoints mapped by relation.
+type endpointWithRelationUUID struct {
+	Endpoint
+	RelationUUID string `db:"relation_uuid"`
+}
+
+// countResultWithRelationUUID is used to return counts grouped by relation
+// UUID.
+type countResultWithRelationUUID struct {
+	RelationUUID string `db:"relation_uuid"`
+	Count        int    `db:"count"`
+}
