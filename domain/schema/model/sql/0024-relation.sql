@@ -209,7 +209,7 @@ CREATE TABLE relation_status (
     relation_uuid TEXT NOT NULL PRIMARY KEY,
     relation_status_type_id TEXT NOT NULL,
     message TEXT,
-    updated_at TIMESTAMP NOT NULL,
+    updated_at DATETIME,
     CONSTRAINT fk_relation_uuid
     FOREIGN KEY (relation_uuid)
     REFERENCES relation (uuid),

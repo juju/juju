@@ -252,7 +252,7 @@ func (s *ProviderService) SetApplicationConstraints(
 }
 
 // AddIAASUnits adds the specified units to the IAAS application, returning an
-// error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// error satisfying [applicationerrors.ApplicationNotFound] if the
 // application doesn't exist. If no units are provided, it will return nil.
 func (s *ProviderService) AddIAASUnits(
 	ctx context.Context, appName string, units ...AddIAASUnitArg,
@@ -323,7 +323,7 @@ func (s *ProviderService) AddIAASUnits(
 }
 
 // AddCAASUnits adds the specified units to the CAAS application, returning an
-// error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// error satisfying [applicationerrors.ApplicationNotFound] if the
 // application doesn't exist. If no units are provided, it will return nil.
 func (s *ProviderService) AddCAASUnits(
 	ctx context.Context, appName string, units ...AddUnitArg,
@@ -446,7 +446,7 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 // model, returning an error satisfying
 //
 // The following errors may occur:
-// - [applicationerrors.ApplicationNotFoundError] if the application doesn't
+// - [applicationerrors.ApplicationNotFound] if the application doesn't
 // exist. If the unit life is Dead, an error satisfying
 func (s *ProviderService) RegisterCAASUnit(
 	ctx context.Context,

@@ -531,7 +531,7 @@ func (w *localConsumerWorker) handleConsumerRelationSuspended(ctx context.Contex
 	// Only stop the watchers for relation unit changes if relation is alive, as
 	// we need to always deal with units leaving scope etc if the relation is
 	// dying.
-	if details.Life != life.Alive {
+	if life.IsNotAlive(details.Life) {
 		return nil
 	}
 
@@ -619,7 +619,7 @@ func (w *localConsumerWorker) handleRelationConsumption(
 
 	// Handle the case where the relation is dying, and ensure we have no
 	// workers still running for it.
-	if details.Life != life.Alive {
+	if life.IsNotAlive(details.Life) {
 		return w.handleRelationDying(ctx, details.UUID, result.macaroon, !relationKnown)
 	}
 
@@ -967,7 +967,7 @@ func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Contex
 	}
 
 	switch {
-	case change.Life != life.Alive:
+	case isNotAlive(change.Life):
 		return w.handleOffererRelationRemoved(ctx, change.ConsumerRelationUUID)
 
 	case change.Suspended != details.Suspended:
@@ -1081,7 +1081,7 @@ func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, c
 	// Handle the dying/dead case of the relation. We do this **after** setting
 	// the settings, so that the removal of the relation doesn't prevent us from
 	// setting the settings.
-	if change.Life != life.Alive {
+	if isNotAlive(change.Life) {
 		// If the relation is dying or dead, then we're done here. The units
 		// will have already transitioned to departed.
 		_, err := w.crossModelService.RemoveRemoteRelation(ctx, change.ConsumerRelationUUID, false, 0)
@@ -1139,6 +1139,18 @@ func convertSettingsMap(in map[string]string) map[string]any {
 	return transform.Map(in, func(k, v string) (string, any) {
 		return k, v
 	})
+}
+
+func isNotAlive(l life.Value) bool {
+	// We just don't know the value of the life value, as it wasn't returned
+	// in the change. This will be compatible with both 3.x and 4.x controllers.
+	// Thus we assume that the life is alive.
+	if l == "" {
+		return false
+	}
+
+	// Check if the life is not alive.
+	return life.IsNotAlive(l)
 }
 
 func ptr[T any](v T) *T {

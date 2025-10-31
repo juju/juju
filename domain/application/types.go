@@ -508,6 +508,7 @@ type SetCharmStateParams struct {
 
 // ApplicationDetails contains details about an application.
 type ApplicationDetails struct {
-	Life life.Life
-	Name string
+	Life                   life.Life
+	Name                   string
+	IsApplicationSynthetic bool
 }

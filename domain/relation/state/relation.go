@@ -620,8 +620,10 @@ func (st *State) GetRelationLifeSuspendedStatus(
 		return internal.RelationLifeSuspendedStatus{}, errors.Capture(err)
 	}
 
-	var relationLifeSuspended lifeAndSuspended
-	var endpoints []domainrelation.Endpoint
+	var (
+		relationLifeSuspended lifeAndSuspended
+		endpoints             []domainrelation.Endpoint
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		relationLifeSuspended, err = st.getRelationLifeAndSuspended(ctx, tx, relationUUID)
 		if err != nil {
@@ -633,9 +635,7 @@ func (st *State) GetRelationLifeSuspendedStatus(
 		}
 		return nil
 	})
-	if errors.Is(err, coreerrors.NotFound) {
-		return internal.RelationLifeSuspendedStatus{}, errors.Capture(relationerrors.RelationNotFound)
-	} else if err != nil {
+	if err != nil {
 		return internal.RelationLifeSuspendedStatus{}, errors.Capture(err)
 	}
 
@@ -790,7 +790,8 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 			}
 			var errs []error
 			if !appFound {
-				errs = append(errs, errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, args.ApplicationUUID))
+				errs = append(errs, errors.Errorf("getting relation application %q not found", args.ApplicationUUID).
+					Add(applicationerrors.ApplicationNotFound))
 			}
 			if !relationFound {
 				errs = append(errs, errors.Errorf("%w: %s", relationerrors.RelationNotFound, args.RelationUUID))
@@ -1263,10 +1264,12 @@ func (st *State) GetFullRelationUnitsChange(
 		return domainrelation.FullRelationUnitChange{}, errors.Capture(err)
 	}
 
-	var settings []relationSetting
-	var unitRelationData map[string]domainrelation.RelationData
-	var relationLifeSuspended lifeAndSuspended
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	var (
+		settings              []relationSetting
+		unitRelationData      map[string]domainrelation.RelationData
+		relationLifeSuspended lifeAndSuspended
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		relationLifeSuspended, err = st.getRelationLifeAndSuspended(ctx, tx, relationUUID.String())
 		if err != nil {
 			return errors.Capture(err)
@@ -1283,10 +1286,7 @@ func (st *State) GetFullRelationUnitsChange(
 		}
 
 		return nil
-	})
-	if errors.Is(err, coreerrors.NotFound) {
-		return domainrelation.FullRelationUnitChange{}, errors.Capture(relationerrors.RelationNotFound)
-	} else if err != nil {
+	}); err != nil {
 		return domainrelation.FullRelationUnitChange{}, errors.Capture(err)
 	}
 
@@ -1294,15 +1294,20 @@ func (st *State) GetFullRelationUnitsChange(
 	appSettings := transform.SliceToMap(settings, func(s relationSetting) (string, string) {
 		return s.Key, s.Value
 	})
-	inScopeUnits := make([]int, 0)
-	allUnits := make([]int, 0, len(unitRelationData))
-	unitSettings := make([]domainrelation.UnitSettings, 0)
+
+	var (
+		inScopeUnits []int
+		unitSettings []domainrelation.UnitSettings
+		allUnits     = make([]int, 0, len(unitRelationData))
+	)
 	for unitName, data := range unitRelationData {
 		id := unit.Name(unitName).Number()
+
 		allUnits = append(allUnits, id)
 		if !data.InScope {
 			continue
 		}
+
 		inScopeUnits = append(inScopeUnits, id)
 		if len(data.UnitData) == 0 {
 			continue
@@ -1342,9 +1347,11 @@ func (st *State) GetRelationUnitsChanges(
 		return domainrelation.RelationUnitChange{}, errors.Capture(err)
 	}
 
-	var settings []relationSetting
-	var unitRelationData map[string]domainrelation.RelationData
-	var relationLife life.Value
+	var (
+		settings         []relationSetting
+		unitRelationData map[string]domainrelation.RelationData
+		relationLife     life.Value
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		relationLife, err = st.getRelationLife(ctx, tx, relationUUID.String())
 		if err != nil {
@@ -1363,9 +1370,7 @@ func (st *State) GetRelationUnitsChanges(
 
 		return nil
 	})
-	if errors.Is(err, coreerrors.NotFound) {
-		return domainrelation.RelationUnitChange{}, errors.Capture(relationerrors.RelationNotFound)
-	} else if err != nil {
+	if err != nil {
 		return domainrelation.RelationUnitChange{}, errors.Capture(err)
 	}
 
@@ -1835,23 +1840,17 @@ AND    up.principal_uuid  = $getSub.unit_uuid
 func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, relationUUID, unitUUID string) error {
 	// Check relation is alive.
 	relationLife, err := st.getRelationLife(ctx, tx, relationUUID)
-	if errors.Is(err, coreerrors.NotFound) {
-		return relationerrors.RelationNotFound
-	} else if err != nil {
+	if err != nil {
 		return errors.Errorf("getting relation life: %w", err)
-	}
-	if relationLife != life.Alive {
+	} else if relationLife != life.Alive {
 		return relationerrors.CannotEnterScopeNotAlive
 	}
 
 	// Check unit is alive.
 	unitLife, err := st.getUnitLife(ctx, tx, unitUUID)
-	if errors.Is(err, coreerrors.NotFound) {
-		return applicationerrors.UnitNotFound
-	} else if err != nil {
+	if err != nil {
 		return errors.Errorf("getting unit life: %w", err)
-	}
-	if unitLife != life.Alive {
+	} else if unitLife != life.Alive {
 		return relationerrors.CannotEnterScopeNotAlive
 	}
 
@@ -1917,7 +1916,7 @@ WHERE  t.uuid = $getLife.uuid
 	}
 	err = tx.Query(ctx, stmt, args).Get(&args)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", coreerrors.NotFound
+		return "", relationerrors.RelationNotFound
 	} else if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1941,7 +1940,7 @@ WHERE  t.uuid = $entityUUID.uuid
 	var result lifeAndSuspended
 	err = tx.Query(ctx, stmt, arg).Get(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return lifeAndSuspended{}, coreerrors.NotFound
+		return lifeAndSuspended{}, relationerrors.RelationNotFound
 	} else if err != nil {
 		return lifeAndSuspended{}, errors.Capture(err)
 	}
@@ -1964,7 +1963,7 @@ WHERE  t.uuid = $getLife.uuid
 	}
 	err = tx.Query(ctx, stmt, args).Get(&args)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", coreerrors.NotFound
+		return "", applicationerrors.UnitNotFound
 	} else if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -3953,15 +3952,13 @@ func (st *State) getUnitsRelationData(
 	relUUID string,
 	appID string,
 ) (map[string]domainrelation.RelationData, error) {
-	var result map[string]domainrelation.RelationData
-
 	relUnits, err := st.getRelationUnitsWithUnits(ctx, tx, relUUID, appID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	// For each relation unit, get settings and fill in RelationData.
-	result = make(map[string]domainrelation.RelationData, len(relUnits))
+	result := make(map[string]domainrelation.RelationData, len(relUnits))
 	for _, relUnit := range relUnits {
 		// Units without a relation unit are out of scope. Relation unit
 		// settings only exist for relations in scope.
