@@ -593,7 +593,7 @@ SELECT a.uuid AS &applicationDetails.uuid,
 	   a.charm_uuid AS &applicationDetails.charm_uuid,
 	   a.life_id AS &applicationDetails.life_id,
 	   a.space_uuid AS &applicationDetails.space_uuid,
-	   c.source_id = 2 AS &applicationDetails.is_remote_application
+	   c.source_id = 2 AS &applicationDetails.is_application_synthetic
 FROM application a
 JOIN charm AS c ON c.uuid = a.charm_uuid
 WHERE a.uuid = $applicationDetails.uuid;
@@ -616,9 +616,9 @@ WHERE a.uuid = $applicationDetails.uuid;
 	}
 
 	return application.ApplicationDetails{
-		Life:                app.LifeID,
-		Name:                app.Name,
-		IsRemoteApplication: app.IsRemoteApplication,
+		Life:                   app.LifeID,
+		Name:                   app.Name,
+		IsApplicationSynthetic: app.IsApplicationSynthetic,
 	}, nil
 }
 
@@ -752,7 +752,7 @@ SELECT a.uuid AS &applicationDetails.uuid,
 	   a.charm_uuid AS &applicationDetails.charm_uuid,
 	   a.life_id AS &applicationDetails.life_id,
 	   a.space_uuid AS &applicationDetails.space_uuid,
-	   c.source_id = 2 AS &applicationDetails.is_remote_application
+	   c.source_id = 2 AS &applicationDetails.is_application_synthetic
 FROM application a
 JOIN charm AS c ON c.uuid = a.charm_uuid
 WHERE a.name = $applicationDetails.name;
@@ -868,8 +868,8 @@ WHERE application_uuid = $applicationScale.application_uuid
 		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
 		if err != nil {
 			return errors.Capture(err)
-		} else if appDetails.IsRemoteApplication {
-			return errors.Errorf("cannot set scaling state for remote application %q", appName)
+		} else if appDetails.IsApplicationSynthetic {
+			return errors.Errorf("cannot set scaling state for synthetic application %q", appName)
 		}
 		scaleDetails.ApplicationID = appDetails.UUID
 
@@ -927,8 +927,8 @@ AND    provider_id = $cloudService.provider_id`, serviceInfo)
 		appDetails, err := st.getApplicationDetails(ctx, tx, applicationName)
 		if err != nil {
 			return errors.Capture(err)
-		} else if appDetails.IsRemoteApplication {
-			return errors.Errorf("cannot upsert cloud service for remote application %q", applicationName)
+		} else if appDetails.IsApplicationSynthetic {
+			return errors.Errorf("cannot upsert cloud service for synthetic application %q", applicationName)
 		}
 		serviceInfo.ApplicationUUID = appDetails.UUID
 

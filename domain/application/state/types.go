@@ -79,12 +79,12 @@ type setApplicationDetails struct {
 }
 
 type applicationDetails struct {
-	UUID                coreapplication.UUID `db:"uuid"`
-	Name                string               `db:"name"`
-	CharmUUID           corecharm.ID         `db:"charm_uuid"`
-	LifeID              life.Life            `db:"life_id"`
-	SpaceUUID           string               `db:"space_uuid"`
-	IsRemoteApplication bool                 `db:"is_remote_application"`
+	UUID                   coreapplication.UUID `db:"uuid"`
+	Name                   string               `db:"name"`
+	CharmUUID              corecharm.ID         `db:"charm_uuid"`
+	LifeID                 life.Life            `db:"life_id"`
+	SpaceUUID              string               `db:"space_uuid"`
+	IsApplicationSynthetic bool                 `db:"is_application_synthetic"`
 }
 
 type applicationScale struct {

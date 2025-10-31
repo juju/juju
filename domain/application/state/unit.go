@@ -1257,8 +1257,8 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			return errors.Errorf("querying life for application %q: %w", appName, err)
 		} else if appDetails.LifeID != life.Alive {
 			return errors.Errorf("registering application %q: %w", appName, applicationerrors.ApplicationNotAlive)
-		} else if appDetails.IsRemoteApplication {
-			return errors.Errorf("registering unit for remote application %q", appName)
+		} else if appDetails.IsApplicationSynthetic {
+			return errors.Errorf("registering unit for synthetic application %q", appName)
 		}
 		appUUID := appDetails.UUID
 
