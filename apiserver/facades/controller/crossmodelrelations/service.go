@@ -115,7 +115,7 @@ type RelationService interface {
 	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetails, error)
 
 	// GetRelationKeyByUUID returns the relation key for the given UUID.
-	GetRelationKeyByUUID(ctx context.Context, relationUUID string) (corerelation.Key, error)
+	GetRelationKeyByUUID(ctx context.Context, relationUUID corerelation.UUID) (corerelation.Key, error)
 
 	// GetRelationLifeSuspendedStatus returns a life/suspended status change
 	// struct for a specified relation uuid.

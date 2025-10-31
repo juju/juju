@@ -1154,16 +1154,16 @@ func (s *Service) GetConsumerRelationUnitsChange(
 }
 
 // GetRelationKeyByUUID returns the relation Key for the given UUID.
-func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUIDStr string) (corerelation.Key, error) {
+func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUID corerelation.UUID) (corerelation.Key, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	_, err := corerelation.ParseUUID(relationUUIDStr)
-	if err != nil {
-		return corerelation.Key{}, errors.Capture(err)
+	if err := relationUUID.Validate(); err != nil {
+		return corerelation.Key{}, errors.Errorf(
+			"getting relation key:%w", err).Add(relationerrors.RelationUUIDNotValid)
 	}
 
-	relationEndpoints, err := s.st.GetRelationEndpoints(ctx, relationUUIDStr)
+	relationEndpoints, err := s.st.GetRelationEndpoints(ctx, relationUUID.String())
 	if err != nil {
 		return corerelation.Key{}, errors.Capture(err)
 	}

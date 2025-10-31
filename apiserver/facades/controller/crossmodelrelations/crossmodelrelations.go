@@ -425,7 +425,7 @@ func (api *CrossModelRelationsAPIv3) registerOneRemoteRelation(
 		return nil, errors.Annotate(err, "adding remote application consumer")
 	}
 
-	relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, relation.RelationToken)
+	relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, corerelation.UUID(relation.RelationToken))
 	if err != nil {
 		return nil, errors.Annotate(err, "getting relation key")
 	}
@@ -485,14 +485,14 @@ func (api *CrossModelRelationsAPIv3) watchOneRelationChanges(
 	var empty params.RemoteRelationChangeEvent
 	// relationToken is the relation UUID.
 	relationToken := arg.Token
+	relationUUID := corerelation.UUID(relationToken)
 
-	relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, relationToken)
+	relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, relationUUID)
 	if err != nil {
 		return nil, empty, internalerrors.Errorf("getting relation key for %q: %w", relationToken, err)
 	}
 	relationTag := names.NewRelationTag(relationKey.String())
 
-	relationUUID := corerelation.UUID(relationToken)
 	if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 		return nil, empty, internalerrors.Capture(err)
 	}
@@ -586,7 +586,8 @@ func (api *CrossModelRelationsAPIv3) WatchRelationsSuspendedStatus(
 	}
 
 	for i, arg := range remoteRelationArgs.Args {
-		relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, arg.Token)
+		relationUUID := corerelation.UUID(arg.Token)
+		relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, relationUUID)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(
 				internalerrors.Errorf("getting relation key for %q: %w", arg.Token, err))
@@ -594,7 +595,6 @@ func (api *CrossModelRelationsAPIv3) WatchRelationsSuspendedStatus(
 		}
 		relationTag := names.NewRelationTag(relationKey.String())
 
-		relationUUID := corerelation.UUID(arg.Token)
 		if err := api.checkMacaroonsForRelation(ctx, relationUUID, relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -854,7 +854,7 @@ func (api *CrossModelRelationsAPIv3) WatchEgressAddressesForRelations(ctx contex
 	}
 	for i, arg := range remoteRelationArgs.Args {
 		relationUUID := corerelation.UUID(arg.Token)
-		relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, relationUUID.String())
+		relationKey, err := api.relationService.GetRelationKeyByUUID(ctx, relationUUID)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
