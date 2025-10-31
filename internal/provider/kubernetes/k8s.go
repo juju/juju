@@ -720,7 +720,6 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 		result.Status = status.StatusInfo{
 			Status:  ssStatus,
 			Message: message,
-			Data:    toInterfaceMap(ss.Annotations),
 		}
 		return &result, nil
 	}
@@ -744,7 +743,6 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 		result.Status = status.StatusInfo{
 			Status:  deployStatus,
 			Message: message,
-			Data:    toInterfaceMap(deployment.Annotations),
 		}
 		return &result, nil
 	}
@@ -768,7 +766,6 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 		result.Status = status.StatusInfo{
 			Status:  dsStatus,
 			Message: message,
-			Data:    toInterfaceMap(ds.Annotations),
 		}
 	}
 	return &result, nil
@@ -2703,12 +2700,4 @@ func isStateful(pod *core.Pod) bool {
 		}
 	}
 	return false
-}
-
-func toInterfaceMap(in map[string]string) map[string]interface{} {
-	out := make(map[string]interface{}, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
-	return out
 }
