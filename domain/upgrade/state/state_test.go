@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/upgrade"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -362,7 +363,7 @@ func (s *stateSuite) TestSetControllerDoneCompleteUpgradeEmptyCompletedAt(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = db.Exec(`
-UPDATE upgrade_info_controller_node 
+UPDATE upgrade_info_controller_node
 SET    node_upgrade_completed_at = ''
 WHERE  upgrade_info_uuid = ?
        AND controller_node_id = 0`, uuid)
@@ -420,6 +421,82 @@ func (s *stateSuite) TestUpgradeInfo(c *tc.C) {
 		TargetVersion:   "3.0.1",
 		State:           upgrade.Created,
 	})
+}
+
+// TestGetAllModelUUIDsEmpty tests that when no models exist an empty result
+// is returned with no error.
+func (s *stateSuite) TestGetAllModelUUIDsEmpty(c *tc.C) {
+	results, err := s.st.GetAllModelUUIDs(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 0)
+}
+
+// TestGetAllModelUUIDs tests that all model uuids in the controller are
+// returned.
+func (s *stateSuite) TestGetAllModelUUIDs(c *tc.C) {
+	model1UUID := tc.Must(c, coremodel.NewUUID)
+	model2UUID := tc.Must(c, coremodel.NewUUID)
+
+	insertModel := func(modelUUID string) {
+		_, err := s.DB().Exec(
+			`
+INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
+VALUES (?, ?, 1, "foo", false)
+`,
+			modelUUID, modelUUID,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = s.DB().Exec(
+			`
+INSERT INTO model (uuid, activated, cloud_uuid, model_type_id, life_id, name, qualifier)
+VALUES (?, true, ?, 1, 0, ?, ?)
+`,
+			modelUUID, modelUUID, modelUUID, modelUUID,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	insertModel(model1UUID.String())
+	insertModel(model2UUID.String())
+
+	results, err := s.st.GetAllModelUUIDs(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(results, tc.SameContents, []coremodel.UUID{
+		model1UUID, model2UUID,
+	})
+}
+
+// TestGetAllModelUUIDsNotAliveIgnored tests that model which are not alive
+// are ignored from the list.
+func (s *stateSuite) TestGetAllModelUUIDsNotAliveIgnored(c *tc.C) {
+	model1UUID := tc.Must(c, coremodel.NewUUID)
+
+	insertModel := func(modelUUID string) {
+		_, err := s.DB().Exec(
+			`
+INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
+VALUES (?, ?, 1, "foo", false)
+`,
+			modelUUID, modelUUID,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = s.DB().Exec(
+			`
+INSERT INTO model (uuid, activated, cloud_uuid, model_type_id, life_id, name, qualifier)
+VALUES (?, true, ?, 1, 1, ?, ?)
+`,
+			modelUUID, modelUUID, modelUUID, modelUUID,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	insertModel(model1UUID.String())
+
+	results, err := s.st.GetAllModelUUIDs(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 0)
 }
 
 func (s *stateSuite) ensureUpgradeInfoState(c *tc.C, uuid domainupgrade.UUID, state upgrade.State) {
