@@ -167,7 +167,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	// is refactored we fall back to using the user-pass login provider
 	// with information from Info.
 	if loginProvider == nil {
-		loginProvider = NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, bakeryClient, CookieURLFromHost(host))
+		loginProvider = NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, CookieURLFromHost(host))
 	}
 
 	st := &state{
@@ -1203,9 +1203,21 @@ func (s *state) Close() error {
 	return err
 }
 
+// wrappedBakeryClient wraps an httpbakery.Client
+// to implement base.MacaroonDischarger.
+type wrappedBakeryClient struct {
+	*httpbakery.Client
+}
+
+// CookieJar implements base.MacaroonDischarger.
+// It returns the cookie jar used by the bakery client.
+func (w *wrappedBakeryClient) CookieJar() http.CookieJar {
+	return w.Client.Jar
+}
+
 // BakeryClient implements api.Connection.
 func (s *state) BakeryClient() base.MacaroonDischarger {
-	return s.bakeryClient
+	return &wrappedBakeryClient{s.bakeryClient}
 }
 
 // Broken implements api.Connection.
