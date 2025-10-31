@@ -723,7 +723,12 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		return errors.Errorf("invalid application args: %w", err)
 	}
 
-	err := s.storageService.ValidateApplicationStorageDirectiveOverrides(
+	err := s.storageService.ValidateCharmStorage(ctx, charm.Meta().Storage)
+	if err != nil {
+		return errors.Errorf("invalid charm storage: %w", err)
+	}
+
+	err = s.storageService.ValidateApplicationStorageDirectiveOverrides(
 		ctx,
 		charm.Meta().Storage,
 		args.StorageDirectiveOverrides,

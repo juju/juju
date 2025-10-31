@@ -49,6 +49,9 @@ func setCreateApplicationNoopStorageExpects(
 	storageService.EXPECT().MakeIAASUnitStorageArgs(
 		gomock.Any(), gomock.Any(),
 	).Return(internal.CreateIAASUnitStorageArg{}, nil).AnyTimes()
+	storageService.EXPECT().ValidateCharmStorage(
+		gomock.Any(), gomock.Any(),
+	).Return(nil).AnyTimes()
 	storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(
 		gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(nil).AnyTimes()

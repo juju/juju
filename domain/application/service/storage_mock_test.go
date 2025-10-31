@@ -318,3 +318,41 @@ func (c *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall) DoA
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// ValidateCharmStorage mocks base method.
+func (m *MockStorageService) ValidateCharmStorage(arg0 context.Context, arg1 map[string]charm.Storage) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateCharmStorage", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateCharmStorage indicates an expected call of ValidateCharmStorage.
+func (mr *MockStorageServiceMockRecorder) ValidateCharmStorage(arg0, arg1 any) *MockStorageServiceValidateCharmStorageCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateCharmStorage", reflect.TypeOf((*MockStorageService)(nil).ValidateCharmStorage), arg0, arg1)
+	return &MockStorageServiceValidateCharmStorageCall{Call: call}
+}
+
+// MockStorageServiceValidateCharmStorageCall wrap *gomock.Call
+type MockStorageServiceValidateCharmStorageCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageServiceValidateCharmStorageCall) Return(arg0 error) *MockStorageServiceValidateCharmStorageCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageServiceValidateCharmStorageCall) Do(f func(context.Context, map[string]charm.Storage) error) *MockStorageServiceValidateCharmStorageCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageServiceValidateCharmStorageCall) DoAndReturn(f func(context.Context, map[string]charm.Storage) error) *MockStorageServiceValidateCharmStorageCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

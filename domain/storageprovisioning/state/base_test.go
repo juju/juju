@@ -193,6 +193,41 @@ VALUES (?, ?, 0, 0)
 	return fsUUID, fsID
 }
 
+// newModelFilesystemAttachmentWithMount creates a new filesystem attachment
+// that has model provision scope. The attachment is associated with the
+// provided filesystem uuid and net node uuid. This will also set the mount
+// point and readonly attributes of the filesystem attachment.
+func (s *baseSuite) newModelFilesystemAttachmentWithMount(
+	c *tc.C,
+	fsUUID storageprovisioning.FilesystemUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	mountPoint string,
+	readOnly bool,
+) storageprovisioning.FilesystemAttachmentUUID {
+	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem_attachment (uuid,
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           mount_point,
+                                           read_only,
+                                           provision_scope_id)
+VALUES (?, ?, ?, 0, ?, ?, 0)
+`,
+		attachmentUUID.String(),
+		fsUUID,
+		netNodeUUID.String(),
+		mountPoint,
+		readOnly,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID
+}
+
 // newModelVolume creates a new volume in the model with model
 // provision scope. Return is the uuid and volume id of the entity.
 func (s *baseSuite) newModelVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
@@ -496,6 +531,29 @@ func (s *baseSuite) newCharmStorage(c *tc.C,
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, read_only, count_min, count_max, location)
 VALUES (?, ?, (SELECT id FROM charm_storage_kind WHERE kind = ?), ?, 0, 10, ?)`, charmUUID, name, kind, readOnly, location)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// newFilesystemCharmStorageWithLocationAndCount is a testing utility for
+// creating new charm filesystem storage instance with location and count
+// attributes.
+func (s *baseSuite) newFilesystemCharmStorageWithLocationAndCount(
+	c *tc.C, charmUUID, name, location string, countMin, countMax int,
+) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, read_only, count_min, count_max, location)
+VALUES (?, ?, 1, false, ?, ?, ?)
+`,
+			charmUUID, name, countMin, countMax, location,
+		)
 		if err != nil {
 			return err
 		}

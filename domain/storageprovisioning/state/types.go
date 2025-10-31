@@ -111,11 +111,13 @@ func (l filesystemLives) Iter(yield func(string, life.Life) bool) {
 // filesystemAttachmentParams represents the attachment params for a filesystem
 // attachment from the model database.
 type filesystemAttachmentParams struct {
-	Type       string           `db:"type"`
-	InstanceID sql.Null[string] `db:"instance_id"`
-	ProviderID sql.Null[string] `db:"provider_id"`
-	Location   sql.Null[string] `db:"location"`
-	ReadOnly   sql.Null[bool]   `db:"read_only"`
+	CharmStorageCountMax int              `db:"charm_storage_count_max"`
+	CharmStorageLocation sql.Null[string] `db:"charm_storage_location"`
+	CharmStorageReadOnly sql.Null[bool]   `db:"charm_storage_read_only"`
+	MachineInstanceID    sql.Null[string] `db:"machine_instance_id"`
+	MountPoint           sql.Null[string] `db:"mount_point"`
+	ProviderID           sql.Null[string] `db:"provider_id"`
+	StoragePoolType      string           `db:"storage_pool_type"`
 }
 
 // filesystemProvisioningParams represents the provisioning params for a filesystem from the

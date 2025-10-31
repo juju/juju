@@ -23,6 +23,7 @@ import (
 	network "github.com/juju/juju/domain/network"
 	storage "github.com/juju/juju/domain/storage"
 	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
+	internal "github.com/juju/juju/domain/storageprovisioning/internal"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -673,10 +674,10 @@ func (c *MockStateGetFilesystemRemovalParamsCall) DoAndReturn(f func(context.Con
 }
 
 // GetFilesystemTemplatesForApplication mocks base method.
-func (m *MockState) GetFilesystemTemplatesForApplication(arg0 context.Context, arg1 application.UUID) ([]storageprovisioning.FilesystemTemplate, error) {
+func (m *MockState) GetFilesystemTemplatesForApplication(arg0 context.Context, arg1 application.UUID) ([]internal.FilesystemTemplate, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilesystemTemplatesForApplication", arg0, arg1)
-	ret0, _ := ret[0].([]storageprovisioning.FilesystemTemplate)
+	ret0, _ := ret[0].([]internal.FilesystemTemplate)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -694,19 +695,19 @@ type MockStateGetFilesystemTemplatesForApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetFilesystemTemplatesForApplicationCall) Return(arg0 []storageprovisioning.FilesystemTemplate, arg1 error) *MockStateGetFilesystemTemplatesForApplicationCall {
+func (c *MockStateGetFilesystemTemplatesForApplicationCall) Return(arg0 []internal.FilesystemTemplate, arg1 error) *MockStateGetFilesystemTemplatesForApplicationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetFilesystemTemplatesForApplicationCall) Do(f func(context.Context, application.UUID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStateGetFilesystemTemplatesForApplicationCall {
+func (c *MockStateGetFilesystemTemplatesForApplicationCall) Do(f func(context.Context, application.UUID) ([]internal.FilesystemTemplate, error)) *MockStateGetFilesystemTemplatesForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetFilesystemTemplatesForApplicationCall) DoAndReturn(f func(context.Context, application.UUID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStateGetFilesystemTemplatesForApplicationCall {
+func (c *MockStateGetFilesystemTemplatesForApplicationCall) DoAndReturn(f func(context.Context, application.UUID) ([]internal.FilesystemTemplate, error)) *MockStateGetFilesystemTemplatesForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

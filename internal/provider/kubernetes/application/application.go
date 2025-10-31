@@ -207,16 +207,20 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		return errors.Annotate(err, "generating application podspec")
 	}
 
-	var handleVolume handleVolumeFunc = func(v corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
+	var handleVolume handleVolumeFunc = func(
+		v corev1.Volume,
+		attachParams jujustorage.KubernetesFilesystemAttachmentParams,
+	) (*corev1.VolumeMount, error) {
 		if err := storage.PushUniqueVolume(podSpec, v, false); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return &corev1.VolumeMount{
 			Name:      v.Name,
-			ReadOnly:  readOnly,
-			MountPath: mountPath,
+			ReadOnly:  attachParams.ReadOnly,
+			MountPath: attachParams.Path,
 		}, nil
 	}
+
 	var handleVolumeMount handleVolumeMountFunc = func(storageName string, m corev1.VolumeMount) error {
 		for i := range podSpec.Containers {
 			name := podSpec.Containers[i].Name
@@ -229,14 +233,18 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					volumeMountCopy := m
 					// TODO(sidecar): volumeMountCopy.MountPath was defined in `caas.ApplicationConfig.Filesystems[*].Attachment.Path`.
 					// Consolidate `caas.ApplicationConfig.Filesystems[*].Attachment.Path` and `caas.ApplicationConfig.Containers[*].Mounts[*].Path`!!!
-					volumeMountCopy.MountPath = mount.Path
+					//volumeMountCopy.MountPath = mount.Path
 					podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, volumeMountCopy)
 				}
 			}
 		}
 		return nil
 	}
-	var handlePVCForStatelessResource handlePVCFunc = func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
+
+	var handlePVCForStatelessResource handlePVCFunc = func(
+		pvc corev1.PersistentVolumeClaim,
+		attachParams jujustorage.KubernetesFilesystemAttachmentParams,
+	) (*corev1.VolumeMount, error) {
 		// Ensure PVC.
 		r := resources.NewPersistentVolumeClaim(a.client.CoreV1().PersistentVolumeClaims(a.namespace), a.namespace, pvc.GetName(), &pvc)
 		applier.Apply(r)
@@ -247,11 +255,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: r.GetName(),
-					ReadOnly:  readOnly,
+					ReadOnly:  attachParams.ReadOnly,
 				},
 			},
 		}
-		return handleVolume(vol, mountPath, readOnly)
+		return handleVolume(vol, attachParams)
 	}
 	storageClasses, err := resources.ListStorageClass(context.TODO(), a.client.StorageV1().StorageClasses(), metav1.ListOptions{})
 	if err != nil {
@@ -317,14 +325,16 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 		if err = configureStorage(
 			config.StorageUniqueID,
-			func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
+			func(pvc corev1.PersistentVolumeClaim,
+				attachParams jujustorage.KubernetesFilesystemAttachmentParams,
+			) (*corev1.VolumeMount, error) {
 				if err := storage.PushUniqueVolumeClaimTemplate(&statefulset.Spec, pvc); err != nil {
 					return nil, errors.Trace(err)
 				}
 				return &corev1.VolumeMount{
 					Name:      pvc.GetName(),
-					ReadOnly:  readOnly,
-					MountPath: mountPath,
+					ReadOnly:  attachParams.ReadOnly,
+					MountPath: attachParams.Path,
 				}, nil
 			},
 		); err != nil {
@@ -2094,9 +2104,14 @@ func (a *app) matchImagePullSecret(name string) bool {
 	return strings.HasPrefix(name, a.name+"-") && strings.HasSuffix(name, "-secret")
 }
 
-type handleVolumeFunc func(vol corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
+type handleVolumeFunc func(
+	corev1.Volume, jujustorage.KubernetesFilesystemAttachmentParams,
+) (*corev1.VolumeMount, error)
 
-type handlePVCFunc func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
+type handlePVCFunc func(
+	corev1.PersistentVolumeClaim,
+	jujustorage.KubernetesFilesystemAttachmentParams,
+) (*corev1.VolumeMount, error)
 
 type handleVolumeMountFunc func(string, corev1.VolumeMount) error
 
@@ -2175,18 +2190,13 @@ func (a *app) configureStorage(
 	logger.Tracef(context.TODO(), "persistent volume claim name mapping = %v", pvcNames)
 
 	fsNames := set.NewStrings()
-	for index, fs := range filesystems {
+	for _, fs := range filesystems {
 		if fsNames.Contains(fs.StorageName) {
 			return errors.NotValidf("duplicated storage name %q for %q", fs.StorageName, a.name)
 		}
 		fsNames.Add(fs.StorageName)
 
 		logger.Debugf(context.TODO(), "%s has filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(fs))
-
-		readOnly := false
-		if fs.Attachment != nil {
-			readOnly = fs.Attachment.ReadOnly
-		}
 
 		name := a.volumeName(fs.StorageName)
 		pvcNameGetter := a.pvcNameGetter(pvcNames, storageUniqueID)
@@ -2197,10 +2207,9 @@ func (a *app) configureStorage(
 		}
 
 		var volumeMount *corev1.VolumeMount
-		mountPath := storage.GetMountPathForFilesystem(index, a.name, fs)
 		if vol != nil && handleVolume != nil {
 			logger.Debugf(context.TODO(), "using volume for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*vol))
-			volumeMount, err = handleVolume(*vol, mountPath, readOnly)
+			volumeMount, err = handleVolume(*vol, *fs.Attachment)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -2214,7 +2223,7 @@ func (a *app) configureStorage(
 		}
 		if pvc != nil && handlePVC != nil {
 			logger.Debugf(context.TODO(), "using persistent volume claim for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*pvc))
-			volumeMount, err = handlePVC(*pvc, mountPath, readOnly)
+			volumeMount, err = handlePVC(*pvc, *fs.Attachment)
 			if err != nil {
 				return errors.Trace(err)
 			}

@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"path"
+	"strconv"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corechangestream "github.com/juju/juju/core/changestream"
@@ -22,6 +24,7 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -192,7 +195,10 @@ type FilesystemState interface {
 
 	// GetFilesystemTemplatesForApplication returns all the filesystem templates
 	// for a given application.
-	GetFilesystemTemplatesForApplication(context.Context, coreapplication.UUID) ([]storageprovisioning.FilesystemTemplate, error)
+	GetFilesystemTemplatesForApplication(
+		context.Context,
+		coreapplication.UUID,
+	) ([]internal.FilesystemTemplate, error)
 
 	// SetFilesystemProvisionedInfo sets on the provided filesystem the information
 	// about the provisioned filesystem.
@@ -328,7 +334,8 @@ func (s *Service) GetFilesystemAttachmentLife(
 }
 
 // GetFilesystemAttachmentParams retrieves the attachment parameters for a given
-// filesystem attachment.
+// filesystem attachment. This function guarantees to always return a mount
+// point for the attachment.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the supplied filesystem attachment UUID is not
@@ -348,7 +355,89 @@ func (s *Service) GetFilesystemAttachmentParams(
 		).Add(coreerrors.NotValid)
 	}
 
-	return s.st.GetFilesystemAttachmentParams(ctx, uuid)
+	params, err := s.st.GetFilesystemAttachmentParams(ctx, uuid)
+	if err != nil {
+		return storageprovisioning.FilesystemAttachmentParams{}, errors.Capture(err)
+	}
+
+	if params.MountPoint != "" {
+		// The mount point has already been set on the attachment. There is
+		// nothing more to do.
+		return params, nil
+	}
+
+	params.MountPoint = calculateFilesystemAttachmentMountPoint(
+		params.CharmStorageLocation,
+		// Storage for a charm is considered a singleton when the max count is 1.
+		params.CharmStorageCountMax == 1,
+		uuid.String(),
+	)
+	return params, nil
+}
+
+// calculateFilesystemAttachmentMountPoint calculates the mount point for a
+// filesystem attachment. If the charmSuggestedLocation supplied is empty then
+// the value from [storageprovisioning.DefaultFilesystemAttachmentDir] will be
+// used as the base of the mount point.
+//
+// If the charmSuggestedLocation is non zero and the storage being attached is
+// a singleton the verbatim location will be returned to the caller. Otherwise
+// the attachment id will be appended to the location to ensure uniqueness.
+//
+// This function guarantees to be idempotent given the same attachment and charm
+// location and singleton status.
+func calculateFilesystemAttachmentMountPoint(
+	charmSuggestedLocation string,
+	isSingelton bool,
+	id string,
+) string {
+	refLocation := charmSuggestedLocation
+	if charmSuggestedLocation == "" {
+		refLocation = storageprovisioning.DefaultFilesystemAttachmentDir
+		// We purposely disable singleton storage when using the default
+		// location. This ensures that multiple attachments for different
+		// storage do not collide.
+		isSingelton = false
+	}
+
+	// If only one attachment of this storage can ever be made then we return
+	// the verbatim refLocation asked for.
+	if isSingelton {
+		return refLocation
+	}
+
+	// Multiple attachments are expected for this storage so we append the
+	// attachement id to form a unique mount point.
+	return path.Join(refLocation, id)
+}
+
+// calculateFilesystemAttachmentTemplates calculates all of the
+// [storageprovisioning.FilesystemAttachmentTemplate]s for the supplied args.
+func calculateFilesystemAttachmentTemplates(
+	storageName,
+	charmStorageLocation string,
+	isSingleton bool,
+	readOnly bool,
+	count int,
+) []storageprovisioning.FilesystemAttachmentTemplate {
+	retVal := make([]storageprovisioning.FilesystemAttachmentTemplate, 0, count)
+	for i := range count {
+		id := strconv.Itoa(i)
+		if charmStorageLocation == "" {
+			// If the charmStorageLocation is zero we need to make sure the id
+			// value is unique across all storage names.
+			id = storageName + "-" + id
+		}
+		mountPoint := calculateFilesystemAttachmentMountPoint(
+			charmStorageLocation, isSingleton, id,
+		)
+
+		retVal = append(retVal, storageprovisioning.FilesystemAttachmentTemplate{
+			MountPoint: mountPoint,
+			ReadOnly:   readOnly,
+		})
+	}
+	return retVal
 }
 
 // GetFilesystemAttachmentUUIDForFilesystemIDMachine returns the filesystem attachment
@@ -731,7 +820,29 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 			"getting filesystem templates for app %q: %w", appUUID, err,
 		)
 	}
-	return fsTemplates, nil
+
+	retVal := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
+	for _, fsTemplate := range fsTemplates {
+		attachments := calculateFilesystemAttachmentTemplates(
+			fsTemplate.StorageName,
+			fsTemplate.CharmLocationHint,
+			fsTemplate.MaxCount == 1,
+			fsTemplate.ReadOnly,
+			fsTemplate.Count,
+		)
+
+		mountTemplate := storageprovisioning.FilesystemTemplate{
+			Attachments:  attachments,
+			Attributes:   fsTemplate.Attributes,
+			Count:        fsTemplate.Count,
+			ProviderType: fsTemplate.ProviderType,
+			SizeMiB:      fsTemplate.SizeMiB,
+			StorageName:  fsTemplate.StorageName,
+		}
+		retVal = append(retVal, mountTemplate)
+	}
+
+	return retVal, nil
 }
 
 // SetFilesystemProvisionedInfo sets on the provided filesystem the information

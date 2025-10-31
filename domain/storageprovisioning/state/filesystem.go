@@ -16,20 +16,25 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
 // GetFilesystemTemplatesForApplication returns all the filesystem templates for
 // a given application.
+//
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] when the application does not exist.
 func (st *State) GetFilesystemTemplatesForApplication(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
-) ([]storageprovisioning.FilesystemTemplate, error) {
+) ([]internal.FilesystemTemplate, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -84,7 +89,9 @@ ORDER BY asd.storage_name
 		if err != nil {
 			return err
 		} else if !exists {
-			return errors.Errorf("application %q does not exist", appUUID)
+			return errors.Errorf(
+				"application %q does not exist", appUUID,
+			).Add(applicationerrors.ApplicationNotFound)
 		}
 		err = tx.Query(ctx, fsTemplateQuery, id).GetAll(&fsTemplates)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -114,17 +121,17 @@ ORDER BY asd.storage_name
 		storageAttrs[attr.Key] = attr.Value
 	}
 
-	r := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
+	r := make([]internal.FilesystemTemplate, 0, len(fsTemplates))
 	for _, v := range fsTemplates {
-		r = append(r, storageprovisioning.FilesystemTemplate{
-			StorageName:  v.StorageName,
-			Count:        v.Count,
-			MaxCount:     v.MaxCount,
-			SizeMiB:      v.SizeMiB,
-			ProviderType: v.ProviderType,
-			ReadOnly:     v.ReadOnly,
-			Location:     v.Location,
-			Attributes:   attrs[v.StorageName],
+		r = append(r, internal.FilesystemTemplate{
+			StorageName:       v.StorageName,
+			Count:             v.Count,
+			MaxCount:          v.MaxCount,
+			SizeMiB:           v.SizeMiB,
+			ProviderType:      v.ProviderType,
+			ReadOnly:          v.ReadOnly,
+			CharmLocationHint: v.Location,
+			Attributes:        attrs[v.StorageName],
 		})
 	}
 	return r, nil
@@ -565,7 +572,7 @@ func (st *State) GetFilesystemAttachmentParams(
 	// the params for a filesystem attachment. This is because
 	// the type of the provider is recorded on the storage instance.
 	//
-	// A review of Mongo shows that this cases is possible but there is not real
+	// A review of Mongo shows that this cases is possible but there is no real
 	// story to show how this happens of if it is valid. As it stands we don't
 	// support this case in Dqlite so it is a watch and act scneario.
 	//
@@ -600,10 +607,12 @@ func (st *State) GetFilesystemAttachmentParams(
 	stmt, err := st.Prepare(`
 SELECT &filesystemAttachmentParams.* FROM (
     SELECT    sf.provider_id,
-              mci.instance_id,
-              cs.location,
-              cs.read_only,
-              sp.type
+              mci.instance_id AS machine_instance_id,
+              cs.location AS charm_storage_location,
+              cs.count_max AS charm_storage_count_max,
+              sfa.mount_point,
+              cs.read_only AS charm_storage_read_only,
+              sp.type AS storage_pool_type
     FROM      storage_filesystem_attachment sfa
     JOIN      storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
     JOIN      storage_instance_filesystem sif ON sf.uuid = sif.storage_filesystem_uuid
@@ -650,11 +659,13 @@ SELECT &filesystemAttachmentParams.* FROM (
 	}
 
 	return storageprovisioning.FilesystemAttachmentParams{
-		MachineInstanceID: dbVal.InstanceID.V,
-		Provider:          dbVal.Type,
-		ProviderID:        dbVal.ProviderID.V,
-		MountPoint:        dbVal.Location.V,
-		ReadOnly:          dbVal.ReadOnly.V,
+		CharmStorageCountMax: dbVal.CharmStorageCountMax,
+		CharmStorageLocation: dbVal.CharmStorageLocation.V,
+		CharmStorageReadOnly: dbVal.CharmStorageReadOnly.V,
+		MachineInstanceID:    dbVal.MachineInstanceID.V,
+		MountPoint:           dbVal.MountPoint.V,
+		Provider:             dbVal.StoragePoolType,
+		ProviderID:           dbVal.ProviderID.V,
 	}, nil
 }
 

@@ -1936,7 +1936,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 			Provider:      fsParams.Provider,
 			ProviderId:    fsParams.ProviderID,
 			MountPoint:    fsParams.MountPoint,
-			ReadOnly:      fsParams.ReadOnly,
+			ReadOnly:      fsParams.CharmStorageReadOnly,
 		}, nil
 	}
 	for _, arg := range args.Ids {

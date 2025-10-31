@@ -11,6 +11,21 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// CharmStorageLocationProhibited describes an error that occurs when a charms
+// storage requests a location that is prohibited with a Juju controller.
+type CharmStorageLocationProhibited struct {
+	// CharmStorageLocation is the location requested by the charm for mounting
+	// the storage.
+	CharmStorageLocation string
+
+	// CharmStorageName is the name of the storage as referenced by the charm.
+	CharmStorageName string
+
+	// ProhibitedLocation is the prohibited location that has been violated by
+	// the charm.
+	ProhibitedLocation string
+}
+
 // UnitStorageMinViolation describes an error that occurs when a unit's charm
 // required minimum storage count would have been violated. An example of this
 // is if a charm requires 3 storage instances for "data" but an operation on a
@@ -324,6 +339,15 @@ type StorageCountLimitExceeded struct {
 	// StorageName is the name of the storage whose count was being changed in
 	// the operation.
 	StorageName string
+}
+
+// Error returns a description on the prohibited location that has been
+// violated by a charms storage. This func implements the [error] interface.
+func (s CharmStorageLocationProhibited) Error() string {
+	return fmt.Sprintf(
+		"charm storage %q requested location %q which violates prohibited location %q",
+		s.CharmStorageName, s.CharmStorageLocation, s.ProhibitedLocation,
+	)
 }
 
 // Error returns a description on the storage count limit that has been

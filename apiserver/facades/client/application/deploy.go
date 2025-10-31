@@ -69,18 +69,32 @@ type DeployApplicationParams struct {
 // some of the errors that will come out of the application domain. If a handler
 // does not exist then the original error will be returned.
 func handleApplicationDomainError(err error) error {
-	// Check to see if the user has creeped over or under a charm storage count
-	// limit.
-	limitErr, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
-	if is && limitErr.Requested < limitErr.Minimum {
+	switch {
+	// When the supplied storage directive overrides violates the chamrs
+	// storage.
+	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
+		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+		if limitErr.Requested < limitErr.Minimum {
+			return errors.Errorf(
+				"storage directive %q request count %d insufficient for the charms minimum count of %d",
+				limitErr.StorageName, limitErr.Requested, limitErr.Minimum,
+			).Add(coreerrors.NotValid)
+		} else if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
+			return errors.Errorf(
+				"storage directive %q request count %d exceeds the charms maximum count of %d",
+				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
+			).Add(coreerrors.NotValid)
+		}
+
+	// When the charm storage location violateds a prohibited filesystem mount
+	// point.
+	case errors.HasType[applicationerrors.CharmStorageLocationProhibited](err):
+		prohibitErr, _ := errors.AsType[applicationerrors.CharmStorageLocationProhibited](err)
 		return errors.Errorf(
-			"storage directive %q request count %d insufficient for the charms minimum count of %d",
-			limitErr.StorageName, limitErr.Requested, limitErr.Minimum,
-		).Add(coreerrors.NotValid)
-	} else if is && limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
-		return errors.Errorf(
-			"storage directive %q request count %d exceeds the charms maximum count of %d",
-			limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
+			"charm storage %q wants to use a prohibited location %q, must not be in %q",
+			prohibitErr.CharmStorageName,
+			prohibitErr.CharmStorageLocation,
+			prohibitErr.ProhibitedLocation,
 		).Add(coreerrors.NotValid)
 	}
 

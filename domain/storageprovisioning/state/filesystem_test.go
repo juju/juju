@@ -10,11 +10,13 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/application"
+	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
@@ -160,6 +162,20 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
 
+// TestGetFilesystemTemplatesForApplicationNotFound tests that when requesting
+// filesystem templates for an application that doesn't exist the caller gets
+// back an error satisfying [domainapplicationerrors.ApplicationNotFound].
+func (s *filesystemSuite) TestGetFilesystemTemplatesForApplicationNotFound(c *tc.C) {
+	notFoundApplicationUUID := tc.Must(c, application.NewUUID)
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetFilesystemTemplatesForApplication(
+		c.Context(), notFoundApplicationUUID,
+	)
+
+	c.Check(err, tc.ErrorIs, domainapplicationerrors.ApplicationNotFound)
+}
+
 // TestGetFilesystemTemplatesForApplication checks that multiple storage for
 // different pools return different values.
 func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
@@ -178,26 +194,26 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	result, err := st.GetFilesystemTemplatesForApplication(c.Context(), application.UUID(appUUID))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, []storageprovisioning.FilesystemTemplate{{
-		StorageName:  "x",
-		Count:        2,
-		MaxCount:     10,
-		SizeMiB:      123,
-		ProviderType: "magic",
-		ReadOnly:     true,
-		Location:     "/a/x",
+	c.Check(result, tc.DeepEquals, []internal.FilesystemTemplate{{
+		StorageName:       "x",
+		Count:             2,
+		MaxCount:          10,
+		SizeMiB:           123,
+		ProviderType:      "magic",
+		ReadOnly:          true,
+		CharmLocationHint: "/a/x",
 		Attributes: map[string]string{
 			"a": "b",
 			"c": "d",
 		},
 	}, {
-		StorageName:  "y",
-		Count:        1,
-		MaxCount:     10,
-		SizeMiB:      456,
-		ProviderType: "rootfs",
-		ReadOnly:     true,
-		Location:     "/a/y",
+		StorageName:       "y",
+		Count:             1,
+		MaxCount:          10,
+		SizeMiB:           456,
+		ProviderType:      "rootfs",
+		ReadOnly:          true,
+		CharmLocationHint: "/a/y",
 	}})
 }
 
@@ -974,25 +990,31 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsNotFound(c *tc.C) {
 // returned.
 //
 // Specifically we want to see that the provider is correctly provided from the
-// storage pool and the mount and read only values are taken from the charm
-// storage. We also want to see that the machine instance id is set to the value
-// in the machine's cloud instance data.
+// storage pool and the mount, read only and count values are taken from the
+// charm storage correctly. We also want to see that the machine instance id is
+// set to the value in the machine's cloud instance data.
 func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMachineAttached(c *tc.C) {
-	// Construct the app, unit and machine
+	// Construct the machine
 	netNodeUUID := s.newNetNode(c)
-	appUUID, charmUUID := s.newApplication(c, "testapp")
 	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
 	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
+
+	// Construct the application
+	appUUID, charmUUID := s.newApplication(c, "testapp")
 	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID, netNodeUUID)
 
-	// Construct storage pool and charm storage
+	// Construct the storage pool
 	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
 		"foo": "bar",
 	})
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
+
+	// Construct the charm storage
+	s.newFilesystemCharmStorageWithLocationAndCount(
+		c, charmUUID, "keystore", "/var/ory/keystore", 1, 3,
+	)
 
 	// Construct storage instance, filesystem, filesystem attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "keystore")
 	fsUUID, _ := s.newMachineFilesystem(c)
 	s.setFilesystemProviderID(c, fsUUID, "provider-id")
 	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
@@ -1007,11 +1029,14 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMachineAttached(c *tc
 
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
-		MachineInstanceID: "machine-id-123",
-		Provider:          "canonical",
-		ProviderID:        "provider-id",
-		MountPoint:        "/var/foo",
-		ReadOnly:          true,
+		CharmStorageCountMax: 3,
+		CharmStorageLocation: "/var/ory/keystore",
+		CharmStorageReadOnly: false,
+		MachineInstanceID:    "machine-id-123",
+		// We don't expect a mount point to have been set yet.
+		MountPoint: "",
+		Provider:   "canonical",
+		ProviderID: "provider-id",
 	})
 }
 
@@ -1020,25 +1045,28 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMachineAttached(c *tc
 // the correct values are returned.
 //
 // Specifically we want to see that the provider is correctly provided from the
-// storage pool and the mount and read only values are taken from the charm
-// storage. We expect the machine instance id information to not be set in this
-// case.
+// storage pool and the mount, read only and count values are taken from the
+// charm storage. We expect the machine instance id information to not be set in
+// this case.
 func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C) {
 	// Construct the app and unit
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "testapp")
 	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID, netNodeUUID)
 
-	// Construct storage pool and charm storage
+	// Construct the storage pool
 	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
 		"foo": "bar",
 	})
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
+
+	// Construct the charm storage
+	s.newFilesystemCharmStorageWithLocationAndCount(
+		c, charmUUID, "keystore", "/var/ory/keystore", 1, 1,
+	)
 
 	// Construct storage instance, filesystem, filesystem attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "keystore")
 	fsUUID, _ := s.newModelFilesystem(c)
-	s.setFilesystemProviderID(c, fsUUID, "provider-id")
 	fsaUUID := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 
@@ -1051,11 +1079,63 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C)
 
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
-		MachineInstanceID: "",
-		Provider:          "canonical",
-		ProviderID:        "provider-id",
-		MountPoint:        "/var/foo",
-		ReadOnly:          true,
+		CharmStorageCountMax: 1,
+		CharmStorageLocation: "/var/ory/keystore",
+		CharmStorageReadOnly: false,
+		MachineInstanceID:    "",
+		Provider:             "canonical",
+		ProviderID:           "",
+	})
+}
+
+// TestGetFilesystemAttachmentParamsMountPointSet is making sure that when the
+// attachment has its mount point set that it is returned in the params.
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountPointSet(c *tc.C) {
+	// Construct the machine
+	netNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
+
+	// Construct the application
+	appUUID, charmUUID := s.newApplication(c, "testapp")
+	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID, netNodeUUID)
+
+	// Construct the storage pool
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+
+	// Construct the charm storage
+	s.newFilesystemCharmStorageWithLocationAndCount(
+		c, charmUUID, "keystore", "/var/ory/keystore", 1, 0,
+	)
+
+	// Construct storage instance, filesystem, filesystem attachment
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "keystore")
+	fsUUID, _ := s.newMachineFilesystem(c)
+	s.setFilesystemProviderID(c, fsUUID, "provider-id")
+	mountPoint := fmt.Sprintf("/var/ory/keystore/%s", fsUUID.String())
+	fsaUUID := s.newMachineFilesystemAttachmentWithMount(
+		c, fsUUID, netNodeUUID, mountPoint, true,
+	)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+
+	// Attach the storage instance to the unit. This is what draws in all the
+	// information for the attachment params.
+	_ = s.newStorageAttachment(c, suuid, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	params, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
+		CharmStorageCountMax: 0,
+		CharmStorageLocation: "/var/ory/keystore",
+		CharmStorageReadOnly: false,
+		MachineInstanceID:    "machine-id-123",
+		MountPoint:           mountPoint,
+		Provider:             "canonical",
+		ProviderID:           "provider-id",
 	})
 }
 
@@ -1118,17 +1198,37 @@ VALUES (?, ?, 0, ?, 1)
 
 // newMachineFilesystemAttachment creates a new filesystem attachment that has
 // machine provision scope. The attachment is associated with the provided
-// filesystem uuid and net node uuid.
+// filesystem uuid and net node uuid. No mount point or read only attributes
+// are set. Use [filesystemSuite.newMachineFilesystemAttachmentWithMount].
 func (s *filesystemSuite) newMachineFilesystemAttachment(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.FilesystemAttachmentUUID {
-	return s.newMachineFilesystemAttachmentWithMount(
-		c, fsUUID, netNodeUUID, "", false,
+	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem_attachment (uuid,
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           provision_scope_id)
+VALUES (?, ?, ?, 0, 1)
+`,
+		attachmentUUID.String(),
+		fsUUID.String(),
+		netNodeUUID.String(),
 	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID
 }
 
+// newMachineFilesystemAttachmentWithMount creates a new filesystem attachment
+// that has machine provision scope. The attachment is associated with the
+// provided filesystem and has its mount point and read only values set.
 func (s *filesystemSuite) newMachineFilesystemAttachmentWithMount(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
@@ -1163,15 +1263,35 @@ VALUES (?, ?, ?, 0, ?, ?, 1)
 
 // newModelFilesystemAttachment creates a new filesystem attachment that has
 // model provision scope. The attachment is associated with the provided
-// filesystem uuid and net node uuid.
+// filesystem uuid and net node uuid. No mount point is set during the creation
+// of the attachment. Use
+// [baseSuite.newModelFilesystemAttachmentWithMount] if you require a
+// mount point set.
 func (s *filesystemSuite) newModelFilesystemAttachment(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.FilesystemAttachmentUUID {
-	return s.newModelFilesystemAttachmentWithMount(
-		c, fsUUID, netNodeUUID, "/mnt", false,
+	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem_attachment (uuid,
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           read_only,
+                                           provision_scope_id)
+VALUES (?, ?, ?, 0, false, 0)
+`,
+		attachmentUUID.String(),
+		fsUUID,
+		netNodeUUID.String(),
 	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID
 }
 
 func (s *filesystemSuite) setFilesystemProviderID(
@@ -1200,34 +1320,21 @@ func (s *filesystemSuite) removeFilesystemWithObliterateValue(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) newModelFilesystemAttachmentWithMount(
-	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	mountPoint string,
-	readOnly bool,
-) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+// newModelFilesystem creates a new filesystem in the model with model
+// provision scope. Return is the uuid and filesystem id of the entity.
+func (s *filesystemSuite) newModelFilesystem(c *tc.C) (
+	storageprovisioning.FilesystemUUID, string,
+) {
+	fsUUID := domaintesting.GenFilesystemUUID(c)
 
-	_, err := s.DB().ExecContext(
-		c.Context(),
-		`
-INSERT INTO storage_filesystem_attachment (uuid,
-                                           storage_filesystem_uuid,
-                                           net_node_uuid,
-                                           life_id,
-                                           mount_point,
-                                           read_only,
-                                           provision_scope_id)
-VALUES (?, ?, ?, 0, ?, ?, 0)
-`,
-		attachmentUUID.String(),
-		fsUUID,
-		netNodeUUID.String(),
-		mountPoint,
-		readOnly,
-	)
+	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+	`,
+		fsUUID.String(), fsID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return attachmentUUID
+	return fsUUID, fsID
 }

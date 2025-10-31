@@ -24,14 +24,6 @@ import (
 	storageprovider "github.com/juju/juju/internal/storage/provider"
 )
 
-// GetMountPathForFilesystem returns mount path.
-func GetMountPathForFilesystem(idx int, appName string, fs storage.KubernetesFilesystemParams) string {
-	if fs.Attachment != nil {
-		return fs.Attachment.Path
-	}
-	return fmt.Sprintf("%s/fs/%s/%s/%d", constants.StorageBaseDir, appName, fs.StorageName, idx)
-}
-
 // FilesystemStatus returns filesystem status.
 func FilesystemStatus(pvcPhase corev1.PersistentVolumeClaimPhase) status.Status {
 	switch pvcPhase {
