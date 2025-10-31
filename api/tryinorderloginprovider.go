@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package loginprovider
+package api
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 )
 
@@ -19,7 +18,7 @@ import (
 // of the first on that succeeds will be returned.
 // This login provider should only be used when connecting to a controller
 // for the first time when we still don't know which login method.
-func NewTryInOrderLoginProvider(logger loggo.Logger, providers ...api.LoginProvider) api.LoginProvider {
+func NewTryInOrderLoginProvider(logger loggo.Logger, providers ...LoginProvider) LoginProvider {
 	return &tryInOrderLoginProviders{
 		providers:  providers,
 		logger:     logger,
@@ -28,11 +27,11 @@ func NewTryInOrderLoginProvider(logger loggo.Logger, providers ...api.LoginProvi
 }
 
 func missingHeader() (http.Header, error) {
-	return nil, api.ErrorLoginFirst
+	return nil, ErrorLoginFirst
 }
 
 type tryInOrderLoginProviders struct {
-	providers  []api.LoginProvider
+	providers  []LoginProvider
 	logger     loggo.Logger
 	authHeader func() (http.Header, error)
 }
@@ -45,7 +44,7 @@ func (p *tryInOrderLoginProviders) AuthHeader() (http.Header, error) {
 }
 
 // Login implements the LoginProvider.Login method.
-func (p *tryInOrderLoginProviders) Login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {
+func (p *tryInOrderLoginProviders) Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
 	var lastError error
 	for i, provider := range p.providers {
 		result, err := provider.Login(ctx, caller)

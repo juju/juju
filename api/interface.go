@@ -203,7 +203,16 @@ type LoginProvider interface {
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a controller.
 type DialOpts struct {
+	// AdditionalLoginProvider decides the initial login
+	// provider to use when connecting to the controller.
+	// The default/last login provider used is the
+	// username/password login provider.
+	// Set `LoginProvider` to enforce a single login provider.
+	AdditionalLoginProvider LoginProvider
+
 	// LoginProvider performs the log in on the open connection.
+	// As opposed to `AdditionalLoginProvider`, if this is set,
+	// this is the only login provider used.
 	LoginProvider LoginProvider
 
 	// DialAddressInterval is the amount of time to wait

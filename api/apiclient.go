@@ -160,14 +160,28 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		return nil, errors.Errorf("pinger facade version is required")
 	}
 
-	loginProvider := opts.LoginProvider
 	// TODO (alesstimec, wallyworld): login provider should be constructed outside
 	// of this function and always passed in as part of dial opts. Also Info
 	// does not need to hold the authentication related data anymore. Until that
 	// is refactored we fall back to using the user-pass login provider
 	// with information from Info.
-	if loginProvider == nil {
-		loginProvider = NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, bakeryClient, CookieURLFromHost(host))
+	// This refactoring is tricky as the bakery client is created with a custom
+	// transport with certs based on the dial result.
+	var loginProvider LoginProvider
+	switch {
+	case opts.LoginProvider != nil:
+		loginProvider = opts.LoginProvider
+	case opts.LoginProvider == nil:
+		legacyLogin := NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, bakeryClient, CookieURLFromHost(host))
+		if opts.AdditionalLoginProvider == nil {
+			loginProvider = legacyLogin
+		} else {
+			loginProvider = NewTryInOrderLoginProvider(
+				loggo.GetLogger("api.login"),
+				opts.AdditionalLoginProvider,
+				legacyLogin,
+			)
+		}
 	}
 
 	st := &state{

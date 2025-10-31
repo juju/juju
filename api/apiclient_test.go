@@ -276,6 +276,48 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	c.Assert(api.CookieURL(st).String(), gc.Equals, "https://deadbeef-1bad-500d-9000-4b1d0d06f00d/")
 }
 
+func (s *apiclientSuite) TestOpenWithLoginProvider(c *gc.C) {
+	info := s.APIInfo(c)
+	_, err := api.Open(info, api.DialOpts{
+		LoginProvider: &mockLoginProvider{err: errors.New("fake login error")},
+	})
+	c.Assert(err, gc.ErrorMatches, "fake login error")
+}
+
+func (s *apiclientSuite) TestOpenWithAdditionalLoginProvider(c *gc.C) {
+	info := s.APIInfo(c)
+	additionalProviderCalled := false
+	st, err := api.Open(info, api.DialOpts{
+		AdditionalLoginProvider: &mockLoginProvider{
+			err: errors.New("fake login error"),
+			loginCallback: func() {
+				additionalProviderCalled = true
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+	c.Assert(additionalProviderCalled, jc.IsTrue)
+}
+
+func (s *apiclientSuite) TestOpenWithLoginProviderAndAdditionalLoginProvider(c *gc.C) {
+	info := s.APIInfo(c)
+	// If dialOpts has both LoginProvider and AdditionalLoginProvider,
+	// LoginProvider should take precedence and this login should fail.
+	additionalLoginCalled := false
+	_, err := api.Open(info, api.DialOpts{
+		AdditionalLoginProvider: &mockLoginProvider{
+			err: errors.New("additional login error"),
+			loginCallback: func() {
+				additionalLoginCalled = true
+			},
+		},
+		LoginProvider: &mockLoginProvider{err: errors.New("fake login error")},
+	})
+	c.Assert(err, gc.ErrorMatches, "fake login error")
+	c.Assert(additionalLoginCalled, jc.IsFalse)
+}
+
 func (s *apiclientSuite) TestOpenCookieURLUsesSNIHost(c *gc.C) {
 	info := s.APIInfo(c)
 	info.SNIHostName = "somehost"
