@@ -86,6 +86,45 @@ func (c *MockStorageServiceGetApplicationStorageDirectivesCall) DoAndReturn(f fu
 	return c
 }
 
+// GetApplicationStorageInfo mocks base method.
+func (m *MockStorageService) GetApplicationStorageInfo(arg0 context.Context, arg1 application.UUID) (map[string]application0.ApplicationStorageInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationStorageInfo", arg0, arg1)
+	ret0, _ := ret[0].(map[string]application0.ApplicationStorageInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationStorageInfo indicates an expected call of GetApplicationStorageInfo.
+func (mr *MockStorageServiceMockRecorder) GetApplicationStorageInfo(arg0, arg1 any) *MockStorageServiceGetApplicationStorageInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStorageInfo", reflect.TypeOf((*MockStorageService)(nil).GetApplicationStorageInfo), arg0, arg1)
+	return &MockStorageServiceGetApplicationStorageInfoCall{Call: call}
+}
+
+// MockStorageServiceGetApplicationStorageInfoCall wrap *gomock.Call
+type MockStorageServiceGetApplicationStorageInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageServiceGetApplicationStorageInfoCall) Return(arg0 map[string]application0.ApplicationStorageInfo, arg1 error) *MockStorageServiceGetApplicationStorageInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageServiceGetApplicationStorageInfoCall) Do(f func(context.Context, application.UUID) (map[string]application0.ApplicationStorageInfo, error)) *MockStorageServiceGetApplicationStorageInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageServiceGetApplicationStorageInfoCall) DoAndReturn(f func(context.Context, application.UUID) (map[string]application0.ApplicationStorageInfo, error)) *MockStorageServiceGetApplicationStorageInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MakeApplicationStorageDirectiveArgs mocks base method.
 func (m *MockStorageService) MakeApplicationStorageDirectiveArgs(arg0 context.Context, arg1 map[string]storage.StorageDirectiveOverride, arg2 map[string]charm.Storage) ([]internal.CreateStorageDirectiveArg, error) {
 	m.ctrl.T.Helper()
