@@ -229,24 +229,6 @@ VALUES (?, ?, ?, 0, ?, ?, 0)
 	return attachmentUUID
 }
 
-// newModelFilesystem creates a new filesystem in the model with model
-// provision scope. Return is the uuid and filesystem id of the entity.
-func (s *baseSuite) newModelFilesystem(c *tc.C) (
-	storageprovisioning.FilesystemUUID, string,
-) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
-	fsID := strconv.FormatUint(s.nextFilesystemSequenceNumber(c), 10)
-
-	_, err := s.DB().Exec(`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
-VALUES (?, ?, 0, 0)
-	`,
-		fsUUID.String(), fsID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return fsUUID, fsID
-}
-
 // newModelVolume creates a new volume in the model with model
 // provision scope. Return is the uuid and volume id of the entity.
 func (s *baseSuite) newModelVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
