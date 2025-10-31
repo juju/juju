@@ -4281,6 +4281,7 @@ func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 	})
 }
 
+// GetStorageUniqueID returns the storage unique ID for CAAS deployments.
 func (a *Application) GetStorageUniqueID() string {
 	return a.doc.StorageUniqueID
 }
