@@ -855,14 +855,14 @@ WHERE  uuid = $uuid.uuid
 // If the application name is available, nil is returned. If the application
 // name is not available, [applicationerrors.ApplicationAlreadyExists] is
 // returned.
-func (st *State) checkApplicationNameAvailable(ctx context.Context, tx *sqlair.TX, name string) error {
-	app := applicationName{Name: name}
+func (st *State) checkApplicationNameAvailable(ctx context.Context, tx *sqlair.TX, appName string) error {
+	app := name{Name: appName}
 
 	var result countResult
 	existsQueryStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &countResult.count
 FROM application
-WHERE name = $applicationName.name
+WHERE name = $name.name
 `, app, result)
 	if err != nil {
 		return errors.Capture(err)
@@ -871,7 +871,7 @@ WHERE name = $applicationName.name
 	if err := tx.Query(ctx, existsQueryStmt, app).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
 		return nil
 	} else if err != nil {
-		return errors.Errorf("checking if application %q exists: %w", name, err)
+		return errors.Errorf("checking if application %q exists: %w", appName, err)
 	}
 	if result.Count > 0 {
 		return applicationerrors.ApplicationAlreadyExists
