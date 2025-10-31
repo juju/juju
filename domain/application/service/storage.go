@@ -112,4 +112,17 @@ type StorageService interface {
 		charmStorageDefs map[string]internalcharm.Storage,
 		overrides map[string]storage.StorageDirectiveOverride,
 	) error
+
+	// ValidateCharmStorage is responsible for iterating over all of a charms
+	// storage requirements and making sure they are valid for deploying as an
+	// application.
+	//
+	// The following errors may be returned:
+	// - [domainapplicationerrors].CharmStorageLocationProhibited when one of
+	// the charms storage definitions request a location that is prohibited by
+	// Juju.
+	ValidateCharmStorage(
+		ctx context.Context,
+		charmStorageDefs map[string]internalcharm.Storage,
+	) error
 }
