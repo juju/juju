@@ -34,13 +34,15 @@ var _ = gc.Suite(&authSuite{})
 type authSuite struct {
 	coretesting.BaseSuite
 
+	locator     testLocator
 	bakery      authentication.ExpirableStorageBakery
 	offerBakery *crossmodel.OfferBakery
 	bakeryKey   *bakery.KeyPair
 }
 
 type testLocator struct {
-	PublicKey bakery.PublicKey
+	PublicKey  bakery.PublicKey
+	PrivateKey bakery.PrivateKey
 }
 
 func (b testLocator) ThirdPartyInfo(ctx context.Context, loc string) (bakery.ThirdPartyInfo, error) {
@@ -58,11 +60,10 @@ func (s *authSuite) SetUpTest(c *gc.C) {
 
 	key, err := bakery.GenerateKey()
 	c.Assert(err, jc.ErrorIsNil)
-	locator := testLocator{key.Public}
+	s.locator = testLocator{PublicKey: key.Public, PrivateKey: key.Private}
 	bakery := bakery.New(bakery.BakeryParams{
-		Locator:       locator,
-		Key:           bakery.MustGenerateKey(),
-		OpsAuthorizer: crossmodel.CrossModelAuthorizer{},
+		Locator: s.locator,
+		Key:     bakery.MustGenerateKey(),
 	})
 	s.bakery = &mockBakery{bakery}
 	s.offerBakery = crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock)
@@ -256,7 +257,7 @@ func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 			checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
-		}, bakery.Op{"consume", "mysql-uuid"})
+		}, bakery.Op{Action: "consume", Entity: "mysql-uuid"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	attr, err := authContext.Authenticator().CheckOfferMacaroons(
@@ -275,6 +276,102 @@ func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 	})
 }
 
+func (s *authSuite) TestCheckOfferMacaroonsWithFakeMacaroon(c *gc.C) {
+	// set up the auth context as usual
+	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	c.Assert(err, jc.ErrorIsNil)
+	clock := testclock.NewClock(time.Now().Add(-10 * time.Minute))
+	authContext.SetClock(clock)
+	authContext, err = authContext.WithDischargeURL("http://thirdparty")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// create a new bakery used to mint a fake macaroon
+	key, err := bakery.GenerateKey()
+	c.Assert(err, jc.ErrorIsNil)
+	locator := testLocator{PublicKey: key.Public, PrivateKey: key.Private}
+	attackerBakery := &mockBakery{bakery.New(bakery.BakeryParams{
+		Locator: locator,
+		Key:     bakery.MustGenerateKey(),
+	})}
+
+	// mint a fake macaroon declaring all the caveats we expect
+	mac, err := attackerBakery.NewMacaroon(
+		context.Background(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("username", "offerowner"),
+			checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
+			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
+		}, bakery.Op{Action: "consume", Entity: "mysql-uuid"})
+
+	c.Assert(err, jc.ErrorIsNil)
+
+	// verify the fake macaroon
+	_, err = authContext.Authenticator().CheckOfferMacaroons(
+		context.Background(),
+		coretesting.ModelTag.Id(),
+		"mysql-uuid",
+		macaroon.Slice{mac.M()},
+		bakery.LatestVersion,
+	)
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+
+	/* Before this change we would get a discharge required error
+	   addressed to the controller that required the controller to
+	   confirm the user stated in the fake macaroon had access to the offer.
+	   Assuming a malicious actor knew who had access to the offer they
+	   would be able to gain access themselves by presenting a fake macaroon
+	   only to get it replaced by a valid one once the discharge was done.
+
+	   I am leaving this code commented out for reference and a warning
+	   to future developers dealing with macaroons and cross-model auth.
+
+		dischargeErr, ok := err.(*apiservererrors.DischargeRequiredError)
+		c.Assert(ok, jc.IsTrue)
+		cav := dischargeErr.LegacyMacaroon.Caveats()
+		c.Assert(cav, gc.HasLen, 2)
+		c.Assert(cav[0].Location, gc.Equals, "http://thirdparty")
+
+		// Let's see what the we're asking the controller to discharge
+		checker := &mockChecker{}
+		_, err = bakery.DischargeAll(context.Background(), dischargeErr.Macaroon, func(ctx context.Context, cav macaroon.Caveat, payload []byte) (*bakery.Macaroon, error) {
+			return discharge(ctx, &bakery.KeyPair{Public: s.locator.PublicKey, Private: s.locator.PrivateKey}, checker, cav, payload)
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		expectedString := "" +
+			"has-offer-permission source-model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d\n" +
+			"username: offerowner\n" +
+			"offer-uuid: mysql-uuid\n" +
+			"relation-key: \"\"\n" +
+			"permission: consume\n"
+		c.Assert(checker.condition, gc.Equals, expectedString)
+
+		// A-ha! we faked the macaroon, but now we're we're getting a discharge error
+		// asking the controller to confirm that the offer owner has access to the offer
+		// although we may not be the offer owner!!!
+
+		func discharge(ctx context.Context, key *bakery.KeyPair, checker bakery.ThirdPartyCaveatChecker, cav macaroon.Caveat, payload []byte) (*bakery.Macaroon, error) {
+			return bakery.Discharge(ctx, bakery.DischargeParams{
+				Key:     key,
+				Id:      cav.Id,
+				Caveat:  payload,
+				Checker: checker,
+			})
+		}
+
+		type mockChecker struct {
+			condition string
+		}
+
+		func (m *mockChecker) CheckThirdPartyCaveat(ctx context.Context, info *bakery.ThirdPartyCaveatInfo) ([]checkers.Caveat, error) {
+			m.condition = string(info.Condition)
+			return []checkers.Caveat{{
+				Condition: "declared attcher-is right",
+			}}, nil
+		}
+	*/
+}
+
 func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
@@ -285,7 +382,7 @@ func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 			checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
-		}, bakery.Op{"consume", "mysql-uuid"})
+		}, bakery.Op{Action: "consume", Entity: "mysql-uuid"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.Authenticator().CheckOfferMacaroons(
@@ -310,7 +407,7 @@ func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
-		}, bakery.Op{"consume", "mysql-uuid"})
+		}, bakery.Op{Action: "consume", Entity: "mysql-uuid"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.Authenticator().CheckOfferMacaroons(
@@ -362,7 +459,7 @@ func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 			checkers.DeclaredCaveat("relation-key", relationTag.Id()),
 			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
-		}, bakery.Op{"relate", relationTag.Id()})
+		}, bakery.Op{Action: "relate", Entity: relationTag.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator().CheckRelationMacaroons(
@@ -387,7 +484,7 @@ func (s *authSuite) TestCheckRelationMacaroonsWrongRelation(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 			checkers.DeclaredCaveat("relation-key", relationTag.Id()),
 			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
-		}, bakery.Op{"relate", relationTag.Id()})
+		}, bakery.Op{Action: "relate", Entity: relationTag.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator().CheckRelationMacaroons(
@@ -414,7 +511,7 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("relation-key", relationTag.Id()),
 			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
-		}, bakery.Op{"relate", relationTag.Id()})
+		}, bakery.Op{Action: "relate", Entity: relationTag.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator().CheckRelationMacaroons(
