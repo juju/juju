@@ -145,6 +145,22 @@ func (st *State) updateRemoteRelationSuspendedState(
 		Reason    string `db:"suspended_reason"`
 	}
 
+	var (
+		statusType status.RelationStatusType
+		message    string
+	)
+	if suspended {
+		statusType = status.RelationStatusTypeSuspending
+		message = reason
+	} else {
+		statusType = status.RelationStatusTypeJoining
+		message = ""
+	}
+	statusID, err := status.EncodeRelationStatus(statusType)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	updateStmt, err := st.Prepare(`
 UPDATE relation
 SET    suspended = $suspension.suspended,
@@ -155,10 +171,28 @@ WHERE  uuid = $entityUUID.uuid
 		return errors.Capture(err)
 	}
 
+	statusStmt, err := st.Prepare(`
+INSERT INTO relation_status (*) VALUES ($relationStatus.*)
+ON CONFLICT(relation_uuid) DO UPDATE SET
+    relation_status_type_id = excluded.relation_status_type_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at
+WHERE relation_uuid = $relationStatus.relation_uuid
+`, relationStatus{})
+	if err != nil {
+		return errors.Capture(err)
+	}
 	if err := tx.Query(ctx, updateStmt, suspension{
 		Suspended: suspended,
 		Reason:    reason,
 	}, entityUUID{UUID: relationUUID}).Run(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, statusStmt, relationStatus{
+		RelationUUID: relationUUID,
+		StatusID:     statusID,
+		Message:      message,
+	}).Run(); err != nil {
 		return errors.Capture(err)
 	}
 

@@ -584,8 +584,10 @@ func (st *State) GetRelationLifeSuspendedStatus(
 		return internal.RelationLifeSuspendedStatus{}, errors.Capture(err)
 	}
 
-	var relationLifeSuspended lifeAndSuspended
-	var endpoints []domainrelation.Endpoint
+	var (
+		relationLifeSuspended lifeAndSuspended
+		endpoints             []domainrelation.Endpoint
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		relationLifeSuspended, err = st.getRelationLifeAndSuspended(ctx, tx, relationUUID)
 		if err != nil {
@@ -597,9 +599,7 @@ func (st *State) GetRelationLifeSuspendedStatus(
 		}
 		return nil
 	})
-	if errors.Is(err, coreerrors.NotFound) {
-		return internal.RelationLifeSuspendedStatus{}, errors.Capture(relationerrors.RelationNotFound)
-	} else if err != nil {
+	if err != nil {
 		return internal.RelationLifeSuspendedStatus{}, errors.Capture(err)
 	}
 
@@ -1310,9 +1310,11 @@ func (st *State) GetRelationUnitsChanges(
 		return domainrelation.RelationUnitChange{}, errors.Capture(err)
 	}
 
-	var settings []relationSetting
-	var unitRelationData map[string]domainrelation.RelationData
-	var relationLife life.Value
+	var (
+		settings         []relationSetting
+		unitRelationData map[string]domainrelation.RelationData
+		relationLife     life.Value
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		relationLife, err = st.getRelationLife(ctx, tx, relationUUID.String())
 		if err != nil {
@@ -1331,9 +1333,7 @@ func (st *State) GetRelationUnitsChanges(
 
 		return nil
 	})
-	if errors.Is(err, coreerrors.NotFound) {
-		return domainrelation.RelationUnitChange{}, errors.Capture(relationerrors.RelationNotFound)
-	} else if err != nil {
+	if err != nil {
 		return domainrelation.RelationUnitChange{}, errors.Capture(err)
 	}
 
@@ -1803,23 +1803,17 @@ AND    up.principal_uuid  = $getSub.unit_uuid
 func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, relationUUID, unitUUID string) error {
 	// Check relation is alive.
 	relationLife, err := st.getRelationLife(ctx, tx, relationUUID)
-	if errors.Is(err, coreerrors.NotFound) {
-		return relationerrors.RelationNotFound
-	} else if err != nil {
+	if err != nil {
 		return errors.Errorf("getting relation life: %w", err)
-	}
-	if relationLife != life.Alive {
+	} else if relationLife != life.Alive {
 		return relationerrors.CannotEnterScopeNotAlive
 	}
 
 	// Check unit is alive.
 	unitLife, err := st.getUnitLife(ctx, tx, unitUUID)
-	if errors.Is(err, coreerrors.NotFound) {
-		return applicationerrors.UnitNotFound
-	} else if err != nil {
+	if err != nil {
 		return errors.Errorf("getting unit life: %w", err)
-	}
-	if unitLife != life.Alive {
+	} else if unitLife != life.Alive {
 		return relationerrors.CannotEnterScopeNotAlive
 	}
 
@@ -1885,7 +1879,7 @@ WHERE  t.uuid = $getLife.uuid
 	}
 	err = tx.Query(ctx, stmt, args).Get(&args)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", coreerrors.NotFound
+		return "", relationerrors.RelationNotFound
 	} else if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1909,7 +1903,7 @@ WHERE  t.uuid = $entityUUID.uuid
 	var result lifeAndSuspended
 	err = tx.Query(ctx, stmt, arg).Get(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return lifeAndSuspended{}, coreerrors.NotFound
+		return lifeAndSuspended{}, relationerrors.RelationNotFound
 	} else if err != nil {
 		return lifeAndSuspended{}, errors.Capture(err)
 	}
@@ -1932,7 +1926,7 @@ WHERE  t.uuid = $getLife.uuid
 	}
 	err = tx.Query(ctx, stmt, args).Get(&args)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", coreerrors.NotFound
+		return "", applicationerrors.UnitNotFound
 	} else if err != nil {
 		return "", errors.Capture(err)
 	}

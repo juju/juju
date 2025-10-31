@@ -13,11 +13,13 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	corelife "github.com/juju/juju/core/life"
+	corelrelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -715,6 +717,8 @@ func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateFirstApplicatio
 	details, err := s.state.GetRelationDetails(c.Context(), relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(details.Suspended, tc.IsTrue)
+
+	s.checkRelationStatus(c, relationUUID, status.RelationStatusTypeSuspending, "foo reason")
 }
 
 func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateSecondApplication(c *tc.C) {
@@ -760,6 +764,8 @@ func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateSecondApplicati
 	details, err := s.state.GetRelationDetails(c.Context(), relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(details.Suspended, tc.IsTrue)
+
+	s.checkRelationStatus(c, relationUUID, status.RelationStatusTypeSuspending, "foo reason")
 }
 
 func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateFlipFlop(c *tc.C) {
@@ -806,6 +812,8 @@ func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateFlipFlop(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(details.Suspended, tc.IsTrue)
 
+	s.checkRelationStatus(c, relationUUID, status.RelationStatusTypeSuspending, "foo reason")
+
 	err = s.state.SetRemoteRelationSuspendedState(c.Context(),
 		relationUUID.String(),
 		false,
@@ -816,6 +824,8 @@ func (s *remoteRelationSuite) TestSetRemoteRelationSuspendedStateFlipFlop(c *tc.
 	details, err = s.state.GetRelationDetails(c.Context(), relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(details.Suspended, tc.IsFalse)
+
+	s.checkRelationStatus(c, relationUUID, status.RelationStatusTypeJoining, "")
 }
 
 func (s *remoteRelationSuite) TestSetRelationErrorStatusNonCMR(c *tc.C) {
@@ -1027,4 +1037,27 @@ func (s *remoteRelationSuite) TestSetRelationErrorStatusRelationNotFound(c *tc.C
 		"error message",
 	)
 	c.Assert(err, tc.ErrorMatches, ".*relation not found.*")
+}
+
+func (s *remoteRelationSuite) checkRelationStatus(c *tc.C, relationUUID corelrelation.UUID, expectedStatus status.RelationStatusType, expectedMessage string) {
+	c.Helper()
+
+	// Get the relation status to verify that the status became not suspended.
+	var (
+		statusID int
+		message  string
+	)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `SELECT relation_status_type_id, message FROM relation_status WHERE relation_uuid = ?`, relationUUID)
+		if err := row.Scan(&statusID, &message); err != nil {
+			return err
+		}
+		return row.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	statusType, err := status.DecodeRelationStatus(statusID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statusType, tc.Equals, expectedStatus)
+	c.Check(message, tc.Equals, expectedMessage)
 }
