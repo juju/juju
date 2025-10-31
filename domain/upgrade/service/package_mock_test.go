@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	model "github.com/juju/juju/core/model"
 	semversion "github.com/juju/juju/core/semversion"
 	upgrade "github.com/juju/juju/core/upgrade"
 	watcher "github.com/juju/juju/core/watcher"
@@ -157,6 +158,45 @@ func (c *MockStateCreateUpgradeCall) Do(f func(context.Context, semversion.Numbe
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateCreateUpgradeCall) DoAndReturn(f func(context.Context, semversion.Number, semversion.Number) (upgrade0.UUID, error)) *MockStateCreateUpgradeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetAllModelUUIDs mocks base method.
+func (m *MockState) GetAllModelUUIDs(arg0 context.Context) ([]model.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllModelUUIDs", arg0)
+	ret0, _ := ret[0].([]model.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllModelUUIDs indicates an expected call of GetAllModelUUIDs.
+func (mr *MockStateMockRecorder) GetAllModelUUIDs(arg0 any) *MockStateGetAllModelUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllModelUUIDs", reflect.TypeOf((*MockState)(nil).GetAllModelUUIDs), arg0)
+	return &MockStateGetAllModelUUIDsCall{Call: call}
+}
+
+// MockStateGetAllModelUUIDsCall wrap *gomock.Call
+type MockStateGetAllModelUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllModelUUIDsCall) Return(arg0 []model.UUID, arg1 error) *MockStateGetAllModelUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllModelUUIDsCall) Do(f func(context.Context) ([]model.UUID, error)) *MockStateGetAllModelUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllModelUUIDsCall) DoAndReturn(f func(context.Context) ([]model.UUID, error)) *MockStateGetAllModelUUIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

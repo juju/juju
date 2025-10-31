@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	coreupgrade "github.com/juju/juju/core/upgrade"
 	watcher "github.com/juju/juju/core/watcher"
@@ -79,6 +80,35 @@ func (s *serviceSuite) TestCreateUpgradeInvalidVersions(c *tc.C) {
 
 	_, err = s.service.CreateUpgrade(c.Context(), semversion.MustParse("3.0.1"), semversion.MustParse("3.0.1"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) GetAllModelUUIDsEmptyResult(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stExp := s.state.EXPECT()
+	stExp.GetAllModelUUIDs(gomock.Any()).Return(nil, nil)
+
+	results, err := s.service.GetAllModelUUIDs(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 0)
+}
+
+func (s *serviceSuite) GetAllModelUUIDs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID1 := tc.Must(c, coremodel.NewUUID)
+	modelUUID2 := tc.Must(c, coremodel.NewUUID)
+
+	stExp := s.state.EXPECT()
+	stExp.GetAllModelUUIDs(gomock.Any()).Return(
+		[]coremodel.UUID{modelUUID2, modelUUID1}, nil,
+	)
+
+	results, err := s.service.GetAllModelUUIDs(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(results, tc.SameContents, []coremodel.UUID{
+		modelUUID1, modelUUID2,
+	})
 }
 
 func (s *serviceSuite) TestSetControllerReady(c *tc.C) {
