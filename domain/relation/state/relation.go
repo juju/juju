@@ -393,18 +393,45 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]domainrelation.Re
 
 	var relationsDetails []domainrelation.RelationDetailsResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// TODO: Do this all in one query
-		relations, err := st.getAllRelations(ctx, tx)
+		// Get all non-synthetic relations with their basic info in one query.
+		relations, err := st.getAllNonSyntheticRelationsWithDetails(ctx, tx)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting all relations: %w", err)
 		}
 
-		for _, rel := range relations {
-			details, err := st.getRelationDetails(ctx, tx, rel.UUID)
-			if err != nil {
-				return errors.Errorf("getting relation details: %w", err)
+		if len(relations) == 0 {
+			return nil
+		}
+
+		// Extract relation UUIDs for batch queries.
+		relationUUIDs := make([]string, len(relations))
+		for i, rel := range relations {
+			relationUUIDs[i] = rel.UUID.String()
+		}
+
+		// Get all endpoints for these relations in one query.
+		endpointsByRelation, err := st.getRelationEndpointsBatch(ctx, tx, relationUUIDs)
+		if err != nil {
+			return errors.Errorf("getting relation endpoints: %w", err)
+		}
+
+		// Get in-scope unit counts for these relations in one query.
+		inScopeCountsByRelation, err := st.countInScopeRelationsBatch(ctx, tx, relationUUIDs)
+		if err != nil {
+			return errors.Errorf("counting in-scope relations: %w", err)
+		}
+
+		// Assemble the final results.
+		relationsDetails = make([]domainrelation.RelationDetailsResult, len(relations))
+		for i, rel := range relations {
+			relationsDetails[i] = domainrelation.RelationDetailsResult{
+				Life:         rel.Life,
+				UUID:         corerelation.UUID(rel.UUID),
+				ID:           rel.ID,
+				Suspended:    rel.Suspended,
+				Endpoints:    endpointsByRelation[rel.UUID.String()],
+				InScopeUnits: inScopeCountsByRelation[rel.UUID.String()],
 			}
-			relationsDetails = append(relationsDetails, details)
 		}
 		return nil
 	})
@@ -3220,6 +3247,108 @@ FROM   relation
 	return result, errors.Capture(err)
 }
 
+func (st *State) getAllNonSyntheticRelationsWithDetails(ctx context.Context, tx *sqlair.TX) ([]domainrelation.RelationDetailsResult, error) {
+	var result []relationWithDetails
+
+	stmt, err := st.Prepare(`
+SELECT r.uuid AS &relationWithDetails.uuid,
+       r.relation_id AS &relationWithDetails.relation_id,
+       l.value AS &relationWithDetails.life,
+       r.suspended AS &relationWithDetails.suspended
+FROM   relation r
+JOIN   life l ON r.life_id = l.id
+LEFT JOIN offer_connection oc ON r.uuid = oc.remote_relation_uuid
+WHERE  oc.remote_relation_uuid IS NULL
+`, relationWithDetails{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt).GetAll(&result)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	converted := make([]domainrelation.RelationDetailsResult, len(result))
+	for i, r := range result {
+		converted[i].UUID = corerelation.UUID(r.UUID)
+		converted[i].ID = r.ID
+		converted[i].Life = r.Life
+		converted[i].Suspended = r.Suspended
+	}
+
+	return converted, nil
+}
+
+// getRelationEndpointsBatch retrieves endpoints for multiple relations in a
+// single query, returning a map from relation UUID to a slice of endpoints.
+func (st *State) getRelationEndpointsBatch(ctx context.Context, tx *sqlair.TX, relationUUIDs []string) (map[string][]domainrelation.Endpoint, error) {
+	if len(relationUUIDs) == 0 {
+		return make(map[string][]domainrelation.Endpoint), nil
+	}
+
+	type relationUUIDsInput []string
+
+	stmt, err := st.Prepare(`
+SELECT &endpointWithRelationUUID.*
+FROM   v_relation_endpoint
+WHERE  relation_uuid IN ($relationUUIDsInput[:])
+`, relationUUIDsInput{}, endpointWithRelationUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var endpoints []endpointWithRelationUUID
+	err = tx.Query(ctx, stmt, relationUUIDsInput(relationUUIDs)).GetAll(&endpoints)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	// Group endpoints by relation UUID.
+	result := make(map[string][]domainrelation.Endpoint)
+	for _, ep := range endpoints {
+		relUUID := ep.RelationUUID
+		result[relUUID] = append(result[relUUID], ep.Endpoint.toRelationEndpoint())
+	}
+
+	return result, nil
+}
+
+// countInScopeRelationsBatch counts the number of units in scope for each
+// relation in a single query, returning a map from relation UUID to count.
+func (st *State) countInScopeRelationsBatch(ctx context.Context, tx *sqlair.TX, relationUUIDs []string) (map[string]int, error) {
+	if len(relationUUIDs) == 0 {
+		return make(map[string]int), nil
+	}
+
+	type relationUUIDsInput []string
+
+	stmt, err := st.Prepare(`
+SELECT re.relation_uuid AS &countResultWithRelationUUID.relation_uuid,
+       COUNT(*) AS &countResultWithRelationUUID.count
+FROM   relation_unit ru
+JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
+WHERE  re.relation_uuid IN ($relationUUIDsInput[:])
+GROUP BY re.relation_uuid
+`, relationUUIDsInput{}, countResultWithRelationUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var counts []countResultWithRelationUUID
+	err = tx.Query(ctx, stmt, relationUUIDsInput(relationUUIDs)).GetAll(&counts)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]int)
+	for _, c := range counts {
+		result[c.RelationUUID] = c.Count
+	}
+
+	return result, nil
+}
+
 // getCandidateEndpoints retrieves a list of candidate endpoints from the
 // database matching the given identifier parameters.
 // It queries based on application name and optionally endpoint name,
@@ -3318,13 +3447,6 @@ WHERE ap.application_uuid = $Endpoint.application_uuid`, ep1, applicationPlatfor
 }
 
 func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relationUUID string) (domainrelation.RelationDetailsResult, error) {
-	type getRelation struct {
-		UUID      string     `db:"uuid"`
-		ID        int        `db:"relation_id"`
-		Life      life.Value `db:"value"`
-		Suspended bool       `db:"suspended"`
-	}
-
 	rel := getRelation{
 		UUID: relationUUID,
 	}

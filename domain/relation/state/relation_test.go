@@ -1856,6 +1856,96 @@ func (s *relationSuite) TestGetAllRelationDetailsNone(c *tc.C) {
 	c.Assert(result, tc.HasLen, 0)
 }
 
+func (s *relationSuite) TestGetAllRelationDetailsFiltersSyntheticRelations(c *tc.C) {
+	// Arrange: Add a regular relation
+	relationID1 := 7
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID1 := s.addRelationWithLifeAndID(c, corelife.Alive, relationID1)
+	s.addRelationEndpoint(c, relationUUID1, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationUUID1, applicationEndpointUUID2)
+
+	// Arrange: Add a synthetic relation (one that appears in offer_connection)
+	relationID2 := 8
+	endpoint3 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-3",
+			Role:      charm.RoleProvider,
+			Interface: "http",
+			Optional:  false,
+			Limit:     5,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint4 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-4",
+			Role:      charm.RoleRequirer,
+			Interface: "http",
+			Optional:  false,
+			Limit:     5,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID3 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint3.Relation)
+	charmRelationUUID4 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint4.Relation)
+	applicationEndpointUUID3 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID3)
+	applicationEndpointUUID4 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID4)
+	syntheticRelationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, relationID2)
+	s.addRelationEndpoint(c, syntheticRelationUUID, applicationEndpointUUID3)
+	s.addRelationEndpoint(c, syntheticRelationUUID, applicationEndpointUUID4)
+
+	// Create an offer and offer_connection to mark the second relation as
+	// synthetic
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO offer (uuid, name) VALUES (?, ?)`, offerUUID, "test-offer")
+		return err
+	})
+	connUUID := tc.Must(c, uuid.NewUUID).String()
+	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username) VALUES (?, ?, ?, ?)`,
+			connUUID, offerUUID, syntheticRelationUUID.String(), "test-user")
+		return err
+	})
+
+	// Act: Get all relation details
+	details, err := s.state.GetAllRelationDetails(c.Context())
+
+	// Assert: Only the regular relation should be returned, not the synthetic one
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(details, tc.HasLen, 1)
+	c.Check(details[0].ID, tc.Equals, relationID1)
+	c.Check(details[0].UUID, tc.Equals, relationUUID1)
+	c.Check(details[0].Endpoints, tc.SameContents, []domainrelation.Endpoint{endpoint1, endpoint2})
+}
+
 func (s *relationSuite) TestEnterScope(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
