@@ -167,7 +167,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		return "", errors.Capture(err)
 	}
 
-	appDetails := applicationDetails{
+	appDetails := setApplicationDetails{
 		UUID:      appUUID,
 		Name:      name,
 		CharmUUID: charmID,
@@ -186,7 +186,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		SpaceUUID: network.AlphaSpaceId.String(),
 	}
 
-	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
+	createApplication := `INSERT INTO application (*) VALUES ($setApplicationDetails.*)`
 	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
 	if err != nil {
 		return "", errors.Capture(err)

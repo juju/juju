@@ -754,7 +754,8 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 			}
 			var errs []error
 			if !appFound {
-				errs = append(errs, errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, args.ApplicationUUID))
+				errs = append(errs, errors.Errorf("getting relation application %q not found", args.ApplicationUUID).
+					Add(applicationerrors.ApplicationNotFound))
 			}
 			if !relationFound {
 				errs = append(errs, errors.Errorf("%w: %s", relationerrors.RelationNotFound, args.RelationUUID))

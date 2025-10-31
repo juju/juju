@@ -284,7 +284,8 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-			return errors.Errorf("%w: %q", applicationerrors.ApplicationNotFound, applicationID)
+			return errors.Errorf("setting status for application %q not found", applicationID).
+				Add(applicationerrors.ApplicationNotFound)
 		} else if err != nil {
 			return errors.Capture(err)
 		}
@@ -1082,7 +1083,8 @@ WHERE name = $applicationUUIDAndName.name
 	}
 	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
+		return "", errors.Errorf("looking up UUID for application %q not found", name).
+			Add(applicationerrors.ApplicationNotFound)
 	} else if err != nil {
 		return "", errors.Errorf("looking up UUID for application %q: %w", name, err)
 	}

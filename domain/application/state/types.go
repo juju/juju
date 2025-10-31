@@ -70,12 +70,21 @@ type applicationName struct {
 	Name string `db:"name"`
 }
 
-type applicationDetails struct {
+type setApplicationDetails struct {
 	UUID      coreapplication.UUID `db:"uuid"`
 	Name      string               `db:"name"`
 	CharmUUID corecharm.ID         `db:"charm_uuid"`
 	LifeID    life.Life            `db:"life_id"`
 	SpaceUUID string               `db:"space_uuid"`
+}
+
+type applicationDetails struct {
+	UUID                coreapplication.UUID `db:"uuid"`
+	Name                string               `db:"name"`
+	CharmUUID           corecharm.ID         `db:"charm_uuid"`
+	LifeID              life.Life            `db:"life_id"`
+	SpaceUUID           string               `db:"space_uuid"`
+	IsRemoteApplication bool                 `db:"is_remote_application"`
 }
 
 type applicationScale struct {

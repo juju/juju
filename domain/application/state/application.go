@@ -211,7 +211,7 @@ func (st *State) insertApplication(
 		return errors.Errorf("getting default space: %w", err)
 	}
 
-	appDetails := applicationDetails{
+	appDetails := setApplicationDetails{
 		UUID:      appUUID,
 		Name:      name,
 		CharmUUID: charmID,
@@ -227,7 +227,7 @@ func (st *State) insertApplication(
 		SpaceUUID: defaultSpaceUUID,
 	}
 
-	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
+	createApplication := `INSERT INTO application (*) VALUES ($setApplicationDetails.*)`
 	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
 	if err != nil {
 		return errors.Capture(err)
@@ -403,7 +403,7 @@ JOIN model_config ON model_config.key = $KeyValue.key AND model_config.value = s
 
 func (st *State) insertApplicationController(
 	ctx context.Context, tx *sqlair.TX,
-	appDetails applicationDetails,
+	appDetails setApplicationDetails,
 	isController bool,
 ) error {
 	if !isController {
@@ -412,7 +412,7 @@ func (st *State) insertApplicationController(
 
 	stmt, err := st.Prepare(`
 INSERT INTO application_controller (application_uuid)
-VALUES ($applicationDetails.uuid)
+VALUES ($setApplicationDetails.uuid)
 `, appDetails)
 	if err != nil {
 		return errors.Capture(err)
@@ -532,7 +532,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 
 	err = tx.Query(ctx, queryScaleStmt, appScale).Get(&appScale)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ScaleState{}, errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appUUID)
+		return application.ScaleState{}, errors.Errorf("querying application %q scale not found", appUUID).Add(applicationerrors.ApplicationNotFound)
 	} else if err != nil {
 		return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
 	}
@@ -544,7 +544,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 }
 
 // GetApplicationLife looks up the life of the specified application, returning
-// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// an error satisfying [applicationerrors.ApplicationNotFound] if the
 // application is not found.
 func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication.UUID) (life.Life, error) {
 	db, err := st.DB(ctx)
@@ -557,7 +557,7 @@ func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication
 SELECT a.life_id AS &lifeID.life_id 
 FROM application AS a
 JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.uuid = $entityUUID.uuid AND c.source_id < 2;
+WHERE a.uuid = $entityUUID.uuid;
 `, lifeID{}, ident)
 	if err != nil {
 		return -1, errors.Capture(err)
@@ -592,10 +592,11 @@ SELECT a.uuid AS &applicationDetails.uuid,
 	   a.name AS &applicationDetails.name,
 	   a.charm_uuid AS &applicationDetails.charm_uuid,
 	   a.life_id AS &applicationDetails.life_id,
-	   a.space_uuid AS &applicationDetails.space_uuid
+	   a.space_uuid AS &applicationDetails.space_uuid,
+	   c.source_id = 2 AS &applicationDetails.is_remote_application
 FROM application a
 JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.uuid = $applicationDetails.uuid AND c.source_id < 2;
+WHERE a.uuid = $applicationDetails.uuid;
 `
 	stmt, err := st.Prepare(query, app)
 	if err != nil {
@@ -615,8 +616,9 @@ WHERE a.uuid = $applicationDetails.uuid AND c.source_id < 2;
 	}
 
 	return application.ApplicationDetails{
-		Life: app.LifeID,
-		Name: app.Name,
+		Life:                app.LifeID,
+		Name:                app.Name,
+		IsRemoteApplication: app.IsRemoteApplication,
 	}, nil
 }
 
@@ -749,10 +751,11 @@ SELECT a.uuid AS &applicationDetails.uuid,
 	   a.name AS &applicationDetails.name,
 	   a.charm_uuid AS &applicationDetails.charm_uuid,
 	   a.life_id AS &applicationDetails.life_id,
-	   a.space_uuid AS &applicationDetails.space_uuid
+	   a.space_uuid AS &applicationDetails.space_uuid,
+	   c.source_id = 2 AS &applicationDetails.is_remote_application
 FROM application a
 JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.name = $applicationDetails.name AND c.source_id < 2;
+WHERE a.name = $applicationDetails.name;
 `
 	stmt, err := st.Prepare(query, app)
 	if err != nil {
@@ -760,11 +763,11 @@ WHERE a.name = $applicationDetails.name AND c.source_id < 2;
 	}
 
 	err = tx.Query(ctx, stmt, app).Get(&app)
-	if err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return applicationDetails{}, errors.Errorf("querying application details for application %q: %w", appName, err)
-		}
-		return applicationDetails{}, errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appName)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return applicationDetails{}, errors.Errorf("getting application details: application %q not found", appName).
+			Add(applicationerrors.ApplicationNotFound)
+	} else if err != nil {
+		return applicationDetails{}, errors.Errorf("querying application details for application %q: %w", appName, err)
 	}
 	return app, nil
 }
@@ -865,6 +868,8 @@ WHERE application_uuid = $applicationScale.application_uuid
 		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
 		if err != nil {
 			return errors.Capture(err)
+		} else if appDetails.IsRemoteApplication {
+			return errors.Errorf("cannot set scaling state for remote application %q", appName)
 		}
 		scaleDetails.ApplicationID = appDetails.UUID
 
@@ -919,11 +924,13 @@ AND    provider_id = $cloudService.provider_id`, serviceInfo)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appUUID, err := st.lookupApplication(ctx, tx, applicationName)
+		appDetails, err := st.getApplicationDetails(ctx, tx, applicationName)
 		if err != nil {
 			return errors.Capture(err)
+		} else if appDetails.IsRemoteApplication {
+			return errors.Errorf("cannot upsert cloud service for remote application %q", applicationName)
 		}
-		serviceInfo.ApplicationUUID = appUUID
+		serviceInfo.ApplicationUUID = appDetails.UUID
 
 		// First see if the cloud service for the app and provider id already exists.
 		// If so, it's a no-op.
@@ -1539,7 +1546,7 @@ func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (
 
 	var result corecharm.ID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appUUID, err := st.lookupApplication(ctx, tx, name)
+		appUUID, err := st.getApplicationUUID(ctx, tx, name)
 		if err != nil {
 			return errors.Errorf("looking up application %q: %w", name, err)
 		}
@@ -2485,7 +2492,7 @@ func (st *State) GetApplicationUUIDByName(ctx context.Context, name string) (cor
 
 	var id coreapplication.UUID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		id, err = st.lookupApplication(ctx, tx, name)
+		id, err = st.getApplicationUUID(ctx, tx, name)
 		return err
 	}); err != nil {
 		return "", errors.Capture(err)
@@ -3242,24 +3249,26 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 	return res
 }
 
-// lookupApplication looks up the application by name and returns the
-// application.ID.
+// getApplicationUUID looks up any application including synthetic applications
+// by name and returns the application.ID.
+//
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.UUID, error) {
+func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.UUID, error) {
 	app := applicationUUIDAndName{Name: name}
 	queryApplicationStmt, err := st.Prepare(`
 SELECT a.uuid AS &applicationUUIDAndName.uuid
 FROM application AS a
 JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.name = $applicationUUIDAndName.name AND c.source_id < 2;
+WHERE a.name = $applicationUUIDAndName.name;
 `, app)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
+		return "", errors.Errorf("getting application %q not found", name).
+			Add(applicationerrors.ApplicationNotFound)
 	} else if err != nil {
 		return "", errors.Errorf("looking up UUID for application %q: %w", name, err)
 	}

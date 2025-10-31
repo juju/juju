@@ -2862,8 +2862,11 @@ func (s *applicationStateSuite) TestGetCharmConfigByApplicationUUID(c *tc.C) {
 func (s *applicationStateSuite) TestGetCharmConfigByApplicationUUIDSyntheticCMRApplication(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
+	cid, err := s.state.GetCharmIDByApplicationName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
 	// Switch the source_id of a charm to a synthetic CMR charm.
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = (
 SELECT charm_uuid FROM application WHERE uuid = ?
@@ -2872,8 +2875,9 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.GetCharmIDByApplicationName(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+	charmID, err := s.state.GetCharmIDByApplicationName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(charmID, tc.Equals, cid)
 }
 
 func (s *applicationStateSuite) TestGetCharmConfigByApplicationUUIDApplicationNotFound(c *tc.C) {

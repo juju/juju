@@ -128,7 +128,11 @@ func (o offerDetails) TransformToOfferDetails() []*crossmodelrelation.OfferDetai
 	return slices.Collect(maps.Values(converted))
 }
 
-type applicationDetails struct {
+type applicationName struct {
+	Name string `db:"name"`
+}
+
+type setApplicationDetails struct {
 	UUID      string    `db:"uuid"`
 	Name      string    `db:"name"`
 	CharmUUID string    `db:"charm_uuid"`

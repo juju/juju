@@ -2439,7 +2439,8 @@ WHERE  name = $getApplicationAndCharmID.name
 
 	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", "", errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, applicationName)
+		return "", "", errors.Errorf("getting UUID for application %q not found", applicationName).
+			Add(applicationerrors.ApplicationNotFound)
 	} else if err != nil {
 		return "", "", errors.Capture(err)
 	}

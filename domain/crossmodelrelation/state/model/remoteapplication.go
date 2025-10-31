@@ -432,7 +432,7 @@ func (st *State) insertApplication(
 	name string,
 	args insertApplicationArgs,
 ) error {
-	appDetails := applicationDetails{
+	appDetails := setApplicationDetails{
 		UUID:      args.ApplicationUUID,
 		Name:      name,
 		CharmUUID: args.CharmUUID,
@@ -444,7 +444,7 @@ func (st *State) insertApplication(
 		SpaceUUID: network.AlphaSpaceId.String(),
 	}
 
-	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
+	createApplication := `INSERT INTO application (*) VALUES ($setApplicationDetails.*)`
 	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
 	if err != nil {
 		return errors.Capture(err)
@@ -856,13 +856,13 @@ WHERE  uuid = $uuid.uuid
 // name is not available, [applicationerrors.ApplicationAlreadyExists] is
 // returned.
 func (st *State) checkApplicationNameAvailable(ctx context.Context, tx *sqlair.TX, name string) error {
-	app := applicationDetails{Name: name}
+	app := applicationName{Name: name}
 
 	var result countResult
 	existsQueryStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &countResult.count
 FROM application
-WHERE name = $applicationDetails.name
+WHERE name = $applicationName.name
 `, app, result)
 	if err != nil {
 		return errors.Capture(err)

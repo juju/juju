@@ -93,13 +93,13 @@ type ApplicationState interface {
 
 	// GetApplicationLife looks up the life of the specified application,
 	// returning an error satisfying
-	// [applicationerrors.ApplicationNotFoundError] if the application is not
+	// [applicationerrors.ApplicationNotFound] if the application is not
 	// found.
 	GetApplicationLife(ctx context.Context, appUUID coreapplication.UUID) (life.Life, error)
 
 	// GetApplicationLifeByName looks up the life of the specified application,
 	// returning an error satisfying
-	// [applicationerrors.ApplicationNotFoundError] if the application is not
+	// [applicationerrors.ApplicationNotFound] if the application is not
 	// found.
 	GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.UUID, life.Life, error)
 
@@ -420,7 +420,7 @@ type ApplicationState interface {
 	// should upgrade to the latest version of the application charm even if
 	// they are in error state.
 	//
-	// An error satisfying [applicationerrors.ApplicationNotFoundError]
+	// An error satisfying [applicationerrors.ApplicationNotFound]
 	// is returned if the application doesn't exist.
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
 
@@ -940,7 +940,7 @@ func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID st
 }
 
 // GetApplicationLife looks up the life of the specified application, returning
-// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// an error satisfying [applicationerrors.ApplicationNotFound] if the
 // application is not found.
 func (s *Service) GetApplicationLife(ctx context.Context, appUUID coreapplication.UUID) (corelife.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -958,7 +958,7 @@ func (s *Service) GetApplicationLife(ctx context.Context, appUUID coreapplicatio
 }
 
 // GetApplicationLifeByName looks up the life of the specified application, returning
-// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// an error satisfying [applicationerrors.ApplicationNotFound] if the
 // application is not found.
 func (s *Service) GetApplicationLifeByName(ctx context.Context, appName string) (corelife.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -973,7 +973,7 @@ func (s *Service) GetApplicationLifeByName(ctx context.Context, appName string) 
 
 // GetApplicationDetails looks up the details of the specified application,
 // which includes the life and name. Returns an error satisfying
-// [applicationerrors.ApplicationNotFoundError] if the application is not found.
+// [applicationerrors.ApplicationNotFound] if the application is not found.
 func (s *Service) GetApplicationDetails(ctx context.Context, appUUID coreapplication.UUID) (application.ApplicationDetails, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1078,7 +1078,7 @@ func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int,
 // upgrade to the latest version of the application charm even if they are in
 // error state.
 //
-// An error satisfying [applicationerrors.ApplicationNotFoundError]
+// An error satisfying [applicationerrors.ApplicationNotFound]
 // is returned if the application doesn't exist.
 func (s *Service) ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error) {
 	ok, err := s.st.ShouldAllowCharmUpgradeOnError(ctx, appName)
@@ -1090,7 +1090,7 @@ func (s *Service) ShouldAllowCharmUpgradeOnError(ctx context.Context, appName st
 }
 
 // ChangeApplicationScale alters the existing scale by the provided change amount, returning the new amount.
-// It returns an error satisfying [applicationerrors.ApplicationNotFoundError] if the application
+// It returns an error satisfying [applicationerrors.ApplicationNotFound] if the application
 // doesn't exist.
 // This is used on CAAS models.
 func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, scaleChange int) (int, error) {
@@ -1110,7 +1110,7 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 }
 
 // SetApplicationScalingState updates the scale state of an application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+// satisfying [applicationerrors.ApplicationNotFound] if the application doesn't exist.
 // This is used on CAAS models.
 func (s *Service) SetApplicationScalingState(ctx context.Context, appName string, scaleTarget int, scaling bool) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -1123,7 +1123,7 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 }
 
 // GetApplicationScalingState returns the scale state of an application,
-// returning an error satisfying [applicationerrors.ApplicationNotFoundError] if
+// returning an error satisfying [applicationerrors.ApplicationNotFound] if
 // the application doesn't exist. This is used on CAAS models.
 func (s *Service) GetApplicationScalingState(ctx context.Context, appName string) (ScalingState, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())

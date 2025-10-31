@@ -92,7 +92,8 @@ WHERE name = $applicationUUIDAndName.name
 		}
 		err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appName)
+			return errors.Errorf("getting UUID for application %q not found", appName).
+				Add(applicationerrors.ApplicationNotFound)
 		} else if err != nil {
 			return errors.Errorf("looking up UUID for application %q: %w", appName, err)
 		}
