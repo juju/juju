@@ -237,7 +237,7 @@ func dumpDB(ctx context.Context, db *sql.DB, path, name string) error {
 
 	files, err := cli.Dump(ctx, name)
 	if err != nil {
-		return fmt.Errorf("dump failed")
+		return fmt.Errorf("dump failed: %w", err)
 	}
 
 	for _, file := range files {
