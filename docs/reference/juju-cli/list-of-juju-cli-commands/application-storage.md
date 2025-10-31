@@ -41,8 +41,8 @@ Set the size to 10GiB, pool name to "rootfs", and count to 1 for the mysql appli
 ## Details
 
 A storage directive describes to the charm how to refer to the storage,
-and where to provision it from and takes the form [=]; for details see
-https://documentation.ubuntu.com/juju/3.6/reference/storage/#storage-directive
+and where to provision it from and takes the form &lt;storage-name&gt;[=&lt;storage-specification&gt;]; for details
+see https://documentation.ubuntu.com/juju/3.6/reference/storage/#storage-directive.
 
 To view all storage directives for the given application:
 
