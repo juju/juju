@@ -75,6 +75,42 @@ func (s *secretSuite) TestDeleteApplicationOwnedSecrets(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
+func (s *secretSuite) TestGetApplicationOwnedSecretRevisionRefs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+
+	sec := s.addSecretWithRevisionsAndContent(c)
+	app, _ := s.addAppAndUnit(c)
+
+	_, err := s.DB().ExecContext(
+		ctx, "INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)", sec, app)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ids, err := st.GetApplicationOwnedSecretRevisionRefs(ctx, app)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(ids, tc.SameContents, []string{"0", "1", "2"})
+}
+
+func (s *secretSuite) TestGetUnitOwnedSecretRevisionRefs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+
+	sec := s.addSecretWithRevisionsAndContent(c)
+	_, unit := s.addAppAndUnit(c)
+
+	_, err := s.DB().ExecContext(
+		ctx, "INSERT INTO secret_unit_owner (secret_id, unit_uuid) VALUES (?, ?)", sec, unit)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ids, err := st.GetUnitOwnedSecretRevisionRefs(ctx, unit)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(ids, tc.SameContents, []string{"0", "1", "2"})
+}
+
 func (s *secretSuite) addSecretWithRevisionsAndContent(c *tc.C) string {
 	ctx := c.Context()
 
@@ -104,14 +140,14 @@ func (s *secretSuite) addSecretWithRevisionsAndContent(c *tc.C) string {
 		_, err = s.DB().ExecContext(
 			ctx,
 			"INSERT INTO secret_value_ref (revision_uuid, backend_uuid, revision_id) VALUES (?, ?, ?)",
-			rev, "backend-uuid", 0,
+			rev, "backend-uuid", i,
 		)
 		c.Assert(err, tc.ErrorIsNil)
 
 		_, err = s.DB().ExecContext(
 			ctx,
 			"INSERT INTO secret_deleted_value_ref (revision_uuid, backend_uuid, revision_id) VALUES (?, ?, ?)",
-			rev, "backend-uuid", 0,
+			rev, "backend-uuid", i,
 		)
 		c.Assert(err, tc.ErrorIsNil)
 
