@@ -28,6 +28,17 @@ func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &manifoldSuite{})
 }
 
+// TestManifoldInputs ensures the inputs of this worker are thought about by
+// future changes in this package.
+//
+// STOP: If this test has broken and new inputs have been added. It is a MUST
+// that this input be checked that it will not cause a dead lock in the
+// consuming manifold when a database upgrade is to be performed.
+func (s *manifoldSuite) TestManifoldInputs(c *tc.C) {
+	inputs := Manifold(s.getConfig()).Inputs
+	c.Check(inputs, tc.SameContents, []string{"changestream"})
+}
+
 // TestManifoldStart ensures that the manifold starts the returned worker.
 func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -137,7 +148,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 // validation testing.
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		ChangeStreamName: "change stream",
+		ChangeStreamName: "changestream",
 		Logger:           s.logger,
 		NewUpgradeServices: func(
 			changestream.WatchableDBGetter, logger.Logger,
