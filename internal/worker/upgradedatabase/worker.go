@@ -39,6 +39,9 @@ type UpgradeService interface {
 	// CreateUpgrade creates an upgrade to and from specified versions
 	// If an upgrade is already running/pending, return an AlreadyExists err
 	CreateUpgrade(ctx context.Context, previousVersion, targetVersion semversion.Number) (domainupgrade.UUID, error)
+	// GetAllModelUUIDs returns all model uuids in the controller. If the
+	// controller has no models an empty result is returned.
+	GetAllModelUUIDs(ctx context.Context) ([]coremodel.UUID, error)
 	// SetControllerReady marks the supplied controllerID as being ready
 	// to start its upgrade. All provisioned controllers need to be ready
 	// before an upgrade can start
@@ -64,13 +67,6 @@ type UpgradeService interface {
 	WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error)
 }
 
-// ModelService is the interface for the model service.
-type ModelService interface {
-	// ListModelUUIDs returns a list of all model UUIDs that are active in the
-	// controller.
-	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
-}
-
 // Config holds the configuration for the worker.
 type Config struct {
 	// DBUpgradeCompleteLock is a lock used to synchronise workers that must
@@ -79,10 +75,6 @@ type Config struct {
 
 	// Agent is the running machine agent.
 	Agent agent.Agent
-
-	// ModelService is the model manager service used to identify
-	// the model uuids required to upgrade.
-	ModelService ModelService
 
 	// UpgradeService is the upgrade service used to drive the upgrade.
 	UpgradeService UpgradeService
@@ -124,6 +116,9 @@ func (c Config) Validate() error {
 	if c.Tag == nil {
 		return errors.NotValidf("invalid Tag")
 	}
+	if c.UpgradeService == nil {
+		return errors.NotValidf("nil UpgradeService")
+	}
 	return nil
 }
 
@@ -139,7 +134,6 @@ type upgradeDBWorker struct {
 
 	dbGetter coredatabase.DBGetter
 
-	modelService   ModelService
 	upgradeService UpgradeService
 
 	logger logger.Logger
@@ -162,7 +156,6 @@ func NewUpgradeDatabaseWorker(config Config) (worker.Worker, error) {
 
 		dbGetter: config.DBGetter,
 
-		modelService:   config.ModelService,
 		upgradeService: config.UpgradeService,
 
 		logger: config.Logger,
@@ -461,12 +454,12 @@ func (w *upgradeDBWorker) upgradeController(ctx context.Context) error {
 func (w *upgradeDBWorker) upgradeModels(ctx context.Context) error {
 	w.logger.Infof(ctx, "upgrading model databases from: %v to: %v", w.fromVersion, w.toVersion)
 
-	models, err := w.modelService.ListModelUUIDs(ctx)
+	modelUUIDs, err := w.upgradeService.GetAllModelUUIDs(ctx)
 	if err != nil {
-		return errors.Annotatef(err, "getting model list")
+		return errors.Annotatef(err, "getting all alive model uuids in controller")
 	}
 
-	for _, modelUUID := range models {
+	for _, modelUUID := range modelUUIDs {
 		if err := w.upgradeModel(ctx, modelUUID); err != nil {
 			return errors.Trace(err)
 		}

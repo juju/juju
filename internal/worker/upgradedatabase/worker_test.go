@@ -38,10 +38,25 @@ type workerSuite struct {
 	databasetesting.DqliteSuite
 
 	upgradeUUID domainupgrade.UUID
+
+	upgradeService *MockUpgradeService
 }
 
 func TestWorkerSuite(t *stdtesting.T) {
 	tc.Run(t, &workerSuite{})
+}
+
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := s.baseSuite.setupMocks(c)
+
+	s.upgradeUUID = domainupgrade.UUID(uuid.MustNewUUID().String())
+	s.upgradeService = NewMockUpgradeService(ctrl)
+
+	c.Cleanup(func() {
+		s.upgradeService = nil
+		s.upgradeUUID = domainupgrade.UUID("")
+	})
+	return ctrl
 }
 
 func (s *workerSuite) TestLockAlreadyUnlocked(c *tc.C) {
@@ -441,7 +456,7 @@ func (s *workerSuite) TestUpgradeController(c *tc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade (there are no models).
-	s.expectListModelIDs([]coremodel.UUID{})
+	s.expectGetAllModelUUIDs([]coremodel.UUID{})
 
 	s.expectDBCompleted()
 	done := s.expectUnlock()
@@ -500,7 +515,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *tc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade (there are no models).
-	s.expectListModelIDs([]coremodel.UUID{})
+	s.expectGetAllModelUUIDs([]coremodel.UUID{})
 
 	s.expectDBCompleted()
 	done := s.expectUnlock()
@@ -554,7 +569,7 @@ func (s *workerSuite) TestUpgradeModels(c *tc.C) {
 
 	// Model upgrade.
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.expectListModelIDs([]coremodel.UUID{modelUUID})
+	s.expectGetAllModelUUIDs([]coremodel.UUID{modelUUID})
 	s.expectModelDBUpgrade(c, modelUUID)
 
 	s.expectDBCompleted()
@@ -609,7 +624,7 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *tc.C) {
 
 	// Model upgrade.
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.expectListModelIDs([]coremodel.UUID{modelUUID})
+	s.expectGetAllModelUUIDs([]coremodel.UUID{modelUUID})
 	txnRunner := s.expectModelDBUpgrade(c, modelUUID)
 
 	// Run the upgrade steps on the existing model, to ensure it doesn't break
@@ -707,20 +722,11 @@ func (s *workerSuite) getConfig() Config {
 		Logger:                s.logger,
 		Clock:                 clock.WallClock,
 		UpgradeService:        s.upgradeService,
-		ModelService:          s.modelService,
 		DBGetter:              s.dbGetter,
 		FromVersion:           semversion.MustParse("3.0.0"),
 		ToVersion:             semversion.MustParse("6.6.6"),
 		Tag:                   names.NewMachineTag("0"),
 	}
-}
-
-func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := s.baseSuite.setupMocks(c)
-
-	s.upgradeUUID = domainupgrade.UUID(uuid.MustNewUUID().String())
-
-	return ctrl
 }
 
 func (s *workerSuite) expectStartUpgrade(from, to semversion.Number, watcher watcher.NotifyWatcher) {
@@ -740,8 +746,8 @@ func (s *workerSuite) expectControllerDBUpgrade() {
 	s.dbGetter.EXPECT().GetDB(gomock.Any(), coredatabase.ControllerNS).Return(s.TxnRunner(), nil)
 }
 
-func (s *workerSuite) expectListModelIDs(models []coremodel.UUID) {
-	s.modelService.EXPECT().ListModelUUIDs(gomock.Any()).Return(models, nil)
+func (s *workerSuite) expectGetAllModelUUIDs(models []coremodel.UUID) {
+	s.upgradeService.EXPECT().GetAllModelUUIDs(gomock.Any()).Return(models, nil)
 
 }
 
