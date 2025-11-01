@@ -507,8 +507,9 @@ func (s *modelStorageSuite) newStorageInstanceWithCharmUUID(
 	storageID := fmt.Sprintf("mystorage/%d", seq)
 
 	_, err = s.DB().Exec(`
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
-VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName)
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min,
+                           count_max, shared)
+VALUES (?, ?, 0, 0, 1, false)`, charmUUID, storageName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the metadata charm name for the storage instance.

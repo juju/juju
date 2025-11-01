@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/juju/tc"
@@ -56,9 +57,9 @@ func (s *filesystemSuite) TestCheckFilesystemForIDNotFound(c *tc.C) {
 // by id when it is backed by a volume.
 func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
@@ -83,9 +84,9 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 // by id when it isn't backed by a volume.
 func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
 	s.setFilesystemProviderID(c, fsUUID, "fs-123")
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
@@ -186,8 +187,8 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 		"c": "d",
 	})
 	spUUID2 := s.newStoragePool(c, "rootfs", "rootfs", nil)
-	s.newCharmStorage(c, charmUUID, "x", "filesystem", true, "/a/x")
-	s.newCharmStorage(c, charmUUID, "y", "filesystem", true, "/a/y")
+	s.newCharmStorage(c, charmUUID, "x", "filesystem", true, false, "/a/x")
+	s.newCharmStorage(c, charmUUID, "y", "filesystem", true, false, "/a/y")
 	s.newApplicationStorageDirective(c, appUUID, charmUUID, "x", spUUID, 123, 2)
 	s.newApplicationStorageDirective(c, appUUID, charmUUID, "y", spUUID2, 456, 1)
 
@@ -884,8 +885,8 @@ func (s *filesystemSuite) TestGetFilesystemParamsUsingPool(c *tc.C) {
 		"foo": "bar",
 	})
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
+	suuid, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 
@@ -919,8 +920,8 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParams(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", nil)
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
+	suuid, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 	s.setFilesystemProviderID(c, fsUUID, "mypool-fs-123")
@@ -938,8 +939,8 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParamsWithObliterateFalse(c *t
 	st := NewState(s.TxnRunnerFactory())
 	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", nil)
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
+	suuid, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 	s.setFilesystemProviderID(c, fsUUID, "mypool-fs-123")
@@ -958,8 +959,8 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParamsWithObliterateTrue(c *tc
 	st := NewState(s.TxnRunnerFactory())
 	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", nil)
 	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
+	suuid, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 	s.setFilesystemProviderID(c, fsUUID, "mypool-fs-123")
@@ -1014,7 +1015,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMachineAttached(c *tc
 	)
 
 	// Construct storage instance, filesystem, filesystem attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "keystore")
+	suuid, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "keystore")
 	fsUUID, _ := s.newMachineFilesystem(c)
 	s.setFilesystemProviderID(c, fsUUID, "provider-id")
 	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
@@ -1065,7 +1066,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C)
 	)
 
 	// Construct storage instance, filesystem, filesystem attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "keystore")
+	suuid, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "keystore")
 	fsUUID, _ := s.newModelFilesystem(c)
 	fsaUUID := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
@@ -1111,7 +1112,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountPointSet(c *tc.C
 	)
 
 	// Construct storage instance, filesystem, filesystem attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "keystore")
+	suuid, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "keystore")
 	fsUUID, _ := s.newMachineFilesystem(c)
 	s.setFilesystemProviderID(c, fsUUID, "provider-id")
 	mountPoint := fmt.Sprintf("/var/ory/keystore/%s", fsUUID.String())
@@ -1185,7 +1186,7 @@ func (s *filesystemSuite) newMachineFilesystemWithSize(
 	c *tc.C, size uint64,
 ) (storageprovisioning.FilesystemUUID, string) {
 	fsUUID := domaintesting.GenFilesystemUUID(c)
-	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
+	fsID := strconv.FormatUint(s.nextFilesystemSequenceNumber(c), 10)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, size_mib, provision_scope_id)
 VALUES (?, ?, 0, ?, 1)

@@ -65,8 +65,9 @@ func (s *baseStorageSuite) newCharmStorage(
 	_, err := s.DB().ExecContext(
 		c.Context(),
 		`
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
-VALUES (?, ?, ?, 0, 1)
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min,
+                           count_max, shared)
+VALUES (?, ?, ?, 0, 1, false)
 `,
 		charmUUID, storageName, kind,
 	)

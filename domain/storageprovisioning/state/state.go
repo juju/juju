@@ -41,6 +41,29 @@ func NewState(
 	}
 }
 
+// checkMachineExists checks if the supplied machine uuid exists within the
+// model.
+func (st *State) checkMachineExists(
+	ctx context.Context, tx *sqlair.TX, uuid coremachine.UUID,
+) (bool, error) {
+	input := machineUUID{UUID: uuid.String()}
+	stmt, err := st.Prepare(
+		"SELECT &machineUUID.* FROM machine WHERE uuid = $machineUUID.uuid",
+		input,
+	)
+	if err != nil {
+		return false, errors.Errorf("preparing machine exists statement: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, input).Get(&input)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
+}
+
 // CheckMachineIsDead checks to see if a machine is not dead returning
 // true when the life of the machine is dead.
 //

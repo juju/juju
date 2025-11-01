@@ -6,6 +6,8 @@ package provisioner
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -17,6 +19,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -26,6 +29,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -71,14 +75,24 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	machineName coremachine.Name,
 	allSpaces network.SpaceInfos,
 ) (*params.ProvisioningInfo, error) {
-	// Cache information about the model for the duration of this facade call
+	machineUUID, err := api.machineService.GetMachineUUID(ctx, machineName)
+	switch {
+	case errors.Is(err, machineerrors.MachineNotFound):
+		return nil, errors.Errorf(
+			"machine %q does not exist", machineName,
+		).Add(coreerrors.NotFound)
+	case err != nil:
+		return nil, errors.Errorf("getting machine %q uuid: %w", machineName, err)
+	}
+
 	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("getting model info: %w", err)
+		return nil, errors.Errorf("getting model info: %w", err)
 	}
+
 	modelConfig, err := api.modelConfigService.ModelConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("getting model config: %w", err)
+		return nil, errors.Errorf("getting model config: %w", err)
 	}
 
 	unitNames, err := api.applicationService.GetUnitNamesOnMachine(ctx, machineName)
@@ -97,7 +111,10 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	}
 
 	var result params.ProvisioningInfo
-	if result, err = api.getProvisioningInfoBase(ctx, machineName, unitNames, spaceBindings, modelConfig, modelInfo); err != nil {
+	result, err = api.getProvisioningInfoBase(
+		ctx, machineName, machineUUID, unitNames, spaceBindings, modelConfig,
+	)
+	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
@@ -116,10 +133,10 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 func (api *ProvisionerAPI) getProvisioningInfoBase(
 	ctx context.Context,
 	machineName coremachine.Name,
+	machineUUID coremachine.UUID,
 	unitNames []coreunit.Name,
 	endpointBindings map[string]string,
 	modelConfig *config.Config,
-	modelInfo model.ModelInfo,
 ) (params.ProvisioningInfo, error) {
 	base, err := api.machineService.GetMachineBase(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
@@ -167,11 +184,18 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		}
 	}
 
-	// TODO (storage): get volumes and volume attachments from the model
+	volParams, volAttachParams, err := api.machineVolumeParams(
+		ctx, machineName, machineUUID,
+	)
+	if err != nil {
+		return params.ProvisioningInfo{}, errors.Capture(err)
+	}
+	result.Volumes = volParams
+	result.VolumeAttachments = volAttachParams
 
 	if result.CharmLXDProfiles, err =
 		api.machineService.UpdateLXDProfiles(
-			ctx, modelInfo.Name, modelInfo.UUID, machineName.String(),
+			ctx, api.modelName, api.modelUUID, machineName.String(),
 		); err != nil {
 		return result, errors.Errorf("cannot write lxd profiles: %w", err)
 	}
@@ -199,11 +223,90 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	}
 	result.Jobs = jobs
 
-	if result.Tags, err = api.machineTags(ctx, unitNames, machineName, isController, modelConfig, modelInfo); err != nil {
+	result.Tags, err = api.machineTags(ctx, unitNames, machineName, isController, modelConfig)
+	if err != nil {
 		return result, errors.Capture(err)
 	}
 
 	return result, nil
+}
+
+// machineVolumeParams is responsible for getting the information and
+// constructing the machine volume and attachment parameters required during
+// provisioning.
+func (api *ProvisionerAPI) machineVolumeParams(
+	ctx context.Context,
+	machineName coremachine.Name,
+	machineUUID coremachine.UUID,
+) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
+	volumeParams, attachmentParams, err :=
+		api.storageProvisioningService.GetMachineProvisioningVolumeParams(
+			ctx, machineUUID,
+		)
+	switch {
+	case errors.Is(err, machineerrors.MachineNotFound):
+		return nil, nil, errors.Errorf("machine does not exist").Add(
+			coreerrors.NotFound,
+		)
+	case err != nil:
+		return nil, nil, errors.Errorf("getting machine volume params: %w", err)
+	}
+
+	capturedVolumes := make(
+		map[domainstorageprovisioning.VolumeUUID]params.VolumeParams, len(volumeParams),
+	)
+	for _, vp := range volumeParams {
+		vTag, err := names.ParseVolumeTag(names.VolumeTagKind + "-" + vp.ID)
+		if err != nil {
+			return nil, nil, errors.Errorf(
+				"parsing volume id to a volume tag: %w", err,
+			)
+		}
+
+		attr := make(map[string]any, len(vp.Attributes))
+		for k, v := range vp.Attributes {
+			attr[k] = v
+		}
+
+		capturedVolumes[vp.UUID] = params.VolumeParams{
+			// We don't set attachment info
+			Attributes: attr,
+			Provider:   vp.Provider,
+			SizeMiB:    vp.RequestedSizeMiB,
+			Tags:       vp.Tags,
+			VolumeTag:  vTag.String(),
+		}
+	}
+
+	machineTag := names.NewMachineTag(machineName.String())
+	retValVAParams := make([]params.VolumeAttachmentParams, 0, len(attachmentParams))
+	for _, ap := range attachmentParams {
+		vTag, err := names.ParseVolumeTag(names.VolumeTagKind + "-" + ap.VolumeID)
+		if err != nil {
+			return nil, nil, errors.Errorf(
+				"parsing volume attachment volume id to a volume tag: %w", err,
+			)
+		}
+		attachParams := params.VolumeAttachmentParams{
+			MachineTag: machineTag.String(),
+			Provider:   ap.Provider,
+			ReadOnly:   ap.ReadOnly,
+			ProviderId: ap.VolumeProviderID,
+			VolumeTag:  vTag.String(),
+		}
+
+		// If a vol param exists for this attachment we put the attachment on
+		// the volume params. Otherwise we add the attachment to a separate
+		// slice.
+		if volParam, exists := capturedVolumes[ap.VolumeUUID]; exists {
+			volParam.Attachment = &attachParams
+			capturedVolumes[ap.VolumeUUID] = volParam
+		} else {
+			retValVAParams = append(retValVAParams, attachParams)
+		}
+	}
+
+	return slices.Collect(maps.Values(capturedVolumes)), retValVAParams, nil
 }
 
 // machineTags returns machine-specific tags to set on the instance.
@@ -213,7 +316,6 @@ func (api *ProvisionerAPI) machineTags(
 	machineName coremachine.Name,
 	isController bool,
 	modelConfig *config.Config,
-	modelInfo model.ModelInfo,
 ) (map[string]string, error) {
 	// Names of all units deployed to the machine.
 	//
@@ -232,12 +334,12 @@ func (api *ProvisionerAPI) machineTags(
 	}
 	sort.Strings(principalUnitNames)
 
-	machineTags := instancecfg.InstanceTags(string(modelInfo.UUID), api.controllerUUID, modelConfig, isController)
+	machineTags := instancecfg.InstanceTags(api.modelUUID.String(), api.controllerUUID, modelConfig, isController)
 	if len(unitNames) > 0 {
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(principalUnitNames, " ")
 	}
 
-	machineID := fmt.Sprintf("%s-%s", modelInfo.Name, names.NewMachineTag(machineName.String()).String())
+	machineID := fmt.Sprintf("%s-%s", api.modelName, names.NewMachineTag(machineName.String()).String())
 	machineTags[tags.JujuMachine] = machineID
 
 	return machineTags, nil

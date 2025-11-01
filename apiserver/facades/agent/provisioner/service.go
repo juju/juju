@@ -6,13 +6,11 @@ package provisioner
 import (
 	"context"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
-	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
@@ -25,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -180,6 +179,18 @@ type StoragePoolGetter interface {
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
+// StoageProvisioningService provides the needed functionality for determining
+// a machines volume storage provisioning information.
+type StoageProvisioningService interface {
+	GetMachineProvisioningVolumeParams(
+		ctx context.Context, uuid coremachine.UUID,
+	) (
+		[]domainstorageprovisioning.MachineVolumeProvisioningParams,
+		[]domainstorageprovisioning.MachineVolumeAttachmentProvisioningParams,
+		error,
+	)
+}
+
 // NetworkService provides functionality for working with the network topology,
 // setting machine network configuration, and determining container devices
 // and addresses.
@@ -290,16 +301,4 @@ type CloudImageMetadataService interface {
 	// FindMetadata searches for cloud image metadata based on the given filter criteria in a specific context.
 	// It returns a set of image metadata grouped by region
 	FindMetadata(ctx context.Context, criteria cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
-}
-
-// CloudService provides access to clouds.
-type CloudService interface {
-	// Cloud returns the named cloud.
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-}
-
-// CredentialService provides access to credentials.
-type CredentialService interface {
-	// CloudCredential returns the cloud credential for the given tag.
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 }

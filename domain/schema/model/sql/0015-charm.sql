@@ -354,7 +354,7 @@ CREATE TABLE charm_storage (
     name TEXT NOT NULL,
     description TEXT,
     storage_kind_id INT NOT NULL,
-    shared BOOLEAN,
+    shared BOOLEAN NOT NULL,
     read_only BOOLEAN,
     count_min INT NOT NULL,
     count_max INT NOT NULL,

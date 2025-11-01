@@ -41,7 +41,7 @@ var validMachine = regexp.MustCompile("^" + machinePattern + "$")
 type Name string
 
 // Validate returns an error if the [Name] is invalid. The error returned
-// satisfies [errors.NotValid].
+// satisfies [coreerrors.NotValid].
 func (n Name) Validate() error {
 	if !validMachine.MatchString(n.String()) {
 		return errors.Errorf("machine name").Add(coreerrors.NotValid)

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -87,9 +86,7 @@ func (s *stateSuite) TestCheckMachineIsDeadTrue(c *tc.C) {
 	s.changeMachineLife(c, machineUUID, domainlife.Dead)
 
 	st := NewState(s.TxnRunnerFactory())
-	isDead, err := st.CheckMachineIsDead(
-		c.Context(), coremachine.UUID(machineUUID),
-	)
+	isDead, err := st.CheckMachineIsDead(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(isDead, tc.IsTrue)
 }
@@ -101,9 +98,7 @@ func (s *stateSuite) TestCheckMachineIsDeadFalse(c *tc.C) {
 	machineUUID, _ := s.newMachineWithNetNode(c, netNode)
 
 	st := NewState(s.TxnRunnerFactory())
-	isDead, err := st.CheckMachineIsDead(
-		c.Context(), coremachine.UUID(machineUUID),
-	)
+	isDead, err := st.CheckMachineIsDead(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(isDead, tc.IsFalse)
 }
@@ -169,9 +164,7 @@ func (s *stateSuite) TestGetMachineNetNodeUUID(c *tc.C) {
 	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
 
 	st := NewState(s.TxnRunnerFactory())
-	rval, err := st.GetMachineNetNodeUUID(
-		c.Context(), coremachine.UUID(machineUUID),
-	)
+	rval, err := st.GetMachineNetNodeUUID(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, netNodeUUID)
 }
@@ -302,9 +295,9 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnit(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
@@ -326,9 +319,9 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnitWithUnitNotFound(c *tc.C)
 
 func (s *stateSuite) TestGetStorageInstanceUUIDByID(c *tc.C) {
 	_, charmUUID := s.newApplication(c, "foo")
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -349,9 +342,9 @@ func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -385,9 +378,9 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageAttachmentNotFound(c *tc.C)
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID, storageInstanceUUID)
@@ -399,13 +392,13 @@ func (s *stateSuite) TestInitialWatchStatementForUnitStorageAttachments(c *tc.C)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	s.newCharmStorage(c, charmUUID, "mystorage-1", "filesystem", false, "")
-	s.newCharmStorage(c, charmUUID, "mystorage-2", "filesystem", false, "")
-	s.newCharmStorage(c, charmUUID, "mystorage-3", "filesystem", false, "")
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-1")
-	_ = s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-2")
-	_ = s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-3")
-	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	s.newCharmStorage(c, charmUUID, "mystorage-1", "filesystem", false, false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage-2", "filesystem", false, false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage-3", "filesystem", false, false, "")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-1")
+	s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-2")
+	s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-3")
+	s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -434,9 +427,9 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDForUnit(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
@@ -452,9 +445,9 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDWithStorageAttachmentNotFound(c
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -467,9 +460,9 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDWithStorageAttachmentNotFound(c
 func (s *stateSuite) TestGetStorageAttachmentUUIDWithUnitNotFound(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	_, charmUUID := s.newApplication(c, "foo")
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -500,9 +493,9 @@ func (s *stateSuite) TestGetStorageAttachmentInfoFilesystem(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	s.newStorageOwner(c, storageInstanceUUID, unitUUID)
 
@@ -525,7 +518,7 @@ func (s *stateSuite) TestGetStorageAttachmentInfoBlockDevice(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID := s.newStorageInstanceBlockKindForCharmWithPool(
 		c, charmUUID, poolUUID, "mystorage")

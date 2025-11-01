@@ -188,6 +188,18 @@ type storagePoolAttribute struct {
 	Value string `db:"value"`
 }
 
+// storagePoolAttributeWithUUID represents a single attribute from the
+// storage_pool_attribute table including the storage pool UUID. This value
+// is useful when expecting multiple storage pool parameters.
+//
+// If you only expect attributes for a single storage pool then use
+// [storagePoolAtribute].
+type storagePoolAttributeWithUUID struct {
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+	Key             string `db:"key"`
+	Value           string `db:"value"`
+}
+
 // volumeAttachmentPlanLife represents the life of a volume attachment plan in
 // the model and the volume id for the volume the attachment plan is for.
 type volumeAttachmentPlanLife struct {
@@ -306,6 +318,31 @@ type filesystemTemplate struct {
 	ProviderType string `db:"storage_type"`
 	ReadOnly     bool   `db:"read_only"`
 	Location     string `db:"location"`
+}
+
+// machineVolumeAttachmentProvisioningParams represents the provisioning params
+// for a volume attachment onto a machine in the model.
+type machineVolumeAttachmentProvisioningParams struct {
+	BlockDeviceUUID sql.Null[string] `db:"block_device_uuid"`
+	ProviderType    string           `db:"provider_type"`
+	ReadOnly        sql.Null[bool]   `db:"read_only"`
+	StorageName     string           `db:"storage_name"`
+	VolumeID        string           `db:"volume_id"`
+	VolumeUUID      string           `db:"volume_uuid"`
+}
+
+// machineVolumeProvisioningParams represents the provisioning params for a
+// volume that is to be attached or is attached to a machine in the model.
+type machineVolumeProvisioningParams struct {
+	ProviderType         string           `db:"provider_type"`
+	RequestedSizeMiB     uint64           `db:"requested_size_mib"`
+	SizeMiB              uint64           `db:"size_mib"`
+	StorageID            string           `db:"storage_id"`
+	StorageName          string           `db:"storage_name"`
+	StoragePoolUUID      string           `db:"storage_pool_uuid"`
+	StorageUnitOwnerName sql.Null[string] `db:"storage_unit_owner_name"`
+	VolumeID             string           `db:"volume_id"`
+	UUID                 string           `db:"uuid"`
 }
 
 // volumeProvisioningParams represents the provisioning params for a volume from the model

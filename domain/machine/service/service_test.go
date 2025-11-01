@@ -456,6 +456,16 @@ func (s *serviceSuite) TestGetMachineUUIDNotFound(c *tc.C) {
 	c.Check(uuid, tc.Equals, machine.UUID(""))
 }
 
+// TestGetMachineUUIDNotValid asserts that if supplied with an invalid machine
+// name the caller gets back an error satisfying [coreerrors.NotValid].
+func (s *serviceSuite) TestGetMachineUUIDNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, err := svc.GetMachineUUID(c.Context(), "1/2/3/4/5")
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
 func (s *serviceSuite) TestLXDProfilesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

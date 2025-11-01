@@ -427,8 +427,9 @@ VALUES (?, ?)
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min,
+                           shared, count_max)
+VALUES (?, ?, ?, ?, false, ?)
 		`, uuid, storageName, 0, 0, 1)
 		if err != nil {
 			return err

@@ -384,9 +384,18 @@ func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID)
 
 // GetMachineUUID returns the UUID of a machine identified by its name.
 // It returns a MachineNotFound if the machine does not exist.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the machine name is not valid
+// - [machineerrors.MachineNotFound] when no machine exists for the supplied
+// name.
 func (s *Service) GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if err := name.Validate(); err != nil {
+		return "", err
+	}
 
 	return s.st.GetMachineUUID(ctx, name)
 }

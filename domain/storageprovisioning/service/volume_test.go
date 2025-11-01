@@ -14,6 +14,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	coremodel "github.com/juju/juju/core/model"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/blockdevice"
@@ -23,8 +24,10 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 // volumeSuite provides a test suite for asserting the [Service] interface
@@ -1213,4 +1216,269 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedBlockDeviceInvalidPl
 		SetVolumeAttachmentPlanProvisionedBlockDevice(
 			c.Context(), vapUUID, bdUUID)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestGetMachineProvisioningVolumeParams tests supply an invalid machine uuid
+// returns to the call an error satisfying [coreerrors.NotValid].
+func (s *volumeSuite) TestGetMachineProvisioningVolumeParamsNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	_, _, err := svc.GetMachineProvisioningVolumeParams(
+		c.Context(), coremachine.UUID("not-valid"),
+	)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *volumeSuite) TestGetMachineProvisioningVolumeParamsMachineNotFound(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+
+	c.Run("volume params machine not found", func(t *testing.T) {
+		st := NewMockState(ctrl)
+		stExp := st.EXPECT()
+		stExp.GetStorageResourceTagInfoForModel(gomock.Any(), gomock.Any()).Return(
+			storageprovisioning.ModelResourceTagInfo{}, nil,
+		).AnyTimes()
+		stExp.GetMachineModelProvisionedVolumeParams(gomock.Any(), machineUUID).Return(
+			nil, machineerrors.MachineNotFound,
+		)
+		stExp.GetMachineModelProvisionedVolumeAttachmentParams(
+			gomock.Any(), machineUUID,
+		).Return(nil, nil).AnyTimes()
+
+		svc := NewService(st, s.watcherFactory, loggertesting.WrapCheckLog(c))
+		_, _, err := svc.GetMachineProvisioningVolumeParams(c.Context(), machineUUID)
+		tc.Check(c, err, tc.ErrorIs, machineerrors.MachineNotFound)
+	})
+
+	c.Run("volume attach params machine not found", func(t *testing.T) {
+		st := NewMockState(ctrl)
+		stExp := st.EXPECT()
+		stExp.GetStorageResourceTagInfoForModel(gomock.Any(), gomock.Any()).Return(
+			storageprovisioning.ModelResourceTagInfo{}, nil,
+		).AnyTimes()
+		stExp.GetMachineModelProvisionedVolumeParams(gomock.Any(), machineUUID).Return(
+			nil, nil,
+		).AnyTimes()
+		stExp.GetMachineModelProvisionedVolumeAttachmentParams(
+			gomock.Any(), machineUUID,
+		).Return(nil, machineerrors.MachineNotFound)
+
+		svc := NewService(st, s.watcherFactory, loggertesting.WrapCheckLog(c))
+		_, _, err := svc.GetMachineProvisioningVolumeParams(c.Context(), machineUUID)
+		tc.Check(c, err, tc.ErrorIs, machineerrors.MachineNotFound)
+	})
+}
+
+func (s *volumeSuite) TestGetMachineProvisioningVolumeParams(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerUUID := tc.Must(c, internaluuid.NewUUID)
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	blockDeviceUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	volumeUUID1 := tc.Must(c, storageprovisioning.NewVolumeUUID)
+	volumeUUID2 := tc.Must(c, storageprovisioning.NewVolumeUUID)
+	volumeUUID3 := tc.Must(c, storageprovisioning.NewVolumeUUID)
+	volumeUUID4 := tc.Must(c, storageprovisioning.NewVolumeUUID)
+
+	stExp := s.state.EXPECT()
+	stExp.GetStorageResourceTagInfoForModel(gomock.Any(), gomock.Any()).Return(
+		storageprovisioning.ModelResourceTagInfo{
+			BaseResourceTags: "foo=bar",
+			ControllerUUID:   controllerUUID.String(),
+			ModelUUID:        modelUUID.String(),
+		}, nil,
+	)
+	stExp.GetMachineModelProvisionedVolumeParams(
+		gomock.Any(), machineUUID,
+	).Return([]internal.MachineVolumeProvisioningParams{
+		{
+			// Non provisioned, non shared volume.
+			Attributes: map[string]string{
+				"vol1": "foo",
+			},
+			ID:                   "1",
+			Provider:             "juju-basic-storage",
+			RequestedSizeMiB:     1024,
+			SizeMiB:              0, // Non provisioned.
+			StorageID:            "11",
+			StorageName:          "kratos-keystore",
+			StorageOwnerUnitName: ptr("unit/0"), // Non shared.
+			UUID:                 volumeUUID1,
+		},
+		{
+			// Non provisioned, shared volume.
+			Attributes: map[string]string{
+				"volshared2": "foo",
+			},
+			ID:                   "2",
+			Provider:             "juju-basic-storage",
+			RequestedSizeMiB:     1024,
+			SizeMiB:              0, // Non provisioned.
+			StorageID:            "22",
+			StorageName:          "kratos-keystore",
+			StorageOwnerUnitName: nil, // Shared volume.
+			UUID:                 volumeUUID2,
+		},
+		{
+			// provisioned, non shared volume.
+			Attributes: map[string]string{
+				"vol3": "foo",
+			},
+			ID:                   "3",
+			Provider:             "juju-basic-storage",
+			RequestedSizeMiB:     1024,
+			SizeMiB:              1024, // Provisioned.
+			StorageID:            "33",
+			StorageName:          "kratos-keystore",
+			StorageOwnerUnitName: ptr("unit/1"), // Non shared.
+			UUID:                 volumeUUID3,
+		},
+	}, nil)
+	stExp.GetMachineModelProvisionedVolumeAttachmentParams(
+		gomock.Any(), machineUUID,
+	).Return([]internal.MachineVolumeAttachmentProvisioningParams{
+		{
+			// Non provisioned attachment and volume.
+			BlockDeviceUUID:  nil, // Non provisioned
+			Provider:         "juju-basic-storage",
+			ReadOnly:         true,
+			StorageName:      "kratos-keystore",
+			VolumeID:         "1",
+			VolumeProviderID: "",
+			VolumeUUID:       volumeUUID1,
+		},
+		{
+			// Non provisioned attachment and volume.
+			BlockDeviceUUID:  nil, // Non provisioned
+			Provider:         "juju-basic-storage",
+			ReadOnly:         false,
+			StorageName:      "kratos-keystore",
+			VolumeID:         "2",
+			VolumeProviderID: "",
+			VolumeUUID:       volumeUUID2,
+		},
+		{
+			// Non provisioned attachment with provisioned volume.
+			BlockDeviceUUID: nil, // Non provisioned
+			Provider:        "juju-basic-storage",
+			ReadOnly:        false,
+			StorageName:     "kratos-keystore",
+			VolumeID:        "3",
+			// Volume is provisioned but attachment is not
+			VolumeProviderID: "myprovider-123",
+			VolumeUUID:       volumeUUID3,
+		},
+		{
+			// Provisioned attachment and volume.
+			BlockDeviceUUID: &blockDeviceUUID, // Provisioned
+			Provider:        "juju-basic-storage",
+			ReadOnly:        false,
+			StorageName:     "kratos-keystore",
+			VolumeID:        "4",
+			// Volume is provisioned
+			VolumeProviderID: "myprovider-123",
+			VolumeUUID:       volumeUUID4,
+		},
+	}, nil)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	volParams, attachParams, err := svc.GetMachineProvisioningVolumeParams(
+		c.Context(), machineUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+
+	expectedVolParams := []storageprovisioning.MachineVolumeProvisioningParams{
+		// Expects that the third provisioned volume is dropped from the
+		// result.
+		{
+			Attributes: map[string]string{
+				"vol1": "foo",
+			},
+			ID:               "1",
+			Provider:         "juju-basic-storage",
+			RequestedSizeMiB: 1024,
+			StorageName:      "kratos-keystore",
+			Tags: map[string]string{
+				"foo":                   "bar",
+				"juju-controller-uuid":  controllerUUID.String(),
+				"juju-model-uuid":       modelUUID.String(),
+				"juju-storage-instance": "kratos-keystore/11",
+				"juju-storage-owner":    "unit/0",
+			},
+			UUID: volumeUUID1,
+		},
+		{
+			Attributes: map[string]string{
+				"volshared2": "foo",
+			},
+			ID:               "2",
+			Provider:         "juju-basic-storage",
+			RequestedSizeMiB: 1024,
+			StorageName:      "kratos-keystore",
+			Tags: map[string]string{
+				"foo":                   "bar",
+				"juju-controller-uuid":  controllerUUID.String(),
+				"juju-model-uuid":       modelUUID.String(),
+				"juju-storage-instance": "kratos-keystore/22",
+			},
+			UUID: volumeUUID2,
+		},
+	}
+	c.Check(volParams, tc.SameContents, expectedVolParams)
+
+	expectedAttachParams := []storageprovisioning.MachineVolumeAttachmentProvisioningParams{
+		{
+			Provider:         "juju-basic-storage",
+			ReadOnly:         true,
+			StorageName:      "kratos-keystore",
+			VolumeID:         "1",
+			VolumeProviderID: "", // volume has not be provisioned
+			VolumeUUID:       volumeUUID1,
+		},
+		{
+			Provider:         "juju-basic-storage",
+			ReadOnly:         false,
+			StorageName:      "kratos-keystore",
+			VolumeID:         "2",
+			VolumeProviderID: "", // volume has not be provisioned
+			VolumeUUID:       volumeUUID2,
+		},
+		{
+			Provider:         "juju-basic-storage",
+			ReadOnly:         false,
+			StorageName:      "kratos-keystore",
+			VolumeID:         "3",
+			VolumeProviderID: "myprovider-123", // volume has been provisioned
+			VolumeUUID:       volumeUUID3,
+		},
+	}
+	c.Check(attachParams, tc.SameContents, expectedAttachParams)
+}
+
+// TestGetMachineProvisioningVolumeParamsEmpty tests that when no volume params
+// or attachment params exist an empty nil error result is returned to the
+// caller.
+func (s *volumeSuite) TestGetMachineProvisioningVolumeParamsEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+
+	stExp := s.state.EXPECT()
+	stExp.GetMachineModelProvisionedVolumeParams(
+		gomock.Any(), machineUUID,
+	).Return(nil, nil)
+	stExp.GetMachineModelProvisionedVolumeAttachmentParams(
+		gomock.Any(), machineUUID,
+	).Return(nil, nil)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	volParams, attachParams, err := svc.GetMachineProvisioningVolumeParams(
+		c.Context(), machineUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(volParams, tc.HasLen, 0)
+	c.Check(attachParams, tc.HasLen, 0)
 }

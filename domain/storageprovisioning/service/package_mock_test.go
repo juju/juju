@@ -751,6 +751,84 @@ func (c *MockStateGetFilesystemUUIDForIDCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetMachineModelProvisionedVolumeAttachmentParams mocks base method.
+func (m *MockState) GetMachineModelProvisionedVolumeAttachmentParams(ctx context.Context, uuid machine.UUID) ([]internal.MachineVolumeAttachmentProvisioningParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineModelProvisionedVolumeAttachmentParams", ctx, uuid)
+	ret0, _ := ret[0].([]internal.MachineVolumeAttachmentProvisioningParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineModelProvisionedVolumeAttachmentParams indicates an expected call of GetMachineModelProvisionedVolumeAttachmentParams.
+func (mr *MockStateMockRecorder) GetMachineModelProvisionedVolumeAttachmentParams(ctx, uuid any) *MockStateGetMachineModelProvisionedVolumeAttachmentParamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineModelProvisionedVolumeAttachmentParams", reflect.TypeOf((*MockState)(nil).GetMachineModelProvisionedVolumeAttachmentParams), ctx, uuid)
+	return &MockStateGetMachineModelProvisionedVolumeAttachmentParamsCall{Call: call}
+}
+
+// MockStateGetMachineModelProvisionedVolumeAttachmentParamsCall wrap *gomock.Call
+type MockStateGetMachineModelProvisionedVolumeAttachmentParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineModelProvisionedVolumeAttachmentParamsCall) Return(arg0 []internal.MachineVolumeAttachmentProvisioningParams, arg1 error) *MockStateGetMachineModelProvisionedVolumeAttachmentParamsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineModelProvisionedVolumeAttachmentParamsCall) Do(f func(context.Context, machine.UUID) ([]internal.MachineVolumeAttachmentProvisioningParams, error)) *MockStateGetMachineModelProvisionedVolumeAttachmentParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineModelProvisionedVolumeAttachmentParamsCall) DoAndReturn(f func(context.Context, machine.UUID) ([]internal.MachineVolumeAttachmentProvisioningParams, error)) *MockStateGetMachineModelProvisionedVolumeAttachmentParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineModelProvisionedVolumeParams mocks base method.
+func (m *MockState) GetMachineModelProvisionedVolumeParams(ctx context.Context, uuid machine.UUID) ([]internal.MachineVolumeProvisioningParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineModelProvisionedVolumeParams", ctx, uuid)
+	ret0, _ := ret[0].([]internal.MachineVolumeProvisioningParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineModelProvisionedVolumeParams indicates an expected call of GetMachineModelProvisionedVolumeParams.
+func (mr *MockStateMockRecorder) GetMachineModelProvisionedVolumeParams(ctx, uuid any) *MockStateGetMachineModelProvisionedVolumeParamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineModelProvisionedVolumeParams", reflect.TypeOf((*MockState)(nil).GetMachineModelProvisionedVolumeParams), ctx, uuid)
+	return &MockStateGetMachineModelProvisionedVolumeParamsCall{Call: call}
+}
+
+// MockStateGetMachineModelProvisionedVolumeParamsCall wrap *gomock.Call
+type MockStateGetMachineModelProvisionedVolumeParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineModelProvisionedVolumeParamsCall) Return(arg0 []internal.MachineVolumeProvisioningParams, arg1 error) *MockStateGetMachineModelProvisionedVolumeParamsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineModelProvisionedVolumeParamsCall) Do(f func(context.Context, machine.UUID) ([]internal.MachineVolumeProvisioningParams, error)) *MockStateGetMachineModelProvisionedVolumeParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineModelProvisionedVolumeParamsCall) DoAndReturn(f func(context.Context, machine.UUID) ([]internal.MachineVolumeProvisioningParams, error)) *MockStateGetMachineModelProvisionedVolumeParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineNetNodeUUID mocks base method.
 func (m *MockState) GetMachineNetNodeUUID(arg0 context.Context, arg1 machine.UUID) (network.NetNodeUUID, error) {
 	m.ctrl.T.Helper()

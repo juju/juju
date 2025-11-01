@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -22,6 +23,8 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/domain/storageprovisioning/internal"
+	environtags "github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -29,6 +32,30 @@ type VolumeState interface {
 	// CheckVolumeForIDExists checks if a filesystem exists for the supplied
 	// volume ID. True is returned when a volume exists for the supplied id.
 	CheckVolumeForIDExists(context.Context, string) (bool, error)
+
+	// GetMachineModelProvisionedVolumeAttachmentParams returns the volume
+	// attachment parameters for all attachments onto a machine that are
+	// provisioned by the model. Should the machine have no volumes that are
+	// model provisioned then an empty result is returned.
+	//
+	// The following errors may be returned:
+	// - [domainmachineerrors.MachineNotFound] when no machine exists for the uuid.
+	GetMachineModelProvisionedVolumeAttachmentParams(
+		ctx context.Context, uuid coremachine.UUID,
+	) ([]internal.MachineVolumeAttachmentProvisioningParams, error)
+
+	// GetMachineModelProvisionedVolumeParams returns the volume parameters for
+	// all volumes of a machine that are provisioned by the model. The decision
+	// of if a volume in the model is for a machine is made by checking if the
+	// volume has an attachment onto the machine. Should the machine have no
+	// volumes that are model provisioned then an empty result is returned.
+	//
+	// The following errors may be returned:
+	// - [domainmachineerrors.MachineNotFound] when no machine exists for the
+	// uuid.
+	GetMachineModelProvisionedVolumeParams(
+		ctx context.Context, uuid coremachine.UUID,
+	) ([]internal.MachineVolumeProvisioningParams, error)
 
 	// GetVolume returns the volume information for the specified volume uuid.
 	GetVolume(
@@ -277,6 +304,107 @@ func (s *Service) CheckVolumeForIDExists(
 	defer span.End()
 
 	return s.st.CheckVolumeForIDExists(ctx, volumeID)
+}
+
+// GetMachineProvisioningVolumeParams returns the volume provisioning params for
+// a machine. Only volumes and attachments which are model provisioned and are
+// not provisioned yet are returned. This should not be considered the
+// exhaustive set for a machine.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied machine UUID is not valid.
+// - [machineerrors.MachineNotFound] when no machine does not exist in the model.
+func (s *Service) GetMachineProvisioningVolumeParams(
+	ctx context.Context, uuid coremachine.UUID,
+) (
+	[]storageprovisioning.MachineVolumeProvisioningParams,
+	[]storageprovisioning.MachineVolumeAttachmentProvisioningParams,
+	error,
+) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if uuid.Validate() != nil {
+		return nil, nil, errors.New("machine uuid is not valid").Add(
+			coreerrors.NotValid,
+		)
+	}
+
+	params, err := s.st.GetMachineModelProvisionedVolumeParams(ctx, uuid)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting machine volume params: %w", err)
+	}
+
+	attachParams, err := s.st.GetMachineModelProvisionedVolumeAttachmentParams(ctx, uuid)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting machine volume attachment params: %w", err)
+	}
+
+	var modelTags map[string]string
+	if len(params) != 0 {
+		// We only need tags for volume params. If there are none then there is
+		// no point wasting a database call.
+		modelTags, err = s.GetStorageResourceTagsForModel(ctx)
+		if err != nil {
+			return nil, nil, errors.Errorf(
+				"getting model based storage tags for machine volume: %w", err,
+			)
+		}
+	}
+
+	retValVolParams := make(
+		[]storageprovisioning.MachineVolumeProvisioningParams, 0, len(params),
+	)
+	for _, param := range params {
+		if param.SizeMiB != 0 {
+			// Remove all volumes that have been provisioned. Volumes are
+			// considered provisioned when they have their size set.
+			continue
+		}
+
+		vTags := maps.Clone(modelTags)
+		// Storage inst tag value structure comes from our names package and
+		// how it outputs a storage instance id in the format <storagename/id>.
+		storageInstTagVal := fmt.Sprintf("%s/%s", param.StorageName, param.StorageID)
+		vTags[environtags.JujuStorageInstance] = storageInstTagVal
+
+		if param.StorageOwnerUnitName != nil {
+			vTags[environtags.JujuStorageOwner] = *param.StorageOwnerUnitName
+		}
+		param := storageprovisioning.MachineVolumeProvisioningParams{
+			Attributes:       param.Attributes,
+			ID:               param.ID,
+			Provider:         param.Provider,
+			RequestedSizeMiB: param.RequestedSizeMiB,
+			StorageName:      param.StorageName,
+			Tags:             vTags,
+			UUID:             param.UUID,
+		}
+		retValVolParams = append(retValVolParams, param)
+	}
+
+	retValVolAttachParams := make(
+		[]storageprovisioning.MachineVolumeAttachmentProvisioningParams, 0, len(attachParams),
+	)
+	for _, param := range attachParams {
+		if param.BlockDeviceUUID != nil {
+			// Remove all attachments that have been provisioned. Attachments
+			// are considered provisioned when they have a block device set.
+			continue
+		}
+
+		param := storageprovisioning.MachineVolumeAttachmentProvisioningParams{
+			Provider:         param.Provider,
+			ReadOnly:         param.ReadOnly,
+			StorageName:      param.StorageName,
+			VolumeID:         param.VolumeID,
+			VolumeProviderID: param.VolumeProviderID,
+			VolumeUUID:       param.VolumeUUID,
+		}
+		retValVolAttachParams = append(retValVolAttachParams, param)
+	}
+
+	return retValVolParams, retValVolAttachParams, nil
 }
 
 // GetVolumeAttachmentIDs returns the
