@@ -149,21 +149,6 @@ func (s *Service) RemoveMachine(
 		}
 	}
 
-	for _, a := range cascaded.StorageInstanceUUIDs {
-		if force && wait > 0 {
-			if _, err := s.storageInstanceScheduleRemoval(
-				ctx, storage.StorageInstanceUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.storageInstanceScheduleRemoval(
-			ctx, storage.StorageInstanceUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
-	}
-
 	for _, a := range cascaded.FileSystemAttachmentUUIDs {
 		if force && wait > 0 {
 			if _, err := s.filesystemAttachmentScheduleRemoval(
@@ -239,6 +224,21 @@ func (s *Service) RemoveMachine(
 		}
 	}
 
+	for _, a := range cascaded.StorageInstanceUUIDs {
+		if force && wait > 0 {
+			if _, err := s.storageInstanceScheduleRemoval(
+				ctx, storage.StorageInstanceUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.storageInstanceScheduleRemoval(
+			ctx, storage.StorageInstanceUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
 	return machineJobUUID, nil
 }
 
@@ -250,7 +250,7 @@ func (s *Service) RemoveMachine(
 // - [removalerrors.EntityStillAlive] if the machine is alive.
 // - [removalerrors.MachineHasContainers] if the machine hosts containers.
 // - [removalerrors.MachineHasUnits] if the machine hosts units.
-// - [removalerrors.MachineHasStorage] if the machine hosts units.
+// - [removalerrors.MachineHasStorage] if the machine hosts storage.
 func (s *Service) MarkMachineAsDead(ctx context.Context, machineUUID machine.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

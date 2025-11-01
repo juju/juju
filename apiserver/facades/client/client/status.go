@@ -1310,6 +1310,10 @@ func processStorage(
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
+	// This prevents a panic in clients due to a storage instance after 4.0
+	// possibly having no filesystem or volume to get a status from. This is
+	// poor API design anyway, since a storage instance does not have a status,
+	// instead, we've pulled one from the provisioned entities.
 	zeroTime := time.UnixMicro(0).UTC()
 	storageMap := map[string]*params.StorageDetails{}
 	for _, v := range storageInstances {

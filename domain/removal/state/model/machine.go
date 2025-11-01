@@ -201,9 +201,11 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 
 		const (
 			checkEmptyMachine = false
-			// N.B. storage instances that are NOT machine provisioned, should
-			// not be removed here. Only when explicitly with destroy-storage,
-			// should they be removed.
+			// N.B. storage instances that are NOT machine owned must not be
+			// removed here, since direct machine removal does not yet support
+			// passing a destroy flag. Once this is supported, it can be plumbed
+			// in to here to ensure storage attached to the units on this
+			// machine are removed.
 			destroyStorage = false
 		)
 		cascaded.UnitUUIDs = transform.Slice(append(parentUnitUUIDs, childUnitUUIDs...), func(u entityUUID) string {
@@ -214,8 +216,6 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 			if err != nil {
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}
-			// We don't expect storage instances to advance because we pass
-			// destroyStorage as false, but we can have dying unit attachments.
 			cascaded.CascadedStorageLives = cascaded.CascadedStorageLives.Merge(uc.CascadedStorageLives)
 		}
 
@@ -228,9 +228,16 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 }
 
 // ensureMachineStorageInstancesNotAliveCascade transitions any "alive"
-// storage instances that are provisioned by the machine to "dying".
+// storage instances that are provisioned by the machine to "dying" and to be
+// obliterated.
+//
 // It does not cause detachment of those storage instances, this must be
 // handled by the the removal of a unit.
+//
+// It does not transition to "dying" any storage instance with a non-machine
+// owned filesystem or volume. Critically if a machine owned filesystem is
+// backed by a non-machine owned volume, it will not go to "dying", even if this
+// state is impossible, we protect against it.
 func (st *State) ensureMachineStorageInstancesNotAliveCascade(
 	ctx context.Context, tx *sqlair.TX, mUUID string,
 ) (internal.CascadedStorageInstanceLives, error) {
@@ -239,21 +246,23 @@ func (st *State) ensureMachineStorageInstancesNotAliveCascade(
 
 	q := `
 WITH all_instances AS (
-    SELECT iv.storage_instance_uuid
-    FROM   storage_instance i 
-           JOIN storage_instance_volume iv ON i.uuid = iv.storage_instance_uuid
-           JOIN machine_volume mv ON iv.storage_volume_uuid = mv.volume_uuid
-    WHERE  mv.machine_uuid = $entityUUID.uuid
-    AND    i.life_id = 0
+    SELECT iv.storage_instance_uuid AS uuid
+    FROM   storage_instance i
+    JOIN   storage_instance_volume iv ON i.uuid = iv.storage_instance_uuid
+    JOIN   machine_volume mv ON iv.storage_volume_uuid = mv.volume_uuid
+    WHERE  mv.machine_uuid = $entityUUID.uuid AND
+           i.life_id = 0
     UNION
-    SELECT if.storage_instance_uuid
-    FROM   storage_instance i 
-           JOIN storage_instance_filesystem if ON i.uuid = if.storage_instance_uuid
-           JOIN machine_filesystem mf ON if.storage_filesystem_uuid = mf.filesystem_uuid
-    WHERE  mf.machine_uuid = $entityUUID.uuid
-    AND    i.life_id = 0
+    SELECT if.storage_instance_uuid AS uuid
+    FROM   storage_instance i
+    JOIN   storage_instance_filesystem if ON i.uuid = if.storage_instance_uuid
+    JOIN   machine_filesystem mf ON if.storage_filesystem_uuid = mf.filesystem_uuid
+    LEFT JOIN storage_instance_volume iv ON i.uuid = iv.storage_instance_uuid
+    WHERE  mf.machine_uuid = $entityUUID.uuid AND
+           i.life_id = 0 AND
+           iv.storage_instance_uuid IS NULL
 )
-SELECT storage_instance_uuid as &entityUUID.uuid FROM all_instances`
+SELECT &entityUUID.* FROM all_instances`
 
 	stmt, err := st.Prepare(q, entityUUID{})
 	if err != nil {
@@ -272,11 +281,14 @@ SELECT storage_instance_uuid as &entityUUID.uuid FROM all_instances`
 		)
 	}
 
-	// TODO(storage): calculate obliterate in business logic.
-	cascaded, err = st.ensureStorageInstancesNotAliveCascade(ctx, tx, sUUIDs, false)
+	// Machine owned volumes and filesystems are fine to be obliterated as the
+	// machine will cease to exist too.
+	obliterate := true
+	cascaded, err = st.ensureStorageInstancesNotAliveCascade(
+		ctx, tx, sUUIDs, obliterate)
 	if err != nil {
 		return cascaded, errors.Errorf(
-			"killing storage instances %q: %w", sUUIDs, err,
+			"ensuring %d storage instances not alive: %w", len(sUUIDs), err,
 		)
 	}
 	return cascaded, nil
@@ -399,7 +411,7 @@ AND     lld.mac_address IS NOT NULL;`, entityUUID{UUID: machineUUID}, linkLayerD
 // - [removalerrors.EntityStillAlive] if the machine is alive.
 // - [removalerrors.MachineHasContainers] if the machine hosts containers.
 // - [removalerrors.MachineHasUnits] if the machine hosts units.
-// - [removalerrors.MachineHasStorage] if the machine hosts units.
+// - [removalerrors.MachineHasStorage] if the machine hosts storage.
 func (st *State) MarkMachineAsDead(ctx context.Context, mUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -604,8 +616,7 @@ AND unit.life_id != 2
 	countFilesystemsOnMachine, err := st.Prepare(`
 SELECT SUM(count) AS &count.count FROM (
 	SELECT    COUNT(*) AS count
-	FROM      storage_filesystem sf
-	JOIN      machine_filesystem mf ON mf.filesystem_uuid = sf.uuid
+	FROM      machine_filesystem mf
 	WHERE     mf.machine_uuid = $entityUUID.uuid
 	UNION
 	SELECT    COUNT(*) AS count
@@ -623,8 +634,7 @@ SELECT SUM(count) AS &count.count FROM (
 	countVolumesOnMachine, err := st.Prepare(`
 SELECT SUM(count) AS &count.count FROM (
 	SELECT    COUNT(*) AS count
-	FROM      storage_volume sv
-	JOIN      machine_volume mv ON mv.volume_uuid = sv.uuid
+	FROM      machine_volume mv
 	WHERE     mv.machine_uuid = $entityUUID.uuid
 	UNION
 	SELECT    COUNT(*) AS count

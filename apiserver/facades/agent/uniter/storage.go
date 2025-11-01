@@ -188,8 +188,7 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 		switch {
 		case errors.Is(err, domainstorageerrors.StorageInstanceNotFound):
 			return params.StorageAttachment{}, internalerrors.Errorf(
-				"storage instance not found for %q %q",
-				storageTag.Id(), unitTag.Id(),
+				"storage instance %q not found", storageTag.Id(),
 			).Add(coreerrors.NotFound)
 		case errors.Is(err, domainstorageerrors.StorageAttachmentNotFound):
 			return params.StorageAttachment{}, internalerrors.Errorf(
@@ -449,7 +448,7 @@ func (s *StorageAPI) WatchStorageAttachments(ctx context.Context, args params.St
 			).Add(coreerrors.NotFound)
 		case errors.Is(err, domainstorageerrors.StorageInstanceNotFound):
 			return nil, internalerrors.Errorf(
-				"storage instance not found for %q %q", storageTag.Id(), unitTag.Id(),
+				"storage instance %q not found", storageTag.Id(),
 			).Add(coreerrors.NotFound)
 		case errors.Is(err, domainstorageerrors.StorageAttachmentNotFound):
 			return nil, internalerrors.Errorf(
@@ -531,8 +530,7 @@ func (s *StorageAPI) RemoveStorageAttachments(ctx context.Context, args params.S
 			).Add(coreerrors.NotFound)
 		case errors.Is(err, domainstorageerrors.StorageInstanceNotFound):
 			return internalerrors.Errorf(
-				"storage instance not found for %q %q",
-				storageTag.Id(), unitTag.Id(),
+				"storage instance %q not found", storageTag.Id(),
 			).Add(coreerrors.NotFound)
 		case err != nil:
 			return internalerrors.Errorf(

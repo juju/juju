@@ -157,21 +157,6 @@ func (s *Service) RemoveApplication(
 		}
 	}
 
-	for _, a := range cascaded.StorageInstanceUUIDs {
-		if force && wait > 0 {
-			if _, err := s.storageInstanceScheduleRemoval(
-				ctx, storage.StorageInstanceUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.storageInstanceScheduleRemoval(
-			ctx, storage.StorageInstanceUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
-	}
-
 	for _, a := range cascaded.FileSystemAttachmentUUIDs {
 		if force && wait > 0 {
 			if _, err := s.filesystemAttachmentScheduleRemoval(
@@ -242,6 +227,21 @@ func (s *Service) RemoveApplication(
 		}
 		if _, err := s.volumeScheduleRemoval(
 			ctx, storageprovisioning.VolumeUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	for _, a := range cascaded.StorageInstanceUUIDs {
+		if force && wait > 0 {
+			if _, err := s.storageInstanceScheduleRemoval(
+				ctx, storage.StorageInstanceUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.storageInstanceScheduleRemoval(
+			ctx, storage.StorageInstanceUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}

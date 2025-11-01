@@ -69,8 +69,16 @@ func (t JobType) String() string {
 		return "storage volume"
 	case StorageFilesystemJob:
 		return "storage filesystem"
+	case StorageFilesystemAttachmentJob:
+		return "storage filesystem attachment"
+	case StorageVolumeAttachmentJob:
+		return "storage volume attachment"
+	case StorageVolumeAttachmentPlanJob:
+		return "storage volume attachment plan"
 	case RemoteApplicationOffererJob:
 		return "remote application offerer"
+	case RemoteRelationJob:
+		return "remote relation"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}
