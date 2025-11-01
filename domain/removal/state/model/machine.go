@@ -201,9 +201,11 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 
 		const (
 			checkEmptyMachine = false
-			// N.B. storage instances that are NOT machine provisioned, should
-			// not be removed here. Only when explicitly with destroy-storage,
-			// should they be removed.
+			// N.B. storage instances that are NOT machine owned must not be
+			// removed here, since direct machine removal does not yet support
+			// passing a destroy flag. Once this is supported, it can be plumbed
+			// in to here to ensure storage attached to the units on this
+			// machine are removed.
 			destroyStorage = false
 		)
 		cascaded.UnitUUIDs = transform.Slice(append(parentUnitUUIDs, childUnitUUIDs...), func(u entityUUID) string {
@@ -214,8 +216,6 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 			if err != nil {
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}
-			// We don't expect storage instances to advance because we pass
-			// destroyStorage as false, but we can have dying unit attachments.
 			cascaded.CascadedStorageLives = cascaded.CascadedStorageLives.Merge(uc.CascadedStorageLives)
 		}
 
