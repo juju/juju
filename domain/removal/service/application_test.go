@@ -230,6 +230,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
+	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
 	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
@@ -256,6 +257,7 @@ func (s *applicationSuite) TestDeleteCharmForApplicationFails(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
@@ -302,6 +304,44 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingJujuSecretsDeleteApp
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *applicationSuite) TestExecuteJobForApplicationDyingExternalSecretsDeleteApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newApplicationJob(c)
+
+	secretExternalRefs := []string{"wun", "too", "free"}
+
+	exp := s.modelState.EXPECT()
+	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(secretExternalRefs, nil)
+	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(errors.Errorf("the charm is still in use"))
+	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
+	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	sbCfg := &provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{
+			BackendType: vault.BackendType,
+		},
+	}
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+
+	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
+	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
+	for i, id := range secretExternalRefs {
+		var err error
+		if i == 0 {
+			err = errors.New("no matter; we only log it as a warning")
+		}
+		s.secretBackend.EXPECT().DeleteContent(c.Context(), id).Return(err)
+	}
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -310,6 +350,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplicationErr
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
+	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(errors.Errorf("the front fell off"))
 
