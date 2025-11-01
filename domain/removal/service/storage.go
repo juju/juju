@@ -476,9 +476,12 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 		}
 
 		// NOTE: filesystem attachments, volume attachments and volume attachment
-		// plans have their removal jobs scheduled when the storage attachment goes
-		// to dying. But due to the entities not also going to dying, it is
-		// important that we schedule these here too, for completeness.
+		// plans have their removal jobs already scheduled when the storage
+		// attachment goes to Dying.
+		//
+		// Since these entities do not go to Dying when the storage attachment
+		// goes to Dying, it is within the removal domain's pattern to schedule
+		// them here, since these entities just went to Dying.
 
 		for _, fsaUUID := range cascade.FileSystemAttachmentUUIDs {
 			uuid := storageprovisioning.FilesystemAttachmentUUID(fsaUUID)
@@ -574,9 +577,12 @@ func (s *Service) MarkStorageAttachmentAsDead(
 	}
 
 	// NOTE: filesystem attachments, volume attachments and volume attachment
-	// plans have their removal jobs scheduled when the storage attachment goes
-	// to dying. But due to the entities not also going to dying, it is
-	// important that we schedule these here too, for completeness.
+	// plans have their removal jobs already scheduled when the storage
+	// attachment goes to Dying.
+	//
+	// Since these entities do not go to Dying when the storage attachment
+	// goes to Dying, it is within the removal domain's pattern to schedule
+	// them here, since these entities just went to Dying.
 
 	for _, fsaUUID := range cascade.FileSystemAttachmentUUIDs {
 		uuid := storageprovisioning.FilesystemAttachmentUUID(fsaUUID)
