@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -93,6 +94,67 @@ DELETE FROM secret_content WHERE revision_uuid IN (SELECT uuid FROM revisions)`
 	}))
 }
 
+// GetApplicationOwnedSecretRevisionRefs returns the back-end value references
+// for secret revisions owned by the application with the input UUID.
+func (st *State) GetApplicationOwnedSecretRevisionRefs(ctx context.Context, aUUID string) ([]string, error) {
+	appUUID := entityUUID{UUID: aUUID}
+
+	q := `
+SELECT vr.revision_id AS &entityUUID.uuid
+FROM   secret_application_owner o
+       JOIN secret_revision r ON o.secret_id = r.secret_id
+	   JOIN secret_value_ref vr ON r.uuid = vr.revision_uuid
+WHERE  o.application_uuid = $entityUUID.uuid`
+	stmt, err := st.Prepare(q, appUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing revision ID query: %w", err)
+	}
+
+	refs, err := st.getSecretRevisionRefsForStmt(ctx, stmt, appUUID)
+	return refs, errors.Capture(err)
+}
+
+// GetUnitOwnedSecretRevisionRefs returns the back-end value references
+// for secret revisions owned by the application with the input UUID.
+func (st *State) GetUnitOwnedSecretRevisionRefs(ctx context.Context, uUUID string) ([]string, error) {
+	appUUID := entityUUID{UUID: uUUID}
+
+	q := `
+SELECT vr.revision_id AS &entityUUID.uuid
+FROM   secret_unit_owner o
+       JOIN secret_revision r ON o.secret_id = r.secret_id
+	   JOIN secret_value_ref vr ON r.uuid = vr.revision_uuid
+WHERE  o.unit_uuid = $entityUUID.uuid`
+	stmt, err := st.Prepare(q, appUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing revision ID query: %w", err)
+	}
+
+	refs, err := st.getSecretRevisionRefsForStmt(ctx, stmt, appUUID)
+	return refs, errors.Capture(err)
+}
+
+func (st *State) getSecretRevisionRefsForStmt(
+	ctx context.Context, stmt *sqlair.Statement, id entityUUID,
+) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var uuids []entityUUID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, id).GetAll(&uuids); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("running revision ID query: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(uuids, func(e entityUUID) string { return e.UUID }), nil
+}
+
 // DeleteApplicationOwnedSecrets deletes all data for secrets owned by the
 // application with the input UUID.
 // This does not include secret content, which should be handled by
@@ -110,7 +172,7 @@ func (st *State) DeleteApplicationOwnedSecrets(ctx context.Context, aUUID string
 	// records.
 	q := `
 SELECT (r.uuid, r.secret_id) AS (&secretRevision.*)
-FROM   secret_application_owner o JOIN secret_revision r ON o.secret_id = o.secret_id
+FROM   secret_application_owner o JOIN secret_revision r ON o.secret_id = r.secret_id
 WHERE  application_uuid = $entityUUID.uuid`
 	ownedStmt, err := st.Prepare(q, secretRevision{}, appUUID)
 	if err != nil {
@@ -169,7 +231,7 @@ func (st *State) DeleteUnitOwnedSecrets(ctx context.Context, uUUID string) error
 	// unit_secret_owner records, we still need to delete the secret records.
 	q := `
 SELECT (r.uuid, r.secret_id) AS (&secretRevision.*)
-FROM   secret_unit_owner o JOIN secret_revision r ON o.secret_id = o.secret_id
+FROM   secret_unit_owner o JOIN secret_revision r ON o.secret_id = r.secret_id
 WHERE  unit_uuid = $entityUUID.uuid`
 	ownedStmt, err := st.Prepare(q, secretRevision{}, unitUUID)
 	if err != nil {
