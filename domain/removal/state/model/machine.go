@@ -276,7 +276,7 @@ SELECT storage_instance_uuid as &entityUUID.uuid FROM all_instances`
 	cascaded, err = st.ensureStorageInstancesNotAliveCascade(ctx, tx, sUUIDs, false)
 	if err != nil {
 		return cascaded, errors.Errorf(
-			"killing storage instances %q: %w", sUUIDs, err,
+			"ensuring %d storage instances not alive: %w", len(sUUIDs), err,
 		)
 	}
 	return cascaded, nil
