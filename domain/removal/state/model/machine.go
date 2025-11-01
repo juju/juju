@@ -399,7 +399,7 @@ AND     lld.mac_address IS NOT NULL;`, entityUUID{UUID: machineUUID}, linkLayerD
 // - [removalerrors.EntityStillAlive] if the machine is alive.
 // - [removalerrors.MachineHasContainers] if the machine hosts containers.
 // - [removalerrors.MachineHasUnits] if the machine hosts units.
-// - [removalerrors.MachineHasStorage] if the machine hosts units.
+// - [removalerrors.MachineHasStorage] if the machine hosts storage.
 func (st *State) MarkMachineAsDead(ctx context.Context, mUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
