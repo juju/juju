@@ -239,21 +239,21 @@ func (st *State) ensureMachineStorageInstancesNotAliveCascade(
 
 	q := `
 WITH all_instances AS (
-    SELECT iv.storage_instance_uuid
+    SELECT iv.storage_instance_uuid AS uuid
     FROM   storage_instance i 
            JOIN storage_instance_volume iv ON i.uuid = iv.storage_instance_uuid
            JOIN machine_volume mv ON iv.storage_volume_uuid = mv.volume_uuid
     WHERE  mv.machine_uuid = $entityUUID.uuid
     AND    i.life_id = 0
     UNION
-    SELECT if.storage_instance_uuid
+    SELECT if.storage_instance_uuid AS uuid
     FROM   storage_instance i 
            JOIN storage_instance_filesystem if ON i.uuid = if.storage_instance_uuid
            JOIN machine_filesystem mf ON if.storage_filesystem_uuid = mf.filesystem_uuid
     WHERE  mf.machine_uuid = $entityUUID.uuid
     AND    i.life_id = 0
 )
-SELECT storage_instance_uuid as &entityUUID.uuid FROM all_instances`
+SELECT DISTINCT &entityUUID.* FROM all_instances`
 
 	stmt, err := st.Prepare(q, entityUUID{})
 	if err != nil {
