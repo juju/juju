@@ -167,7 +167,7 @@ func (s *storageRemoveSuite) TestRemoveWithStorageAttachments(c *tc.C) {
 		storageInstanceUUID).Return(attachmentUUIDS, nil)
 
 	removalExp := s.removalService.EXPECT()
-	removalExp.RemoveStorageAttachmentFromAliveUnit(
+	removalExp.RemoveStorageAttachment(
 		gomock.Any(), attachmentUUID, false, time.Duration(0),
 	).Return("", nil)
 	removalExp.RemoveStorageInstance(

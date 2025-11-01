@@ -3,9 +3,9 @@
 
 package internal
 
-// CascadedStorageFilesystemVolumeLives contains the filesystem or volume
+// CascadedStorageInstanceLifeChildren contains the filesystem or volume
 // indentifiers for a single storage instance that were ensured to be "dying".
-type CascadedStorageFilesystemVolumeLives struct {
+type CascadedStorageInstanceLifeChildren struct {
 	// FileSystemUUID identifes a file-system that the storage instance was
 	// attached to. They are removed if provisioned with "machine" scope
 	// and have no other storage instance attachments.
@@ -15,6 +15,23 @@ type CascadedStorageFilesystemVolumeLives struct {
 	// They are removed if provisioned with "machine" scope and have no
 	// other storage instance attachments.
 	VolumeUUID *string
+}
+
+// CascadedStorageAttachmentLifeChildren contains the filesystem attachment or
+// volume attachment or volume attachment plan indentifiers for a single storage
+// attachment that need a removal job scheduled.
+type CascadedStorageAttachmentLifeChildren struct {
+	// FilesystemAttachmentUUID identifes a filesystem attachment that the
+	// storage attachment owns that needs a removal job scheduled.
+	FilesystemAttachmentUUID *string
+
+	// VolumeAttachmentUUID identifes a volume attachment that the storage
+	// attachment owns that needs a removal job scheduled.
+	VolumeAttachmentUUID *string
+
+	// VolumeAttachmentPlanUUID identifes a volume attachment plan that the
+	// storage attachment owns that needs a removal job scheduled.
+	VolumeAttachmentPlanUUID *string
 }
 
 // CascadedStorageInstanceLives contains identifiers for entities that were

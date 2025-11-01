@@ -33,69 +33,9 @@ func TestStorageSuite(t *testing.T) {
 	tc.Run(t, &storageSuite{})
 }
 
-func (s *storageSuite) TestRemoveStorageAttachmentNoForceSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	saUUID := storageprovtesting.GenStorageAttachmentUUID(c)
-
-	when := time.Now()
-	s.clock.EXPECT().Now().Return(when)
-
-	exp := s.modelState.EXPECT()
-	exp.StorageAttachmentExists(gomock.Any(), saUUID.String()).Return(true, nil)
-	exp.EnsureStorageAttachmentNotAlive(gomock.Any(), saUUID.String()).Return(nil)
-	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC()).Return(nil)
-
-	jobUUID, err := s.newService(c).RemoveStorageAttachment(c.Context(), saUUID, false, 0)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
-}
-
-func (s *storageSuite) TestRemoveStorageAttachmentForceNoWaitSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	saUUID := storageprovtesting.GenStorageAttachmentUUID(c)
-
-	when := time.Now()
-	s.clock.EXPECT().Now().Return(when)
-
-	exp := s.modelState.EXPECT()
-	exp.StorageAttachmentExists(gomock.Any(), saUUID.String()).Return(true, nil)
-	exp.EnsureStorageAttachmentNotAlive(gomock.Any(), saUUID.String()).Return(nil)
-	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC()).Return(nil)
-
-	jobUUID, err := s.newService(c).RemoveStorageAttachment(c.Context(), saUUID, true, 0)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
-}
-
-func (s *storageSuite) TestRemoveStorageAttachmentForceWaitSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	saUUID := storageprovtesting.GenStorageAttachmentUUID(c)
-
-	when := time.Now()
-	s.clock.EXPECT().Now().Return(when).MinTimes(1)
-
-	exp := s.modelState.EXPECT()
-	exp.StorageAttachmentExists(gomock.Any(), saUUID.String()).Return(true, nil)
-	exp.EnsureStorageAttachmentNotAlive(gomock.Any(), saUUID.String()).Return(nil)
-
-	// The first normal removal scheduled immediately.
-	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC()).Return(nil)
-
-	// The forced removal scheduled after the wait duration.
-	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
-
-	jobUUID, err := s.newService(c).RemoveStorageAttachment(c.Context(), saUUID, true, time.Minute)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
-}
-
-// TestRemoveStorageAttachmentFromAliveUnitNotFound tests that requesting to
-// remove a storage attachment that doesn't exists results in a
-// [storageerrors.StorageAttachmentNotFound] error to the caller.
-func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitNotFound(c *tc.C) {
+// TestRemoveStorageAttachmentNotFound tests that requesting to remove a missing
+// storage attachment returns [storageerrors.StorageAttachmentNotFound] error.
+func (s *storageSuite) TestRemoveStorageAttachmentNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
@@ -108,52 +48,16 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitNotFound(c *tc.C)
 		storageerrors.StorageAttachmentNotFound,
 	)
 
-	_, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
-		c.Context(),
-		saUUID,
-		false,
-		0,
+	_, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, false, 0,
 	)
 	c.Check(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
-// TestRemoveStorageAttachmentFromAliveUnitNotFound tests that requesting to
-// remove at least one storage attachment that doesn't exists fails the whole
-// operation. We don't want to any other storage attachments removed and the
-// caller get back an error which satisfies
-// [storageerrors.StorageAttachmentNotFound].
-func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitUnitNotAlive(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
-	unitUUID := tc.Must(c, coreunit.NewUUID)
-
-	detatchInfo := internal.StorageAttachmentDetachInfo{
-		CharmStorageName: "kratos-key-store",
-		CountFulfilment:  2,
-		RequiredCountMin: 1,
-		Life:             int(life.Alive),
-		UnitLife:         int(life.Dying),
-		UnitUUID:         unitUUID.String(),
-	}
-	exp := s.modelState.EXPECT()
-	exp.GetDetachInfoForStorageAttachment(
-		gomock.Any(), saUUID.String(),
-	).Return(detatchInfo, nil)
-
-	_, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
-		c.Context(),
-		saUUID,
-		false,
-		0,
-	)
-	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
-}
-
-// TestRemoveStorageAttachmentFromAliveUnitMinViolation tests that removing a
+// TestRemoveStorageAttachmentWithAliveUnitMinViolation tests that removing a
 // storage attachment which would violate the charms minimum storage
 // requirements results in a [applicationerrors.UnitStorageMinViolation] error.
-func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitMinViolation(c *tc.C) {
+func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitMinViolation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
@@ -172,11 +76,8 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitMinViolation(c *t
 		gomock.Any(), saUUID.String(),
 	).Return(detatchInfo, nil)
 
-	_, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
-		c.Context(),
-		saUUID,
-		false,
-		0,
+	_, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, false, 0,
 	)
 
 	storageErr, has := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
@@ -188,18 +89,19 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitMinViolation(c *t
 	})
 }
 
-// TestRemoveStorageAttachmentFromAliveUnitFulfilmentError tests that when
+// TestRemoveStorageAttachmentWithAliveUnitFulfilmentError tests that when
 // ensuring a storage attachment is not alive but the fulfilment condition fails
-// [Service.RemoveStorageAttachmentFromAliveUnit] returns to the caller a
+// [Service.RemoveStorageAttachmentWithAliveUnit] returns to the caller a
 // [applicationerrors.UnitStorageMinViolation] error.
 //
 // We would expect to see this type of situation when the unit's storage changes
 // after the service has calculated their assumptions.
-func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitFulfilmentError(c *tc.C) {
+func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitFulfilmentError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{}
 
 	detatchInfo := internal.StorageAttachmentDetachInfo{
 		CharmStorageName: "kratos-key-store",
@@ -215,13 +117,10 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitFulfilmentError(c
 	).Return(detatchInfo, nil)
 	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
 		gomock.Any(), saUUID.String(), 2,
-	).Return(removalerrors.StorageFulfilmentNotMet)
+	).Return(cascaded, removalerrors.StorageFulfilmentNotMet)
 
-	_, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
-		c.Context(),
-		saUUID,
-		false,
-		0,
+	_, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, false, 0,
 	)
 
 	storageErr, has := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
@@ -233,11 +132,12 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitFulfilmentError(c
 	})
 }
 
-func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitNoForceSuccess(c *tc.C) {
+func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{}
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -256,26 +156,24 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitNoForceSuccess(c 
 	).Return(detatchInfo, nil).AnyTimes()
 	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
 		gomock.Any(), saUUID.String(), 1,
-	).Return(nil)
+	).Return(cascaded, nil)
 	exp.StorageAttachmentScheduleRemoval(
 		gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC(),
 	).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
-		c.Context(),
-		saUUID,
-		false,
-		0,
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, false, 0,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceNoWaitSuccess(c *tc.C) {
+func (s *storageSuite) TestRemoveStorageAttachmentWithDyingUnitNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{}
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -285,35 +183,40 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceNoWaitSu
 		CountFulfilment:  2,
 		RequiredCountMin: 1,
 		Life:             int(life.Alive),
-		UnitLife:         int(life.Alive),
+		UnitLife:         int(life.Dying),
 		UnitUUID:         unitUUID.String(),
 	}
 	exp := s.modelState.EXPECT()
 	exp.GetDetachInfoForStorageAttachment(
 		gomock.Any(), saUUID.String(),
 	).Return(detatchInfo, nil).AnyTimes()
-	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
-		gomock.Any(), saUUID.String(), 1,
-	).Return(nil)
+	exp.EnsureStorageAttachmentNotAlive(
+		gomock.Any(), saUUID.String(),
+	).Return(cascaded, nil)
 	exp.StorageAttachmentScheduleRemoval(
-		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC(),
+		gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC(),
 	).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
-		c.Context(),
-		saUUID,
-		true,
-		0,
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, false, 0,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceWaitSuccess(c *tc.C) {
+func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitCascadedNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
+	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID).String()
+	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &fsaUUID,
+		VolumeAttachmentUUID:     &vaUUID,
+		VolumeAttachmentPlanUUID: &vapUUID,
+	}
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
@@ -332,7 +235,280 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceWaitSucc
 	).Return(detatchInfo, nil).AnyTimes()
 	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
 		gomock.Any(), saUUID.String(), 1,
+	).Return(cascaded, nil)
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC(),
 	).Return(nil)
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), fsaUUID, false, when.UTC(),
+	).Return(nil)
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), vaUUID, false, when.UTC(),
+	).Return(nil)
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), gomock.Any(), vapUUID, false, when.UTC(),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, false, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentWithDyingUnitCascadedNoForceSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID).String()
+	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &fsaUUID,
+		VolumeAttachmentUUID:     &vaUUID,
+		VolumeAttachmentPlanUUID: &vapUUID,
+	}
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Dying),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentNotAlive(
+		gomock.Any(), saUUID.String(),
+	).Return(cascaded, nil)
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC(),
+	).Return(nil)
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), fsaUUID, false, when.UTC(),
+	).Return(nil)
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), vaUUID, false, when.UTC(),
+	).Return(nil)
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), gomock.Any(), vapUUID, false, when.UTC(),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, false, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitForceNoWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{}
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Alive),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
+		gomock.Any(), saUUID.String(), 1,
+	).Return(cascaded, nil)
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC(),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, true, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentWithDyingUnitForceNoWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{}
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Dying),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentNotAlive(
+		gomock.Any(), saUUID.String(),
+	).Return(cascaded, nil)
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC(),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, true, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitCascadedForceNoWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID).String()
+	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &fsaUUID,
+		VolumeAttachmentUUID:     &vaUUID,
+		VolumeAttachmentPlanUUID: &vapUUID,
+	}
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Alive),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
+		gomock.Any(), saUUID.String(), 1,
+	).Return(cascaded, nil)
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC(),
+	).Return(nil)
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), fsaUUID, true, when.UTC(),
+	).Return(nil)
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), vaUUID, true, when.UTC(),
+	).Return(nil)
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), gomock.Any(), vapUUID, true, when.UTC(),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, true, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentWithDyingUnitCascadedForceNoWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID).String()
+	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &fsaUUID,
+		VolumeAttachmentUUID:     &vaUUID,
+		VolumeAttachmentPlanUUID: &vapUUID,
+	}
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Dying),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentNotAlive(
+		gomock.Any(), saUUID.String(),
+	).Return(cascaded, nil)
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC(),
+	).Return(nil)
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), fsaUUID, true, when.UTC(),
+	).Return(nil)
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), vaUUID, true, when.UTC(),
+	).Return(nil)
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), gomock.Any(), vapUUID, true, when.UTC(),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, true, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitForceWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{}
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Alive),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
+		gomock.Any(), saUUID.String(), 1,
+	).Return(cascaded, nil)
 
 	// The first normal removal scheduled immediately.
 	exp.StorageAttachmentScheduleRemoval(
@@ -344,11 +520,300 @@ func (s *storageSuite) TestRemoveStorageAttachmentFromAliveUnitWithForceWaitSucc
 		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC().Add(time.Minute),
 	).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveStorageAttachmentFromAliveUnit(
-		c.Context(),
-		saUUID,
-		true,
-		time.Minute,
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, true, time.Minute,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentWithDyingUnitForceWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{}
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Dying),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentNotAlive(
+		gomock.Any(), saUUID.String(),
+	).Return(cascaded, nil)
+
+	// The first normal removal scheduled immediately.
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC(),
+	).Return(nil)
+
+	// The forced removal scheduled after the wait duration.
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, true, time.Minute,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitCascadedForceWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID).String()
+	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &fsaUUID,
+		VolumeAttachmentUUID:     &vaUUID,
+		VolumeAttachmentPlanUUID: &vapUUID,
+	}
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Alive),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentNotAliveWithFulfilment(
+		gomock.Any(), saUUID.String(), 1,
+	).Return(cascaded, nil)
+
+	// The first normal removal scheduled immediately.
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC(),
+	).Return(nil)
+
+	// The forced removal scheduled after the wait duration.
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	// The first filesystem attachment normal removal is scheduled immediately.
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), fsaUUID, false, when.UTC(),
+	).Return(nil)
+
+	// The forced filesystem attachment removal is scheduled after the wait
+	// duration.
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), fsaUUID, true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	// The first volume attachment normal removal is scheduled immediately.
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), vaUUID, false, when.UTC(),
+	).Return(nil)
+
+	// The forced volume attachment removal is scheduled after the wait
+	// duration.
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), vaUUID, true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	// The first volume attachment plan normal removal is scheduled immediately.
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), gomock.Any(), vapUUID, false, when.UTC(),
+	).Return(nil)
+
+	// The forced volume attachment plan removal is scheduled after the wait
+	// duration.
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), gomock.Any(), vapUUID, true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, true, time.Minute,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentWithDyingUnitCascadedForceWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID).String()
+	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &fsaUUID,
+		VolumeAttachmentUUID:     &vaUUID,
+		VolumeAttachmentPlanUUID: &vapUUID,
+	}
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Alive),
+		UnitLife:         int(life.Dying),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentNotAlive(
+		gomock.Any(), saUUID.String(),
+	).Return(cascaded, nil)
+
+	// The first normal removal scheduled immediately.
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC(),
+	).Return(nil)
+
+	// The forced removal scheduled after the wait duration.
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	// The first filesystem attachment normal removal is scheduled immediately.
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), fsaUUID, false, when.UTC(),
+	).Return(nil)
+
+	// The forced filesystem attachment removal is scheduled after the wait
+	// duration.
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), fsaUUID, true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	// The first volume attachment normal removal is scheduled immediately.
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), vaUUID, false, when.UTC(),
+	).Return(nil)
+
+	// The forced volume attachment removal is scheduled after the wait
+	// duration.
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), vaUUID, true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	// The first volume attachment plan normal removal is scheduled immediately.
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), gomock.Any(), vapUUID, false, when.UTC(),
+	).Return(nil)
+
+	// The forced volume attachment plan removal is scheduled after the wait
+	// duration.
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), gomock.Any(), vapUUID, true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, true, time.Minute,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitDyingAttachmentCascadedForceWaitSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID).String()
+	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
+	cascaded := internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &fsaUUID,
+		VolumeAttachmentUUID:     &vaUUID,
+		VolumeAttachmentPlanUUID: &vapUUID,
+	}
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	detatchInfo := internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "kratos-key-store",
+		CountFulfilment:  2,
+		RequiredCountMin: 1,
+		Life:             int(life.Dying),
+		UnitLife:         int(life.Alive),
+		UnitUUID:         unitUUID.String(),
+	}
+	exp := s.modelState.EXPECT()
+	exp.GetDetachInfoForStorageAttachment(
+		gomock.Any(), saUUID.String(),
+	).Return(detatchInfo, nil).AnyTimes()
+	exp.EnsureStorageAttachmentNotAlive(
+		gomock.Any(), saUUID.String(),
+	).Return(cascaded, nil)
+
+	// The first normal removal scheduled immediately.
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC(),
+	).Return(nil)
+
+	// The forced removal scheduled after the wait duration.
+	exp.StorageAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), saUUID.String(), true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	// The first filesystem attachment normal removal is scheduled immediately.
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), fsaUUID, false, when.UTC(),
+	).Return(nil)
+
+	// The forced filesystem attachment removal is scheduled after the wait
+	// duration.
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), fsaUUID, true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	// The first volume attachment normal removal is scheduled immediately.
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), vaUUID, false, when.UTC(),
+	).Return(nil)
+
+	// The forced volume attachment removal is scheduled after the wait
+	// duration.
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), gomock.Any(), vaUUID, true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	// The first volume attachment plan normal removal is scheduled immediately.
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), gomock.Any(), vapUUID, false, when.UTC(),
+	).Return(nil)
+
+	// The forced volume attachment plan removal is scheduled after the wait
+	// duration.
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), gomock.Any(), vapUUID, true, when.UTC().Add(time.Minute),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveStorageAttachment(
+		c.Context(), saUUID, true, time.Minute,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
@@ -456,7 +921,7 @@ func (s *storageSuite) TestRemoveStorageInstanceNotFound(c *tc.C) {
 
 	uuid := tc.Must(c, storage.NewStorageInstanceUUID)
 
-	cascaded := internal.CascadedStorageFilesystemVolumeLives{}
+	cascaded := internal.CascadedStorageInstanceLifeChildren{}
 	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
 		gomock.Any(), uuid.String(), false, false,
 	).Return(cascaded, storageerrors.StorageInstanceNotFound)
@@ -474,7 +939,7 @@ func (s *storageSuite) TestRemoveStorageInstance(c *tc.C) {
 
 	uuid := tc.Must(c, storage.NewStorageInstanceUUID)
 
-	cascaded := internal.CascadedStorageFilesystemVolumeLives{}
+	cascaded := internal.CascadedStorageInstanceLifeChildren{}
 	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
 		gomock.Any(), uuid.String(), false, false,
 	).Return(cascaded, nil)
@@ -495,7 +960,7 @@ func (s *storageSuite) TestRemoveStorageInstanceObliterate(c *tc.C) {
 
 	uuid := tc.Must(c, storage.NewStorageInstanceUUID)
 
-	cascaded := internal.CascadedStorageFilesystemVolumeLives{}
+	cascaded := internal.CascadedStorageInstanceLifeChildren{}
 	s.modelState.EXPECT().EnsureStorageInstanceNotAliveCascade(
 		gomock.Any(), uuid.String(), false, true,
 	).Return(cascaded, nil)
@@ -518,7 +983,7 @@ func (s *storageSuite) TestRemoveStorageInstanceCascade(c *tc.C) {
 	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID).String()
 	volUUID := tc.Must(c, storageprovisioning.NewVolumeUUID).String()
 
-	cascaded := internal.CascadedStorageFilesystemVolumeLives{
+	cascaded := internal.CascadedStorageInstanceLifeChildren{
 		FileSystemUUID: &fsUUID,
 		VolumeUUID:     &volUUID,
 	}
@@ -550,7 +1015,7 @@ func (s *storageSuite) TestRemoveStorageInstanceCascadeForce(c *tc.C) {
 	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID).String()
 	volUUID := tc.Must(c, storageprovisioning.NewVolumeUUID).String()
 
-	cascaded := internal.CascadedStorageFilesystemVolumeLives{
+	cascaded := internal.CascadedStorageInstanceLifeChildren{
 		FileSystemUUID: &fsUUID,
 		VolumeUUID:     &volUUID,
 	}
@@ -1075,17 +1540,6 @@ func newVolumeAttachmentPlanJob(c *tc.C) removal.Job {
 		RemovalType: removal.StorageVolumeAttachmentPlanJob,
 		EntityUUID:  tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String(),
 	}
-}
-
-func (s *storageSuite) TestRemoveStorageAttachmentNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	saUUID := storageprovtesting.GenStorageAttachmentUUID(c)
-
-	s.modelState.EXPECT().StorageAttachmentExists(gomock.Any(), saUUID.String()).Return(false, nil)
-
-	_, err := s.newService(c).RemoveStorageAttachment(c.Context(), saUUID, false, 0)
-	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
 func (s *storageSuite) TestExecuteJobForStorageAttachmentNotFound(c *tc.C) {

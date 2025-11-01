@@ -31,7 +31,9 @@ type StorageState interface {
 
 	// EnsureStorageAttachmentNotAlive ensures that there is no storage
 	// attachment identified by the input UUID that is still alive.
-	EnsureStorageAttachmentNotAlive(ctx context.Context, saUUID string) error
+	EnsureStorageAttachmentNotAlive(
+		ctx context.Context, saUUID string,
+	) (internal.CascadedStorageAttachmentLifeChildren, error)
 
 	// EnsureStorageAttachmentNotAliveWithFulfilment ensures that there is no
 	// storage attachment identified by the input UUID that is still alive
@@ -48,7 +50,7 @@ type StorageState interface {
 		ctx context.Context,
 		saUUID string,
 		fulfilment int,
-	) error
+	) (internal.CascadedStorageAttachmentLifeChildren, error)
 
 	// StorageAttachmentScheduleRemoval schedules a removal job for the storage
 	// attachment with the input UUID, qualified with the input force boolean.
@@ -90,7 +92,7 @@ type StorageState interface {
 	// or volume.
 	EnsureStorageInstanceNotAliveCascade(
 		ctx context.Context, siUUID string, obliterate bool, cascadeForce bool,
-	) (internal.CascadedStorageFilesystemVolumeLives, error)
+	) (internal.CascadedStorageInstanceLifeChildren, error)
 
 	// GetStorageInstanceLife returns the life of the storage instance with
 	// the input UUID.
@@ -229,66 +231,9 @@ type StorageState interface {
 	) error
 }
 
-// RemoveStorageAttachment checks if a storage attachment with the input UUID
-// exists.
-// If it does, the attachment is guaranteed after this call to be:
-// - No longer alive.
-// - Removed or scheduled to be removed with the input force qualification.
-//
-// The input wait duration is the time that we will give for the normal
-// life-cycle advancement and removal to finish before forcefully removing the
-// attachment. This duration is ignored if the force argument is false.
-// The UUID for the scheduled removal job is returned.
-// [storageerrors.StorageAttachmentNotFound] is returned if no such
-// relation exists.
-func (s *Service) RemoveStorageAttachment(
-	ctx context.Context, saUUID storageprovisioning.StorageAttachmentUUID, force bool, wait time.Duration,
-) (removal.UUID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	exists, err := s.modelState.StorageAttachmentExists(ctx, saUUID.String())
-	if err != nil {
-		return "", errors.Errorf("checking if storage attachment %q exists: %w", saUUID, err)
-	}
-	if !exists {
-		return "", errors.Errorf(
-			"storage attachment %q does not exist", saUUID,
-		).Add(storageerrors.StorageAttachmentNotFound)
-	}
-
-	if err := s.modelState.EnsureStorageAttachmentNotAlive(ctx, saUUID.String()); err != nil {
-		return "", errors.Errorf("relation %q: %w", saUUID, err)
-	}
-
-	var jUUID removal.UUID
-
-	if force {
-		if wait > 0 {
-			// If we have been supplied with the force flag *and* a wait time,
-			// schedule a normal removal job immediately. This will cause the
-			// earliest removal of the attachment if the normal destruction
-			// workflows complete within the wait duration.
-			if _, err := s.storageAttachmentScheduleRemoval(ctx, saUUID, false, 0); err != nil {
-				return jUUID, errors.Capture(err)
-			}
-		}
-	} else {
-		if wait > 0 {
-			s.logger.Infof(
-				ctx, "ignoring wait duration for non-forced removal of storage attachment %q", saUUID.String())
-			wait = 0
-		}
-	}
-
-	jUUID, err = s.storageAttachmentScheduleRemoval(ctx, saUUID, force, wait)
-	return jUUID, errors.Capture(err)
-
-}
-
-// RemoveStorageAttachmentFromAliveUnit is responsible for removing a storage
-// attachment from a unit that is still alive in the model. This operation can
-// be considered a detatch of a storage instance from a unit.
+// RemoveStorageAttachment is responsible for removing a storage attachment
+// from a unit. If the unit is Alive then removing this storage attachment must
+// not violate the storage requirements of the charm.
 //
 // If the storage attachment exists and the unit it is attached to is alive the
 // caller can expect that after this call the attachment is:
@@ -306,13 +251,12 @@ func (s *Service) RemoveStorageAttachment(
 // logic that determines safety.
 //
 // The following errors may be returned:
-// - [storageerrors.StorageAttachmentNotFound] if the supplied storage
-// attachment uuid does not exist in the model.
-// - [applicationerrors.UnitNotAlive] if the unit the storage attachment is
-// conencted to is not alive.
-// [applicationerrors.UnitStorageMinViolation] if removing a storage
-// attachment would violate the charm minimums required for the unit.
-func (s *Service) RemoveStorageAttachmentFromAliveUnit(
+// - [coreerrors.NotValid] if the storage attachment uuid is not valid.
+// - [storageerrors.StorageAttachmentNotFound] if the storage attachment does
+// not exist in the model.
+// - [applicationerrors.UnitStorageMinViolation] if removing a storage attachment
+// would violate the charm minimums required for the unit.
+func (s *Service) RemoveStorageAttachment(
 	ctx context.Context,
 	saUUID storageprovisioning.StorageAttachmentUUID,
 	force bool,
@@ -321,6 +265,13 @@ func (s *Service) RemoveStorageAttachmentFromAliveUnit(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	err := saUUID.Validate()
+	if err != nil {
+		return "", errors.Errorf(
+			"validating storage attachment uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
 	detachInfo, err := s.modelState.GetDetachInfoForStorageAttachment(
 		ctx, saUUID.String(),
 	)
@@ -328,26 +279,100 @@ func (s *Service) RemoveStorageAttachmentFromAliveUnit(
 		return "", errors.Capture(err)
 	}
 
-	// Declare value here before goto.
+	var cascade internal.CascadedStorageAttachmentLifeChildren
+	if detachInfo.UnitLife == int(life.Alive) &&
+		detachInfo.Life == int(life.Alive) {
+		cascade, err = s.removeStorageAttachmentFromAliveUnit(
+			ctx, saUUID, detachInfo)
+	} else {
+		cascade, err = s.modelState.EnsureStorageAttachmentNotAlive(
+			ctx, saUUID.String())
+	}
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if force && wait > 0 {
+		// If we have been supplied with the force flag *and* a wait time,
+		// schedule a normal removal job immediately. This will cause the
+		// earliest removal of the attachment if the normal destruction
+		// workflows complete within the wait duration.
+		_, err := s.storageAttachmentScheduleRemoval(ctx, saUUID, false, 0)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+	} else if wait > 0 {
+		s.logger.Infof(
+			ctx,
+			"ignoring wait duration for non-forced removal of storage attachment %q",
+			saUUID.String(),
+		)
+		wait = 0
+	}
+	jUUID, err := s.storageAttachmentScheduleRemoval(ctx, saUUID, force, wait)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if cascade.FilesystemAttachmentUUID != nil {
+		a := *cascade.FilesystemAttachmentUUID
+		if force && wait > 0 {
+			if _, err := s.filesystemAttachmentScheduleRemoval(
+				ctx, storageprovisioning.FilesystemAttachmentUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.filesystemAttachmentScheduleRemoval(
+			ctx, storageprovisioning.FilesystemAttachmentUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	if cascade.VolumeAttachmentUUID != nil {
+		a := *cascade.VolumeAttachmentUUID
+		if force && wait > 0 {
+			if _, err := s.volumeAttachmentScheduleRemoval(
+				ctx, storageprovisioning.VolumeAttachmentUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.volumeAttachmentScheduleRemoval(
+			ctx, storageprovisioning.VolumeAttachmentUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	if cascade.VolumeAttachmentPlanUUID != nil {
+		a := *cascade.VolumeAttachmentPlanUUID
+		if force && wait > 0 {
+			if _, err := s.volumeAttachmentPlanScheduleRemoval(
+				ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), false, 0,
+			); err != nil {
+				return "", errors.Capture(err)
+			}
+		}
+		if _, err := s.volumeAttachmentPlanScheduleRemoval(
+			ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	return jUUID, nil
+}
+
+func (s *Service) removeStorageAttachmentFromAliveUnit(
+	ctx context.Context,
+	saUUID storageprovisioning.StorageAttachmentUUID,
+	detachInfo internal.StorageAttachmentDetachInfo,
+) (internal.CascadedStorageAttachmentLifeChildren, error) {
 	proposedNewFulfilment := detachInfo.CountFulfilment - 1
-
-	// If the storage attachment is already dead we can get on with the next
-	// item.
-	if life.Life(detachInfo.Life) != life.Alive {
-		goto RemovalJob
-	}
-
-	// Force does not allow the caller to ride through this check. Force
-	// is about forcibly removing the storage attachment.
-	if life.Life(detachInfo.UnitLife) != life.Alive {
-		return "", errors.Errorf(
-			"storage attachment %q cannot be removed because its unit %q is not alive",
-			saUUID, detachInfo.UnitUUID,
-		).Add(applicationerrors.UnitNotAlive)
-	}
-
 	if proposedNewFulfilment < detachInfo.RequiredCountMin {
-		return "", errors.Errorf(
+		return internal.CascadedStorageAttachmentLifeChildren{}, errors.Errorf(
 			"removing storage attachment %q would violate the minimum number %d of %q storage instances required by unit %q",
 			saUUID,
 			detachInfo.RequiredCountMin,
@@ -360,11 +385,10 @@ func (s *Service) RemoveStorageAttachmentFromAliveUnit(
 		})
 	}
 
-	err = s.modelState.EnsureStorageAttachmentNotAliveWithFulfilment(
-		ctx, saUUID.String(), proposedNewFulfilment,
-	)
+	cascade, err := s.modelState.EnsureStorageAttachmentNotAliveWithFulfilment(
+		ctx, saUUID.String(), proposedNewFulfilment)
 	if errors.Is(err, removalerrors.StorageFulfilmentNotMet) {
-		return "", errors.Errorf(
+		return internal.CascadedStorageAttachmentLifeChildren{}, errors.Errorf(
 			"removing storage attachment %q would violate the minimum number %d of %q storage instances required by unit %q",
 			saUUID,
 			detachInfo.RequiredCountMin,
@@ -376,35 +400,10 @@ func (s *Service) RemoveStorageAttachmentFromAliveUnit(
 			UnitUUID:         detachInfo.UnitUUID,
 		})
 	} else if err != nil {
-		return "", errors.Capture(err)
+		return internal.CascadedStorageAttachmentLifeChildren{}, errors.Capture(err)
 	}
 
-RemovalJob:
-	var jUUID removal.UUID
-
-	if force {
-		if wait > 0 {
-			// If we have been supplied with the force flag *and* a wait time,
-			// schedule a normal removal job immediately. This will cause the
-			// earliest removal of the attachment if the normal destruction
-			// workflows complete within the wait duration.
-			if _, err := s.storageAttachmentScheduleRemoval(ctx, saUUID, false, 0); err != nil {
-				return jUUID, errors.Capture(err)
-			}
-		}
-	} else {
-		if wait > 0 {
-			s.logger.Infof(
-				ctx, "ignoring wait duration for non-forced removal of storage attachment %q", saUUID.String())
-			wait = 0
-		}
-	}
-
-	jUUID, err = s.storageAttachmentScheduleRemoval(ctx, saUUID, force, wait)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	return jUUID, nil
+	return cascade, nil
 }
 
 func (s *Service) storageAttachmentScheduleRemoval(
