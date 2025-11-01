@@ -604,8 +604,7 @@ AND unit.life_id != 2
 	countFilesystemsOnMachine, err := st.Prepare(`
 SELECT SUM(count) AS &count.count FROM (
 	SELECT    COUNT(*) AS count
-	FROM      storage_filesystem sf
-	JOIN      machine_filesystem mf ON mf.filesystem_uuid = sf.uuid
+	FROM      machine_filesystem mf
 	WHERE     mf.machine_uuid = $entityUUID.uuid
 	UNION
 	SELECT    COUNT(*) AS count
@@ -623,8 +622,7 @@ SELECT SUM(count) AS &count.count FROM (
 	countVolumesOnMachine, err := st.Prepare(`
 SELECT SUM(count) AS &count.count FROM (
 	SELECT    COUNT(*) AS count
-	FROM      storage_volume sv
-	JOIN      machine_volume mv ON mv.volume_uuid = sv.uuid
+	FROM      machine_volume mv
 	WHERE     mv.machine_uuid = $entityUUID.uuid
 	UNION
 	SELECT    COUNT(*) AS count
