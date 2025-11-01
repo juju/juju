@@ -6,6 +6,7 @@ package model
 import (
 	"database/sql"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -51,28 +52,51 @@ func (s *storageSuite) TestStorageAttachmentExists(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 }
 
+func (s *storageSuite) TestEnsureStorageAttachmentNotAliveNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+
+	_, err := st.EnsureStorageAttachmentNotAlive(ctx, "some-attachment-uuid")
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
+}
+
 func (s *storageSuite) TestEnsureStorageAttachmentNotAliveSuccess(c *tc.C) {
-	_, attachment := s.addAppUnitStorage(c)
+	siUUID, saUUID := s.addAppUnitStorage(c)
+	fsUUID, fsaUUID := s.addAttachedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID, vaUUID, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	ctx := c.Context()
 
-	err := st.EnsureStorageAttachmentNotAlive(ctx, attachment)
+	cascaded, err := st.EnsureStorageAttachmentNotAlive(ctx, saUUID)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals, internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &fsaUUID,
+		VolumeAttachmentUUID:     &vaUUID,
+		VolumeAttachmentPlanUUID: &vapUUID,
+	})
 
 	// Attachment had life "alive" and should now be "dying".
-	row := s.DB().QueryRowContext(ctx, "SELECT life_id FROM storage_attachment WHERE uuid = ?", attachment)
+	row := s.DB().QueryRowContext(ctx, "SELECT life_id FROM storage_attachment WHERE uuid = ?", saUUID)
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 1)
 
 	// Idempotent. A "dying" attachment is a no-op. Life is unchanged.
-	err = st.EnsureStorageAttachmentNotAlive(ctx, attachment)
+	cascaded, err = st.EnsureStorageAttachmentNotAlive(ctx, saUUID)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals, internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &fsaUUID,
+		VolumeAttachmentUUID:     &vaUUID,
+		VolumeAttachmentPlanUUID: &vapUUID,
+	})
 
-	row = s.DB().QueryRow("SELECT life_id FROM storage_attachment WHERE uuid = ?", attachment)
+	row = s.DB().QueryRow("SELECT life_id FROM storage_attachment WHERE uuid = ?", saUUID)
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 1)
@@ -213,7 +237,7 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttached(c *tc.C)
 		c.Context(), siUUID, false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cascaded, tc.DeepEquals,
-		internal.CascadedStorageFilesystemVolumeLives{
+		internal.CascadedStorageInstanceLifeChildren{
 			FileSystemUUID: &fsUUID,
 			VolumeUUID:     &volUUID,
 		},
@@ -261,7 +285,7 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttachedWithSecon
 		c.Context(), siUUID, false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cascaded, tc.DeepEquals,
-		internal.CascadedStorageFilesystemVolumeLives{
+		internal.CascadedStorageInstanceLifeChildren{
 			FileSystemUUID: &fsUUID,
 			VolumeUUID:     &volUUID,
 		},
@@ -271,14 +295,14 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttachedWithSecon
 		c.Context(), siUUID, false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cascaded, tc.DeepEquals,
-		internal.CascadedStorageFilesystemVolumeLives{})
+		internal.CascadedStorageInstanceLifeChildren{})
 
 	cascadeForce := true
 	cascaded, err = st.EnsureStorageInstanceNotAliveCascade(
 		c.Context(), siUUID, false, cascadeForce)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cascaded, tc.DeepEquals,
-		internal.CascadedStorageFilesystemVolumeLives{
+		internal.CascadedStorageInstanceLifeChildren{
 			FileSystemUUID: &fsUUID,
 			VolumeUUID:     &volUUID,
 		},
@@ -298,7 +322,7 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeDetached(c *tc.C)
 		c.Context(), siUUID, false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cascaded, tc.DeepEquals,
-		internal.CascadedStorageFilesystemVolumeLives{
+		internal.CascadedStorageInstanceLifeChildren{
 			FileSystemUUID: &fsUUID,
 			VolumeUUID:     &volUUID,
 		},
@@ -343,7 +367,7 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeWithObliterate(c 
 		c.Context(), siUUID, true, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cascaded, tc.DeepEquals,
-		internal.CascadedStorageFilesystemVolumeLives{
+		internal.CascadedStorageInstanceLifeChildren{
 			FileSystemUUID: &fsUUID,
 			VolumeUUID:     &volUUID,
 		},
@@ -1320,7 +1344,7 @@ func (s *storageSuite) TestGetDetachInfoForStorageAttachmentSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	info, err := st.GetDetachInfoForStorageAttachment(
-		c.Context(), attachments["data"][2],
+		c.Context(), attachments["data"][2].StorageAttachmentUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(info, tc.Equals, internal.StorageAttachmentDetachInfo{
@@ -1346,7 +1370,7 @@ func (s *storageSuite) TestGetDetachInfoForStorageAttachmentMultiple(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	info, err := st.GetDetachInfoForStorageAttachment(
-		c.Context(), attachments["data2"][0],
+		c.Context(), attachments["data2"][0].StorageAttachmentUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(info, tc.Equals, internal.StorageAttachmentDetachInfo{
@@ -1368,11 +1392,11 @@ func (s *storageSuite) TestGetDetachInfoForStorageAttachmentExcludeDeadAttachmen
 			"data": {CharmMin: 1, Fulfilment: 3},
 		},
 	)
-	s.setStorageAttachmentDead(c, attachments["data"][1])
+	s.setStorageAttachmentDead(c, attachments["data"][1].StorageAttachmentUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	info, err := st.GetDetachInfoForStorageAttachment(
-		c.Context(), attachments["data"][2],
+		c.Context(), attachments["data"][2].StorageAttachmentUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(info, tc.Equals, internal.StorageAttachmentDetachInfo{
@@ -1394,15 +1418,20 @@ func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilment(c *tc.C
 		},
 	)
 	ctx := c.Context()
-	attachmentUUID := attachments["data"][1]
+	uuids := attachments["data"][1]
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
-		ctx, attachmentUUID, 2,
+	cascaded, err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
+		ctx, uuids.StorageAttachmentUUID, 2,
 	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals, internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &uuids.FilesystemAttachmentUUID,
+		VolumeAttachmentUUID:     &uuids.VolumeAttachmentUUID,
+		VolumeAttachmentPlanUUID: &uuids.VolumeAttachmentPlanUUID,
+	})
 
-	c.Check(err, tc.ErrorIsNil)
-	row := s.DB().QueryRowContext(ctx, "SELECT life_id FROM storage_attachment WHERE uuid = ?", attachmentUUID)
+	row := s.DB().QueryRowContext(ctx, "SELECT life_id FROM storage_attachment WHERE uuid = ?", uuids.StorageAttachmentUUID)
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1421,13 +1450,13 @@ func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentNotMet(c
 		},
 	)
 	ctx := c.Context()
-	attachmentUUID := attachments["data"][1]
+	attachmentUUID := attachments["data"][1].StorageAttachmentUUID
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
+	_, err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
 		ctx, attachmentUUID, 1,
 	)
-	c.Check(err, tc.ErrorIs, removalerrors.StorageFulfilmentNotMet)
+	c.Assert(err, tc.ErrorIs, removalerrors.StorageFulfilmentNotMet)
 
 	// Check that the attachment is still alive.
 	row := s.DB().QueryRowContext(ctx, "SELECT life_id FROM storage_attachment WHERE uuid = ?", attachmentUUID)
@@ -1446,34 +1475,43 @@ func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentOnlyAliv
 			"data": {CharmMin: 1, Fulfilment: 3},
 		},
 	)
-	s.setStorageAttachmentDead(c, attachments["data"][0])
+	s.setStorageAttachmentDead(c, attachments["data"][0].StorageAttachmentUUID)
 	ctx := c.Context()
-	attachmentUUID := attachments["data"][1]
+	uuids := attachments["data"][1]
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
-		ctx, attachmentUUID, 1,
+	cascaded, err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
+		ctx, uuids.StorageAttachmentUUID, 1,
 	)
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals, internal.CascadedStorageAttachmentLifeChildren{
+		FilesystemAttachmentUUID: &uuids.FilesystemAttachmentUUID,
+		VolumeAttachmentUUID:     &uuids.VolumeAttachmentUUID,
+		VolumeAttachmentPlanUUID: &uuids.VolumeAttachmentPlanUUID,
+	})
 
 	// Check that the attachment is still alive.
-	row := s.DB().QueryRowContext(ctx, "SELECT life_id FROM storage_attachment WHERE uuid = ?", attachmentUUID)
+	row := s.DB().QueryRowContext(
+		ctx,
+		"SELECT life_id FROM storage_attachment WHERE uuid = ?",
+		uuids.StorageAttachmentUUID,
+	)
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 1)
 }
 
-// TestEnsureStorageAttachmentNotAliveWithFulfilmentNoop tests that when the
-// storage attachment does exist the operation just becomes a noop and the
-// fulfilment is ignored.
-func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentNoop(c *tc.C) {
+// TestEnsureStorageAttachmentNotAliveWithFulfilmentNotFound tests that when the
+// storage attachment does exist a [storageerrors.StorageAttachmentNotFound]
+// error is returned.
+func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentNotFound(c *tc.C) {
 	notFoundUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
+	_, err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
 		c.Context(), notFoundUUID.String(), 100,
 	)
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
 }
 
 type charmStorage struct {
@@ -1481,12 +1519,19 @@ type charmStorage struct {
 	Fulfilment int
 }
 
+type storageAttachment struct {
+	StorageAttachmentUUID    string
+	FilesystemAttachmentUUID string
+	VolumeAttachmentUUID     string
+	VolumeAttachmentPlanUUID string
+}
+
 // addAppUnitWithCharmStorage sets up a unit in the model with associated charm
 // storage that matches the map key and the minimum count set to the supplied
 // int.
 func (s *storageSuite) addAppUnitWithCharmStorage(
 	c *tc.C, charmStorage map[string]charmStorage,
-) (string, map[string][]string) {
+) (string, map[string][]storageAttachment) {
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, corecharm.NewID)
 	storagePoolUUID := tc.Must(c, storage.NewStoragePoolUUID)
@@ -1550,7 +1595,8 @@ VALUES (?, 'removal-storage-pool', 'removal-storage-provider')
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	rval := make(map[string][]string, len(charmStorage))
+	id := 0
+	rval := make(map[string][]storageAttachment, len(charmStorage))
 	createUnitStorage := func(name string) {
 		siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
 		_, err = s.DB().ExecContext(
@@ -1579,7 +1625,88 @@ VALUES (?, ?, ?, 0)
 		)
 		c.Assert(err, tc.ErrorIsNil)
 
-		rval[name] = append(rval[name], saUUID.String())
+		fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+		_, err = s.DB().ExecContext(
+			ctx,
+			`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, ?)
+			`,
+			fsUUID.String(), strconv.Itoa(id), indeterminateProvisioningScope(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = s.DB().ExecContext(
+			ctx,
+			`
+INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
+VALUES (?, ?)
+			`,
+			siUUID.String(), fsUUID.String(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+		_, err = s.DB().ExecContext(
+			ctx,
+			`
+INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id)
+VALUES (?, ?, ?, 0, ?)
+			`,
+			fsaUUID.String(), fsUUID.String(), unitNetNodeUUID.String(), indeterminateProvisioningScope(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		volUUID := tc.Must(c, storageprovisioning.NewVolumeUUID)
+		_, err = s.DB().ExecContext(
+			ctx,
+			`
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, ?)
+			`,
+			volUUID.String(), strconv.Itoa(id), indeterminateProvisioningScope(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = s.DB().ExecContext(
+			ctx,
+			`
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES (?, ?)
+			`,
+			siUUID.String(), volUUID.String(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		vaUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentUUID)
+		_, err = s.DB().ExecContext(
+			ctx,
+			`
+INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id)
+VALUES (?, ?, ?, 0, ?)
+			`,
+			vaUUID.String(), volUUID.String(), unitNetNodeUUID.String(), indeterminateProvisioningScope(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+		_, err = s.DB().ExecContext(
+			ctx,
+			`
+INSERT INTO storage_volume_attachment_plan (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id)
+VALUES (?, ?, ?, 0, ?)
+			`,
+			vapUUID.String(), volUUID.String(), unitNetNodeUUID.String(), indeterminateProvisioningScope(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		rval[name] = append(rval[name], storageAttachment{
+			StorageAttachmentUUID:    saUUID.String(),
+			FilesystemAttachmentUUID: fsaUUID.String(),
+			VolumeAttachmentUUID:     vaUUID.String(),
+			VolumeAttachmentPlanUUID: vapUUID.String(),
+		})
+		id++
 	}
 
 	for name, cs := range charmStorage {

@@ -38,19 +38,17 @@ type BlockDeviceService interface {
 // RemovalService defines the interface required for removing storage related
 // entities in the model on behalf of an API caller.
 type RemovalService interface {
-	// RemoveStorageAttachmentsFromAliveUnit is responsible for removing one or
-	// more storage attachments from a unit that is still alive in the model.
-	// This operation can be considered a detatch of a storage instance from a
-	// unit.
+	// RemoveStorageAttachment is responsible for removing a storage attachment
+	// from a unit. If the unit is Alive then removing this storage attachment
+	// must not violate the storage requirements of the charm.
 	//
 	// The following errors may be returned:
-	// - [storageerrors.StorageAttachmentNotFound] if the supplied storage
-	// attachment uuid does not exist in the model.
-	// - [applicationerrors.UnitNotAlive] if the unit the storage attachment is
-	// conencted to is not alive.
+	// - [coreerrors.NotValid] if the storage attachment uuid is not valid.
+	// - [storageerrors.StorageAttachmentNotFound] if the storage attachment
+	// does not exist in the model.
 	// - [applicationerrors.UnitStorageMinViolation] if removing a storage
 	// attachment would violate the charm minimums required for the unit.
-	RemoveStorageAttachmentFromAliveUnit(
+	RemoveStorageAttachment(
 		ctx context.Context,
 		uuid domainstorageprovisioning.StorageAttachmentUUID,
 		force bool,
@@ -430,8 +428,7 @@ func (a *StorageAPI) removeStorageInstance(
 			)
 		}
 		for _, saUUID := range saUUIDs {
-			_, err := a.removalService.RemoveStorageAttachmentFromAliveUnit(
-				ctx, saUUID, force, wait)
+			err := a.detachStorageAttachment(ctx, saUUID, force, wait)
 			if err != nil {
 				return errors.Errorf(
 					"removing storage attachment %q for storage %q:",

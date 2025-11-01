@@ -146,49 +146,6 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentNotFound(c *tc.C) {
 	c.Check(result.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
 }
 
-// TestDetachStorageAttachmentUnitNotAlive asserts that if a storage attachment
-// is attempted to be removed from a unit that is not alive the caller gets back
-// a [params.CodeNotValid] error.
-func (s *storageDetachSuite) TestDetachStorageAttachmentUnitNotAlive(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	storageAttachmentUUID := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
-	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	unitUUID := tc.Must(c, coreunit.NewUUID)
-
-	appExp := s.applicationService.EXPECT()
-	appExp.GetUnitUUID(gomock.Any(), coreunit.Name("myapp/0")).Return(
-		unitUUID, nil,
-	).AnyTimes()
-
-	storageExp := s.storageService.EXPECT()
-	storageExp.GetStorageInstanceUUIDForID(gomock.Any(), "data/1").Return(
-		storageInstUUID, nil,
-	).AnyTimes()
-	storageExp.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
-		gomock.Any(), storageInstUUID, unitUUID,
-	).Return(storageAttachmentUUID, nil).AnyTimes()
-
-	removalEXP := s.removalService.EXPECT()
-	removalEXP.RemoveStorageAttachmentFromAliveUnit(
-		gomock.Any(), storageAttachmentUUID, false, time.Duration(0),
-	).Return("", applicationerrors.UnitNotAlive)
-
-	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
-		StorageIds: params.StorageAttachmentIds{
-			Ids: []params.StorageAttachmentId{
-				{
-					StorageTag: "storage-data/1",
-					UnitTag:    "unit-myapp/0",
-				},
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error.Code, tc.Equals, params.CodeNotValid)
-}
-
 // TestDetachStorageAttachmentUnitStorageViolation asserts that if a storage
 // attachment being removed from a unit violates the minimum storage constraints
 // of the unit the caller gets back a [params.CodeNotValid] error.
@@ -213,7 +170,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentUnitStorageViolation(c *
 	).Return(storageAttachmentUUID, nil).AnyTimes()
 
 	removalEXP := s.removalService.EXPECT()
-	removalEXP.RemoveStorageAttachmentFromAliveUnit(
+	removalEXP.RemoveStorageAttachment(
 		gomock.Any(), storageAttachmentUUID, false, time.Duration(0),
 	).Return("", applicationerrors.UnitStorageMinViolation{
 		CharmStorageName: "data",
@@ -257,7 +214,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachment(c *tc.C) {
 	).Return(storageAttachmentUUID, nil).AnyTimes()
 
 	removalEXP := s.removalService.EXPECT()
-	removalEXP.RemoveStorageAttachmentFromAliveUnit(
+	removalEXP.RemoveStorageAttachment(
 		gomock.Any(), storageAttachmentUUID, false, time.Duration(0),
 	).Return("123", nil)
 
@@ -297,7 +254,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentWithForceAndWait(c *tc.C
 	).Return(storageAttachmentUUID, nil).AnyTimes()
 
 	removalEXP := s.removalService.EXPECT()
-	removalEXP.RemoveStorageAttachmentFromAliveUnit(
+	removalEXP.RemoveStorageAttachment(
 		gomock.Any(), storageAttachmentUUID, true, time.Minute,
 	).Return("123", nil)
 
@@ -343,10 +300,10 @@ func (s *storageDetachSuite) TestDetachStorageAllAttachments(c *tc.C) {
 
 	// We want to see two removals occur
 	removalEXP := s.removalService.EXPECT()
-	removalEXP.RemoveStorageAttachmentFromAliveUnit(
+	removalEXP.RemoveStorageAttachment(
 		gomock.Any(), storageAttachmentUUID1, false, time.Duration(0),
 	).Return("123", nil)
-	removalEXP.RemoveStorageAttachmentFromAliveUnit(
+	removalEXP.RemoveStorageAttachment(
 		gomock.Any(), storageAttachmentUUID2, false, time.Duration(0),
 	).Return("124", nil)
 
