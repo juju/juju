@@ -13,21 +13,17 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination servicefactory_mock_test.go github.com/juju/juju/internal/services ControllerDomainServices
+//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination servicefactory_mock_test.go github.com/juju/juju/internal/services UpgradeServices,UpgradeServicesGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination database_mock_test.go github.com/juju/juju/core/database DBGetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination service_mock_test.go github.com/juju/juju/internal/worker/upgradedatabase UpgradeService,ModelService
+//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination service_mock_test.go github.com/juju/juju/internal/worker/upgradedatabase UpgradeService
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination worker_mock_test.go github.com/juju/worker/v4 Worker
 
 type baseSuite struct {
-	lock           *MockLock
-	agent          *MockAgent
-	agentConfig    *MockConfig
-	domainServices *MockControllerDomainServices
+	lock        *MockLock
+	agent       *MockAgent
+	agentConfig *MockConfig
 
 	dbGetter *MockDBGetter
-
-	upgradeService *MockUpgradeService
-	modelService   *MockModelService
 
 	logger logger.Logger
 }
@@ -38,14 +34,15 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.lock = NewMockLock(ctrl)
 	s.agent = NewMockAgent(ctrl)
 	s.agentConfig = NewMockConfig(ctrl)
-	s.domainServices = NewMockControllerDomainServices(ctrl)
-
 	s.dbGetter = NewMockDBGetter(ctrl)
-
-	s.upgradeService = NewMockUpgradeService(ctrl)
-	s.modelService = NewMockModelService(ctrl)
-
 	s.logger = loggertesting.WrapCheckLog(c)
 
+	c.Cleanup(func() {
+		s.lock = nil
+		s.agent = nil
+		s.agentConfig = nil
+		s.dbGetter = nil
+		s.logger = nil
+	})
 	return ctrl
 }
