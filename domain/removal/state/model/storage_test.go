@@ -185,7 +185,8 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeNotFound(c *tc.C)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.EnsureStorageInstanceNotAliveCascade(c.Context(), siUUID, false)
+	_, err := st.EnsureStorageInstanceNotAliveCascade(
+		c.Context(), siUUID, false, false)
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
 }
 
@@ -194,7 +195,8 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeStillAttached(c *
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.EnsureStorageInstanceNotAliveCascade(c.Context(), siUUID, false)
+	_, err := st.EnsureStorageInstanceNotAliveCascade(
+		c.Context(), siUUID, false, false)
 	c.Assert(err, tc.ErrorIs, removalerrors.StorageInstanceStillAttached)
 }
 
@@ -208,7 +210,7 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttached(c *tc.C)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	cascaded, err := st.EnsureStorageInstanceNotAliveCascade(
-		c.Context(), siUUID, false)
+		c.Context(), siUUID, false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cascaded, tc.DeepEquals,
 		internal.CascadedStorageFilesystemVolumeLives{
@@ -243,6 +245,46 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttached(c *tc.C)
 	c.Check(volumeObliterate, tc.IsFalse)
 }
 
+// TestEnsureStorageInstanceNotAliveCascadeAttachedWithSecondForce tests that
+// forcing returns the filesystem and volume uuids, even if they are already
+// Dying.
+func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttachedWithSecondForce(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID, _ := s.addAttachedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	volUUID, _ := s.addAttachedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	cascaded, err := st.EnsureStorageInstanceNotAliveCascade(
+		c.Context(), siUUID, false, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals,
+		internal.CascadedStorageFilesystemVolumeLives{
+			FileSystemUUID: &fsUUID,
+			VolumeUUID:     &volUUID,
+		},
+	)
+
+	cascaded, err = st.EnsureStorageInstanceNotAliveCascade(
+		c.Context(), siUUID, false, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals,
+		internal.CascadedStorageFilesystemVolumeLives{})
+
+	cascadeForce := true
+	cascaded, err = st.EnsureStorageInstanceNotAliveCascade(
+		c.Context(), siUUID, false, cascadeForce)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded, tc.DeepEquals,
+		internal.CascadedStorageFilesystemVolumeLives{
+			FileSystemUUID: &fsUUID,
+			VolumeUUID:     &volUUID,
+		},
+	)
+}
+
 func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeDetached(c *tc.C) {
 	siUUID := s.addStorageInstance(c)
 	fsUUID := s.addFilesystem(c)
@@ -253,7 +295,7 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeDetached(c *tc.C)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	cascaded, err := st.EnsureStorageInstanceNotAliveCascade(
-		c.Context(), siUUID, false)
+		c.Context(), siUUID, false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cascaded, tc.DeepEquals,
 		internal.CascadedStorageFilesystemVolumeLives{
@@ -298,7 +340,7 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeWithObliterate(c 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	cascaded, err := st.EnsureStorageInstanceNotAliveCascade(
-		c.Context(), siUUID, true)
+		c.Context(), siUUID, true, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cascaded, tc.DeepEquals,
 		internal.CascadedStorageFilesystemVolumeLives{

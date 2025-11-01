@@ -5,6 +5,7 @@ package model
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -423,12 +424,14 @@ WHERE  sa.uuid = $entityUUID.uuid`
 
 // EnsureStorageInstanceNotAliveCascade ensures that there is no storage
 // instance identified by the input UUID, that is still alive.
+// Passing cascadeForce will cause this to always return the filesystem and/or
+// volume.
 //
 // The following errors may be returned:
 // - [storageerrors.StorageInstanceNotFound] if the storage instance no longer
 // exists in the model.
 func (st *State) EnsureStorageInstanceNotAliveCascade(
-	ctx context.Context, siUUID string, obliterate bool,
+	ctx context.Context, siUUID string, obliterate bool, cascadeForce bool,
 ) (internal.CascadedStorageFilesystemVolumeLives, error) {
 	var cascaded internal.CascadedStorageFilesystemVolumeLives
 	db, err := st.DB(ctx)
@@ -455,6 +458,30 @@ WHERE  storage_instance_uuid = $entityUUID.uuid`, input, count{})
 	if err != nil {
 		return cascaded, errors.Errorf(
 			"preparing storage attachment count query: %w", err,
+		)
+	}
+
+	forceFilesystemStmt, err := st.Prepare(`
+SELECT sf.uuid AS &entityUUID.uuid
+FROM   storage_instance_filesystem sif
+JOIN   storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+WHERE  sif.storage_instance_uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return cascaded, errors.Errorf(
+			"preparing filesystem query: %w", err,
+		)
+	}
+
+	forceVolumeStmt, err := st.Prepare(`
+SELECT sv.uuid AS &entityUUID.uuid
+FROM   storage_instance_volume siv
+JOIN   storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+WHERE  siv.storage_instance_uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return cascaded, errors.Errorf(
+			"preparing volume query: %w", err,
 		)
 	}
 
@@ -486,6 +513,32 @@ WHERE  storage_instance_uuid = $entityUUID.uuid`, input, count{})
 			return err
 		}
 
+		if !cascadeForce {
+			return nil
+		}
+
+		// Always return the filesystem if this a cascade force.
+		fsUUID := entityUUID{}
+		err = tx.Query(ctx, forceFilesystemStmt, input).Get(&fsUUID)
+		if err == nil {
+			result.FileSystemUUIDs = append(result.FileSystemUUIDs, fsUUID.UUID)
+		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"running filesystem query: %w", err,
+			)
+		}
+
+		// Always return the volume if this a cascade force.
+		volUUID := entityUUID{}
+		err = tx.Query(ctx, forceVolumeStmt, input).Get(&volUUID)
+		if err == nil {
+			result.VolumeUUIDs = append(result.VolumeUUIDs, volUUID.UUID)
+		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"running volume query: %w", err,
+			)
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -493,20 +546,25 @@ WHERE  storage_instance_uuid = $entityUUID.uuid`, input, count{})
 	}
 
 	// TODO(storage): re-write this singular case to use hand crafted queries.
-	if l := len(result.FileSystemUUIDs); l > 1 {
+	slices.Sort(result.FileSystemUUIDs)
+	result.FileSystemUUIDs = slices.Compact(result.FileSystemUUIDs)
+	if n := len(result.FileSystemUUIDs); n > 1 {
 		return cascaded, errors.Errorf(
 			"unexpected number of fs for singular storage instance %q removal",
 			siUUID,
 		)
-	} else if l == 1 {
+	} else if n == 1 {
 		cascaded.FileSystemUUID = &result.FileSystemUUIDs[0]
 	}
-	if l := len(result.VolumeUUIDs); l > 1 {
+
+	slices.Sort(result.VolumeUUIDs)
+	result.VolumeUUIDs = slices.Compact(result.VolumeUUIDs)
+	if n := len(result.VolumeUUIDs); n > 1 {
 		return cascaded, errors.Errorf(
 			"unexpected number of vol for singular storage instance %q removal",
 			siUUID,
 		)
-	} else if l == 1 {
+	} else if n == 1 {
 		cascaded.VolumeUUID = &result.VolumeUUIDs[0]
 	}
 
@@ -2023,6 +2081,7 @@ WHERE  uuid IN ($uuids[:])
 	}
 	cascaded.StorageInstanceUUIDs = input
 
+	// Mark any unattached filesystems as Dead.
 	qry := `
 SELECT    sf.uuid AS &entityUUID.uuid
 FROM      storage_instance_filesystem sif
@@ -2047,6 +2106,7 @@ WHERE  uuid IN ($uuids[:])`
 	cascaded.FileSystemUUIDs = append(cascaded.FileSystemUUIDs,
 		deadFilesystemUUIDs...)
 
+	// Mark any Alive filesystems Dying.
 	qry = `
 SELECT f.uuid AS &entityUUID.uuid
 FROM   storage_instance_filesystem i
@@ -2069,6 +2129,7 @@ WHERE  uuid IN ($uuids[:])`
 	cascaded.FileSystemUUIDs = append(cascaded.FileSystemUUIDs,
 		dyingFilesystemUUIDs...)
 
+	// Mark any unattached volumes as Dead.
 	qry = `
 SELECT    sv.uuid AS &entityUUID.uuid
 FROM      storage_instance_volume siv
@@ -2092,6 +2153,7 @@ WHERE  uuid IN ($uuids[:])`
 	}
 	cascaded.VolumeUUIDs = append(cascaded.VolumeUUIDs, deadVolumeUUIDs...)
 
+	// Mark any Alive volumes as Dying.
 	qry = `
 SELECT &entityUUID.uuid
 FROM   storage_instance_volume i

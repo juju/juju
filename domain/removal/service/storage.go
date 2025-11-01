@@ -86,8 +86,10 @@ type StorageState interface {
 
 	// EnsureStorageInstanceNotAliveCascade ensures that there is no storage
 	// instance identified by the input UUID, that is still alive.
+	// Passing cascadeForce will cause this to always return the filesystem and/
+	// or volume.
 	EnsureStorageInstanceNotAliveCascade(
-		ctx context.Context, siUUID string, obliterate bool,
+		ctx context.Context, siUUID string, obliterate bool, cascadeForce bool,
 	) (internal.CascadedStorageFilesystemVolumeLives, error)
 
 	// GetStorageInstanceLife returns the life of the storage instance with
@@ -637,7 +639,7 @@ func (s *Service) RemoveStorageInstance(
 	}
 
 	cascaded, err := s.modelState.EnsureStorageInstanceNotAliveCascade(
-		ctx, uuid.String(), obliterate)
+		ctx, uuid.String(), obliterate, force)
 	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
 		return errors.Errorf(
 			"storage instance %q not found", uuid,
