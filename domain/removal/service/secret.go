@@ -37,6 +37,15 @@ type SecretModelState interface {
 	// This does not include secret content, which should be handled by
 	// interaction with the secret back-end.
 	DeleteUnitOwnedSecrets(ctx context.Context, uUUID string) error
+
+	// GetApplicationOwnedSecretRevisionRefs returns the back-end value
+	// references for secret revisions owned by the application with
+	// the input UUID.
+	GetApplicationOwnedSecretRevisionRefs(ctx context.Context, aUUID string) ([]string, error)
+
+	// GetUnitOwnedSecretRevisionRefs returns the back-end value references
+	// for secret revisions owned by the application with the input UUID.
+	GetUnitOwnedSecretRevisionRefs(ctx context.Context, uUUID string) ([]string, error)
 }
 
 func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID coreapplication.UUID) error {

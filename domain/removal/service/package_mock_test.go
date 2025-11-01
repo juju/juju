@@ -1679,6 +1679,45 @@ func (c *MockModelDBStateGetApplicationNameAndUnitNameByUnitUUIDCall) DoAndRetur
 	return c
 }
 
+// GetApplicationOwnedSecretRevisionRefs mocks base method.
+func (m *MockModelDBState) GetApplicationOwnedSecretRevisionRefs(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationOwnedSecretRevisionRefs", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationOwnedSecretRevisionRefs indicates an expected call of GetApplicationOwnedSecretRevisionRefs.
+func (mr *MockModelDBStateMockRecorder) GetApplicationOwnedSecretRevisionRefs(arg0, arg1 any) *MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationOwnedSecretRevisionRefs", reflect.TypeOf((*MockModelDBState)(nil).GetApplicationOwnedSecretRevisionRefs), arg0, arg1)
+	return &MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall{Call: call}
+}
+
+// MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall wrap *gomock.Call
+type MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall) Return(arg0 []string, arg1 error) *MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall) Do(f func(context.Context, string) ([]string, error)) *MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharmForApplication mocks base method.
 func (m *MockModelDBState) GetCharmForApplication(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
@@ -2260,6 +2299,45 @@ func (c *MockModelDBStateGetUnitLifeCall) Do(f func(context.Context, string) (li
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitOwnedSecretRevisionRefs mocks base method.
+func (m *MockModelDBState) GetUnitOwnedSecretRevisionRefs(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitOwnedSecretRevisionRefs", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitOwnedSecretRevisionRefs indicates an expected call of GetUnitOwnedSecretRevisionRefs.
+func (mr *MockModelDBStateMockRecorder) GetUnitOwnedSecretRevisionRefs(arg0, arg1 any) *MockModelDBStateGetUnitOwnedSecretRevisionRefsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitOwnedSecretRevisionRefs", reflect.TypeOf((*MockModelDBState)(nil).GetUnitOwnedSecretRevisionRefs), arg0, arg1)
+	return &MockModelDBStateGetUnitOwnedSecretRevisionRefsCall{Call: call}
+}
+
+// MockModelDBStateGetUnitOwnedSecretRevisionRefsCall wrap *gomock.Call
+type MockModelDBStateGetUnitOwnedSecretRevisionRefsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetUnitOwnedSecretRevisionRefsCall) Return(arg0 []string, arg1 error) *MockModelDBStateGetUnitOwnedSecretRevisionRefsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetUnitOwnedSecretRevisionRefsCall) Do(f func(context.Context, string) ([]string, error)) *MockModelDBStateGetUnitOwnedSecretRevisionRefsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetUnitOwnedSecretRevisionRefsCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelDBStateGetUnitOwnedSecretRevisionRefsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
