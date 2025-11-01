@@ -64,7 +64,12 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 func (s *workerSuite) TestWorkerServicesGetter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w, err := NewWorker(s.getConfig())
+	w, err := NewWorker(Config{
+		DBGetter:                 s.dbGetter,
+		Logger:                   s.logger,
+		NewUpgradeServicesGetter: NewUpgradeServicesGetter,
+		NewUpgradeServices:       NewUpgradeServices,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
