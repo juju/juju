@@ -47,6 +47,8 @@ func encodeK8sPodStatusType(s corestatus.Status) (status.K8sPodStatusType, error
 		return status.K8sPodStatusBlocked, nil
 	case corestatus.Running:
 		return status.K8sPodStatusRunning, nil
+	case corestatus.Error:
+		return status.K8sPodStatusError, nil
 	default:
 		return -1, errors.Errorf("unknown cloud container status %q", s)
 	}
@@ -106,6 +108,8 @@ func decodeK8sPodStatusType(s status.K8sPodStatusType) (corestatus.Status, error
 		return corestatus.Blocked, nil
 	case status.K8sPodStatusRunning:
 		return corestatus.Running, nil
+	case status.K8sPodStatusError:
+		return corestatus.Error, nil
 	default:
 		return "", errors.Errorf("unknown cloud container status %q", s)
 	}

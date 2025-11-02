@@ -51,6 +51,7 @@ const (
 	K8sPodStatusWaiting
 	K8sPodStatusBlocked
 	K8sPodStatusRunning
+	K8sPodStatusError
 )
 
 // EncodeK8sPodStatus encodes a K8sPodStatusType into it's integer
@@ -65,6 +66,8 @@ func EncodeK8sPodStatus(s K8sPodStatusType) (int, error) {
 		return 2, nil
 	case K8sPodStatusRunning:
 		return 3, nil
+	case K8sPodStatusError:
+		return 4, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
@@ -82,6 +85,8 @@ func DecodeK8sPodStatus(s int) (K8sPodStatusType, error) {
 		return K8sPodStatusBlocked, nil
 	case 3:
 		return K8sPodStatusRunning, nil
+	case 4:
+		return K8sPodStatusError, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
