@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/transform"
-	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -572,9 +571,7 @@ func (s *uniterSuite) TestAvailabilityZone(c *tc.C) {
 	// Arrange:
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-mysql-0"},
 		{Tag: "unit-postgresql-0"},
-		{Tag: "unit-riak-0"},
 		{Tag: "unit-foo-0"},
 	}}
 
@@ -582,12 +579,7 @@ func (s *uniterSuite) TestAvailabilityZone(c *tc.C) {
 	s.expectGetUnitMachineUUID("wordpress/0", machineUUID, nil)
 	s.expectedGetAvailabilityZone(machineUUID, "a_zone", nil)
 
-	s.expectGetUnitMachineUUID("mysql/0", machineUUID, applicationerrors.UnitMachineNotAssigned)
-
 	s.expectGetUnitMachineUUID("postgresql/0", machineUUID, applicationerrors.UnitNotFound)
-
-	s.expectGetUnitMachineUUID("riak/0", machineUUID, nil)
-	s.expectedGetAvailabilityZone(machineUUID, "a_zone", machineerrors.AvailabilityZoneNotFound)
 
 	s.badTag = names.NewUnitTag("foo/0")
 
@@ -600,12 +592,93 @@ func (s *uniterSuite) TestAvailabilityZone(c *tc.C) {
 	c.Check(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "a_zone"},
-			{Error: apiservererrors.ServerError(applicationerrors.UnitMachineNotAssigned)},
 			{Error: apiservertesting.NotFoundError(`unit "postgresql/0"`)},
-			{Error: apiservererrors.ServerError(jujuerrors.NotProvisioned)},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+}
+
+// TestAvailabilityZoneUnitNotOnMachine tests that when a unit's AZ is requested
+// but the unit is not assigned to a machine, the AZ reported is an empty
+// string.
+func (s *uniterSuite) TestAvailabilityZoneUnitNotOnMachine(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-wordpress-0"},
+	}}
+
+	appSvcExp := s.applicationService.EXPECT()
+	appSvcExp.GetUnitMachineUUID(gomock.Any(), coreunit.Name("wordpress/0")).Return(
+		"", applicationerrors.UnitMachineNotAssigned,
+	)
+
+	result, err := s.uniter.AvailabilityZone(c.Context(), args)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: ""},
+		},
+	})
+}
+
+// TestAvailabilityZoneNotSetForMachine tests that when a unit's AZ is requested
+// but the underlying machine does not have the value set the facade returns an
+// empty string. This is epxected behaviour as not all clouds support AZ's.
+func (s *uniterSuite) TestAvailabilityZoneNotSetForMachine(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-wordpress-0"},
+	}}
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+
+	appSvcExp := s.applicationService.EXPECT()
+	appSvcExp.GetUnitMachineUUID(gomock.Any(), coreunit.Name("wordpress/0")).Return(
+		machineUUID, nil,
+	)
+
+	machineSvcExp := s.machineService.EXPECT()
+	machineSvcExp.AvailabilityZone(gomock.Any(), machineUUID).Return(
+		"", machineerrors.AvailabilityZoneNotFound,
+	)
+
+	result, err := s.uniter.AvailabilityZone(c.Context(), args)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: ""},
+		},
+	})
+}
+
+// TestAvailabilityZoneMachineNotFound tests that when translating a unit's AZ
+// from a machine and the machine is not found the caller gets back an a
+// [params.CodeNotFound]. This is a very contrived case that will most likely
+// never exist but we check the case for the sake of contract completeness.
+func (s *uniterSuite) TestAvailabilityZoneMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-wordpress-0"},
+	}}
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+
+	appSvcExp := s.applicationService.EXPECT()
+	appSvcExp.GetUnitMachineUUID(gomock.Any(), coreunit.Name("wordpress/0")).Return(
+		machineUUID, nil,
+	)
+
+	machineSvcExp := s.machineService.EXPECT()
+	machineSvcExp.AvailabilityZone(gomock.Any(), machineUUID).Return(
+		"", machineerrors.MachineNotFound,
+	)
+
+	result, err := s.uniter.AvailabilityZone(c.Context(), args)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
 }
 
 func (s *uniterSuite) TestAssignedMachine(c *tc.C) {
