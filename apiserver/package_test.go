@@ -19,6 +19,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination facade_mock_test.go github.com/juju/juju/apiserver/facade CrossModelAuthContext
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination service_mock_test.go github.com/juju/juju/apiserver RelationService,StatusService
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination watcher_mock_test.go github.com/juju/juju/apiserver/facades/controller/crossmodelrelations OfferWatcher,RelationChangesWatcher,RelationStatusWatcher
+//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination authorizer_mock_test.go github.com/juju/juju/apiserver/authentication PermissionDelegator
 
 type StubDBGetter struct{}
 
