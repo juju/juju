@@ -76,7 +76,9 @@ func (st *State) EnsureStorageAttachmentNotAlive(
 			)
 		}
 		if !exists {
-			return storageerrors.StorageAttachmentNotFound
+			return errors.Errorf(
+				"storage attachment %q not found", saUUID,
+			).Add(storageerrors.StorageAttachmentNotFound)
 		}
 
 		cascaded, err = st.ensureStorageAttachmentNotAlive(ctx, tx, saUUID)
@@ -154,7 +156,9 @@ AND    saRel.life_id = 0
 			)
 		}
 		if !exists {
-			return storageerrors.StorageAttachmentNotFound
+			return errors.Errorf(
+				"storage attachment %q not found", saUUID,
+			).Add(storageerrors.StorageAttachmentNotFound)
 		}
 
 		err = tx.Query(ctx, fulfilmentStmt, entityUUID).Get(&fulfilmentDBVal)
@@ -328,9 +332,13 @@ WHERE  uuid = $entityUUID.uuid`, saLife, saUUID)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, saUUID).Get(&saLife)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return storageerrors.StorageAttachmentNotFound
+			return errors.Errorf(
+				"storage attachment %q not found", saUUID,
+			).Add(storageerrors.StorageAttachmentNotFound)
 		} else if err != nil {
-			return errors.Errorf("running storage attachment life query: %w", err)
+			return errors.Errorf(
+				"running storage attachment life query: %w", err,
+			)
 		}
 
 		return nil
@@ -372,7 +380,9 @@ WHERE  uuid = $entityUUID.uuid`, saUUID)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, existsStmt, saUUID).Get(&saUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return storageerrors.StorageAttachmentNotFound
+			return errors.Errorf(
+				"storage attachment %q not found", saUUID,
+			).Add(storageerrors.StorageAttachmentNotFound)
 		} else if err != nil {
 			return errors.Errorf(
 				"running storage attachment exists query: %w", err,
