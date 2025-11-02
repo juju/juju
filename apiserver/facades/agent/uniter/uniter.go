@@ -444,7 +444,7 @@ func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) 
 			az = ""
 		case errors.Is(err, machineerrors.MachineNotFound):
 			results.Results[i].Error = apiservererrors.ParamsErrorf(
-				params.CodeNotFound, "unable to find unit %q machine", unitName,
+				params.CodeNotFound, "unable to find machine for unit %q", unitName,
 			)
 		case err != nil:
 			results.Results[i].Error = apiservererrors.ServerError(err)
