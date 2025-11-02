@@ -19,7 +19,6 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/testing"
 	upgrade "github.com/juju/juju/core/upgrade"
@@ -456,7 +455,7 @@ func (s *workerSuite) TestUpgradeController(c *tc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade (there are no models).
-	s.expectGetAllModelUUIDs([]coremodel.UUID{})
+	s.upgradeService.EXPECT().GetAllModelUUIDs(gomock.Any()).Return(nil, nil)
 
 	s.expectDBCompleted()
 	done := s.expectUnlock()
@@ -515,7 +514,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *tc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade (there are no models).
-	s.expectGetAllModelUUIDs([]coremodel.UUID{})
+	s.upgradeService.EXPECT().GetAllModelUUIDs(gomock.Any()).Return(nil, nil)
 
 	s.expectDBCompleted()
 	done := s.expectUnlock()
@@ -568,8 +567,10 @@ func (s *workerSuite) TestUpgradeModels(c *tc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade.
-	modelUUID := modeltesting.GenModelUUID(c)
-	s.expectGetAllModelUUIDs([]coremodel.UUID{modelUUID})
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	s.upgradeService.EXPECT().GetAllModelUUIDs(gomock.Any()).Return(
+		[]coremodel.UUID{modelUUID}, nil,
+	)
 	s.expectModelDBUpgrade(c, modelUUID)
 
 	s.expectDBCompleted()
@@ -623,8 +624,10 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *tc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade.
-	modelUUID := modeltesting.GenModelUUID(c)
-	s.expectGetAllModelUUIDs([]coremodel.UUID{modelUUID})
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	s.upgradeService.EXPECT().GetAllModelUUIDs(gomock.Any()).Return(
+		[]coremodel.UUID{modelUUID}, nil,
+	)
 	txnRunner := s.expectModelDBUpgrade(c, modelUUID)
 
 	// Run the upgrade steps on the existing model, to ensure it doesn't break
@@ -744,11 +747,6 @@ func (s *workerSuite) expectDBCompleted() {
 
 func (s *workerSuite) expectControllerDBUpgrade() {
 	s.dbGetter.EXPECT().GetDB(gomock.Any(), coredatabase.ControllerNS).Return(s.TxnRunner(), nil)
-}
-
-func (s *workerSuite) expectGetAllModelUUIDs(models []coremodel.UUID) {
-	s.upgradeService.EXPECT().GetAllModelUUIDs(gomock.Any()).Return(models, nil)
-
 }
 
 func (s *workerSuite) expectModelDBUpgrade(c *tc.C, modelUUID coremodel.UUID) coredatabase.TxnRunner {
