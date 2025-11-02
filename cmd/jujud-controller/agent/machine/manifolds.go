@@ -120,6 +120,7 @@ import (
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/internal/worker/upgradedatabase"
 	"github.com/juju/juju/internal/worker/upgrader"
+	"github.com/juju/juju/internal/worker/upgradeservices"
 	"github.com/juju/juju/internal/worker/upgradesteps"
 	"github.com/juju/juju/internal/worker/upgradestepsmachine"
 	"github.com/juju/juju/internal/worker/watcherregistry"
@@ -406,14 +407,25 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// current version. Once upgrade steps have run, the upgrade-database
 		// gate is unlocked and the worker exits.
 		upgradeDatabaseName: ifController(upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
-			AgentName:          agentName,
-			UpgradeDBGateName:  upgradeDatabaseGateName,
-			DBAccessorName:     dbAccessorName,
-			DomainServicesName: domainServicesName,
-			NewWorker:          upgradedatabase.NewUpgradeDatabaseWorker,
-			Logger:             internallogger.GetLogger("juju.worker.upgradedatabase"),
-			Clock:              config.Clock,
+			AgentName:           agentName,
+			UpgradeDBGateName:   upgradeDatabaseGateName,
+			UpgradeServicesName: upgradeDomainServicesName,
+			DBAccessorName:      dbAccessorName,
+			NewWorker:           upgradedatabase.NewUpgradeDatabaseWorker,
+			Logger:              internallogger.GetLogger("juju.worker.upgradedatabase"),
+			Clock:               config.Clock,
 		})),
+
+		// The upgrade services worker provides domain services for upgrading
+		// the controller. This worker MUST never take on a dependency which relys
+		// on the database upgrade having been performed.
+		upgradeDomainServicesName: upgradeservices.Manifold(upgradeservices.ManifoldConfig{
+			ChangeStreamName:         changeStreamName,
+			Logger:                   internallogger.GetLogger("juju.worker.upgradeservices"),
+			NewUpgradeServices:       upgradeservices.NewUpgradeServices,
+			NewUpgradeServicesGetter: upgradeservices.NewUpgradeServicesGetter,
+			NewWorker:                upgradeservices.NewWorker,
+		}),
 
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has
@@ -1313,12 +1325,13 @@ const (
 	upgradeDatabaseGateName = "upgrade-database-gate"
 	upgradeDatabaseFlagName = "upgrade-database-flag"
 
-	upgraderName         = "upgrader"
-	upgradeStepsName     = "upgrade-steps-runner"
-	upgradeStepsGateName = "upgrade-steps-gate"
-	upgradeStepsFlagName = "upgrade-steps-flag"
-	upgradeCheckGateName = "upgrade-check-gate"
-	upgradeCheckFlagName = "upgrade-check-flag"
+	upgraderName              = "upgrader"
+	upgradeStepsName          = "upgrade-steps-runner"
+	upgradeStepsGateName      = "upgrade-steps-gate"
+	upgradeStepsFlagName      = "upgrade-steps-flag"
+	upgradeCheckGateName      = "upgrade-check-gate"
+	upgradeCheckFlagName      = "upgrade-check-flag"
+	upgradeDomainServicesName = "upgrade-services"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"

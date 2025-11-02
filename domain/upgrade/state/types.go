@@ -10,6 +10,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// entityUUID represents a single uuid column from an entity in the DDL.
+type entityUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // Info holds the information about database upgrade
 type Info struct {
 	// UUID holds the upgrader's ID

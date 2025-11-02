@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	coreupgrade "github.com/juju/juju/core/upgrade"
@@ -23,6 +24,11 @@ import (
 // State describes retrieval and persistence methods for upgrade info.
 type State interface {
 	CreateUpgrade(context.Context, semversion.Number, semversion.Number) (upgrade.UUID, error)
+
+	// GetAllModelUUIDs returns all model uuids in the controller that are
+	// alive. If no models exist in the controller an empty list is returned.
+	GetAllModelUUIDs(context.Context) ([]coremodel.UUID, error)
+
 	SetControllerReady(context.Context, upgrade.UUID, string) error
 	AllProvisionedControllersReady(context.Context, upgrade.UUID) (bool, error)
 	StartUpgrade(context.Context, upgrade.UUID) error
@@ -70,6 +76,14 @@ func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVers
 		return "", errors.Errorf("target version %q must be greater than current version %q %w", targetVersion, previousVersion, coreerrors.NotValid)
 	}
 	return s.st.CreateUpgrade(ctx, previousVersion, targetVersion)
+}
+
+// GetAllModelUUIDs returns all model uuids in the controller. If the controller
+// has no models an empty result is returned.
+func (s *Service) GetAllModelUUIDs(ctx context.Context) ([]coremodel.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	return s.st.GetAllModelUUIDs(ctx)
 }
 
 // SetControllerReady marks the supplied controllerID as being ready

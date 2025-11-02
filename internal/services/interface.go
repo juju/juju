@@ -250,3 +250,16 @@ type ObjectStoreServicesGetter interface {
 	// ServicesForModel returns a ObjectStoreServices for the given model.
 	ServicesForModel(modelUUID model.UUID) ObjectStoreServices
 }
+
+// UpgradeServices represents a way to get a upgrade services for a controller.
+type UpgradeServices interface {
+	// Upgrade returns the upgrade service.
+	Upgrade() *upgradeservice.WatchableService
+}
+
+// UpgradeServicesGetter represents a way to get the UpgradeServices
+// for the controller.
+type UpgradeServicesGetter interface {
+	// ServicesForModel returns a ProviderServices for the given model.
+	ServicesForController() UpgradeServices
+}

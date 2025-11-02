@@ -21,13 +21,13 @@ import (
 
 // ManifoldConfig defines the configuration on which this manifold depends.
 type ManifoldConfig struct {
-	AgentName          string
-	UpgradeDBGateName  string
-	DomainServicesName string
-	DBAccessorName     string
-	Logger             logger.Logger
-	Clock              clock.Clock
-	NewWorker          func(Config) (worker.Worker, error)
+	AgentName           string
+	UpgradeDBGateName   string
+	DBAccessorName      string
+	Logger              logger.Logger
+	Clock               clock.Clock
+	NewWorker           func(Config) (worker.Worker, error)
+	UpgradeServicesName string
 }
 
 // Validate returns an error if the manifold config is not valid.
@@ -38,9 +38,7 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.UpgradeDBGateName == "" {
 		return errors.NotValidf("empty UpgradeDBGateName")
 	}
-	if cfg.DomainServicesName == "" {
-		return errors.NotValidf("empty DomainServicesName")
-	}
+
 	if cfg.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessorName")
 	}
@@ -49,6 +47,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
+	}
+	if cfg.UpgradeServicesName == "" {
+		return errors.NotValidf("empty UpgradeServicesName")
 	}
 	return nil
 }
@@ -60,7 +61,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			cfg.AgentName,
 			cfg.UpgradeDBGateName,
-			cfg.DomainServicesName,
+			cfg.UpgradeServicesName,
 			cfg.DBAccessorName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -78,8 +79,9 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 			// Service factory is used to get the upgrade service and
 			// then we can locate all the model uuids.
-			var domainServicesGetter services.ControllerDomainServices
-			if err := getter.Get(cfg.DomainServicesName, &domainServicesGetter); err != nil {
+			var upgradeServicesGetter services.UpgradeServicesGetter
+			err := getter.Get(cfg.UpgradeServicesName, &upgradeServicesGetter)
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -98,8 +100,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			return cfg.NewWorker(Config{
 				DBUpgradeCompleteLock: dbUpgradeCompleteLock,
 				Agent:                 controllerAgent,
-				ModelService:          domainServicesGetter.Model(),
-				UpgradeService:        domainServicesGetter.Upgrade(),
+				UpgradeService:        upgradeServicesGetter.ServicesForController().Upgrade(),
 				DBGetter:              dbGetter,
 				Tag:                   currentConfig.Tag(),
 				FromVersion:           fromVersion,

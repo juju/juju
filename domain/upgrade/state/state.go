@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/domain"
@@ -52,7 +53,7 @@ func (st *State) CreateUpgrade(ctx context.Context, previousVersion, targetVersi
 	}
 
 	stmt, err := st.Prepare(`
-INSERT INTO upgrade_info (*) 
+INSERT INTO upgrade_info (*)
 VALUES ($Info.*)`, info)
 	if err != nil {
 		return "", errors.Errorf("preparing insert upgrade info statement: %w", err)
@@ -72,6 +73,42 @@ VALUES ($Info.*)`, info)
 	}
 
 	return domainupgrade.UUID(upgradeUUID.String()), nil
+}
+
+// GetAllModelUUIDs returns all model uuids in the controller that are alive. If
+// no models exist in the controller an empty list is returned.
+func (st *State) GetAllModelUUIDs(ctx context.Context) ([]coremodel.UUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(
+		"SELECT &entityUUID.* FROM model WHERE life_id = 0", entityUUID{},
+	)
+	if err != nil {
+		return nil, errors.Errorf("preparing get all model uuids query: %w", err)
+	}
+
+	dbVals := []entityUUID{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	retVal := make([]coremodel.UUID, 0, len(dbVals))
+	for _, dbVal := range dbVals {
+		retVal = append(retVal, coremodel.UUID(dbVal.UUID))
+	}
+
+	return retVal, nil
 }
 
 // SetControllerReady marks the supplied controllerID as being ready
@@ -190,8 +227,8 @@ func (st *State) StartUpgrade(ctx context.Context, upgradeUUID domainupgrade.UUI
 	}
 
 	getUpgradeStartedStmt, err := st.Prepare(`
-SELECT &Info.state_type_id 
-FROM   upgrade_info 
+SELECT &Info.state_type_id
+FROM   upgrade_info
 WHERE  uuid = $Info.uuid
 `, info)
 	if err != nil {
@@ -316,7 +353,7 @@ AND (
     WHERE  upgrade_info_uuid = $Info.uuid
     AND    node_upgrade_completed_at IS NOT NULL
 ) = (
-    SELECT COUNT(*) 
+    SELECT COUNT(*)
     FROM   upgrade_info_controller_node
     WHERE  upgrade_info_uuid = $Info.uuid
 );
@@ -363,7 +400,7 @@ func (st *State) ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error) 
 
 	stmt, err := st.Prepare(`
 SELECT &Info.uuid
-FROM upgrade_info 
+FROM upgrade_info
 WHERE state_type_id < $Info.state_type_id
 `, info)
 	if err != nil {
@@ -395,7 +432,7 @@ func (st *State) UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID
 
 	stmt, err := st.Prepare(`
 SELECT &Info.*
-FROM upgrade_info 
+FROM upgrade_info
 WHERE uuid = $Info.uuid
 `, info)
 
@@ -431,7 +468,7 @@ func (st *State) updateState(ctx context.Context, tx *sqlair.TX, uuid string, fr
 		"to":   to,
 	}
 	stmt, err := st.Prepare(`
-UPDATE upgrade_info 
+UPDATE upgrade_info
 SET state_type_id = $M.to
 WHERE uuid = $Info.uuid
 AND state_type_id = $M.from;`, info, m)
