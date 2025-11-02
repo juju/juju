@@ -211,41 +211,41 @@ func (m *MockRemovalService) EXPECT() *MockRemovalServiceMockRecorder {
 	return m.recorder
 }
 
-// RemoveStorageAttachmentFromAliveUnit mocks base method.
-func (m *MockRemovalService) RemoveStorageAttachmentFromAliveUnit(arg0 context.Context, arg1 storageprovisioning.StorageAttachmentUUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
+// RemoveStorageAttachment mocks base method.
+func (m *MockRemovalService) RemoveStorageAttachment(arg0 context.Context, arg1 storageprovisioning.StorageAttachmentUUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveStorageAttachmentFromAliveUnit", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "RemoveStorageAttachment", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(removal.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// RemoveStorageAttachmentFromAliveUnit indicates an expected call of RemoveStorageAttachmentFromAliveUnit.
-func (mr *MockRemovalServiceMockRecorder) RemoveStorageAttachmentFromAliveUnit(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall {
+// RemoveStorageAttachment indicates an expected call of RemoveStorageAttachment.
+func (mr *MockRemovalServiceMockRecorder) RemoveStorageAttachment(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveStorageAttachmentCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveStorageAttachmentFromAliveUnit", reflect.TypeOf((*MockRemovalService)(nil).RemoveStorageAttachmentFromAliveUnit), arg0, arg1, arg2, arg3)
-	return &MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveStorageAttachment", reflect.TypeOf((*MockRemovalService)(nil).RemoveStorageAttachment), arg0, arg1, arg2, arg3)
+	return &MockRemovalServiceRemoveStorageAttachmentCall{Call: call}
 }
 
-// MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall wrap *gomock.Call
-type MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall struct {
+// MockRemovalServiceRemoveStorageAttachmentCall wrap *gomock.Call
+type MockRemovalServiceRemoveStorageAttachmentCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall {
+func (c *MockRemovalServiceRemoveStorageAttachmentCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveStorageAttachmentCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall) Do(f func(context.Context, storageprovisioning.StorageAttachmentUUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall {
+func (c *MockRemovalServiceRemoveStorageAttachmentCall) Do(f func(context.Context, storageprovisioning.StorageAttachmentUUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveStorageAttachmentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall) DoAndReturn(f func(context.Context, storageprovisioning.StorageAttachmentUUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveStorageAttachmentFromAliveUnitCall {
+func (c *MockRemovalServiceRemoveStorageAttachmentCall) DoAndReturn(f func(context.Context, storageprovisioning.StorageAttachmentUUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveStorageAttachmentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

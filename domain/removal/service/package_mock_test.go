@@ -1678,11 +1678,12 @@ func (c *MockModelDBStateEnsureStorageAttachmentDeadCascadeCall) DoAndReturn(f f
 }
 
 // EnsureStorageAttachmentNotAlive mocks base method.
-func (m *MockModelDBState) EnsureStorageAttachmentNotAlive(arg0 context.Context, arg1 string) error {
+func (m *MockModelDBState) EnsureStorageAttachmentNotAlive(arg0 context.Context, arg1 string) (internal.CascadedStorageAttachmentLifeChildren, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureStorageAttachmentNotAlive", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(internal.CascadedStorageAttachmentLifeChildren)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // EnsureStorageAttachmentNotAlive indicates an expected call of EnsureStorageAttachmentNotAlive.
@@ -1698,29 +1699,30 @@ type MockModelDBStateEnsureStorageAttachmentNotAliveCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDBStateEnsureStorageAttachmentNotAliveCall) Return(arg0 error) *MockModelDBStateEnsureStorageAttachmentNotAliveCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockModelDBStateEnsureStorageAttachmentNotAliveCall) Return(arg0 internal.CascadedStorageAttachmentLifeChildren, arg1 error) *MockModelDBStateEnsureStorageAttachmentNotAliveCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateEnsureStorageAttachmentNotAliveCall) Do(f func(context.Context, string) error) *MockModelDBStateEnsureStorageAttachmentNotAliveCall {
+func (c *MockModelDBStateEnsureStorageAttachmentNotAliveCall) Do(f func(context.Context, string) (internal.CascadedStorageAttachmentLifeChildren, error)) *MockModelDBStateEnsureStorageAttachmentNotAliveCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateEnsureStorageAttachmentNotAliveCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateEnsureStorageAttachmentNotAliveCall {
+func (c *MockModelDBStateEnsureStorageAttachmentNotAliveCall) DoAndReturn(f func(context.Context, string) (internal.CascadedStorageAttachmentLifeChildren, error)) *MockModelDBStateEnsureStorageAttachmentNotAliveCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // EnsureStorageAttachmentNotAliveWithFulfilment mocks base method.
-func (m *MockModelDBState) EnsureStorageAttachmentNotAliveWithFulfilment(arg0 context.Context, arg1 string, arg2 int) error {
+func (m *MockModelDBState) EnsureStorageAttachmentNotAliveWithFulfilment(arg0 context.Context, arg1 string, arg2 int) (internal.CascadedStorageAttachmentLifeChildren, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureStorageAttachmentNotAliveWithFulfilment", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(internal.CascadedStorageAttachmentLifeChildren)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // EnsureStorageAttachmentNotAliveWithFulfilment indicates an expected call of EnsureStorageAttachmentNotAliveWithFulfilment.
@@ -1736,28 +1738,28 @@ type MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall) Return(arg0 error) *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall) Return(arg0 internal.CascadedStorageAttachmentLifeChildren, arg1 error) *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall) Do(f func(context.Context, string, int) error) *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall {
+func (c *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall) Do(f func(context.Context, string, int) (internal.CascadedStorageAttachmentLifeChildren, error)) *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall) DoAndReturn(f func(context.Context, string, int) error) *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall {
+func (c *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall) DoAndReturn(f func(context.Context, string, int) (internal.CascadedStorageAttachmentLifeChildren, error)) *MockModelDBStateEnsureStorageAttachmentNotAliveWithFulfilmentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // EnsureStorageInstanceNotAliveCascade mocks base method.
-func (m *MockModelDBState) EnsureStorageInstanceNotAliveCascade(arg0 context.Context, arg1 string, arg2, arg3 bool) (internal.CascadedStorageFilesystemVolumeLives, error) {
+func (m *MockModelDBState) EnsureStorageInstanceNotAliveCascade(arg0 context.Context, arg1 string, arg2, arg3 bool) (internal.CascadedStorageInstanceLifeChildren, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureStorageInstanceNotAliveCascade", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(internal.CascadedStorageFilesystemVolumeLives)
+	ret0, _ := ret[0].(internal.CascadedStorageInstanceLifeChildren)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1775,19 +1777,19 @@ type MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall) Return(arg0 internal.CascadedStorageFilesystemVolumeLives, arg1 error) *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall) Return(arg0 internal.CascadedStorageInstanceLifeChildren, arg1 error) *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall) Do(f func(context.Context, string, bool, bool) (internal.CascadedStorageFilesystemVolumeLives, error)) *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall) Do(f func(context.Context, string, bool, bool) (internal.CascadedStorageInstanceLifeChildren, error)) *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall) DoAndReturn(f func(context.Context, string, bool, bool) (internal.CascadedStorageFilesystemVolumeLives, error)) *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall) DoAndReturn(f func(context.Context, string, bool, bool) (internal.CascadedStorageInstanceLifeChildren, error)) *MockModelDBStateEnsureStorageInstanceNotAliveCascadeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

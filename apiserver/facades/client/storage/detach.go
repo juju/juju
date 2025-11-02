@@ -125,20 +125,15 @@ func (a *StorageAPI) detachStorageAttachment(
 	force bool,
 	wait time.Duration,
 ) error {
-	removalUUID, err := a.removalService.RemoveStorageAttachmentFromAliveUnit(
+	removalUUID, err := a.removalService.RemoveStorageAttachment(
 		ctx, storageAttachment, force, wait,
 	)
-
 	switch {
 	case errors.HasType[applicationerrors.UnitStorageMinViolation](err):
 		viErr, _ := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
 		return errors.Errorf(
 			"removing storage from unit would violate charm storage %q requirements of having minimum %d storage instances",
 			viErr.CharmStorageName, viErr.RequiredMinimum,
-		).Add(coreerrors.NotValid)
-	case errors.Is(err, applicationerrors.UnitNotAlive):
-		return errors.New(
-			"storage's attached unit must be alive to remove",
 		).Add(coreerrors.NotValid)
 	case errors.Is(err, storageerrors.StorageAttachmentNotFound):
 		// The storage attachment has already been removed. We had already
