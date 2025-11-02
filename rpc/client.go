@@ -203,12 +203,12 @@ func (call *Call) done() {
 // If the action fails remotely, the error will have a cause of type RequestError.
 // The params value may be nil if no parameters are provided; the response value
 // may be nil to indicate that any result should be discarded.
-func (conn *Conn) Call(ctx context.Context, req Request, params, response interface{}) error {
+func (conn *Conn) Call(ctx context.Context, req Request, params, response any) error {
 	// Before sending the request, check if the context has been canceled.
 	// This is done to prevent any unnecessary work from being done if the
 	// context has been canceled.
 	if ctx.Err() != nil {
-		return ctx.Err()
+		return context.Cause(ctx)
 	}
 
 	// Extract the tracing information from the context.
@@ -226,14 +226,20 @@ func (conn *Conn) Call(ctx context.Context, req Request, params, response interf
 	if reqID == 0 {
 		// If the request ID is 0, the connection is shutting down or has
 		// already shut down, then return the ErrShutdown error.
+		if ctx.Err() != nil {
+			return context.Cause(ctx)
+		}
 		return ErrShutdown
 	}
 
 	select {
 	case <-ctx.Done():
 		conn.cancel(reqID)
-		return ctx.Err()
+		return context.Cause(ctx)
 	case result := <-call.Done:
+		if errors.Is(result.Error, ErrShutdown) && ctx.Err() != nil {
+			return context.Cause(ctx)
+		}
 		return errors.Trace(result.Error)
 	}
 }

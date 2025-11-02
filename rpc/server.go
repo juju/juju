@@ -431,7 +431,7 @@ func (conn *Conn) input() {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 
-	if conn.closing || errors.Cause(err) == io.EOF {
+	if conn.closing || errors.Is(err, io.EOF) {
 		err = ErrShutdown
 	} else {
 		// Make the error available for Conn.Close to see.
@@ -454,7 +454,7 @@ func (conn *Conn) loop() error {
 		var hdr Header
 		err := conn.codec.ReadHeader(&hdr)
 		switch {
-		case errors.Cause(err) == io.EOF:
+		case errors.Is(err, io.EOF):
 			// handle sentinel error specially
 			return err
 		case err != nil:

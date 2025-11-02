@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
@@ -84,6 +85,12 @@ type conn struct {
 
 	// closed is a channel that gets closed when State.Close is called.
 	closed chan struct{}
+
+	// done is true when the connection was already closed.
+	done bool
+
+	// closeMutex protects the closed channel and done boolean.
+	closeMutex sync.Mutex
 
 	// loggedIn holds whether the client has successfully logged
 	// in. It's a int32 so that the atomic package can be used to

@@ -104,7 +104,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 
 		// If we've closed the connection, we may get a spurious error,
 		// so ignore it.
-		if c.isClosing() || err == io.EOF {
+		if c.isClosing() || errors.Is(err, io.EOF) {
 			return io.EOF
 		}
 		return errors.Annotate(err, "receiving message")
