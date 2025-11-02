@@ -27,61 +27,88 @@ func (s *statusSuite) SetUpTest(c *tc.C) {
 	s.now = time.Now()
 }
 
-func (s *statusSuite) TestEncodeK8sPodStatus(c *tc.C) {
-	testCases := []struct {
-		input  corestatus.StatusInfo
-		output status.StatusInfo[status.K8sPodStatusType]
-	}{
-		{
-			input: corestatus.StatusInfo{
-				Status: corestatus.Waiting,
-			},
-			output: status.StatusInfo[status.K8sPodStatusType]{
+func (s *statusSuite) TestEncodeDecodeK8sPodStatus(c *tc.C) {
+	c.Run("Waiting", func(t *testing.T) {
+		input := corestatus.StatusInfo{
+			Status: corestatus.Waiting,
+		}
+		output, err := encodeK8sPodStatus(input)
+		tc.Assert(t, err, tc.ErrorIsNil)
+		tc.Assert(t, output, tc.DeepEquals,
+			status.StatusInfo[status.K8sPodStatusType]{
 				Status: status.K8sPodStatusWaiting,
 			},
-		},
-		{
-			input: corestatus.StatusInfo{
-				Status: corestatus.Blocked,
-			},
-			output: status.StatusInfo[status.K8sPodStatusType]{
+		)
+		result, err := decodeK8sPodStatus(output)
+		tc.Assert(t, err, tc.ErrorIsNil)
+		tc.Assert(t, result, tc.DeepEquals, input)
+	})
+	c.Run("Blocked", func(t *testing.T) {
+		input := corestatus.StatusInfo{
+			Status: corestatus.Blocked,
+		}
+		output, err := encodeK8sPodStatus(input)
+		tc.Assert(t, err, tc.ErrorIsNil)
+		tc.Assert(t, output, tc.DeepEquals,
+			status.StatusInfo[status.K8sPodStatusType]{
 				Status: status.K8sPodStatusBlocked,
 			},
-		},
-		{
-			input: corestatus.StatusInfo{
-				Status: corestatus.Running,
-			},
-			output: status.StatusInfo[status.K8sPodStatusType]{
+		)
+		result, err := decodeK8sPodStatus(output)
+		tc.Assert(t, err, tc.ErrorIsNil)
+		tc.Assert(t, result, tc.DeepEquals, input)
+	})
+	c.Run("Running", func(t *testing.T) {
+		input := corestatus.StatusInfo{
+			Status: corestatus.Running,
+		}
+		output, err := encodeK8sPodStatus(input)
+		tc.Assert(t, err, tc.ErrorIsNil)
+		tc.Assert(t, output, tc.DeepEquals,
+			status.StatusInfo[status.K8sPodStatusType]{
 				Status: status.K8sPodStatusRunning,
 			},
-		},
-		{
-			input: corestatus.StatusInfo{
-				Status:  corestatus.Running,
-				Message: "I'm active!",
-				Data:    map[string]interface{}{"foo": "bar"},
-				Since:   &s.now,
-			},
-			output: status.StatusInfo[status.K8sPodStatusType]{
+		)
+		result, err := decodeK8sPodStatus(output)
+		tc.Assert(t, err, tc.ErrorIsNil)
+		tc.Assert(t, result, tc.DeepEquals, input)
+	})
+	c.Run("RunningWithData", func(t *testing.T) {
+		input := corestatus.StatusInfo{
+			Status:  corestatus.Running,
+			Message: "I'm active!",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   &s.now,
+		}
+		output, err := encodeK8sPodStatus(input)
+		tc.Assert(t, err, tc.ErrorIsNil)
+		tc.Assert(t, output, tc.DeepEquals,
+			status.StatusInfo[status.K8sPodStatusType]{
 				Status:  status.K8sPodStatusRunning,
 				Message: "I'm active!",
 				Data:    []byte(`{"foo":"bar"}`),
 				Since:   &s.now,
 			},
-		},
-	}
-
-	for i, test := range testCases {
-		c.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			output, err := encodeK8sPodStatus(test.input)
-			tc.Assert(t, err, tc.ErrorIsNil)
-			tc.Assert(t, output, tc.DeepEquals, test.output)
-			result, err := decodeK8sPodStatus(output)
-			tc.Assert(t, err, tc.ErrorIsNil)
-			tc.Assert(t, result, tc.DeepEquals, test.input)
-		})
-	}
+		)
+		result, err := decodeK8sPodStatus(output)
+		tc.Assert(t, err, tc.ErrorIsNil)
+		tc.Assert(t, result, tc.DeepEquals, input)
+	})
+	c.Run("Error", func(t *testing.T) {
+		input := corestatus.StatusInfo{
+			Status: corestatus.Error,
+		}
+		output, err := encodeK8sPodStatus(input)
+		tc.Assert(t, err, tc.ErrorIsNil)
+		tc.Assert(t, output, tc.DeepEquals,
+			status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusError,
+			},
+		)
+		result, err := decodeK8sPodStatus(output)
+		tc.Assert(t, err, tc.ErrorIsNil)
+		tc.Assert(t, result, tc.DeepEquals, input)
+	})
 }
 
 func (s *statusSuite) TestEncodeUnitAgentStatus(c *tc.C) {

@@ -46,6 +46,7 @@ func (s *statusSuite) TestK8sPodStatusDBValues(c *tc.C) {
 		K8sPodStatusWaiting: "waiting",
 		K8sPodStatusBlocked: "blocked",
 		K8sPodStatusRunning: "running",
+		K8sPodStatusError:   "error",
 	})
 }
 
