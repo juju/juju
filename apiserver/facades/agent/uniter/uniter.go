@@ -441,7 +441,6 @@ func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) 
 		case errors.Is(err, machineerrors.AvailabilityZoneNotFound):
 			// If the machine has no availability zone set then when do nothing.
 			// It is possible and likely that not every cloud reports an AZ.
-			err = nil
 			az = ""
 		case errors.Is(err, machineerrors.MachineNotFound):
 			results.Results[i].Error = apiservererrors.ParamsErrorf(
