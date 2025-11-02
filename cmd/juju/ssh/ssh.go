@@ -123,13 +123,13 @@ Interact with the Pebble instance in the workload container via the charm contai
 
 **For k8s controller:**
 
-Connect to the api server pod:
+Connect to the controller api-server container:
 
-    juju ssh --container api-server 0
+    juju ssh 0
 
-Connect to the mongo db pod:
+Connect to the controller charm container:
 
-    juju ssh --container mongodb 0
+    juju ssh --container charm 0
 `
 
 const (

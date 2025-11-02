@@ -186,6 +186,13 @@ func (c *sshContainer) resolveTarget(ctx context.Context, target string) (*resol
 			// HA is not enabled on CaaS controller yet.
 			return nil, errors.NotFoundf("target %q", target)
 		}
+		if c.container == "" {
+			c.container = "api-server"
+		} else if c.container != "api-server" && c.container != "charm" {
+			return nil, errors.Errorf(
+				"container %q must be one of api-server, charm", c.container,
+			)
+		}
 		return &resolvedTarget{entity: fmt.Sprintf("%s-%s", environsbootstrap.ControllerModelName, target)}, nil
 	}
 	// If the user specified a leader unit, try to resolve it to the
@@ -245,17 +252,19 @@ type Context interface {
 }
 
 func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) (err error) {
-	args := c.args
-	if len(args) == 0 {
-		args = []string{"exec", "sh"}
-	}
 	cancel, stop := getInterruptAbortChan(ctx)
 	defer stop()
 	var env []string
+	args := c.args
 	if enablePty {
 		if term := os.Getenv("TERM"); term != "" {
 			env = append(env, "TERM="+term)
 		}
+		if len(args) == 0 {
+			args = []string{"exec", "bash", "--login"}
+		}
+	} else if len(args) == 0 {
+		args = []string{"exec", "sh"}
 	}
 	return c.execClient.Exec(
 		ctx,
