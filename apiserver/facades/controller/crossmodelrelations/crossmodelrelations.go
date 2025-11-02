@@ -140,7 +140,7 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 	}
 
 	// Ensure that the application is still alive.
-	appDetails, err := api.applicationService.GetApplicationDetails(ctx, applicationUUID)
+	appDetails, err := api.crossModelRelationService.GetSyntheticApplicationDetails(ctx, applicationUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) || appDetails.Life == domainlife.Dead {
 		return errors.NotFoundf("application %q not found or dead when publishing relation changes for relation %q", applicationUUID, relationUUID)
 	} else if err != nil {

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application"
+	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -57,8 +58,8 @@ type ModelRemoteApplicationState interface {
 	// application offerers in the local model.
 	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
 
-	// GetRemoteApplicationOffererByApplicationName returns the UUID of the remote
-	// application offerer for the given application name.
+	// GetRemoteApplicationOffererByApplicationName returns the UUID of the
+	// remote application offerer for the given application name.
 	GetRemoteApplicationOffererByApplicationName(context.Context, string) (string, error)
 
 	// GetRemoteApplicationConsumers returns all the current non-dead remote
@@ -81,38 +82,34 @@ type ModelRemoteApplicationState interface {
 	// remote application.
 	SaveMacaroonForRelation(context.Context, string, []byte) error
 
-	// GetMacaroonForRelation gets the macaroon for the specified remote relation,
-	// returning an error satisfying [crossmodelrelationerrors.MacaroonNotFound]
-	// if the macaroon is not found.
+	// GetMacaroonForRelation gets the macaroon for the specified remote
+	// relation.
 	GetMacaroonForRelation(context.Context, string) (*macaroon.Macaroon, error)
 
-	// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
-	// for the given offer UUID.
-	// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
-	// application is not found.
+	// GetApplicationNameAndUUIDByOfferUUID returns the application name and
+	// UUID for the given offer UUID.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error)
 
-	// EnsureUnitsExist ensures that the given synthetic units exist in the local
-	// model.
+	// EnsureUnitsExist ensures that the given synthetic units exist in the
+	// local model.
 	EnsureUnitsExist(ctx context.Context, appUUID string, units []string) error
 
 	// IsRelationWithEndpointIdentifiersSuspended returns the suspended status
 	// of a relation with the specified endpoints.
-	// The following error types can be expected:
-	//   - [relationerrors.RelationNotFound]: when no relation exists for the given
-	//     endpoints.
 	IsRelationWithEndpointIdentifiersSuspended(
 		ctx context.Context,
 		endpoint1, endpoint2 corerelation.EndpointIdentifier,
 	) (bool, error)
 
 	// InitialWatchStatementForConsumerRelations returns the namespace and the
-	// initial query function for watching relation UUIDs that are associated with
-	// remote offerer applications present in this model (i.e. consumer side).
+	// initial query function for watching relation UUIDs that are associated
+	// with remote offerer applications present in this model (i.e. consumer
+	// side).
 	InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery)
 
 	// GetConsumerRelationUUIDs filters the provided relation UUIDs and returns
-	// only those that are associated with remote offerer applications in this model.
+	// only those that are associated with remote offerer applications in this
+	// model.
 	GetConsumerRelationUUIDs(ctx context.Context, relationUUIDs ...string) ([]string, error)
 
 	// GetOfferingApplicationToken returns the offering application token (uuid)
@@ -128,20 +125,23 @@ type ModelRemoteApplicationState interface {
 	GetAllOffererRelationUUIDs(ctx context.Context) ([]string, error)
 
 	// InitialWatchStatementForOffererRelations returns the namespace and the
-	// initial query function for watching relation UUIDs that are associated with
-	// remote consumer applications present in this model (i.e. offerer side).
+	// initial query function for watching relation UUIDs that are associated
+	// with remote consumer applications present in this model (i.e. offerer
+	// side).
 	InitialWatchStatementForOffererRelations() (string, eventsource.NamespaceQuery)
 
-	// GetOffererModelUUID returns the offering model UUID for a remote application
-	// offerer, based on the given application name.
-	// The following error types can be expected:
-	//   - [crossmodelrelationerrors.RemoteApplicationNotFound]: when the application
-	//     is not a remote offerer application.
+	// GetOffererModelUUID returns the offering model UUID for a remote
+	// application offerer, based on the given application name.
 	GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error)
 
-	// IsApplicationSynthetic checks if the given application exists in the model
-	// and is a synthetic application, based on the charm source being 'cmr'.
+	// IsApplicationSynthetic checks if the given application exists in the
+	// model and is a synthetic application, based on the charm source being
+	// 'cmr'.
 	IsApplicationSynthetic(ctx context.Context, appName string) (bool, error)
+
+	// GetSyntheticApplicationDetails returns application details for the given
+	// synthetic application UUID.
+	GetSyntheticApplicationDetails(ctx context.Context, appUUID string) (domainapplication.ApplicationDetails, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -554,4 +554,18 @@ func (s *Service) GetOffererModelUUID(ctx context.Context, appName string) (core
 		return coremodel.UUID(""), internalerrors.Capture(err)
 	}
 	return modelUUID, nil
+}
+
+// GetSyntheticApplicationDetails returns application details for the given
+// synthetic application UUID.
+func (s *Service) GetSyntheticApplicationDetails(ctx context.Context, appUUID coreapplication.UUID) (domainapplication.ApplicationDetails, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appUUID.Validate(); err != nil {
+		return domainapplication.ApplicationDetails{}, internalerrors.Errorf(
+			"application UUID %q is not valid: %w", appUUID, err).Add(applicationerrors.ApplicationUUIDNotValid)
+	}
+
+	return s.modelState.GetSyntheticApplicationDetails(ctx, appUUID.String())
 }

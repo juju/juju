@@ -34,7 +34,8 @@ type Service interface {
 // required to authenticate with the remote model.
 type RelationUnitChange struct {
 	relation.RelationUnitChange
-	Macaroon *macaroon.Macaroon
+	ConsumingApplicationUUID coreapplication.UUID
+	Macaroon                 *macaroon.Macaroon
 }
 
 // ReportableWorker is an interface that allows a worker to be reported
@@ -198,8 +199,9 @@ func (w *localWorker) loop() error {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
 			case w.changes <- RelationUnitChange{
-				RelationUnitChange: event,
-				Macaroon:           w.macaroon,
+				RelationUnitChange:       event,
+				ConsumingApplicationUUID: w.consumerApplicationUUID,
+				Macaroon:                 w.macaroon,
 			}:
 			}
 

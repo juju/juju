@@ -444,3 +444,9 @@ type setRelationStatus struct {
 	// UpdatedAt specifies the timestamp of the insertion
 	UpdatedAt time.Time `db:"updated_at"`
 }
+
+type applicationDetails struct {
+	UUID string    `db:"uuid"`
+	Name string    `db:"name"`
+	Life life.Life `db:"life_id"`
+}

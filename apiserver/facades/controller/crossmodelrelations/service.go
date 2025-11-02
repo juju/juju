@@ -62,6 +62,10 @@ type CrossModelRelationService interface {
 	// for the specified relation UUID. It watches changes on the relation-specific
 	// egress networks, model config (egress-subnets), and unit addresses.
 	WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error)
+
+	// GetSyntheticApplicationDetails returns application details for the given
+	// synthetic application UUID.
+	GetSyntheticApplicationDetails(ctx context.Context, appUUID coreapplication.UUID) (domainapplication.ApplicationDetails, error)
 }
 
 // ModelConfigService is an interface that provides access to the

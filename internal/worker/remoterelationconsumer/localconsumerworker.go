@@ -608,7 +608,7 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	// Create the unit watchers for both the consumer and offerer sides if the
 	// relation is not suspended. It is expected that the unit watchers will
 	// clean themselves up if the relation is suspended or removed.
-	if err := w.ensureUnitRelationWorkers(ctx, details, result.offererApplicationUUID, result.macaroon); err != nil {
+	if err := w.ensureUnitRelationWorkers(ctx, details, consumingApplicationUUID, result.offererApplicationUUID, result.macaroon); err != nil {
 		return errors.Annotatef(err, "creating unit relation workers for %q", details.UUID)
 	}
 
@@ -620,7 +620,7 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	// Handle the case where the relation is dying, and ensure we have no
 	// workers still running for it.
 	if life.IsNotAlive(details.Life) {
-		return w.handleRelationDying(ctx, details.UUID, result.macaroon, !relationKnown)
+		return w.handleRelationDying(ctx, details.UUID, consumingApplicationUUID, result.macaroon, !relationKnown)
 	}
 
 	return nil
@@ -657,6 +657,7 @@ func (w *localConsumerWorker) ensureSecretChangesWatcher(
 func (w *localConsumerWorker) handleRelationDying(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
+	consumingApplicationUUID application.UUID,
 	mac *macaroon.Macaroon,
 	forceCleanup bool,
 ) error {
@@ -665,7 +666,7 @@ func (w *localConsumerWorker) handleRelationDying(
 	change := params.RemoteRelationChangeEvent{
 		RelationToken:           relationUUID.String(),
 		Life:                    life.Dying,
-		ApplicationOrOfferToken: w.applicationUUID.String(),
+		ApplicationOrOfferToken: consumingApplicationUUID.String(),
 		Macaroons:               macaroon.Slice{mac},
 		BakeryVersion:           defaultBakeryVersion,
 	}
@@ -731,13 +732,14 @@ func (w *localConsumerWorker) ensureOffererRelationWorker(
 func (w *localConsumerWorker) ensureUnitRelationWorkers(
 	ctx context.Context,
 	details relation.RelationDetails,
+	consumingApplicationUUID application.UUID,
 	offerApplicationUUID application.UUID,
 	mac *macaroon.Macaroon,
 ) error {
 	if err := w.runner.StartWorker(ctx, consumerUnitRelationWorkerName(details.UUID), func(ctx context.Context) (worker.Worker, error) {
 		return w.newConsumerUnitRelationsWorker(consumerunitrelations.Config{
 			Service:                 w.crossModelService,
-			ConsumerApplicationUUID: w.applicationUUID,
+			ConsumerApplicationUUID: consumingApplicationUUID,
 			ConsumerRelationUUID:    details.UUID,
 			Macaroon:                mac,
 			Changes:                 w.consumerRelationUnitChanges,
@@ -844,7 +846,7 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 	// Create the event to send to the offering model.
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           change.RelationUUID.String(),
-		ApplicationOrOfferToken: w.applicationUUID.String(),
+		ApplicationOrOfferToken: change.ConsumingApplicationUUID.String(),
 		ApplicationSettings:     convertSettingsMap(change.ApplicationSettings),
 
 		ChangedUnits: transform.Slice(change.UnitsSettings, func(v relation.UnitSettings) params.RemoteRelationUnitChange {

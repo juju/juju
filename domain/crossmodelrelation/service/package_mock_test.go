@@ -21,6 +21,7 @@ import (
 	secrets "github.com/juju/juju/core/secrets"
 	user "github.com/juju/juju/core/user"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
+	application0 "github.com/juju/juju/domain/application"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
 	secret "github.com/juju/juju/domain/secret"
 	uuid "github.com/juju/juju/internal/uuid"
@@ -1251,6 +1252,45 @@ func (c *MockModelStateGetSecretValueCall) Do(f func(context.Context, *secrets.U
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateGetSecretValueCall) DoAndReturn(f func(context.Context, *secrets.URI, int) (secrets.SecretData, *secrets.ValueRef, error)) *MockModelStateGetSecretValueCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetSyntheticApplicationDetails mocks base method.
+func (m *MockModelState) GetSyntheticApplicationDetails(arg0 context.Context, arg1 string) (application0.ApplicationDetails, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSyntheticApplicationDetails", arg0, arg1)
+	ret0, _ := ret[0].(application0.ApplicationDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSyntheticApplicationDetails indicates an expected call of GetSyntheticApplicationDetails.
+func (mr *MockModelStateMockRecorder) GetSyntheticApplicationDetails(arg0, arg1 any) *MockModelStateGetSyntheticApplicationDetailsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSyntheticApplicationDetails", reflect.TypeOf((*MockModelState)(nil).GetSyntheticApplicationDetails), arg0, arg1)
+	return &MockModelStateGetSyntheticApplicationDetailsCall{Call: call}
+}
+
+// MockModelStateGetSyntheticApplicationDetailsCall wrap *gomock.Call
+type MockModelStateGetSyntheticApplicationDetailsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetSyntheticApplicationDetailsCall) Return(arg0 application0.ApplicationDetails, arg1 error) *MockModelStateGetSyntheticApplicationDetailsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetSyntheticApplicationDetailsCall) Do(f func(context.Context, string) (application0.ApplicationDetails, error)) *MockModelStateGetSyntheticApplicationDetailsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetSyntheticApplicationDetailsCall) DoAndReturn(f func(context.Context, string) (application0.ApplicationDetails, error)) *MockModelStateGetSyntheticApplicationDetailsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

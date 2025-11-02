@@ -19,6 +19,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -1686,4 +1687,45 @@ AND    cs.name = 'cmr'`, countResult{}, name{})
 	}
 
 	return result.Count > 0, nil
+}
+
+// GetSyntheticApplicationDetails returns application details for the given
+// synthetic application UUID.
+func (st *State) GetSyntheticApplicationDetails(ctx context.Context, appUUID string) (domainapplication.ApplicationDetails, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return domainapplication.ApplicationDetails{}, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT a.name AS &applicationDetails.name,
+	   a.life_id AS &applicationDetails.life_id
+FROM   application_remote_consumer AS arc
+JOIN   application AS a ON arc.offer_connection_uuid = a.uuid
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+JOIN   charm_source AS cs ON cs.id = c.source_id
+WHERE  arc.consumer_application_uuid = $uuid.uuid 
+AND    cs.name = 'cmr'`, applicationDetails{}, uuid{})
+	if err != nil {
+		return domainapplication.ApplicationDetails{}, errors.Capture(err)
+	}
+
+	var details applicationDetails
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, uuid{UUID: appUUID}).Get(&details)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return domainapplication.ApplicationDetails{}, errors.Capture(err)
+	}
+
+	return domainapplication.ApplicationDetails{
+		Life:                   details.Life,
+		Name:                   details.Name,
+		IsApplicationSynthetic: true,
+	}, nil
 }
