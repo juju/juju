@@ -81,6 +81,8 @@ func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVers
 // GetAllModelUUIDs returns all model uuids in the controller. If the controller
 // has no models an empty result is returned.
 func (s *Service) GetAllModelUUIDs(ctx context.Context) ([]coremodel.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	return s.st.GetAllModelUUIDs(ctx)
 }
 
