@@ -61,12 +61,14 @@ type UpgradeServicesFn func(
 	changestream.WatchableDBGetter, logger.Logger,
 ) internalservices.UpgradeServices
 
-// Kill kills this [servicesWorker].
+// Kill marks this [servicesWorker] as dying. Implements the [worker.Worker]
+// interface.
 func (w *servicesWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
-// NewWorker constructs
+// NewWorker constructs a new worker responsible for handing out the upgrade
+// services dependency into the model.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Errorf("validating worker config: %w", err)
@@ -105,7 +107,8 @@ func (s *servicesWorker) ServicesGetter() internalservices.UpgradeServicesGetter
 	return s.servicesGetter
 }
 
-// Validate validates the domain services configuration.
+// Validate checks the domain services configuration is valid for creating a new
+// worker.
 func (config Config) Validate() error {
 	if config.DBGetter == nil {
 		return errors.Errorf("nil DBGetter").Add(coreerrors.NotValid)
@@ -122,7 +125,8 @@ func (config Config) Validate() error {
 	return nil
 }
 
-// Wait waits for the domain services worker to stop.
+// Wait returns after the domain services worker has stopped. Implements the
+// [worker.Worker] interface.
 func (w *servicesWorker) Wait() error {
 	return w.tomb.Wait()
 }
