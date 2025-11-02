@@ -18,8 +18,7 @@ Sometimes logs don’t make it to the database, so also check the controller mac
 
 ```text
 $ juju ssh -m controller <controller machine>
-$ grep “core dump” /var/log/juju/machine-<controller machine ID>.log
-
+$ grep “core dump” /var/log/juju/$(juju_controller_agent_name).log
 ```
 
 If the results show `(core dumped)`, you have a core dump issue.
@@ -75,12 +74,3 @@ gdb> bt
 ```
 
 Grab the output of the backtrace and share it with the Juju team. They will be able to help you diagnose the issue further.
-
-
-
-
-
-
-
-
-
