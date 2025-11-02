@@ -4,6 +4,9 @@
 package agentbinary
 
 import (
+	"iter"
+	"slices"
+
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 )
@@ -59,6 +62,18 @@ const (
 	RISCV64
 )
 
+// AgentBinaryArchitectures provides a sequence of architectures from a slice
+// of [AgentBinary]s. No deduplication is performed.
+func AgentBinaryArchitectures(abs []AgentBinary) iter.Seq[Architecture] {
+	return func(yield func(Architecture) bool) {
+		for _, ab := range abs {
+			if !yield(ab.Architecture) {
+				return
+			}
+		}
+	}
+}
+
 // AgentBinaryCompactOnVersion is a func for use with the [slices.CompactFunc]
 // function to remove all [AgentBinary] values from a slice that have the same
 // version.
@@ -85,6 +100,19 @@ func AgentBinaryNotMatchingVersion(v semversion.Number) func(AgentBinary) bool {
 // comparing two [AgentBinary] values.
 func AgentBinaryHighestVersion(a, b AgentBinary) int {
 	return a.Version.Compare(b.Version)
+}
+
+// ArchitectureNotIn returns a the slice of [Architecture]s from a that do not
+// exist in b. Nilnes of a is guaranteed to be preserved.
+func ArchitectureNotIn(a, b []Architecture) []Architecture {
+	var retVal []Architecture
+	for _, archA := range a {
+		if slices.Contains(b, archA) {
+			continue
+		}
+		retVal = append(retVal, archA)
+	}
+	return retVal
 }
 
 // ArchitectureFromString takes a string representation of an architecture and
