@@ -93,7 +93,7 @@ juju_machine_agent_name () {
 
 juju_controller_agent_name () {
   local controller=$(juju_machine_agent_name)
-  if [ -z "$agent" ]; then
+  if [ -z "$controller" ]; then
     controller=$(find /var/lib/juju/agents -maxdepth 1 -type d -name 'controller-*' -printf %f)
   fi
   echo $controller
