@@ -1453,6 +1453,66 @@ WHERE  arc.offer_connection_uuid = ?`, consumerUUID).Scan(&offererRelationUUID)
 	c.Check(results[0], tc.Equals, offererRelationUUID)
 }
 
+func (s *modelRemoteApplicationSuite) TestGetRemoteConsumerApplicationName(c *tc.C) {
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Offer resources needed:
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
+	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
+	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, offerCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, offerApplicationUUID, offerCharmUUID, offerUUID)
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides:    map[string]charm.Relation{},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddConsumedRelation(c.Context(), "remote-foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "cache",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	name, err := s.state.GetRemoteConsumerApplicationName(c.Context(), consumerApplicationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(name, tc.Equals, "remote-foo")
+}
+
+func (s *modelRemoteApplicationSuite) TestGetRemoteConsumerApplicationNameNotFound(c *tc.C) {
+	consumerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	_, err := s.state.GetRemoteConsumerApplicationName(c.Context(), consumerApplicationUUID)
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
+}
+
 func (s *modelRemoteApplicationSuite) TestEnsureUnitsExist(c *tc.C) {
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()

@@ -81,17 +81,14 @@ func (s *Service) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.U
 	return s.modelState.UpdateRemoteSecretRevision(ctx, uri, latestRevision)
 }
 
-func (s *Service) canRead(ctx context.Context, uri *secrets.URI, consumer unit.Name) error {
-	role, err := s.modelState.GetSecretAccess(ctx, uri, domainsecret.AccessParams{
-		SubjectTypeID: domainsecret.SubjectUnit,
-		SubjectID:     consumer.String(),
-	})
+func (s *Service) canRead(ctx context.Context, uri *secrets.URI, consumer domainsecret.AccessParams) error {
+	role, err := s.modelState.GetSecretAccess(ctx, uri, consumer)
 	if err != nil {
 		// Typically not found error.
 		return errors.Capture(err)
 	}
 	if !secrets.SecretRole(role).Allowed(secrets.RoleView) {
-		return errors.Errorf("%q is not allowed to read this secret", consumer.String()).Add(secreterrors.PermissionDenied)
+		return errors.Errorf("%q is not allowed to read this secret", consumer.SubjectID).Add(secreterrors.PermissionDenied)
 	}
 	return nil
 }
@@ -108,7 +105,14 @@ func (s *Service) ProcessRemoteConsumerGetSecret(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.canRead(ctx, uri, consumer); err != nil {
+	// We only every grant permission to the consuming application,
+	// not to the consuming unit. If this ever changes, we can check
+	// for unit permission here.
+	appName := consumer.Application()
+	if err := s.canRead(ctx, uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     appName,
+	}); err != nil {
 		return nil, nil, 0, errors.Capture(err)
 	}
 

@@ -7,7 +7,6 @@ import (
 	"context"
 	"reflect"
 	"sort"
-	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v10"
@@ -98,11 +97,7 @@ func accessorFromTag(tag names.Tag) (service.SecretAccessor, error) {
 	}
 	switch kind := tag.Kind(); kind {
 	case names.ApplicationTagKind:
-		if strings.HasPrefix(result.ID, "remote-") {
-			result.Kind = service.RemoteApplicationAccessor
-		} else {
-			result.Kind = service.ApplicationAccessor
-		}
+		result.Kind = service.ApplicationAccessor
 	case names.UnitTagKind:
 		result.Kind = service.UnitAccessor
 	case names.ModelTagKind:

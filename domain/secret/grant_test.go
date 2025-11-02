@@ -69,10 +69,9 @@ func (s *grantSuite) TestGrantSubjectTypeDBValues(c *tc.C) {
 		dbValues[GrantSubjectType(id)] = value
 	}
 	c.Assert(dbValues, tc.DeepEquals, map[GrantSubjectType]string{
-		SubjectUnit:              "unit",
-		SubjectApplication:       "application",
-		SubjectModel:             "model",
-		SubjectRemoteApplication: "remote-application",
+		SubjectUnit:        "unit",
+		SubjectApplication: "application",
+		SubjectModel:       "model",
 	})
 }
 

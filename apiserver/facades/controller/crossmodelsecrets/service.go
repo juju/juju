@@ -32,12 +32,6 @@ type SecretBackendService interface {
 	) (*provider.ModelBackendConfigInfo, error)
 }
 
-// ApplicationService provides access to the application service,
-type ApplicationService interface {
-	// GetApplicationName returns the name of the specified application.
-	GetApplicationName(ctx context.Context, appID coreapplication.UUID) (string, error)
-}
-
 // CrossModelRelationService provides access to the cross model relation service,
 type CrossModelRelationService interface {
 	// ProcessRemoteConsumerGetSecret returns the content of a remotely consumed secret,
@@ -49,4 +43,8 @@ type CrossModelRelationService interface {
 	// IsCrossModelRelationValidForApplication checks that the cross model relation is valid for the application.
 	// A relation is valid if it is not suspended and the application is involved in the relation.
 	IsCrossModelRelationValidForApplication(ctx context.Context, key corerelation.Key, appName string) (bool, error)
+
+	// GetRemoteConsumerApplicationName returns the name of the synthetic application representing
+	// a consuming application in the offering model.
+	GetRemoteConsumerApplicationName(ctx context.Context, consumingAppUUID coreapplication.UUID) (string, error)
 }

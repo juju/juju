@@ -318,6 +318,42 @@ WHERE a.name = $name.name`, uuid{}, name{})
 	return result.UUID, nil
 }
 
+// GetRemoteConsumerApplicationName returns the sanem of the synthetic
+// application for the specified UUID.
+// It returns an error satisfying [crossmodelrelationerrors.RemoteApplicationNotFound]
+// if the application does not exist.
+func (st *State) GetRemoteConsumerApplicationName(ctx context.Context, consumingAppUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	appUUID := uuid{UUID: consumingAppUUID}
+	stmt, err := st.Prepare(`
+SELECT a.name AS &name.name 
+FROM   application a
+JOIN   application_remote_consumer AS arc ON a.uuid = arc.offer_connection_uuid
+WHERE  arc.consumer_application_uuid = $uuid.uuid`, appUUID, name{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result name
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, appUUID).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return crossmodelrelationerrors.RemoteApplicationNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return result.Name, nil
+}
+
 // GetRemoteApplicationConsumers returns all the current non-dead remote
 // application consumers in the local model.
 func (st *State) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {

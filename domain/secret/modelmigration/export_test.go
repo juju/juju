@@ -179,7 +179,7 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 					ID:   "mysql:server remote-deadbeef:db",
 				},
 				Subject: service.SecretAccessor{
-					Kind: "remote-application",
+					Kind: "application",
 					ID:   "remote-deadbeef",
 				},
 				Role: "view",
