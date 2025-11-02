@@ -99,7 +99,7 @@ func (t *Tunnel) ForwardPort(ctx context.Context) error {
 		return fmt.Errorf("invalid tunnel kind %s", t.Kind)
 	}
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), ForwardPortTimeout)
+	ctx, cancelFunc := context.WithTimeout(ctx, ForwardPortTimeout)
 	defer cancelFunc()
 
 	podName := t.Target

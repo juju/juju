@@ -567,7 +567,13 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 			logger.Debugf(ctx, "tunnel proxy in use at %s on port %s", p.Host(), p.Port())
 			addrs = []*url.URL{{
 				Scheme: apiScheme,
-				Host:   net.JoinHostPort(p.Host(), p.Port()),
+				// NOTE: There is a bug in the k8s proxier where if one of the
+				// connections going through the proxier closes, it shuts down
+				// the whole proxier. For now, this is the best we can do, but
+				// in the future, we should not implement a local listening
+				// proxier, instead we should implement a Dialer that can be
+				// passed down that proxies the connection in process.
+				Host: net.JoinHostPort("127.0.0.1", p.Port()),
 			}}
 		default:
 			info.Proxier.Stop()
