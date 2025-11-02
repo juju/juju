@@ -380,7 +380,10 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 	return result, nil
 }
 
-// AvailabilityZone returns the availability zone for each given unit, if applicable.
+// AvailabilityZone returns the availability zone for each given unit. The
+// availability zone for a unit is established off of the attached machine for
+// the unit. If the unit is not attached to a machine or if the machine has no
+// AZ set then an empty string is returned. This is not an error condition.
 func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	var results params.StringResults
 
@@ -414,19 +417,36 @@ func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) 
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+
 		machineUUID, err := u.applicationService.GetUnitMachineUUID(ctx, unitName)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
-			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
+		switch {
+		case errors.Is(err, applicationerrors.UnitMachineNotAssigned):
+			// The unit is not assigned to a machine so we have no availability
+			// zone information. Most likely because the unit is on a CAAS model.
+			// In this case we report an empty AZ and this is fine.
+			results.Results[i].Result = ""
 			continue
-		} else if err != nil {
+		case errors.Is(err, applicationerrors.UnitNotFound):
+			results.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeNotFound, "unit %q not found", unitName,
+			)
+			continue
+		case err != nil:
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+
 		az, err := u.machineService.AvailabilityZone(ctx, machineUUID)
-		if errors.Is(err, machineerrors.AvailabilityZoneNotFound) {
-			results.Results[i].Error = apiservererrors.ServerError(errors.NotProvisioned)
-			continue
-		} else if err != nil {
+		switch {
+		case errors.Is(err, machineerrors.AvailabilityZoneNotFound):
+			// If the machine has no availability zone set then when do nothing.
+			// It is possible and likely that not every cloud reports an AZ.
+			az = ""
+		case errors.Is(err, machineerrors.MachineNotFound):
+			results.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeNotFound, "unable to find machine for unit %q", unitName,
+			)
+		case err != nil:
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
