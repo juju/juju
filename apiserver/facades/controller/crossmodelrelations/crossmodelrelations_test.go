@@ -129,6 +129,9 @@ func (s *facadeSuite) TestPublishRelationChanges(c *tc.C) {
 		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
 		Return(nil)
 
+	s.crossModelRelationService.EXPECT().
+		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
 		Return(domainapplication.ApplicationDetails{
@@ -203,6 +206,9 @@ func (s *facadeSuite) TestPublishRelationChangesMissingLife(c *tc.C) {
 		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
 		Return(nil)
 
+	s.crossModelRelationService.EXPECT().
+		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
 		Return(domainapplication.ApplicationDetails{
@@ -345,6 +351,9 @@ func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
 		Return(nil)
 
+	s.crossModelRelationService.EXPECT().
+		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
 		Return(domainapplication.ApplicationDetails{
@@ -422,6 +431,9 @@ func (s *facadeSuite) TestPublishRelationChangesSuspended(c *tc.C) {
 		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
 		Return(nil)
 
+	s.crossModelRelationService.EXPECT().
+		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
 		Return(domainapplication.ApplicationDetails{
