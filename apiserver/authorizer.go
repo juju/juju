@@ -157,8 +157,9 @@ func modelAuthorizationInfoForRequest() ModelAuthorizationInfoFunc {
 // [controllerModelPermissionAuthorizer.fallThroughAuthorizer].
 type controllerModelPermissionAuthorizer struct {
 	controllerAdminAuthorizer
-	fallThroughAuthorizer authentication.Authorizer
 	ModelAuthorizationInfo
+
+	fallThroughAuthorizer authentication.Authorizer
 }
 
 // Authorize checks if the authorization request is being made to the controller
