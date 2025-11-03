@@ -160,7 +160,7 @@ func (s *controllerModelAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c 
 	// Test that each not allowed permission does not authorize for the
 	// controller model.
 	for _, perm := range notAllowedPermissions {
-		c.Run(perm.String(), func(t *testing.T) {
+		c.Run(perm.String(), func(c *testing.T) {
 			// Each sub tests gets a new delegator to make sure there is no
 			// cross over.
 			delegator := NewMockPermissionDelegator(ctrl)
@@ -187,7 +187,7 @@ func (s *controllerModelAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c 
 			}
 
 			err := authorizer.Authorize(c.Context(), authInfo)
-			c.Check(err, tc.NotNil)
+			tc.Check(c, err, tc.NotNil)
 		})
 	}
 }

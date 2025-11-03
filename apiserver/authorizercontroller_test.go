@@ -66,7 +66,7 @@ func (s *controllerAdminAuthorizerSuite) TestNotAUser(c *tc.C) {
 	}
 
 	for _, tag := range notSupportEntityTags {
-		c.Run(tag.String(), func(t *testing.T) {
+		c.Run(tag.String(), func(c *testing.T) {
 			authInfo := authentication.AuthInfo{
 				Delegator: s.permissionDelegator,
 				Tag:       tag,
@@ -76,8 +76,8 @@ func (s *controllerAdminAuthorizerSuite) TestNotAUser(c *tc.C) {
 				controllerTag: controllerTag,
 			}
 
-			err := authorizer.Authorize(t.Context(), authInfo)
-			tc.Check(t, err, tc.ErrorIs, coreerrors.NotSupported)
+			err := authorizer.Authorize(c.Context(), authInfo)
+			tc.Check(c, err, tc.ErrorIs, coreerrors.NotSupported)
 		})
 	}
 }
@@ -103,7 +103,7 @@ func (s *controllerAdminAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c 
 	}
 
 	for _, perm := range notAllowedPermissions {
-		c.Run(perm.String(), func(t *testing.T) {
+		c.Run(perm.String(), func(c *testing.T) {
 			delegator := NewMockPermissionDelegator(ctrl)
 			delegator.EXPECT().SubjectPermissions(
 				gomock.Any(),
@@ -124,7 +124,7 @@ func (s *controllerAdminAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c 
 			}
 
 			err := authorizer.Authorize(c.Context(), authInfo)
-			c.Check(err, tc.NotNil)
+			tc.Check(c, err, tc.NotNil)
 		})
 	}
 }
