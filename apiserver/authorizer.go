@@ -97,3 +97,52 @@ func (a modelPermissionAuthorizer) Authorize(ctx context.Context, authInfo authe
 	}
 	return nil
 }
+
+// ModelAuthorizationInfo provides information to authorizer's about the model
+// that is being used in the authorization request.
+type ModelAuthorizationInfo interface {
+	// IsAuthorizationForControllerModel returns true of false based on if the
+	// current authorization request is for the controller's model.
+	IsAuthorizationForControllerModel(context.Context) (bool, error)
+}
+
+// controllerModelPermissionAuthorizer checks if the authorization request is
+// for the controller model and if so confirms the user has
+// [permission.SuperuserAccess] on the controller by using the
+// [controllerModelPermissionAuthorizer.controllerAdminAuthorizer]. If the
+// authorization request is not for the controller model then the request is
+// delegated to
+// [controllerModelPermissionAuthorizer.fallThroughAuthorizer].
+type controllerModelPermissionAuthorizer struct {
+	controllerAdminAuthorizer
+	fallThroughAuthroizer authentication.Authorizer
+	ModelAuthorizationInfo
+}
+
+// Authorize checks if the authorization request is being made to the controller
+// model and that the user being authorized has [permission.SuperuserAccess] on
+// the controller. If the authorization request is not for the controller model
+// then the request is passed on to the fallThroughAuthorizer.
+//
+// Authorize implements the
+// [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
+func (a controllerModelPermissionAuthorizer) Authorize(
+	ctx context.Context, authInfo authentication.AuthInfo,
+) error {
+	isControllerModel, err := a.ModelAuthorizationInfo.IsAuthorizationForControllerModel(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"determining if authorization request is for the controller's model: %w",
+			err,
+		)
+	}
+
+	if !isControllerModel {
+		// We can defer through to the fallThroughAuthorizer.
+		return a.fallThroughAuthroizer.Authorize(ctx, authInfo)
+	}
+
+	// Authorization is for the controller model, must pass the
+	// [controllerAdminAuthorizer] checks.
+	return a.controllerAdminAuthorizer.Authorize(ctx, authInfo)
+}
