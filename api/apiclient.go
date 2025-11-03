@@ -51,10 +51,6 @@ const (
 	// within the specified time.
 	ConnectionDialTimedOut = errors.ConstError("api connection dial timed out")
 
-	// ConnectionAlreadyClosed is returned when the connection has already been
-	// closed.
-	ConnectionAlreadyClosed = errors.ConstError("api connection already closed")
-
 	// PingPeriod defines how often the internal connection health check
 	// will run.
 	PingPeriod = 1 * time.Minute
@@ -1225,7 +1221,7 @@ func (c *conn) Close() error {
 	c.closeMutex.Lock()
 	defer c.closeMutex.Unlock()
 	if c.done {
-		return ConnectionAlreadyClosed
+		return nil
 	}
 
 	// The bakery client for Macaroons uses a round-tripper, so it is not a
