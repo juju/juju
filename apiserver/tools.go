@@ -119,22 +119,6 @@ func BlockCheckerGetterForServices(servicesGetter DomainServicesGetter) func(con
 	}
 }
 
-// controllerAgentBinaryStoreForHTTPContext provides a deferred getter that
-// will provide the controller's [AgentBinaryStore] for the given [httpContext].
-func controllerAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinaryStoreGetter {
-	return func(r *http.Request) (AgentBinaryStore, error) {
-		services, err := httpCtx.domainServicesForRequest(r.Context())
-		if err != nil {
-			return nil, internalerrors.Capture(err)
-		}
-
-		return &agentBinaryStoreLogShim{
-			AgentBinaryStore: services.AgentBinaryStore(),
-			StoreName:        "controller agent binary store",
-		}, nil
-	}
-}
-
 // migratingAgentBinaryStoreForHTTPContext provides a deferred getter that will
 // provide the agent binary store for the model that is being migrated as part
 // of the request.
