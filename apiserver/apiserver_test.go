@@ -542,5 +542,5 @@ func (s *apiserverSuite) TestModelRemoveClosesRPC(c *gc.C) {
 	time.Sleep(testing.ShortWait)
 
 	err = conn.APICall("Pinger", 1, "", "Ping", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `connection is shut down`)
+	c.Assert(err, gc.ErrorMatches, `connection is shutdown before send: connection is shut down`)
 }

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sync"
+	"sync/atomic"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -24,6 +24,7 @@ type JSONConn interface {
 	Send(msg interface{}) error
 	// Receive receives a message into msg.
 	Receive(msg interface{}) error
+	// Close closes the connection.
 	Close() error
 }
 
@@ -33,8 +34,7 @@ type Codec struct {
 	// that the body can be read by ReadBody.
 	msg     inMsgV1
 	conn    JSONConn
-	mu      sync.Mutex
-	closing bool
+	closing atomic.Bool
 }
 
 // New returns an rpc codec that uses conn to send and receive
@@ -99,37 +99,43 @@ type outMsgV1 struct {
 	Response  interface{}            `json:"response,omitempty"`
 }
 
+// Close closes the underlying connection and sets the codec to
+// closing mode, so that any further errors are ignored.
 func (c *Codec) Close() error {
-	c.mu.Lock()
-	c.closing = true
-	c.mu.Unlock()
+	c.closing.Swap(true)
 	return c.conn.Close()
 }
 
 func (c *Codec) isClosing() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.closing
+	return c.closing.Load()
 }
 
+// ReadHeader reads the header from the connection.
 func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	var m json.RawMessage
 	var version int
-	err := c.conn.Receive(&m)
-	if err == nil {
-		logger.Tracef("<- %s", m)
-		c.msg, version, err = c.readMessage(m)
-	} else {
-		logger.Tracef("<- error: %v (closing %v)", err, c.isClosing())
-	}
-	if err != nil {
+	if err := c.conn.Receive(&m); err != nil {
+		if logger.IsLevelEnabled(loggo.TRACE) {
+			logger.Tracef("<- error: %v (closing %v)", err, c.isClosing())
+		}
+
 		// If we've closed the connection, we may get a spurious error,
 		// so ignore it.
-		if c.isClosing() || err == io.EOF {
+		if c.isClosing() || errors.Is(err, io.EOF) {
 			return io.EOF
 		}
-		return errors.Annotate(err, "error receiving message")
+		return errors.Annotate(err, "receiving message")
 	}
+
+	if logger.IsLevelEnabled(loggo.TRACE) {
+		logger.Tracef("<- %s", m)
+	}
+	var err error
+	c.msg, version, err = c.readMessage(m)
+	if err != nil {
+		return errors.Annotate(err, "reading message")
+	}
+
 	hdr.RequestId = c.msg.RequestId
 	hdr.Request = rpc.Request{
 		Type:    c.msg.Type,
@@ -147,7 +153,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 func (c *Codec) readMessage(m json.RawMessage) (inMsgV1, int, error) {
 	var msg inMsgV1
 	if err := json.Unmarshal(m, &msg); err != nil {
-		return msg, -1, errors.Trace(err)
+		return msg, -1, errors.Annotate(err, "unmarshalling message")
 	}
 	// In order to support both new style tags (lowercase) and the old style tags (camelcase)
 	// we look at the request id. The request id is always greater than one. If the value is
@@ -212,12 +218,13 @@ func DumpRequest(hdr *rpc.Header, body interface{}) []byte {
 	return data
 }
 
+// WriteMessage writes a message with the given header and body.
 func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 	msg, err := response(hdr, body)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "writing message")
 	}
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(loggo.TRACE) {
 		data, err := json.Marshal(msg)
 		if err != nil {
 			logger.Tracef("-> marshal error: %v", err)

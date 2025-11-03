@@ -157,7 +157,7 @@ func (*suite) TestErrorAfterClose(c *gc.C) {
 	codec := jsoncodec.New(conn)
 	var hdr rpc.Header
 	err := codec.ReadHeader(&hdr)
-	c.Assert(err, gc.ErrorMatches, "error receiving message: some error")
+	c.Assert(err, gc.ErrorMatches, "receiving message: some error")
 
 	err = codec.Close()
 	c.Assert(err, jc.ErrorIsNil)

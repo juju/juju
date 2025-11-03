@@ -1127,6 +1127,9 @@ func (srv *Server) serveConn(
 	apiObserver observer.Observer,
 	host string,
 ) error {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
 	codec := jsoncodec.NewWebsocket(wsConn.Conn)
 	recorderFactory := observer.NewRecorderFactory(
 		apiObserver, nil, observer.NoCaptureArgs)
@@ -1176,6 +1179,7 @@ func (srv *Server) serveConn(
 	conn.Start(ctx)
 	select {
 	case <-conn.Dead():
+		cancel(errors.ConstError("rpc connection closed"))
 	case <-srv.tomb.Dying():
 	case <-stateClosing:
 	}

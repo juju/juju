@@ -4,6 +4,7 @@
 package rpc
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -11,17 +12,20 @@ import (
 	"github.com/juju/errors"
 )
 
+// ErrShutdown is returned when a request is made on a connection that is
+// shutting down.
 var ErrShutdown = errors.New("connection is shut down")
 
+// IsShutdownErr returns true if the error is ErrShutdown.
 func IsShutdownErr(err error) bool {
-	return errors.Cause(err) == ErrShutdown
+	return errors.Is(err, ErrShutdown)
 }
 
 // Call represents an active RPC.
 type Call struct {
 	Request
-	Params   interface{}
-	Response interface{}
+	Params   any
+	Response any
 	Error    error
 	Done     chan *Call
 }
@@ -30,7 +34,7 @@ type Call struct {
 type RequestError struct {
 	Message string
 	Code    string
-	Info    map[string]interface{}
+	Info    map[string]any
 }
 
 func (e *RequestError) Error() string {
@@ -40,11 +44,13 @@ func (e *RequestError) Error() string {
 	return e.Message
 }
 
+// ErrorCode returns the error code associated with the error.
 func (e *RequestError) ErrorCode() string {
 	return e.Code
 }
 
-func (e *RequestError) ErrorInfo() map[string]interface{} {
+// ErrorInfo returns the error information associated with the error.
+func (e *RequestError) ErrorInfo() map[string]any {
 	return e.Info
 }
 
@@ -52,7 +58,7 @@ func (e *RequestError) ErrorInfo() map[string]interface{} {
 // field of a RequestError into an object instance a pointer to which is passed
 // via the to argument. The method will return an error if a non-pointer arg
 // is provided.
-func (e *RequestError) UnmarshalInfo(to interface{}) error {
+func (e *RequestError) UnmarshalInfo(to any) error {
 	if reflect.ValueOf(to).Kind() != reflect.Ptr {
 		return errors.New("UnmarshalInfo expects a pointer as an argument")
 	}
@@ -69,20 +75,24 @@ func (e *RequestError) UnmarshalInfo(to interface{}) error {
 	return nil
 }
 
-func (conn *Conn) send(call *Call) {
+func (conn *Conn) send(call *Call) uint64 {
 	conn.sending.Lock()
 	defer conn.sending.Unlock()
 
 	// Register this call.
 	conn.mutex.Lock()
 	if conn.dead == nil {
-		panic("rpc: call made when connection not started")
+		call.Error = errors.New("rpc: call made when connection not started")
+		conn.mutex.Unlock()
+		call.done(conn.context)
+		return 0
 	}
 	if conn.closing || conn.shutdown {
-		call.Error = ErrShutdown
+		call.Error = errors.Annotate(ErrShutdown,
+			"connection is shutdown before send")
 		conn.mutex.Unlock()
-		call.done()
-		return
+		call.done(conn.context)
+		return 0
 	}
 	conn.reqId++
 	reqId := conn.reqId
@@ -107,9 +117,18 @@ func (conn *Conn) send(call *Call) {
 		conn.mutex.Unlock()
 		if call != nil {
 			call.Error = err
-			call.done()
+			call.done(conn.context)
 		}
 	}
+
+	return reqId
+}
+
+func (conn *Conn) cancel(reqID uint64) {
+	conn.mutex.Lock()
+	conn.tombstones[reqID] = struct{}{}
+	delete(conn.clientPending, reqID)
+	conn.mutex.Unlock()
 }
 
 func (conn *Conn) handleResponse(hdr *Header) error {
@@ -118,6 +137,14 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 	call := conn.clientPending[reqId]
 	delete(conn.clientPending, reqId)
 	conn.mutex.Unlock()
+
+	defer func() {
+		conn.mutex.Lock()
+		// Always remove the tombstone after a call to prevent
+		// unbounded growth.
+		delete(conn.tombstones, reqId)
+		conn.mutex.Unlock()
+	}()
 
 	var err error
 	switch {
@@ -128,6 +155,14 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		// error reading request body. We should still attempt
 		// to read error body, but there's no one to give it to.
 		err = conn.readBody(nil, false)
+
+		// If the request has been canceled just return.
+		conn.mutex.Lock()
+		if _, ok := conn.tombstones[reqId]; ok {
+			conn.mutex.Unlock()
+			return nil
+		}
+		conn.mutex.Unlock()
 	case hdr.Error != "":
 		// Report rpcreflect.NoSuchMethodError with CodeNotImplemented.
 		if strings.HasPrefix(hdr.Error, "no such request ") && hdr.ErrorCode == "" {
@@ -142,22 +177,27 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 			Info:    hdr.ErrorInfo,
 		}
 		err = conn.readBody(nil, false)
-		call.done()
+		call.done(conn.context)
 	default:
 		err = conn.readBody(call.Response, false)
-		call.done()
+		call.done(conn.context)
 	}
-	return errors.Annotate(err, "error handling response")
+	if err != nil {
+		return errors.Annotatef(err, "error handling response")
+	}
+	return nil
 }
 
-func (call *Call) done() {
+func (call *Call) done(ctx context.Context) {
 	select {
 	case call.Done <- call:
 		// ok
 	default:
 		// We don't want to block here.  It is the caller's responsibility to make
 		// sure the channel has enough buffer space. See comment in Go().
-		logger.Errorf("discarding Call reply due to insufficient Done chan capacity")
+		logger.Errorf(
+			"discarding Call reply due to insufficient Done chan capacity",
+		)
 	}
 }
 
@@ -166,14 +206,45 @@ func (call *Call) done() {
 // If the action fails remotely, the error will have a cause of type RequestError.
 // The params value may be nil if no parameters are provided; the response value
 // may be nil to indicate that any result should be discarded.
-func (conn *Conn) Call(req Request, params, response interface{}) error {
+func (conn *Conn) Call(ctx context.Context, req Request, params, response any) error {
+	// Before sending the request, check if the context has been canceled.
+	// This is done to prevent any unnecessary work from being done if the
+	// context has been canceled.
+	if ctx.Err() != nil {
+		return context.Cause(ctx)
+	}
+
 	call := &Call{
 		Request:  req,
 		Params:   params,
 		Response: response,
 		Done:     make(chan *Call, 1),
 	}
-	conn.send(call)
-	result := <-call.Done
-	return errors.Trace(result.Error)
+	reqID := conn.send(call)
+	if reqID == 0 {
+		// If the request ID is 0, the connection is shutting down or has
+		// already shut down, then return the ErrShutdown error.
+		if ctx.Err() != nil {
+			return errors.Annotatef(ErrShutdown,
+				"connection is shut down: %v", context.Cause(ctx),
+			)
+		}
+		if call.Error != nil {
+			return call.Error
+		}
+		return ErrShutdown
+	}
+
+	select {
+	case <-ctx.Done():
+		conn.cancel(reqID)
+		return context.Cause(ctx)
+	case result := <-call.Done:
+		if errors.Is(result.Error, ErrShutdown) && ctx.Err() != nil {
+			return errors.Annotatef(result.Error,
+				"connection is shut down: %v", context.Cause(ctx),
+			)
+		}
+		return errors.Trace(result.Error)
+	}
 }

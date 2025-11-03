@@ -138,7 +138,7 @@ func isDirectoryEmpty(directory string) (bool, error) {
 	defer func() { _ = f.Close() }()
 
 	_, err = readDirFunc(f, 1)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return true, nil
 	}
 

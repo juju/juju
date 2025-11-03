@@ -61,14 +61,22 @@ type Header struct {
 	// Request holds the action to invoke.
 	Request Request
 
-	// Error holds the error, if any.
+	// Error holds the error string for a response. If there is no error,
+	// this will be empty.
 	Error string
 
-	// ErrorCode holds the code of the error, if any.
+	// ErrorCode holds the code of the error for a response. Error code will
+	// be empty if there is no error.
+	// TODO (stickupkid): This should be renamed to ResponseCode, that way
+	// we're not confusing a programmatic error (empty string) with a
+	// valid response code.
 	ErrorCode string
 
 	// ErrorInfo holds an optional set of additional information for an
-	// error, if any.
+	// error. This is used to provide additional information about the
+	// error.
+	// TODO (stickupkid): This should have been metadata for all responses
+	// not just errors.
 	ErrorInfo map[string]interface{}
 
 	// Version defines the wire format of the request and response structure.
@@ -144,6 +152,10 @@ type Conn struct {
 	// clientPending holds all pending client requests.
 	clientPending map[uint64]*Call
 
+	// tombstones holds the client request ids that have been
+	// cancelled.
+	tombstones map[uint64]struct{}
+
 	// closing is set when the connection is shutting down via
 	// Close.  When this is set, no more client or server requests
 	// will be initiated.
@@ -176,6 +188,7 @@ func NewConn(codec Codec, factory RecorderFactory) *Conn {
 	return &Conn{
 		codec:           codec,
 		clientPending:   make(map[uint64]*Call),
+		tombstones:      make(map[uint64]struct{}),
 		recorderFactory: ensureFactory(factory),
 	}
 }
@@ -350,25 +363,31 @@ func (conn *Conn) Close() error {
 // ErrorCoder represents any error that has an associated error code. An error
 // code is a short string that represents the kind of an error.
 type ErrorCoder interface {
+	Error() string
 	ErrorCode() string
 }
 
 // ErrorInfoProvider represents any error that can provide additional error
 // information as a map.
 type ErrorInfoProvider interface {
+	Error() string
 	ErrorInfo() map[string]interface{}
 }
 
 // Root represents a type that can be used to lookup a Method and place
 // calls on that method.
 type Root interface {
-	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
 	Killer
+	// FindMethod returns a MethodCaller for the given method name. The
+	// method will be associated with the given facade and version.
+	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
 }
 
 // Killer represents a type that can be asked to abort any outstanding
 // requests.  The Kill method should return immediately.
 type Killer interface {
+	// Kill kills any outstanding requests.  It should return
+	// immediately.
 	Kill()
 }
 
@@ -381,7 +400,7 @@ func (conn *Conn) input() {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 
-	if conn.closing || errors.Cause(err) == io.EOF {
+	if conn.closing || errors.Is(err, io.EOF) {
 		err = ErrShutdown
 	} else {
 		// Make the error available for Conn.Close to see.
@@ -390,7 +409,7 @@ func (conn *Conn) input() {
 	// Terminate all client requests.
 	for _, call := range conn.clientPending {
 		call.Error = err
-		call.done()
+		call.done(conn.context)
 	}
 	conn.clientPending = nil
 	conn.shutdown = true
@@ -404,18 +423,22 @@ func (conn *Conn) loop() error {
 		var hdr Header
 		err := conn.codec.ReadHeader(&hdr)
 		switch {
-		case errors.Cause(err) == io.EOF:
+		case errors.Is(err, io.EOF):
 			// handle sentinel error specially
 			return err
 		case err != nil:
 			return errors.Annotate(err, "codec.ReadHeader error")
 		case hdr.IsRequest():
 			if err := conn.handleRequest(&hdr); err != nil {
-				return errors.Annotatef(err, "codec.handleRequest %#v error", hdr)
+				return errors.Annotatef(err,
+					"codec.handleRequest %#v error", hdr,
+				)
 			}
 		default:
 			if err := conn.handleResponse(&hdr); err != nil {
-				return errors.Annotatef(err, "codec.handleResponse %#v error", hdr)
+				return errors.Annotatef(err,
+					"codec.handleResponse %#v error", hdr,
+				)
 			}
 		}
 	}
@@ -462,7 +485,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 
 		// If we get EOF, we know the connection is a
 		// goner, so don't try to respond.
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return err
 		}
 		// An error reading the body often indicates bad
@@ -586,8 +609,6 @@ func (conn *Conn) runRequest(
 
 	// Create a request-specific context, cancelled when the
 	// request returns.
-	//
-	// TODO(axw) provide a means for clients to cancel a request.
 	ctx, cancel := context.WithCancel(conn.context)
 	defer cancel()
 

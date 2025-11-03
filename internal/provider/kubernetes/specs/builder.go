@@ -284,7 +284,7 @@ func (d *deployer) load() (err error) {
 	for {
 		ext := &runtime.RawExtension{}
 		if err = decoder.Decode(ext); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return errors.Trace(err)
