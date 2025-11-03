@@ -54,7 +54,7 @@ func (s *controllerModelAuthorizerSuite) TestNonControllerModelFallThrough(c *tc
 	userTag := tc.Must1(c, names.ParseUserTag, "user-fred")
 
 	s.modelAuthInfo.EXPECT().IsAuthorizationForControllerModel(gomock.Any()).
-		Return(false, nil)
+		Return(false)
 
 	var fallThroughCalled bool
 	var fallThrough authentication.AuthorizerFunc = func(
@@ -93,7 +93,7 @@ func (s *controllerModelAuthorizerSuite) TestSuperUserControllerModelAllowed(c *
 	userTag := tc.Must1(c, names.ParseUserTag, "user-fred")
 
 	s.modelAuthInfo.EXPECT().IsAuthorizationForControllerModel(gomock.Any()).
-		Return(true, nil)
+		Return(true)
 	s.permissionDelegator.EXPECT().SubjectPermissions(
 		gomock.Any(),
 		"fred",
@@ -139,7 +139,7 @@ func (s *controllerModelAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c 
 	userTag := tc.Must1(c, names.ParseUserTag, "user-fred")
 
 	s.modelAuthInfo.EXPECT().IsAuthorizationForControllerModel(gomock.Any()).
-		Return(true, nil).AnyTimes()
+		Return(true).AnyTimes()
 	var fallThrough authentication.AuthorizerFunc = func(
 		context.Context, authentication.AuthInfo,
 	) error {

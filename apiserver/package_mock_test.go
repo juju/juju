@@ -267,12 +267,11 @@ func (m *MockModelAuthorizationInfo) EXPECT() *MockModelAuthorizationInfoMockRec
 }
 
 // IsAuthorizationForControllerModel mocks base method.
-func (m *MockModelAuthorizationInfo) IsAuthorizationForControllerModel(arg0 context.Context) (bool, error) {
+func (m *MockModelAuthorizationInfo) IsAuthorizationForControllerModel(arg0 context.Context) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsAuthorizationForControllerModel", arg0)
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // IsAuthorizationForControllerModel indicates an expected call of IsAuthorizationForControllerModel.
@@ -288,19 +287,19 @@ type MockModelAuthorizationInfoIsAuthorizationForControllerModelCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall) Return(arg0 bool, arg1 error) *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall) Return(arg0 bool) *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall) Do(f func(context.Context) (bool, error)) *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall {
+func (c *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall) Do(f func(context.Context) bool) *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall) DoAndReturn(f func(context.Context) (bool, error)) *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall {
+func (c *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall) DoAndReturn(f func(context.Context) bool) *MockModelAuthorizationInfoIsAuthorizationForControllerModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

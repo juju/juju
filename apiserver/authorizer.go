@@ -126,7 +126,7 @@ func (a modelPermissionAuthorizer) Authorize(ctx context.Context, authInfo authe
 type ModelAuthorizationInfo interface {
 	// IsAuthorizationForControllerModel returns true of false based on if the
 	// current authorization request is for the controller's model.
-	IsAuthorizationForControllerModel(context.Context) (bool, error)
+	IsAuthorizationForControllerModel(context.Context) bool
 }
 
 // controllerModelPermissionAuthorizer checks if the authorization request is
@@ -152,14 +152,7 @@ type controllerModelPermissionAuthorizer struct {
 func (a controllerModelPermissionAuthorizer) Authorize(
 	ctx context.Context, authInfo authentication.AuthInfo,
 ) error {
-	isControllerModel, err := a.ModelAuthorizationInfo.IsAuthorizationForControllerModel(ctx)
-	if err != nil {
-		return errors.Errorf(
-			"determining if authorization request is for the controller's model: %w",
-			err,
-		)
-	}
-
+	isControllerModel := a.ModelAuthorizationInfo.IsAuthorizationForControllerModel(ctx)
 	if !isControllerModel {
 		// We can defer through to the fallThroughAuthorizer.
 		return a.fallThroughAuthroizer.Authorize(ctx, authInfo)
