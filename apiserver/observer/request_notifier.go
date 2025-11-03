@@ -38,6 +38,7 @@ type RequestObserver struct {
 	// this type.
 	state struct {
 		id                 uint64
+		fd                 int
 		websocketConnected time.Time
 		tag                string
 		model              string
@@ -106,13 +107,15 @@ func (n *RequestObserver) Login(entity names.Tag, model names.ModelTag, fromCont
 }
 
 // Join implements Observer.
-func (n *RequestObserver) Join(req *http.Request, connectionID uint64) {
+func (n *RequestObserver) Join(req *http.Request, connectionID uint64, fd int) {
 	n.state.id = connectionID
+	n.state.fd = fd
 	n.state.websocketConnected = n.clock.Now()
 
 	n.logger.Debugf(
-		"[%X] API connection from %s",
+		"[%X] fd:%v API connection from %s",
 		n.state.id,
+		n.state.fd,
 		req.RemoteAddr,
 	)
 }
@@ -132,8 +135,9 @@ func (n *RequestObserver) Leave() {
 		})
 	}
 	n.logger.Debugf(
-		"[%X] %s API connection terminated after %v",
+		"[%X] fd:%d %s API connection terminated after %v",
 		n.state.id,
+		n.state.fd,
 		n.state.tag,
 		time.Since(n.state.websocketConnected),
 	)
