@@ -2021,15 +2021,6 @@ func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args pa
 		if fs.Info.Pool != "" {
 			return errors.New("pool field must not be set")
 		}
-		if fs.VolumeTag != "" {
-			// TODO(storage): once volumes are implemented, we need to check that
-			// the volume referenced here is provisioned, attached and owned by
-			// the same storage instance. This could be pushed into the
-			// storageprovisioning service, but that would require it to
-			// understand the provisioned status of a volume.
-			s.logger.Warningf(ctx,
-				"TODO(storage): check fs volume tag matches fs vol back")
-		}
 		info := storageprovisioning.FilesystemProvisionedInfo{
 			ProviderID: fs.Info.ProviderId,
 			SizeMiB:    fs.Info.SizeMiB,
