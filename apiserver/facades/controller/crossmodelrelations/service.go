@@ -28,18 +28,20 @@ type CrossModelRelationService interface {
 	// The CIDRs are added to the relation_network_ingress table.
 	AddRelationNetworkIngress(ctx context.Context, relationUUID corerelation.UUID, saasIngressAllow []string, cidrs []string) error
 
-	// AddConsumedRelation adds a new synthetic application representing
-	// the application on the consuming model, to this, the offering model.
-	// The synthetic application is used to create a relation with the
-	// provided charm.Relation from the consuming side and the offering
-	// application endpoint name in the current model.
+	// AddConsumedRelation adds a new synthetic application representing the
+	// application on the consuming model, to this, the offering model. The
+	// synthetic application is used to create a relation with the provided
+	// charm.Relation from the consuming side and the offering application
+	// endpoint name in the current model.
 	AddConsumedRelation(ctx context.Context, args crossmodelrelationservice.AddConsumedRelationArgs) error
 
-	// GetApplicationNameAndUUIDByOfferUUID returns the application name and UUID
-	// for the given offer UUID.
-	// Returns crossmodelrelationerrors.OfferNotFound if the offer or associated
-	// application is not found.
+	// GetApplicationNameAndUUIDByOfferUUID returns the application name and
+	// UUID for the given offer UUID.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, coreapplication.UUID, error)
+
+	// GetSyntheticApplicationUUIDByOfferUUID returns the synthetic application
+	// UUID for the given offer UUID.
+	GetSyntheticApplicationUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (coreapplication.UUID, error)
 
 	// GetOfferingApplicationToken returns the offering application token (uuid)
 	// for the given relation UUID.
@@ -53,14 +55,15 @@ type CrossModelRelationService interface {
 	// model.
 	EnsureUnitsExist(ctx context.Context, appUUID coreapplication.UUID, units []unit.Name) error
 
-	// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any
-	// unit of the specified app and returns a watcher which notifies of secret URIs
-	// that have had a new revision added.
+	// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by
+	// any unit of the specified app and returns a watcher which notifies of
+	// secret URIs that have had a new revision added.
 	WatchRemoteConsumedSecretsChanges(ctx context.Context, appUUID coreapplication.UUID) (watcher.StringsWatcher, error)
 
 	// WatchRelationEgressNetworks watches for changes to the egress networks
-	// for the specified relation UUID. It watches changes on the relation-specific
-	// egress networks, model config (egress-subnets), and unit addresses.
+	// for the specified relation UUID. It watches changes on the
+	// relation-specific egress networks, model config (egress-subnets), and
+	// unit addresses.
 	WatchRelationEgressNetworks(ctx context.Context, relationUUID corerelation.UUID) (watcher.StringsWatcher, error)
 }
 

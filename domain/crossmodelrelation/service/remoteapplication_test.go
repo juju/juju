@@ -598,7 +598,7 @@ func (s *remoteApplicationServiceSuite) TestGetApplicationNameAndUUIDByOfferUUID
 	offerUUID := tc.Must(c, offer.NewUUID)
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
-	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID.String()).Return("test-app", appUUID, nil)
+	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID.String()).Return("test-app", appUUID.String(), nil)
 
 	service := s.service(c)
 
@@ -613,7 +613,7 @@ func (s *remoteApplicationServiceSuite) TestGetApplicationNameAndUUIDByOfferUUID
 
 	offerUUID := tc.Must(c, offer.NewUUID)
 
-	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID.String()).Return("", coreapplication.UUID(""), crossmodelrelationerrors.OfferNotFound)
+	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID.String()).Return("", "", crossmodelrelationerrors.OfferNotFound)
 
 	service := s.service(c)
 
@@ -637,7 +637,7 @@ func (s *remoteApplicationServiceSuite) TestGetApplicationNameAndUUIDByOfferUUID
 
 	offerUUID := tc.Must(c, offer.NewUUID)
 
-	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID.String()).Return("", coreapplication.UUID(""), internalerrors.Errorf("boom"))
+	s.modelState.EXPECT().GetApplicationNameAndUUIDByOfferUUID(gomock.Any(), offerUUID.String()).Return("", "", internalerrors.Errorf("boom"))
 
 	service := s.service(c)
 
