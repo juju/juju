@@ -1190,7 +1190,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDying(c 
 		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
 			RelationToken:           consumingRelationUUID.String(),
 			Life:                    life.Dying,
-			ApplicationOrOfferToken: s.applicationUUID.String(),
+			ApplicationOrOfferToken: s.offerUUID,
 			Macaroons:               macaroon.Slice{s.macaroon},
 			BakeryVersion:           bakery.LatestVersion,
 			ForceCleanup:            ptr(true),
@@ -1267,7 +1267,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDis
 		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
 			RelationToken:           consumingRelationUUID.String(),
 			Life:                    life.Dying,
-			ApplicationOrOfferToken: s.applicationUUID.String(),
+			ApplicationOrOfferToken: s.offerUUID,
 			Macaroons:               macaroon.Slice{s.macaroon},
 			BakeryVersion:           bakery.LatestVersion,
 			ForceCleanup:            ptr(true),
@@ -1461,7 +1461,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChange(c *tc.C) {
 
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           consumingRelationUUID.String(),
-		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ApplicationOrOfferToken: s.offerUUID,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId: 0,
 			Settings: map[string]any{
@@ -1527,7 +1527,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeNonNilApplication
 
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           consumingRelationUUID.String(),
-		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ApplicationOrOfferToken: s.offerUUID,
 		ApplicationSettings: map[string]any{
 			"foo": "bar",
 		},
@@ -1599,7 +1599,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeNilUnitSettings(c
 
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           consumingRelationUUID.String(),
-		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ApplicationOrOfferToken: s.offerUUID,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId: 0,
 		}},
@@ -1659,7 +1659,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithIn
 
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           consumingRelationUUID.String(),
-		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ApplicationOrOfferToken: s.offerUUID,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId: 0,
 			Settings: map[string]any{
@@ -1715,7 +1715,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           consumingRelationUUID.String(),
-		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ApplicationOrOfferToken: s.offerUUID,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId: 0,
 			Settings: map[string]any{
@@ -1821,7 +1821,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           relationUUID.String(),
-		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ApplicationOrOfferToken: s.offerUUID,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId: 0,
 			Settings: map[string]any{
@@ -1875,7 +1875,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           relationUUID.String(),
-		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ApplicationOrOfferToken: s.offerUUID,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId: 0,
 			Settings: map[string]any{
@@ -1929,7 +1929,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           relationUUID.String(),
-		ApplicationOrOfferToken: s.applicationUUID.String(),
+		ApplicationOrOfferToken: s.offerUUID,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId: 0,
 			Settings: map[string]any{
