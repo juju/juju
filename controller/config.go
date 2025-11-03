@@ -278,6 +278,9 @@ const (
 	// SSHMaxConcurrentConnections is the maximum number of concurrent SSH
 	// connections to the controller.
 	SSHMaxConcurrentConnections = "ssh-max-concurrent-connections"
+
+	// IdleConnectionTimeout is the time between the controller resetting all idle connections.
+	IdleConnectionTimeout = "idle-connection-timeout"
 )
 
 // Attribute Defaults
@@ -410,10 +413,15 @@ const (
 	// it will be logged if query tracing is enabled.
 	DefaultQueryTracingThreshold = time.Second
 
-	// JujudControllerSnapSource is the default value for the jujud controller
+	// DefaultJujudControllerSnapSource is the default value for the jujud controller
 	// snap source, which is the snapstore.
 	// TODO(jujud-controller-snap): change this to "snapstore" once it is implemented.
 	DefaultJujudControllerSnapSource = "legacy"
+
+	// DefaultIdleConnectionTimeout is the default value for how often the jujud
+	// controller will reset idle connections. Apache defaults to a much more
+	// aggressive 5s timeout.
+	DefaultIdleConnectionTimeout = 30 * time.Second
 )
 
 var (
@@ -425,6 +433,7 @@ var (
 		AgentRateLimitRate,
 		APIPort,
 		APIPortOpenDelay,
+		IdleConnectionTimeout,
 		AutocertDNSNameKey,
 		AutocertURLKey,
 		CACertKey,
@@ -494,6 +503,7 @@ var (
 		AgentRateLimitMax,
 		AgentRateLimitRate,
 		APIPortOpenDelay,
+		IdleConnectionTimeout,
 		ApplicationResourceDownloadLimit,
 		AuditingEnabled,
 		AuditLogCaptureArgs,
@@ -680,6 +690,11 @@ func (c Config) APIPort() int {
 // the ControllerAPIPort is non-zero.
 func (c Config) APIPortOpenDelay() time.Duration {
 	return c.durationOrDefault(APIPortOpenDelay, DefaultAPIPortOpenDelay)
+}
+
+// IdleConnectionTimeout returns the time between the controller resetting all idle connections
+func (c Config) IdleConnectionTimeout() time.Duration {
+	return c.durationOrDefault(IdleConnectionTimeout, DefaultIdleConnectionTimeout)
 }
 
 // ControllerAPIPort returns the optional API port to be used for
@@ -1248,6 +1263,12 @@ func Validate(c Config) error {
 		}
 	}
 
+	if v, ok := c[IdleConnectionTimeout].(string); ok {
+		_, err := time.ParseDuration(v)
+		if err != nil {
+			return errors.Errorf("%s value %q must be a valid duration", IdleConnectionTimeout, v)
+		}
+	}
 	// Each unit stores the charm and uniter state in a single document.
 	// Given that mongo by default enforces a 16M limit for documents we
 	// should also verify that the combined limits don't exceed 16M.
