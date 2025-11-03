@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -82,6 +83,8 @@ func (s *controllerAdminAuthorizerSuite) TestNotAUser(c *tc.C) {
 	}
 }
 
+// TestNonSuperUserPermissionNotAllowed is testing that for any other permission
+// set in the controller that is not super user the user is not authorized.
 func (s *controllerAdminAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -125,4 +128,37 @@ func (s *controllerAdminAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c 
 			c.Check(err, tc.NotNil)
 		})
 	}
+}
+
+// TestSuperUserPermissionAllowed tests that when a user has the super user
+// permission that authorize without error through the
+// [controllerAdminAuthorizer].
+func (s *controllerAdminAuthorizerSuite) TestSuperUserPermissionAllowed(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	controllerUUID := tc.Must(c, uuid.NewUUID)
+	controllerTag := names.NewControllerTag(controllerUUID.String())
+	userTag := tc.Must1(c, names.ParseUserTag, "user-fred")
+
+	s.permissionDelegator.EXPECT().SubjectPermissions(
+		gomock.Any(),
+		"fred",
+		corepermission.ID{
+			ObjectType: corepermission.Controller,
+			Key:        controllerUUID.String(),
+		},
+	).Return(permission.SuperuserAccess, nil)
+
+	authInfo := authentication.AuthInfo{
+		Delegator: s.permissionDelegator,
+		Tag:       userTag,
+	}
+
+	authorizer := controllerAdminAuthorizer{
+		controllerTag: controllerTag,
+	}
+
+	err := authorizer.Authorize(c.Context(), authInfo)
+	c.Check(err, tc.ErrorIsNil)
 }
