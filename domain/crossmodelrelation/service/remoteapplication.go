@@ -93,12 +93,12 @@ type ModelRemoteApplicationState interface {
 	// UUID for the given offer UUID.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, string, error)
 
-	// GetSyntheticApplicationUUIDByOfferUUID returns the synthetic
-	// application name and UUID for the given offer UUID.€
+	// GetSyntheticApplicationUUIDByOfferUUID returns the synthetic application
+	// UUID for the given offer UUID.
 	GetSyntheticApplicationUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, error)
 
-	// EnsureUnitsExist ensures that the given synthetic units exist in the local
-	// model.
+	// EnsureUnitsExist ensures that the given synthetic units exist in the
+	// local model.
 	EnsureUnitsExist(ctx context.Context, appUUID string, units []string) error
 
 	// IsRelationWithEndpointIdentifiersSuspended returns the suspended status
@@ -109,8 +109,9 @@ type ModelRemoteApplicationState interface {
 	) (bool, error)
 
 	// InitialWatchStatementForConsumerRelations returns the namespace and the
-	// initial query function for watching relation UUIDs that are associated with
-	// remote offerer applications present in this model (i.e. consumer side).
+	// initial query function for watching relation UUIDs that are associated
+	// with remote offerer applications present in this model (i.e. consumer
+	// side).
 	InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery)
 
 	// GetConsumerRelationUUIDs filters the provided relation UUIDs and returns

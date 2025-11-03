@@ -969,16 +969,18 @@ func (st *State) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offer
 	return applicationName, applicationUUID, nil
 }
 
-// GetSyntheticApplicationUUIDByOfferUUID returns the synthetic
-// application name and UUID for the given offer UUID.
-// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
-// synthetic application is not found.
+// GetSyntheticApplicationUUIDByOfferUUID returns the synthetic application UUID
+// for the given offer UUID. Returns [applicationerrors.ApplicationNotFound] if
+// the offer or associated synthetic application is not found.
 func (st *State) GetSyntheticApplicationUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
+	// The offer connection is a mapping between the offer and the synthetic
+	// application on the consuming side. Getting the offer connection for the
+	// offer UUID allows us to retrieve the synthetic application UUID.
 	stmt, err := st.Prepare(`
 SELECT oc.uuid AS &uuid.uuid
 FROM   offer_connection AS oc

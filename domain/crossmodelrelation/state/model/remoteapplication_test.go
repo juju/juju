@@ -1839,7 +1839,7 @@ VALUES (?, ?, ?, ?, ?)
 		if err != nil {
 			return err
 		}
-		// Insert an offer endpoint record if it's no empty.
+		// Insert an offer endpoint record if it's not empty.
 		if offerUUID == "" {
 			return nil
 		}
