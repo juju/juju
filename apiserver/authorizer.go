@@ -91,7 +91,7 @@ type modelPermissionAuthorizer struct {
 // This authorizer will only check for exact permissions on the model. If the
 // user has write access on the model and this authorizer is set to check for
 // read permissions it will still fail the authorization. To support permission
-// heirarchy use multiple [modelPermissionAuthorizer]s.
+// hierarchy use multiple [modelPermissionAuthorizer]s.
 //
 // Authorize implements the
 // [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
