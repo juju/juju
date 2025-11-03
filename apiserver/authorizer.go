@@ -36,11 +36,21 @@ func (a tagKindAuthorizer) Authorize(_ context.Context, authInfo authentication.
 	)
 }
 
+// controllerAdminAuthorizer checks that the user being authorized has
+// [permission.SuperuserAccess] on the controller.
+//
+// controllerAdminAuthorizer implements the
+// [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
 type controllerAdminAuthorizer struct {
 	controllerTag names.Tag
 }
 
-// Authorize is part of the httpcontext.Authorizer interface.
+// Authorize checks that the authorization request is for a user that has
+// [permission.SuperuserAccess] on the controller. No other permissions are
+// considered valid for this authorizer.
+//
+// Authorize implements the
+// [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
 func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
 	userTag, ok := authInfo.Tag.(names.UserTag)
 	if !ok {
@@ -64,13 +74,26 @@ func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authe
 	return nil
 }
 
-// modelPermissionAuthorizer checks that the authenticated user
-// has the given permission on a model.
+// modelPermissionAuthorizer checks that the authenticated user has the given
+// permission on a model.
+//
+// modelPermissionAuthorizer implements the
+// [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
 type modelPermissionAuthorizer struct {
 	perm permission.Access
 }
 
-// Authorize is part of the httpcontext.Authorizer interface.
+// Authorize checks that the authorization request is for a valid model uuid and
+// a user. If both of these facts are true then it checks that the user has the
+// permission defined in [modelPermissionAuthorizer.perm] on the model.
+//
+// This authorizer will only check for exact permissions on the model. If the
+// user has write access on the model and this authorizer is set to check for
+// read permissions it will still fail the authorization. To support permission
+// heirarchy use multiple [modelPermissionAuthorizer]s.
+//
+// Authorize implements the
+// [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
 func (a modelPermissionAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
 	userTag, ok := authInfo.Tag.(names.UserTag)
 	if !ok {
