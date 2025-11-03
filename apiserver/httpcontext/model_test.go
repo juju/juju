@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package httpcontext_test
+package httpcontext
 
 import (
 	"io"
@@ -12,7 +12,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -21,9 +20,9 @@ import (
 type ModelHandlersSuite struct {
 	testhelpers.IsolationSuite
 
-	controllerModelHandler *httpcontext.ControllerModelHandler
-	queryHandler           *httpcontext.QueryModelHandler
-	bucketHandler          *httpcontext.BucketModelHandler
+	controllerModelHandler *ControllerModelHandler
+	queryHandler           *QueryModelHandler
+	bucketHandler          *BucketModelHandler
 
 	server *httptest.Server
 }
@@ -35,18 +34,18 @@ func TestModelHandlersSuite(t *testing.T) {
 func (s *ModelHandlersSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		modelUUID, _ := httpcontext.RequestModelUUID(r.Context())
+		modelUUID, _ := RequestModelUUID(r.Context())
 		io.WriteString(w, modelUUID)
 	})
-	s.controllerModelHandler = &httpcontext.ControllerModelHandler{
+	s.controllerModelHandler = &ControllerModelHandler{
 		Handler:             h,
 		ControllerModelUUID: coremodel.UUID(coretesting.ModelTag.Id()),
 	}
-	s.queryHandler = &httpcontext.QueryModelHandler{
+	s.queryHandler = &QueryModelHandler{
 		Handler: h,
 		Query:   "modeluuid",
 	}
-	s.bucketHandler = &httpcontext.BucketModelHandler{
+	s.bucketHandler = &BucketModelHandler{
 		Handler: h,
 		Query:   ":modeluuid",
 	}
