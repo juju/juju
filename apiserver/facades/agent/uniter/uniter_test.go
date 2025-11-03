@@ -1677,9 +1677,80 @@ func (s *uniterRelationSuite) TestRelation(c *tc.C) {
 	c.Check(result, tc.DeepEquals, params.RelationResultsV2{
 		Results: []params.RelationResultV2{
 			{
-				Id:   relID,
-				Key:  relTag.Id(),
-				Life: life.Alive,
+				Id:        relID,
+				Key:       relTag.Id(),
+				Life:      life.Alive,
+				Suspended: false,
+				Endpoint: params.Endpoint{
+					ApplicationName: "wordpress",
+					Relation: params.CharmRelation{
+						Name:      "database",
+						Role:      string(charm.RoleRequirer),
+						Interface: "mysql",
+						Optional:  false,
+						Limit:     0,
+						Scope:     string(charm.ScopeGlobal),
+					},
+				},
+				OtherApplication: params.RelatedApplicationDetails{
+					ApplicationName: "mysql",
+					ModelUUID:       s.uniter.modelUUID.String(),
+				},
+			},
+		},
+	})
+}
+
+func (s *uniterRelationSuite) TestRelationSuspended(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	relKey := tc.Must1(c, corerelation.NewKeyFromString, relTag.Id())
+
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	relID := 42
+
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
+	// Expect a suspended relation
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
+		Life:      life.Alive,
+		UUID:      relUUID,
+		ID:        relID,
+		Key:       relKey,
+		Suspended: true,
+		Endpoints: []relation.Endpoint{
+			{
+				ApplicationName: "wordpress",
+				Relation: charm.Relation{
+					Name:      "database",
+					Role:      charm.RoleRequirer,
+					Interface: "mysql",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			{
+				ApplicationName: "mysql",
+				Relation: charm.Relation{
+					Name:      "mysql",
+					Role:      charm.RoleProvider,
+					Interface: "mysql",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+		},
+	}, nil)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: relTag.String(), Unit: "unit-wordpress-0"},
+	}}
+	result, err := s.uniter.Relation(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.RelationResultsV2{
+		Results: []params.RelationResultV2{
+			{
+				Id:        relID,
+				Key:       relTag.Id(),
+				Life:      life.Alive,
+				Suspended: true,
 				Endpoint: params.Endpoint{
 					ApplicationName: "wordpress",
 					Relation: params.CharmRelation{
@@ -1735,15 +1806,18 @@ func (s *uniterRelationSuite) TestPeerRelation(c *tc.C) {
 	c.Check(result, tc.DeepEquals, params.RelationResultsV2{
 		Results: []params.RelationResultV2{
 			{
-				Id:   relID,
-				Key:  relTag.Id(),
-				Life: life.Alive,
+				Id:        relID,
+				Key:       relTag.Id(),
+				Life:      life.Alive,
+				Suspended: false,
 				Endpoint: params.Endpoint{
 					ApplicationName: "wordpress",
 					Relation: params.CharmRelation{
 						Name:      "self",
 						Role:      string(charm.RolePeer),
 						Interface: "me",
+						Optional:  false,
+						Limit:     0,
 						Scope:     string(charm.ScopeContainer),
 					},
 				},
@@ -1867,9 +1941,10 @@ func (s *uniterRelationSuite) TestRelationById(c *tc.C) {
 		Results: []params.RelationResultV2{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
-				Id:   relID,
-				Key:  relTag.Id(),
-				Life: life.Alive,
+				Id:        relID,
+				Key:       relTag.Id(),
+				Life:      life.Alive,
+				Suspended: false,
 				Endpoint: params.Endpoint{
 					ApplicationName: "wordpress",
 					Relation: params.CharmRelation{

@@ -2247,9 +2247,10 @@ func (u *UniterAPI) prepareRelationResult(
 		ModelUUID:       u.modelUUID.String(),
 	}
 	return params.RelationResultV2{
-		Id:   rel.ID,
-		Key:  rel.Key.String(),
-		Life: rel.Life,
+		Id:        rel.ID,
+		Key:       rel.Key.String(),
+		Life:      rel.Life,
+		Suspended: rel.Suspended,
 		Endpoint: params.Endpoint{
 			ApplicationName: unitEp.ApplicationName,
 			Relation:        params.NewCharmRelation(unitEp.Relation),
