@@ -404,7 +404,7 @@ func verifyBundleNoSeriesWithoutBase(bundleBytes []byte) []string {
 		var data *bundleSeriesData
 
 		err := dec.Decode(&data)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			// The bundle should already have been parsed if we're

@@ -12,10 +12,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -90,12 +91,12 @@ func websocketHandler(f func(*websocket.Conn)) http.Handler {
 
 func (s *dispatchSuite) TestWSWithoutParamsV0(c *tc.C) {
 	err := s.requestV0(c, `{"RequestId":1,"Type": "DispatchDummy","Id": "without","Request":"DoSomething"}`)
-	c.Assert(errors.Is(err, errors.NotSupported), tc.IsTrue)
+	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
 }
 
 func (s *dispatchSuite) TestWSWithParamsV0(c *tc.C) {
 	err := s.requestV0(c, `{"RequestId":2,"Type": "DispatchDummy","Id": "with","Request":"DoSomething", "Params": {}}`)
-	c.Assert(errors.Is(err, errors.NotSupported), tc.IsTrue)
+	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
 }
 
 func (s *dispatchSuite) TestWSWithoutParamsV1(c *tc.C) {

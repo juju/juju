@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -37,7 +38,7 @@ func main() {
 		var list List
 
 		err := dec.Decode(&list)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// all done
 			break
 		}

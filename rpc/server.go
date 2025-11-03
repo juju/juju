@@ -13,10 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/rpcreflect"
 )
@@ -392,12 +391,14 @@ func (conn *Conn) Close() error {
 // ErrorCoder represents any error that has an associated error code. An error
 // code is a short string that represents the kind of an error.
 type ErrorCoder interface {
+	Error() string
 	ErrorCode() string
 }
 
 // ErrorInfoProvider represents any error that can provide additional error
 // information as a map.
 type ErrorInfoProvider interface {
+	Error() string
 	ErrorInfo() map[string]interface{}
 }
 
@@ -431,8 +432,10 @@ func (conn *Conn) input() {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 
-	if conn.closing || errors.Cause(err) == io.EOF {
-		err = ErrShutdown
+	if conn.closing || errors.Is(err, io.EOF) {
+		err = errors.Errorf(
+			"connection is shut down: %w", err,
+		).Add(ErrShutdown)
 	} else {
 		// Make the error available for Conn.Close to see.
 		conn.inputLoopError = err
@@ -440,7 +443,7 @@ func (conn *Conn) input() {
 	// Terminate all client requests.
 	for _, call := range conn.clientPending {
 		call.Error = err
-		call.done()
+		call.done(conn.context)
 	}
 	conn.clientPending = nil
 	conn.shutdown = true
@@ -454,18 +457,22 @@ func (conn *Conn) loop() error {
 		var hdr Header
 		err := conn.codec.ReadHeader(&hdr)
 		switch {
-		case errors.Cause(err) == io.EOF:
+		case errors.Is(err, io.EOF):
 			// handle sentinel error specially
 			return err
 		case err != nil:
-			return errors.Annotate(err, "codec.ReadHeader error")
+			return errors.Errorf("codec.ReadHeader error: %w", err)
 		case hdr.IsRequest():
 			if err := conn.handleRequest(&hdr); err != nil {
-				return errors.Annotatef(err, "codec.handleRequest %#v error", hdr)
+				return errors.Errorf(
+					"codec.handleRequest %#v error: %w", hdr, err,
+				)
 			}
 		default:
 			if err := conn.handleResponse(&hdr); err != nil {
-				return errors.Annotatef(err, "codec.handleResponse %#v error", hdr)
+				return errors.Errorf(
+					"codec.handleResponse %#v error: %w", hdr, err,
+				)
 			}
 		}
 	}
@@ -489,7 +496,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	req, err := conn.bindRequest(hdr)
 	if err != nil {
 		if err := recorder.HandleRequest(hdr, nil); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		if err := conn.readBody(nil, true); err != nil {
 			return err
@@ -507,12 +514,12 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	}
 	if err := conn.readBody(argp, true); err != nil {
 		if err := recorder.HandleRequest(hdr, nil); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		// If we get EOF, we know the connection is a
 		// goner, so don't try to respond.
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return err
 		}
 		// An error reading the body often indicates bad

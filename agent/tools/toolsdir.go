@@ -98,7 +98,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	tr := tar.NewReader(f)
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

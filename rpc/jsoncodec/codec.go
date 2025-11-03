@@ -10,9 +10,9 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc"
 )
@@ -104,10 +104,10 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 
 		// If we've closed the connection, we may get a spurious error,
 		// so ignore it.
-		if c.isClosing() || err == io.EOF {
+		if c.isClosing() || errors.Is(err, io.EOF) {
 			return io.EOF
 		}
-		return errors.Annotate(err, "receiving message")
+		return errors.Errorf("receiving message: %w", err)
 	}
 
 	if logger.IsLevelEnabled(corelogger.TRACE) {
@@ -116,7 +116,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	var err error
 	c.msg, err = readMessage(m)
 	if err != nil {
-		return errors.Annotate(err, "reading message")
+		return errors.Errorf("reading message: %w", err)
 	}
 
 	hdr.RequestId = c.msg.RequestId
@@ -159,7 +159,7 @@ func (c *Codec) ReadBody(body interface{}, isRequest bool) error {
 func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 	msg, err := response(hdr, body)
 	if err != nil {
-		return errors.Annotate(err, "writing message")
+		return errors.Errorf("writing message: %w", err)
 	}
 	if logger.IsLevelEnabled(corelogger.TRACE) {
 		data, err := json.Marshal(msg)
@@ -192,10 +192,12 @@ func DumpRequest(hdr *rpc.Header, body interface{}) []byte {
 func readMessage(m json.RawMessage) (inMsgV1, error) {
 	var msg inMsgV1
 	if err := json.Unmarshal(m, &msg); err != nil {
-		return msg, errors.Annotate(err, "unmarshalling message")
+		return msg, errors.Errorf("unmarshalling message: %w", err)
 	}
 	if msg.RequestId == 0 {
-		return msg, errors.NotSupportedf("version 0")
+		return msg, errors.New(
+			"version 0 not supported",
+		).Add(coreerrors.NotSupported)
 	}
 	return msg, nil
 }
@@ -203,11 +205,15 @@ func readMessage(m json.RawMessage) (inMsgV1, error) {
 func response(hdr *rpc.Header, body interface{}) (interface{}, error) {
 	switch hdr.Version {
 	case 0:
-		return nil, errors.NotSupportedf("version 0")
+		return nil, errors.Errorf(
+			"version 0 not supported",
+		).Add(coreerrors.NotSupported)
 	case 1:
 		return newOutMsgV1(hdr, body), nil
 	default:
-		return nil, errors.NotSupportedf("version %d", hdr.Version)
+		return nil, errors.Errorf(
+			"version %d not supported", hdr.Version,
+		).Add(coreerrors.NotSupported)
 	}
 }
 

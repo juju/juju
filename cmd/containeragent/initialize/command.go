@@ -212,7 +212,7 @@ func (c *initCommand) copyBinaries() error {
 			}
 			defer dstStream.Close()
 			_, err = io.Copy(dstStream, srcStream)
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			} else if err != nil {
 				return errors.Annotatef(err, "copying %q to %q", src, dst)

@@ -191,7 +191,7 @@ func main() {
 				} else {
 					continue
 				}
-			} else if err == io.EOF {
+			} else if errors.Is(err, io.EOF) {
 				return
 			}
 

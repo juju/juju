@@ -1133,6 +1133,9 @@ func (srv *Server) serveConn(
 	host string,
 	crossModelAuthContext facade.CrossModelAuthContext,
 ) error {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
 		coretrace.Namespace("apiserver", modelUUID.String()),
@@ -1206,6 +1209,7 @@ func (srv *Server) serveConn(
 	conn.Start(ctx)
 	select {
 	case <-conn.Dead():
+		cancel(errors.ConstError("rpc connection closed"))
 	case <-srv.catacomb.Dying():
 	}
 	return conn.Close()

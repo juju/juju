@@ -231,7 +231,7 @@ func parseBundleParts(b []byte) ([]*BundleDataPart, error) {
 		var part BundleDataPart
 
 		err := structDec.Decode(&part.Data)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil && !strings.HasPrefix(err.Error(), "yaml: unmarshal errors:") {
 			return nil, errors.Annotatef(err, "unmarshal document %d", docIdx)
@@ -240,7 +240,7 @@ func parseBundleParts(b []byte) ([]*BundleDataPart, error) {
 		var data *BundleData
 		strictDec.SetStrict(true)
 		err = strictDec.Decode(&data)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			if strings.HasPrefix(err.Error(), "yaml: unmarshal errors:") {

@@ -368,7 +368,7 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficialDevel(c *tc.
 		default:
 		}
 		header, err := tarReader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			c.Fatalf("ForceVersion File is not written as expected")
 		}
 		c.Assert(err, tc.ErrorIsNil)
