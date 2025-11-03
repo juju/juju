@@ -326,7 +326,7 @@ FROM (
 
 		if currentStream.StreamID != streamInput.StreamID {
 			// If the requested stream does not match the model's current stream
-			// then we definetly don't have any binaries so no further work to
+			// then we definitely don't have any binaries so no further work to
 			// do.
 			return nil
 		}
