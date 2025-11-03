@@ -719,6 +719,14 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				Authorizer:    handler.authorizer,
 			}
 		}
+
+		// Register the [httpcontext.ControllerModelSignalHandler] for every
+		// handler.
+		h = httpcontext.ControllerModelSignalHandler{
+			ControllerModelUUID: controllerModelUUID,
+			Handler:             h,
+		}
+
 		if !handler.noModelUUID {
 			if strings.HasPrefix(handler.pattern, modelRoutePrefix) {
 				h = &httpcontext.QueryModelHandler{
