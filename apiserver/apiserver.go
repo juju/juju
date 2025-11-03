@@ -726,8 +726,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 					Query:   ":modeluuid",
 				}
 			} else if strings.HasPrefix(handler.pattern, charmsObjectsRoutePrefix) ||
+				// The charm upload path differs from [modelRoutePrefix] hence
+				// the existance of this special case.
 				strings.HasPrefix(handler.pattern, objectsRoutePrefix) {
-				h = &httpcontext.BucketModelHandler{
+				h = &httpcontext.QueryModelHandler{
 					Handler: h,
 					Query:   ":modeluuid",
 				}
