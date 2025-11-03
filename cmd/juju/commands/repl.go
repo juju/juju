@@ -165,7 +165,7 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 			} else {
 				continue
 			}
-		} else if err == io.EOF {
+		} else if errors.Is(err, io.EOF) {
 			break
 		}
 		line = strings.TrimSpace(line)

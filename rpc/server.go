@@ -512,7 +512,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 
 		// If we get EOF, we know the connection is a
 		// goner, so don't try to respond.
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
+		if errors.Is(err, io.EOF) || err == io.ErrUnexpectedEOF {
 			return err
 		}
 		// An error reading the body often indicates bad

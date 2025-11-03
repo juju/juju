@@ -841,7 +841,7 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 
 	for {
 		resolvedAddr, err := addrProvider.next(ctx)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			recordTryError(ctx, try, err)
@@ -952,7 +952,7 @@ func dialWebsocketMulti(ctx context.Context, addrs []*url.URL, apiPath string, o
 	addrProvider := newAddressProvider(addrs, opts.DNSCache, opts.IPAddrResolver)
 	for {
 		resolvedAddr, err := addrProvider.next(ctx)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			recordTryError(ctx, try, err)
