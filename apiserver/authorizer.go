@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/httpcontext"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -127,6 +128,26 @@ type ModelAuthorizationInfo interface {
 	// IsAuthorizationForControllerModel returns true of false based on if the
 	// current authorization request is for the controller's model.
 	IsAuthorizationForControllerModel(context.Context) bool
+}
+
+// ModelAuthorizationInfoFunc provides a func type implementation of
+// [ModelAuthorizationInfo].
+type ModelAuthorizationInfoFunc func(context.Context) bool
+
+// IsAuthorizationForControllerModel proxies the call through to the func of
+// [ModelAuthorizationInfoFunc] returning the result.
+//
+// Implements [ModelAuthorizationInfo] interface.
+func (m ModelAuthorizationInfoFunc) IsAuthorizationForControllerModel(
+	c context.Context,
+) bool {
+	return m(c)
+}
+
+// modelAuthorizationInfoForRequest returns a [ModelAuthorizationInfo] capable
+// of answering authorization info off of the request context.
+func modelAuthorizationInfoForRequest() ModelAuthorizationInfoFunc {
+	return httpcontext.RequestIsForControllerModel
 }
 
 // controllerModelPermissionAuthorizer checks if the authorization request is

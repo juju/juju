@@ -809,12 +809,23 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
 		controllerAgentBinaryStoreForHTTPContext(httpCtxt),
 	), "tools")
-	var modelToolsUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+
+	// toolsUploadAuthorizer defines the authorizer that MUST be used to tools
+	// uploading in the controller. If the user is a controller admin then we
+	// can allow the request through, this must also be the case the if the
+	// model being uploaded to is the controller model. All other models it is
+	// acceptable for the user to be a model admin.
+	var toolsUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
 		controllerAdminAuthorizer,
-		modelPermissionAuthorizer{
-			perm: permission.AdminAccess,
+		controllerModelPermissionAuthorizer{
+			controllerAdminAuthorizer: controllerAdminAuthorizer,
+			fallThroughAuthroizer: modelPermissionAuthorizer{
+				perm: permission.AdminAccess,
+			},
+			ModelAuthorizationInfo: modelAuthorizationInfoForRequest(),
 		},
 	}
+
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
 
 	resourceAuthFunc := func(req *http.Request, tagKinds ...string) (names.Tag, error) {
@@ -924,7 +935,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, {
 		pattern:    modelRoutePrefix + "/tools",
 		handler:    modelToolsUploadHandler,
-		authorizer: modelToolsUploadAuthorizer,
+		authorizer: toolsUploadAuthorizer,
 	}, {
 		pattern:         modelRoutePrefix + "/tools/:version",
 		handler:         modelToolsDownloadHandler,
