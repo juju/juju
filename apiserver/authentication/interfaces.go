@@ -89,6 +89,9 @@ type Authorizer interface {
 	Authorize(context.Context, AuthInfo) error
 }
 
+// AuthorizerFunc is a func type implementing the [Authorizer] interface.
+type AuthorizerFunc func(context.Context, AuthInfo) error
+
 // HTTPAuthenticator provides an interface for authenticating a raw http request
 // from a client.
 type HTTPAuthenticator interface {
@@ -121,6 +124,11 @@ type LoginAuthenticator interface {
 type RequestAuthenticator interface {
 	HTTPAuthenticator
 	LoginAuthenticator
+}
+
+// Authorize calls the func represented by [AuthorizeFunc] return the result.
+func (f AuthorizerFunc) Authorize(c context.Context, i AuthInfo) error {
+	return f(c, i)
 }
 
 // SubjectPermissions is a convenience wrapper around the AuthInfo permissions
