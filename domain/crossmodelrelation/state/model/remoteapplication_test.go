@@ -827,14 +827,63 @@ func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUID(c *tc.C)
 	gotName, gotUUID, err := s.state.GetApplicationNameAndUUIDByOfferUUID(c.Context(), offerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotName, tc.Equals, applicationUUID.String())
-	c.Check(gotUUID, tc.Equals, applicationUUID)
+	c.Check(gotUUID, tc.Equals, applicationUUID.String())
 }
 
 func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUIDNotExists(c *tc.C) {
 	// Test with non-existing offer UUID - should return application not found (no linked application)
 	nonExistentUUID := tc.Must(c, internaluuid.NewUUID).String()
 	_, _, err := s.state.GetApplicationNameAndUUIDByOfferUUID(c.Context(), nonExistentUUID)
-	c.Assert(err, tc.ErrorMatches, "application not found")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDNoOfferConnection(c *tc.C) {
+	// Create application, charm and offer first
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, charmUUID)
+	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
+
+	// Retrieve application UUID by offer UUID - should return the correct UUID
+	_, err := s.state.GetSyntheticApplicationUUIDByOfferUUID(c.Context(), offerUUID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDWithOfferConnection(c *tc.C) {
+	// Create application, charm and offer first
+	synthApplicationUUID := tc.Must(c, coreapplication.NewUUID)
+	realApplicationUUID := tc.Must(c, coreapplication.NewUUID)
+	synthCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	realCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+	s.createCharm(c, synthCharmUUID)
+	s.createCharm(c, realCharmUUID)
+	s.createApplication(c, synthApplicationUUID, synthCharmUUID, offerUUID)
+	s.createApplication(c, realApplicationUUID, realCharmUUID, "")
+	relUUID := s.addRelation(c).String()
+
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, 'bob')`, synthApplicationUUID, offerUUID, relUUID)
+	s.query(c, `
+INSERT INTO application_remote_consumer (offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
+VALUES (?, ?, ?, ?, 0)`, synthApplicationUUID, realApplicationUUID, tc.Must(c, coreapplication.NewUUID), tc.Must(c, coreapplication.NewUUID))
+
+	// Retrieve application UUID by offer UUID - should return the correct UUID
+	uuid, err := s.state.GetSyntheticApplicationUUIDByOfferUUID(c.Context(), offerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, synthApplicationUUID.String())
+}
+
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDNotFound(c *tc.C) {
+	// Test with non-existing offer UUID - should return application not found
+	// (no linked application)
+	nonExistentUUID := tc.Must(c, internaluuid.NewUUID).String()
+	_, err := s.state.GetSyntheticApplicationUUIDByOfferUUID(c.Context(), nonExistentUUID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersSingle(c *tc.C) {
@@ -1790,7 +1839,10 @@ VALUES (?, ?, ?, ?, ?)
 		if err != nil {
 			return err
 		}
-		// Insert an offer endpoint record
+		// Insert an offer endpoint record if it's no empty.
+		if offerUUID == "" {
+			return nil
+		}
 		insertOfferEndpoint := `INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`
 		_, err = tx.ExecContext(ctx, insertOfferEndpoint, offerUUID, charmEndpointUUID)
 		return err
