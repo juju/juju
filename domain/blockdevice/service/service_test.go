@@ -274,6 +274,64 @@ func (s *serviceSuite) TestUpdateDevicesExistingUpdated(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestUpdateDevicesExistingUpdatedAzureLun(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := tc.Must(c, machine.NewUUID)
+
+	existingBd := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+		"a": {
+			DeviceLinks: []string{
+				"/dev/disk/azure/scsi1/lun0",
+			},
+		},
+	}
+	bd := []coreblockdevice.BlockDevice{{
+		DeviceName: "sdc",
+		DeviceLinks: []string{
+			"/dev/disk/azure/data/by-lun/0",
+			"/dev/disk/azure/scsi1/lun0",
+			"/dev/disk/by-id/scsi-14d534654202020206c69b2ca5053e64c84d7c8ff73260abd",
+			"/dev/disk/by-id/scsi-3600224806c69b2ca5053c8ff73260abd",
+			"/dev/disk/by-id/wwn-0x600224806c69b2ca5053c8ff73260abd",
+			"/dev/disk/by-path/acpi-VMBUS:01-vmbus-f8b3781b1e824818a1c363d806ec15bb-lun-0",
+		},
+		FilesystemLabel: "",
+		FilesystemUUID:  "",
+		HardwareId:      "scsi-3600224806c69b2ca5053c8ff73260abd",
+		WWN:             "0x600224806c69b2ca5053c8ff73260abd",
+		BusAddress:      "scsi@3:0.0.0",
+		SizeMiB:         0x400,
+		FilesystemType:  "",
+		InUse:           false,
+		MountPoint:      "",
+		SerialId:        "3600224806c69b2ca5053c8ff73260abd",
+	}}
+	s.state.EXPECT().GetBlockDevicesForMachine(
+		gomock.Any(), machineUUID).Return(existingBd, nil)
+
+	s.state.EXPECT().UpdateBlockDevicesForMachine(
+		gomock.Any(), machineUUID, gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			_ context.Context, _ machine.UUID,
+			added map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+			updated map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+			removed []blockdevice.BlockDeviceUUID,
+		) error {
+			c.Check(added, tc.HasLen, 0)
+			c.Check(updated, tc.DeepEquals,
+				map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+					"a": bd[0],
+				},
+			)
+			c.Check(removed, tc.HasLen, 0)
+			return nil
+		})
+
+	err := s.service(c).UpdateBlockDevicesForMachine(c.Context(), machineUUID, bd)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *serviceSuite) TestUpdateDevicesExistingRemoved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
