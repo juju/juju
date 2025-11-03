@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"strings"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -102,7 +101,7 @@ func (s *SecretService) GetSecretAccessRelationScope(ctx context.Context, uri *s
 		ap.SubjectTypeID = domainsecret.SubjectUnit
 	case ApplicationAccessor:
 		ap.SubjectTypeID = domainsecret.SubjectApplication
-	case RemoteApplicationAccessor, ModelAccessor:
+	case ModelAccessor:
 		// Should never happen.
 		return "", errors.Errorf("getting relation access scope for kind %q not supported", accessor.Kind).Add(coreerrors.NotSupported)
 	}
@@ -124,8 +123,6 @@ func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, a
 		ap.SubjectTypeID = domainsecret.SubjectUnit
 	case ApplicationAccessor:
 		ap.SubjectTypeID = domainsecret.SubjectApplication
-	case RemoteApplicationAccessor:
-		ap.SubjectTypeID = domainsecret.SubjectRemoteApplication
 	case ModelAccessor:
 		ap.SubjectTypeID = domainsecret.SubjectModel
 	}
@@ -219,7 +216,7 @@ func (s *SecretService) lookupSubjectUUID(
 	switch subjectKind {
 	case UnitAccessor:
 		return s.getUnitUUIDByName(ctx, subjectID)
-	case ApplicationAccessor, RemoteApplicationAccessor:
+	case ApplicationAccessor:
 		return s.getApplicationUUIDByName(ctx, subjectID)
 	case ModelAccessor:
 		// The model ID is the UUID.
@@ -271,8 +268,6 @@ func (s *SecretService) grantParams(ctx context.Context, in SecretAccessParams) 
 		p.SubjectTypeID = domainsecret.SubjectUnit
 	case ApplicationAccessor:
 		p.SubjectTypeID = domainsecret.SubjectApplication
-	case RemoteApplicationAccessor:
-		p.SubjectTypeID = domainsecret.SubjectRemoteApplication
 	case ModelAccessor:
 		p.SubjectTypeID = domainsecret.SubjectModel
 	}
@@ -313,8 +308,6 @@ func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI
 		p.SubjectTypeID = domainsecret.SubjectUnit
 	case ApplicationAccessor:
 		p.SubjectTypeID = domainsecret.SubjectApplication
-	case RemoteApplicationAccessor:
-		p.SubjectTypeID = domainsecret.SubjectRemoteApplication
 	case ModelAccessor:
 		p.SubjectTypeID = domainsecret.SubjectModel
 	}
@@ -398,10 +391,6 @@ func (s *SecretService) canRead(ctx context.Context, uri *secrets.URI, accessor 
 	}
 	appName := unitName.Application()
 	kind := ApplicationAccessor
-	// Remote apps need a different accessor kind.
-	if strings.HasPrefix(appName, "remote-") {
-		kind = RemoteApplicationAccessor
-	}
 
 	hasRole, err = s.getSecretAccess(ctx, uri, SecretAccessor{
 		Kind: kind,

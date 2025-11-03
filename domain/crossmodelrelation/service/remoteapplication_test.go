@@ -191,6 +191,28 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidRo
 
 }
 
+func (s *remoteApplicationServiceSuite) TestGetRemoteConsumerApplicationName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, coreapplication.NewUUID)
+	s.modelState.EXPECT().GetRemoteConsumerApplicationName(gomock.Any(), uuid.String()).Return("foo", nil)
+
+	service := s.service(c)
+
+	got, err := service.GetRemoteConsumerApplicationName(c.Context(), uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.Equals, "foo")
+}
+
+func (s *remoteApplicationServiceSuite) TestGetRemoteConsumerApplicationNameInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := s.service(c)
+
+	_, err := service.GetRemoteConsumerApplicationName(c.Context(), "invalid")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
+}
+
 func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOfferers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -65,6 +65,10 @@ type ModelRemoteApplicationState interface {
 	// application consumers in the local model.
 	GetRemoteApplicationConsumers(context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error)
 
+	// GetRemoteConsumerApplicationName returns the sanem of the synthetic
+	// application for the specified UUID.
+	GetRemoteConsumerApplicationName(ctx context.Context, consumingAppUUID string) (string, error)
+
 	// NamespaceRemoteApplicationOfferers returns the database namespace
 	// for remote application offerers.
 	NamespaceRemoteApplicationOfferers() string
@@ -452,6 +456,19 @@ func (s *Service) GetOfferingApplicationToken(
 	}
 
 	return coreapplication.ParseUUID(appUUID)
+}
+
+// GetRemoteConsumerApplicationName returns the name of the synthetic application representing
+// a consuming application in the offering model.
+func (s *Service) GetRemoteConsumerApplicationName(ctx context.Context, consumingAppUUID coreapplication.UUID) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := consumingAppUUID.Validate(); err != nil {
+		return "", applicationerrors.ApplicationUUIDNotValid
+	}
+
+	return s.modelState.GetRemoteConsumerApplicationName(ctx, consumingAppUUID.String())
 }
 
 // IsCrossModelRelationValidForApplication checks that the cross model relation is valid for the application.

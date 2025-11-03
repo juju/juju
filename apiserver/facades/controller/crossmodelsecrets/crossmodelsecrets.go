@@ -52,7 +52,6 @@ type CrossModelSecretsAPI struct {
 	secretBackendService            SecretBackendService
 	secretServiceGetter             func(c context.Context, modelUUID model.UUID) (SecretService, error)
 	crossModelRelationServiceGetter func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error)
-	applicationServiceGetter        func(c context.Context, modelUUID model.UUID) (ApplicationService, error)
 }
 
 // NewCrossModelSecretsAPI returns a new server-side CrossModelSecretsAPI facade.
@@ -62,7 +61,6 @@ func NewCrossModelSecretsAPI(
 	auth facade.CrossModelAuthContext,
 	secretBackendService SecretBackendService,
 	secretServiceGetter func(c context.Context, modelUUID model.UUID) (SecretService, error),
-	applicationServiceGetter func(c context.Context, modelUUID model.UUID) (ApplicationService, error),
 	crossModelRelationServiceGetter func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error),
 	logger logger.Logger,
 ) (*CrossModelSecretsAPI, error) {
@@ -72,7 +70,6 @@ func NewCrossModelSecretsAPI(
 		auth:                            auth,
 		secretBackendService:            secretBackendService,
 		secretServiceGetter:             secretServiceGetter,
-		applicationServiceGetter:        applicationServiceGetter,
 		crossModelRelationServiceGetter: crossModelRelationServiceGetter,
 		logger:                          logger,
 	}, nil
@@ -113,12 +110,12 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx context.Context, arg par
 		return "", errors.Errorf("secret URI with empty source UUID not valid").Add(coreerrors.NotValid)
 	}
 
-	applicationService, err := s.applicationServiceGetter(ctx, model.UUID(uri.SourceUUID))
+	crossModelService, err := s.crossModelRelationServiceGetter(ctx, model.UUID(uri.SourceUUID))
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	consumerApp, err := applicationService.GetApplicationName(ctx, coreapplication.UUID(arg.ApplicationToken))
+	consumerApp, err := crossModelService.GetRemoteConsumerApplicationName(ctx, coreapplication.UUID(arg.ApplicationToken))
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -285,23 +282,18 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx context.Context, arg params.
 		return nil, nil, 0, errors.Errorf("empty secret revision not valid").Add(coreerrors.NotValid)
 	}
 
-	applicationService, err := s.applicationServiceGetter(ctx, model.UUID(uri.SourceUUID))
+	crossModelRelationService, err := s.crossModelRelationServiceGetter(ctx, model.UUID(uri.SourceUUID))
 	if err != nil {
 		return nil, nil, 0, errors.Capture(err)
 	}
 
-	consumerApp, err := applicationService.GetApplicationName(ctx, coreapplication.UUID(arg.ApplicationToken))
+	consumerApp, err := crossModelRelationService.GetRemoteConsumerApplicationName(ctx, coreapplication.UUID(arg.ApplicationToken))
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, nil, 0, apiservererrors.ParamsErrorf(params.CodeNotFound, "application %q not found", arg.ApplicationToken)
 	} else if err != nil {
 		return nil, nil, 0, errors.Capture(err)
 	}
 	consumerUnit, err := unit.NewNameFromParts(consumerApp, arg.UnitId)
-	if err != nil {
-		return nil, nil, 0, errors.Capture(err)
-	}
-
-	crossModelRelationService, err := s.crossModelRelationServiceGetter(ctx, model.UUID(uri.SourceUUID))
 	if err != nil {
 		return nil, nil, 0, errors.Capture(err)
 	}

@@ -88,10 +88,9 @@ type SecretAccessorKind string
 
 // These represent the kinds of secret accessor.
 const (
-	ApplicationAccessor       SecretAccessorKind = "application"
-	RemoteApplicationAccessor SecretAccessorKind = "remote-application"
-	UnitAccessor              SecretAccessorKind = "unit"
-	ModelAccessor             SecretAccessorKind = "model"
+	ApplicationAccessor SecretAccessorKind = "application"
+	UnitAccessor        SecretAccessorKind = "unit"
+	ModelAccessor       SecretAccessorKind = "model"
 )
 
 // GrantedSecretsGetter returns the revisions on the given backend for which

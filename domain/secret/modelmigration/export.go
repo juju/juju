@@ -90,8 +90,6 @@ func accessorTagFromAccessor(subject service.SecretAccessor) (names.Tag, error) 
 		return names.NewUnitTag(subject.ID), nil
 	case service.ModelAccessor:
 		return names.NewModelTag(subject.ID), nil
-	case service.RemoteApplicationAccessor:
-		return names.NewApplicationTag(subject.ID), nil
 	}
 	return nil, errors.Errorf("subject kind %q %w", subject.Kind, coreerrors.NotValid)
 }

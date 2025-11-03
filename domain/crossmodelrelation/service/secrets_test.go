@@ -92,8 +92,8 @@ func (s *secretsServiceSuite) TestProcessRemoteConsumerGetSecretNoPeekOrRefresh(
 	data := map[string]string{"foo": "bar"}
 
 	s.modelState.EXPECT().GetSecretAccess(gomock.Any(), uri, secret.AccessParams{
-		SubjectTypeID: secret.SubjectUnit,
-		SubjectID:     consumer.String(),
+		SubjectTypeID: secret.SubjectApplication,
+		SubjectID:     consumer.Application(),
 	}).Return(secret.RoleView.String(), nil)
 	s.modelState.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(data, nil, nil)
 
@@ -116,8 +116,8 @@ func (s *secretsServiceSuite) TestProcessRemoteConsumerGetSecretPeek(c *tc.C) {
 	data := map[string]string{"foo": "bar"}
 
 	s.modelState.EXPECT().GetSecretAccess(gomock.Any(), uri, secret.AccessParams{
-		SubjectTypeID: secret.SubjectUnit,
-		SubjectID:     consumer.String(),
+		SubjectTypeID: secret.SubjectApplication,
+		SubjectID:     consumer.Application(),
 	}).Return(secret.RoleView.String(), nil)
 	s.modelState.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, consumer.String()).
 		Return(&coresecrets.SecretConsumerMetadata{
@@ -144,8 +144,8 @@ func (s *secretsServiceSuite) TestProcessRemoteConsumerGetSecretRefresh(c *tc.C)
 	data := map[string]string{"foo": "bar"}
 
 	s.modelState.EXPECT().GetSecretAccess(gomock.Any(), uri, secret.AccessParams{
-		SubjectTypeID: secret.SubjectUnit,
-		SubjectID:     consumer.String(),
+		SubjectTypeID: secret.SubjectApplication,
+		SubjectID:     consumer.Application(),
 	}).Return(secret.RoleView.String(), nil)
 	s.modelState.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, consumer.String()).
 		Return(&coresecrets.SecretConsumerMetadata{
@@ -180,8 +180,8 @@ func (s *secretsServiceSuite) TestProcessRemoteConsumerGetSecretNoConsumerExists
 	}
 
 	s.modelState.EXPECT().GetSecretAccess(gomock.Any(), uri, secret.AccessParams{
-		SubjectTypeID: secret.SubjectUnit,
-		SubjectID:     consumer.String(),
+		SubjectTypeID: secret.SubjectApplication,
+		SubjectID:     consumer.Application(),
 	}).Return(secret.RoleView.String(), nil)
 	s.modelState.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, consumer.String()).
 		Return(nil, 666, secreterrors.SecretConsumerNotFound)
@@ -208,8 +208,8 @@ func (s *secretsServiceSuite) TestProcessRemoteConsumerGetSecretPermissionError(
 	consumer := unittesting.GenNewName(c, "consumer/0")
 
 	s.modelState.EXPECT().GetSecretAccess(gomock.Any(), uri, secret.AccessParams{
-		SubjectTypeID: secret.SubjectUnit,
-		SubjectID:     consumer.String(),
+		SubjectTypeID: secret.SubjectApplication,
+		SubjectID:     consumer.Application(),
 	}).Return(secret.RoleNone.String(), nil)
 
 	service := s.service(c)

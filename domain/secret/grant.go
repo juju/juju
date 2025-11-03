@@ -74,7 +74,6 @@ const (
 	SubjectUnit GrantSubjectType = iota
 	SubjectApplication
 	SubjectModel
-	SubjectRemoteApplication
 )
 
 // String implements fmt.Stringer.
@@ -86,8 +85,6 @@ func (s GrantSubjectType) String() string {
 		return "application"
 	case SubjectModel:
 		return "model"
-	case SubjectRemoteApplication:
-		return "remote-application"
 	}
 	return ""
 }

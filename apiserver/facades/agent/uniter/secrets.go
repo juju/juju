@@ -5,7 +5,6 @@ package uniter
 
 import (
 	"context"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -222,11 +221,7 @@ func accessorFromTag(tag names.Tag) (secretservice.SecretAccessor, error) {
 	}
 	switch kind := tag.Kind(); kind {
 	case names.ApplicationTagKind:
-		if strings.HasPrefix(result.ID, "remote-") {
-			result.Kind = secretservice.RemoteApplicationAccessor
-		} else {
-			result.Kind = secretservice.ApplicationAccessor
-		}
+		result.Kind = secretservice.ApplicationAccessor
 	case names.UnitTagKind:
 		result.Kind = secretservice.UnitAccessor
 	case names.ModelTagKind:

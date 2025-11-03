@@ -237,8 +237,7 @@ CREATE TABLE secret_grant_subject_type (
 INSERT INTO secret_grant_subject_type VALUES
 (0, 'unit'),
 (1, 'application'),
-(2, 'model'),
-(3, 'remote-application');
+(2, 'model');
 
 CREATE TABLE secret_grant_scope_type (
     id INT PRIMARY KEY,
@@ -297,6 +296,7 @@ SELECT
     sp.secret_id,
     sp.role_id,
     sp.subject_type_id,
+    sp.subject_uuid,
     sp.scope_type_id,
     sp.scope_uuid,
     -- subject_id is the natural id of the subject entity (uuid for model)

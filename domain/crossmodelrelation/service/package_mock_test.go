@@ -1136,6 +1136,45 @@ func (c *MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCal
 	return c
 }
 
+// GetRemoteConsumerApplicationName mocks base method.
+func (m *MockModelState) GetRemoteConsumerApplicationName(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteConsumerApplicationName", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteConsumerApplicationName indicates an expected call of GetRemoteConsumerApplicationName.
+func (mr *MockModelStateMockRecorder) GetRemoteConsumerApplicationName(arg0, arg1 any) *MockModelStateGetRemoteConsumerApplicationNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteConsumerApplicationName", reflect.TypeOf((*MockModelState)(nil).GetRemoteConsumerApplicationName), arg0, arg1)
+	return &MockModelStateGetRemoteConsumerApplicationNameCall{Call: call}
+}
+
+// MockModelStateGetRemoteConsumerApplicationNameCall wrap *gomock.Call
+type MockModelStateGetRemoteConsumerApplicationNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetRemoteConsumerApplicationNameCall) Return(arg0 string, arg1 error) *MockModelStateGetRemoteConsumerApplicationNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetRemoteConsumerApplicationNameCall) Do(f func(context.Context, string) (string, error)) *MockModelStateGetRemoteConsumerApplicationNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetRemoteConsumerApplicationNameCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelStateGetRemoteConsumerApplicationNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSecretAccess mocks base method.
 func (m *MockModelState) GetSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.AccessParams) (string, error) {
 	m.ctrl.T.Helper()

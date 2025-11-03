@@ -42,7 +42,6 @@ type CrossModelSecretsSuite struct {
 	authenticator *MockMacaroonAuthenticator
 
 	secretBackendService      *MockSecretBackendService
-	applicationService        *MockApplicationService
 	secretService             *MockSecretService
 	crossModelRelationService *MockCrossModelRelationService
 
@@ -98,14 +97,10 @@ func (s *CrossModelSecretsSuite) setup(c *tc.C) *gomock.Controller {
 
 	s.secretBackendService = NewMockSecretBackendService(ctrl)
 	s.secretService = NewMockSecretService(ctrl)
-	s.applicationService = NewMockApplicationService(ctrl)
 	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
 
 	secretServiceGetter := func(_ context.Context, modelUUID model.UUID) (crossmodelsecrets.SecretService, error) {
 		return s.secretService, nil
-	}
-	applicationServiceGetter := func(_ context.Context, modelUUID model.UUID) (crossmodelsecrets.ApplicationService, error) {
-		return s.applicationService, nil
 	}
 	crossModelServiceGetter := func(_ context.Context, modelUUID model.UUID) (crossmodelsecrets.CrossModelRelationService, error) {
 		return s.crossModelRelationService, nil
@@ -118,7 +113,6 @@ func (s *CrossModelSecretsSuite) setup(c *tc.C) *gomock.Controller {
 		s.authContext,
 		s.secretBackendService,
 		secretServiceGetter,
-		applicationServiceGetter,
 		crossModelServiceGetter,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -129,7 +123,6 @@ func (s *CrossModelSecretsSuite) setup(c *tc.C) *gomock.Controller {
 		s.authContext = nil
 		s.secretBackendService = nil
 		s.secretService = nil
-		s.applicationService = nil
 		s.crossModelRelationService = nil
 	})
 
@@ -148,7 +141,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 	appUUID := tc.Must(c, application.NewUUID)
 	appUUID2 := tc.Must(c, application.NewUUID)
 
-	s.applicationService.EXPECT().GetApplicationName(gomock.Any(), appUUID).Return("mediawiki", nil)
+	s.crossModelRelationService.EXPECT().GetRemoteConsumerApplicationName(gomock.Any(), appUUID).Return("mediawiki", nil)
 	s.crossModelRelationService.EXPECT().ProcessRemoteConsumerGetSecret(gomock.Any(), uri, unit.Name("mediawiki/666"), ptr(667), false, true).Return(
 		nil,
 		&coresecrets.ValueRef{
@@ -156,7 +149,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 			RevisionID: "rev-id",
 		}, 668, nil,
 	)
-	s.applicationService.EXPECT().GetApplicationName(gomock.Any(), appUUID2).Return("wordpress", nil)
+	s.crossModelRelationService.EXPECT().GetRemoteConsumerApplicationName(gomock.Any(), appUUID2).Return("wordpress", nil)
 	s.crossModelRelationService.EXPECT().ProcessRemoteConsumerGetSecret(gomock.Any(), uri, unit.Name("wordpress/666"), nil, false, true).Return(
 		nil, nil, 0, secreterrors.PermissionDenied,
 	)

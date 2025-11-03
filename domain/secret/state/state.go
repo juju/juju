@@ -2475,7 +2475,7 @@ func (st State) checkSubjectUUIDExists(
 	case domainsecret.SubjectUnit:
 		selectSubjectUUID = selectUnitUUID
 		subjectNotFoundError = applicationerrors.UnitNotFound
-	case domainsecret.SubjectApplication, domainsecret.SubjectRemoteApplication:
+	case domainsecret.SubjectApplication:
 		selectSubjectUUID = selectApplicationUUID
 		subjectNotFoundError = applicationerrors.ApplicationNotFound
 	case domainsecret.SubjectModel:
@@ -2731,11 +2731,13 @@ FROM   v_secret_permission sp
 WHERE  secret_id = $secretID.id
 AND    role_id = $secretAccessor.role_id
 -- exclude remote applications
-AND    subject_type_id != $M.remote_application_type`
-
-	arg := sqlair.M{"remote_application_type": domainsecret.SubjectRemoteApplication}
-
-	selectStmt, err := st.Prepare(query, secretID{}, secretAccessor{}, secretAccessScope{}, arg)
+AND    NOT EXISTS (
+         SELECT 1
+         FROM   application_remote_consumer arc
+         WHERE  arc.offer_connection_uuid = sp.subject_uuid
+       )
+`
+	selectStmt, err := st.Prepare(query, secretID{}, secretAccessor{}, secretAccessScope{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2758,7 +2760,7 @@ AND    subject_type_id != $M.remote_application_type`
 			// Should never happen.
 			return secreterrors.SecretIsNotLocal
 		}
-		err = tx.Query(ctx, selectStmt, secretIDParam, secretRole, arg).GetAll(&accessors, &accessScopes)
+		err = tx.Query(ctx, selectStmt, secretIDParam, secretRole).GetAll(&accessors, &accessScopes)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
