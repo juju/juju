@@ -68,13 +68,6 @@ type GetProviderFunc func(ctx context.Context) (environs.BootstrapEnviron, error
 // SimpleStreamsAgentFinder provides helper methods for fetching
 // the binaries from simplestreams. This abstraction helps us mock the dependencies in tests.
 type SimpleStreamsAgentFinder interface {
-	// GetPreferredSimpleStreams returns the preferred streams for the given version and stream.
-	GetPreferredSimpleStreams(
-		vers *semversion.Number,
-		forceDevel bool,
-		stream string,
-	) []string
-
 	// AgentBinaryFilter filters agent binaries based on the given parameters.
 	// It returns a list of agent binaries that match the filter criteria.
 	AgentBinaryFilter(
@@ -109,11 +102,6 @@ func NewAgentFinder(
 		AgentBinaryFilterFn:         agentBinaryFilterFn,
 		GetProviderFn:               getProviderFn,
 	}
-}
-
-// GetPreferredSimpleStreams returns the streams to use when fetching the agents from simplestreams.
-func (a AgentFinder) GetPreferredSimpleStreams(vers *semversion.Number, forceDevel bool, stream string) []string {
-	return a.GetPreferredSimpleStreamsFn(vers, forceDevel, stream)
 }
 
 // AgentBinaryFilter returns the agents from the provided streams that match the
@@ -408,7 +396,7 @@ func removeNonPatchVersions(
 	v semversion.Number,
 ) func(agentbinary.AgentBinary) bool {
 	return func(a agentbinary.AgentBinary) bool {
-		return a.Version.Major != v.Major && a.Version.Minor != v.Minor
+		return a.Version.Major != v.Major || a.Version.Minor != v.Minor
 	}
 }
 
