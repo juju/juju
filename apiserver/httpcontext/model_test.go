@@ -4,6 +4,7 @@
 package httpcontext
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -120,4 +121,87 @@ func (s *ModelHandlersSuite) TestBucketInvalidModelUUID(c *tc.C) {
 	out, err := io.ReadAll(resp.Body)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, `invalid model UUID "wrongbucket"`+"\n")
+}
+
+// TestSetIsControllerModelOnContext verifies that when the is controller model
+// flag has been set on a context true is reported when asking the context if
+// the request is for the controller model.
+func (*ModelHandlersSuite) TestSetIsControllerModelOnContext(c *tc.C) {
+	ctx := SetContextIsControllerModel(c.Context())
+	c.Check(RequestIsForControllerModel(ctx), tc.IsTrue)
+}
+
+// TestIsControllerModelNotSetOnContext verifies that if a context has not had
+// the is controller model key set on it false is returned when reporting if
+// the request context is for the controller model.
+func (*ModelHandlersSuite) TestIsControllerModelNotSetOnContext(c *tc.C) {
+	c.Check(RequestIsForControllerModel(c.Context()), tc.IsFalse)
+}
+
+// TestIsControllerModelKeyBadValue verifies that should the
+// [isControllerModelKey] ever be set on a context with a value that is not a
+// bool [RequestIsForControllerModel] returns false.
+//
+// This is a sanity check to make sure that even when we do the wrong thing we
+// adhere to the contract of [RequestIsForControllerModel].
+func (*ModelHandlersSuite) TestIsControllerModelKeyBadValue(c *tc.C) {
+	ctx := context.WithValue(c.Context(), isControllerModelKey{}, "true")
+	c.Check(RequestIsForControllerModel(ctx), tc.IsFalse)
+}
+
+// TestControllerModelSignalHandlerIsControllerModel tests that
+// [ControllerModelSignalHandler] sets the is controller model flag on the
+// context when the request model is equal to that of the controller model.
+func (*ModelHandlersSuite) TestControllerModelSignalHandlerIsControllerModel(c *tc.C) {
+	ctx := c.Context()
+	controllerModelUUID := tc.Must(c, coremodel.NewUUID)
+	ctx = SetContextModelUUID(ctx, controllerModelUUID)
+
+	var nextHandlerCalled bool
+	var nextHandlerFunc http.HandlerFunc = func(
+		_ http.ResponseWriter, r *http.Request,
+	) {
+		c.Check(RequestIsForControllerModel(r.Context()), tc.IsTrue)
+		nextHandlerCalled = true
+	}
+
+	handler := ControllerModelSignalHandler{
+		ControllerModelUUID: controllerModelUUID,
+		Handler:             nextHandlerFunc,
+	}
+
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/foo", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	c.Check(nextHandlerCalled, tc.IsTrue)
+}
+
+// TestControllerModelSignalHandlerIsNotControllerModel tests that
+// [ControllerModelSignalHandler] does not set the is controller model flag on
+// requests that are not for the controller model.
+func (*ModelHandlersSuite) TestControllerModelSignalHandlerIsNotControllerModel(c *tc.C) {
+	ctx := c.Context()
+	controllerModelUUID := tc.Must(c, coremodel.NewUUID)
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	ctx = SetContextModelUUID(ctx, modelUUID) // Not the controller model uuid
+
+	var nextHandlerCalled bool
+	var nextHandlerFunc http.HandlerFunc = func(
+		_ http.ResponseWriter, r *http.Request,
+	) {
+		c.Check(RequestIsForControllerModel(r.Context()), tc.IsFalse)
+		nextHandlerCalled = true
+	}
+
+	handler := ControllerModelSignalHandler{
+		ControllerModelUUID: controllerModelUUID,
+		Handler:             nextHandlerFunc,
+	}
+
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/foo", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	c.Check(nextHandlerCalled, tc.IsTrue)
 }
