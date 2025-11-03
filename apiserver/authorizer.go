@@ -41,7 +41,7 @@ func (a tagKindAuthorizer) Authorize(_ context.Context, authInfo authentication.
 // [permission.SuperuserAccess] on the controller.
 //
 // controllerAdminAuthorizer implements the
-// [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
+// [authentication.Authorizer] interface.
 type controllerAdminAuthorizer struct {
 	controllerTag names.Tag
 }
@@ -50,8 +50,7 @@ type controllerAdminAuthorizer struct {
 // [permission.SuperuserAccess] on the controller. No other permissions are
 // considered valid for this authorizer.
 //
-// Authorize implements the
-// [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
+// Authorize implements the [authentication.Authorizer] interface.
 func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
 	userTag, ok := authInfo.Tag.(names.UserTag)
 	if !ok {
@@ -78,8 +77,8 @@ func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authe
 // modelPermissionAuthorizer checks that the authenticated user has the given
 // permission on a model.
 //
-// modelPermissionAuthorizer implements the
-// [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
+// modelPermissionAuthorizer implements the [authentication.Authorizer]
+// interface.
 type modelPermissionAuthorizer struct {
 	perm permission.Access
 }
@@ -93,8 +92,7 @@ type modelPermissionAuthorizer struct {
 // read permissions it will still fail the authorization. To support permission
 // hierarchy use multiple [modelPermissionAuthorizer]s.
 //
-// Authorize implements the
-// [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
+// Authorize implements the [authentication.Authorizer] interface.
 func (a modelPermissionAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
 	userTag, ok := authInfo.Tag.(names.UserTag)
 	if !ok {
@@ -168,8 +166,7 @@ type controllerModelPermissionAuthorizer struct {
 // the controller. If the authorization request is not for the controller model
 // then the request is passed on to the fallThroughAuthorizer.
 //
-// Authorize implements the
-// [github.com/juju/juju/apiserver/authentication.Authorizer] interface.
+// Authorize implements the [authentication.Authorizer] interface.
 func (a controllerModelPermissionAuthorizer) Authorize(
 	ctx context.Context, authInfo authentication.AuthInfo,
 ) error {

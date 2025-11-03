@@ -814,7 +814,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		modelAgentBinaryStoreForHTTPContext(httpCtxt),
 	), "tools")
 
-	// toolsUploadAuthorizer defines the authorizer that MUST be used to tools
+	// toolsUploadAuthorizer defines the authorizer that MUST be used for tools
 	// uploading in the controller. If the user is a controller admin then we
 	// can allow the request through, this must also be the case the if the
 	// model being uploaded to is the controller model. All other models it is
