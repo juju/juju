@@ -43,10 +43,10 @@ func (*multiplexerSuite) TestJoin_CallsAllObservers(c *gc.C) {
 
 	o := observer.NewMultiplexer(observers[0], observers[1])
 	var req http.Request
-	o.Join(&req, 1234)
+	o.Join(&req, 1234, 2)
 
 	for _, f := range observers {
-		f.CheckCall(c, 0, "Join", &req, uint64(1234))
+		f.CheckCall(c, 0, "Join", &req, uint64(1234), int(2))
 	}
 }
 

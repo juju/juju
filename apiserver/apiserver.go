@@ -1094,14 +1094,18 @@ func (srv *Server) healthHandler(w http.ResponseWriter, req *http.Request) {
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
+	fd := -1
+	if v, ok := req.Context().Value("raw-http-fd").(int); ok {
+		fd = v
+	}
 
 	apiObserver := srv.newObserver()
-	apiObserver.Join(req, connectionID)
+	apiObserver.Join(req, connectionID, fd)
 	defer apiObserver.Leave()
 
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID := httpcontext.RequestModelUUID(req)
-		logger.Tracef("got a request for model %q", modelUUID)
+		logger.Tracef("got a request for model %q fd:%v", modelUUID)
 		if err := srv.serveConn(
 			req.Context(),
 			conn,
