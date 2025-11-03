@@ -823,7 +823,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerAdminAuthorizer,
 		controllerModelPermissionAuthorizer{
 			controllerAdminAuthorizer: controllerAdminAuthorizer,
-			fallThroughAuthroizer: modelPermissionAuthorizer{
+			fallThroughAuthorizer: modelPermissionAuthorizer{
 				perm: permission.AdminAccess,
 			},
 			ModelAuthorizationInfo: modelAuthorizationInfoForRequest(),

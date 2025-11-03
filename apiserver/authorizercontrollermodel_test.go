@@ -73,7 +73,7 @@ func (s *controllerModelAuthorizerSuite) TestNonControllerModelFallThrough(c *tc
 		controllerAdminAuthorizer: controllerAdminAuthorizer{
 			controllerTag: controllerTag,
 		},
-		fallThroughAuthroizer:  fallThrough,
+		fallThroughAuthorizer:  fallThrough,
 		ModelAuthorizationInfo: s.modelAuthInfo,
 	}
 
@@ -106,7 +106,7 @@ func (s *controllerModelAuthorizerSuite) TestSuperUserControllerModelAllowed(c *
 	var fallThrough authentication.AuthorizerFunc = func(
 		context.Context, authentication.AuthInfo,
 	) error {
-		c.Fatal("fall throguh authorizer should never have been called")
+		c.Fatal("fall through authorizer should never have been called")
 		return nil
 	}
 
@@ -119,7 +119,7 @@ func (s *controllerModelAuthorizerSuite) TestSuperUserControllerModelAllowed(c *
 		controllerAdminAuthorizer: controllerAdminAuthorizer{
 			controllerTag: controllerTag,
 		},
-		fallThroughAuthroizer:  fallThrough,
+		fallThroughAuthorizer:  fallThrough,
 		ModelAuthorizationInfo: s.modelAuthInfo,
 	}
 
@@ -143,7 +143,7 @@ func (s *controllerModelAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c 
 	var fallThrough authentication.AuthorizerFunc = func(
 		context.Context, authentication.AuthInfo,
 	) error {
-		c.Fatal("fall throguh authorizer should never have been called")
+		c.Fatal("fall through authorizer should never have been called")
 		return nil
 	}
 
@@ -182,7 +182,7 @@ func (s *controllerModelAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c 
 				controllerAdminAuthorizer: controllerAdminAuthorizer{
 					controllerTag: controllerTag,
 				},
-				fallThroughAuthroizer:  fallThrough,
+				fallThroughAuthorizer:  fallThrough,
 				ModelAuthorizationInfo: s.modelAuthInfo,
 			}
 

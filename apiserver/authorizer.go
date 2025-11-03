@@ -159,7 +159,7 @@ func modelAuthorizationInfoForRequest() ModelAuthorizationInfoFunc {
 // [controllerModelPermissionAuthorizer.fallThroughAuthorizer].
 type controllerModelPermissionAuthorizer struct {
 	controllerAdminAuthorizer
-	fallThroughAuthroizer authentication.Authorizer
+	fallThroughAuthorizer authentication.Authorizer
 	ModelAuthorizationInfo
 }
 
@@ -176,7 +176,7 @@ func (a controllerModelPermissionAuthorizer) Authorize(
 	isControllerModel := a.ModelAuthorizationInfo.IsAuthorizationForControllerModel(ctx)
 	if !isControllerModel {
 		// We can defer through to the fallThroughAuthorizer.
-		return a.fallThroughAuthroizer.Authorize(ctx, authInfo)
+		return a.fallThroughAuthorizer.Authorize(ctx, authInfo)
 	}
 
 	// Authorization is for the controller model, must pass the
