@@ -84,22 +84,6 @@ func (h *QueryModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 	validateModelAndServe(h.Handler, modelUUID, w, req)
 }
 
-// BucketModelHandler is an http.Handler that associates requests that
-// it handles with a model UUID extracted from a specified query parameter that
-// must be the objects storage :bucket which is formatted 'model-{modelUUID}'.
-// The model UUID can then be extracted using the RequestModelUUID function
-// in this package.
-type BucketModelHandler struct {
-	http.Handler
-	Query string
-}
-
-// ServeHTTP is part of the http.Handler interface.
-func (h *BucketModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	modelUUID := req.URL.Query().Get(h.Query)
-	validateModelAndServe(h.Handler, modelUUID, w, req)
-}
-
 func validateModelAndServe(handler http.Handler, modelUUIDStr string, w http.ResponseWriter, req *http.Request) {
 	if modelUUIDStr != "" {
 		modelUUID := coremodel.UUID(modelUUIDStr)

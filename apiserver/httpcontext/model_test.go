@@ -23,7 +23,6 @@ type ModelHandlersSuite struct {
 
 	controllerModelHandler *ControllerModelHandler
 	queryHandler           *QueryModelHandler
-	bucketHandler          *BucketModelHandler
 
 	server *httptest.Server
 }
@@ -46,14 +45,9 @@ func (s *ModelHandlersSuite) SetUpTest(c *tc.C) {
 		Handler: h,
 		Query:   "modeluuid",
 	}
-	s.bucketHandler = &BucketModelHandler{
-		Handler: h,
-		Query:   ":modeluuid",
-	}
 	mux := apiserverhttp.NewMux()
 	mux.AddHandler("GET", "/query", s.queryHandler)
 	mux.AddHandler("GET", "/controller", s.controllerModelHandler)
-	mux.AddHandler("GET", "/model-:modeluuid/charms/:object", s.bucketHandler)
 	s.server = httptest.NewServer(mux)
 }
 
@@ -88,39 +82,6 @@ func (s *ModelHandlersSuite) TestQueryInvalidModelUUID(c *tc.C) {
 	out, err := io.ReadAll(resp.Body)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(out), tc.Equals, `invalid model UUID "zing"`+"\n")
-}
-
-func (s *ModelHandlersSuite) TestBucket(c *tc.C) {
-	resp, err := s.server.Client().Get(s.server.URL + "/model-" + coretesting.ModelTag.Id() + "/charms/somecharm-abcd0123")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
-	defer resp.Body.Close()
-
-	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(string(out), tc.Equals, coretesting.ModelTag.Id())
-}
-
-func (s *ModelHandlersSuite) TestInvalidBucket(c *tc.C) {
-	resp, err := s.server.Client().Get(s.server.URL + "/modelwrongbucket/charms/somecharm-abcd0123")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
-	defer resp.Body.Close()
-
-	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(string(out), tc.Equals, "404 page not found\n")
-}
-
-func (s *ModelHandlersSuite) TestBucketInvalidModelUUID(c *tc.C) {
-	resp, err := s.server.Client().Get(s.server.URL + "/model-wrongbucket/charms/somecharm-abcd0123")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(resp.StatusCode, tc.Equals, http.StatusBadRequest)
-	defer resp.Body.Close()
-
-	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(string(out), tc.Equals, `invalid model UUID "wrongbucket"`+"\n")
 }
 
 // TestSetIsControllerModelOnContext verifies that when the is controller model
