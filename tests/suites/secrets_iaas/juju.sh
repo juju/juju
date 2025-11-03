@@ -1,7 +1,8 @@
 check_secrets() {
-	juju --show-log deploy juju-qa-dummy-source --config token=foo
+	juju --show-log deploy juju-qa-dummy-source
 	juju --show-log deploy juju-qa-dummy-sink
 	juju --show-log integrate dummy-sink dummy-source
+	juju config dummy-source token=foo
 
 	wait_for "active" '.applications["dummy-source"] | ."application-status".current'
 	wait_for "active" '.applications["dummy-sink"] | ."application-status".current' 900
@@ -80,10 +81,10 @@ run_user_secrets() {
 
 	model_name=${1}
 
-	app_name='dummy-source-user-secrets'
-	juju --show-log deploy juju-qa-dummy-source "$app_name" --config token=foo
+	app_name='dummy-user-secrets'
+	juju --show-log deploy juju-qa-test "$app_name"
 	
-	wait_for "active" '.applications["dummy-source-user-secrets"] | ."application-status".current'
+	wait_for "active" '.applications["dummy-user-secrets"] | ."application-status".current'
 
 	# first test the creation of a large secret which encodes to approx 1MB in size.
 	echo "data: $(cat /dev/zero | tr '\0' A | head -c 749500)" >"${TEST_DIR}/secret.txt"
