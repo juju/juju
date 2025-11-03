@@ -712,33 +712,17 @@ func (s *apiclientSuite) TestOpenWithNoCACert(c *tc.C) {
 	// This is hard to test as we have no way of affecting the system roots,
 	// so instead we check that the error that we get implies that
 	// we're using the system roots.
-
 	info := s.APIInfo()
 	info.CACert = ""
-
-	// Unfortunately I have not better way to check that there is no retry.
-	// The idea is that if we don't have any retry, we should have a total dial time lesser than
-	// the retryDelay. It may break if the dial doesn't fail fast enough, but 200ms is quite long
-	// for this test, so it shouldn't be flaky.
-	dialTime := time.Now()
-	retryDelay := 200 * time.Millisecond
-
-	// This test used to use a long timeout so that we can check that the retry
-	// logic doesn't retry, but that got all messed up with dualstack IPs.
-	// The api server was only listening on IPv4, but localhost resolved to both
-	// IPv4 and IPv6. The IPv4 didn't retry, but the IPv6 one did, because it was
-	// retrying the dial. The parallel try doesn't have a fatal error type yet.
 	_, err := api.Open(c.Context(), info, api.DialOpts{
-		Timeout:    2 * time.Second,
-		RetryDelay: 200 * time.Millisecond,
+		Timeout:    time.Hour,
+		RetryDelay: time.Nanosecond,
 	})
 	switch errType := errors.Cause(err).(type) {
 	case *tls.CertificateVerificationError:
 	default:
 		c.Fatalf("unexpected error type %v", errType)
 	}
-	endDialTime := time.Now()
-	c.Assert(endDialTime.Sub(dialTime), tc.DurationLessThan, retryDelay)
 }
 
 func (s *apiclientSuite) TestOpenWithRedirect(c *tc.C) {

@@ -18,6 +18,7 @@ import (
 	gopath "path"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -1074,28 +1075,32 @@ type dialer struct {
 // by dialing the websocket as specified in d and retrying
 // when appropriate.
 func (d dialer) dial(done <-chan struct{}) (io.Closer, error) {
-	success := make(chan struct{})
-	cancel := func() {}
+	var (
+		cancelMutex sync.Mutex
+		cancel      func()
+	)
 	go func() {
-		select {
-		case <-done:
+		<-done
+		cancelMutex.Lock()
+		defer cancelMutex.Unlock()
+		if cancel != nil {
 			cancel()
-		case <-success:
 		}
 	}()
 	a := retry.StartWithCancel(d.openAttempt, d.opts.Clock, done)
 	var lastErr error = nil
 	for a.Next() {
-		var ctx context.Context
-		ctx, cancel = context.WithCancel(d.ctx)
+		ctx, ctxCancel := context.WithCancel(d.ctx)
+		cancelMutex.Lock()
+		cancel = ctxCancel
+		cancelMutex.Unlock()
 		conn, tlsConfig, err := d.dial1(ctx)
+		cancelMutex.Lock()
+		cancel = nil
+		cancelMutex.Unlock()
 		if err == nil {
-			select {
-			case <-done:
-			case success <- struct{}{}:
-			}
 			return &dialResult{
-				cancelSubContext:   cancel,
+				cancelSubContext:   ctxCancel,
 				conn:               conn,
 				dialAddr:           d.addr,
 				controllerRootAddr: d.controllerRoot,
@@ -1103,7 +1108,7 @@ func (d dialer) dial(done <-chan struct{}) (io.Closer, error) {
 				tlsConfig:          tlsConfig,
 			}, nil
 		}
-		cancel()
+		ctxCancel()
 		lastErr = err
 		if isX509Error(err) {
 			break
