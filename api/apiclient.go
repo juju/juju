@@ -1073,13 +1073,27 @@ type dialer struct {
 // dial implements the function value expected by Try.Start
 // by dialing the websocket as specified in d and retrying
 // when appropriate.
-func (d dialer) dial(_ <-chan struct{}) (io.Closer, error) {
-	a := retry.StartWithCancel(d.openAttempt, d.opts.Clock, d.ctx.Done())
+func (d dialer) dial(done <-chan struct{}) (io.Closer, error) {
+	success := make(chan struct{})
+	cancel := func() {}
+	go func() {
+		select {
+		case <-done:
+			cancel()
+		case <-success:
+		}
+	}()
+	a := retry.StartWithCancel(d.openAttempt, d.opts.Clock, done)
 	var lastErr error = nil
 	for a.Next() {
-		ctx, cancel := context.WithCancel(d.ctx)
+		var ctx context.Context
+		ctx, cancel = context.WithCancel(d.ctx)
 		conn, tlsConfig, err := d.dial1(ctx)
 		if err == nil {
+			select {
+			case <-done:
+			case success <- struct{}{}:
+			}
 			return &dialResult{
 				cancelSubContext:   cancel,
 				conn:               conn,

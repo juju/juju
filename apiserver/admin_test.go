@@ -160,7 +160,7 @@ func (s *loginSuite) TestBadLogin(c *tc.C) {
 	for i, t := range []struct {
 		tag      names.Tag
 		password string
-		err      error
+		err      *rpc.RequestError
 		code     string
 	}{{
 		tag:      jujutesting.AdminUser,
@@ -192,7 +192,9 @@ func (s *loginSuite) TestBadLogin(c *tc.C) {
 
 			// Since these are user login tests, the nonce is empty.
 			err = st.Login(c.Context(), t.tag, t.password, "", nil)
-			c.Assert(errors.Cause(err), tc.DeepEquals, t.err)
+			rErr, ok := errors.AsType[*rpc.RequestError](err)
+			c.Assert(ok, tc.IsTrue)
+			c.Assert(rErr, tc.DeepEquals, t.err)
 			c.Assert(params.ErrCode(err), tc.Equals, t.code)
 
 			_, err = apimachiner.NewClient(st).Machine(c.Context(), names.NewMachineTag("0"))
@@ -233,7 +235,9 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *tc.C) {
 	err = st.Login(c.Context(), userTag, pass, "", nil)
 
 	// The error message should not leak that the user is disabled.
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: "invalid entity name or password",
 		Code:    "unauthorized access",
 	})
@@ -272,7 +276,9 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *tc.C) {
 
 	// Since these are user login tests, the nonce is empty.
 	err = st.Login(c.Context(), userTag, pass, "", nil)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: "invalid entity name or password",
 		Code:    "unauthorized access",
 	})
@@ -373,7 +379,9 @@ func (s *loginSuite) TestNoLoginPermissions(c *tc.C) {
 	info.Password = password
 	info.Tag = tag
 	_, err = api.Open(c.Context(), info, fastDialOpts)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: "permission denied",
 		Code:    "unauthorized access",
 	})
@@ -470,7 +478,9 @@ func (s *loginSuite) TestNonExistentModel(c *tc.C) {
 	st := s.openModelAPIWithoutLogin(c, uuid.String())
 
 	err = st.Login(c.Context(), jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: fmt.Sprintf("unknown model: %q", uuid),
 		Code:    "model not found",
 	})
@@ -696,14 +706,18 @@ func (s *loginSuite) setEveryoneAccess(c *tc.C, accessLevel permission.Access) {
 }
 
 func assertInvalidEntityPassword(c *tc.C, err error) {
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: "invalid entity name or password",
 		Code:    "unauthorized access",
 	})
 }
 
 func assertPermissionDenied(c *tc.C, err error) {
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: "permission denied",
 		Code:    "unauthorized access",
 	})
@@ -740,7 +754,9 @@ func (s *loginV3Suite) TestClientLoginToController(c *tc.C) {
 	apiState := s.OpenControllerAPI(c)
 	client := machineclient.NewClient(apiState)
 	_, err := client.RetryProvisioning(c.Context(), false, names.NewMachineTag("machine-0"))
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: `facade "MachineManager" not supported for controller API connection`,
 		Code:    "not supported",
 	})

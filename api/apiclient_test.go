@@ -351,7 +351,9 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *tc.C) {
 	// We start by ensuring we have an invalid tag, and Open should fail.
 	info.ModelTag = names.NewModelTag("0b501e7e-cafe-f00d-ba1d-b1a570c0e199")
 	_, err := api.Open(c.Context(), info, api.DialOpts{})
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "0b501e7e-cafe-f00d-ba1d-b1a570c0e199"`,
 		Code:    "model not found",
 	})
@@ -390,7 +392,7 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *tc.C) {
 		return r.conn, nil
 	}
 	conn0 := fakeConn{}
-	clock := testclock.NewClock(time.Now())
+	clock := testclock.NewDilatedWallClock(time.Millisecond)
 	openDone := make(chan struct{})
 	const dialAddressInterval = 50 * time.Millisecond
 	go func() {
@@ -446,8 +448,6 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *tc.C) {
 	// Wait for the next dial to be made. Note that we wait for two
 	// waiters because ContextWithTimeout as created by the
 	// outer level of api.Open also waits.
-	err := clock.WaitAdvance(dialAddressInterval, time.Second, 2)
-	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case info1 = <-dialed:
@@ -990,7 +990,8 @@ func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case err := <-done:
-		c.Assert(err, tc.ErrorMatches, `cannot log in: context deadline exceeded`)
+		c.Assert(err, tc.ErrorMatches,
+			`cannot log in: api connection open timed out`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
 	}
@@ -1030,7 +1031,7 @@ func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case err := <-done:
-		c.Assert(err, tc.ErrorMatches, `unable to connect to API: context deadline exceeded`)
+		c.Assert(err, tc.ErrorMatches, `api connection open timed out`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
 	}
@@ -1071,7 +1072,7 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case err := <-done:
-		c.Assert(err, tc.ErrorMatches, `unable to connect to API: context deadline exceeded`)
+		c.Assert(err, tc.ErrorMatches, `api connection dial timed out`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
 	}
@@ -1495,7 +1496,9 @@ func (s *apiclientSuite) TestOpenUsesModelUUIDPaths(c *tc.C) {
 	// Passing in an unknown model UUID should fail with a known error
 	info.ModelTag = names.NewModelTag("1eaf1e55-70ad-face-b007-70ad57001999")
 	conn, err = api.Open(c.Context(), info, api.DialOpts{})
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "1eaf1e55-70ad-face-b007-70ad57001999"`,
 		Code:    "model not found",
 	})

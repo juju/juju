@@ -9,23 +9,23 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ErrShutdown is returned when a request is made on a connection that is
 // shutting down.
-var ErrShutdown = errors.New("connection is shut down")
+const ErrShutdown = errors.ConstError("connection is shut down")
 
 // IsShutdownErr returns true if the error is ErrShutdown.
 func IsShutdownErr(err error) bool {
-	return errors.Cause(err) == ErrShutdown
+	return errors.Is(err, ErrShutdown)
 }
 
 // Call represents an active RPC.
 type Call struct {
 	Request
-	Params     interface{}
-	Response   interface{}
+	Params     any
+	Response   any
 	Error      error
 	Done       chan *Call
 	TraceID    string
@@ -37,7 +37,7 @@ type Call struct {
 type RequestError struct {
 	Message string
 	Code    string
-	Info    map[string]interface{}
+	Info    map[string]any
 }
 
 func (e *RequestError) Error() string {
@@ -53,7 +53,7 @@ func (e *RequestError) ErrorCode() string {
 }
 
 // ErrorInfo returns the error information associated with the error.
-func (e *RequestError) ErrorInfo() map[string]interface{} {
+func (e *RequestError) ErrorInfo() map[string]any {
 	return e.Info
 }
 
@@ -61,18 +61,20 @@ func (e *RequestError) ErrorInfo() map[string]interface{} {
 // field of a RequestError into an object instance a pointer to which is passed
 // via the to argument. The method will return an error if a non-pointer arg
 // is provided.
-func (e *RequestError) UnmarshalInfo(to interface{}) error {
+func (e *RequestError) UnmarshalInfo(to any) error {
 	if reflect.ValueOf(to).Kind() != reflect.Ptr {
 		return errors.New("UnmarshalInfo expects a pointer as an argument")
 	}
 
 	data, err := json.Marshal(e.Info)
 	if err != nil {
-		return errors.Annotate(err, "could not marshal error information")
+		return errors.Errorf("could not marshal error information: %w", err)
 	}
 	err = json.Unmarshal(data, to)
 	if err != nil {
-		return errors.Annotate(err, "could not unmarshal error information to provided target")
+		return errors.Errorf(
+			"could not unmarshal error information to provided target: %w", err,
+		)
 	}
 
 	return nil
@@ -85,12 +87,17 @@ func (conn *Conn) send(call *Call) uint64 {
 	// Register this call.
 	conn.mutex.Lock()
 	if conn.dead == nil {
-		panic("rpc: call made when connection not started")
+		call.Error = errors.New("rpc: call made when connection not started")
+		conn.mutex.Unlock()
+		call.done(conn.context)
+		return 0
 	}
 	if conn.closing || conn.shutdown {
-		call.Error = ErrShutdown
+		call.Error = errors.Errorf(
+			"connection is shutdown before send",
+		).Add(ErrShutdown)
 		conn.mutex.Unlock()
-		call.done()
+		call.done(conn.context)
 		return 0
 	}
 	conn.reqId++
@@ -119,7 +126,7 @@ func (conn *Conn) send(call *Call) uint64 {
 		conn.mutex.Unlock()
 		if call != nil {
 			call.Error = err
-			call.done()
+			call.done(conn.context)
 		}
 	}
 
@@ -179,22 +186,27 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 			Info:    hdr.ErrorInfo,
 		}
 		err = conn.readBody(nil, false)
-		call.done()
+		call.done(conn.context)
 	default:
 		err = conn.readBody(call.Response, false)
-		call.done()
+		call.done(conn.context)
 	}
-	return errors.Annotate(err, "error handling response")
+	if err != nil {
+		return errors.Errorf("error handling response: %w", err)
+	}
+	return nil
 }
 
-func (call *Call) done() {
+func (call *Call) done(ctx context.Context) {
 	select {
 	case call.Done <- call:
 		// ok
 	default:
 		// We don't want to block here.  It is the caller's responsibility to make
 		// sure the channel has enough buffer space. See comment in Go().
-		logger.Errorf(context.TODO(), "discarding Call reply due to insufficient Done chan capacity")
+		logger.Errorf(
+			ctx, "discarding Call reply due to insufficient Done chan capacity",
+		)
 	}
 }
 
@@ -227,7 +239,12 @@ func (conn *Conn) Call(ctx context.Context, req Request, params, response any) e
 		// If the request ID is 0, the connection is shutting down or has
 		// already shut down, then return the ErrShutdown error.
 		if ctx.Err() != nil {
-			return context.Cause(ctx)
+			return errors.Errorf(
+				"connection is shut down: %w", context.Cause(ctx),
+			).Add(ErrShutdown)
+		}
+		if call.Error != nil {
+			return call.Error
 		}
 		return ErrShutdown
 	}
@@ -238,8 +255,10 @@ func (conn *Conn) Call(ctx context.Context, req Request, params, response any) e
 		return context.Cause(ctx)
 	case result := <-call.Done:
 		if errors.Is(result.Error, ErrShutdown) && ctx.Err() != nil {
-			return context.Cause(ctx)
+			return errors.Errorf(
+				"connection is shut down: %w", context.Cause(ctx),
+			).Add(result.Error)
 		}
-		return errors.Trace(result.Error)
+		return errors.Capture(result.Error)
 	}
 }

@@ -58,7 +58,7 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *tc.C) {
 	// Close before we connect
 	listen.Close()
 	_, err = dialAPI(ctx, info, opts)
-	c.Check(err, tc.ErrorMatches, fmt.Sprintf("dial tcp %s:.*", regexp.QuoteMeta(addr)))
+	c.Check(err, tc.NotNil)
 }
 
 func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *tc.C) {

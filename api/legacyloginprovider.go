@@ -165,7 +165,7 @@ func (p *legacyLoginProvider) Login(ctx context.Context, caller base.APICaller) 
 			return nil, errors.Trace(err)
 		}
 
-		if rpcErr, ok := errors.Cause(err).(*rpc.RequestError); ok {
+		if rpcErr, ok := errors.AsType[*rpc.RequestError](err); ok {
 			var redirInfo params.RedirectErrorInfo
 			err := rpcErr.UnmarshalInfo(&redirInfo)
 			if err == nil && redirInfo.CACert != "" && len(redirInfo.Servers) != 0 {

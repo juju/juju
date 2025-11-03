@@ -14,12 +14,12 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/testing"
@@ -528,7 +528,9 @@ func (root *Root) testCall(c *tc.C, args testCallParams) {
 	err := args.client.Call(rpc.WithTracing(c.Context(), "foobar", "baz", 1), args.request(), stringVal{"arg"}, &response)
 	switch {
 	case args.retErr && args.testErr:
-		c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+		rErr, ok := errors.AsType[*rpc.RequestError](err)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 			Message: args.errorMessage(),
 		})
 		c.Assert(response, tc.Equals, stringVal{})
@@ -632,7 +634,9 @@ func (*rpcSuite) TestInterfaceMethods(c *tc.C) {
 	// CodeNotImplemented.
 	var r stringVal
 	err := client.Call(c.Context(), rpc.Request{Type: "InterfaceMethods", Version: 0, Id: "a99", Action: "Call0r0"}, stringVal{Val: "arg"}, &r)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: `unknown method "Call0r0" at version 0 for facade type "InterfaceMethods"`,
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -658,7 +662,9 @@ func (*rpcSuite) TestCustomRootV0(c *tc.C) {
 	// Call1r1 is exposed in version 1, but not in version 0.
 	var r stringVal
 	err := client.Call(c.Context(), rpc.Request{Type: "MultiVersion", Version: 0, Id: "a99", Action: "Call1r1"}, stringVal{Val: "arg"}, &r)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: `unknown method "Call1r1" at version 0 for facade type "MultiVersion"`,
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -684,7 +690,9 @@ func (*rpcSuite) TestCustomRootV1(c *tc.C) {
 	// Call0r1 is exposed in version 0, but not in version 1.
 	var r stringVal
 	err := client.Call(c.Context(), rpc.Request{Type: "MultiVersion", Version: 1, Id: "a99", Action: "Call0r1"}, nil, &r)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: `unknown method "Call0r1" at version 1 for facade type "MultiVersion"`,
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -711,7 +719,9 @@ func (*rpcSuite) TestCustomRootV2(c *tc.C) {
 	// in InterfaceMethods.
 	var r stringVal
 	err := client.Call(c.Context(), rpc.Request{Type: "MultiVersion", Version: 2, Id: "a99", Action: "Call0r1e"}, nil, &r)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: `unknown method "Call0r1e" at version 2 for facade type "MultiVersion"`,
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -724,7 +734,9 @@ func (*rpcSuite) TestCustomRootUnknownVersion(c *tc.C) {
 	var r stringVal
 	// Unknown version 5
 	err := client.Call(c.Context(), rpc.Request{Type: "MultiVersion", Version: 5, Id: "a99", Action: "Call0r1"}, nil, &r)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
 		Message: `unknown version 5 for facade type "MultiVersion"`,
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -804,7 +816,9 @@ func (*rpcSuite) TestErrorCode(c *tc.C) {
 	defer closeClient(c, client, srvDone)
 	err := client.Call(c.Context(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
 	c.Assert(err, tc.ErrorMatches, `message \(code\)`)
-	c.Assert(errors.Cause(err).(rpc.ErrorCoder).ErrorCode(), tc.Equals, "code")
+	coder, ok := errors.AsType[rpc.ErrorCoder](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(coder.ErrorCode(), tc.Equals, "code")
 }
 
 func (*rpcSuite) TestErrorInfo(c *tc.C) {
@@ -820,7 +834,9 @@ func (*rpcSuite) TestErrorInfo(c *tc.C) {
 	defer closeClient(c, client, srvDone)
 	err := client.Call(c.Context(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
 	c.Assert(err, tc.ErrorMatches, `message`)
-	c.Assert(errors.Cause(err).(rpc.ErrorInfoProvider).ErrorInfo(), tc.DeepEquals, info)
+	infoProvider, ok := errors.AsType[rpc.ErrorInfoProvider](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(infoProvider.ErrorInfo(), tc.DeepEquals, info)
 }
 
 func (*rpcSuite) TestTransformErrors(c *tc.C) {
@@ -838,37 +854,68 @@ func (*rpcSuite) TestTransformErrors(c *tc.C) {
 		}
 		return fmt.Errorf("transformed: %v", err)
 	}
-	client, _, srvDone, _ := newRPCClientServer(c, root, tfErr, false)
-	defer closeClient(c, client, srvDone)
-	// First, we don't transform methods we can't find.
-	err := client.Call(c.Context(), rpc.Request{Type: "foo", Version: 0, Id: "", Action: "bar"}, nil, nil)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
-		Message: `unknown facade type "foo"`,
-		Code:    rpc.CodeNotImplemented,
+	c.Run("UnknowFacade", func(c *stdtesting.T) {
+		client, _, srvDone, _ := newRPCClientServer(c, root, tfErr, false)
+		defer closeClient(c, client, srvDone)
+		// First, we don't transform methods we can't find.
+		err := client.Call(c.Context(), rpc.Request{Type: "foo", Version: 0, Id: "", Action: "bar"}, nil, nil)
+		c.Logf("got error: %s", err)
+		rErr, ok := errors.AsType[*rpc.RequestError](err)
+		tc.Assert(c, ok, tc.IsTrue)
+		tc.Assert(c, rErr, tc.DeepEquals, &rpc.RequestError{
+			Message: `unknown facade type "foo"`,
+			Code:    rpc.CodeNotImplemented,
+		})
 	})
 
-	err = client.Call(c.Context(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "NoMethod"}, nil, nil)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
-		Message: `unknown method "NoMethod" at version 0 for facade type "ErrorMethods"`,
-		Code:    rpc.CodeNotImplemented,
+	c.Run("UnknowMethod", func(c *stdtesting.T) {
+		client, _, srvDone, _ := newRPCClientServer(c, root, tfErr, false)
+		defer closeClient(c, client, srvDone)
+		err := client.Call(c.Context(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "NoMethod"}, nil, nil)
+		c.Logf("got error: %s", err)
+		rErr, ok := errors.AsType[*rpc.RequestError](err)
+		tc.Assert(c, ok, tc.IsTrue)
+		tc.Assert(c, rErr, tc.DeepEquals, &rpc.RequestError{
+			Message: `unknown method "NoMethod" at version 0 for facade type "ErrorMethods"`,
+			Code:    rpc.CodeNotImplemented,
+		})
 	})
 
-	// We do transform any errors that happen from calling the RootMethod
-	// and beyond.
-	err = client.Call(c.Context(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
-		Message: "transformed: message",
-		Code:    "transformed: code",
+	c.Run("ErrorMethods", func(c *stdtesting.T) {
+		client, _, srvDone, _ := newRPCClientServer(c, root, tfErr, false)
+		defer closeClient(c, client, srvDone)
+		// We do transform any errors that happen from calling the RootMethod
+		// and beyond.
+		err := client.Call(c.Context(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
+		c.Logf("got error: %s", err)
+		rErr, ok := errors.AsType[*rpc.RequestError](err)
+		tc.Assert(c, ok, tc.IsTrue)
+		tc.Assert(c, rErr, tc.DeepEquals, &rpc.RequestError{
+			Message: "transformed: message",
+			Code:    "transformed: code",
+		})
 	})
 
-	root.errorInst.err = nil
-	err = client.Call(c.Context(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Run("Success", func(c *stdtesting.T) {
+		root.errorInst.err = nil
+		client, _, srvDone, _ := newRPCClientServer(c, root, tfErr, false)
+		defer closeClient(c, client, srvDone)
+		err := client.Call(c.Context(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
+		c.Logf("got error: %s", err)
+		tc.Assert(c, err, tc.ErrorIsNil)
+	})
 
-	root.errorInst = nil
-	err = client.Call(c.Context(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
-	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
-		Message: "transformed: no error methods",
+	c.Run("NoErrorMethods", func(c *stdtesting.T) {
+		root.errorInst = nil
+		client, _, srvDone, _ := newRPCClientServer(c, root, tfErr, false)
+		defer closeClient(c, client, srvDone)
+		err := client.Call(c.Context(), rpc.Request{Type: "ErrorMethods", Version: 0, Id: "", Action: "Call"}, nil, nil)
+		c.Logf("got error: %s", err)
+		rErr, ok := errors.AsType[*rpc.RequestError](err)
+		tc.Assert(c, ok, tc.IsTrue)
+		tc.Assert(c, rErr, tc.DeepEquals, &rpc.RequestError{
+			Message: "transformed: no error methods",
+		})
 	})
 }
 
@@ -889,7 +936,7 @@ func (*rpcSuite) TestServerWaitsForOutstandingCalls(c *tc.C) {
 	go func() {
 		var r stringVal
 		err := client.Call(c.Context(), rpc.Request{Type: "DelayedMethods", Version: 0, Id: "1", Action: "Delay"}, nil, &r)
-		c.Check(errors.Cause(err), tc.Equals, rpc.ErrShutdown)
+		c.Check(err, tc.ErrorIs, rpc.ErrShutdown)
 		done <- struct{}{}
 	}()
 	chanRead(c, ready, "DelayedMethods.Delay ready")
@@ -1105,7 +1152,7 @@ func (*rpcSuite) TestErrorAfterClientClose(c *tc.C) {
 	err := client.Close()
 	c.Assert(err, tc.ErrorIsNil)
 	err = client.Call(c.Context(), rpc.Request{Type: "Foo", Version: 0, Id: "", Action: "Bar"}, nil, nil)
-	c.Assert(errors.Cause(err), tc.Equals, rpc.ErrShutdown)
+	c.Assert(err, tc.ErrorIs, rpc.ErrShutdown)
 	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -1364,7 +1411,7 @@ func (s *rpcSuite) TestRequestErrorInfoUnmarshaling(c *tc.C) {
 	}
 }
 
-func chanReadError(c *tc.C, ch <-chan error, what string) error {
+func chanReadError(c tc.LikeTB, ch <-chan error, what string) error {
 	select {
 	case e := <-ch:
 		return e
@@ -1379,13 +1426,13 @@ func chanReadError(c *tc.C, ch <-chan error, what string) error {
 // it sends a value on the returned channel.
 // If bidir is true, requests can flow in both directions.
 func newRPCClientServer(
-	c *tc.C,
+	c tc.LikeTB,
 	root interface{},
 	tfErr func(error) error,
 	bidir bool,
 ) (client, server *rpc.Conn, srvDone chan error, serverNotifier *notifier) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, tc.ErrorIsNil)
+	tc.Assert(c, err, tc.ErrorIsNil)
 
 	srvDone = make(chan error, 1)
 	serverNotifier = new(notifier)
@@ -1422,7 +1469,7 @@ func newRPCClientServer(
 		srvDone <- rpcConn.Close()
 	}()
 	conn, err := net.Dial("tcp", l.Addr().String())
-	c.Assert(err, tc.ErrorIsNil)
+	tc.Assert(c, err, tc.ErrorIsNil)
 	server = <-srvStarted
 	if server == nil {
 		conn.Close()
@@ -1437,11 +1484,11 @@ func newRPCClientServer(
 	return client, server, srvDone, serverNotifier
 }
 
-func closeClient(c *tc.C, client *rpc.Conn, srvDone <-chan error) {
+func closeClient(c tc.LikeTB, client *rpc.Conn, srvDone <-chan error) {
 	err := client.Close()
-	c.Assert(err, tc.ErrorIsNil)
+	tc.Assert(c, err, tc.ErrorIsNil)
 	err = chanReadError(c, srvDone, "server done")
-	c.Assert(err, tc.ErrorIsNil)
+	tc.Assert(c, err, tc.ErrorIsNil)
 }
 
 // testCodec wraps an rpc.Codec with extra error checking code.

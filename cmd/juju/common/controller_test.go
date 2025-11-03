@@ -98,7 +98,13 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *tc.C) {
 		runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
 			bootstrapCtx := environscmd.BootstrapContext(c.Context(), ctx)
 			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
-			c.Check(errors.Cause(err), tc.DeepEquals, t.err)
+			if expected, ok := t.err.(*rpc.RequestError); ok {
+				rErr, ok := errors.AsType[*rpc.RequestError](err)
+				c.Assert(ok, tc.IsTrue)
+				c.Assert(rErr, tc.DeepEquals, expected)
+			} else {
+				c.Check(err, tc.ErrorIs, t.err)
+			}
 		})
 		expectedRetries := t.numRetries
 		if t.numRetries <= 0 {
