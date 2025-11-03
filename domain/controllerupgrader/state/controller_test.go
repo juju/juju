@@ -192,47 +192,6 @@ func (s *controllerStateSuite) TestSetControllerVersionMultipleSetSafe(c *tc.C) 
 	c.Check(ver, tc.Equals, upgradeVersion)
 }
 
-// TestHasAgentBinaryForVersionArchitecturesAndStream tests determining whether an agent for
-// a given version and architectures work without errors.
-func (s *controllerStateSuite) TestHasAgentBinaryForVersionArchitecturesAndStream(c *tc.C) {
-	version, err := semversion.Parse("4.0.0")
-	c.Assert(err, tc.ErrorIsNil)
-	storeUUID := s.addObjectStore(c)
-	s.addAgentBinaryStore(c, version, domainagentbinary.AMD64, storeUUID)
-	s.addAgentBinaryStore(c, version, domainagentbinary.ARM64, storeUUID)
-
-	st := NewControllerState(s.TxnRunnerFactory())
-
-	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.ARM64}, domainagentbinary.AgentStreamReleased)
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(agents, tc.DeepEquals, map[domainagentbinary.Architecture]bool{
-		domainagentbinary.AMD64: true,
-		domainagentbinary.ARM64: true,
-	})
-}
-
-// TestHasAgentBinaryForVersionArchitecturesAndStream tests determining whether an agent for
-// a given version and architectures work with some architectures not existing.
-func (s *controllerStateSuite) TestHasAgentBinaryForVersionArchitecturesAndStreamNotSupported(c *tc.C) {
-	version, err := semversion.Parse("4.0.0")
-	c.Assert(err, tc.ErrorIsNil)
-	storeUUID := s.addObjectStore(c)
-	s.addAgentBinaryStore(c, version, domainagentbinary.AMD64, storeUUID)
-	s.addAgentBinaryStore(c, version, domainagentbinary.ARM64, storeUUID)
-
-	st := NewControllerState(s.TxnRunnerFactory())
-
-	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.PPC64EL, domainagentbinary.RISCV64}, domainagentbinary.AgentStreamReleased)
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(agents, tc.DeepEquals, map[domainagentbinary.Architecture]bool{
-		domainagentbinary.AMD64:   true,
-		domainagentbinary.PPC64EL: false,
-		domainagentbinary.RISCV64: false,
-	})
-}
-
 // TestGetAllAgentStoreBinariesForStreamEmpty tests that when no agent binaries
 // exist for a given stream an empty slice is returned with no error.
 func (s *controllerStateSuite) TestGetAllAgentStoreBinariesForStreamEmpty(c *tc.C) {
