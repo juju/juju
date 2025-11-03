@@ -805,10 +805,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
 		modelAgentBinaryStoreForHTTPContext(httpCtxt),
 	), "tools")
-	controllerToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
-		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
-		controllerAgentBinaryStoreForHTTPContext(httpCtxt),
-	), "tools")
 
 	// toolsUploadAuthorizer defines the authorizer that MUST be used to tools
 	// uploading in the controller. If the user is a controller admin then we
@@ -993,10 +989,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		pattern:         "/register",
 		handler:         registerHandler,
 		unauthenticated: true,
-	}, {
-		pattern:    "/tools",
-		handler:    controllerToolsUploadHandler,
-		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:         "/tools/:version",
 		handler:         modelToolsDownloadHandler,
