@@ -25,7 +25,7 @@ type controllerAdminAuthorizerSuite struct {
 
 // TestControllerAdminAuthorizerSuite runs all of the tests that are apart of
 // the [controllerAdminAuthorizerSuite].
-func TestControllerAdminAuthroizerSuite(t *testing.T) {
+func TestControllerAdminAuthorizerSuite(t *testing.T) {
 	tc.Run(t, &controllerAdminAuthorizerSuite{})
 }
 
