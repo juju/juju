@@ -7,13 +7,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/core/permission"
-	corepermission "github.com/juju/juju/core/permission"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/apiserver/authentication"
+	corepermission "github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // controllerModelAuthorizerSuite provides a set of tests for asserting the
@@ -101,7 +101,7 @@ func (s *controllerModelAuthorizerSuite) TestSuperUserControllerModelAllowed(c *
 			ObjectType: corepermission.Controller,
 			Key:        controllerUUID.String(),
 		},
-	).Return(permission.SuperuserAccess, nil)
+	).Return(corepermission.SuperuserAccess, nil)
 
 	var fallThrough authentication.AuthorizerFunc = func(
 		context.Context, authentication.AuthInfo,

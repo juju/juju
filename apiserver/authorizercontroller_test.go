@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/permission"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -148,7 +147,7 @@ func (s *controllerAdminAuthorizerSuite) TestSuperUserPermissionAllowed(c *tc.C)
 			ObjectType: corepermission.Controller,
 			Key:        controllerUUID.String(),
 		},
-	).Return(permission.SuperuserAccess, nil)
+	).Return(corepermission.SuperuserAccess, nil)
 
 	authInfo := authentication.AuthInfo{
 		Delegator: s.permissionDelegator,
