@@ -158,12 +158,27 @@ func migratingAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinarySto
 }
 
 // modelAgentBinaryStoreForHTTPContext provides a deferred getter that will
-// provide the models [AgentBinaryStore] for the given [httpContext].
+// provide either the model or controller agent binary store based on the model
+// subject of the request.
+//
+// The controller agent binary store will only ever be supplied when the request
+// is for the controller model. All other cases will get deferred to the model's
+// agent binary store.
 func modelAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinaryStoreGetter {
 	return func(r *http.Request) (AgentBinaryStore, error) {
 		services, err := httpCtx.domainServicesForRequest(r.Context())
 		if err != nil {
 			return nil, internalerrors.Capture(err)
+		}
+
+		if httpcontext.RequestIsForControllerModel(r.Context()) {
+			// NOTE (tlm): This is a bit of a modeling wart that should be moved
+			// down lower into domain services. The facade should not be making
+			// the decision on which agent binary store to use.
+			return &agentBinaryStoreLogShim{
+				AgentBinaryStore: services.ControllerAgentBinaryStore(),
+				StoreName:        "controller",
+			}, nil
 		}
 
 		modelUUID, exists := httpcontext.RequestModelUUID(r.Context())
