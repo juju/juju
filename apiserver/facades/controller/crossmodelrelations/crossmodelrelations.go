@@ -109,7 +109,7 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 		return err
 	}
 
-	api.logger.Tracef(ctx, "publishing relation changes for relation %q", relationUUID)
+	api.logger.Debugf(ctx, "publishing relation changes for relation %q", relationUUID)
 
 	// Ensure that we have a relation and that it isn't dead.
 	// If the relation is not found or dead, we simply skip publishing
@@ -135,7 +135,9 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 	}
 
 	applicationUUID, err := api.getApplicationUUIDFromToken(ctx, change.ApplicationOrOfferToken)
-	if err != nil {
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return errors.NotFoundf("application for offer %q", change.ApplicationOrOfferToken)
+	} else if err != nil {
 		return errors.Annotatef(err, "getting application UUID for relation %q", relationUUID)
 	}
 
@@ -175,19 +177,12 @@ func (api *CrossModelRelationsAPIv3) getApplicationUUIDFromToken(
 	ctx context.Context,
 	token string,
 ) (coreapplication.UUID, error) {
-	// First try as an application UUID.
-	appUUID, err := coreapplication.ParseUUID(token)
-	if err == nil {
-		return appUUID, nil
-	}
-
-	// Next try as an offer UUID.
 	offerUUID, err := offer.ParseUUID(token)
 	if err != nil {
 		return "", errors.NotValidf("token %q is not a valid application or offer UUID", token)
 	}
 
-	_, appUUID, err = api.crossModelRelationService.GetApplicationNameAndUUIDByOfferUUID(ctx, offerUUID)
+	appUUID, err := api.crossModelRelationService.GetSyntheticApplicationUUIDByOfferUUID(ctx, offerUUID)
 	if err != nil {
 		return "", errors.Annotatef(err, "getting application UUID from offer %q", offerUUID)
 	}

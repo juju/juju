@@ -12,7 +12,6 @@ import (
 	"github.com/juju/collections/transform"
 	"gopkg.in/macaroon.v2"
 
-	coreapplication "github.com/juju/juju/core/application"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -948,30 +947,63 @@ WHERE offer_uuid = $uuid.uuid
 // for the given offer UUID.
 // Returns [applicationerrors.ApplicationNotFound] if the offer or associated
 // application is not found.
-func (st *State) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, coreapplication.UUID, error) {
+func (st *State) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
 
-	var (
-		applicationName string
-		applicationUUID string
-	)
+	var applicationName, applicationUUID string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		name, uuid, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, offerUUID)
+		var err error
+		applicationName, applicationUUID, err = st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, offerUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		applicationName = name
-		applicationUUID = uuid
 		return nil
 	})
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
 
-	return applicationName, coreapplication.UUID(applicationUUID), nil
+	return applicationName, applicationUUID, nil
+}
+
+// GetSyntheticApplicationUUIDByOfferUUID returns the synthetic application UUID
+// for the given offer UUID. Returns [applicationerrors.ApplicationNotFound] if
+// the offer or associated synthetic application is not found.
+func (st *State) GetSyntheticApplicationUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	// The offer connection is a mapping between the offer and the synthetic
+	// application on the consuming side. Getting the offer connection for the
+	// offer UUID allows us to retrieve the synthetic application UUID.
+	stmt, err := st.Prepare(`
+SELECT oc.uuid AS &uuid.uuid
+FROM   offer_connection AS oc
+WHERE  oc.offer_uuid = $uuid.uuid
+`, uuid{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var res uuid
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err = tx.Query(ctx, stmt, uuid{UUID: offerUUID}).Get(&res); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return errors.Errorf("retrieving synthetic application UID from offer %q: %w", offerUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return res.UUID, nil
 }
 
 // InitialWatchStatementForConsumerRelations returns the namespace and the

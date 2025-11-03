@@ -129,6 +129,9 @@ func (s *facadeSuite) TestPublishRelationChanges(c *tc.C) {
 		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
 		Return(nil)
 
+	s.crossModelRelationService.EXPECT().
+		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
 		Return(domainapplication.ApplicationDetails{
@@ -144,7 +147,7 @@ func (s *facadeSuite) TestPublishRelationChanges(c *tc.C) {
 		Changes: []params.RemoteRelationChangeEvent{{
 			Life:                    life.Alive,
 			RelationToken:           relationUUID.String(),
-			ApplicationOrOfferToken: applicationUUID.String(),
+			ApplicationOrOfferToken: offerUUID.String(),
 			Macaroons:               s.macaroons,
 			BakeryVersion:           bakery.LatestVersion,
 		}},
@@ -203,6 +206,9 @@ func (s *facadeSuite) TestPublishRelationChangesMissingLife(c *tc.C) {
 		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
 		Return(nil)
 
+	s.crossModelRelationService.EXPECT().
+		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
 		Return(domainapplication.ApplicationDetails{
@@ -218,7 +224,7 @@ func (s *facadeSuite) TestPublishRelationChangesMissingLife(c *tc.C) {
 		Changes: []params.RemoteRelationChangeEvent{{
 			Life:                    life.Alive,
 			RelationToken:           relationUUID.String(),
-			ApplicationOrOfferToken: applicationUUID.String(),
+			ApplicationOrOfferToken: offerUUID.String(),
 			Macaroons:               s.macaroons,
 			BakeryVersion:           bakery.LatestVersion,
 		}},
@@ -231,7 +237,6 @@ func (s *facadeSuite) TestPublishRelationChangesMissingLife(c *tc.C) {
 func (s *facadeSuite) TestPublishRelationChangesMacaroonPermissionIssue(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := tc.Must(c, application.NewUUID)
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	offerUUID := tc.Must(c, offer.NewUUID)
 
@@ -283,7 +288,7 @@ func (s *facadeSuite) TestPublishRelationChangesMacaroonPermissionIssue(c *tc.C)
 		Changes: []params.RemoteRelationChangeEvent{{
 			Life:                    life.Alive,
 			RelationToken:           relationUUID.String(),
-			ApplicationOrOfferToken: applicationUUID.String(),
+			ApplicationOrOfferToken: offerUUID.String(),
 			Macaroons:               s.macaroons,
 			BakeryVersion:           bakery.LatestVersion,
 		}},
@@ -346,6 +351,9 @@ func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
 		Return(nil)
 
+	s.crossModelRelationService.EXPECT().
+		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
 		Return(domainapplication.ApplicationDetails{
@@ -361,7 +369,7 @@ func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 		Changes: []params.RemoteRelationChangeEvent{{
 			Life:                    life.Dead,
 			RelationToken:           relationUUID.String(),
-			ApplicationOrOfferToken: applicationUUID.String(),
+			ApplicationOrOfferToken: offerUUID.String(),
 			Macaroons:               s.macaroons,
 			BakeryVersion:           bakery.LatestVersion,
 			ForceCleanup:            ptr(true),
@@ -423,6 +431,9 @@ func (s *facadeSuite) TestPublishRelationChangesSuspended(c *tc.C) {
 		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
 		Return(nil)
 
+	s.crossModelRelationService.EXPECT().
+		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
 		Return(domainapplication.ApplicationDetails{
@@ -447,7 +458,7 @@ func (s *facadeSuite) TestPublishRelationChangesSuspended(c *tc.C) {
 		Changes: []params.RemoteRelationChangeEvent{{
 			Life:                    life.Alive,
 			RelationToken:           relationUUID.String(),
-			ApplicationOrOfferToken: applicationUUID.String(),
+			ApplicationOrOfferToken: offerUUID.String(),
 			Macaroons:               s.macaroons,
 			BakeryVersion:           bakery.LatestVersion,
 			Suspended:               ptr(true),
