@@ -37,6 +37,15 @@ type SecretModelState interface {
 	// This does not include secret content, which should be handled by
 	// interaction with the secret back-end.
 	DeleteUnitOwnedSecrets(ctx context.Context, uUUID string) error
+
+	// GetApplicationOwnedSecretRevisionRefs returns the back-end value
+	// references for secret revisions owned by the application with
+	// the input UUID.
+	GetApplicationOwnedSecretRevisionRefs(ctx context.Context, aUUID string) ([]string, error)
+
+	// GetUnitOwnedSecretRevisionRefs returns the back-end value references
+	// for secret revisions owned by the application with the input UUID.
+	GetUnitOwnedSecretRevisionRefs(ctx context.Context, uUUID string) ([]string, error)
 }
 
 func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID coreapplication.UUID) error {
@@ -49,9 +58,19 @@ func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID corea
 		if err := s.modelState.DeleteApplicationOwnedSecretContent(ctx, aUUID.String()); err != nil {
 			return errors.Errorf("deleting secret content: %w", err)
 		}
-	}
+	} else {
+		ids, err := s.modelState.GetApplicationOwnedSecretRevisionRefs(ctx, aUUID.String())
+		if err != nil {
+			return errors.Errorf("getting secret revision back-end refs: %w", err)
+		}
 
-	// TODO: Use the secret back-end to remove secrets.
+		// For external content, make a best-effort - just log any errors.
+		for _, id := range ids {
+			if err := sb.DeleteContent(ctx, id); err != nil {
+				s.logger.Warningf(ctx, "failed to delete secret content for external reference %q: %s", id, err.Error())
+			}
+		}
+	}
 
 	if err := s.modelState.DeleteApplicationOwnedSecrets(ctx, aUUID.String()); err != nil {
 		return errors.Errorf("deleting secret metadata: %w", err)
@@ -70,9 +89,19 @@ func (s *Service) deleteUnitOwnedSecrets(ctx context.Context, uUUID coreunit.UUI
 		if err := s.modelState.DeleteUnitOwnedSecretContent(ctx, uUUID.String()); err != nil {
 			return errors.Errorf("deleting secret content: %w", err)
 		}
-	}
+	} else {
+		ids, err := s.modelState.GetUnitOwnedSecretRevisionRefs(ctx, uUUID.String())
+		if err != nil {
+			return errors.Errorf("getting secret revision back-end refs: %w", err)
+		}
 
-	// TODO: Use the secret back-end to remove secrets.
+		// For external content, make a best-effort - just log any errors.
+		for _, id := range ids {
+			if err := sb.DeleteContent(ctx, id); err != nil {
+				s.logger.Warningf(ctx, "failed to delete secret content for external reference %q: %s", id, err.Error())
+			}
+		}
+	}
 
 	if err := s.modelState.DeleteUnitOwnedSecrets(ctx, uUUID.String()); err != nil {
 		return errors.Errorf("deleting secret metadata: %w", err)
