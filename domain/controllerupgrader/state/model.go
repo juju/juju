@@ -265,11 +265,107 @@ SET    target_version = $setAgentVersionTargetStream.target_version,
 	return nil
 }
 
+// GetAllAgentStoreBinariesForStream returns all agent binaries that are
+// available in the model store for a given stream. If no agent binaries
+// exist for the stream, an empty slice is returned. Because the model agent
+// store does not and has no need to support binaries of different streams the
+// stream is compared against the model's target agent stream.
+func (s *ControllerModelState) GetAllAgentStoreBinariesForStream(
+	ctx context.Context, stream agentbinary.Stream,
+) ([]agentbinary.AgentBinary, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var (
+		currentStream agentStream
+		streamInput   = agentStream{StreamID: int(stream)}
+	)
+
+	streamCheckStmt, err := s.Prepare(
+		"SELECT &agentStream.* FROM agent_version",
+		currentStream,
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing query for getting model's current target agent stream: %w",
+			err,
+		)
+	}
+
+	agentBinariesQ := `
+SELECT &agentStoreBinary.*
+FROM (
+    SELECT abs.version,
+           abs.architecture_id,
+           $agentStream.stream_id AS stream_id
+    FROM   agent_binary_store abs
+)
+`
+	agentBinariesStmt, err := s.Prepare(agentBinariesQ, streamInput, agentStoreBinary{})
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing get all agent binaries for stream query: %w", err,
+		)
+	}
+
+	dbVals := []agentStoreBinary{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, streamCheckStmt).Get(&currentStream)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// This error SHOULD never happen as this value MUST be set on model
+			// creation. However we still provide a helpful error here for the
+			// chance that does exist.
+			return errors.New("no agent stream has been set on the model")
+		} else if err != nil {
+			return errors.Errorf(
+				"getting the model's currently set agent stream: %w", err,
+			)
+		}
+
+		if currentStream.StreamID != streamInput.StreamID {
+			// If the requested stream does not match the model's current stream
+			// then we definetly don't have any binaries so no further work to
+			// do.
+			return nil
+		}
+
+		err = tx.Query(ctx, agentBinariesStmt, streamInput).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	retVal := make([]agentbinary.AgentBinary, 0, len(dbVals))
+	for _, dbVal := range dbVals {
+		version, err := semversion.Parse(dbVal.Version)
+		if err != nil {
+			return nil, errors.Errorf(
+				"parsing agent binary version %q: %w",
+				dbVal.Version, err,
+			)
+		}
+
+		retVal = append(retVal, agentbinary.AgentBinary{
+			Version:      version,
+			Architecture: agentbinary.Architecture(dbVal.ArchitectureID),
+			Stream:       agentbinary.Stream(dbVal.StreamID),
+		})
+	}
+
+	return retVal, nil
+}
+
 // HasAgentBinaryForVersionAndArchitectures responsible for determining whether there exists agents
 // for a given version and slice of architectures.
 // There may be some architectures that doesn't exist in which the caller has to consult other source of truths
 // to grab the agent.
-func (s *ControllerModelState) HasAgentBinariesForVersionAndArchitectures(
+func (s *ControllerModelState) GetAgentBinariesForVersionAndStream(
 	ctx context.Context,
 	version semversion.Number,
 	architectures []agentbinary.Architecture,
