@@ -323,7 +323,7 @@ WHERE  uuid = $entityUUID.uuid`, entityUUID{})
 		return errors.Errorf("getting charm UUID for application: %w", err)
 	}
 
-	if err := st.deleteSynthApplicationUnits(ctx, tx, synthApp); err != nil {
+	if err := st.deleteSynthUnitsForApplication(ctx, tx, synthApp); err != nil {
 		return errors.Errorf("deleting remote application offerer units: %w", err)
 	}
 
@@ -344,7 +344,7 @@ WHERE  uuid = $entityUUID.uuid`, entityUUID{})
 	return nil
 }
 
-func (st *State) deleteSynthApplicationUnits(ctx context.Context, tx *sqlair.TX, synthApp entityUUID) error {
+func (st *State) deleteSynthUnitsForApplication(ctx context.Context, tx *sqlair.TX, synthApp entityUUID) error {
 	selectNetNodesStmt, err := st.Prepare(`
 SELECT DISTINCT nn.uuid AS &entityUUID.uuid
 FROM   net_node AS nn
@@ -387,6 +387,32 @@ WHERE application_uuid = $entityUUID.uuid`, synthApp)
 
 	netNodeUUIDs := uuids(transform.Slice(netNodeEntityUUIDs, func(e entityUUID) string { return e.UUID }))
 	if err := tx.Query(ctx, deleteNetNodesStmt, netNodeUUIDs).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) deleteSynthUnit(ctx context.Context, tx *sqlair.TX, entityUUID entityUUID) error {
+	deleteNetNodeStmt, err := st.Prepare(`
+DELETE FROM net_node
+WHERE uuid = $entityUUID.uuid`, entityUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteUnitStmt, err := st.Prepare(`
+DELETE FROM unit
+WHERE uuid = $entityUUID.uuid`, entityUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, deleteNetNodeStmt, entityUUID).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, deleteUnitStmt, entityUUID).Run(); err != nil {
 		return errors.Capture(err)
 	}
 

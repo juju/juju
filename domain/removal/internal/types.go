@@ -196,7 +196,7 @@ func (c CascadedApplicationLives) IsEmpty() bool {
 		len(c.RelationUUIDs) == 0
 }
 
-// CascadedUnitLives contains identifiers for entities that were ensured to be
+// CascadedMachineLives contains identifiers for entities that were ensured to be
 // "dying" along with a machine. It is intended to inform the service layer
 // which entities should have removal jobs scheduled for them.
 type CascadedMachineLives struct {
@@ -231,6 +231,16 @@ type CascadedRemoteApplicationOffererLives struct {
 
 func (c CascadedRemoteApplicationOffererLives) IsEmpty() bool {
 	return len(c.RelationUUIDs) == 0
+}
+
+// CascadedRemoteRelationLives contains identifiers for entities that need to
+// be removed along with the relations. Remote relations is somewhat of a
+// special case, since there exist synthetic units (i.e. without a uniter)
+// that need to be departed manually.
+type CascadedRemoteRelationLives struct {
+	// SyntheticRelationUnitUUIDs identify the relation units that need to be
+	// departed to remove the relation.
+	SyntheticRelationUnitUUIDs []string
 }
 
 // StorageAttachmentDetachInfo contains the information required to establish

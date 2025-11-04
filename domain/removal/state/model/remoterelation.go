@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/domain/removal"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -54,13 +56,11 @@ AND    cs.name = 'cmr'`, remoteRelationUUID)
 
 // EnsureRemoteRelationNotAliveCascade ensures that the relation identified
 // by the input UUID is not alive, and sets the synthetic units in scope
-// of this relation to dead
-// NOTE: We do not return any artifacts here, as the only entities that are
-// cascaded are synthetic units, which do no need a removal job scheduled.
-func (st *State) EnsureRemoteRelationNotAliveCascade(ctx context.Context, rUUID string) error {
+// of this relation to dead.
+func (st *State) EnsureRemoteRelationNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRemoteRelationLives, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return internal.CascadedRemoteRelationLives{}, errors.Capture(err)
 	}
 
 	remoteRelationUUID := entityUUID{UUID: rUUID}
@@ -70,7 +70,7 @@ SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
 AND    life_id = 0`, remoteRelationUUID)
 	if err != nil {
-		return errors.Errorf("preparing remote relation life update: %w", err)
+		return internal.CascadedRemoteRelationLives{}, errors.Errorf("preparing remote relation life update: %w", err)
 	}
 
 	getSyntheticAppUUIDStmt, err := st.Prepare(`
@@ -84,7 +84,18 @@ JOIN   charm_source AS cs ON c.source_id = cs.id
 WHERE  r.uuid = $entityUUID.uuid
 AND    cs.name = 'cmr'`, remoteRelationUUID)
 	if err != nil {
-		return errors.Errorf("preparing remote relation synthetic app UUID query: %w", err)
+		return internal.CascadedRemoteRelationLives{},
+			errors.Errorf("preparing remote relation synthetic application UUID query: %w", err)
+	}
+
+	getSyntheticRelationUnitUUIDsStmt, err := st.Prepare(`
+SELECT ru.uuid AS &entityUUID.uuid
+FROM   relation_unit AS ru
+JOIN   unit AS u ON ru.unit_uuid = u.uuid
+WHERE  u.application_uuid = $entityUUID.uuid
+	`, entityUUID{})
+	if err != nil {
+		return internal.CascadedRemoteRelationLives{}, errors.Errorf("preparing remote relation synthetic unit UUID query: %w", err)
 	}
 
 	updateSyntheticUnitStmt, err := st.Prepare(`
@@ -94,10 +105,11 @@ WHERE  life_id = 0
 AND    application_uuid = $entityUUID.uuid
 `, entityUUID{})
 	if err != nil {
-		return errors.Errorf("preparing remote relation synthetic unit update: %w", err)
+		return internal.CascadedRemoteRelationLives{}, errors.Errorf("preparing remote relation synthetic unit update: %w", err)
 	}
 
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	var synthRelationUnitUUIDs []entityUUID
+	err = errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, updateRelationStmt, remoteRelationUUID).Run()
 		if err != nil {
 			return errors.Errorf("advancing remote relation life: %w", err)
@@ -108,7 +120,12 @@ AND    application_uuid = $entityUUID.uuid
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return errors.Errorf("getting synthetic app UUID: %w", err)
+			return errors.Errorf("getting synthetic application UUID: %w", err)
+		}
+
+		err = tx.Query(ctx, getSyntheticRelationUnitUUIDsStmt, synthAppUUID).GetAll(&synthRelationUnitUUIDs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting synthetic relation unit UUIDs: %w", err)
 		}
 
 		err = tx.Query(ctx, updateSyntheticUnitStmt, synthAppUUID).Run()
@@ -118,6 +135,13 @@ AND    application_uuid = $entityUUID.uuid
 
 		return nil
 	}))
+	if err != nil {
+		return internal.CascadedRemoteRelationLives{}, errors.Capture(err)
+	}
+
+	return internal.CascadedRemoteRelationLives{
+		SyntheticRelationUnitUUIDs: transform.Slice(synthRelationUnitUUIDs, func(eu entityUUID) string { return eu.UUID }),
+	}, nil
 }
 
 // RemoteRelationScheduleRemoval schedules a removal job for the relation
@@ -171,7 +195,7 @@ JOIN   charm_source AS cs ON c.source_id = cs.id
 WHERE  r.uuid = $entityUUID.uuid
 AND    cs.name = 'cmr'`, remoteRelationUUID)
 	if err != nil {
-		return errors.Errorf("preparing remote relation app UUID query: %w", err)
+		return errors.Errorf("preparing remote relation application UUID query: %w", err)
 	}
 
 	countSyntheticAppRelationsStmt, err := st.Prepare(`
@@ -181,7 +205,7 @@ JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 WHERE  ae.application_uuid = $entityUUID.uuid
 `, count{}, entityUUID{})
 	if err != nil {
-		return errors.Errorf("preparing remote relation app relation count query: %w", err)
+		return errors.Errorf("preparing remote relation application relation count query: %w", err)
 	}
 
 	deleteRelationNetworkEgressStmt, err := st.Prepare(`
@@ -210,7 +234,7 @@ WHERE  application_uuid = $entityUUID.uuid
 		var synthAppUUID entityUUID
 		err = tx.Query(ctx, getSyntheticAppUUIDStmt, remoteRelationUUID).Get(&synthAppUUID)
 		if err != nil {
-			return errors.Errorf("getting app UUID: %w", err)
+			return errors.Errorf("getting application UUID: %w", err)
 		}
 
 		err = tx.Query(ctx, deleteRelationNetworkEgressStmt, remoteRelationUUID).Run()
