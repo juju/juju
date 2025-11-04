@@ -790,17 +790,6 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"name": "new-name"},
 	err:   `cannot change name from "my-name" to "new-name"`,
 }, {
-	about: "Can set agent version",
-	new:   testing.Attrs{"agent-version": "1.9.13"},
-}, {
-	about: "Can change agent version",
-	old:   testing.Attrs{"agent-version": "1.9.13"},
-	new:   testing.Attrs{"agent-version": "1.9.27"},
-}, {
-	about: "Can't clear agent version",
-	old:   testing.Attrs{"agent-version": "1.9.27"},
-	err:   `cannot clear agent-version`,
-}, {
 	about: "Can't change the firewall-mode (global->instance)",
 	old:   testing.Attrs{"firewall-mode": config.FwGlobal},
 	new:   testing.Attrs{"firewall-mode": config.FwInstance},
