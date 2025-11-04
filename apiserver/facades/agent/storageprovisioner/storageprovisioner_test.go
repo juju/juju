@@ -312,6 +312,80 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachineNotProvisioned(c *tc.C
 	c.Assert(r.Error.Code, tc.Equals, params.CodeNotProvisioned)
 }
 
+func (s *provisionerSuite) TestVolumeAttachmentsForMachineNotProvisionedNoDeviceLinks(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.storageProvisioningService.EXPECT().CheckVolumeForIDExists(
+		gomock.Any(), tag.Id()).Return(true, nil)
+	s.machineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.storageProvisioningService.EXPECT().
+		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
+		Return(vaUUID, nil)
+	s.storageProvisioningService.EXPECT().GetVolumeAttachment(gomock.Any(), vaUUID).
+		Return(storageprovisioning.VolumeAttachment{
+			VolumeID:        "fs-1234",
+			ReadOnly:        true,
+			BlockDeviceName: "sdb",
+		}, nil)
+
+	result, err := s.api.VolumeAttachments(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotProvisioned)
+}
+
+func (s *provisionerSuite) TestVolumeAttachmentsForMachineNotProvisionedNoDeviceName(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.storageProvisioningService.EXPECT().CheckVolumeForIDExists(
+		gomock.Any(), tag.Id()).Return(true, nil)
+	s.machineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.storageProvisioningService.EXPECT().
+		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
+		Return(vaUUID, nil)
+	s.storageProvisioningService.EXPECT().GetVolumeAttachment(gomock.Any(), vaUUID).
+		Return(storageprovisioning.VolumeAttachment{
+			VolumeID:         "fs-1234",
+			ReadOnly:         true,
+			BlockDeviceLinks: []string{"/dev/sdb"},
+		}, nil)
+
+	result, err := s.api.VolumeAttachments(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotProvisioned)
+}
+
 func (s *provisionerSuite) TestVolumeAttachmentsForMachineAttachmentNotFound(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
@@ -500,6 +574,86 @@ func (s *provisionerSuite) TestVolumeBlockDevicesNotProvisioned(c *tc.C) {
 
 	s.blockDeviceService.EXPECT().GetBlockDevice(
 		gomock.Any(), bdUUID).Return(blockdevice.BlockDevice{}, nil)
+
+	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotProvisioned)
+}
+
+func (s *provisionerSuite) TestVolumeBlockDevicesNotProvisionedNoDeviceLinks(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+	bdUUID := tc.Must(c, domainblockdevice.NewBlockDeviceUUID)
+
+	s.storageProvisioningService.EXPECT().CheckVolumeForIDExists(
+		gomock.Any(), tag.Id()).Return(true, nil)
+	s.machineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.storageProvisioningService.EXPECT().
+		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
+		Return(vaUUID, nil)
+	s.storageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
+		Return(bdUUID, nil)
+
+	s.blockDeviceService.EXPECT().GetBlockDevice(
+		gomock.Any(), bdUUID,
+	).Return(blockdevice.BlockDevice{
+		DeviceName: "sdb",
+	}, nil)
+
+	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotProvisioned)
+}
+
+func (s *provisionerSuite) TestVolumeBlockDevicesNotProvisionedNoDeviceName(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+	bdUUID := tc.Must(c, domainblockdevice.NewBlockDeviceUUID)
+
+	s.storageProvisioningService.EXPECT().CheckVolumeForIDExists(
+		gomock.Any(), tag.Id()).Return(true, nil)
+	s.machineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.storageProvisioningService.EXPECT().
+		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
+		Return(vaUUID, nil)
+	s.storageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
+		Return(bdUUID, nil)
+
+	s.blockDeviceService.EXPECT().GetBlockDevice(
+		gomock.Any(), bdUUID,
+	).Return(blockdevice.BlockDevice{
+		DeviceLinks: []string{"/dev/sdb"},
+	}, nil)
 
 	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{

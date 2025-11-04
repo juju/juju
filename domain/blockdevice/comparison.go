@@ -16,6 +16,10 @@ const (
 	DevLinkByPartUUID  = "/dev/disk/by-partuuid/"
 	DevLinkByPartLabel = "/dev/disk/by-partlabel/"
 	DevLinkByFSUUID    = "/dev/disk/by-uuid/"
+
+	// DevLinkAzureUDevLink is a strong identifier for Azure block devices.
+	// See [github.com/juju/juju/internal/provider/azure.azureDiskDeviceLink].
+	DevLinkAzureUDevLink = "/dev/disk/azure/scsi1/"
 )
 
 // SameDevice returns true if both devices are the same device by using stable
@@ -34,13 +38,15 @@ func SameDevice(left, right blockdevice.BlockDevice) bool {
 	rightDevLinks := set.NewStrings(right.DeviceLinks...)
 	commonDevLinks := leftDevLinks.Intersection(rightDevLinks)
 	for link := range commonDevLinks {
-		if strings.HasPrefix(link, DevLinkByID) {
-			return true
-		} else if strings.HasPrefix(link, DevLinkByPartUUID) {
-			return true
-		} else if strings.HasPrefix(link, DevLinkByFSUUID) {
-			return true
+		switch {
+		case strings.HasPrefix(link, DevLinkByID):
+		case strings.HasPrefix(link, DevLinkByPartUUID):
+		case strings.HasPrefix(link, DevLinkByFSUUID):
+		case strings.HasPrefix(link, DevLinkAzureUDevLink):
+		default:
+			continue
 		}
+		return true
 	}
 	// If either of the devices looks like a partition, they should have matched
 	// by this point. Since partitions inherit WWN, SerialID etc from their

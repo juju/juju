@@ -1212,12 +1212,12 @@ func (s *StorageProvisionerAPIv4) volumeAttachments(
 		)
 	}
 
-	if len(va.BlockDeviceLinks) == 0 {
-		// TODO: We think that a volume attachment with no device link is
-		// not provisioned. The property is set when the storage provisioner
-		// calls SetVolumeAttachmentInfo. This is a temporary workaround for
-		// checking the provision state of an attachment.Ideally, we should
-		// have a consistent way to check provisioning status for all
+	if va.BlockDeviceName == "" || len(va.BlockDeviceLinks) == 0 {
+		// TODO: We think that a volume attachment with no device link or device
+		// name not provisioned. The property is set when the storage
+		// provisioner calls SetVolumeAttachmentInfo. This is a temporary
+		// workaround for checking the provision state of an attachment. Ideally
+		// we should have a consistent way to check provisioning status for all
 		// storage entities.
 		return params.VolumeAttachment{}, errors.Errorf(
 			"volume %q is not provisioned", volumeTag.Id(),
@@ -1323,13 +1323,13 @@ func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args p
 			)
 		}
 
-		if len(bd.DeviceLinks) == 0 {
-			// TODO: We think that a block device with no device links is
-			// not provisioned. The property is set when the storage provisioner
-			// calls SetVolumeAttachmentInfo. This is a temporary workaround for
-			// checking the provision state of an attachment.Ideally, we should
-			// have a consistent way to check provisioning status for all
-			// storage entities.
+		if bd.DeviceName == "" || len(bd.DeviceLinks) == 0 {
+			// TODO: We think that a block device with no device links or device
+			// name is not provisioned. The property is set when the storage
+			// provisioner calls SetVolumeAttachmentInfo. This is a temporary
+			// workaround for checking the provision state of an attachment.
+			// Ideally, we should have a consistent way to check provisioning
+			// status for all storage entities.
 			return params.BlockDevice{}, errors.Errorf(
 				"volume attachment %q on machine %q is not provisioned",
 				tag.Id(), machineTag.Id(),
@@ -2113,7 +2113,11 @@ func (s *StorageProvisionerAPIv4) createVolumeAttachmentPlan(
 	_, err = s.storageProvisioningService.CreateVolumeAttachmentPlan(
 		ctx, attachmentUUID, planDeviceType, planInfo.DeviceAttributes,
 	)
-	if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+	if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanAlreadyExists) {
+		// TODO(storage): verify the volume attachment plan type has not changed
+		// and update the volume attachment plan device attributes.
+		return nil
+	} else if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
 		return errors.Errorf(
 			"volume attachment for machine %q and volume %q not found",
 			machineTag.Id(), volumeTag.Id(),
