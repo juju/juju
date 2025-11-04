@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -195,7 +194,7 @@ func (w *modelWorker) loop() error {
 
 func (w *modelWorker) deleteModel(ctx context.Context) error {
 	if err := w.removalService.DeleteModel(ctx); err != nil && !errors.IsOneOf(err,
-		database.ErrDBNotFound,
+		coredatabase.ErrDBNotFound,
 		modelerrors.NotFound,
 	) {
 		return errors.Errorf("deleting model: %w", err)
