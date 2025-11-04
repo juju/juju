@@ -6,6 +6,7 @@ package stateauthenticator
 import (
 	"context"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/identchecker"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -27,8 +28,11 @@ func ServerBakeryExpiresImmediately(ctx context.Context, a *Authenticator, ident
 		controllerConfigService: controllerConfigService,
 		macaroonService:         macaroonService,
 		clock:                   a.authContext.clock,
-		expiryTime:              0,
-		identClient:             identClient,
+		policy: dbrootkeystore.Policy{
+			ExpiryDuration:   0,
+			GenerateInterval: 0,
+		},
+		identClient: identClient,
 	})
 	if err != nil {
 		return nil, err

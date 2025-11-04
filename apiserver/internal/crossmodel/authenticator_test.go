@@ -18,6 +18,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/offer"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -220,24 +221,28 @@ func (s *authenticatorSuite) TestCheckOfferMacaroonsCheckMacaroonCaveatsMissMatc
 	slice := macaroon.Slice{
 		bakeryMacaroon.M(),
 	}
+	offerUUID := tc.Must(c, offer.NewUUID)
+	anotherOfferUUID := tc.Must(c, offer.NewUUID)
 	requiredValues := map[string]string{
-		"offer-uuid":        "offer-uuid",
+		"offer-uuid":        anotherOfferUUID.String(),
 		"source-model-uuid": s.modelUUID.String(),
 	}
 
 	exp := s.bakery.EXPECT()
-	exp.GetOfferRequiredValues(s.modelUUID.String(), "offer-uuid").Return(requiredValues, nil)
+	exp.GetOfferRequiredValues(s.modelUUID.String(), anotherOfferUUID.String()).Return(requiredValues, nil)
 
-	declaredValues := crossmodelbakery.NewDeclaredValues("mary", s.modelUUID.String(), "scallywags", "relation-key")
+	declaredValues := crossmodelbakery.NewDeclaredValues("mary", s.modelUUID.String(),
+		offerUUID.String(), "mediawiki:db mysql:server")
 	exp.InferDeclaredFromMacaroon(gomock.Any(), requiredValues).Return(declaredValues)
 
-	exp.AllowedAuth(gomock.Any(), crossModelConsumeOp("offer-uuid"), slice).Return([]string{"does-not-matter"}, nil)
+	exp.AllowedAuth(gomock.Any(), crossModelConsumeOp(anotherOfferUUID.String()), slice).Return([]string{"does-not-matter"}, nil)
 
-	exp.CreateDischargeMacaroon(gomock.Any(), "mary", requiredValues, declaredValues, crossModelConsumeOp("offer-uuid"), bakery.LatestVersion).
+	exp.CreateDischargeMacaroon(gomock.Any(), "mary", requiredValues, declaredValues,
+		crossModelConsumeOp(anotherOfferUUID.String()), bakery.LatestVersion).
 		Return(bakeryMacaroon, nil)
 
 	auth := s.newAuthenticator(c)
-	_, err := auth.CheckOfferMacaroons(c.Context(), s.modelUUID.String(), "offer-uuid", slice, bakery.LatestVersion)
+	_, err := auth.CheckOfferMacaroons(c.Context(), s.modelUUID.String(), anotherOfferUUID.String(), slice, bakery.LatestVersion)
 
 	var target *apiservererrors.DischargeRequiredError
 	c.Assert(errors.As(err, &target), tc.IsTrue)

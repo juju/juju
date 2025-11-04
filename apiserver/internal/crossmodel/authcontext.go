@@ -41,7 +41,7 @@ type OfferBakery interface {
 	GetConsumeOfferCaveats(offerUUID, sourceModelUUID, username, relation string) []checkers.Caveat
 	// GetRemoteRelationCaveats returns the caveats for accessing a remote relation.
 	GetRemoteRelationCaveats(offerUUID, sourceModelUUID, username, relation string) []checkers.Caveat
-	// InferDeclared retrieves any declared information from
+	// InferDeclaredFromMacaroon retrieves any declared information from
 	// the given macaroons and returns it as a key-value map.
 	InferDeclaredFromMacaroon(macaroon.Slice, map[string]string) crossmodelbakery.DeclaredValues
 	// NewMacaroon creates a new macaroon for the given version, caveats and ops.
@@ -61,7 +61,7 @@ type OfferBakery interface {
 	// GetRelationRequiredValues returns the required values for the specified
 	// relation access.
 	GetRelationRequiredValues(sourceModelUUID, offerUUID, relation string) (map[string]string, error)
-	// AllowedMacaroonAuth checks the specified macaroon is valid for the operation
+	// AllowedAuth checks the specified macaroon is valid for the operation
 	// and returns the associated AuthInfo.
 	AllowedAuth(ctx context.Context, op bakery.Op, mac macaroon.Slice) ([]string, error)
 }

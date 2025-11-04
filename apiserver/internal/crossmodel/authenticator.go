@@ -85,6 +85,12 @@ func (a *Authenticator) checkMacaroons(
 	cause := err
 	a.logger.Debugf(ctx, "generating discharge macaroon because: %v", cause)
 
+	// Double check all the required caveats exist before we
+	// generate the discharge macaroon.
+	if err := a.checkMacaroonRequiredCaveats(op, declared); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	m, err := a.bakery.CreateDischargeMacaroon(ctx, username, requiredValues, declared, op, version)
 	if err != nil {
 		a.logger.Errorf(ctx, "cannot create cross model macaroon: %v", err)
@@ -96,6 +102,27 @@ func (a *Authenticator) checkMacaroons(
 		Macaroon:       m,
 		LegacyMacaroon: m.M(),
 	}
+}
+
+func (a *Authenticator) checkMacaroonRequiredCaveats(op bakery.Op, declared crossmodelbakery.DeclaredValues) error {
+	switch op.Action {
+	case consumeOp:
+		if declared.SourceModelUUID() == "" {
+			return internalerrors.New("missing source model UUID").Add(coreerrors.NotValid)
+		}
+		offerUUID := declared.OfferUUID()
+		if offerUUID == "" {
+			return internalerrors.New("missing offer UUID").Add(coreerrors.NotValid)
+		}
+	case relateOp:
+		relationKey := declared.RelationKey()
+		if relationKey == "" {
+			return internalerrors.New("missing relation").Add(coreerrors.NotValid)
+		}
+	default:
+		return internalerrors.Errorf("invalid action %q", op.Action).Add(coreerrors.NotValid)
+	}
+	return nil
 }
 
 func (a *Authenticator) checkMacaroonCaveats(op bakery.Op, declared crossmodelbakery.DeclaredValues) error {
@@ -124,7 +151,7 @@ func (a *Authenticator) checkMacaroonCaveats(op bakery.Op, declared crossmodelba
 	}
 
 	if entity != op.Entity {
-		return internalerrors.Errorf("cmr operation %q not allowed for %q", op.Action, entity).Add(coreerrors.Unauthorized)
+		return internalerrors.Errorf("cmr operation %q on %q not allowed for %q", op.Action, op.Entity, entity).Add(coreerrors.Unauthorized)
 	}
 	return nil
 }

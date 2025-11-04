@@ -212,21 +212,21 @@ func (o *baseBakery) GetOfferRequiredValues(sourceModelUUID, offerUUID string) (
 
 // GetRelationRequiredValues returns the required values for the specified
 // relation access.
-func (o *baseBakery) GetRelationRequiredValues(sourceModelUUID, offerUUID, relationKey string) (map[string]string, error) {
+func (o *baseBakery) GetRelationRequiredValues(sourceModelUUID, offerUUID, relationValue string) (map[string]string, error) {
 	if sourceModelUUID == "" {
 		return nil, internalerrors.New("source model uuid is required").Add(coreerrors.NotValid)
 	}
 	if offerUUID == "" {
 		return nil, internalerrors.New("offer uuid is required").Add(coreerrors.NotValid)
 	}
-	if relationKey == "" {
+	if relationValue == "" {
 		return nil, internalerrors.New("relation key is required").Add(coreerrors.NotValid)
 	}
 
 	return map[string]string{
 		sourceModelKey: sourceModelUUID,
 		offerUUIDKey:   offerUUID,
-		relationKey:    relationKey,
+		relationKey:    relationValue,
 	}, nil
 }
 
