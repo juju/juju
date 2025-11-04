@@ -14,6 +14,10 @@ import (
 
 // DeleteDB deletes the dqlite database with the given name from the sql.DB.
 func DeleteDB(ctx context.Context, db *sql.DB, name string) error {
+	if name == "" {
+		return errors.New("database name cannot be empty")
+	}
+
 	// We unfortunately can't start a BEGIN IMMEDIATE transaction, as the
 	// database/sql package does not support it directly. Instead, we're going
 	// to start a transaction, then instantly rollback the transaction and
@@ -24,7 +28,7 @@ func DeleteDB(ctx context.Context, db *sql.DB, name string) error {
 	if err != nil {
 		return errors.Annotatef(err, "starting immediate transaction for deletion")
 	}
-	if _, err := tx.ExecContext(ctx, "PRAGMA ?;", name); err != nil {
+	if _, err := tx.ExecContext(ctx, "PRAGMA "+name+";"); err != nil {
 		_ = tx.Rollback()
 		return errors.Annotatef(err, "setting PRAGMA for deletion")
 	}
