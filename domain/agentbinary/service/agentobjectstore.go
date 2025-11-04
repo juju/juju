@@ -24,13 +24,13 @@ import (
 	intobjectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
 
-type AgentBinaryStore struct {
+type AgentObjectStore struct {
 	logger            logger.Logger
-	st                AgentBinaryStoreState
+	st                AgentObjectStoreState
 	objectStoreGetter objectstore.NamespacedObjectStoreGetter
 }
 
-type AgentBinaryStoreState interface {
+type AgentObjectStoreState interface {
 	// CheckAgentBinarySHA256Exists checks that the given sha256 sum exists as an agent
 	// binary in the object store. This sha256 sum could exist as an object in
 	// the object store but unless the association has been made this will
@@ -56,13 +56,13 @@ type AgentBinaryStoreState interface {
 	GetAgentBinarySHA256(ctx context.Context, version coreagentbinary.Version, stream agentbinary.Stream) (bool, string, error)
 }
 
-// NewAgentBinaryStore returns a new instance of AgentBinaryStore.
-func NewAgentBinaryStore(
-	st AgentBinaryStoreState,
+// NewAgentObjectStore returns a new instance of AgentBinaryStore.
+func NewAgentObjectStore(
+	st AgentObjectStoreState,
 	logger logger.Logger,
 	objectStoreGetter objectstore.NamespacedObjectStoreGetter,
-) *AgentBinaryStore {
-	return &AgentBinaryStore{
+) *AgentObjectStore {
+	return &AgentObjectStore{
 		st:                st,
 		logger:            logger,
 		objectStoreGetter: objectStoreGetter,
@@ -97,7 +97,7 @@ func generatePath(version coreagentbinary.Version, sha384 string) string {
 // - [coreerrors.NotValid] if the agent version is not valid.
 // - [agentbinaryerrors.HashMismatch] when the expected sha does not match that
 // which was computed against the binary data.
-func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
+func (s *AgentObjectStore) AddAgentBinaryWithSHA256(
 	ctx context.Context, r io.Reader,
 	version coreagentbinary.Version,
 	size int64, sha256 string,
@@ -141,7 +141,7 @@ func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
 // - [coreerrors.NotValid] when the agent version is not considered valid.
 // - [agentbinaryerrors.HashMismatch] when the expected sha does not match
 // that which was computed against the binary data.
-func (s *AgentBinaryStore) AddAgentBinaryWithSHA384(
+func (s *AgentObjectStore) AddAgentBinaryWithSHA384(
 	ctx context.Context,
 	r io.Reader,
 	version coreagentbinary.Version,
@@ -158,7 +158,7 @@ func (s *AgentBinaryStore) AddAgentBinaryWithSHA384(
 }
 
 // We use sha384 for validating the binary later in the concrete implementations.
-func (s *AgentBinaryStore) add(
+func (s *AgentObjectStore) add(
 	ctx context.Context, r io.Reader,
 	version coreagentbinary.Version,
 	size int64, sha384 string,
@@ -227,7 +227,7 @@ func (s *AgentBinaryStore) add(
 // SHA256 sum. The following errors can be expected:
 // - [agentbinaryerrors.NotFound] when no agent binaries exist for the provided
 // sha.
-func (s *AgentBinaryStore) GetAgentBinaryUsingSHA256(
+func (s *AgentObjectStore) GetAgentBinaryUsingSHA256(
 	ctx context.Context,
 	sha256Sum string,
 ) (io.ReadCloser, int64, error) {
@@ -274,7 +274,7 @@ func (s *AgentBinaryStore) GetAgentBinaryUsingSHA256(
 //
 // The following errors may be returned:
 // - [domainagenterrors.NotFound] if the agent binary metadata does not exist.
-func (s *AgentBinaryStore) GetAgentBinaryWithSHA256(
+func (s *AgentObjectStore) GetAgentBinaryWithSHA256(
 	ctx context.Context,
 	ver coreagentbinary.Version,
 	stream agentbinary.Stream,
