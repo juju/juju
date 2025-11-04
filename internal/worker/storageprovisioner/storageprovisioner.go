@@ -258,23 +258,17 @@ func (w *storageProvisioner) loop() error {
 	deps.managedFilesystemSource = newManagedFilesystemSource(
 		deps.volumeBlockDevices, deps.filesystems,
 	)
-	// Units don't use managed volume backed filesystems.
-	if deps.isApplicationKind() {
-		deps.managedFilesystemSource = &noopFilesystemSource{}
-	}
 
 	// Units don't have unit-scoped volumes - all volumes are
 	// associated with the model (namespace).
-	if !deps.isApplicationKind() {
-		volumesWatcher, err := w.config.Volumes.WatchVolumes(ctx, w.config.Scope)
-		if err != nil {
-			return errors.Annotate(err, "watching volumes")
-		}
-		if err := w.catacomb.Add(volumesWatcher); err != nil {
-			return errors.Trace(err)
-		}
-		volumesChanges = volumesWatcher.Changes()
+	volumesWatcher, err := w.config.Volumes.WatchVolumes(ctx, w.config.Scope)
+	if err != nil {
+		return errors.Annotate(err, "watching volumes")
 	}
+	if err := w.catacomb.Add(volumesWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	volumesChanges = volumesWatcher.Changes()
 
 	filesystemsWatcher, err := w.config.Filesystems.WatchFilesystems(ctx, w.config.Scope)
 	if err != nil {
@@ -567,8 +561,4 @@ type dependencies struct {
 	// manages filesystems backed by volumes attached to the host
 	// machine.
 	managedFilesystemSource storage.FilesystemSource
-}
-
-func (c *dependencies) isApplicationKind() bool {
-	return c.config.Scope.Kind() == names.ApplicationTagKind
 }

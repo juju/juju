@@ -194,11 +194,13 @@ func updatePendingFilesystemAttachment(
 			}
 		}
 	}
-	if params.InstanceId == "" {
-		watchMachine(ctx, deps, params.Machine.(names.MachineTag))
-		incomplete = true
-		deps.config.Logger.Debugf(ctx,
-			"pending filesystem attachment %v due to missing machine instance id", id)
+	if machineTag, ok := params.Machine.(names.MachineTag); ok {
+		if params.InstanceId == "" {
+			watchMachine(ctx, deps, machineTag)
+			incomplete = true
+			deps.config.Logger.Debugf(ctx,
+				"pending filesystem attachment %v due to missing machine instance id", id)
+		}
 	}
 	if params.FilesystemProviderId == "" {
 		incomplete = true
@@ -323,13 +325,11 @@ func processAliveFilesystems(ctx context.Context, deps *dependencies, tags []nam
 				return errors.Annotate(err, "getting filesystem info")
 			}
 			updateFilesystem(ctx, deps, filesystem)
-			if !deps.isApplicationKind() {
-				if filesystem.Volume != (names.VolumeTag{}) {
-					// Ensure that volume-backed filesystems' block
-					// devices are present even after creating the
-					// filesystem, so that attachments can be made.
-					maybeAddPendingVolumeBlockDevice(ctx, deps, filesystem.Volume)
-				}
+			if filesystem.Volume != (names.VolumeTag{}) {
+				// Ensure that volume-backed filesystems' block
+				// devices are present even after creating the
+				// filesystem, so that attachments can be made.
+				maybeAddPendingVolumeBlockDevice(ctx, deps, filesystem.Volume)
 			}
 			continue
 		}
@@ -350,10 +350,6 @@ func processAliveFilesystems(ctx context.Context, deps *dependencies, tags []nam
 		return errors.Annotate(err, "getting filesystem params")
 	}
 	for _, params := range params {
-		if deps.isApplicationKind() {
-			deps.config.Logger.Debugf(ctx, "not queuing filesystem for %v unit", deps.config.Scope.Id())
-			continue
-		}
 		updatePendingFilesystem(ctx, deps, params)
 	}
 	return nil
@@ -414,10 +410,6 @@ func processAliveFilesystemAttachments(
 		return errors.Trace(err)
 	}
 	for i, params := range params {
-		if params.Machine != nil && params.Machine.Kind() != names.MachineTagKind {
-			deps.config.Logger.Debugf(ctx, "not queuing filesystem attachment for non-machine %v", params.Machine)
-			continue
-		}
 		updatePendingFilesystemAttachment(ctx, deps, pending[i], params)
 	}
 	return nil
