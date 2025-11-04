@@ -49,7 +49,7 @@ type provisionerSuite struct {
 	blockDeviceService         *MockBlockDeviceService
 	removalService             *MockRemovalService
 
-	api *StorageProvisionerAPIv4
+	api *StorageProvisionerAPI
 
 	machineName    machine.Name
 	modelUUID      model.UUID
@@ -80,7 +80,7 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	s.removalService = NewMockRemovalService(ctrl)
 
 	var err error
-	s.api, err = NewStorageProvisionerAPIv4(
+	s.api, err = NewStorageProvisionerAPI(
 		c.Context(),
 		s.watcherRegistry,
 		testclock.NewClock(time.Now()),

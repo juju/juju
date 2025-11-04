@@ -36,8 +36,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
-type StorageProvisionerAPIv4 struct {
+// StorageProvisionerAPI provides the StorageProvisioner API v5 facade.
+type StorageProvisionerAPI struct {
 	*common.InstanceIdGetter
 
 	watcherRegistry facade.WatcherRegistry
@@ -62,8 +62,13 @@ type StorageProvisionerAPIv4 struct {
 	modelUUID      model.UUID
 }
 
-// NewStorageProvisionerAPIv4 creates a new server-side StorageProvisioner v3 facade.
-func NewStorageProvisionerAPIv4(
+// StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
+type StorageProvisionerAPIv4 struct {
+	*StorageProvisionerAPI
+}
+
+// NewStorageProvisionerAPI creates a new server-side StorageProvisioner v5 facade.
+func NewStorageProvisionerAPI(
 	ctx context.Context,
 	watcherRegistry facade.WatcherRegistry,
 	clock clock.Clock,
@@ -77,7 +82,7 @@ func NewStorageProvisionerAPIv4(
 	logger logger.Logger,
 	modelUUID model.UUID,
 	controllerUUID string,
-) (*StorageProvisionerAPIv4, error) {
+) (*StorageProvisionerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -186,7 +191,7 @@ func NewStorageProvisionerAPIv4(
 			return false
 		}, nil
 	}
-	return &StorageProvisionerAPIv4{
+	return &StorageProvisionerAPI{
 		InstanceIdGetter: common.NewInstanceIdGetter(machineService, getMachineAuthFunc),
 
 		watcherRegistry: watcherRegistry,
@@ -214,7 +219,7 @@ func NewStorageProvisionerAPIv4(
 
 // Life returns the life of the entities passed in.
 // The entities are expected to be either filesystems or volumes tags.
-func (s *StorageProvisionerAPIv4) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
+func (s *StorageProvisionerAPI) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
 	canAccess, err := s.getLifeAuthFunc(ctx)
 	if err != nil {
 		return params.LifeResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -257,7 +262,7 @@ func (s *StorageProvisionerAPIv4) Life(ctx context.Context, args params.Entities
 	return results, nil
 }
 
-func (s *StorageProvisionerAPIv4) lifeForFilesystem(
+func (s *StorageProvisionerAPI) lifeForFilesystem(
 	ctx context.Context, tag names.FilesystemTag,
 ) (domainlife.Life, error) {
 	filesystemUUID, err := s.storageProvisioningService.GetFilesystemUUIDForID(ctx, tag.Id())
@@ -282,7 +287,7 @@ func (s *StorageProvisionerAPIv4) lifeForFilesystem(
 	return life, nil
 }
 
-func (s *StorageProvisionerAPIv4) lifeForVolume(
+func (s *StorageProvisionerAPI) lifeForVolume(
 	ctx context.Context, tag names.VolumeTag,
 ) (domainlife.Life, error) {
 	volumeUUID, err := s.storageProvisioningService.GetVolumeUUIDForID(ctx, tag.Id())
@@ -312,7 +317,7 @@ func (s *StorageProvisionerAPIv4) lifeForVolume(
 //
 // Deprecated: This facade endpoint has not been in use since before 3.6, and
 // should be removed on the next facade bump.
-func (s *StorageProvisionerAPIv4) EnsureDead(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPI) EnsureDead(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -320,7 +325,7 @@ func (s *StorageProvisionerAPIv4) EnsureDead(ctx context.Context, args params.En
 }
 
 // WatchBlockDevices watches for changes to the specified machines' block devices.
-func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
+func (s *StorageProvisionerAPI) WatchBlockDevices(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	canAccess, err := s.getBlockDevicesAuthFunc(ctx)
 	if err != nil {
 		return params.NotifyWatchResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -362,7 +367,7 @@ func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args pa
 }
 
 // WatchMachines watches for changes to the specified machines.
-func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
+func (s *StorageProvisionerAPI) WatchMachines(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -402,7 +407,7 @@ func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params
 
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
-func (s *StorageProvisionerAPIv4) WatchVolumes(
+func (s *StorageProvisionerAPI) WatchVolumes(
 	ctx context.Context, args params.Entities,
 ) (params.StringsWatchResults, error) {
 	return s.watchStorageEntities(
@@ -414,7 +419,7 @@ func (s *StorageProvisionerAPIv4) WatchVolumes(
 
 // WatchFilesystems watches for changes to filesystems scoped
 // to the entity with the tag passed to NewState.
-func (s *StorageProvisionerAPIv4) WatchFilesystems(
+func (s *StorageProvisionerAPI) WatchFilesystems(
 	ctx context.Context, args params.Entities,
 ) (params.StringsWatchResults, error) {
 	return s.watchStorageEntities(
@@ -424,7 +429,7 @@ func (s *StorageProvisionerAPIv4) WatchFilesystems(
 	)
 }
 
-func (s *StorageProvisionerAPIv4) watchStorageEntities(
+func (s *StorageProvisionerAPI) watchStorageEntities(
 	ctx context.Context,
 	args params.Entities,
 	watchModelStorage func(context.Context) (corewatcher.StringsWatcher, error),
@@ -490,7 +495,7 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 
 // WatchVolumeAttachments watches for changes to volume attachments scoped to
 // the entity with the tag passed to NewState.
-func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(
+func (s *StorageProvisionerAPI) WatchVolumeAttachments(
 	ctx context.Context, args params.Entities,
 ) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
@@ -504,7 +509,7 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(
 // watchVolumeAttachmentsMapper is the mapper function for the mapping of volume
 // attachment UUIDs to machine/unit tags and filesystem tag. It is used by the
 // WatchVolumeAttachments facade method.
-func (s *StorageProvisionerAPIv4) watchVolumeAttachmentsMapper(
+func (s *StorageProvisionerAPI) watchVolumeAttachmentsMapper(
 	ctx context.Context, volumeAttachmentUUIDs ...string,
 ) ([]corewatcher.MachineStorageID, error) {
 	if len(volumeAttachmentUUIDs) == 0 {
@@ -555,7 +560,7 @@ func (s *StorageProvisionerAPIv4) watchVolumeAttachmentsMapper(
 
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the tag passed to NewState.
-func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(
+func (s *StorageProvisionerAPI) WatchFilesystemAttachments(
 	ctx context.Context, args params.Entities,
 ) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
@@ -569,7 +574,7 @@ func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(
 // watchFilesystemAttachmentsMapper is the mapper function for the mapping of
 // filesystem attachment UUIDs to machine/unit tags and filesystem tag. It is
 // used by the WatchFilesystemAttachments facade method.
-func (s *StorageProvisionerAPIv4) watchFilesystemAttachmentsMapper(
+func (s *StorageProvisionerAPI) watchFilesystemAttachmentsMapper(
 	ctx context.Context, filesystemAttachmentUUIDs ...string,
 ) ([]corewatcher.MachineStorageID, error) {
 	if len(filesystemAttachmentUUIDs) == 0 {
@@ -623,7 +628,7 @@ func (s *StorageProvisionerAPIv4) watchFilesystemAttachmentsMapper(
 // WatchVolumeAttachmentPlans watches for changes to volume attachments for a
 // machine for the purpose of allowing that machine to run any initialization
 // needed, for that volume to actually appear as a block device (ie: iSCSI)
-func (s *StorageProvisionerAPIv4) WatchVolumeAttachmentPlans(
+func (s *StorageProvisionerAPI) WatchVolumeAttachmentPlans(
 	ctx context.Context, args params.Entities,
 ) (params.MachineStorageIdsWatchResults, error) {
 	canAccess, err := s.getMachineAuthFunc(ctx)
@@ -662,7 +667,7 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachmentPlans(
 
 // watchVolumeAttachmentPlans performs operations required for the corresponding
 // facade method WatchVolumeAttachmentPlans.
-func (s *StorageProvisionerAPIv4) watchVolumeAttachmentPlans(
+func (s *StorageProvisionerAPI) watchVolumeAttachmentPlans(
 	ctx context.Context, machineTag names.MachineTag,
 ) (string, []corewatcher.MachineStorageID, error) {
 	machineUUID, err := s.getMachineUUID(ctx, machineTag)
@@ -721,7 +726,7 @@ func machineStorageIDsToParams(ids []corewatcher.MachineStorageID) []params.Mach
 	return out
 }
 
-func (s *StorageProvisionerAPIv4) RemoveVolumeAttachmentPlan(ctx context.Context, args params.MachineStorageIds) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPI) RemoveVolumeAttachmentPlan(ctx context.Context, args params.MachineStorageIds) (params.ErrorResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
@@ -760,7 +765,7 @@ func (s *StorageProvisionerAPIv4) RemoveVolumeAttachmentPlan(ctx context.Context
 
 // removeVolumeAttachmentPlan handles the volume attachment plan removal
 // operations for the corresponding facade method RemoveVolumeAttachmentPlan.
-func (s *StorageProvisionerAPIv4) removeVolumeAttachmentPlan(
+func (s *StorageProvisionerAPI) removeVolumeAttachmentPlan(
 	ctx context.Context, machineTag names.MachineTag, tag names.VolumeTag,
 ) error {
 	machineUUID, err := s.getMachineUUID(ctx, machineTag)
@@ -789,7 +794,7 @@ func (s *StorageProvisionerAPIv4) removeVolumeAttachmentPlan(
 	return nil
 }
 
-func (s *StorageProvisionerAPIv4) watchAttachments(
+func (s *StorageProvisionerAPI) watchAttachments(
 	ctx context.Context,
 	args params.Entities,
 	watchModelAttachments func(context.Context) (corewatcher.StringsWatcher, error),
@@ -860,7 +865,7 @@ func (s *StorageProvisionerAPIv4) watchAttachments(
 }
 
 // Volumes returns details of volumes with the specified tags.
-func (s *StorageProvisionerAPIv4) Volumes(ctx context.Context, args params.Entities) (params.VolumeResults, error) {
+func (s *StorageProvisionerAPI) Volumes(ctx context.Context, args params.Entities) (params.VolumeResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.VolumeResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -927,7 +932,7 @@ func (s *StorageProvisionerAPIv4) Volumes(ctx context.Context, args params.Entit
 }
 
 // Filesystems returns details of filesystems with the specified tags.
-func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.Entities) (params.FilesystemResults, error) {
+func (s *StorageProvisionerAPI) Filesystems(ctx context.Context, args params.Entities) (params.FilesystemResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.FilesystemResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -1003,7 +1008,7 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 // handling logic and get to the desired value quicker. The error returned from
 // this func has been converted to an error understood by this facade caller and
 // requires no further translation.
-func (s *StorageProvisionerAPIv4) getVolumeAttachmentPlanUUID(
+func (s *StorageProvisionerAPI) getVolumeAttachmentPlanUUID(
 	ctx context.Context,
 	volumeTag names.VolumeTag,
 	machineUUID machine.UUID,
@@ -1035,7 +1040,7 @@ func (s *StorageProvisionerAPIv4) getVolumeAttachmentPlanUUID(
 
 // VolumeAttachmentPlans returns details of volume attachment plans with the
 // specified IDs.
-func (s *StorageProvisionerAPIv4) VolumeAttachmentPlans(
+func (s *StorageProvisionerAPI) VolumeAttachmentPlans(
 	ctx context.Context, args params.MachineStorageIds,
 ) (params.VolumeAttachmentPlanResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc(ctx)
@@ -1080,7 +1085,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentPlans(
 	return results, nil
 }
 
-func (s *StorageProvisionerAPIv4) volumeAttachmentPlan(
+func (s *StorageProvisionerAPI) volumeAttachmentPlan(
 	ctx context.Context,
 	machineTag names.MachineTag,
 	volumeTag names.VolumeTag,
@@ -1142,7 +1147,7 @@ func (s *StorageProvisionerAPIv4) volumeAttachmentPlan(
 }
 
 // VolumeAttachments returns details of volume attachments with the specified IDs.
-func (s *StorageProvisionerAPIv4) VolumeAttachments(
+func (s *StorageProvisionerAPI) VolumeAttachments(
 	ctx context.Context, args params.MachineStorageIds,
 ) (params.VolumeAttachmentResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc(ctx)
@@ -1186,7 +1191,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachments(
 	return results, nil
 }
 
-func (s *StorageProvisionerAPIv4) volumeAttachments(
+func (s *StorageProvisionerAPI) volumeAttachments(
 	ctx context.Context, machineTag names.MachineTag, volumeTag names.VolumeTag,
 ) (params.VolumeAttachment, error) {
 	machineUUID, err := s.getMachineUUID(ctx, machineTag)
@@ -1241,7 +1246,7 @@ func (s *StorageProvisionerAPIv4) volumeAttachments(
 
 // VolumeBlockDevices returns details of the block devices corresponding to the
 // volume attachments with the specified IDs.
-func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args params.MachineStorageIds) (params.BlockDeviceResults, error) {
+func (s *StorageProvisionerAPI) VolumeBlockDevices(ctx context.Context, args params.MachineStorageIds) (params.BlockDeviceResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.BlockDeviceResults{},
@@ -1370,7 +1375,7 @@ func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args p
 }
 
 // FilesystemAttachments returns details of filesystem attachments with the specified IDs.
-func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, args params.MachineStorageIds) (params.FilesystemAttachmentResults, error) {
+func (s *StorageProvisionerAPI) FilesystemAttachments(ctx context.Context, args params.MachineStorageIds) (params.FilesystemAttachmentResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.FilesystemAttachmentResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -1476,7 +1481,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 
 // VolumeParams returns the parameters for creating or destroying
 // the volumes with the specified tags.
-func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.Entities) (params.VolumeParamsResults, error) {
+func (s *StorageProvisionerAPI) VolumeParams(ctx context.Context, args params.Entities) (params.VolumeParamsResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.VolumeParamsResults{}, err
@@ -1576,7 +1581,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 
 // RemoveVolumeParams returns the parameters for destroying
 // or releasing the volumes with the specified tags.
-func (s *StorageProvisionerAPIv4) RemoveVolumeParams(ctx context.Context, args params.Entities) (params.RemoveVolumeParamsResults, error) {
+func (s *StorageProvisionerAPI) RemoveVolumeParams(ctx context.Context, args params.Entities) (params.RemoveVolumeParamsResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.RemoveVolumeParamsResults{}, err
@@ -1611,7 +1616,7 @@ func (s *StorageProvisionerAPIv4) RemoveVolumeParams(ctx context.Context, args p
 
 // removeVolumeParams performs operations required for the corresponding
 // facade method RemoveVolumeParams.
-func (s *StorageProvisionerAPIv4) removeVolumeParams(
+func (s *StorageProvisionerAPI) removeVolumeParams(
 	ctx context.Context, tag names.VolumeTag,
 ) (params.RemoveVolumeParams, error) {
 	uuid, err := s.storageProvisioningService.GetVolumeUUIDForID(
@@ -1648,7 +1653,7 @@ func (s *StorageProvisionerAPIv4) removeVolumeParams(
 
 // FilesystemParams returns the parameters for creating the filesystems
 // with the specified tags.
-func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args params.Entities) (params.FilesystemParamsResults, error) {
+func (s *StorageProvisionerAPI) FilesystemParams(ctx context.Context, args params.Entities) (params.FilesystemParamsResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
@@ -1730,7 +1735,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 
 // RemoveFilesystemParams returns the parameters for destroying or
 // releasing the filesystems with the specified tags.
-func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(
+func (s *StorageProvisionerAPI) RemoveFilesystemParams(
 	ctx context.Context, args params.Entities,
 ) (params.RemoveFilesystemParamsResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc(ctx)
@@ -1767,7 +1772,7 @@ func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(
 
 // removeFilesystemParams performs operations required for the corresponding
 // facade method RemoveFilesystemParams.
-func (s *StorageProvisionerAPIv4) removeFilesystemParams(
+func (s *StorageProvisionerAPI) removeFilesystemParams(
 	ctx context.Context, tag names.FilesystemTag,
 ) (params.RemoveFilesystemParams, error) {
 	uuid, err := s.storageProvisioningService.GetFilesystemUUIDForID(
@@ -1804,7 +1809,7 @@ func (s *StorageProvisionerAPIv4) removeFilesystemParams(
 
 // VolumeAttachmentParams returns the parameters for creating the volume
 // attachments with the specified IDs.
-func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
+func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 	ctx context.Context,
 	args params.MachineStorageIds,
 ) (params.VolumeAttachmentParamsResults, error) {
@@ -1880,7 +1885,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 
 // FilesystemAttachmentParams returns the parameters for creating the filesystem
 // attachments with the specified IDs.
-func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
+func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 	ctx context.Context,
 	args params.MachineStorageIds,
 ) (params.FilesystemAttachmentParamsResults, error) {
@@ -1953,7 +1958,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 }
 
 // SetVolumeInfo records the details of newly provisioned volumes.
-func (s *StorageProvisionerAPIv4) SetVolumeInfo(ctx context.Context, args params.Volumes) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPI) SetVolumeInfo(ctx context.Context, args params.Volumes) (params.ErrorResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -2000,7 +2005,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeInfo(ctx context.Context, args params
 }
 
 // SetFilesystemInfo records the details of newly provisioned filesystems.
-func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args params.Filesystems) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPI) SetFilesystemInfo(ctx context.Context, args params.Filesystems) (params.ErrorResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -2043,7 +2048,7 @@ func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args pa
 	return results, nil
 }
 
-func (s *StorageProvisionerAPIv4) CreateVolumeAttachmentPlans(
+func (s *StorageProvisionerAPI) CreateVolumeAttachmentPlans(
 	ctx context.Context, args params.VolumeAttachmentPlans,
 ) (params.ErrorResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc(ctx)
@@ -2081,7 +2086,7 @@ func (s *StorageProvisionerAPIv4) CreateVolumeAttachmentPlans(
 
 // createVolumeAttachmentPlan performs operations required for the corresponding
 // facade method CreateVolumeAttachmentPlans.
-func (s *StorageProvisionerAPIv4) createVolumeAttachmentPlan(
+func (s *StorageProvisionerAPI) createVolumeAttachmentPlan(
 	ctx context.Context,
 	machineTag names.MachineTag,
 	volumeTag names.VolumeTag,
@@ -2128,7 +2133,7 @@ func (s *StorageProvisionerAPIv4) createVolumeAttachmentPlan(
 	return nil
 }
 
-func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(
+func (s *StorageProvisionerAPI) SetVolumeAttachmentPlanBlockInfo(
 	ctx context.Context, args params.VolumeAttachmentPlans,
 ) (params.ErrorResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc(ctx)
@@ -2170,7 +2175,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(
 
 // setVolumeAttachmentPlanBlockInfo performs operations required for the
 // corresponding facade method SetVolumeAttachmentPlanBlockInfo.
-func (s *StorageProvisionerAPIv4) setVolumeAttachmentPlanBlockInfo(
+func (s *StorageProvisionerAPI) setVolumeAttachmentPlanBlockInfo(
 	ctx context.Context,
 	machineTag names.MachineTag,
 	volumeTag names.VolumeTag,
@@ -2230,7 +2235,7 @@ func (s *StorageProvisionerAPIv4) setVolumeAttachmentPlanBlockInfo(
 
 // SetVolumeAttachmentInfo records the details of newly provisioned volume
 // attachments.
-func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
+func (s *StorageProvisionerAPI) SetVolumeAttachmentInfo(
 	ctx context.Context,
 	args params.VolumeAttachments,
 ) (params.ErrorResults, error) {
@@ -2269,7 +2274,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 
 // setVolumeAttachmentInfo performs operations required for the corresponding
 // facade method SetVolumeAttachmentInfo.
-func (s *StorageProvisionerAPIv4) setVolumeAttachmentInfo(
+func (s *StorageProvisionerAPI) setVolumeAttachmentInfo(
 	ctx context.Context, machineTag names.MachineTag, volumeTag names.VolumeTag,
 	vai params.VolumeAttachmentInfo,
 ) error {
@@ -2366,7 +2371,7 @@ func (s *StorageProvisionerAPIv4) setVolumeAttachmentInfo(
 
 // SetFilesystemAttachmentInfo records the details of newly provisioned filesystem
 // attachments.
-func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
+func (s *StorageProvisionerAPI) SetFilesystemAttachmentInfo(
 	ctx context.Context,
 	args params.FilesystemAttachments,
 ) (params.ErrorResults, error) {
@@ -2445,7 +2450,7 @@ func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
 	return results, nil
 }
 
-func (s *StorageProvisionerAPIv4) getUnitUUID(
+func (s *StorageProvisionerAPI) getUnitUUID(
 	ctx context.Context, tag names.UnitTag,
 ) (coreunit.UUID, error) {
 	unitName, err := coreunit.NewName(tag.Id())
@@ -2472,7 +2477,7 @@ func (s *StorageProvisionerAPIv4) getUnitUUID(
 	return unitUUID, nil
 }
 
-func (s *StorageProvisionerAPIv4) filesystemAttachmentLife(
+func (s *StorageProvisionerAPI) filesystemAttachmentLife(
 	ctx context.Context, fsTag names.FilesystemTag, hostTag names.Tag,
 ) (life.Value, error) {
 	fsAttachmentUUID, err := s.getFilesystemAttachmentUUID(ctx, fsTag, hostTag)
@@ -2496,7 +2501,7 @@ func (s *StorageProvisionerAPIv4) filesystemAttachmentLife(
 	return fsLife.Value()
 }
 
-func (s *StorageProvisionerAPIv4) getFilesystemAttachmentUUID(
+func (s *StorageProvisionerAPI) getFilesystemAttachmentUUID(
 	ctx context.Context, fsTag names.FilesystemTag, hostTag names.Tag,
 ) (storageprovisioning.FilesystemAttachmentUUID, error) {
 	errHandler := func(err error) error {
@@ -2559,7 +2564,7 @@ func (s *StorageProvisionerAPIv4) getFilesystemAttachmentUUID(
 	return rval, nil
 }
 
-func (s *StorageProvisionerAPIv4) getVolumeAttachmentUUID(
+func (s *StorageProvisionerAPI) getVolumeAttachmentUUID(
 	ctx context.Context, volTag names.VolumeTag, machineUUID machine.UUID,
 ) (storageprovisioning.VolumeAttachmentUUID, error) {
 	rval, err := s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDMachine(
@@ -2586,7 +2591,7 @@ func (s *StorageProvisionerAPIv4) getVolumeAttachmentUUID(
 	return rval, nil
 }
 
-func (s *StorageProvisionerAPIv4) volumeAttachmentLife(
+func (s *StorageProvisionerAPI) volumeAttachmentLife(
 	ctx context.Context, volTag names.VolumeTag, hostTag names.Tag,
 ) (life.Value, error) {
 	machineTag, ok := hostTag.(names.MachineTag)
@@ -2624,7 +2629,7 @@ func (s *StorageProvisionerAPIv4) volumeAttachmentLife(
 
 // AttachmentLife returns the lifecycle state of each specified machine
 // storage attachment.
-func (s *StorageProvisionerAPIv4) AttachmentLife(ctx context.Context, args params.MachineStorageIds) (params.LifeResults, error) {
+func (s *StorageProvisionerAPI) AttachmentLife(ctx context.Context, args params.MachineStorageIds) (params.LifeResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.LifeResults{}, err
@@ -2668,7 +2673,7 @@ func (s *StorageProvisionerAPIv4) AttachmentLife(ctx context.Context, args param
 }
 
 // Remove removes volumes and filesystems from state.
-func (s *StorageProvisionerAPIv4) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPI) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
@@ -2709,7 +2714,7 @@ func (s *StorageProvisionerAPIv4) Remove(ctx context.Context, args params.Entiti
 
 // removeVolume handles the volume removal operations for the corresponding
 // facade method Remove.
-func (s *StorageProvisionerAPIv4) removeVolume(
+func (s *StorageProvisionerAPI) removeVolume(
 	ctx context.Context, tag names.VolumeTag,
 ) error {
 	uuid, err := s.storageProvisioningService.GetVolumeUUIDForID(
@@ -2739,7 +2744,7 @@ func (s *StorageProvisionerAPIv4) removeVolume(
 
 // removeFilesystem handles the filesystem removal operations for the
 // corresponding facade method Remove.
-func (s *StorageProvisionerAPIv4) removeFilesystem(
+func (s *StorageProvisionerAPI) removeFilesystem(
 	ctx context.Context, tag names.FilesystemTag,
 ) error {
 	uuid, err := s.storageProvisioningService.GetFilesystemUUIDForID(
@@ -2769,7 +2774,7 @@ func (s *StorageProvisionerAPIv4) removeFilesystem(
 
 // RemoveAttachment removes the specified machine storage attachments
 // from state.
-func (s *StorageProvisionerAPIv4) RemoveAttachment(ctx context.Context, args params.MachineStorageIds) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPI) RemoveAttachment(ctx context.Context, args params.MachineStorageIds) (params.ErrorResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
@@ -2818,7 +2823,7 @@ func (s *StorageProvisionerAPIv4) RemoveAttachment(ctx context.Context, args par
 
 // removeVolumeAttachment handles the volume attachment removal operations
 // for the corresponding facade method RemoveAttachment.
-func (s *StorageProvisionerAPIv4) removeVolumeAttachment(
+func (s *StorageProvisionerAPI) removeVolumeAttachment(
 	ctx context.Context, machineTag names.MachineTag, tag names.VolumeTag,
 ) error {
 	machineUUID, err := s.getMachineUUID(ctx, machineTag)
@@ -2849,7 +2854,7 @@ func (s *StorageProvisionerAPIv4) removeVolumeAttachment(
 
 // removeFilesystemAttachment handles the filesystem attachment removal operations
 // for the corresponding facade method RemoveAttachment.
-func (s *StorageProvisionerAPIv4) removeFilesystemAttachment(
+func (s *StorageProvisionerAPI) removeFilesystemAttachment(
 	ctx context.Context, hostTag names.Tag, tag names.FilesystemTag,
 ) error {
 	filesystemAttachmentUUID, err := s.getFilesystemAttachmentUUID(
@@ -2875,7 +2880,7 @@ func (s *StorageProvisionerAPIv4) removeFilesystemAttachment(
 }
 
 // SetStatus sets the status of each given storage artefact.
-func (s *StorageProvisionerAPIv4) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPI) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -2933,7 +2938,7 @@ func (s *StorageProvisionerAPIv4) SetStatus(ctx context.Context, args params.Set
 // handling logic and get to the desired value quicker. The error returned from
 // this func has been converted to an error understood by this facade caller and
 // requires no further translation.
-func (s *StorageProvisionerAPIv4) getMachineUUID(
+func (s *StorageProvisionerAPI) getMachineUUID(
 	ctx context.Context, machineTag names.MachineTag,
 ) (machine.UUID, error) {
 	machineUUID, err := s.machineService.GetMachineUUID(
