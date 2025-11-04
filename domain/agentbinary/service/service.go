@@ -19,20 +19,6 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 )
 
-type AgentBinaryDiscoverableStore interface {
-	// GetAgentBinaryWithSHA256 retrieves the agent binary corresponding to the given version
-	// and stream from an external store.
-	// The caller is responsible for closing the returned reader.
-	//
-	// The following errors may be returned:
-	// - [domainagenterrors.NotFound] if the agent binary metadata does not exist.
-	GetAgentBinaryWithSHA256(
-		context.Context,
-		coreagentbinary.Version,
-		agentbinary.Stream,
-	) (io.ReadCloser, int64, string, error)
-}
-
 type AgentBinaryLocalStore interface {
 	// AddAgentBinaryWithSHA256 adds a new agent binary to the object store and saves its metadata to the database.
 	// The following errors can be returned:
@@ -123,7 +109,7 @@ type AgentBinaryService struct {
 	getPreferredSimpleStreams    PreferredSimpleStreamsFunc
 	agentBinaryFilter            AgentBinaryFilter
 	controllerState              ControllerState
-	externalStores               []AgentBinaryDiscoverableStore
+	externalStores               []AgentBinaryGetterStore
 	modelState                   ModelState
 	store                        AgentBinaryLocalStore
 }
@@ -138,7 +124,7 @@ func NewAgentBinaryService(
 	controllerState ControllerState,
 	modelState ModelState,
 	store AgentBinaryLocalStore,
-	externalStores ...AgentBinaryDiscoverableStore,
+	externalStores ...AgentBinaryGetterStore,
 ) *AgentBinaryService {
 	return &AgentBinaryService{
 		providerForAgentBinaryFinder: providerForAgentBinaryFinder,
