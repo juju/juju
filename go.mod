@@ -24,7 +24,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.78.2
 	github.com/aws/smithy-go v1.22.3
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f
-	github.com/canonical/go-dqlite v1.21.0
+	github.com/canonical/go-dqlite/v3 v3.0.3
 	github.com/canonical/lxd v0.0.0-20241209155119-76da976c6ee7
 	github.com/canonical/pebble v1.19.2
 	github.com/chzyer/readline v1.5.1
@@ -281,7 +281,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/spf13/viper v1.19.0 // indirect
 	github.com/std-uritemplate/std-uritemplate/go v0.0.47 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
