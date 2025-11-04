@@ -1,7 +1,9 @@
-// Copyright 2024 Canonical Ltd.
+//go:build !dqlite
+
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package dbaccessor
+package database
 
 import (
 	"context"
@@ -12,7 +14,32 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/database/pragma"
+	internallogger "github.com/juju/juju/internal/logger"
 )
+
+var deleteDBLogger = internallogger.GetLogger("juju.database.deletedb")
+
+// DeleteDB deletes the dqlite database with the given name from the sql.DB.
+func DeleteDB(ctx context.Context, db *sql.DB, name string) error {
+
+	// We need to ensure that foreign keys are disabled before we can blanket
+	// delete the database.
+	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, false); err != nil {
+		return errors.Annotate(err, "setting foreign keys pragma")
+	}
+
+	// Now attempt to delete the database and all of it's contents.
+	// This can be replaced with DROP DB once it's supported by dqlite.
+	if err := Retry(ctx, func() error {
+		return StdTxn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+			return deleteDBContents(ctx, tx, deleteDBLogger)
+		})
+	}); err != nil {
+		return errors.Annotatef(err, "deleting database contents")
+	}
+	return nil
+}
 
 type sqliteSchema struct {
 	Type string
