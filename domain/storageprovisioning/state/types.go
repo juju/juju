@@ -128,6 +128,7 @@ type filesystemProvisioningParams struct {
 	Type         string           `db:"type"`
 	SizeMiB      uint64           `db:"size_mib"`
 	VolumeID     sql.Null[string] `db:"volume_id"`
+	ProviderID   sql.Null[string] `db:"provider_id"`
 }
 
 // filesystemRemovalParams represents the removal params for a filesystem from

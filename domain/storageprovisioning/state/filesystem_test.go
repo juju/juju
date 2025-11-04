@@ -1035,8 +1035,8 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMachineAttached(c *tc
 		CharmStorageReadOnly: false,
 		MachineInstanceID:    "machine-id-123",
 		// We don't expect a mount point to have been set yet.
-		MountPoint: "",
-		Provider:   "canonical",
+		MountPoint:           "",
+		Provider:             "canonical",
 		FilesystemProviderID: "provider-id",
 	})
 }
@@ -1085,7 +1085,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C)
 		CharmStorageReadOnly: false,
 		MachineInstanceID:    "",
 		Provider:             "canonical",
-		FilesystemProviderID:           "",
+		FilesystemProviderID: "",
 	})
 }
 
@@ -1136,7 +1136,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountPointSet(c *tc.C
 		MachineInstanceID:    "machine-id-123",
 		MountPoint:           mountPoint,
 		Provider:             "canonical",
-		FilesystemProviderID:           "provider-id",
+		FilesystemProviderID: "provider-id",
 	})
 }
 

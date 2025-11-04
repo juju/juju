@@ -885,6 +885,7 @@ func (st *State) GetFilesystemParams(
 	paramsStmt, err := st.Prepare(`
 SELECT &filesystemProvisioningParams.* FROM (
     SELECT    sf.filesystem_id,
+              sf.provider_id,
               si.requested_size_mib AS size_mib,
               sp.type,
               sv.volume_id
@@ -973,6 +974,11 @@ WHERE  sf.uuid = $filesystemUUID.uuid
 		retVal.BackingVolume = &storageprovisioning.FilesystemBackingVolume{
 			VolumeID: paramsVal.VolumeID.V,
 		}
+	}
+
+	if paramsVal.ProviderID.Valid {
+		v := paramsVal.ProviderID.V
+		retVal.ProviderID = &v
 	}
 
 	return retVal, nil

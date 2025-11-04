@@ -1744,6 +1744,7 @@ func (s *StorageProvisionerAPI) FilesystemParams(
 			Attributes:    make(map[string]any, len(fsParams.Attributes)),
 			FilesystemTag: tag.String(),
 			Provider:      fsParams.Provider,
+			ProviderId:    fsParams.ProviderID,
 			SizeMiB:       fsParams.SizeMiB,
 			Tags:          fsModelTags,
 		}

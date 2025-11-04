@@ -1292,9 +1292,10 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 		Attributes: map[string]string{
 			"foo": "bar",
 		},
-		ID:       "fs-id123",
-		Provider: "myprovider",
-		SizeMiB:  10,
+		ID:         "fs-id123",
+		Provider:   "myprovider",
+		ProviderID: ptr("fs-provider-id"),
+		SizeMiB:    10,
 	}, nil)
 
 	results, err := s.api.FilesystemParams(c.Context(), params.Entities{
@@ -1311,6 +1312,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 		FilesystemTag: tag.String(),
 		SizeMiB:       10,
 		Provider:      "myprovider",
+		ProviderId:    ptr("fs-provider-id"),
 		Tags: map[string]string{
 			"tag1": "value1",
 		},

@@ -56,6 +56,7 @@ type FilesystemParams struct {
 	Attributes    map[string]string
 	ID            string
 	Provider      string
+	ProviderID    *string
 	SizeMiB       uint64
 	BackingVolume *FilesystemBackingVolume
 }
