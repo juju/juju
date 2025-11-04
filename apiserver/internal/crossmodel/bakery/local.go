@@ -38,7 +38,7 @@ func NewLocalOfferBakery(
 	clock clock.Clock,
 	logger logger.Logger,
 ) (*LocalOfferBakery, error) {
-	store := internalmacaroon.NewRootKeyStore(backingStore, offerPermissionExpiryTime, clock)
+	store := internalmacaroon.NewRootKeyStore(backingStore, internalmacaroon.DefaultPolicy, clock)
 
 	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: keyPair.Public}
 
@@ -129,8 +129,6 @@ func (o *LocalOfferBakery) CreateDischargeMacaroon(
 	declaredValues DeclaredValues,
 	op bakery.Op, version bakery.Version,
 ) (*bakery.Macaroon, error) {
-	// TODO (stickupkid): If these are required values we should check that
-	// they're not empty.
 	requiredSourceModelUUID := requiredValues[sourceModelKey]
 	requiredOffer := requiredValues[offerUUIDKey]
 	requiredRelation := requiredValues[relationKey]

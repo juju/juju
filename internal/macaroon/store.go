@@ -11,8 +11,11 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 )
 
-// DefaultExpiration is a sensible default duration for root keys before expiration.
-var DefaultExpiration = 24 * time.Hour
+// DefaultPolicy is a sensible default policy for root keys before expiration.
+var DefaultPolicy = dbrootkeystore.Policy{
+	ExpiryDuration:   24 * time.Hour,
+	GenerateInterval: 24 * time.Hour,
+}
 
 type storage struct {
 	store bakery.RootKeyStore
@@ -21,11 +24,9 @@ type storage struct {
 // NewRootKeyStore returns a new root key store that uses the given backing
 // store to persist root keys with the given expiration duration. The clock is
 // used to determine when keys expire.
-func NewRootKeyStore(backing dbrootkeystore.ContextBacking, expireAfter time.Duration, clock dbrootkeystore.Clock) bakery.RootKeyStore {
+func NewRootKeyStore(backing dbrootkeystore.ContextBacking, policy dbrootkeystore.Policy, clock dbrootkeystore.Clock) bakery.RootKeyStore {
 	return &storage{
-		store: dbrootkeystore.NewRootKeys(5, clock).NewContextStore(backing, dbrootkeystore.Policy{
-			ExpiryDuration: expireAfter,
-		}),
+		store: dbrootkeystore.NewRootKeys(5, clock).NewContextStore(backing, policy),
 	}
 }
 

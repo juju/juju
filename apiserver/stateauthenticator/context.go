@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/identchecker"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
@@ -30,11 +30,6 @@ import (
 )
 
 var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not configured")
-
-const (
-	// TODO make this configurable via model config.
-	externalLoginExpiryTime = 24 * time.Hour
-)
 
 const (
 	localUserIdentityLocationPath = "/auth"
@@ -173,7 +168,7 @@ func newAuthContext(
 
 	// Create a bakery service for local user authentication. This service
 	// persists keys into DQLite in a TTL collection.
-	store := internalmacaroon.NewRootKeyStore(macaroonService, internalmacaroon.DefaultExpiration, ctxClock)
+	store := internalmacaroon.NewRootKeyStore(macaroonService, internalmacaroon.DefaultPolicy, ctxClock)
 
 	localUserBakeryKey, err := macaroonService.GetLocalUsersKey(ctx)
 	if err != nil {
@@ -325,7 +320,7 @@ func (ctxt *authContext) externalMacaroonAuth(ctx context.Context, identClient i
 			controllerConfigService: ctxt.controllerConfigService,
 			macaroonService:         ctxt.macaroonService,
 			clock:                   ctxt.clock,
-			expiryTime:              externalLoginExpiryTime,
+			policy:                  internalmacaroon.DefaultPolicy,
 			identClient:             identClient,
 		})
 	})
@@ -339,7 +334,7 @@ type externalMacaroonAuthenticatorConfig struct {
 	controllerConfigService ControllerConfigService
 	macaroonService         MacaroonService
 	clock                   clock.Clock
-	expiryTime              time.Duration
+	policy                  dbrootkeystore.Policy
 	identClient             identchecker.IdentityClient
 }
 
@@ -374,7 +369,7 @@ func newExternalMacaroonAuth(ctx context.Context, cfg externalMacaroonAuthentica
 		Clock:            cfg.clock,
 		IdentityLocation: idURL,
 	}
-	store := internalmacaroon.NewRootKeyStore(cfg.macaroonService, cfg.expiryTime, cfg.clock)
+	store := internalmacaroon.NewRootKeyStore(cfg.macaroonService, cfg.policy, cfg.clock)
 	if cfg.identClient == nil {
 		cfg.identClient = &auth
 	}

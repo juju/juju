@@ -6,15 +6,12 @@ package errors
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 )
@@ -82,17 +79,6 @@ func (e *DischargeRequiredError) Unwrap() error {
 func (e *DischargeRequiredError) SendError(w http.ResponseWriter) error {
 	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
 	return sendError(w, e)
-}
-
-// NewErrIncompatibleBase returns an error indicating that the base is not
-// supported by the charm.
-func NewErrIncompatibleBase(baseList []base.Base, b base.Base, charmName string) error {
-	return fmt.Errorf("base %q not supported by charm %q, supported bases are: %s%w",
-		b.DisplayString(),
-		charmName,
-		strings.Join(transform.Slice(baseList, func(b base.Base) string { return b.DisplayString() }), ", "),
-		errors.Hide(IncompatibleBaseError),
-	)
 }
 
 // RedirectError is the error returned when a model (previously accessible by

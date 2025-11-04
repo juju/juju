@@ -46,7 +46,7 @@ func NewJAASOfferBakery(
 	clock clock.Clock,
 	logger logger.Logger,
 ) (*JAASOfferBakery, error) {
-	store := internalmacaroon.NewRootKeyStore(backingStore, offerPermissionExpiryTime, clock)
+	store := internalmacaroon.NewRootKeyStore(backingStore, internalmacaroon.DefaultPolicy, clock)
 
 	externalKeyLocator := newExternalPublicKeyLocator(endpoint, httpClient, logger)
 	bakery := &bakeryutil.StorageBakery{
@@ -142,8 +142,6 @@ func (o *JAASOfferBakery) CreateDischargeMacaroon(
 	declaredValues DeclaredValues,
 	op bakery.Op, version bakery.Version,
 ) (*bakery.Macaroon, error) {
-	// TODO (stickupkid): If these are required values we should check that
-	// they're not empty.
 	requiredOffer := requiredValues[offerUUIDKey]
 	conditionParts := []string{
 		"is-consumer",
