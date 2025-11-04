@@ -13,7 +13,7 @@ const (
 	// [StorageDirective.MaxCount] when no upper limit exists for the number of
 	// storage instances that can be made for a directive.
 	//
-	// This situation would be seen when a charm has no opionated maximum.
+	// This situation would be seen when a charm has no opinionated maximum.
 	StorageDirectiveNoMaxCount = -1
 )
 

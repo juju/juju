@@ -23,7 +23,7 @@ func TestStorageTypeSuite(t *testing.T) {
 // TestStorageTypeMatchesInternalCharm asserts that the storage enums defined
 // in this package have the same value as those in [internalcharm.StorageType].
 //
-// This is a sanity test to make sure that no scew occurs over time.
+// This is a sanity test to make sure that no skew occurs over time.
 func (s *storageTypeSuite) TestStorageTypeMatchesInternalCharm(c *tc.C) {
 	c.Check(StorageFilesystem.String(), tc.Equals, internalcharm.StorageFilesystem.String())
 	c.Check(StorageBlock.String(), tc.Equals, internalcharm.StorageBlock.String())

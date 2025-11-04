@@ -640,9 +640,9 @@ func (s Service) MakeUnitStorageArgs(
 			maxCount = len(existingStorageInstances)
 		} else if sd.MaxCount < 0 {
 			// This is defensive programming. If by some chance this value is
-			// < 0 and not equal to [application.StorageDirectives] then we will
-			// only allow up to the number of existing storage instances.
-			// This SHOULD never happen but we have safety rails
+			// < 0 and not equal to [application.StorageDirectiveNoMaxCount]
+			// then we will only allow up to the number of existing storage
+			// instances. This SHOULD never happen but we have safety rails.
 			maxCount = len(existingStorageInstances)
 		}
 
