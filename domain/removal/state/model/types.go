@@ -105,11 +105,6 @@ type linkLayerDevice struct {
 	UUID            string `db:"uuid"`
 }
 
-type consumerApplicationUUID struct {
-	ConsumerApplicationUUID string `db:"consumer_application_uuid"`
-	SynthApplicationUUID    string `db:"uuid"`
-}
-
 // storageAttachmentDetachInfo represents the information needed to make a
 // decision if a given storage attachment can be detached from a unit safely.
 // This information assumes the case where the unit will continue to run after

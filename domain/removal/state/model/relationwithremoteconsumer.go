@@ -56,7 +56,8 @@ AND    cs.name = 'cmr'`, remoteRelationUUID)
 
 // EnsureRelationWithRemoteConsumerNotAliveCascade ensures that the relation identified
 // by the input UUID is not alive, and sets the synthetic units in scope
-// of this relation to dead.
+// of this relation to dead. We do this because synthetic units do not have a
+// uniter, so we need to handle their life ourselves.
 func (st *State) EnsureRelationWithRemoteConsumerNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRelationWithRemoteConsumerLives, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -198,36 +199,19 @@ AND    cs.name = 'cmr'`, remoteRelationUUID)
 		return errors.Errorf("preparing remote relation application UUID query: %w", err)
 	}
 
-	countSyntheticAppRelationsStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &count.count
-FROM   relation_endpoint AS re
-JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
-WHERE  ae.application_uuid = $entityUUID.uuid
-`, count{}, entityUUID{})
-	if err != nil {
-		return errors.Errorf("preparing remote relation application relation count query: %w", err)
-	}
-
-	deleteRelationNetworkEgressStmt, err := st.Prepare(`
-DELETE FROM relation_network_egress
+	deleteRelationNetworkIngressStmt, err := st.Prepare(`
+DELETE FROM relation_network_ingress
 WHERE  relation_uuid = $entityUUID.uuid`, entityUUID{})
 	if err != nil {
 		return errors.Errorf("preparing relation network egress deletion: %w", err)
 	}
 
-	deleteRemoteOffererRelationMacaroonStmt, err := st.Prepare(`
-DELETE FROM application_remote_offerer_relation_macaroon
-WHERE  relation_uuid = $entityUUID.uuid`, entityUUID{})
-	if err != nil {
-		return errors.Errorf("preparing remote relation macaroon deletion: %w", err)
-	}
-
-	deleteSyntheticUnitsStmt, err := st.Prepare(`
-DELETE FROM unit
-WHERE  application_uuid = $entityUUID.uuid
+	deleteOfferConnectionStmt, err := st.Prepare(`
+DELETE FROM offer_connection
+WHERE remote_relation_uuid = $entityUUID.uuid
 `, entityUUID{})
 	if err != nil {
-		return errors.Errorf("preparing remote relation unit deletion: %w", err)
+		return errors.Errorf("preparing offer connection deletion: %w", err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -237,32 +221,36 @@ WHERE  application_uuid = $entityUUID.uuid
 			return errors.Errorf("getting application UUID: %w", err)
 		}
 
-		err = tx.Query(ctx, deleteRelationNetworkEgressStmt, remoteRelationUUID).Run()
+		err = tx.Query(ctx, deleteRelationNetworkIngressStmt, remoteRelationUUID).Run()
 		if err != nil {
 			return errors.Errorf("running relation network egress deletion: %w", err)
 		}
 
-		err = tx.Query(ctx, deleteRemoteOffererRelationMacaroonStmt, remoteRelationUUID).Run()
+		deleteRemoteApplicationConsumerStmt, err := st.Prepare(`
+DELETE FROM application_remote_consumer
+WHERE offer_connection_uuid = $entityUUID.uuid
+`, synthAppUUID)
 		if err != nil {
-			return errors.Errorf("running remote relation macaroon deletion: %w", err)
+			return errors.Errorf("preparing delete remote application consumer query: %w", err)
 		}
 
-		err := st.deleteRelation(ctx, tx, remoteRelationUUID)
+		err = tx.Query(ctx, deleteRemoteApplicationConsumerStmt, synthAppUUID).Run()
+		if err != nil {
+			return errors.Errorf("deleting synthetic application remote consumer: %w", err)
+		}
+
+		err = tx.Query(ctx, deleteOfferConnectionStmt, remoteRelationUUID).Run()
+		if err != nil {
+			return errors.Errorf("running offer connection deletion: %w", err)
+		}
+
+		err = st.deleteRelation(ctx, tx, remoteRelationUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		var relationCount count
-		err = tx.Query(ctx, countSyntheticAppRelationsStmt, synthAppUUID).Get(&relationCount)
-		if err != nil {
-			return errors.Errorf("getting relation count: %w", err)
-		}
-
-		if relationCount.Count == 0 {
-			err = tx.Query(ctx, deleteSyntheticUnitsStmt, synthAppUUID).Run()
-			if err != nil {
-				return errors.Errorf("running unit deletion: %w", err)
-			}
+		if err := st.deleteSynthApplication(ctx, tx, synthAppUUID); err != nil {
+			return errors.Errorf("deleting synthetic application: %w", err)
 		}
 
 		return nil

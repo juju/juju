@@ -43,7 +43,7 @@ const (
 	// RemoteApplicationOffererJob indicates a job to remove a remote
 	// application offerer.
 	RemoteApplicationOffererJob
-	// RelationWithRemoteOffererJob indicates a job to remove a relation with.
+	// RelationWithRemoteOffererJob indicates a job to remove a relation with
 	// a remote offerer.
 	RelationWithRemoteOffererJob
 	// RelationWithRemoteConsumerJob indicates a job to remove a relation with

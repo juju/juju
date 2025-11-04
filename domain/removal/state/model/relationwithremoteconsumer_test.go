@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 
-	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -26,7 +25,7 @@ func TestRelationWithRemoteConsumerSuite(t *testing.T) {
 }
 
 func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerExists(c *tc.C) {
-	relUUID, _ := s.createRelationWithRemoteOfferer(c)
+	relUUID, _ := s.createRelationWithRemoteConsumer(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -55,7 +54,7 @@ func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerExistsFalseFo
 }
 
 func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliveCascadeNormalSuccess(c *tc.C) {
-	relUUID, synthAppUUID := s.createRelationWithRemoteOfferer(c)
+	relUUID, synthAppUUID := s.createRelationWithRemoteConsumer(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -112,7 +111,7 @@ func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliv
 }
 
 func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerScheduleRemovalNormalSuccess(c *tc.C) {
-	relUUID, _ := s.createRelationWithRemoteOfferer(c)
+	relUUID, _ := s.createRelationWithRemoteConsumer(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -174,7 +173,7 @@ where  r.uuid = ?`, "removal-uuid",
 }
 
 func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnitsUnitsStillInScope(c *tc.C) {
-	relUUID, _ := s.createRelationWithRemoteOfferer(c)
+	relUUID, _ := s.createRelationWithRemoteConsumer(c)
 
 	s.advanceRelationLife(c, relUUID, life.Dying)
 
@@ -186,7 +185,7 @@ func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnitsUn
 
 func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnits(c *tc.C) {
 	// Arrange
-	relUUID, synthAppUUID := s.createRelationWithRemoteOfferer(c)
+	relUUID, synthAppUUID := s.createRelationWithRemoteConsumer(c)
 
 	s.advanceRelationLife(c, relUUID, life.Dying)
 
@@ -201,46 +200,10 @@ func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnits(c
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
-	// The synth app should NOT be deleted.
+	// The synth app should be deleted.
 	row := s.DB().QueryRow("SELECT COUNT(*) FROM application WHERE uuid = ?", synthAppUUID.String())
 	var count int
-	err = row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 1)
-
-	// But the synth units should be cleaned up.
-	row = s.DB().QueryRow("SELECT COUNT(*) FROM unit WHERE application_uuid = ?", synthAppUUID.String())
 	err = row.Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
-}
-
-func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerWhenRemoteAppHasMultipleRelations(c *tc.C) {
-	synthAppUUID, _ := s.createRemoteApplicationOfferer(c, "foo")
-	s.createIAASApplication(c, s.setupApplicationService(c), "app1",
-		applicationservice.AddIAASUnitArg{},
-	)
-	s.createIAASApplication(c, s.setupApplicationService(c), "app2",
-		applicationservice.AddIAASUnitArg{},
-	)
-	relUUID := s.createRemoteRelationBetween(c, "foo", "app1")
-	s.createRemoteRelationBetween(c, "foo", "app2")
-
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	err := st.DeleteRelationWithRemoteConsumer(c.Context(), relUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-
-	// The synth app should NOT be deleted.
-	row := s.DB().QueryRow("SELECT COUNT(*) FROM application WHERE uuid = ?", synthAppUUID.String())
-	var count int
-	err = row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 1)
-
-	// And the synth units should also NOT be deleted.
-	row = s.DB().QueryRow("SELECT COUNT(*) FROM unit WHERE application_uuid = ?", synthAppUUID.String())
-	err = row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 3)
 }

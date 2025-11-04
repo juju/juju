@@ -63,7 +63,7 @@ func (s *Service) RemoveRelationWithRemoteConsumer(
 
 	res, err := s.modelState.EnsureRelationWithRemoteConsumerNotAliveCascade(ctx, relUUID.String())
 	if err != nil {
-		return "", errors.Errorf("remote relation %q: %w", relUUID, err)
+		return "", errors.Errorf("setting remote relation %q to dying: %w", relUUID, err)
 	}
 
 	var jUUID removal.UUID
@@ -111,7 +111,7 @@ func (s *Service) relationWithRemoteConsumerScheduleRemoval(
 	if err := s.modelState.RelationWithRemoteConsumerScheduleRemoval(
 		ctx, jobUUID.String(), relUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
-		return "", errors.Errorf("remote relation %q: %w", relUUID, err)
+		return "", errors.Errorf("scheduling remote relation %q for removal: %w", relUUID, err)
 	}
 
 	s.logger.Infof(ctx, "scheduled removal job %q for remote relation %q", jobUUID, relUUID)
