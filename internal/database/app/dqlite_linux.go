@@ -10,8 +10,8 @@ import (
 	"crypto/x509"
 	"sync"
 
-	"github.com/canonical/go-dqlite/v2/app"
-	"github.com/canonical/go-dqlite/v2/client"
+	"github.com/canonical/go-dqlite/v3/app"
+	"github.com/canonical/go-dqlite/v3/client"
 	"github.com/juju/errors"
 )
 

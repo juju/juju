@@ -6,7 +6,7 @@ package drivererrors
 import (
 	"testing"
 
-	dqlite "github.com/canonical/go-dqlite/v2/driver"
+	dqlite "github.com/canonical/go-dqlite/v3/driver"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/mattn/go-sqlite3"

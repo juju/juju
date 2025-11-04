@@ -8,7 +8,7 @@ package driver
 import (
 	sqldriver "database/sql/driver"
 
-	"github.com/canonical/go-dqlite/v2/driver"
+	"github.com/canonical/go-dqlite/v3/driver"
 
 	"github.com/juju/juju/internal/database/client"
 )

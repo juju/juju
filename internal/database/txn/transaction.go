@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/canonical/go-dqlite/v2/tracing"
+	"github.com/canonical/go-dqlite/v3/tracing"
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
