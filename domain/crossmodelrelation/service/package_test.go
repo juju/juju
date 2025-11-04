@@ -13,7 +13,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/crossmodelrelation/service ControllerState,ModelState,ModelMigrationState,ModelRelationNetworkState
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/crossmodelrelation/service ControllerState,ModelState,ModelMigrationState,ModelRelationNetworkState,WatcherFactory,StatusHistory
 
 type baseSuite struct {
 	controllerState *MockControllerState
