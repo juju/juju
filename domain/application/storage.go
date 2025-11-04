@@ -20,7 +20,8 @@ const (
 // StorageDirective defines a storage directive that already exists for either
 // an application or unit.
 type StorageDirective struct {
-	// CharmMetadataName is the metadata name of the charm the directive exists for.
+	// CharmMetadataName is the metadata name of the charm the directive exists
+	// for.
 	CharmMetadataName string
 
 	// Count represents the number of storage instances that should be made for
