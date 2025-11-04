@@ -1050,6 +1050,7 @@ See %s.`[1:], "`juju kill-controller`")
 		&c.ModelCommandBase,
 		isCAASController,
 		c.controllerName,
+		common.TryAPI,
 	)
 }
 

@@ -7,21 +7,21 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/rpc"
 	"strings"
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/client/block"
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/internal/errors"
 	caasprovider "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/rpc/params"
 )
@@ -29,41 +29,21 @@ import (
 var (
 	bootstrapReadyPollDelay = 3 * time.Second
 	bootstrapReadyPollCount = 60
-	blockAPI                = getBlockAPI
 )
 
-type listBlocksAPI interface {
-	List(context.Context) ([]params.Block, error)
-	Close() error
-}
-
-// getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(ctx context.Context, c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
-	// Set a short dial timeout so WaitForAgentInitialisation can check
-	// ctx.Done() in its retry loop.
+// TryAPI attempts to open the API.
+func TryAPI(ctx context.Context, c *modelcmd.ModelCommandBase) error {
 	dialOpts := api.DefaultDialOpts()
-	dialOpts.Timeout = 6 * time.Second
-
+	dialOpts.Timeout = 10 * time.Second
 	root, err := c.NewAPIRootWithDialOpts(ctx, &dialOpts)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Capture(err)
 	}
-	return block.NewClient(root), nil
-}
-
-// tryAPI attempts to open the API and makes a trivial call
-// to check if the API is available yet.
-func tryAPI(ctx context.Context, c *modelcmd.ModelCommandBase) error {
-	client, err := blockAPI(ctx, c)
-	if err == nil {
-		_, err = client.List(ctx)
-		closeErr := client.Close()
-		if closeErr != nil {
-			logger.Debugf(context.TODO(), "Error closing client: %v", closeErr)
-		}
-	}
+	_ = root.Close()
 	return err
 }
+
+const unknownError = errors.ConstError("unknown error in bootstrap api connect")
 
 // WaitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
@@ -73,6 +53,7 @@ func WaitForAgentInitialisation(
 	c *modelcmd.ModelCommandBase,
 	isCAASController bool,
 	controllerName string,
+	tryAPI func(ctx context.Context, c *modelcmd.ModelCommandBase) error,
 ) (err error) {
 	if ctx.Err() != nil {
 		return errors.Errorf("unable to contact api server: (%v)", ctx.Err())
@@ -100,7 +81,7 @@ func WaitForAgentInitialisation(
 			apiAttempts = attempts
 		},
 		IsFatalError: func(err error) bool {
-			return errors.Is(err, &unknownError{}) ||
+			return errors.Is(err, unknownError) ||
 				retry.IsRetryStopped(err) ||
 				errors.Is(err, context.Canceled)
 		},
@@ -117,6 +98,8 @@ func WaitForAgentInitialisation(
 				return nil
 			}
 
+			logger.Debugf(ctx, "failed api connection attempt: %v", retryErr)
+
 			// As the API server is coming up, it goes through a number of steps.
 			// Initially the upgrade steps run, but the api server allows some
 			// calls to be processed during the upgrade, but not the list blocks.
@@ -126,28 +109,29 @@ func WaitForAgentInitialisation(
 			// lead to EOF or "connection is shut down" error messages. We skip
 			// these too, hoping that things come back up before the end of the
 			// retry poll count.
-			cause := errors.Cause(retryErr)
-			errorMessage := cause.Error()
 			switch {
-			case cause == io.EOF,
-				strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
-				strings.HasSuffix(errorMessage, "operation not permitted"),
-				strings.HasSuffix(errorMessage, "connection refused"),
-				strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
-				strings.HasSuffix(errorMessage, "connection is shut down"),
-				strings.HasSuffix(errorMessage, "i/o timeout"),
-				strings.HasSuffix(errorMessage, "network is unreachable"),
-				strings.HasSuffix(errorMessage, "deadline exceeded"),
-				strings.HasSuffix(errorMessage, "no api connection available"):
+			case errors.Is(retryErr, io.EOF):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
+			case errors.Is(retryErr, api.ConnectionOpenTimedOut):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
+			case errors.Is(retryErr, api.ConnectionDialTimedOut):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
+			case errors.Is(retryErr, rpc.ErrShutdown):
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
 				return retryErr
 			case params.ErrCode(retryErr) == params.CodeUpgradeInProgress:
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
 				return retryErr
+			case isRetryableErrorMessage(retryErr.Error()):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
 			default:
-				return &unknownError{
-					err: retryErr,
-				}
+				return errors.Errorf(
+					"unknown error while connecting to controller api: %v", retryErr,
+				).Add(unknownError)
 			}
 		},
 	})
@@ -155,33 +139,29 @@ func WaitForAgentInitialisation(
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, &unknownError{}):
-		err = errors.Cause(err)
-	default:
+	case !errors.Is(err, unknownError):
 		err = retry.LastError(err)
 	}
-	return errors.Annotatef(err, "unable to contact api server after %d attempts", apiAttempts)
+	return errors.Errorf(
+		"unable to contact api server after %d attempts: %w", apiAttempts, err,
+	)
 }
 
-// unknownError is used to wrap errors that we don't know how to handle.
-type unknownError struct {
-	err error
-}
-
-// Is implements errors.Is, so that we can identify this error type.
-func (e *unknownError) Is(other error) bool {
-	_, ok := other.(*unknownError)
-	return ok
-}
-
-// Cause implements errors.Cause, so that we can unwrap this error type.
-func (e *unknownError) Cause() error {
-	return e.err
-}
-
-// Error implements error.Error.
-func (e *unknownError) Error() string {
-	return e.err.Error()
+func isRetryableErrorMessage(errorMessage string) bool {
+	switch {
+	case strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
+		strings.HasSuffix(errorMessage, "operation not permitted"),
+		strings.HasSuffix(errorMessage, "connection refused"),
+		strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
+		strings.HasSuffix(errorMessage, "connection is shut down"),
+		strings.HasSuffix(errorMessage, "i/o timeout"),
+		strings.HasSuffix(errorMessage, "network is unreachable"),
+		strings.HasSuffix(errorMessage, "deadline exceeded"),
+		strings.HasSuffix(errorMessage, "no api connection available"):
+		return true
+	default:
+		return false
+	}
 }
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
@@ -190,14 +170,16 @@ func BootstrapEndpointAddresses(
 ) ([]network.ProviderAddress, error) {
 	instances, err := environ.AllRunningInstances(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	if n := len(instances); n != 1 {
 		return nil, errors.Errorf("expected one instance, got %d", n)
 	}
 	netAddrs, err := instances[0].Addresses(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to get bootstrap instance addresses")
+		return nil, errors.Errorf(
+			"failed to get bootstrap instance addresses: %w", err,
+		)
 	}
 	return netAddrs, nil
 }
@@ -210,15 +192,17 @@ func ValidateIaasController(ctx context.Context, c modelcmd.CommandBase, cmdName
 		environs.AdminUser, bootstrap.ControllerModelName)
 	_, err := c.ModelUUIDs(ctx, store, controllerName, []string{controllerModel})
 	if err != nil {
-		return errors.Annotatef(err, "cannot get controller model uuid")
+		return errors.Errorf("cannot get controller model uuid: %w", err)
 	}
 
 	details, err := store.ModelByName(controllerName, controllerModel)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if details.ModelType == model.IAAS {
 		return nil
 	}
-	return errors.Errorf("Juju command %q not supported on container controllers", cmdName)
+	return errors.Errorf(
+		"Juju command %q not supported on container controllers", cmdName,
+	)
 }
