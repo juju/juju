@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"testing"
 
-	dqlite "github.com/canonical/go-dqlite/v2/driver"
+	dqlite "github.com/canonical/go-dqlite/v3/driver"
 	"github.com/juju/tc"
 	"github.com/mattn/go-sqlite3"
 	"go.uber.org/goleak"

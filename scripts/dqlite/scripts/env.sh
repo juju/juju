@@ -66,7 +66,7 @@ TAG_LIBNSL=v2.0.1
 TAG_LIBUV=v1.51.0
 TAG_LIBLZ4=v1.9.4
 TAG_SQLITE=version-3.47.0
-TAG_DQLITE=v1.18.2
+TAG_DQLITE=v1.18.3-fixed
 
 S3_BUCKET=s3://dqlite-static-libs
 S3_ARCHIVE_NAME=$(date -u +"%Y-%m-%d")-dqlite-deps-${BUILD_ARCH}.tar.bz2

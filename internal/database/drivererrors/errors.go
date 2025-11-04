@@ -7,7 +7,7 @@ import (
 	"errors"
 	"strings"
 
-	dqlite "github.com/canonical/go-dqlite/v2/driver"
+	dqlite "github.com/canonical/go-dqlite/v3/driver"
 	"github.com/mattn/go-sqlite3"
 
 	"github.com/juju/juju/internal/database/driver"
@@ -15,7 +15,7 @@ import (
 
 // IsErrRetryable returns true if the given error might be
 // transient and the interaction can be safely retried.
-// See: https://github.com/canonical/go-dqlite/v2/issues/220
+// See: https://github.com/canonical/go-dqlite/v3/issues/220
 func IsErrRetryable(err error) bool {
 	if IsErrLocked(err) {
 		return true

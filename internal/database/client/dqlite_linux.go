@@ -10,7 +10,7 @@ import (
 	"crypto/tls"
 	"net"
 
-	"github.com/canonical/go-dqlite/v2/client"
+	"github.com/canonical/go-dqlite/v3/client"
 )
 
 // Client is a dqlite client that can be used to connect to a dqlite cluster.
