@@ -145,6 +145,11 @@ type ModelRemoteApplicationState interface {
 	// model and is a synthetic application, based on the charm source being
 	// 'cmr'.
 	IsApplicationSynthetic(ctx context.Context, appName string) (bool, error)
+
+	// GetRelationRemoteModelUUID returns the remote model UUID for the given
+	// relation UUID. This method works for both offerer and consumer side
+	// relations.
+	GetRelationRemoteModelUUID(ctx context.Context, relationUUID corerelation.UUID) (coremodel.UUID, error)
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -583,6 +588,20 @@ func (s *Service) GetOffererModelUUID(ctx context.Context, appName string) (core
 	defer span.End()
 
 	modelUUID, err := s.modelState.GetOffererModelUUID(ctx, appName)
+	if err != nil {
+		return coremodel.UUID(""), internalerrors.Capture(err)
+	}
+	return modelUUID, nil
+}
+
+// GetRelationRemoteModelUUID returns the remote model UUID for the given
+// relation UUID. This method works for both offerer and consumer side
+// relations.
+func (s *Service) GetRelationRemoteModelUUID(ctx context.Context, relationUUID corerelation.UUID) (coremodel.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	modelUUID, err := s.modelState.GetRelationRemoteModelUUID(ctx, relationUUID)
 	if err != nil {
 		return coremodel.UUID(""), internalerrors.Capture(err)
 	}

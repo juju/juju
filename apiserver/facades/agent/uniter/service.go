@@ -43,6 +43,7 @@ type Services struct {
 	StatusService              StatusService
 	ControllerConfigService    ControllerConfigService
 	ControllerNodeService      ControllerNodeService
+	CrossModelRelationService  CrossModelRelationService
 	MachineService             MachineService
 	ModelConfigService         ModelConfigService
 	ModelInfoService           ModelInfoService
@@ -81,6 +82,15 @@ type ControllerNodeService interface {
 	// WatchControllerAPIAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
 	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+}
+
+// CrossModelRelationService provides access to the cross model relation
+// service.
+type CrossModelRelationService interface {
+	// GetRelationRemoteModelUUID returns the remote model UUID for the given
+	// relation UUID. This method works for both offerer and consumer side
+	// relations.
+	GetRelationRemoteModelUUID(ctx context.Context, relationUUID corerelation.UUID) (model.UUID, error)
 }
 
 // ModelConfigService is used by the provisioner facade to get model config.

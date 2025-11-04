@@ -974,6 +974,45 @@ func (c *MockModelStateGetRelationNetworkIngressCall) DoAndReturn(f func(context
 	return c
 }
 
+// GetRelationRemoteModelUUID mocks base method.
+func (m *MockModelState) GetRelationRemoteModelUUID(arg0 context.Context, arg1 relation.UUID) (model.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationRemoteModelUUID", arg0, arg1)
+	ret0, _ := ret[0].(model.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationRemoteModelUUID indicates an expected call of GetRelationRemoteModelUUID.
+func (mr *MockModelStateMockRecorder) GetRelationRemoteModelUUID(arg0, arg1 any) *MockModelStateGetRelationRemoteModelUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationRemoteModelUUID", reflect.TypeOf((*MockModelState)(nil).GetRelationRemoteModelUUID), arg0, arg1)
+	return &MockModelStateGetRelationRemoteModelUUIDCall{Call: call}
+}
+
+// MockModelStateGetRelationRemoteModelUUIDCall wrap *gomock.Call
+type MockModelStateGetRelationRemoteModelUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetRelationRemoteModelUUIDCall) Return(arg0 model.UUID, arg1 error) *MockModelStateGetRelationRemoteModelUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetRelationRemoteModelUUIDCall) Do(f func(context.Context, relation.UUID) (model.UUID, error)) *MockModelStateGetRelationRemoteModelUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetRelationRemoteModelUUIDCall) DoAndReturn(f func(context.Context, relation.UUID) (model.UUID, error)) *MockModelStateGetRelationRemoteModelUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRemoteApplicationConsumers mocks base method.
 func (m *MockModelState) GetRemoteApplicationConsumers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
 	m.ctrl.T.Helper()

@@ -928,3 +928,31 @@ func (s *remoteApplicationServiceSuite) TestCheckIsApplicationSyntheticError(c *
 	c.Assert(err, tc.ErrorMatches, "boom")
 	c.Check(isLocal, tc.IsFalse)
 }
+
+func (s *remoteApplicationServiceSuite) TestGetRelationRemoteModelUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	expectedModelUUID := tc.Must(c, coremodel.NewUUID)
+
+	s.modelState.EXPECT().GetRelationRemoteModelUUID(gomock.Any(), relationUUID).Return(expectedModelUUID, nil)
+
+	service := s.service(c)
+
+	modelUUID, err := service.GetRelationRemoteModelUUID(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelUUID, tc.Equals, expectedModelUUID)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetRelationRemoteModelUUIDError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.modelState.EXPECT().GetRelationRemoteModelUUID(gomock.Any(), relationUUID).Return(coremodel.UUID(""), internalerrors.Errorf("boom"))
+
+	service := s.service(c)
+
+	_, err := service.GetRelationRemoteModelUUID(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorMatches, "boom")
+}

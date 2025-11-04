@@ -1752,3 +1752,64 @@ AND    cs.name = 'cmr'`, countResult{}, name{})
 
 	return result.Count > 0, nil
 }
+
+// GetRelationRemoteModelUUID returns the remote model UUID for the given
+// relation UUID. This method works for both offerer and consumer side
+// relations by checking which application in the relation is synthetic
+// (from cross-model relation tables).
+//
+// For consumer side: returns the offerer_model_uuid from
+// application_remote_offerer.
+// For offerer side: returns the consumer_model_uuid from
+// application_remote_consumer.
+//
+// The following error types can be expected:
+//   - [relationerrors.RelationNotFound]: when the relation with the
+//     given UUID does not exist.
+//   - [crossmodelrelationerrors.RelationNotCrossModel]: when the relation with
+//     the given UUID is not a cross-model relation.
+func (st *State) GetRelationRemoteModelUUID(ctx context.Context, relationUUID corerelation.UUID) (coremodel.UUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT COALESCE(aro.offerer_model_uuid, arc.consumer_model_uuid) AS &remoteModelUUID.uuid
+FROM   relation AS r
+JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   application AS a ON ae.application_uuid = a.uuid
+LEFT JOIN application_remote_offerer AS aro ON a.uuid = aro.application_uuid
+LEFT JOIN application_remote_consumer AS arc ON a.uuid = arc.offer_connection_uuid
+WHERE  r.uuid = $remoteRelationUUID.uuid
+`, remoteModelUUID{}, remoteRelationUUID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var results []remoteModelUUID
+	relationUUIDArg := remoteRelationUUID{UUID: relationUUID.String()}
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, relationUUIDArg).GetAll(&results)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	// Find the first endpoint with a non-NULL remote model UUID.
+	for _, result := range results {
+		if result.UUID.Valid {
+			return coremodel.UUID(result.UUID.String), nil
+		}
+	}
+
+	// All endpoints returned NULL, meaning the relation exists but is not
+	// cross-model.
+	return "", crossmodelrelationerrors.RelationNotCrossModel
+}

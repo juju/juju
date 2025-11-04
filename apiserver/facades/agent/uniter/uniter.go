@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetork "github.com/juju/juju/domain/network"
@@ -75,21 +76,22 @@ type UniterAPI struct {
 	containerBrokerFunc     caas.NewContainerBrokerFunc
 	watcherRegistry         facade.WatcherRegistry
 
-	applicationService      ApplicationService
-	resolveService          ResolveService
-	statusService           StatusService
-	controllerConfigService ControllerConfigService
-	machineService          MachineService
-	modelConfigService      ModelConfigService
-	modelInfoService        ModelInfoService
-	modelProviderService    ModelProviderService
-	networkService          NetworkService
-	portService             PortService
-	operationService        OperationService
-	relationService         RelationService
-	removalService          RemovalService
-	secretService           SecretService
-	unitStateService        UnitStateService
+	applicationService        ApplicationService
+	resolveService            ResolveService
+	statusService             StatusService
+	controllerConfigService   ControllerConfigService
+	crossModelRelationService CrossModelRelationService
+	machineService            MachineService
+	modelConfigService        ModelConfigService
+	modelInfoService          ModelInfoService
+	modelProviderService      ModelProviderService
+	networkService            NetworkService
+	portService               PortService
+	operationService          OperationService
+	relationService           RelationService
+	removalService            RemovalService
+	secretService             SecretService
+	unitStateService          UnitStateService
 
 	store objectstore.ObjectStore
 
@@ -2203,7 +2205,7 @@ func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int) (params.R
 		panic("authenticated entity is not a unit or application")
 	}
 	// Use the currently authenticated unit to get the endpoint.
-	result, err := u.prepareRelationResult(rel, applicationName)
+	result, err := u.prepareRelationResult(ctx, rel, applicationName)
 	if err != nil {
 		// An error from prepareRelationResult means the authenticated
 		// unit's application is not part of the requested
@@ -2215,6 +2217,7 @@ func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int) (params.R
 }
 
 func (u *UniterAPI) prepareRelationResult(
+	ctx context.Context,
 	rel relation.RelationDetails,
 	applicationName string,
 ) (params.RelationResultV2, error) {
@@ -2246,6 +2249,14 @@ func (u *UniterAPI) prepareRelationResult(
 		ApplicationName: otherAppName,
 		ModelUUID:       u.modelUUID.String(),
 	}
+	remoteModelUUID, err := u.crossModelRelationService.GetRelationRemoteModelUUID(ctx, rel.UUID)
+	if err != nil && !errors.Is(err, crossmodelrelationerrors.RelationNotCrossModel) {
+		return params.RelationResultV2{}, internalerrors.Capture(err)
+	} else if err == nil {
+		// It's a cross-model relation, set the remote model UUID.
+		otherApplication.ModelUUID = remoteModelUUID.String()
+	}
+
 	return params.RelationResultV2{
 		Id:        rel.ID,
 		Key:       rel.Key.String(),
@@ -2292,7 +2303,7 @@ func (u *UniterAPI) getOneRelation(
 	if err != nil {
 		return nothing, apiservererrors.ErrBadId
 	}
-	return u.prepareRelationResult(rel, appName)
+	return u.prepareRelationResult(ctx, rel, appName)
 }
 
 func (u *UniterAPI) destroySubordinates(ctx context.Context, principal coreunit.Name) error {

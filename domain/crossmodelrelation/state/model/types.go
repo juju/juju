@@ -444,3 +444,9 @@ type setRelationStatus struct {
 	// UpdatedAt specifies the timestamp of the insertion
 	UpdatedAt time.Time `db:"updated_at"`
 }
+
+// remoteModelUUID is used to fetch the UUID of a remote model. It can be NULL
+// in the case of the relation not being CMR.
+type remoteModelUUID struct {
+	UUID sql.NullString `db:"uuid"`
+}
