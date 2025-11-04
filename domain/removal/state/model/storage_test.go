@@ -623,7 +623,7 @@ func (s *storageSuite) TestSetVolumeStatusGetVolumeStatus(c *tc.C) {
 }
 
 func (s *storageSuite) TestDeleteVolume(c *tc.C) {
-	volUUID := s.addVolume(c)
+	volUUID, _ := s.addAttachedVolume(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -899,7 +899,7 @@ func (s *storageSuite) TestCheckVolumeBackedFilesystemCrossProvisioned(c *tc.C) 
 }
 
 func (s *storageSuite) TestDeleteFilesystem(c *tc.C) {
-	fsUUID := s.addFilesystem(c)
+	fsUUID, _ := s.addAttachedFilesystem(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -1899,6 +1899,7 @@ func (s *storageSuite) addVolume(c *tc.C) string {
 		volUUID, "some-vol", 0, indeterminateProvisioningScope(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
+
 	_, err = s.DB().ExecContext(ctx,
 		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, ?)",
 		volUUID, 0,
@@ -1963,6 +1964,7 @@ func (s *storageSuite) addFilesystem(c *tc.C) string {
 		fsUUID, "some-fs", 0, indeterminateProvisioningScope(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
+
 	_, err = s.DB().ExecContext(ctx,
 		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, ?)",
 		fsUUID, 0,
@@ -2033,6 +2035,12 @@ func (s *storageSuite) addAttachedFilesystem(c *tc.C) (string, string) {
 		fsUUID, "some-fs", 0, indeterminateProvisioningScope())
 	c.Assert(err, tc.ErrorIsNil)
 
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, ?)",
+		fsUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
 	fsaUUID := "some-fsa-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
 		fsaUUID, fsUUID, netNodeUUID, 0, indeterminateProvisioningScope())
@@ -2054,6 +2062,12 @@ func (s *storageSuite) addAttachedVolume(c *tc.C) (string, string) {
 	volUUID := "some-vol-uuid"
 	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
 		volUUID, "some-vol", 0, indeterminateProvisioningScope())
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, ?)",
+		volUUID, 0,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	vaUUID := "some-va-uuid"

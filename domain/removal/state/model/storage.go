@@ -978,6 +978,10 @@ WHERE  volume_uuid = $entityUUID.uuid
 
 // DeleteVolume deletes the volume specified by the input UUID. It also deletes
 // the storage instance volume relation if it still exists.
+// Any attachment is also deleted under the assumption that either:
+//   - The service layer validated that there we no attachments anyway,
+//     which it does when the removal is *not* forced.
+//   - The server layer skipped the check above because the job *was* forced.
 func (st *State) DeleteVolume(ctx context.Context, rUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -986,58 +990,26 @@ func (st *State) DeleteVolume(ctx context.Context, rUUID string) error {
 
 	volUUID := entityUUID{UUID: rUUID}
 
-	deleteMachineVolumeStmt, err := st.Prepare(`
-DELETE FROM machine_volume WHERE volume_uuid = $entityUUID.uuid
-`, volUUID)
-	if err != nil {
-		return errors.Errorf(
-			"preparing in machine volume deletion: %w", err,
-		)
+	qs := []string{
+		"DELETE FROM machine_volume WHERE volume_uuid = $entityUUID.uuid",
+		"DELETE FROM storage_instance_volume WHERE storage_volume_uuid = $entityUUID.uuid",
+		"DELETE FROM storage_volume_status WHERE volume_uuid = $entityUUID.uuid",
+		"DELETE FROM storage_volume_attachment WHERE storage_volume_uuid = $entityUUID.uuid",
+		"DELETE FROM storage_volume WHERE uuid = $entityUUID.uuid",
 	}
-
-	deleteStorageInstanceVolumeStmt, err := st.Prepare(`
-DELETE FROM storage_instance_volume WHERE storage_volume_uuid = $entityUUID.uuid
-`, volUUID)
-	if err != nil {
-		return errors.Errorf(
-			"preparing in storage instance volume deletion: %w", err,
-		)
-	}
-
-	deleteVolumeStatusStmt, err := st.Prepare(`
-DELETE FROM storage_volume_status WHERE volume_uuid = $entityUUID.uuid
-`, volUUID)
-	if err != nil {
-		return errors.Errorf(
-			"preparing in volume status deletion: %w", err,
-		)
-	}
-
-	deleteVolumeStmt, err := st.Prepare(`
-DELETE FROM storage_volume WHERE uuid = $entityUUID.uuid
-`, volUUID)
-	if err != nil {
-		return errors.Errorf("preparing volume deletion: %w", err)
+	stmts := make([]*sqlair.Statement, len(qs))
+	for i, q := range qs {
+		stmts[i], err = sqlair.Prepare(q, volUUID)
+		if err != nil {
+			return errors.Errorf("preparing volume deletion statement at index %d: %w", i, err)
+		}
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, deleteMachineVolumeStmt, volUUID).Run()
-		if err != nil {
-			return errors.Errorf("deleting machine volume: %w", err)
-		}
-		err = tx.Query(ctx, deleteStorageInstanceVolumeStmt, volUUID).Run()
-		if err != nil {
-			return errors.Errorf(
-				"deleting storage instance volume: %w", err,
-			)
-		}
-		err = tx.Query(ctx, deleteVolumeStatusStmt, volUUID).Run()
-		if err != nil {
-			return errors.Errorf("deleting volume status: %w", err)
-		}
-		err = tx.Query(ctx, deleteVolumeStmt, volUUID).Run()
-		if err != nil {
-			return errors.Errorf("deleting volume: %w", err)
+		for i, stmt := range stmts {
+			if err := tx.Query(ctx, stmt, volUUID).Run(); err != nil {
+				return errors.Errorf("running volume deletion statement at index %d: %w", i, err)
+			}
 		}
 		return nil
 	})
@@ -1310,6 +1282,10 @@ WHERE     sf.uuid = $entityUUID.uuid AND
 
 // DeleteFilesystem deletes the filesystem specified by the input UUID. It also
 // deletes the storage instance filesystem relation if it still exists.
+// Any attachment is also deleted under the assumption that either:
+//   - The service layer validated that there we no attachments anyway,
+//     which it does when the removal is *not* forced.
+//   - The server layer skipped the check above because the job *was* forced.
 func (st *State) DeleteFilesystem(ctx context.Context, rUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1318,56 +1294,26 @@ func (st *State) DeleteFilesystem(ctx context.Context, rUUID string) error {
 
 	fsUUID := entityUUID{UUID: rUUID}
 
-	deleteMachineFilesystemStmt, err := st.Prepare(`
-DELETE FROM machine_filesystem WHERE filesystem_uuid = $entityUUID.uuid
-`, fsUUID)
-	if err != nil {
-		return errors.Errorf("preparing machine filesystem deletion: %w", err)
+	qs := []string{
+		"DELETE FROM machine_filesystem WHERE filesystem_uuid = $entityUUID.uuid",
+		"DELETE FROM storage_instance_filesystem WHERE storage_filesystem_uuid = $entityUUID.uuid",
+		"DELETE FROM storage_filesystem_status WHERE filesystem_uuid = $entityUUID.uuid",
+		"DELETE FROM storage_filesystem_attachment WHERE storage_filesystem_uuid = $entityUUID.uuid",
+		"DELETE FROM storage_filesystem WHERE uuid = $entityUUID.uuid",
 	}
-
-	deleteStorageInstanceFilesystemStmt, err := st.Prepare(`
-DELETE FROM storage_instance_filesystem WHERE storage_filesystem_uuid = $entityUUID.uuid
-`, fsUUID)
-	if err != nil {
-		return errors.Errorf(
-			"preparing in storage instance filesystem deletion: %w", err,
-		)
-	}
-
-	deleteFilesystemStatusStmt, err := st.Prepare(`
-DELETE FROM storage_filesystem_status WHERE filesystem_uuid = $entityUUID.uuid
-`, fsUUID)
-	if err != nil {
-		return errors.Errorf(
-			"preparing in filesystem status deletion: %w", err,
-		)
-	}
-
-	deleteFilesystemStmt, err := st.Prepare(`
-DELETE FROM storage_filesystem WHERE uuid = $entityUUID.uuid
-`, fsUUID)
-	if err != nil {
-		return errors.Errorf("preparing filesystem deletion: %w", err)
+	stmts := make([]*sqlair.Statement, len(qs))
+	for i, q := range qs {
+		stmts[i], err = sqlair.Prepare(q, fsUUID)
+		if err != nil {
+			return errors.Errorf("preparing file-system deletion statement at index %d: %w", i, err)
+		}
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, deleteMachineFilesystemStmt, fsUUID).Run()
-		if err != nil {
-			return errors.Errorf("deleting machine filesystem: %w", err)
-		}
-		err = tx.Query(ctx, deleteStorageInstanceFilesystemStmt, fsUUID).Run()
-		if err != nil {
-			return errors.Errorf(
-				"deleting storage instance filesystem: %w", err,
-			)
-		}
-		err = tx.Query(ctx, deleteFilesystemStatusStmt, fsUUID).Run()
-		if err != nil {
-			return errors.Errorf("deleting filesystem status: %w", err)
-		}
-		err = tx.Query(ctx, deleteFilesystemStmt, fsUUID).Run()
-		if err != nil {
-			return errors.Errorf("deleting filesystem: %w", err)
+		for i, stmt := range stmts {
+			if err := tx.Query(ctx, stmt, fsUUID).Run(); err != nil {
+				return errors.Errorf("running file-system deletion statement at index %d: %w", i, err)
+			}
 		}
 		return nil
 	})
