@@ -33,8 +33,6 @@ type controllerSuite struct {
 	testing.BaseSuite
 }
 
-var errOther = errors.New("other error")
-
 func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *tc.C) {
 	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
 	defaultSeriesVersion := version.Current
