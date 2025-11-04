@@ -1993,7 +1993,7 @@ func (s *InstanceModeSuite) TestConsumerRelationNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.ensureMocks(c, ctrl)
+	s.ensureMocksWithoutMachine(ctrl)
 
 	// Create the firewaller facade on the consuming model.
 	fw := s.newFirewaller(c, ctrl)
@@ -2023,7 +2023,7 @@ func (s *InstanceModeSuite) TestOffererRelationNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.ensureMocks(c, ctrl)
+	s.ensureMocksWithoutMachine(ctrl)
 
 	// Create the firewaller facade on the offering model.
 	fw := s.newFirewaller(c, ctrl)

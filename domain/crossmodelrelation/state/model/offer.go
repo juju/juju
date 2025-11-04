@@ -41,7 +41,7 @@ INSERT INTO offer (*) VALUES ($nameAndUUID.*)`, nameAndUUID{})
 			return errors.Capture(err)
 		}
 
-		if err := st.checkApplicationAlive(ctx, tx, applicationUUID); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, applicationUUID); err != nil {
 			return errors.Capture(err)
 		}
 

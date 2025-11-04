@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/operation"
@@ -1638,11 +1639,12 @@ type uniterRelationSuite struct {
 	authTag          names.Tag
 	wordpressUnitTag names.UnitTag
 
-	applicationService *MockApplicationService
-	networkService     *MockNetworkService
-	relationService    *MockRelationService
-	statusService      *MockStatusService
-	watcherRegistry    *MockWatcherRegistry
+	applicationService        *MockApplicationService
+	crossModelRelationService *MockCrossModelRelationService
+	networkService            *MockNetworkService
+	relationService           *MockRelationService
+	statusService             *MockStatusService
+	watcherRegistry           *MockWatcherRegistry
 
 	uniter *UniterAPI
 }
@@ -1668,6 +1670,7 @@ func (s *uniterRelationSuite) TestRelation(c *tc.C) {
 
 	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	s.expectGetRelationDetails(c, relUUID, relID, relTag)
+	s.expectGetRelationRemoteModelUUID(relUUID, "", crossmodelrelationerrors.RelationNotCrossModel)
 
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: "unit-wordpress-0"},
@@ -1710,6 +1713,7 @@ func (s *uniterRelationSuite) TestRelationSuspended(c *tc.C) {
 	relID := 42
 
 	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
+	s.expectGetRelationRemoteModelUUID(relUUID, "", crossmodelrelationerrors.RelationNotCrossModel)
 	// Expect a suspended relation
 	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
 		Life:      life.Alive,
@@ -1780,6 +1784,7 @@ func (s *uniterRelationSuite) TestPeerRelation(c *tc.C) {
 	relID := 42
 
 	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
+	s.expectGetRelationRemoteModelUUID(relUUID, "", crossmodelrelationerrors.RelationNotCrossModel)
 	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
 		Life: life.Alive,
 		UUID: relUUID,
@@ -1866,6 +1871,30 @@ func (s *uniterRelationSuite) TestInvalidPeerRelation(c *tc.C) {
 	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*no other application found.*")
 }
 
+func (s *uniterRelationSuite) TestRelationRemoteModelUUIDNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	relKey := tc.Must1(c, corerelation.NewKeyFromString, relTag.Id())
+
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	relID := 42
+
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
+	s.expectGetRelationDetails(c, relUUID, relID, relTag)
+	s.expectGetRelationRemoteModelUUID(relUUID, "", relationerrors.RelationNotFound)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: relTag.String(), Unit: "unit-wordpress-0"},
+	}}
+	result, err := s.uniter.Relation(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, &params.Error{
+		Message: "not found",
+		Code:    params.CodeNotFound,
+	})
+}
+
 // TestRelationUnauthorized tests the different scenarios where
 // ErrUnauthorized will be returned. It also tests the bulk
 // functionality of the Relation facade method.
@@ -1921,6 +1950,7 @@ func (s *uniterRelationSuite) TestRelationById(c *tc.C) {
 
 	s.expectGetRelationUUIDByID(relID, relUUID, nil)
 	s.expectGetRelationDetails(c, relUUID, relID, relTag)
+	s.expectGetRelationRemoteModelUUID(relUUID, "", crossmodelrelationerrors.RelationNotCrossModel)
 
 	s.expectGetRelationUUIDByID(relIDUnexpectedAppName, relUUID, nil)
 	s.expectGetRelationDetailsUnexpectedAppName(c, relUUID)
@@ -2668,6 +2698,7 @@ func (s *uniterRelationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
@@ -2699,15 +2730,17 @@ func (s *uniterRelationSuite) setupMocks(c *tc.C) *gomock.Controller {
 		clock:             testclock.NewClock(time.Now()),
 		logger:            loggertesting.WrapCheckLog(c),
 
-		applicationService: s.applicationService,
-		networkService:     s.networkService,
-		relationService:    s.relationService,
-		statusService:      s.statusService,
-		watcherRegistry:    s.watcherRegistry,
+		applicationService:        s.applicationService,
+		crossModelRelationService: s.crossModelRelationService,
+		networkService:            s.networkService,
+		relationService:           s.relationService,
+		statusService:             s.statusService,
+		watcherRegistry:           s.watcherRegistry,
 	}
 
 	c.Cleanup(func() {
 		s.applicationService = nil
+		s.crossModelRelationService = nil
 		s.networkService = nil
 		s.relationService = nil
 		s.statusService = nil
@@ -2857,6 +2890,10 @@ func encodeUnitFromUUID(uuid coreunit.UUID) string {
 
 func encodeAppFromUUID(uuid coreapplication.UUID) string {
 	return relation.EncodeApplicationUUID(uuid.String())
+}
+
+func (s *uniterRelationSuite) expectGetRelationRemoteModelUUID(relUUID corerelation.UUID, remoteModelUUID coremodel.UUID, err error) {
+	s.crossModelRelationService.EXPECT().GetRelationRemoteModelUUID(gomock.Any(), relUUID).Return(remoteModelUUID, err)
 }
 
 type commitHookChangesSuite struct {

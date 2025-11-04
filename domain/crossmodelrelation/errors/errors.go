@@ -57,4 +57,7 @@ const (
 	// SubnetNotInWhitelist describes an error that occurs when the provided
 	// (ingress) subnet is not in the firewaller allowed whitelist.
 	SubnetNotInWhitelist = errors.ConstError("subnet not in whitelist")
+
+	// RelationNotCrossModel indicates that the relation is not cross-model.
+	RelationNotCrossModel = errors.ConstError("relation not cross-model")
 )

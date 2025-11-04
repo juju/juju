@@ -125,7 +125,51 @@ func (s *modelOfferSuite) TestCreateOfferDyingAplication(c *tc.C) {
 	err = s.state.CreateOffer(c.Context(), args)
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelOfferSuite) TestCreateOfferDeadAplication(c *tc.C) {
+	// Arrange
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relation := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+	relation2 := charm.Relation{
+		Name:      "log",
+		Role:      charm.RoleProvider,
+		Interface: "log",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID2 := s.addCharmRelation(c, charmUUID, relation2)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	s.addApplicationEndpoint(c, appUUID, relationUUID)
+	s.addApplicationEndpoint(c, appUUID, relationUUID2)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = 2 WHERE uuid = ?", appUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	args := crossmodelrelation.CreateOfferArgs{
+		UUID:            tc.Must(c, offer.NewUUID),
+		ApplicationName: appName,
+		Endpoints:       []string{relation.Name, relation2.Name},
+		OfferName:       "test-offer",
+	}
+
+	// Act
+	err = s.state.CreateOffer(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
 // TestCreateOfferEndpointFail tests that all endpoints are found.
