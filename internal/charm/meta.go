@@ -52,6 +52,12 @@ const (
 	StorageFilesystem StorageType = "filesystem"
 )
 
+// String returns the string representation of [StorageType]. Implements the
+// [fmt.Stringer] interface.
+func (s StorageType) String() string {
+	return string(s)
+}
+
 // Storage represents a charm's storage requirement.
 type Storage struct {
 	// Name is the name of the store.
