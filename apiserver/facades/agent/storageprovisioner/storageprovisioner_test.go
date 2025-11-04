@@ -1587,7 +1587,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 			CharmStorageReadOnly: true,
 			MachineInstanceID:    "12",
 			Provider:             "myprovider",
-			ProviderID:           "env-123",
+			ProviderID:           "fs-123",
 			MountPoint:           "/var/foo",
 		}, nil,
 	)
@@ -1603,14 +1603,15 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Result, tc.DeepEquals, params.FilesystemAttachmentParams{
-		FilesystemTag: tag.String(),
-		MachineTag:    unitTag.String(),
-		ProviderId:    "env-123",
-		InstanceId:    "12",
-		Provider:      "myprovider",
-		MountPoint:    "/var/foo",
-		ReadOnly:      true,
+	c.Check(results.Results[0].Result, tc.DeepEquals, params.FilesystemAttachmentParamsV5{
+		FilesystemTag:        tag.String(),
+		MachineTag:           unitTag.String(),
+		ProviderId:           "fs-123",
+		AttachmentProviderId: ptr("fs-attachment-123"),
+		InstanceId:           "12",
+		Provider:             "myprovider",
+		MountPoint:           "/var/foo",
+		ReadOnly:             true,
 	})
 }
 

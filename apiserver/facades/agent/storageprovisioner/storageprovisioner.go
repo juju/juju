@@ -1885,40 +1885,74 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 
 // FilesystemAttachmentParams returns the parameters for creating the filesystem
 // attachments with the specified IDs.
-func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
+func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 	ctx context.Context,
 	args params.MachineStorageIds,
 ) (params.FilesystemAttachmentParamsResults, error) {
-	canAccess, err := s.getAttachmentAuthFunc(ctx)
+	resultsV5, err := s.StorageProvisionerAPI.FilesystemAttachmentParams(
+		ctx, args)
 	if err != nil {
-		return params.FilesystemAttachmentParamsResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+		return params.FilesystemAttachmentParamsResults{}, err
 	}
 	results := params.FilesystemAttachmentParamsResults{
-		Results: make([]params.FilesystemAttachmentParamsResult, 0, len(args.Ids)),
+		Results: make(
+			[]params.FilesystemAttachmentParamsResult, 0, len(resultsV5.Results),
+		),
 	}
-	one := func(arg params.MachineStorageId) (params.FilesystemAttachmentParams, error) {
+	for _, resultV5 := range resultsV5.Results {
+		result := params.FilesystemAttachmentParamsResult{
+			Result: params.FilesystemAttachmentParams{
+				FilesystemTag: resultV5.Result.FilesystemTag,
+				MachineTag:    resultV5.Result.MachineTag,
+				ProviderId:    resultV5.Result.ProviderId,
+				InstanceId:    resultV5.Result.InstanceId,
+				Provider:      resultV5.Result.Provider,
+				MountPoint:    resultV5.Result.MountPoint,
+				ReadOnly:      resultV5.Result.ReadOnly,
+			},
+			Error: resultV5.Error,
+		}
+		results.Results = append(results.Results, result)
+	}
+	return results, nil
+}
+
+// FilesystemAttachmentParams returns the parameters for creating the filesystem
+// attachments with the specified IDs.
+func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
+	ctx context.Context,
+	args params.MachineStorageIds,
+) (params.FilesystemAttachmentParamsResultsV5, error) {
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
+	if err != nil {
+		return params.FilesystemAttachmentParamsResultsV5{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+	results := params.FilesystemAttachmentParamsResultsV5{
+		Results: make([]params.FilesystemAttachmentParamsResultV5, 0, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) (params.FilesystemAttachmentParamsV5, error) {
 		hostTag, err := names.ParseTag(arg.MachineTag)
 		if err != nil {
-			return params.FilesystemAttachmentParams{}, err
+			return params.FilesystemAttachmentParamsV5{}, err
 		}
 		if hostTag.Kind() != names.MachineTagKind && hostTag.Kind() != names.UnitTagKind {
-			return params.FilesystemAttachmentParams{}, errors.Errorf(
+			return params.FilesystemAttachmentParamsV5{}, errors.Errorf(
 				"filesystem attachment host tag %q not valid", hostTag,
 			).Add(coreerrors.NotValid)
 		}
 		filesystemTag, err := names.ParseFilesystemTag(arg.AttachmentTag)
 		if err != nil {
-			return params.FilesystemAttachmentParams{}, err
+			return params.FilesystemAttachmentParamsV5{}, err
 		}
 		if !canAccess(hostTag, filesystemTag) {
-			return params.FilesystemAttachmentParams{}, apiservererrors.ErrPerm
+			return params.FilesystemAttachmentParamsV5{}, apiservererrors.ErrPerm
 		}
 
 		attachmentUUID, err := s.getFilesystemAttachmentUUID(
 			ctx, filesystemTag, hostTag,
 		)
 		if err != nil {
-			return params.FilesystemAttachmentParams{}, err
+			return params.FilesystemAttachmentParamsV5{}, err
 		}
 
 		fsParams, err := s.storageProvisioningService.GetFilesystemAttachmentParams(
@@ -1931,10 +1965,10 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			).Add(coreerrors.NotFound)
 		}
 		if err != nil {
-			return params.FilesystemAttachmentParams{}, errors.Capture(err)
+			return params.FilesystemAttachmentParamsV5{}, errors.Capture(err)
 		}
 
-		return params.FilesystemAttachmentParams{
+		return params.FilesystemAttachmentParamsV5{
 			FilesystemTag: filesystemTag.String(),
 			MachineTag:    hostTag.String(),
 			InstanceId:    fsParams.MachineInstanceID,
@@ -1945,7 +1979,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 		}, nil
 	}
 	for _, arg := range args.Ids {
-		var result params.FilesystemAttachmentParamsResult
+		var result params.FilesystemAttachmentParamsResultV5
 		filesystemAttachment, err := one(arg)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
