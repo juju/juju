@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application"
 	domainrelation "github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/charm"
@@ -1986,6 +1987,65 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *tc.C) {
 		"192.0.6.0/28",
 	}
 	s.assertIngressCidrs(c, ctrl, ingress, expected)
+}
+
+func (s *InstanceModeSuite) TestConsumerRelationNotFound(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
+
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	relUUID := relation.UUID("non-existent-consumer-relation")
+
+	// Mock GetRelationDetails to return RelationNotFound error.
+	// This simulates the case where a consumer relation UUID is received but
+	// the relation has already been deleted from the database.
+	called := make(chan struct{})
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).
+		DoAndReturn(func(_ context.Context, _ relation.UUID) (domainrelation.RelationDetails, error) {
+			close(called)
+			return domainrelation.RelationDetails{},
+				relationerrors.RelationNotFound
+		})
+
+	// Trigger the consumer relation change event with a non-existent relation.
+	s.consumerRelCh <- []string{relUUID.String()}
+
+	// Ensure the relation details were requested.
+	<-called
+}
+
+func (s *InstanceModeSuite) TestOffererRelationNotFound(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
+
+	// Create the firewaller facade on the offering model.
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	relUUID := relation.UUID("non-existent-offerer-relation")
+
+	// Mock GetRelationDetails to return RelationNotFound error.
+	// This simulates the case where an offerer relation UUID is received but
+	// the relation has already been deleted from the database.
+	called := make(chan struct{})
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).
+		DoAndReturn(func(_ context.Context, _ relation.UUID) (domainrelation.RelationDetails, error) {
+			close(called)
+			return domainrelation.RelationDetails{},
+				relationerrors.RelationNotFound
+		})
+	// Trigger the offerer relation change event with a non-existent relation.
+	s.offererRelCh <- []string{relUUID.String()}
+
+	// Ensure the relation details were requested.
+	<-called
 }
 
 func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *tc.C) {

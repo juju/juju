@@ -167,7 +167,7 @@ type Firewaller struct {
 	modelUUID                  string
 	newRemoteFirewallerAPIFunc newCrossModelFacadeFunc
 	localRelationsChange       chan *remoteRelationNetworkChange
-	relationIngress            map[names.RelationTag]*remoteRelationData
+	relationIngress            map[relation.UUID]*remoteRelationData
 	relationWorkerRunner       *worker.Runner
 	clk                        clock.Clock
 	logger                     logger.Logger
@@ -223,7 +223,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		unitds:                     make(map[coreunit.Name]*unitData),
 		applicationids:             make(map[names.ApplicationTag]*applicationData),
 		exposedChange:              make(chan *exposedChange),
-		relationIngress:            make(map[names.RelationTag]*remoteRelationData),
+		relationIngress:            make(map[relation.UUID]*remoteRelationData),
 		localRelationsChange:       make(chan *remoteRelationNetworkChange),
 		clk:                        clk,
 		logger:                     cfg.Logger,
@@ -484,15 +484,15 @@ func (fw *Firewaller) subnetsChanged(ctx context.Context) error {
 
 func (fw *Firewaller) relationIngressChanged(ctx context.Context, change *remoteRelationNetworkChange) error {
 	fw.logger.Tracef(ctx, "process remote relation ingress change: %v", change)
-	relData, ok := fw.relationIngress[change.relationTag]
+	relData, ok := fw.relationIngress[change.relationUUID]
 	if !ok {
 		relData = &remoteRelationData{
 			fw:                  fw,
-			tag:                 change.relationTag,
+			relationUUID:        change.relationUUID,
 			localApplicationTag: change.localApplicationTag,
 			workerID:            change.workerID,
 		}
-		fw.relationIngress[change.relationTag] = relData
+		fw.relationIngress[change.relationUUID] = relData
 	}
 	relData.networks = change.networks
 	relData.ingressRequired = change.ingressRequired
@@ -1592,7 +1592,6 @@ func (fw *Firewaller) handleRelationLifeChange(
 	var (
 		gone bool
 		rel  domainrelation.RelationDetails
-		tag  names.RelationTag
 	)
 	var err error
 	rel, err = fw.relationService.GetRelationDetails(ctx, relationUUID)
@@ -1605,14 +1604,13 @@ func (fw *Firewaller) handleRelationLifeChange(
 
 	gone = gone || rel.Life == life.Dead || rel.Suspended
 
-	tag = names.NewRelationTag(rel.Key.String())
-	data, known := fw.relationIngress[tag]
+	data, known := fw.relationIngress[relationUUID]
 	if known && gone {
 		fw.logger.Debugf(ctx, "%s relation %q was known but has died or been suspended", relationType, relationUUID)
 		// If relation is suspended, shut off ingress immediately.
 		if rel.Suspended {
 			change := &remoteRelationNetworkChange{
-				relationTag:         tag,
+				relationUUID:        relationUUID,
 				localApplicationTag: data.localApplicationTag,
 				ingressRequired:     false,
 				workerID:            data.workerID,
@@ -1843,7 +1841,7 @@ func (rd *remoteRelationData) watchLocalIngress() error {
 			}
 			fw.logger.Tracef(ctx, "offerer relation ingress addresses for %v changed: %v", rd.tag, cidrs)
 			change := &remoteRelationNetworkChange{
-				relationTag:         rd.tag,
+				relationUUID:        rd.relationUUID,
 				localApplicationTag: rd.localApplicationTag,
 				networks:            set.NewStrings(cidrs...),
 				ingressRequired:     len(cidrs) > 0,
@@ -2046,7 +2044,7 @@ func (rd *remoteRelationData) scopedContext() (context.Context, context.CancelFu
 }
 
 type remoteRelationNetworkChange struct {
-	relationTag         names.RelationTag
+	relationUUID        relation.UUID
 	localApplicationTag names.ApplicationTag
 	networks            set.Strings
 	ingressRequired     bool
@@ -2057,7 +2055,7 @@ type remoteRelationNetworkChange struct {
 func (rd *remoteRelationData) updateIngressNetworks(ctx context.Context, cidrs []string) error {
 	rd.fw.logger.Debugf(ctx, "ingress cidrs for %q: %v", rd.tag, cidrs)
 	change := &remoteRelationNetworkChange{
-		relationTag:         rd.tag,
+		relationUUID:        rd.relationUUID,
 		localApplicationTag: rd.localApplicationTag,
 		networks:            set.NewStrings(cidrs...),
 		ingressRequired:     len(cidrs) > 0,
@@ -2084,7 +2082,7 @@ func (rd *remoteRelationData) Wait() error {
 // forgetRelation cleans the relation data after the relation is removed.
 func (fw *Firewaller) forgetRelation(ctx context.Context, data *remoteRelationData) error {
 	fw.logger.Debugf(ctx, "forget relation %v", data.tag.Id())
-	delete(fw.relationIngress, data.tag)
+	delete(fw.relationIngress, data.relationUUID)
 	// There's not much we can do if there's an error stopping the remote
 	// relation worker, so just log it.
 	if err := fw.relationWorkerRunner.StopAndRemoveWorker(data.workerID, fw.catacomb.Dying()); err != nil {
