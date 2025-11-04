@@ -1949,7 +1949,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 			Result: params.FilesystemAttachmentParams{
 				FilesystemTag: resultV5.Result.FilesystemTag,
 				MachineTag:    resultV5.Result.MachineTag,
-				ProviderId:    resultV5.Result.ProviderId,
+				ProviderId:    resultV5.Result.FilesystemProviderId,
 				InstanceId:    resultV5.Result.InstanceId,
 				Provider:      resultV5.Result.Provider,
 				MountPoint:    resultV5.Result.MountPoint,
@@ -2014,13 +2014,13 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 		}
 
 		return params.FilesystemAttachmentParamsV5{
-			FilesystemTag: filesystemTag.String(),
-			MachineTag:    hostTag.String(),
-			InstanceId:    fsParams.MachineInstanceID,
-			Provider:      fsParams.Provider,
-			ProviderId:    fsParams.ProviderID,
-			MountPoint:    fsParams.MountPoint,
-			ReadOnly:      fsParams.CharmStorageReadOnly,
+			FilesystemTag:        filesystemTag.String(),
+			MachineTag:           hostTag.String(),
+			InstanceId:           fsParams.MachineInstanceID,
+			Provider:             fsParams.Provider,
+			FilesystemProviderId: fsParams.ProviderID,
+			MountPoint:           fsParams.MountPoint,
+			ReadOnly:             fsParams.CharmStorageReadOnly,
 		}, nil
 	}
 	for _, arg := range args.Ids {

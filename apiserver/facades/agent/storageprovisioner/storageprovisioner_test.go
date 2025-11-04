@@ -1606,7 +1606,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 	c.Check(results.Results[0].Result, tc.DeepEquals, params.FilesystemAttachmentParamsV5{
 		FilesystemTag:        tag.String(),
 		MachineTag:           unitTag.String(),
-		ProviderId:           "fs-123",
+		FilesystemProviderId: "fs-123",
 		AttachmentProviderId: ptr("fs-attachment-123"),
 		InstanceId:           "12",
 		Provider:             "myprovider",
