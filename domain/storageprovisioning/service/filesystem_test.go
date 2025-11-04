@@ -881,7 +881,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcSingelton(c 
 			MachineInstanceID:    "inst-1",
 			MountPoint:           "", // No mount point has been set.
 			Provider:             "myprovider",
-			ProviderID:           "p-123",
+			FilesystemProviderID:           "p-123",
 		}, nil,
 	)
 
@@ -895,7 +895,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcSingelton(c 
 		MachineInstanceID:    "inst-1",
 		MountPoint:           "/mnt/charm1",
 		Provider:             "myprovider",
-		ProviderID:           "p-123",
+		FilesystemProviderID:           "p-123",
 	})
 }
 
@@ -918,7 +918,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalc(c *tc.C) {
 			MachineInstanceID:    "inst-1",
 			MountPoint:           "", // No mount point has been set.
 			Provider:             "myprovider",
-			ProviderID:           "p-123",
+			FilesystemProviderID:           "p-123",
 		}, nil,
 	)
 
@@ -932,7 +932,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalc(c *tc.C) {
 		MachineInstanceID:    "inst-1",
 		MountPoint:           "/mnt/charm1/" + fsaUUID.String(),
 		Provider:             "myprovider",
-		ProviderID:           "p-123",
+		FilesystemProviderID:           "p-123",
 	})
 }
 
@@ -956,7 +956,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcNoCharmLocat
 			MachineInstanceID:    "inst-1",
 			MountPoint:           "", // No mount point has been set.
 			Provider:             "myprovider",
-			ProviderID:           "p-123",
+			FilesystemProviderID:           "p-123",
 		}, nil,
 	)
 
@@ -971,7 +971,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcNoCharmLocat
 		// Default storage location of /var/lib/juju/storage is used.
 		MountPoint: "/var/lib/juju/storage/" + fsaUUID.String(),
 		Provider:   "myprovider",
-		ProviderID: "p-123",
+		FilesystemProviderID: "p-123",
 	})
 }
 

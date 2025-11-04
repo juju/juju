@@ -1584,11 +1584,12 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 		gomock.Any(), fsaUUID,
 	).Return(
 		storageprovisioning.FilesystemAttachmentParams{
-			CharmStorageReadOnly: true,
-			MachineInstanceID:    "12",
-			Provider:             "myprovider",
-			ProviderID:           "fs-123",
-			MountPoint:           "/var/foo",
+			CharmStorageReadOnly:           true,
+			MachineInstanceID:              "12",
+			Provider:                       "myprovider",
+			FilesystemProviderID:           "fs-123",
+			FilesystemAttachmentProviderID: ptr("fs-attachment-123"),
+			MountPoint:                     "/var/foo",
 		}, nil,
 	)
 

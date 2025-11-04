@@ -2018,7 +2018,8 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			MachineTag:           hostTag.String(),
 			InstanceId:           fsParams.MachineInstanceID,
 			Provider:             fsParams.Provider,
-			FilesystemProviderId: fsParams.ProviderID,
+			FilesystemProviderId: fsParams.FilesystemProviderID,
+			AttachmentProviderId: fsParams.FilesystemAttachmentProviderID,
 			MountPoint:           fsParams.MountPoint,
 			ReadOnly:             fsParams.CharmStorageReadOnly,
 		}, nil

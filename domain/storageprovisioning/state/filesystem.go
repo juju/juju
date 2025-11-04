@@ -606,7 +606,8 @@ func (st *State) GetFilesystemAttachmentParams(
 	*/
 	stmt, err := st.Prepare(`
 SELECT &filesystemAttachmentParams.* FROM (
-    SELECT    sf.provider_id,
+    SELECT    sf.provider_id AS filesystem_provider_id,
+              sfa.provider_id AS filesystem_attachment_provider_id,
               mci.instance_id AS machine_instance_id,
               cs.location AS charm_storage_location,
               cs.count_max AS charm_storage_count_max,
@@ -658,15 +659,20 @@ SELECT &filesystemAttachmentParams.* FROM (
 		return storageprovisioning.FilesystemAttachmentParams{}, errors.Capture(err)
 	}
 
-	return storageprovisioning.FilesystemAttachmentParams{
+	retVal := storageprovisioning.FilesystemAttachmentParams{
 		CharmStorageCountMax: dbVal.CharmStorageCountMax,
 		CharmStorageLocation: dbVal.CharmStorageLocation.V,
 		CharmStorageReadOnly: dbVal.CharmStorageReadOnly.V,
 		MachineInstanceID:    dbVal.MachineInstanceID.V,
 		MountPoint:           dbVal.MountPoint.V,
 		Provider:             dbVal.StoragePoolType,
-		ProviderID:           dbVal.ProviderID.V,
-	}, nil
+		FilesystemProviderID: dbVal.FilesystemProviderID.V,
+	}
+	if dbVal.FilesystemAttachmentProviderID.Valid {
+		v := dbVal.FilesystemAttachmentProviderID.V
+		retVal.FilesystemAttachmentProviderID = &v
+	}
+	return retVal, nil
 }
 
 // GetFilesystemAttachmentUUIDForFilesystemNetNode returns the filesystem

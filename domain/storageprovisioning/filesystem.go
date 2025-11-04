@@ -127,9 +127,13 @@ type FilesystemAttachmentParams struct {
 	// attachment.
 	Provider string
 
-	// ProviderID is the unique ID given to the filesystem from the storage
-	// provider.
-	ProviderID string
+	// FilesystemProviderID is the unique ID given to the filesystem from the
+	// storage provider.
+	FilesystemProviderID string
+
+	// FilesystemAttachmentProviderID is the unique ID given to the filesystem
+	// attachment from the storage provider.
+	FilesystemAttachmentProviderID *string
 }
 
 // FilesystemTemplate represents the required information to supply a Kubernetes
