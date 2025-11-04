@@ -134,7 +134,7 @@ func (st *State) AddConsumedRelation(
 			return errors.Capture(err)
 		}
 
-		if err := st.checkApplicationAlive(ctx, tx, offerApplicationUUID); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, offerApplicationUUID); err != nil {
 			return errors.Capture(err)
 		}
 

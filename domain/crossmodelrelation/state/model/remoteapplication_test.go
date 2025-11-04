@@ -811,7 +811,59 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationDyingApplication(c 
 		Charm:                       charm,
 		Username:                    "consumer-user",
 	})
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelationDeadApplication(c *tc.C) {
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Offer resources needed:
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
+	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
+	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, offerCharmUUID)
+	charmRelationUUID := s.createCharmRelation(c, offerCharmUUID, "offer-endpoint")
+	// Create an application in the database.
+	s.createDeadApplication(c, offerApplicationUUID, offerCharmUUID, offerUUID)
+	s.addApplicationEndpoint(c, offerApplicationUUID, charmRelationUUID)
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
 func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUID(c *tc.C) {
@@ -1810,6 +1862,10 @@ func (s *modelRemoteApplicationSuite) createApplication(c *tc.C, applicationUUID
 	s.createApplicationWithLife(c, applicationUUID, charmUUID, offerUUID, life.Alive)
 }
 
+func (s *modelRemoteApplicationSuite) createDeadApplication(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string) {
+	s.createApplicationWithLife(c, applicationUUID, charmUUID, offerUUID, life.Dead)
+}
+
 func (s *modelRemoteApplicationSuite) createDyingApplication(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string) {
 	s.createApplicationWithLife(c, applicationUUID, charmUUID, offerUUID, life.Dying)
 }
@@ -2752,5 +2808,5 @@ VALUES (?, ?, ?)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.state.GetRelationRemoteModelUUID(c.Context(), relationUUID)
-	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RelationNotRemote)
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RelationNotCrossModel)
 }
