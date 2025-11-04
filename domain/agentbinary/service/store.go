@@ -287,7 +287,7 @@ func (s *AgentBinaryStore) GetAgentBinaryWithSHA256(
 	}
 
 	if !hasAgentBinary {
-		return nil, 0, "", errors.Errorf("no agent binary found for version %q", ver.String())
+		return nil, 0, "", errors.Errorf("no agent binary found for version %q", ver.String()).Add(agentbinaryerrors.NotFound)
 	}
 
 	store, err := s.objectStoreGetter.GetObjectStore(ctx)
