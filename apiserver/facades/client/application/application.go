@@ -1418,7 +1418,7 @@ func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRela
 		return internalerrors.Capture(err)
 	}
 
-	removalUUID, err = api.removalService.RemoveRemoteRelation(ctx, relUUID, force, maxWait)
+	removalUUID, err = api.removalService.RemoveRelationWithRemoteOfferer(ctx, relUUID, force, maxWait)
 	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nil
 	} else if err != nil {

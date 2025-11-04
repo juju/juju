@@ -507,11 +507,11 @@ func (s *baseSuite) createRelation(c *tc.C) relation.UUID {
 	return relUUID
 }
 
-// createRemoteRelation creates a remote relation. This is done by creating
+// createRelationWithRemoteOfferer creates a remote relation. This is done by creating
 // a synthetic app & a regular app, and then establishing a relation between
 // them. We also add some units to the each app for good measure. Returns the
 // relation UUID and the synthetic app UUID.
-func (s *baseSuite) createRemoteRelation(c *tc.C) (relation.UUID, coreapplication.UUID) {
+func (s *baseSuite) createRelationWithRemoteOfferer(c *tc.C) (relation.UUID, coreapplication.UUID) {
 	synthAppUUID, _ := s.createRemoteApplicationOfferer(c, "foo")
 	s.createIAASApplication(c, s.setupApplicationService(c), "bar",
 		applicationservice.AddIAASUnitArg{},

@@ -1996,7 +1996,7 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeDyingRelat
 		GetRelationDetails(gomock.Any(), relationUUID).
 		Return(domainrelation.RelationDetails{}, nil)
 	s.crossModelService.EXPECT().
-		RemoveRemoteRelation(gomock.Any(), relationUUID, false, time.Duration(0)).
+		RemoveRelationWithRemoteOfferer(gomock.Any(), relationUUID, false, time.Duration(0)).
 		DoAndReturn(func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error) {
 			close(sync)
 			return "", nil
@@ -2054,7 +2054,7 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeDeadRelati
 		GetRelationDetails(gomock.Any(), relationUUID).
 		Return(domainrelation.RelationDetails{}, nil)
 	s.crossModelService.EXPECT().
-		RemoveRemoteRelation(gomock.Any(), relationUUID, false, time.Duration(0)).
+		RemoveRelationWithRemoteOfferer(gomock.Any(), relationUUID, false, time.Duration(0)).
 		DoAndReturn(func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error) {
 			close(sync)
 			return "", nil
@@ -2568,7 +2568,7 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationChangeDying(c *tc.C)
 
 	sync := make(chan struct{})
 	s.crossModelService.EXPECT().
-		RemoveRemoteRelation(gomock.Any(), relationUUID, false, time.Duration(0)).
+		RemoveRelationWithRemoteOfferer(gomock.Any(), relationUUID, false, time.Duration(0)).
 		DoAndReturn(func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error) {
 			close(sync)
 			return "", nil

@@ -154,7 +154,7 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 		// Relations only transition to dying and are removed, so we can safely
 		// just remove the relation and return early.
 		forceCleanup := change.ForceCleanup != nil && *change.ForceCleanup
-		_, err := api.removalService.RemoveRemoteRelation(ctx, relationUUID, forceCleanup, 0)
+		_, err := api.removalService.RemoveRelationWithRemoteOfferer(ctx, relationUUID, forceCleanup, 0)
 		if errors.Is(err, relationerrors.RelationNotFound) {
 			return nil
 		}
