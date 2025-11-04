@@ -175,11 +175,11 @@ type ApplicationService interface {
 
 // RemovalService provides the ability to remove remote relations.
 type RemovalService interface {
-	// RemoveRelationWithRemoteOfferer checks if a relation with the input UUID
+	// RemoveRelationWithRemoteConsumer checks if a relation with the input UUID
 	// exists. If it does, the relation is guaranteed after this call to be:
 	// - No longer alive.
 	// - Removed or scheduled to be removed with the input force qualification.
-	RemoveRelationWithRemoteOfferer(
+	RemoveRelationWithRemoteConsumer(
 		ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration,
 	) (removal.UUID, error)
 

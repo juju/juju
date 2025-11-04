@@ -17,49 +17,49 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-type relationWithRemoteOfferer struct {
+type relationWithRemoteConsumer struct {
 	baseSuite
 }
 
-func TestRelationWithRemoteOffererSuite(t *testing.T) {
-	tc.Run(t, &relationWithRemoteOfferer{})
+func TestRelationWithRemoteConsumerSuite(t *testing.T) {
+	tc.Run(t, &relationWithRemoteConsumer{})
 }
 
-func (s *relationWithRemoteOfferer) TestRelationWithRemoteOffererExists(c *tc.C) {
+func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerExists(c *tc.C) {
 	relUUID, _ := s.createRelationWithRemoteOfferer(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	exists, err := st.RelationWithRemoteOffererExists(c.Context(), relUUID.String())
+	exists, err := st.RelationWithRemoteConsumerExists(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, true)
 }
 
-func (s *relationWithRemoteOfferer) TestRelationWithRemoteOffererExistsFalseForRegularRelation(c *tc.C) {
+func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerExistsFalseForRegularRelation(c *tc.C) {
 	relUUID := s.createRelation(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	exists, err := st.RelationWithRemoteOffererExists(c.Context(), relUUID.String())
+	exists, err := st.RelationWithRemoteConsumerExists(c.Context(), relUUID.String())
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
 }
 
-func (s *relationWithRemoteOfferer) TestRelationWithRemoteOffererExistsFalseForNonExistingRelation(c *tc.C) {
+func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerExistsFalseForNonExistingRelation(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	exists, err := st.RelationWithRemoteOffererExists(c.Context(), "not-today-henry")
+	exists, err := st.RelationWithRemoteConsumerExists(c.Context(), "not-today-henry")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
 }
 
-func (s *relationWithRemoteOfferer) TestEnsureRelationWithRemoteOffererNotAliveCascadeNormalSuccess(c *tc.C) {
+func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliveCascadeNormalSuccess(c *tc.C) {
 	relUUID, synthAppUUID := s.createRelationWithRemoteOfferer(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureRelationWithRemoteOffererNotAliveCascade(c.Context(), relUUID.String())
+	artifacts, err := st.EnsureRelationWithRemoteConsumerNotAliveCascade(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var lifeID int
@@ -103,21 +103,21 @@ WHERE           ru.uuid IN (?, ?, ?)
 	c.Check(gotAppUUID, tc.Equals, synthAppUUID.String())
 }
 
-func (s *relationWithRemoteOfferer) TestEnsureRelationWithRemoteOffererNotAliveCascadeNotExistsSuccess(c *tc.C) {
+func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliveCascadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	_, err := st.EnsureRelationWithRemoteOffererNotAliveCascade(c.Context(), "some-relation-uuid")
+	_, err := st.EnsureRelationWithRemoteConsumerNotAliveCascade(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *relationWithRemoteOfferer) TestRelationWithRemoteOffererScheduleRemovalNormalSuccess(c *tc.C) {
+func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerScheduleRemovalNormalSuccess(c *tc.C) {
 	relUUID, _ := s.createRelationWithRemoteOfferer(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	when := time.Now().UTC()
-	err := st.RelationWithRemoteOffererScheduleRemoval(
+	err := st.RelationWithRemoteConsumerScheduleRemoval(
 		c.Context(), "removal-uuid", relUUID.String(), false, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -137,17 +137,17 @@ where  r.uuid = ?`, "removal-uuid",
 	err = row.Scan(&removalType, &rUUID, &force, &scheduledFor)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(removalType, tc.Equals, "relation with remote offerer")
+	c.Check(removalType, tc.Equals, "relation with remote consumer")
 	c.Check(rUUID, tc.Equals, relUUID.String())
 	c.Check(force, tc.Equals, false)
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
-func (s *relationWithRemoteOfferer) TestRelationWithRemoteOffererScheduleRemovalNotExistsSuccess(c *tc.C) {
+func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerScheduleRemovalNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	when := time.Now().UTC()
-	err := st.RelationWithRemoteOffererScheduleRemoval(
+	err := st.RelationWithRemoteConsumerScheduleRemoval(
 		c.Context(), "removal-uuid", "some-relation-uuid", true, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -167,24 +167,24 @@ where  r.uuid = ?`, "removal-uuid",
 	err = row.Scan(&removalType, &rUUID, &force, &scheduledFor)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(removalType, tc.Equals, "relation with remote offerer")
+	c.Check(removalType, tc.Equals, "relation with remote consumer")
 	c.Check(rUUID, tc.Equals, "some-relation-uuid")
 	c.Check(force, tc.Equals, true)
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
-func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererUnitsUnitsStillInScope(c *tc.C) {
+func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnitsUnitsStillInScope(c *tc.C) {
 	relUUID, _ := s.createRelationWithRemoteOfferer(c)
 
 	s.advanceRelationLife(c, relUUID, life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteRelationWithRemoteOfferer(c.Context(), relUUID.String())
+	err := st.DeleteRelationWithRemoteConsumer(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIs, removalerrors.UnitsStillInScope)
 }
 
-func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererUnits(c *tc.C) {
+func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnits(c *tc.C) {
 	// Arrange
 	relUUID, synthAppUUID := s.createRelationWithRemoteOfferer(c)
 
@@ -196,7 +196,7 @@ func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererUnits(c *
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = st.DeleteRelationWithRemoteOfferer(c.Context(), relUUID.String())
+	err = st.DeleteRelationWithRemoteConsumer(c.Context(), relUUID.String())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -215,7 +215,7 @@ func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererUnits(c *
 	c.Check(count, tc.Equals, 0)
 }
 
-func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererWhenRemoteAppHasMultipleRelations(c *tc.C) {
+func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerWhenRemoteAppHasMultipleRelations(c *tc.C) {
 	synthAppUUID, _ := s.createRemoteApplicationOfferer(c, "foo")
 	s.createIAASApplication(c, s.setupApplicationService(c), "app1",
 		applicationservice.AddIAASUnitArg{},
@@ -228,7 +228,7 @@ func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererWhenRemot
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteRelationWithRemoteOfferer(c.Context(), relUUID.String())
+	err := st.DeleteRelationWithRemoteConsumer(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The synth app should NOT be deleted.

@@ -49,6 +49,7 @@ type ModelDBState interface {
 	StorageState
 	RemoteApplicationOffererState
 	RelationWithRemoteOfferer
+	RelationWithRemoteConsumer
 	OfferState
 	SecretModelState
 
@@ -183,6 +184,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 
 	case removal.RelationWithRemoteOffererJob:
 		err = s.processRelationWithRemoteOffererRemovalJob(ctx, job)
+
+	case removal.RelationWithRemoteConsumerJob:
+		err = s.processRelationWithRemoteConsumerRemovalJob(ctx, job)
 
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(

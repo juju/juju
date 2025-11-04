@@ -1026,6 +1026,44 @@ func (c *MockModelDBStateDeleteRelationUnitsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// DeleteRelationWithRemoteConsumer mocks base method.
+func (m *MockModelDBState) DeleteRelationWithRemoteConsumer(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRelationWithRemoteConsumer", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRelationWithRemoteConsumer indicates an expected call of DeleteRelationWithRemoteConsumer.
+func (mr *MockModelDBStateMockRecorder) DeleteRelationWithRemoteConsumer(arg0, arg1 any) *MockModelDBStateDeleteRelationWithRemoteConsumerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRelationWithRemoteConsumer", reflect.TypeOf((*MockModelDBState)(nil).DeleteRelationWithRemoteConsumer), arg0, arg1)
+	return &MockModelDBStateDeleteRelationWithRemoteConsumerCall{Call: call}
+}
+
+// MockModelDBStateDeleteRelationWithRemoteConsumerCall wrap *gomock.Call
+type MockModelDBStateDeleteRelationWithRemoteConsumerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateDeleteRelationWithRemoteConsumerCall) Return(arg0 error) *MockModelDBStateDeleteRelationWithRemoteConsumerCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateDeleteRelationWithRemoteConsumerCall) Do(f func(context.Context, string) error) *MockModelDBStateDeleteRelationWithRemoteConsumerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateDeleteRelationWithRemoteConsumerCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateDeleteRelationWithRemoteConsumerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteRelationWithRemoteOfferer mocks base method.
 func (m *MockModelDBState) DeleteRelationWithRemoteOfferer(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -1557,6 +1595,45 @@ func (c *MockModelDBStateEnsureRelationNotAliveCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateEnsureRelationNotAliveCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateEnsureRelationNotAliveCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// EnsureRelationWithRemoteConsumerNotAliveCascade mocks base method.
+func (m *MockModelDBState) EnsureRelationWithRemoteConsumerNotAliveCascade(arg0 context.Context, arg1 string) (internal.CascadedRelationWithRemoteConsumerLives, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureRelationWithRemoteConsumerNotAliveCascade", arg0, arg1)
+	ret0, _ := ret[0].(internal.CascadedRelationWithRemoteConsumerLives)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnsureRelationWithRemoteConsumerNotAliveCascade indicates an expected call of EnsureRelationWithRemoteConsumerNotAliveCascade.
+func (mr *MockModelDBStateMockRecorder) EnsureRelationWithRemoteConsumerNotAliveCascade(arg0, arg1 any) *MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureRelationWithRemoteConsumerNotAliveCascade", reflect.TypeOf((*MockModelDBState)(nil).EnsureRelationWithRemoteConsumerNotAliveCascade), arg0, arg1)
+	return &MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall{Call: call}
+}
+
+// MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall wrap *gomock.Call
+type MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall) Return(arg0 internal.CascadedRelationWithRemoteConsumerLives, arg1 error) *MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall) Do(f func(context.Context, string) (internal.CascadedRelationWithRemoteConsumerLives, error)) *MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall) DoAndReturn(f func(context.Context, string) (internal.CascadedRelationWithRemoteConsumerLives, error)) *MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3611,6 +3688,83 @@ func (c *MockModelDBStateRelationScheduleRemovalCall) Do(f func(context.Context,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateRelationScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateRelationScheduleRemovalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RelationWithRemoteConsumerExists mocks base method.
+func (m *MockModelDBState) RelationWithRemoteConsumerExists(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RelationWithRemoteConsumerExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RelationWithRemoteConsumerExists indicates an expected call of RelationWithRemoteConsumerExists.
+func (mr *MockModelDBStateMockRecorder) RelationWithRemoteConsumerExists(arg0, arg1 any) *MockModelDBStateRelationWithRemoteConsumerExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationWithRemoteConsumerExists", reflect.TypeOf((*MockModelDBState)(nil).RelationWithRemoteConsumerExists), arg0, arg1)
+	return &MockModelDBStateRelationWithRemoteConsumerExistsCall{Call: call}
+}
+
+// MockModelDBStateRelationWithRemoteConsumerExistsCall wrap *gomock.Call
+type MockModelDBStateRelationWithRemoteConsumerExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateRelationWithRemoteConsumerExistsCall) Return(arg0 bool, arg1 error) *MockModelDBStateRelationWithRemoteConsumerExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateRelationWithRemoteConsumerExistsCall) Do(f func(context.Context, string) (bool, error)) *MockModelDBStateRelationWithRemoteConsumerExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateRelationWithRemoteConsumerExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelDBStateRelationWithRemoteConsumerExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RelationWithRemoteConsumerScheduleRemoval mocks base method.
+func (m *MockModelDBState) RelationWithRemoteConsumerScheduleRemoval(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RelationWithRemoteConsumerScheduleRemoval", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RelationWithRemoteConsumerScheduleRemoval indicates an expected call of RelationWithRemoteConsumerScheduleRemoval.
+func (mr *MockModelDBStateMockRecorder) RelationWithRemoteConsumerScheduleRemoval(arg0, arg1, arg2, arg3, arg4 any) *MockModelDBStateRelationWithRemoteConsumerScheduleRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationWithRemoteConsumerScheduleRemoval", reflect.TypeOf((*MockModelDBState)(nil).RelationWithRemoteConsumerScheduleRemoval), arg0, arg1, arg2, arg3, arg4)
+	return &MockModelDBStateRelationWithRemoteConsumerScheduleRemovalCall{Call: call}
+}
+
+// MockModelDBStateRelationWithRemoteConsumerScheduleRemovalCall wrap *gomock.Call
+type MockModelDBStateRelationWithRemoteConsumerScheduleRemovalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateRelationWithRemoteConsumerScheduleRemovalCall) Return(arg0 error) *MockModelDBStateRelationWithRemoteConsumerScheduleRemovalCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateRelationWithRemoteConsumerScheduleRemovalCall) Do(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateRelationWithRemoteConsumerScheduleRemovalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateRelationWithRemoteConsumerScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateRelationWithRemoteConsumerScheduleRemovalCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
