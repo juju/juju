@@ -48,7 +48,6 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		authorizer,
 		ctx.Logger().Child("storage"),
 		domainServices.Application(),
-		domainServices.BlockDevice(),
 		domainServices.Removal(),
 		domainServices.Storage(),
 	), nil
