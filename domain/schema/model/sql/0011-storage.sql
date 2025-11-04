@@ -250,7 +250,10 @@ CREATE TABLE storage_provision_scope (
 
 INSERT INTO storage_provision_scope (id, scope) VALUES
 (0, 'model'),
-(1, 'machine');
+(1, 'machine'),
+-- external provision scope is used on storage entities that are provisioned
+-- externall to Juju.
+(2, 'external');
 
 -- storage_volume describes a volume held by a storage_instance.
 --

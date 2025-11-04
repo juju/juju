@@ -48,7 +48,8 @@ func (s *scopeSuite) TestProvisionScopeValuesAligned(c *tc.C) {
 	}
 
 	c.Check(dbValues, tc.DeepEquals, map[ProvisionScope]string{
-		ProvisionScopeModel:   "model",
-		ProvisionScopeMachine: "machine",
+		ProvisionScopeModel:    "model",
+		ProvisionScopeMachine:  "machine",
+		ProvisionScopeExternal: "external",
 	})
 }

@@ -15,6 +15,12 @@ const (
 	// ProvisionScopeMachine indicates that the provisioner for the storage is
 	// to be run within the context of the machine.
 	ProvisionScopeMachine
+
+	// ProvisionScopeExternal indicates that the provisioner for the storage is
+	// external to Juju.
+	//
+	// STOP: This is a placeholder value for future use and should not be used
+	ProvisionScopeExternal
 )
 
 // OwnershipScope declares to the model in what context a storage entity needs
