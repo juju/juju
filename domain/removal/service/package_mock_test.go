@@ -1601,11 +1601,12 @@ func (c *MockModelDBStateEnsureRemoteApplicationOffererNotAliveCascadeCall) DoAn
 }
 
 // EnsureRemoteRelationNotAliveCascade mocks base method.
-func (m *MockModelDBState) EnsureRemoteRelationNotAliveCascade(arg0 context.Context, arg1 string) error {
+func (m *MockModelDBState) EnsureRemoteRelationNotAliveCascade(arg0 context.Context, arg1 string) (internal.CascadedRemoteRelationLives, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureRemoteRelationNotAliveCascade", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(internal.CascadedRemoteRelationLives)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // EnsureRemoteRelationNotAliveCascade indicates an expected call of EnsureRemoteRelationNotAliveCascade.
@@ -1621,19 +1622,19 @@ type MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall) Return(arg0 error) *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall) Return(arg0 internal.CascadedRemoteRelationLives, arg1 error) *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall) Do(f func(context.Context, string) error) *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall) Do(f func(context.Context, string) (internal.CascadedRemoteRelationLives, error)) *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall) DoAndReturn(f func(context.Context, string) (internal.CascadedRemoteRelationLives, error)) *MockModelDBStateEnsureRemoteRelationNotAliveCascadeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -421,20 +421,9 @@ func (st *State) EnsureUnitsExist(ctx context.Context, appUUID string, units []s
 			return errors.Errorf("getting charm UUID for application %q: %w", appUUID, err)
 		}
 
-		// Create a new unique net node uuid for each unit.
-		netNodeUUID, err := internaluuid.NewUUID()
-		if err != nil {
-			return errors.Capture(err)
-		}
-		netNodeUUIDStr := netNodeUUID.String()
-
-		if err := st.insertNetNode(ctx, tx, netNodeUUIDStr); err != nil {
-			return errors.Errorf("inserting net node: %w", err)
-		}
-
 		// Create the missing units.
 		for _, unitName := range missingUnits {
-			if err := st.insertUnit(ctx, tx, unitName, appUUID, charmUUID, netNodeUUIDStr); err != nil {
+			if err := st.insertUnit(ctx, tx, unitName, appUUID, charmUUID); err != nil {
 				return errors.Errorf("inserting unit %q: %w", unitName, err)
 			}
 		}
@@ -1486,8 +1475,16 @@ func (st *State) insertUnit(
 	unitName string,
 	appUUID string,
 	charmUUID string,
-	netNodeUUID string,
 ) error {
+	netNodeUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := st.insertNetNode(ctx, tx, netNodeUUID.String()); err != nil {
+		return errors.Errorf("inserting net node: %w", err)
+	}
+
 	unitUUID, err := internaluuid.NewUUID()
 	if err != nil {
 		return errors.Capture(err)
@@ -1498,7 +1495,7 @@ func (st *State) insertUnit(
 		UnitUUID:      unitUUID.String(),
 		CharmUUID:     charmUUID,
 		Name:          unitName,
-		NetNodeID:     netNodeUUID,
+		NetNodeID:     netNodeUUID.String(),
 		LifeID:        life.Alive,
 	}
 

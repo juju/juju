@@ -88,20 +88,6 @@ func (st *State) InitialWatchRelatedUnits(
 
 				relatedUnits.Add(u.UnitUUID)
 			}
-			// If this is a peer relation, we will have only one endpointUUID,
-			// which will be the one.
-			// Else, we will have 2 endpoints, and we will want the remote one.
-			var endpointForAppSettingsChange string
-			if endpointUUIDs.Size() > 1 {
-				endpointUUIDs.Remove(localEndpointUUID)
-			}
-			if endpointUUIDs.Size() == 1 {
-				endpointForAppSettingsChange = endpointUUIDs.Values()[0]
-			} else {
-				return nil, errors.Errorf(
-					"programming error: we should have 1 endpoint to watch at this point, but have %d for relation %q",
-					endpointUUIDs.Size(), relationUUID)
-			}
 
 			var out []string
 			for _, event := range events {
@@ -120,6 +106,21 @@ func (st *State) InitialWatchRelatedUnits(
 					}
 					event = newUnitUUIDEvent(event, unitUUID)
 				case relationApplicationSettingNamespace:
+					// If this is a peer relation, we will have only one endpointUUID,
+					// which will be the one.
+					// Else, we will have 2 endpoints, and we will want the remote one.
+					var endpointForAppSettingsChange string
+					if endpointUUIDs.Size() > 1 {
+						endpointUUIDs.Remove(localEndpointUUID)
+					}
+					if endpointUUIDs.Size() == 1 {
+						endpointForAppSettingsChange = endpointUUIDs.Values()[0]
+					} else {
+						// This may occur during the removal process for synthetic
+						// units. Skip the event.
+						continue
+					}
+
 					// Discard events that are not from the expected endpoint.
 					if event.Changed() != endpointForAppSettingsChange {
 						continue

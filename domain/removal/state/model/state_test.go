@@ -530,9 +530,18 @@ func (s *baseSuite) createRemoteRelation(c *tc.C) (relation.UUID, coreapplicatio
 	cmrState := crossmodelrelationstate.NewState(
 		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
 	)
-	// Call twice to ensure some units share a net node, but not all.
-	cmrState.EnsureUnitsExist(c.Context(), synthAppUUID.String(), []string{"foo/0", "foo/1"})
-	cmrState.EnsureUnitsExist(c.Context(), synthAppUUID.String(), []string{"foo/2"})
+	err = cmrState.EnsureUnitsExist(c.Context(), synthAppUUID.String(), []string{"foo/0", "foo/1", "foo/2"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = relSvc.SetRelationRemoteApplicationAndUnitSettings(c.Context(), synthAppUUID, relUUID,
+		map[string]string{"do": "da"},
+		map[unit.Name]map[string]string{
+			unit.Name("foo/0"): {"do": "da"},
+			unit.Name("foo/1"): {"do": "da"},
+			unit.Name("foo/2"): {"do": "da"},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return relUUID, synthAppUUID
 }
@@ -563,9 +572,8 @@ func (s *baseSuite) createRemoteRelationBetween(c *tc.C, synthAppName, appName s
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Call twice to ensure some units share a net node, but not all.
-	cmrState.EnsureUnitsExist(c.Context(), synthAppUUID, []string{unit0name, unit1name})
-	cmrState.EnsureUnitsExist(c.Context(), synthAppUUID, []string{unit2name})
+	err = cmrState.EnsureUnitsExist(c.Context(), synthAppUUID, []string{unit0name, unit1name, unit2name})
+	c.Assert(err, tc.ErrorIsNil)
 
 	return relUUID
 }

@@ -4,6 +4,8 @@
 package model
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -56,7 +59,7 @@ func (s *remoteRelationSuite) TestEnsureRemoteRelationNotAliveCascadeNormalSucce
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.EnsureRemoteRelationNotAliveCascade(c.Context(), relUUID.String())
+	artifacts, err := st.EnsureRemoteRelationNotAliveCascade(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var lifeID int
@@ -81,13 +84,30 @@ func (s *remoteRelationSuite) TestEnsureRemoteRelationNotAliveCascadeNormalSucce
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(lifeID, tc.Equals, 2)
 	}
+
+	// Check the returned synth rel units
+	synthRelUnitUUIDs := artifacts.SyntheticRelationUnitUUIDs
+	c.Check(len(synthRelUnitUUIDs), tc.Equals, 3)
+
+	var gotAppUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `
+SELECT DISTINCT u.application_uuid
+FROM            relation_unit AS ru
+JOIN            unit AS u ON ru.unit_uuid = u.uuid
+WHERE           ru.uuid IN (?, ?, ?)
+`, synthRelUnitUUIDs[0], synthRelUnitUUIDs[1], synthRelUnitUUIDs[2]).Scan(&gotAppUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotAppUUID, tc.Equals, synthAppUUID.String())
 }
 
 func (s *remoteRelationSuite) TestEnsureRemoteRelationNotAliveCascadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	err := st.EnsureRemoteRelationNotAliveCascade(c.Context(), "some-relation-uuid")
+	_, err := st.EnsureRemoteRelationNotAliveCascade(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -153,14 +173,32 @@ where  r.uuid = ?`, "removal-uuid",
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
-func (s *relationSuite) TestDeleteRemoteRelation(c *tc.C) {
-	relUUID, synthAppUUID := s.createRemoteRelation(c)
+func (s *relationSuite) TestDeleteRemoteRelationUnitsUnitsStillInScope(c *tc.C) {
+	relUUID, _ := s.createRemoteRelation(c)
 
 	s.advanceRelationLife(c, relUUID, life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.DeleteRemoteRelation(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.UnitsStillInScope)
+}
+
+func (s *relationSuite) TestDeleteRemoteRelationUnits(c *tc.C) {
+	// Arrange
+	relUUID, synthAppUUID := s.createRemoteRelation(c)
+
+	s.advanceRelationLife(c, relUUID, life.Dying)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteRelationUnits(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	err = st.DeleteRemoteRelation(c.Context(), relUUID.String())
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The synth app should NOT be deleted.

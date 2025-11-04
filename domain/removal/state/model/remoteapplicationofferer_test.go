@@ -267,15 +267,14 @@ func (s *remoteApplicationOffererSuite) TestDeleteRemoteApplicationOffererWithUn
 	cmrState := crossmodelrelationstate.NewState(
 		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
 	)
-	// Call twice to ensure some units share a net node, but not all.
-	cmrState.EnsureUnitsExist(c.Context(), appUUID.String(), []string{"foo/0", "foo/1"})
-	cmrState.EnsureUnitsExist(c.Context(), appUUID.String(), []string{"foo/2"})
+	err := cmrState.EnsureUnitsExist(c.Context(), appUUID.String(), []string{"foo/0", "foo/1", "foo/2"})
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.advanceRemoteApplicationOffererLife(c, remoteAppUUID.String(), life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteRemoteApplicationOfferer(c.Context(), remoteAppUUID.String())
+	err = st.DeleteRemoteApplicationOfferer(c.Context(), remoteAppUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	exists, err := st.RemoteApplicationOffererExists(c.Context(), remoteAppUUID.String())

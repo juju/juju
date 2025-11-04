@@ -409,10 +409,27 @@ WHERE  uuid = $entityUUID.uuid`, id)
 		return errors.Errorf("preparing relation unit exists query: %w", err)
 	}
 
+	isSyntheticStmt, err := st.Prepare(`
+SELECT u.uuid AS &entityUUID.uuid
+FROM   relation_unit AS re
+JOIN   unit AS u ON re.unit_uuid = u.uuid
+JOIN   charm AS c ON u.charm_uuid = c.uuid
+JOIN   charm_source AS cs ON c.source_id = cs.id
+WHERE  re.uuid = $entityUUID.uuid
+AND    cs.name = 'cmr'
+	`, entityUUID{})
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, existsStmt, id).Get(&id)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return relationerrors.RelationUnitNotFound
+		} else if err != nil {
+			return errors.Errorf("running relation unit exists query: %w", err)
+		}
+
+		var synthUnitUUID entityUUID
+		err = tx.Query(ctx, isSyntheticStmt, id).Get(&synthUnitUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
 		} else if err != nil {
 			return errors.Errorf("running relation unit exists query: %w", err)
 		}
@@ -425,6 +442,12 @@ WHERE  uuid = $entityUUID.uuid`, id)
 		err = st.deleteRelationUnit(ctx, tx, id)
 		if err != nil {
 			return errors.Capture(err)
+		}
+
+		if synthUnitUUID.UUID != "" {
+			if err := st.deleteSynthUnit(ctx, tx, synthUnitUUID); err != nil {
+				return errors.Capture(err)
+			}
 		}
 
 		return nil

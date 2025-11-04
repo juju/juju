@@ -4,6 +4,8 @@
 package model
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -300,6 +302,43 @@ VALUES (?, ?, 'old-key', 'old-value')`, rel, unit)
 
 	c.Check(ours, tc.Equals, 1)
 	c.Check(others, tc.Equals, 1)
+}
+
+func (s *relationSuite) TestLeaveScopeDeletesSyntheticUnits(c *tc.C) {
+	// Arrange
+	s.createRemoteRelation(c)
+
+	s.DumpTable(c, "unit", "relation_unit")
+
+	var relUnitUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT ru.uuid
+FROM relation_unit AS ru
+JOIN unit AS u ON ru.unit_uuid = u.uuid
+WHERE u.name = ?`, "foo/0").Scan(&relUnitUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Act
+	err = st.LeaveScope(c.Context(), relUnitUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	var unitCount int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM unit WHERE name = ?`, "foo/0").Scan(&unitCount)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitCount, tc.Equals, 0)
 }
 
 func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {

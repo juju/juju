@@ -13,6 +13,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -25,8 +26,8 @@ type RemoteRelationState interface {
 
 	// EnsureRemoteRelationNotAliveCascade ensures that the relation identified
 	// by the input UUID is not alive, and sets the synthetic units in scope
-	// of this relation to dead
-	EnsureRemoteRelationNotAliveCascade(ctx context.Context, rUUID string) error
+	// of this relation to dead.
+	EnsureRemoteRelationNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRemoteRelationLives, error)
 
 	// RemoteRelationScheduleRemoval schedules a removal job for the relation
 	// with the input UUID, qualified with the input force boolean.
@@ -59,7 +60,8 @@ func (s *Service) RemoveRemoteRelation(
 		return "", errors.Errorf("remote relation %q does not exist", relUUID).Add(relationerrors.RelationNotFound)
 	}
 
-	if err := s.modelState.EnsureRemoteRelationNotAliveCascade(ctx, relUUID.String()); err != nil {
+	res, err := s.modelState.EnsureRemoteRelationNotAliveCascade(ctx, relUUID.String())
+	if err != nil {
 		return "", errors.Errorf("remote relation %q: %w", relUUID, err)
 	}
 
@@ -82,7 +84,19 @@ func (s *Service) RemoveRemoteRelation(
 	}
 
 	jUUID, err = s.remoteRelationScheduleRemoval(ctx, relUUID, force, wait)
-	return jUUID, errors.Capture(err)
+	if err != nil {
+		return "", errors.Errorf("scheduling removal job for remote relation %q: %w", relUUID, err)
+	}
+
+	// Depart the synthetic units here ourselves, since synthetic units don't
+	// have their own uniter.
+	for _, r := range res.SyntheticRelationUnitUUIDs {
+		if err := s.modelState.LeaveScope(ctx, r); err != nil {
+			return "", errors.Errorf("leaving scope for synthetic relation unit %q: %w", r, err)
+		}
+	}
+
+	return jUUID, nil
 }
 
 func (s *Service) remoteRelationScheduleRemoval(
