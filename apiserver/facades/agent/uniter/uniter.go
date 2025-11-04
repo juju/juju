@@ -22,6 +22,7 @@ import (
 	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/life"
@@ -2250,7 +2251,9 @@ func (u *UniterAPI) prepareRelationResult(
 		ModelUUID:       u.modelUUID.String(),
 	}
 	remoteModelUUID, err := u.crossModelRelationService.GetRelationRemoteModelUUID(ctx, rel.UUID)
-	if err != nil && !errors.Is(err, crossmodelrelationerrors.RelationNotCrossModel) {
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		return params.RelationResultV2{}, coreerrors.NotFound
+	} else if err != nil && !errors.Is(err, crossmodelrelationerrors.RelationNotCrossModel) {
 		return params.RelationResultV2{}, internalerrors.Capture(err)
 	} else if err == nil {
 		// It's a cross-model relation, set the remote model UUID.

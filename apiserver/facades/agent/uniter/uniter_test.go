@@ -1871,6 +1871,30 @@ func (s *uniterRelationSuite) TestInvalidPeerRelation(c *tc.C) {
 	c.Check(result.Results[0].Error, tc.ErrorMatches, ".*no other application found.*")
 }
 
+func (s *uniterRelationSuite) TestRelationRemoteModelUUIDNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	relKey := tc.Must1(c, corerelation.NewKeyFromString, relTag.Id())
+
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	relID := 42
+
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
+	s.expectGetRelationDetails(c, relUUID, relID, relTag)
+	s.expectGetRelationRemoteModelUUID(relUUID, "", relationerrors.RelationNotFound)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: relTag.String(), Unit: "unit-wordpress-0"},
+	}}
+	result, err := s.uniter.Relation(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, &params.Error{
+		Message: "not found",
+		Code:    params.CodeNotFound,
+	})
+}
+
 // TestRelationUnauthorized tests the different scenarios where
 // ErrUnauthorized will be returned. It also tests the bulk
 // functionality of the Relation facade method.
