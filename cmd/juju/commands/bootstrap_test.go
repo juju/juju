@@ -145,9 +145,17 @@ func (s *BootstrapSuite) SetUpTest(c *tc.C) {
 		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
 	})
 
-	s.PatchValue(&waitForAgentInitialisation, func(environs.BootstrapContext, *modelcmd.ModelCommandBase, bool, string) error {
-		return nil
-	})
+	s.PatchValue(
+		&waitForAgentInitialisation,
+		func(environs.BootstrapContext,
+			*modelcmd.ModelCommandBase,
+			bool,
+			string,
+			func(context.Context, *modelcmd.ModelCommandBase) error,
+		) error {
+			return nil
+		},
+	)
 
 	// TODO(wallyworld) - add test data when tests are improved
 	s.store = jujuclienttesting.MinimalStore()
@@ -2138,10 +2146,18 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 
 	// Record the controller name seen by ModelCommandBase at the end of bootstrap.
 	var seenControllerName string
-	s.PatchValue(&waitForAgentInitialisation, func(_ environs.BootstrapContext, base *modelcmd.ModelCommandBase, _ bool, controllerName string) error {
-		seenControllerName = controllerName
-		return nil
-	})
+	s.PatchValue(
+		&waitForAgentInitialisation,
+		func(_ environs.BootstrapContext,
+			_ *modelcmd.ModelCommandBase,
+			_ bool,
+			controllerName string,
+			_ func(context.Context, *modelcmd.ModelCommandBase) error,
+		) error {
+			seenControllerName = controllerName
+			return nil
+		},
+	)
 
 	// Run the bootstrap command in another goroutine, sending the
 	// dummy provider ops to opc.
