@@ -11,6 +11,7 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
 	domainagenterrors "github.com/juju/juju/domain/agentbinary/errors"
 	"github.com/juju/juju/environs"
@@ -170,6 +171,145 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 	return resp.Body, tool.Size, tool.SHA256, nil
 }
 
+// GetAvailableForVersion stream returns the available agent binaries for the
+// provided version and stream in the simple streams store.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] if the stream value is not valid.
+func (s *SimpleStreamsAgentBinaryStore) GetAvailableForVersionStream(
+	ctx context.Context,
+	version semversion.Number,
+	stream agentbinary.Stream,
+) ([]agentbinary.AgentBinary, error) {
+	provider, err := s.providerForAgentBinaryFinder(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return nil, errors.Errorf(
+			"environ provider does not support simple streams",
+		).Add(coreerrors.NotSupported)
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"getting environ provider for use with simple streams: %w", err,
+		)
+	}
+
+	major := version.Major
+	minor := version.Minor
+
+	streams := getPreferredFallbackStreams(stream)
+	ssFetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	tools, err := s.agentBinaryFilter(
+		ctx,
+		ssFetcher,
+		provider,
+		major,
+		minor,
+		streams,
+		coretools.Filter{
+			Number: version,
+		},
+	)
+
+	// If no tools exists in simple streams this is not an error.
+	if err != nil && !errors.Is(err, coretools.ErrNoMatches) {
+		return nil, errors.Errorf(
+			"getting simple streams agent binaries for version %q and stream %q: %w",
+			version, stream, err,
+		)
+	}
+
+	retVal := make([]agentbinary.AgentBinary, 0, len(tools))
+	for _, tool := range tools {
+		if tool == nil {
+			// The [internaltools.List] may contain nil pointers.
+			continue
+		}
+
+		arch, converted := agentbinary.ArchitectureFromString(tool.Version.Arch)
+		if !converted {
+			// If we don't understand the architecture this result is thrown
+			// away.
+			continue
+		}
+
+		retVal = append(retVal, agentbinary.AgentBinary{
+			Architecture: arch,
+			Version:      tool.Version.Number,
+			Stream:       stream,
+		})
+	}
+
+	return retVal, nil
+}
+
+// GetAvailablePatchVersions returns a slice of [agentbinary.AgentBinary]s that
+// are available from simple streams that share the the same major and minor
+// version as that of the supplied version.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] if the stream value is not valid.
+func (s *SimpleStreamsAgentBinaryStore) GetAvailablePatchVersions(
+	ctx context.Context,
+	version semversion.Number,
+	stream agentbinary.Stream,
+) ([]agentbinary.AgentBinary, error) {
+	provider, err := s.providerForAgentBinaryFinder(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return nil, errors.Errorf(
+			"environ provider does not support simple streams",
+		).Add(coreerrors.NotSupported)
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"getting environ provider for use with simple streams: %w", err,
+		)
+	}
+
+	major := version.Major
+	minor := version.Minor
+
+	streams := getPreferredFallbackStreams(stream)
+	ssFetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	tools, err := s.agentBinaryFilter(
+		ctx,
+		ssFetcher,
+		provider,
+		major,
+		minor,
+		streams,
+		coretools.Filter{},
+	)
+
+	// If no tools exists in simple streams this is not an error.
+	if err != nil && !errors.Is(err, coretools.ErrNoMatches) {
+		return nil, errors.Errorf(
+			"getting simple streams agent binary patch versions for controller: %w",
+			err,
+		)
+	}
+
+	retVal := make([]agentbinary.AgentBinary, 0, len(tools))
+	for _, tool := range tools {
+		if tool == nil {
+			// The [internaltools.List] may contain nil pointers.
+			continue
+		}
+
+		arch, converted := agentbinary.ArchitectureFromString(tool.Version.Arch)
+		if !converted {
+			// If we don't understand the architecture this result is thrown
+			// away.
+			continue
+		}
+
+		retVal = append(retVal, agentbinary.AgentBinary{
+			Architecture: arch,
+			Version:      tool.Version.Number,
+			Stream:       stream,
+		})
+	}
+
+	return retVal, nil
+}
+
 // searchSimpleStreams prepares and conducts a simplestreams search for the
 // required agent binary version in the given stream.
 func (s *SimpleStreamsAgentBinaryStore) searchSimpleStreams(
@@ -179,9 +319,13 @@ func (s *SimpleStreamsAgentBinaryStore) searchSimpleStreams(
 ) (coretools.List, error) {
 	provider, err := s.providerForAgentBinaryFinder(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
-		return nil, errors.Errorf("getting provider for agent binary finder %w", err)
+		return nil, errors.Errorf(
+			"environ provider does not support simple streams",
+		).Add(coreerrors.NotSupported)
 	} else if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf(
+			"getting environ provider for use with simple streams: %w", err,
+		)
 	}
 
 	major := version.Number.Major
