@@ -12,8 +12,10 @@ import (
 )
 
 // AgentBinaryGetterStore defines a agent binary store that can be used to
-// retrieve agent binaries.
+// quer and retrieve agent binaries.
 type AgentBinaryGetterStore interface {
+	AgentBinaryQuerierStore
+
 	// GetAgentBinaryForVersionStream retrieves the agent binary
 	// corresponding to the given version and stream. If sucessfully found the
 	// the agent binary stream is returned along with its size and sha256 sum.
@@ -88,5 +90,4 @@ type AgentBinaryQuerierStore interface {
 type AgentBinaryStore interface {
 	AgentBinaryGetterStore
 	AgentBinaryPutterStore
-	AgentBinaryQuerierStore
 }
