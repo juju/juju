@@ -133,6 +133,38 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 	c.Assert(machines.Machines, tc.HasLen, 2)
 }
 
+func (s *AddMachineManagerSuite) TestAddMachinesContainer(c *tc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	apiParams := params.AddMachineParams{
+		Base:      &params.Base{Name: "ubuntu", Channel: "22.04"},
+		Jobs:      []coremodel.MachineJob{coremodel.JobHostUnits},
+		Placement: &instance.Placement{Scope: string(instance.LXD), Directive: "0"},
+	}
+
+	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "22.04/stable",
+			OSType:  deployment.Ubuntu,
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: "0",
+		},
+	}).Return(machineservice.AddMachineResults{
+		MachineName:      coremachine.Name("0"),
+		ChildMachineName: ptr(coremachine.Name("0/lxd/0")),
+	}, nil)
+
+	machines, err := s.api.AddMachines(c.Context(), params.AddMachines{MachineParams: []params.AddMachineParams{apiParams}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines.Machines, tc.HasLen, 1)
+	c.Check(machines.Machines[0].Machine, tc.Equals, "0/lxd/0")
+	c.Check(machines.Machines[0].Error, tc.IsNil)
+}
+
 func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *tc.C) {
 	defer s.setup(c).Finish()
 
@@ -673,4 +705,8 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

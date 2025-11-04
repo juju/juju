@@ -180,6 +180,9 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 		HardwareCharacteristics: p.HardwareCharacteristics,
 	})
 
+	if addedMachine.ChildMachineName != nil {
+		return *addedMachine.ChildMachineName, err
+	}
 	return addedMachine.MachineName, err
 }
 

@@ -170,6 +170,39 @@ func (s *providerServiceSuite) TestAddMachineSuccessNonce(c *tc.C) {
 	c.Check(res.MachineName, tc.Equals, machine.Name("name"))
 }
 
+func (s *providerServiceSuite) TestAddMachineContainer(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Base: base.Base{
+			OS:      "ubuntu",
+			Channel: base.Channel{Risk: base.Stable, Track: "22.04"},
+		},
+	}).Return(nil)
+	s.state.EXPECT().AddMachine(gomock.Any(), gomock.Any()).Return("netNodeUUID", []machine.Name{"0", "0/lxd/0"}, nil)
+
+	s.expectCreateMachineStatusHistory(c, machine.Name("0"))
+	s.expectCreateMachineStatusHistory(c, machine.Name("0/lxd/0"))
+
+	res, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: "0",
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.MachineName, tc.Equals, machine.Name("0"))
+	c.Assert(res.ChildMachineName, tc.NotNil)
+	c.Check(*res.ChildMachineName, tc.Equals, machine.Name("0/lxd/0"))
+}
+
 // TestAddMachineError asserts that an error coming from the state layer is
 // preserved, passed over to the service layer to be maintained there.
 func (s *providerServiceSuite) TestAddMachineError(c *tc.C) {
