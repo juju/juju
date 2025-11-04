@@ -635,8 +635,19 @@ func (s Service) MakeUnitStorageArgs(
 		})
 
 		existingStorageInstances := existingStorageNameMap[sd.Name.String()]
-		toUse := min(uint32(len(existingStorageInstances)), sd.MaxCount)
-		sd.Count -= min(sd.Count, toUse)
+		maxCount := sd.MaxCount
+		if sd.MaxCount == application.StorageDirectiveNoMaxCount {
+			maxCount = len(existingStorageInstances)
+		} else if sd.MaxCount < 0 {
+			// This is defensive programming. If by some chance this value is
+			// < 0 and not equal to [application.StorageDirectiveNoMaxCount]
+			// then we will only allow up to the number of existing storage
+			// instances. This SHOULD never happen but we have safety rails.
+			maxCount = len(existingStorageInstances)
+		}
+
+		toUse := min(len(existingStorageInstances), maxCount)
+		sd.Count -= min(sd.Count, uint32(toUse)) // We don't want count to underflow.
 
 		instArgs, err := makeUnitStorageInstancesFromDirective(
 			ctx,
@@ -650,7 +661,7 @@ func (s Service) MakeUnitStorageArgs(
 		}
 
 		// Allocate capacity we know we are going to need.
-		rvalToAttach = slices.Grow(rvalToAttach, len(instArgs)+int(toUse))
+		rvalToAttach = slices.Grow(rvalToAttach, len(instArgs)+toUse)
 		rvalInstances = slices.Grow(rvalInstances, len(instArgs))
 		rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 		for _, inst := range instArgs {

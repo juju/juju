@@ -169,9 +169,10 @@ func MakeStorageDirectiveFromApplicationArg(
 	for _, arg := range applicationArgs {
 		rval = append(rval, application.StorageDirective{
 			CharmMetadataName: charmMetadataName,
-			Name:              arg.Name,
 			Count:             arg.Count,
 			CharmStorageType:  charm.StorageType(charmStorage[arg.Name.String()].Type),
+			MaxCount:          charmStorage[arg.Name.String()].CountMax,
+			Name:              arg.Name,
 			PoolUUID:          arg.PoolUUID,
 			Size:              arg.Size,
 		})

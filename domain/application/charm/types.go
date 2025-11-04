@@ -589,3 +589,9 @@ type Option struct {
 	Description string
 	Default     any
 }
+
+// String returns the string representation of [StorageType]. This func
+// implements the [fmt.Stringer] interface.
+func (s StorageType) String() string {
+	return string(s)
+}

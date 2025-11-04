@@ -207,6 +207,14 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectives(c *tc.C) {
 				MinimumSize: 2048,
 				Type:        charm.StorageBlock,
 			},
+			"st3": {
+				CountMax:    -1,
+				CountMin:    1,
+				Description: "st3",
+				Name:        "st3",
+				MinimumSize: 2048,
+				Type:        charm.StorageFilesystem,
+			},
 		})
 	unitUUID := u.newUnit(c)
 	storagePoolUUID := u.newStoragePool(c, "test-pool", "test-provider")
@@ -233,6 +241,17 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectives(c *tc.C) {
 		1,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	_, err = u.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		charmUUID.String(),
+		"st3",
+		storagePoolUUID.String(),
+		5000,
+		8,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(
 		u.TxnRunnerFactory(),
@@ -257,6 +276,15 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectives(c *tc.C) {
 			Count:             4,
 			MaxCount:          10,
 			Name:              domainstorage.Name("st1"),
+			PoolUUID:          storagePoolUUID,
+			Size:              5000,
+		},
+		{
+			CharmMetadataName: "test-charm",
+			CharmStorageType:  charm.StorageFilesystem,
+			Count:             8,
+			MaxCount:          -1,
+			Name:              domainstorage.Name("st3"),
 			PoolUUID:          storagePoolUUID,
 			Size:              5000,
 		},
