@@ -7,6 +7,7 @@ import (
 	stdcontext "context"
 	"fmt"
 	"io"
+	"net/rpc"
 	"strings"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/client/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -31,7 +31,6 @@ import (
 var (
 	bootstrapReadyPollDelay = 3 * time.Second
 	bootstrapReadyPollCount = 60
-	blockAPI                = getBlockAPI
 )
 
 type listBlocksAPI interface {
@@ -39,33 +38,21 @@ type listBlocksAPI interface {
 	Close() error
 }
 
-// getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
-	// Set a short dial timeout so WaitForAgentInitialisation can check
-	// ctx.Done() in its retry loop.
+// TryAPI attempts to open the API.
+func TryAPI(c *modelcmd.ModelCommandBase) error {
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.Timeout = 6 * time.Second
 
+	dialOpts.Timeout = 10 * time.Second
 	root, err := c.NewAPIRootWithDialOpts(&dialOpts)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return block.NewClient(root), nil
-}
-
-// tryAPI attempts to open the API and makes a trivial call
-// to check if the API is available yet.
-func tryAPI(c *modelcmd.ModelCommandBase) error {
-	client, err := blockAPI(c)
-	if err == nil {
-		_, err = client.List()
-		closeErr := client.Close()
-		if closeErr != nil {
-			logger.Debugf("Error closing client: %v", closeErr)
-		}
-	}
+	_ = root.Close()
 	return err
 }
+
+const unknownError = errors.ConstError("unknown error in bootstrap api connect")
 
 // WaitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
@@ -75,6 +62,7 @@ func WaitForAgentInitialisation(
 	c *modelcmd.ModelCommandBase,
 	isCAASController bool,
 	controllerName string,
+	tryAPI func(c *modelcmd.ModelCommandBase) error,
 ) (err error) {
 	if ctx.Context().Err() != nil {
 		return errors.Errorf("unable to contact api server: (%v)", ctx.Context().Err())
@@ -102,7 +90,7 @@ func WaitForAgentInitialisation(
 			apiAttempts = attempts
 		},
 		IsFatalError: func(err error) bool {
-			return errors.Is(err, &unknownError{}) ||
+			return errors.Is(err, unknownError) ||
 				retry.IsRetryStopped(err) ||
 				errors.Is(err, stdcontext.Canceled)
 		},
@@ -119,6 +107,8 @@ func WaitForAgentInitialisation(
 				return nil
 			}
 
+			logger.Debugf("failed api connection attempt: %v", retryErr)
+
 			// As the API server is coming up, it goes through a number of steps.
 			// Initially the upgrade steps run, but the api server allows some
 			// calls to be processed during the upgrade, but not the list blocks.
@@ -128,28 +118,27 @@ func WaitForAgentInitialisation(
 			// lead to EOF or "connection is shut down" error messages. We skip
 			// these too, hoping that things come back up before the end of the
 			// retry poll count.
-			cause := errors.Cause(retryErr)
-			errorMessage := cause.Error()
 			switch {
-			case cause == io.EOF,
-				strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
-				strings.HasSuffix(errorMessage, "operation not permitted"),
-				strings.HasSuffix(errorMessage, "connection refused"),
-				strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
-				strings.HasSuffix(errorMessage, "connection is shut down"),
-				strings.HasSuffix(errorMessage, "i/o timeout"),
-				strings.HasSuffix(errorMessage, "network is unreachable"),
-				strings.HasSuffix(errorMessage, "deadline exceeded"),
-				strings.HasSuffix(errorMessage, "no api connection available"):
+			case errors.Is(retryErr, io.EOF):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
+			case errors.Is(retryErr, api.ConnectionOpenTimedOut):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
+			case errors.Is(retryErr, api.ConnectionDialTimedOut):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
+			case errors.Is(retryErr, rpc.ErrShutdown):
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
 				return retryErr
 			case params.ErrCode(retryErr) == params.CodeUpgradeInProgress:
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
 				return retryErr
+			case isRetryableErrorMessage(retryErr.Error()):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
 			default:
-				return &unknownError{
-					err: retryErr,
-				}
+				return fmt.Errorf("%w: %v", unknownError, retryErr)
 			}
 		},
 	})
@@ -157,33 +146,29 @@ func WaitForAgentInitialisation(
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, &unknownError{}):
-		err = errors.Cause(err)
-	default:
+	case !errors.Is(err, unknownError):
 		err = retry.LastError(err)
 	}
-	return errors.Annotatef(err, "unable to contact api server after %d attempts", apiAttempts)
+	return errors.Errorf(
+		"unable to contact api server after %d attempts: %w", apiAttempts, err,
+	)
 }
 
-// unknownError is used to wrap errors that we don't know how to handle.
-type unknownError struct {
-	err error
-}
-
-// Is implements errors.Is, so that we can identify this error type.
-func (e *unknownError) Is(other error) bool {
-	_, ok := other.(*unknownError)
-	return ok
-}
-
-// Cause implements errors.Cause, so that we can unwrap this error type.
-func (e *unknownError) Cause() error {
-	return e.err
-}
-
-// Error implements error.Error.
-func (e *unknownError) Error() string {
-	return e.err.Error()
+func isRetryableErrorMessage(errorMessage string) bool {
+	switch {
+	case strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
+		strings.HasSuffix(errorMessage, "operation not permitted"),
+		strings.HasSuffix(errorMessage, "connection refused"),
+		strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
+		strings.HasSuffix(errorMessage, "connection is shut down"),
+		strings.HasSuffix(errorMessage, "i/o timeout"),
+		strings.HasSuffix(errorMessage, "network is unreachable"),
+		strings.HasSuffix(errorMessage, "deadline exceeded"),
+		strings.HasSuffix(errorMessage, "no api connection available"):
+		return true
+	default:
+		return false
+	}
 }
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
@@ -222,5 +207,7 @@ func ValidateIaasController(c modelcmd.CommandBase, cmdName, controllerName stri
 	if details.ModelType == model.IAAS {
 		return nil
 	}
-	return errors.Errorf("Juju command %q not supported on container controllers", cmdName)
+	return errors.Errorf(
+		"Juju command %q not supported on container controllers", cmdName,
+	)
 }
