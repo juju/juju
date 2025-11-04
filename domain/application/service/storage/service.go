@@ -661,7 +661,7 @@ func (s Service) MakeUnitStorageArgs(
 		}
 
 		// Allocate capacity we know we are going to need.
-		rvalToAttach = slices.Grow(rvalToAttach, len(instArgs)+int(toUse))
+		rvalToAttach = slices.Grow(rvalToAttach, len(instArgs)+toUse)
 		rvalInstances = slices.Grow(rvalInstances, len(instArgs))
 		rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 		for _, inst := range instArgs {
