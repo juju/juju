@@ -181,9 +181,9 @@ obsolete_secret_revisions() {
 	secret_short_uri=${1}
 
 	out=$(
-		juju ssh ubuntu-lite/0 sh <<EOF
+		juju ssh juju-qa-test/0 sh <<EOF
 . /etc/profile.d/juju-introspection.sh
-juju_engine_report | sed 1d | yq '..style="flow" | .manifolds.deployer.report.units.workers.ubuntu-lite/0.report.manifolds.uniter.report.secrets.obsolete-revisions."'"${secret_short_uri}"'"'
+juju_engine_report | sed 1d | yq '..style="flow" | .manifolds.deployer.report.units.workers.juju-qa-test/0.report.manifolds.uniter.report.secrets.obsolete-revisions."'"${secret_short_uri}"'"'
 EOF
 	)
 	echo "${out}"
@@ -194,20 +194,20 @@ run_obsolete_revisions() {
 
 	model_name=${1}
 
-	juju --show-log deploy jameinel-ubuntu-lite
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
-	juju ssh ubuntu-lite/0 "sudo snap install yq"
+	juju --show-log deploy juju-qa-test
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	juju ssh juju-qa-test/0 "sudo snap install yq"
 
-	secret_uri=$(juju --show-log exec -u ubuntu-lite/0 -- secret-add foo=bar)
+	secret_uri=$(juju --show-log exec -u juju-qa-test/0 -- secret-add foo=bar)
 	secret_short_uri="secret:${secret_uri##*/}"
 
 	# Create 10 new revisions, so we'll have 11 in total. 1-10 will be obsolete.
-	for i in $(seq 10); do juju --show-log exec --unit ubuntu-lite/0 -- secret-set "$secret_uri" foo="$i"; done
+	for i in $(seq 10); do juju --show-log exec --unit juju-qa-test/0 -- secret-set "$secret_uri" foo="$i"; done
 
 	# Check that the secret-remove hook is run for the 10 obsolete revisions.
 	attempt=0
 	while true; do
-		num_hooks=$(juju show-status-log ubuntu-lite/0 --format yaml -n 100 | yq -o json | jq -r '[.[] | select(.message != null) | select(.message | contains("running secret-remove hook for '"${secret_short_uri}"'"))] | length')
+		num_hooks=$(juju show-status-log juju-qa-test/0 --format yaml -n 100 | yq -o json | jq -r '[.[] | select(.message != null) | select(.message | contains("running secret-remove hook for '"${secret_short_uri}"'"))] | length')
 		if [ "$num_hooks" -eq 10 ]; then
 			break
 		fi
@@ -238,7 +238,7 @@ run_obsolete_revisions() {
 	done
 
 	# Remove a single revision.
-	juju --show-log exec --unit ubuntu-lite/0 -- secret-remove "$secret_uri" --revision 6
+	juju --show-log exec --unit juju-qa-test/0 -- secret-remove "$secret_uri" --revision 6
 
 	# Check that the unit state has the deleted revision removed.
 	echo "Checking revision 6 has been removed from the obsolete revisions"
@@ -258,7 +258,7 @@ run_obsolete_revisions() {
 	done
 
 	# Delete the entire secret.
-	juju --show-log exec --unit ubuntu-lite/0 -- secret-remove "$secret_uri"
+	juju --show-log exec --unit juju-qa-test/0 -- secret-remove "$secret_uri"
 
 	# Check that all the obsolete revisions are removed from unit state.
 	echo "Checking all obsolete revision are removed when the secret is deleted"
