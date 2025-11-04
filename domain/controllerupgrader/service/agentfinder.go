@@ -264,7 +264,7 @@ func (a *StreamAgentBinaryFinder) getSimpleStreamsAgentBinariesForVersionStream(
 	return retVal, nil
 }
 
-// HasBinariesForVersionAndArchitectures returns true if an agent binary exists
+// HasBinariesForVersionAndArchitectures returns true if agent binaries exist
 // for a given version and architectures. It shares an implementation with
 // [StreamAgentBinaryFinder.HasBinariesForVersionStreamAndArchitectures]
 // but rather than forcing the client to supply a stream for this top level
@@ -276,7 +276,9 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionAndArchitectures(
 ) (bool, error) {
 	stream, err := a.modelSt.GetModelAgentStream(ctx)
 	if err != nil {
-		return false, errors.Capture(err)
+		return false, errors.Errorf(
+			"getting the controller's model agent stream: %w", err,
+		)
 	}
 
 	return a.HasBinariesForVersionStreamAndArchitectures(
@@ -284,21 +286,29 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionAndArchitectures(
 	)
 }
 
-// HasBinariesForVersionStreamAndArchitectures consults
+// HasBinariesForVersionStreamAndArchitectures consults three sources to check
+// that agent binaries exist for a given version, stream, and architectures.
+// First the model object store is consulted to see what agent binaries it can
+// supply for the request.
+// Any missing gaps are then progressed on to the controllers agent binary
+// store.
+// Finally if there are still gaps in what is available, simplestreams is
+// consulted.
 //
-// three source of truths to check
-// that an agent exists for a given version, stream, and architectures. First it
-// consults the model DB if the agent exists.
-// If there are missing architectures in the model DB, it then consults the
-// missing architectures in the controller DB.
-// In the unfortunate circumstances that the controller DB doesn't store them,
-// we resort to consulting to simplestreams.
+// The following errors may be returned:
+// - [coreerrors.NotValid] if the supplied stream is not valid.
 func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 	ctx context.Context,
 	version semversion.Number,
 	stream agentbinary.Stream,
 	architectures []agentbinary.Architecture,
 ) (bool, error) {
+	if !stream.IsValid() {
+		return false, errors.Errorf(
+			"agent binary stream %q is not valid", stream,
+		).Add(coreerrors.NotValid)
+	}
+
 	if len(architectures) == 0 {
 		// We can't find architectures for an empty slice.
 		return false, nil
@@ -309,7 +319,7 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 	modelBinaries, err := a.modelSt.GetAllAgentStoreBinariesForStream(ctx, stream)
 	if err != nil {
 		return false, errors.Errorf(
-			"getting available agent binaries in model for stream %q: %w",
+			"getting available agent binaries in the controller's model object store for stream %q: %w",
 			stream, err,
 		)
 	}
@@ -334,7 +344,7 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 	)
 	if err != nil {
 		return false, errors.Errorf(
-			"getting available agent binaries in controller for stream %q: %w",
+			"getting available agent binaries in the controller's object store for stream %q: %w",
 			stream, err,
 		)
 	}
@@ -378,7 +388,8 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 	return true, nil
 }
 
-// GetHighestPatchVersionAvailable returns the highest patch version of the current controller.
+// GetHighestPatchVersionAvailable returns the highest patch version available
+// relative to the controllers current version.
 func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailable(
 	ctx context.Context,
 ) (semversion.Number, error) {
@@ -392,6 +403,9 @@ func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailable(
 	return a.GetHighestPatchVersionAvailableForStream(ctx, stream)
 }
 
+// removeNonPatchVersions returns a helper func that can be used with
+// [slices.DeleteFunc] for removing all [agentbinary.AgentBinary]s from a slice
+// are not for a patch version of the supplied [semversion.Number].
 func removeNonPatchVersions(
 	v semversion.Number,
 ) func(agentbinary.AgentBinary) bool {
@@ -400,8 +414,12 @@ func removeNonPatchVersions(
 	}
 }
 
-// GetHighestPatchVersionAvailableForStream returns the highest patch version of the current
-// controller given a stream.
+// GetHighestPatchVersionAvailableForStream returns the highest patch version
+// available in the current stream relative to the controllers current version.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] if the supplied stream is not valid.
+// - [domainagentbinaryerrors.NotFound] if no version could be found.
 func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailableForStream(
 	ctx context.Context,
 	stream agentbinary.Stream,
