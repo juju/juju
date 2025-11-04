@@ -1653,28 +1653,73 @@ func (s *StorageProvisionerAPI) removeVolumeParams(
 
 // FilesystemParams returns the parameters for creating the filesystems
 // with the specified tags.
-func (s *StorageProvisionerAPI) FilesystemParams(ctx context.Context, args params.Entities) (params.FilesystemParamsResults, error) {
-	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+func (s *StorageProvisionerAPIv4) FilesystemParams(
+	ctx context.Context, args params.Entities,
+) (params.FilesystemParamsResults, error) {
+	resultsV5, err := s.StorageProvisionerAPI.FilesystemParams(ctx, args)
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
-
 	results := params.FilesystemParamsResults{
-		Results: make([]params.FilesystemParamsResult, 0, len(args.Entities)),
+		Results: make(
+			[]params.FilesystemParamsResult, 0, len(resultsV5.Results),
+		),
+	}
+	for _, resultV5 := range resultsV5.Results {
+		result := params.FilesystemParamsResult{
+			Result: params.FilesystemParams{
+				FilesystemTag: resultV5.Result.FilesystemTag,
+				VolumeTag:     resultV5.Result.VolumeTag,
+				SizeMiB:       resultV5.Result.SizeMiB,
+				Provider:      resultV5.Result.Provider,
+				Attributes:    resultV5.Result.Attributes,
+				Tags:          resultV5.Result.Tags,
+			},
+			Error: resultV5.Error,
+		}
+		if resultV5.Result.Attachment != nil {
+			attachmentV5 := resultV5.Result.Attachment
+			result.Result.Attachment = &params.FilesystemAttachmentParams{
+				FilesystemTag: attachmentV5.FilesystemTag,
+				MachineTag:    attachmentV5.MachineTag,
+				ProviderId:    attachmentV5.ProviderId,
+				InstanceId:    attachmentV5.InstanceId,
+				Provider:      attachmentV5.Provider,
+				MountPoint:    attachmentV5.MountPoint,
+				ReadOnly:      attachmentV5.ReadOnly,
+			}
+		}
+		results.Results = append(results.Results, result)
+	}
+	return results, nil
+}
+
+// FilesystemParams returns the parameters for creating the filesystems
+// with the specified tags.
+func (s *StorageProvisionerAPI) FilesystemParams(
+	ctx context.Context, args params.Entities,
+) (params.FilesystemParamsResultsV5, error) {
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.FilesystemParamsResultsV5{}, err
+	}
+
+	results := params.FilesystemParamsResultsV5{
+		Results: make([]params.FilesystemParamsResultV5, 0, len(args.Entities)),
 	}
 
 	var fsModelTags map[string]string
-	one := func(arg params.Entity) (params.FilesystemParams, error) {
+	one := func(arg params.Entity) (params.FilesystemParamsV5, error) {
 		tag, err := names.ParseFilesystemTag(arg.Tag)
 		if err != nil || !canAccess(tag) {
-			return params.FilesystemParams{}, apiservererrors.ErrPerm
+			return params.FilesystemParamsV5{}, apiservererrors.ErrPerm
 		}
 
 		if fsModelTags == nil {
 			fsModelTags, err = s.storageProvisioningService.
 				GetStorageResourceTagsForModel(ctx)
 			if err != nil {
-				return params.FilesystemParams{}, errors.Errorf(
+				return params.FilesystemParamsV5{}, errors.Errorf(
 					"getting filesystem model tags: %w", err,
 				)
 			}
@@ -1684,17 +1729,17 @@ func (s *StorageProvisionerAPI) FilesystemParams(ctx context.Context, args param
 			ctx, tag.Id(),
 		)
 		if err != nil {
-			return params.FilesystemParams{}, err
+			return params.FilesystemParamsV5{}, err
 		}
 
 		fsParams, err := s.storageProvisioningService.GetFilesystemParams(
 			ctx, uuid,
 		)
 		if err != nil {
-			return params.FilesystemParams{}, err
+			return params.FilesystemParamsV5{}, err
 		}
 
-		rval := params.FilesystemParams{
+		rval := params.FilesystemParamsV5{
 			// Attachment params have never been set.
 			Attributes:    make(map[string]any, len(fsParams.Attributes)),
 			FilesystemTag: tag.String(),
@@ -1717,7 +1762,7 @@ func (s *StorageProvisionerAPI) FilesystemParams(ctx context.Context, args param
 	}
 
 	for _, arg := range args.Entities {
-		var result params.FilesystemParamsResult
+		var result params.FilesystemParamsResultV5
 		filesystemParams, err := one(arg)
 		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
 			err = apiservererrors.ErrPerm

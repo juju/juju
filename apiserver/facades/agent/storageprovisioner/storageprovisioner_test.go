@@ -1304,7 +1304,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Result, tc.DeepEquals, params.FilesystemParams{
+	c.Check(results.Results[0].Result, tc.DeepEquals, params.FilesystemParamsV5{
 		Attributes: map[string]any{
 			"foo": "bar",
 		},
