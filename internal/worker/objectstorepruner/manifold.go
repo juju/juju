@@ -65,6 +65,12 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
+	if cfg.GetObjectStoreService == nil {
+		return errors.NotValidf("nil GetObjectStoreService")
+	}
+	if cfg.GetObjectStore == nil {
+		return errors.NotValidf("nil GetObjectStore")
+	}
 	return nil
 }
 
