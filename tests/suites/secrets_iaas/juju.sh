@@ -177,16 +177,17 @@ test_secrets_juju() {
 }
 
 obsolete_secret_revisions() {
-	local secret_short_uri
-	secret_short_uri=${1}
+	local secret_id
+	secret_id=${1}
 
-	out=$(
-		juju ssh juju-qa-test/0 sh <<EOF
+	yaml_out=$(
+juju ssh juju-qa-test/0 sh <<EOF
 . /etc/profile.d/juju-introspection.sh
-juju_engine_report | sed 1d | yq '..style="flow" | .manifolds.deployer.report.units.workers.juju-qa-test/0.report.manifolds.uniter.report.secrets.obsolete-revisions."'"${secret_short_uri}"'"'
+juju_engine_report
 EOF
 	)
-	echo "${out}"
+	 out=$(echo "${yaml_out}" | sed 1d | yq "..style=\"flow\" | .manifolds.deployer.report.handler.units.workers.juju-qa-test/0.report.manifolds.uniter.report.secrets.obsolete-revisions.\"${secret_id}\"")
+	 echo "${out}"
 }
 
 run_obsolete_revisions() {
@@ -196,10 +197,11 @@ run_obsolete_revisions() {
 
 	juju --show-log deploy juju-qa-test
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
-	juju ssh juju-qa-test/0 "sudo snap install yq"
 
 	secret_uri=$(juju --show-log exec -u juju-qa-test/0 -- secret-add foo=bar)
-	secret_short_uri="secret:${secret_uri##*/}"
+	# Extract bare secret id (without "secret:" prefix) for matching logs and keep prefixed form for engine report keys.
+	secret_id=${secret_uri##*/}
+	secret_short_uri="secret:${secret_id}"
 
 	# Create 10 new revisions, so we'll have 11 in total. 1-10 will be obsolete.
 	for i in $(seq 10); do juju --show-log exec --unit juju-qa-test/0 -- secret-set "$secret_uri" foo="$i"; done
@@ -207,7 +209,7 @@ run_obsolete_revisions() {
 	# Check that the secret-remove hook is run for the 10 obsolete revisions.
 	attempt=0
 	while true; do
-		num_hooks=$(juju show-status-log juju-qa-test/0 --format yaml -n 100 | yq -o json | jq -r '[.[] | select(.message != null) | select(.message | contains("running secret-remove hook for '"${secret_short_uri}"'"))] | length')
+		num_hooks=$(juju show-status-log juju-qa-test/0 --format json -n 100 | jq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-remove hook\") and contains(\"${secret_id}\"))] | length")
 		if [ "$num_hooks" -eq 10 ]; then
 			break
 		fi
@@ -224,7 +226,7 @@ run_obsolete_revisions() {
 	echo "Checking initial obsolete revisions 1..10"
 	attempt=0
 	while true; do
-		obsolete=$(obsolete_secret_revisions "${secret_short_uri}")
+		obsolete=$(obsolete_secret_revisions "${secret_id}")
 		if [ "$obsolete" == "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" ]; then
 			break
 		fi
@@ -244,7 +246,7 @@ run_obsolete_revisions() {
 	echo "Checking revision 6 has been removed from the obsolete revisions"
 	attempt=0
 	while true; do
-		obsolete=$(obsolete_secret_revisions "${secret_short_uri}")
+		obsolete=$(obsolete_secret_revisions "${secret_id}")
 		if [ "$obsolete" == "[1, 2, 3, 4, 5, 7, 8, 9, 10]" ]; then
 			break
 		fi
@@ -264,8 +266,8 @@ run_obsolete_revisions() {
 	echo "Checking all obsolete revision are removed when the secret is deleted"
 	attempt=0
 	while true; do
-		obsolete=$(obsolete_secret_revisions "${secret_short_uri}")
-		if [ $obsolete == null ]; then
+		obsolete=$(obsolete_secret_revisions "${secret_id}")
+		if [ "$obsolete" == null ]; then
 			break
 		fi
 		attempt=$((attempt + 1))
