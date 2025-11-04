@@ -293,6 +293,11 @@ type applicationUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type unit struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
 type secretRevisions []revisionUUID
 type revisionUUID struct {
 	UUID string `db:"uuid"`
@@ -322,8 +327,17 @@ type secretRef struct {
 }
 
 type secretLatestRevision struct {
-	ID             string `db:"secret_id"`
-	LatestRevision int    `db:"latest_revision"`
+	ID              string `db:"secret_id"`
+	LatestRevision  int    `db:"latest_revision"`
+	ApplicationUUID string `db:"owner_application_uuid"`
+}
+
+type secretUnitConsumer struct {
+	UnitUUID        string `db:"unit_uuid"`
+	SecretID        string `db:"secret_id"`
+	SourceModelUUID string `db:"source_model_uuid"`
+	Label           string `db:"label"`
+	CurrentRevision int    `db:"current_revision"`
 }
 
 type secretRevisionObsolete struct {

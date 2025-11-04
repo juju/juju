@@ -1060,9 +1060,9 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *tc.C)
 			},
 		}, 666, true, nil)
 
-	s.secretsConsumer.EXPECT().SaveSecretConsumer(gomock.Any(), uri, consumer, coresecrets.SecretConsumerMetadata{
+	s.crossModelRelationService.EXPECT().SaveRemoteSecretConsumer(gomock.Any(), uri, consumer, coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
-	})
+	}, appUUID, relUUID)
 
 	results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
@@ -1277,10 +1277,10 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 			},
 		}, 666, true, nil)
 
-	s.secretsConsumer.EXPECT().SaveSecretConsumer(gomock.Any(), uri, consumer, coresecrets.SecretConsumerMetadata{
+	s.crossModelRelationService.EXPECT().SaveRemoteSecretConsumer(gomock.Any(), uri, consumer, coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 		Label:           "foo",
-	})
+	}, appUUID, relUUID)
 
 	results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{

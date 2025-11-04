@@ -33,7 +33,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
-	removal "github.com/juju/juju/domain/removal"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -1390,8 +1390,8 @@ func (s *localConsumerWorkerSuite) TestHandleSecretRevisionChange(c *tc.C) {
 
 	secretUpdated := make(chan struct{})
 	uri := coresecrets.NewURI()
-	s.crossModelService.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri, 666).
-		DoAndReturn(func(ctx context.Context, uri *coresecrets.URI, revision int) error {
+	s.crossModelService.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri, 666, s.applicationUUID).
+		DoAndReturn(func(ctx context.Context, uri *coresecrets.URI, revision int, appUUID application.UUID) error {
 			defer close(secretUpdated)
 			return nil
 		})

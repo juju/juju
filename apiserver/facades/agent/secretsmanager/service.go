@@ -32,7 +32,6 @@ type SecretsConsumer interface {
 	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name) (*secrets.SecretConsumerMetadata, error)
 	GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName unit.Name) (*secrets.SecretConsumerMetadata, int, error)
 	GetURIByConsumerLabel(ctx context.Context, label string, unitName unit.Name) (*secrets.URI, error)
-	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md secrets.SecretConsumerMetadata) error
 	GetConsumedRevision(
 		ctx context.Context, uri *secrets.URI, unitName unit.Name,
 		refresh, peek bool, labelToUpdate *string) (int, error)
@@ -76,4 +75,7 @@ type ApplicationService interface {
 type CrossModelRelationService interface {
 	// GetMacaroonForRelation gets the given macaroon for the specified remote relation.
 	GetMacaroonForRelation(ctx context.Context, relationUUID corerelation.UUID) (*macaroon.Macaroon, error)
+	// SaveRemoteSecretConsumer saves the consumer metadata for the given remote secret and unit.
+	SaveRemoteSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md secrets.SecretConsumerMetadata,
+		applicationUUID coreapplication.UUID, relationUUID corerelation.UUID) error
 }

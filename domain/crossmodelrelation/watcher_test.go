@@ -424,7 +424,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	// A remote consumed secret change event of uri1 should be fired.
 	harness.AddTest(c, func(c *tc.C) {
 		s.addRevision(c, db, uri1, map[string]string{"foo": "bar2"})
-		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
+		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2, appUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(

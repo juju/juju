@@ -2103,31 +2103,6 @@ ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
 		return errors.Capture(err)
 	}
 
-	// We might be saving a tracked revision for a remote secret
-	// before we have been notified of a revision change.
-	// So we might need to insert the parent secret URI.
-	secretRef := secretID{ID: uri.ID}
-	insertRemoteSecretQuery := `
-INSERT INTO secret (id)
-VALUES ($secretID.id)
-ON CONFLICT DO NOTHING`
-
-	insertRemoteSecretStmt, err := st.Prepare(insertRemoteSecretQuery, secretRef)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	remoteRef := lastestSecretRevision{SecretID: uri.ID, LatestRevision: md.CurrentRevision}
-	insertRemoteSecretReferenceQuery := `
-INSERT INTO secret_reference (secret_id, latest_revision)
-VALUES ($lastestSecretRevision.secret_id, $lastestSecretRevision.latest_revision)
-ON CONFLICT DO NOTHING`
-
-	insertRemoteSecretReferenceStmt, err := st.Prepare(insertRemoteSecretReferenceQuery, remoteRef)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	consumer := secretUnitConsumer{
 		SecretID:        uri.ID,
 		SourceModelUUID: uri.SourceUUID,
@@ -2139,18 +2114,8 @@ ON CONFLICT DO NOTHING`
 		if err != nil {
 			return errors.Capture(err)
 		}
-
 		if !isLocal {
-			// Ensure a remote secret parent URI and revision is recorded.
-			// This will normally be done by the watcher but it may not have fired yet.
-			err = tx.Query(ctx, insertRemoteSecretStmt, secretRef).Run()
-			if err != nil {
-				return errors.Errorf("inserting remote secret reference for %q: %w", uri, err)
-			}
-			err = tx.Query(ctx, insertRemoteSecretReferenceStmt, remoteRef).Run()
-			if err != nil {
-				return errors.Errorf("inserting remote secret revision for %q: %w", uri, err)
-			}
+			return secreterrors.SecretIsNotLocal
 		}
 		consumer.UnitUUID, err = st.getUnitUUID(ctx, tx, unitName)
 		if err != nil {

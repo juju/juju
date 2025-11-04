@@ -160,7 +160,7 @@ type CrossModelRelationService interface {
 
 	// UpdateRemoteSecretRevision records the specified revision for the secret
 	// which has been consumed from a different model.
-	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
+	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int, applicationUUID application.UUID) error
 
 	// SaveMacaroonForRelation saves the given macaroon for the specified remote
 	// application.

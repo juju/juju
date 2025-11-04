@@ -1410,6 +1410,45 @@ func (c *MockModelStateGetUnitAddressesForRelationCall) DoAndReturn(f func(conte
 	return c
 }
 
+// GetUnitUUID mocks base method.
+func (m *MockModelState) GetUnitUUID(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitUUID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitUUID indicates an expected call of GetUnitUUID.
+func (mr *MockModelStateMockRecorder) GetUnitUUID(arg0, arg1 any) *MockModelStateGetUnitUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUID", reflect.TypeOf((*MockModelState)(nil).GetUnitUUID), arg0, arg1)
+	return &MockModelStateGetUnitUUIDCall{Call: call}
+}
+
+// MockModelStateGetUnitUUIDCall wrap *gomock.Call
+type MockModelStateGetUnitUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetUnitUUIDCall) Return(arg0 string, arg1 error) *MockModelStateGetUnitUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetUnitUUIDCall) Do(f func(context.Context, string) (string, error)) *MockModelStateGetUnitUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetUnitUUIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelStateGetUnitUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatementForConsumerRelations mocks base method.
 func (m *MockModelState) InitialWatchStatementForConsumerRelations() (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
@@ -1873,6 +1912,44 @@ func (c *MockModelStateSaveMacaroonForRelationCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// SaveRemoteSecretConsumer mocks base method.
+func (m *MockModelState) SaveRemoteSecretConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3 secrets.SecretConsumerMetadata, arg4, arg5 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveRemoteSecretConsumer", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveRemoteSecretConsumer indicates an expected call of SaveRemoteSecretConsumer.
+func (mr *MockModelStateMockRecorder) SaveRemoteSecretConsumer(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockModelStateSaveRemoteSecretConsumerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveRemoteSecretConsumer", reflect.TypeOf((*MockModelState)(nil).SaveRemoteSecretConsumer), arg0, arg1, arg2, arg3, arg4, arg5)
+	return &MockModelStateSaveRemoteSecretConsumerCall{Call: call}
+}
+
+// MockModelStateSaveRemoteSecretConsumerCall wrap *gomock.Call
+type MockModelStateSaveRemoteSecretConsumerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateSaveRemoteSecretConsumerCall) Return(arg0 error) *MockModelStateSaveRemoteSecretConsumerCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateSaveRemoteSecretConsumerCall) Do(f func(context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, string, string) error) *MockModelStateSaveRemoteSecretConsumerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateSaveRemoteSecretConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, string, string) error) *MockModelStateSaveRemoteSecretConsumerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SaveSecretRemoteConsumer mocks base method.
 func (m *MockModelState) SaveSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3 secrets.SecretConsumerMetadata) error {
 	m.ctrl.T.Helper()
@@ -1912,17 +1989,17 @@ func (c *MockModelStateSaveSecretRemoteConsumerCall) DoAndReturn(f func(context.
 }
 
 // UpdateRemoteSecretRevision mocks base method.
-func (m *MockModelState) UpdateRemoteSecretRevision(arg0 context.Context, arg1 *secrets.URI, arg2 int) error {
+func (m *MockModelState) UpdateRemoteSecretRevision(arg0 context.Context, arg1 *secrets.URI, arg2 int, arg3 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateRemoteSecretRevision", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateRemoteSecretRevision", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateRemoteSecretRevision indicates an expected call of UpdateRemoteSecretRevision.
-func (mr *MockModelStateMockRecorder) UpdateRemoteSecretRevision(arg0, arg1, arg2 any) *MockModelStateUpdateRemoteSecretRevisionCall {
+func (mr *MockModelStateMockRecorder) UpdateRemoteSecretRevision(arg0, arg1, arg2, arg3 any) *MockModelStateUpdateRemoteSecretRevisionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteSecretRevision", reflect.TypeOf((*MockModelState)(nil).UpdateRemoteSecretRevision), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteSecretRevision", reflect.TypeOf((*MockModelState)(nil).UpdateRemoteSecretRevision), arg0, arg1, arg2, arg3)
 	return &MockModelStateUpdateRemoteSecretRevisionCall{Call: call}
 }
 
@@ -1938,13 +2015,13 @@ func (c *MockModelStateUpdateRemoteSecretRevisionCall) Return(arg0 error) *MockM
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateUpdateRemoteSecretRevisionCall) Do(f func(context.Context, *secrets.URI, int) error) *MockModelStateUpdateRemoteSecretRevisionCall {
+func (c *MockModelStateUpdateRemoteSecretRevisionCall) Do(f func(context.Context, *secrets.URI, int, string) error) *MockModelStateUpdateRemoteSecretRevisionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateUpdateRemoteSecretRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, int) error) *MockModelStateUpdateRemoteSecretRevisionCall {
+func (c *MockModelStateUpdateRemoteSecretRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, int, string) error) *MockModelStateUpdateRemoteSecretRevisionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

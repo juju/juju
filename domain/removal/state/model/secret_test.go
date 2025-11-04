@@ -25,8 +25,8 @@ func (s *secretSuite) TestDeleteUnitOwnedSecrets(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	ctx := c.Context()
-	sec := s.addSecretWithRevisionsAndContent(c)
-	_, unit := s.addAppAndUnit(c)
+	app, unit := s.addAppAndUnit(c)
+	sec := s.addSecretWithRevisionsAndContent(c, app)
 
 	_, err := s.DB().ExecContext(
 		ctx,
@@ -54,8 +54,8 @@ func (s *secretSuite) TestDeleteApplicationOwnedSecrets(c *tc.C) {
 
 	ctx := c.Context()
 
-	sec := s.addSecretWithRevisionsAndContent(c)
 	app, _ := s.addAppAndUnit(c)
+	sec := s.addSecretWithRevisionsAndContent(c, app)
 
 	_, err := s.DB().ExecContext(
 		ctx, "INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)", sec, app)
@@ -80,8 +80,8 @@ func (s *secretSuite) TestGetApplicationOwnedSecretRevisionRefs(c *tc.C) {
 
 	ctx := c.Context()
 
-	sec := s.addSecretWithRevisionsAndContent(c)
 	app, _ := s.addAppAndUnit(c)
+	sec := s.addSecretWithRevisionsAndContent(c, app)
 
 	_, err := s.DB().ExecContext(
 		ctx, "INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)", sec, app)
@@ -98,8 +98,8 @@ func (s *secretSuite) TestGetUnitOwnedSecretRevisionRefs(c *tc.C) {
 
 	ctx := c.Context()
 
-	sec := s.addSecretWithRevisionsAndContent(c)
-	_, unit := s.addAppAndUnit(c)
+	app, unit := s.addAppAndUnit(c)
+	sec := s.addSecretWithRevisionsAndContent(c, app)
 
 	_, err := s.DB().ExecContext(
 		ctx, "INSERT INTO secret_unit_owner (secret_id, unit_uuid) VALUES (?, ?)", sec, unit)
@@ -111,7 +111,7 @@ func (s *secretSuite) TestGetUnitOwnedSecretRevisionRefs(c *tc.C) {
 	c.Check(ids, tc.SameContents, []string{"0", "1", "2"})
 }
 
-func (s *secretSuite) addSecretWithRevisionsAndContent(c *tc.C) string {
+func (s *secretSuite) addSecretWithRevisionsAndContent(c *tc.C, appUUID string) string {
 	ctx := c.Context()
 
 	sec := "secret_id"
@@ -123,7 +123,7 @@ func (s *secretSuite) addSecretWithRevisionsAndContent(c *tc.C) string {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(
-		ctx, "INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, ?)", sec, 0)
+		ctx, "INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid) VALUES (?, ?, ?)", sec, 0, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(

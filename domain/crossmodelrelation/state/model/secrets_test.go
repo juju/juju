@@ -11,10 +11,12 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/database"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/unit"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -203,7 +205,7 @@ func (s *modelSecretsSuite) prepareWatchForRemoteConsumedSecretsChangesFromOffer
 	// create revision 2.
 	s.addRevision(c, uri1, map[string]string{"foo": "bar2"})
 
-	err := s.state.UpdateRemoteSecretRevision(ctx, uri1, 2)
+	err := s.state.UpdateRemoteSecretRevision(ctx, uri1, 2, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	return appUUID, uri1, uri2
 }
@@ -310,6 +312,154 @@ func (s *modelSecretsSuite) TestGetSecretRemoteConsumerSecretNotExists(c *tc.C) 
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
 }
 
+func (s *modelSecretsSuite) setupRemoteAppAndRelation(c *tc.C, db database.TxnRunner) (string, string, string, string) {
+	localAppUUID, localEpUUID, charmUUID := s.createApplicationForRole(c, db, "mediawiki", 1)
+	remoteAppUUID, remoteEpUUID, _ := s.createApplicationForRole(c, db, "mysql", 0)
+	relUUID := tc.Must(c, corerelation.NewUUID).String()
+
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		remoteOffererUUUID := tc.Must(c, internaluuid.NewUUID).String()
+		offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+		offerModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_remote_offerer (uuid, life_id, application_uuid, offer_uuid, offer_url, offerer_model_uuid, macaroon)
+VALUES (?, 0, ?, ?, 'offerurl', ?, 'macaroon')`, remoteOffererUUUID, remoteAppUUID, offerUUID, offerModelUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+VALUES (?, 0, 1, 0)`, relUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, tc.Must(c, internaluuid.NewUUID).String(), relUUID, remoteEpUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, tc.Must(c, internaluuid.NewUUID).String(), relUUID, localEpUUID); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return localAppUUID, remoteAppUUID, relUUID, charmUUID
+}
+
+func (s *modelSecretsSuite) createApplicationForRole(c *tc.C, db database.TxnRunner, appName string, roleID int) (string, string, string) {
+	appUUID := internaluuid.MustNewUUID().String()
+	appEndpointUUID := internaluuid.MustNewUUID().String()
+	charmUUID := internaluuid.MustNewUUID().String()
+
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO charm (uuid, reference_name, architecture_id, revision)
+VALUES (?, ?, 0, 1)`, charmUUID, charmUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO charm_metadata (charm_uuid, name, subordinate, description)
+VALUES (?, ?, false, 'test app')`, charmUUID, appName); err != nil {
+			return err
+		}
+		charmRelationUUID := internaluuid.MustNewUUID().String()
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, capacity, scope_id)
+VALUES (?, ?, 'db', ?, 'db', 0, 0)`, charmRelationUUID, charmUUID, roleID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES (?, ?, 0, ?, ?)`, appUUID, appName, charmUUID, network.AlphaSpaceId); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid, space_uuid)
+VALUES (?, ?, ?, ?)`, appEndpointUUID, appUUID, charmRelationUUID, network.AlphaSpaceId); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return appUUID, appEndpointUUID, charmUUID
+}
+
+func (s *modelSecretsSuite) createUnit(c *tc.C, db database.TxnRunner, unitName, appUUID, charmUUID string) string {
+	unitUUID := tc.Must(c, internaluuid.NewUUID).String()
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		netNodeUUID := tc.Must(c, internaluuid.NewUUID).String()
+		_, err := tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, life_id, name, net_node_uuid, application_uuid, charm_uuid)
+VALUES (?, 0, ?, ?, ?, ?)
+`, unitUUID, unitName, netNodeUUID, appUUID, charmUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return unitUUID
+}
+
+func (s *modelSecretsSuite) TestSaveRemoteSecretConsumer(c *tc.C) {
+	appUUID, remoteAppUUID, rUUID, charmUUID := s.setupRemoteAppAndRelation(c, s.TxnRunner())
+	unitUUID := s.createUnit(c, s.TxnRunner(), "mediawiki/0", appUUID, charmUUID)
+	modelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	uri := coresecrets.NewURI().WithSource(modelUUID)
+	ctx := c.Context()
+	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)
+
+	assertSaveRemoteSecretConsumer := func(consumer *coresecrets.SecretConsumerMetadata) {
+		err := s.state.SaveRemoteSecretConsumer(ctx, uri, unitUUID, *consumer, appUUID, rUUID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		var (
+			secretID        string
+			currentRevision int
+			label           string
+		)
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			err := tx.QueryRowContext(ctx, `
+SELECT secret_id FROM secret_reference WHERE owner_application_uuid = ?
+`, remoteAppUUID).Scan(&secretID)
+			if err != nil {
+				return err
+			}
+			err = tx.QueryRowContext(ctx, `
+SELECT label, current_revision FROM secret_unit_consumer WHERE secret_id = ?
+`, secretID).Scan(&label, &currentRevision)
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(secretID, tc.Equals, uri.ID)
+		c.Assert(label, tc.Equals, consumer.Label)
+		c.Assert(currentRevision, tc.Equals, consumer.CurrentRevision)
+	}
+
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my label",
+		CurrentRevision: 666,
+	}
+	assertSaveRemoteSecretConsumer(consumer)
+
+	// Second time updates.
+	consumer = &coresecrets.SecretConsumerMetadata{
+		Label:           "my label2",
+		CurrentRevision: 667,
+	}
+	assertSaveRemoteSecretConsumer(consumer)
+
+}
+
 func (s *modelSecretsSuite) TestUpdateRemoteSecretRevision(c *tc.C) {
 	uri := coresecrets.NewURI()
 
@@ -328,17 +478,18 @@ func (s *modelSecretsSuite) TestUpdateRemoteSecretRevision(c *tc.C) {
 		return got
 	}
 
-	err := s.state.UpdateRemoteSecretRevision(c.Context(), uri, 666)
+	appUUID := s.setupRemoteApp(c, "mediawiki")
+	err := s.state.UpdateRemoteSecretRevision(c.Context(), uri, 666, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	got := getLatest()
 	c.Assert(got, tc.Equals, 666)
-	err = s.state.UpdateRemoteSecretRevision(c.Context(), uri, 667)
+	err = s.state.UpdateRemoteSecretRevision(c.Context(), uri, 667, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	got = getLatest()
 	c.Assert(got, tc.Equals, 667)
 }
 
-func (s *modelSecretsSuite) setupSecretAccess(c *tc.C, uri *coresecrets.URI, unitName unit.Name) {
+func (s *modelSecretsSuite) setupSecretAccess(c *tc.C, uri *coresecrets.URI, unitName coreunit.Name) {
 	charmUUID := s.addCharm(c)
 	s.addCharmMetadataWithDescription(c, charmUUID, "testing application")
 	rel := charm.Relation{
@@ -381,7 +532,7 @@ func (s *modelSecretsSuite) setupSecretAccess(c *tc.C, uri *coresecrets.URI, uni
 func (s *modelSecretsSuite) TestGetSecretAccess(c *tc.C) {
 	uri := coresecrets.NewURI()
 	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)
-	s.setupSecretAccess(c, uri, tc.Must1(c, unit.NewName, "mediawiki/0"))
+	s.setupSecretAccess(c, uri, tc.Must1(c, coreunit.NewName, "mediawiki/0"))
 
 	access, err := s.state.GetSecretAccess(c.Context(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
@@ -394,7 +545,7 @@ func (s *modelSecretsSuite) TestGetSecretAccess(c *tc.C) {
 func (s *modelSecretsSuite) TestGetSecretAccessNone(c *tc.C) {
 	uri := coresecrets.NewURI()
 	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)
-	s.setupSecretAccess(c, uri, tc.Must1(c, unit.NewName, "mediawiki/0"))
+	s.setupSecretAccess(c, uri, tc.Must1(c, coreunit.NewName, "mediawiki/0"))
 
 	access, err := s.state.GetSecretAccess(c.Context(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,

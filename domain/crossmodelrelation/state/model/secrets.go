@@ -11,6 +11,8 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/eventsource"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
@@ -322,7 +324,9 @@ ON CONFLICT(revision_uuid) DO UPDATE SET
 
 // UpdateRemoteSecretRevision records the latest revision
 // of the specified cross model secret.
-func (st *State) UpdateRemoteSecretRevision(ctx context.Context, uri *coresecrets.URI, latestRevision int) error {
+func (st *State) UpdateRemoteSecretRevision(
+	ctx context.Context, uri *coresecrets.URI, latestRevision int, applicationUUID string,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -350,8 +354,9 @@ ON CONFLICT(secret_id) DO UPDATE SET
 	}
 
 	secret := secretLatestRevision{
-		ID:             uri.ID,
-		LatestRevision: latestRevision,
+		ID:              uri.ID,
+		LatestRevision:  latestRevision,
+		ApplicationUUID: applicationUUID,
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, insertStmt, secretRef{ID: uri.ID}).Run()
@@ -367,6 +372,167 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		return nil
 	})
 	return errors.Capture(err)
+}
+
+// SaveRemoteSecretConsumer saves the consumer metadata for the given secret and unit.
+// If the corresponding synthetic application for the relation does not exist,
+// an error satisfying [crossmodelrelationerrors.RemoteApplicationNotFound] is returned.
+// If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
+// If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
+func (st *State) SaveRemoteSecretConsumer(
+	ctx context.Context, uri *coresecrets.URI, unitUUID string,
+	md coresecrets.SecretConsumerMetadata, appUUID, relUUID string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// We might be saving the tracked revision for a remote secret
+	// before we have been notified of a revision change.
+	// So we might need to insert the parent secret URI.
+	secretRef := secretRef{ID: uri.ID}
+	insertRemoteSecretQuery := `
+INSERT INTO secret (id)
+VALUES ($secretRef.secret_id)
+ON CONFLICT DO NOTHING`
+
+	insertRemoteSecretStmt, err := st.Prepare(insertRemoteSecretQuery, secretRef)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	rUUID := remoteRelationUUID{UUID: relUUID}
+	aUUID := applicationUUID{UUID: appUUID}
+	remoteRef := secretLatestRevision{
+		ID: uri.ID, LatestRevision: md.CurrentRevision,
+	}
+
+	offerAppUUIDQuery, err := st.Prepare(`
+SELECT ae.application_uuid AS &secretLatestRevision.owner_application_uuid
+FROM   relation_endpoint re
+JOIN   application_endpoint ae ON ae.uuid = re.endpoint_uuid
+JOIN   application_remote_offerer aro ON aro.application_uuid = ae.application_uuid 
+WHERE  re.relation_uuid = $remoteRelationUUID.uuid
+AND    ae.application_uuid <> $applicationUUID.uuid
+`, rUUID, aUUID, remoteRef)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertRemoteSecretReferenceQuery := `
+INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid)
+VALUES ($secretLatestRevision.*)
+ON CONFLICT DO NOTHING`
+
+	insertRemoteSecretReferenceStmt, err := st.Prepare(insertRemoteSecretReferenceQuery, remoteRef)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, offerAppUUIDQuery, rUUID, aUUID).Get(&remoteRef)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("offering application uuid for relation %q not found", relUUID).
+				Add(crossmodelrelationerrors.RemoteApplicationNotFound)
+		} else if err != nil {
+			return errors.Errorf("querying offering application uuid for relation %q: %w", relUUID, err)
+		}
+		// Ensure a remote secret parent URI and revision is recorded.
+		// This will normally be done by the watcher but it may not have fired yet.
+		err = tx.Query(ctx, insertRemoteSecretStmt, secretRef).Run()
+		if err != nil {
+			return errors.Errorf("inserting remote secret reference for %q: %w", uri, err)
+		}
+		err = tx.Query(ctx, insertRemoteSecretReferenceStmt, remoteRef).Run()
+		if err != nil {
+			return errors.Errorf("inserting remote secret revision for %q: %w", uri, err)
+		}
+		err = st.saveSecretConsumer(ctx, tx, uri, unitUUID, md)
+		if err != nil {
+			return errors.Errorf("saving remote secret consumer info: %w", err)
+		}
+		return nil
+	})
+	return errors.Capture(err)
+}
+
+func (st *State) saveSecretConsumer(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, unitUUID string, md coresecrets.SecretConsumerMetadata) error {
+	u := unit{UUID: unitUUID}
+
+	selectUnitUUIDStmt, err := st.Prepare(`
+SELECT uuid AS &unit.uuid
+FROM   unit
+WHERE  uuid=$unit.uuid`, u)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, selectUnitUUIDStmt, u).Get(&u)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("unit %q not found", unitUUID).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertQuery := `
+INSERT INTO secret_unit_consumer (*)
+VALUES ($secretUnitConsumer.*)
+ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
+    label=excluded.label,
+    current_revision=excluded.current_revision`
+
+	insertStmt, err := st.Prepare(insertQuery, secretUnitConsumer{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	consumer := secretUnitConsumer{
+		UnitUUID:        unitUUID,
+		SecretID:        uri.ID,
+		SourceModelUUID: uri.SourceUUID,
+		Label:           md.Label,
+		CurrentRevision: md.CurrentRevision,
+	}
+	if err := tx.Query(ctx, insertStmt, consumer).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := st.markObsoleteRevisions(ctx, tx, uri); err != nil {
+		return errors.Errorf("marking obsolete revisions for secret %q: %w", uri, err)
+	}
+
+	return nil
+}
+
+// GetUnitUUID returns the unit UUID for the specified unit.
+// It returns an error satisfying [applicationerrors.UnitNotFound] if the
+// unit doesn't exist.
+func (st *State) GetUnitUUID(ctx context.Context, unitName string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	u := unit{Name: unitName}
+
+	selectUnitUUIDStmt, err := st.Prepare(`
+SELECT &unit.uuid
+FROM   unit
+WHERE  name=$unit.name`, u)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, selectUnitUUIDStmt, u).Get(&u)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("unit %q not found", unitName).Add(applicationerrors.UnitNotFound)
+		}
+		if err != nil {
+			return errors.Errorf("looking up unit UUID for %q: %w", unitName, err)
+		}
+		return nil
+	})
+	return u.UUID, errors.Capture(err)
 }
 
 // GetSecretValue returns the contents - either data or value reference - of a

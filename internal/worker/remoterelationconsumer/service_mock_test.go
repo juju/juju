@@ -1011,17 +1011,17 @@ func (c *MockCrossModelServiceSetRemoteRelationSuspendedStateCall) DoAndReturn(f
 }
 
 // UpdateRemoteSecretRevision mocks base method.
-func (m *MockCrossModelService) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error {
+func (m *MockCrossModelService) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int, applicationUUID application.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateRemoteSecretRevision", ctx, uri, latestRevision)
+	ret := m.ctrl.Call(m, "UpdateRemoteSecretRevision", ctx, uri, latestRevision, applicationUUID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateRemoteSecretRevision indicates an expected call of UpdateRemoteSecretRevision.
-func (mr *MockCrossModelServiceMockRecorder) UpdateRemoteSecretRevision(ctx, uri, latestRevision any) *MockCrossModelServiceUpdateRemoteSecretRevisionCall {
+func (mr *MockCrossModelServiceMockRecorder) UpdateRemoteSecretRevision(ctx, uri, latestRevision, applicationUUID any) *MockCrossModelServiceUpdateRemoteSecretRevisionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteSecretRevision", reflect.TypeOf((*MockCrossModelService)(nil).UpdateRemoteSecretRevision), ctx, uri, latestRevision)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteSecretRevision", reflect.TypeOf((*MockCrossModelService)(nil).UpdateRemoteSecretRevision), ctx, uri, latestRevision, applicationUUID)
 	return &MockCrossModelServiceUpdateRemoteSecretRevisionCall{Call: call}
 }
 
@@ -1037,13 +1037,13 @@ func (c *MockCrossModelServiceUpdateRemoteSecretRevisionCall) Return(arg0 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceUpdateRemoteSecretRevisionCall) Do(f func(context.Context, *secrets.URI, int) error) *MockCrossModelServiceUpdateRemoteSecretRevisionCall {
+func (c *MockCrossModelServiceUpdateRemoteSecretRevisionCall) Do(f func(context.Context, *secrets.URI, int, application.UUID) error) *MockCrossModelServiceUpdateRemoteSecretRevisionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceUpdateRemoteSecretRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, int) error) *MockCrossModelServiceUpdateRemoteSecretRevisionCall {
+func (c *MockCrossModelServiceUpdateRemoteSecretRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, int, application.UUID) error) *MockCrossModelServiceUpdateRemoteSecretRevisionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1660,17 +1660,17 @@ func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) DoAndReturn(f
 }
 
 // UpdateRemoteSecretRevision mocks base method.
-func (m *MockCrossModelRelationService) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error {
+func (m *MockCrossModelRelationService) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int, applicationUUID application.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateRemoteSecretRevision", ctx, uri, latestRevision)
+	ret := m.ctrl.Call(m, "UpdateRemoteSecretRevision", ctx, uri, latestRevision, applicationUUID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateRemoteSecretRevision indicates an expected call of UpdateRemoteSecretRevision.
-func (mr *MockCrossModelRelationServiceMockRecorder) UpdateRemoteSecretRevision(ctx, uri, latestRevision any) *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall {
+func (mr *MockCrossModelRelationServiceMockRecorder) UpdateRemoteSecretRevision(ctx, uri, latestRevision, applicationUUID any) *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteSecretRevision", reflect.TypeOf((*MockCrossModelRelationService)(nil).UpdateRemoteSecretRevision), ctx, uri, latestRevision)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteSecretRevision", reflect.TypeOf((*MockCrossModelRelationService)(nil).UpdateRemoteSecretRevision), ctx, uri, latestRevision, applicationUUID)
 	return &MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall{Call: call}
 }
 
@@ -1686,13 +1686,13 @@ func (c *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall) Return(arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall) Do(f func(context.Context, *secrets.URI, int) error) *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall {
+func (c *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall) Do(f func(context.Context, *secrets.URI, int, application.UUID) error) *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, int) error) *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall {
+func (c *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, int, application.UUID) error) *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

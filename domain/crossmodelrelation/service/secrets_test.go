@@ -8,7 +8,10 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreapplication "github.com/juju/juju/core/application"
+	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -26,11 +29,32 @@ func (s *secretsServiceSuite) TestUpdateRemoteSecretRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.modelState.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri, 666).Return(nil)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.modelState.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri, 666, appUUID.String()).Return(nil)
 
 	service := s.service(c)
 
-	err := service.UpdateRemoteSecretRevision(c.Context(), uri, 666)
+	err := service.UpdateRemoteSecretRevision(c.Context(), uri, 666, appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *secretsServiceSuite) TestSaveRemoteSecretConsumer(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	md := coresecrets.SecretConsumerMetadata{}
+
+	s.modelState.EXPECT().GetUnitUUID(gomock.Any(), "foo/0").Return(unitUUID.String(), nil)
+	s.modelState.EXPECT().SaveRemoteSecretConsumer(
+		gomock.Any(), uri, unitUUID.String(), md, appUUID.String(), relUUID.String()).Return(nil)
+
+	service := s.service(c)
+
+	unitName := unittesting.GenNewName(c, "foo/0")
+	err := service.SaveRemoteSecretConsumer(c.Context(), uri, unitName, md, appUUID, relUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

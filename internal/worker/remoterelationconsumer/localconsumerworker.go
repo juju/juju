@@ -397,7 +397,7 @@ func (w *localConsumerWorker) loop() (err error) {
 			w.logger.Debugf(ctx, "secrets changed: %v", changes)
 
 			for _, change := range changes {
-				err := w.crossModelService.UpdateRemoteSecretRevision(ctx, change.URI, change.Revision)
+				err := w.crossModelService.UpdateRemoteSecretRevision(ctx, change.URI, change.Revision, w.applicationUUID)
 				if err != nil {
 					return errors.Annotatef(err, "consuming secrets change %#v from remote model %v", changes, w.offererModelUUID)
 				}
