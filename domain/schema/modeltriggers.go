@@ -28,6 +28,12 @@ func customModelTriggers() []func() schema.Patch {
 			customNamespaceStorageFilesystemLifeModelProvisioning,
 		),
 
+		// Setup triggers for filesystem provider id changes in the model that
+		// are model provisioned.
+		filesystemProviderIDModelProvisioningTrigger(
+			customNamespaceStorageFilesystemProviderIDModelProvisioning,
+		),
+
 		// Setup triggers for lifecycle events on filesystem attachments in the
 		// model that are machine provisioned.
 		storageAttachmentLifeMachineProvisioningTrigger(
@@ -340,6 +346,31 @@ END;
 `,
 		storageTable, changeColumn, namespace,
 	)
+
+	return func() schema.Patch { return schema.MakePatch(stmt) }
+}
+
+func filesystemProviderIDModelProvisioningTrigger(
+	namespace int,
+) func() schema.Patch {
+	stmt := fmt.Sprintf(`
+-- insert namespace for storage entity
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+		'custom_filesystem_provider_id_model_provisioning',
+		'changes for filesystem provider IDs that are model provisioned');
+
+-- update trigger for storage filesystem.
+CREATE TRIGGER trg_log_custom_filesystem_provider_id_model_provisioning
+AFTER UPDATE ON storage_filesystem
+FOR EACH ROW
+	WHEN NEW.provision_scope_id = 0
+	AND NEW.provider_id != OLD.provider_id
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[1]d, NEW.filesystem_id, DATETIME('now', 'utc'));
+END;
+`, namespace)
 
 	return func() schema.Patch { return schema.MakePatch(stmt) }
 }

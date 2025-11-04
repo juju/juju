@@ -1126,7 +1126,7 @@ func (st *State) InitialWatchStatementMachineProvisionedFilesystems(
 // for watching filesystem life changes where the filesystem is model
 // provisioned. On top of this the initial query for getting all filesystems
 // in the model that model provisioned is returned.
-func (st *State) InitialWatchStatementModelProvisionedFilesystems() (string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchStatementModelProvisionedFilesystems() (string, string, eventsource.NamespaceQuery) {
 	query := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
 SELECT &filesystemID.*
@@ -1154,7 +1154,9 @@ WHERE provision_scope_id=0
 		}
 		return rval, nil
 	}
-	return "storage_filesystem_life_model_provisioning", query
+	return "storage_filesystem_life_model_provisioning",
+		"custom_filesystem_provider_id_model_provisioning",
+		query
 }
 
 // InitialWatchStatementMachineProvisionedFilesystemAttachments returns

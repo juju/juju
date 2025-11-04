@@ -2039,12 +2039,13 @@ func (c *MockStateInitialWatchStatementModelProvisionedFilesystemAttachmentsCall
 }
 
 // InitialWatchStatementModelProvisionedFilesystems mocks base method.
-func (m *MockState) InitialWatchStatementModelProvisionedFilesystems() (string, eventsource.NamespaceQuery) {
+func (m *MockState) InitialWatchStatementModelProvisionedFilesystems() (string, string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatementModelProvisionedFilesystems")
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(eventsource.NamespaceQuery)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(eventsource.NamespaceQuery)
+	return ret0, ret1, ret2
 }
 
 // InitialWatchStatementModelProvisionedFilesystems indicates an expected call of InitialWatchStatementModelProvisionedFilesystems.
@@ -2060,19 +2061,19 @@ type MockStateInitialWatchStatementModelProvisionedFilesystemsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateInitialWatchStatementModelProvisionedFilesystemsCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementModelProvisionedFilesystemsCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateInitialWatchStatementModelProvisionedFilesystemsCall) Return(arg0, arg1 string, arg2 eventsource.NamespaceQuery) *MockStateInitialWatchStatementModelProvisionedFilesystemsCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementModelProvisionedFilesystemsCall) Do(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementModelProvisionedFilesystemsCall {
+func (c *MockStateInitialWatchStatementModelProvisionedFilesystemsCall) Do(f func() (string, string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementModelProvisionedFilesystemsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementModelProvisionedFilesystemsCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementModelProvisionedFilesystemsCall {
+func (c *MockStateInitialWatchStatementModelProvisionedFilesystemsCall) DoAndReturn(f func() (string, string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementModelProvisionedFilesystemsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

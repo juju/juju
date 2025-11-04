@@ -176,7 +176,7 @@ type FilesystemState interface {
 	// namespace for watching filesystem life changes where the filesystem is
 	// model provisioned and the initial query for getting the current set of
 	// model provisioned filesystems in the model.
-	InitialWatchStatementModelProvisionedFilesystems() (string, eventsource.NamespaceQuery)
+	InitialWatchStatementModelProvisionedFilesystems() (string, string, eventsource.NamespaceQuery)
 
 	// InitialWatchStatementMachineProvisionedFilesystemAttachments returns
 	// both the namespace for watching filesystem attachment life changes where
@@ -685,12 +685,14 @@ func (s *Service) WatchModelProvisionedFilesystems(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystems()
+	lifeNS, providerIdNS, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystems()
 	return s.watcherFactory.NewNamespaceWatcher(
 		ctx,
 		initialQuery,
 		"model provisioned filesystem watcher",
-		eventsource.NamespaceFilter(ns, corechangestream.All))
+		eventsource.NamespaceFilter(lifeNS, corechangestream.All),
+		eventsource.NamespaceFilter(providerIdNS, corechangestream.All),
+	)
 }
 
 // WatchMachineProvisionedFilesystems returns a watcher that emits filesystem IDs,

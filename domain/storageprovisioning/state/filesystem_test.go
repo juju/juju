@@ -512,8 +512,9 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystemsNo
 	st := NewState(s.TxnRunnerFactory())
 	_, _ = s.newMachineFilesystem(c)
 
-	ns, initialQuery := st.InitialWatchStatementModelProvisionedFilesystems()
+	ns, ns2, initialQuery := st.InitialWatchStatementModelProvisionedFilesystems()
 	c.Check(ns, tc.Equals, "storage_filesystem_life_model_provisioning")
+	c.Check(ns2, tc.Equals, "custom_filesystem_provider_id_model_provisioning")
 
 	db := s.TxnRunner()
 	fsIDs, err := initialQuery(c.Context(), db)
@@ -530,8 +531,9 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystems(c
 	_, fsTwoID := s.newModelFilesystem(c)
 	_, _ = s.newMachineFilesystem(c)
 
-	ns, initialQuery := st.InitialWatchStatementModelProvisionedFilesystems()
+	ns, ns2, initialQuery := st.InitialWatchStatementModelProvisionedFilesystems()
 	c.Check(ns, tc.Equals, "storage_filesystem_life_model_provisioning")
+	c.Check(ns2, tc.Equals, "custom_filesystem_provider_id_model_provisioning")
 
 	db := s.TxnRunner()
 	fsIDs, err := initialQuery(c.Context(), db)

@@ -288,7 +288,7 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().InitialWatchStatementModelProvisionedFilesystems().Return(
-		"test_namespace", namespaceQueryReturningError(c.T),
+		"test_namespace", "test_namespace_2", namespaceQueryReturningError(c.T),
 	)
 	matcher := eventSourceFilterMatcher{
 		ChangeMask: changestream.All,
