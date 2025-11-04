@@ -9,6 +9,8 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	domainapplication "github.com/juju/juju/domain/application"
+	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -246,4 +248,67 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedM
 		Requested:   3,
 		StorageName: "st1",
 	})
+}
+
+// TestMakeStorageDirectiveFromApplicationArg tests the happy path of
+// transferring set of application create storage directive args to
+// [domainapplication.StorageDirective] args.
+func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+
+	charmStorage := map[string]internalcharm.Storage{
+		"data1": {
+			CountMax: 20,
+			Name:     "data1",
+			Type:     internalcharm.StorageFilesystem,
+		},
+		"data2": {
+			CountMax: -1,
+			Name:     "data2",
+			Type:     internalcharm.StorageBlock,
+		},
+	}
+
+	poolUUID1 := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	poolUUID2 := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	createArgs := []internal.CreateApplicationStorageDirectiveArg{
+		{
+			Count:    3,
+			Name:     domainstorage.Name("data1"),
+			PoolUUID: poolUUID1,
+			Size:     1022,
+		},
+		{
+			Count:    3,
+			Name:     domainstorage.Name("data2"),
+			PoolUUID: poolUUID2,
+			Size:     1011,
+		},
+	}
+
+	expected := []domainapplication.StorageDirective{
+		{
+			CharmMetadataName: "kratos",
+			CharmStorageType:  domainapplicationcharm.StorageFilesystem,
+			Count:             3,
+			MaxCount:          20,
+			Name:              "data1",
+			PoolUUID:          poolUUID1,
+			Size:              1022,
+		},
+		{
+			CharmMetadataName: "kratos",
+			CharmStorageType:  domainapplicationcharm.StorageBlock,
+			Count:             3,
+			MaxCount:          domainapplication.StorageDirectiveNoMaxCount,
+			Name:              "data2",
+			PoolUUID:          poolUUID2,
+			Size:              1011,
+		},
+	}
+
+	gotDirectives := MakeStorageDirectiveFromApplicationArg(
+		"kratos", charmStorage, createArgs,
+	)
+	c.Assert(gotDirectives, tc.SameContents, expected)
 }
