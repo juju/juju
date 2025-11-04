@@ -25,7 +25,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.78.2
 	github.com/aws/smithy-go v1.22.3
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f
-	github.com/canonical/go-dqlite/v3 v3.0.0
+	github.com/canonical/go-dqlite/v3 v3.0.3
 	github.com/canonical/lxd v0.0.0-20241209155119-76da976c6ee7
 	github.com/canonical/pebble v1.19.2
 	github.com/canonical/sqlair v0.0.0-20250120155751-a83645b9a121
