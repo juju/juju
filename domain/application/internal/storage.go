@@ -120,6 +120,10 @@ type CreateUnitStorageFilesystemAttachmentArg struct {
 	// UUID is the unique identifier to give the filesystem attachment in the
 	// model.
 	UUID domainstorageprov.FilesystemAttachmentUUID
+
+	// ProviderID if set, forms the pre-determined filesystem attachment
+	// provider id.
+	ProviderID *string
 }
 
 // CreateUnitStorageInstanceArg describes a set of arguments that create a new
@@ -190,6 +194,10 @@ type CreateUnitStorageVolumeAttachmentArg struct {
 	// UUID is the unique identifier to give the volume attachment in the
 	// model.
 	UUID domainstorageprov.VolumeAttachmentUUID
+
+	// ProviderID if set, forms the pre-determined volume attachment
+	// provider id.
+	ProviderID *string
 }
 
 // ModelStoragePools provides the default storage pools that have been set

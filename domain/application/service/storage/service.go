@@ -305,16 +305,20 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 	directivesToFollow []application.StorageDirective,
 	existingUnitOwnedStorage []internal.StorageInstanceComposition,
 ) (internal.RegisterUnitStorageArg, error) {
-	// We don't consider the volume information in the caas filesystem info.
-	providerIDs := make([]string, 0, len(providerFilesystemInfo))
+	storageProviderIDs := make([]string, 0, len(providerFilesystemInfo))
+	storageProviderIDsToAttachmentProviderIDs := make(
+		map[string]string, len(providerFilesystemInfo),
+	)
 	for _, fsInfo := range providerFilesystemInfo {
-		providerIDs = append(providerIDs, fsInfo.FilesystemId)
+		storageProviderIDs = append(storageProviderIDs,
+			fsInfo.Volume.PersistentVolumeName)
+		storageProviderIDsToAttachmentProviderIDs[fsInfo.Volume.PersistentVolumeName] = fsInfo.PersistentVolumeClaimName
 	}
 
 	// We fetch all existing storage instances in the model that are using one
 	// of the provider ids and not owned by a unit.
 	existingProviderStorage, err := s.st.GetStorageInstancesForProviderIDs(
-		ctx, providerIDs,
+		ctx, storageProviderIDs,
 	)
 	if err != nil {
 		return internal.RegisterUnitStorageArg{}, errors.Errorf(
@@ -335,16 +339,24 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 		)
 	}
 
+	filesystemProviderIDs, volumeProviderIDs :=
+		makeCAASStorageInstanceProviderIDAssociations(
+			providerFilesystemInfo,
+			existingProviderStorage,
+			unitStorageArgs.StorageInstances,
+		)
+
 	// For the existing provider storage instances that are about to be attached
-	// make sure they are owned by the unit.
+	// make sure they are owned by the unit. Make sure they also have their
+	// attachment provider ID mapped if one exists.
 	for _, storageInstance := range existingProviderStorage {
-		isBeingAttached := slices.ContainsFunc(
+		attachmentIndex := slices.IndexFunc(
 			unitStorageArgs.StorageToAttach,
 			func(e internal.CreateUnitStorageAttachmentArg) bool {
 				return e.StorageInstanceUUID == storageInstance.UUID
 			},
 		)
-		if !isBeingAttached {
+		if attachmentIndex == -1 {
 			continue
 		}
 
@@ -352,14 +364,29 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 			unitStorageArgs.StorageToOwn,
 			storageInstance.UUID,
 		)
-	}
 
-	filesystemProviderIDs, volumeProviderIDs :=
-		makeCAASStorageInstanceProviderIDAssociations(
-			providerFilesystemInfo,
-			existingProviderStorage,
-			unitStorageArgs.StorageInstances,
-		)
+		// TODO(storage): clean up this horrible mess that matches attachment
+		// provider IDs to their respective attachment being created.
+		mutableAttach := unitStorageArgs.StorageToAttach[attachmentIndex]
+		if mutableAttach.FilesystemAttachment != nil {
+			fsProviderID, ok := filesystemProviderIDs[mutableAttach.FilesystemAttachment.FilesystemUUID]
+			if ok {
+				fsAttachmentProviderID, ok := storageProviderIDsToAttachmentProviderIDs[fsProviderID]
+				if ok {
+					mutableAttach.FilesystemAttachment.ProviderID = &fsAttachmentProviderID
+				}
+			}
+		}
+		if mutableAttach.VolumeAttachment != nil {
+			volProviderID, ok := volumeProviderIDs[mutableAttach.VolumeAttachment.VolumeUUID]
+			if ok {
+				volAttachmentProviderID, ok := storageProviderIDsToAttachmentProviderIDs[volProviderID]
+				if ok {
+					mutableAttach.VolumeAttachment.ProviderID = &volAttachmentProviderID
+				}
+			}
+		}
+	}
 
 	return internal.RegisterUnitStorageArg{
 		CreateUnitStorageArg:  unitStorageArgs,
@@ -426,9 +453,9 @@ func makeCAASStorageInstanceProviderIDAssociations(
 		alreadyInUse := slices.ContainsFunc(
 			existingProviderStorage,
 			func(e internal.StorageInstanceComposition) bool {
-				if e.Filesystem != nil && e.Filesystem.ProviderID == providerFS.FilesystemId {
+				if e.Filesystem != nil && e.Filesystem.ProviderID == providerFS.Volume.PersistentVolumeName {
 					return true
-				} else if e.Volume != nil && e.Volume.ProviderID == providerFS.FilesystemId {
+				} else if e.Volume != nil && e.Volume.ProviderID == providerFS.Volume.PersistentVolumeName {
 					return true
 				}
 				return false
@@ -440,7 +467,7 @@ func makeCAASStorageInstanceProviderIDAssociations(
 
 		unassignedStorageNameToIDMap[providerFS.StorageName] = append(
 			unassignedStorageNameToIDMap[providerFS.StorageName],
-			providerFS.FilesystemId,
+			providerFS.Volume.PersistentVolumeName,
 		)
 	}
 

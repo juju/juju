@@ -109,9 +109,9 @@ func StorageClassSpec(cfg k8s.StorageProvisioner, labelVersion constants.LabelVe
 func VolumeInfo(pv *resources.PersistentVolume, now time.Time) caas.VolumeInfo {
 	size := quantityAsMibiBytes(*pv.Spec.Capacity.Storage())
 	return caas.VolumeInfo{
-		VolumeId:   pv.Name,
-		Size:       size,
-		Persistent: true,
+		PersistentVolumeName: pv.Name,
+		Size:                 size,
+		Persistent:           true,
 		Status: status.StatusInfo{
 			Status:  VolumeStatus(pv.Status.Phase),
 			Message: pv.Status.Message,
@@ -130,18 +130,18 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 			size = quantityAsMibiBytes(*volume.EmptyDir.SizeLimit)
 		}
 		return &caas.FilesystemInfo{
-			Size:         size,
-			FilesystemId: volume.Name,
-			MountPoint:   volumeMount.MountPath,
-			ReadOnly:     volumeMount.ReadOnly,
+			Size:                      size,
+			PersistentVolumeClaimName: volume.Name,
+			MountPoint:                volumeMount.MountPath,
+			ReadOnly:                  volumeMount.ReadOnly,
 			Status: status.StatusInfo{
 				Status: status.Attached,
 				Since:  &now,
 			},
 			Volume: caas.VolumeInfo{
-				VolumeId:   volume.Name,
-				Size:       size,
-				Persistent: false,
+				PersistentVolumeName: volume.Name,
+				Size:                 size,
+				Persistent:           false,
 				Status: status.StatusInfo{
 					Status: status.Attached,
 					Since:  &now,
@@ -205,11 +205,11 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 	}
 
 	return &caas.FilesystemInfo{
-		StorageName:  storageName,
-		Size:         quantityAsMibiBytes(*pvc.Spec.Resources.Requests.Storage()),
-		FilesystemId: string(pvc.UID),
-		MountPoint:   volumeMount.MountPath,
-		ReadOnly:     volumeMount.ReadOnly,
+		StorageName:               storageName,
+		Size:                      quantityAsMibiBytes(*pvc.Spec.Resources.Requests.Storage()),
+		PersistentVolumeClaimName: string(pvc.UID),
+		MountPoint:                volumeMount.MountPath,
+		ReadOnly:                  volumeMount.ReadOnly,
 		Status: status.StatusInfo{
 			Status:  FilesystemStatus(pvc.Status.Phase),
 			Message: statusMessage,

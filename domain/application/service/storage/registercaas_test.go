@@ -75,8 +75,8 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	providerFSInfo := []caas.FilesystemInfo{
 		{
-			FilesystemId: "fs-1",
-			StorageName:  "st1",
+			PersistentVolumeClaimName: "fs-1",
+			StorageName:               "st1",
 		},
 	}
 
@@ -172,12 +172,12 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	providerFSInfo := []caas.FilesystemInfo{
 		{
-			FilesystemId: "fs-1",
-			StorageName:  "st1",
+			PersistentVolumeClaimName: "fs-1",
+			StorageName:               "st1",
 		},
 		{
-			FilesystemId: "fs-2",
-			StorageName:  "st2",
+			PersistentVolumeClaimName: "fs-2",
+			StorageName:               "st2",
 		},
 	}
 
@@ -316,12 +316,12 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	providerFSInfo := []caas.FilesystemInfo{
 		{
-			FilesystemId: "fs-1",
-			StorageName:  "st1",
+			PersistentVolumeClaimName: "fs-1",
+			StorageName:               "st1",
 		},
 		{
-			FilesystemId: "fs-2",
-			StorageName:  "st2",
+			PersistentVolumeClaimName: "fs-2",
+			StorageName:               "st2",
 		},
 	}
 
@@ -468,12 +468,12 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	providerFSInfo := []caas.FilesystemInfo{
 		{
-			FilesystemId: "fs-1",
-			StorageName:  "st1",
+			PersistentVolumeClaimName: "fs-1",
+			StorageName:               "st1",
 		},
 		{
-			FilesystemId: "fs-2",
-			StorageName:  "st2",
+			PersistentVolumeClaimName: "fs-2",
+			StorageName:               "st2",
 		},
 	}
 
@@ -601,8 +601,8 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitApplicationNotFoun
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	providerFSInfo := []caas.FilesystemInfo{
 		{
-			FilesystemId: "fs-1",
-			StorageName:  "st1",
+			PersistentVolumeClaimName: "fs-1",
+			StorageName:               "st1",
 		},
 	}
 
@@ -627,16 +627,16 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitApplicationNotFoun
 func (*registerCAASStorageSuite) TestMakeCAASStorageInstanceProviderIDAssociations(c *tc.C) {
 	pFSInfo := []caas.FilesystemInfo{
 		{
-			FilesystemId: "fs-1",
-			StorageName:  "st1",
+			PersistentVolumeClaimName: "fs-1",
+			StorageName:               "st1",
 		},
 		{
-			FilesystemId: "fs-2",
-			StorageName:  "st1",
+			PersistentVolumeClaimName: "fs-2",
+			StorageName:               "st1",
 		},
 		{
-			FilesystemId: "fs-3",
-			StorageName:  "st2",
+			PersistentVolumeClaimName: "fs-3",
+			StorageName:               "st2",
 		},
 	}
 

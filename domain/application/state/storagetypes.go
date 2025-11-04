@@ -20,11 +20,12 @@ type insertStorageFilesystem struct {
 // insertStorageFilesystemAttachment represents the set of values required for
 // creating a new filesystem attachment in the model.
 type insertStorageFilesystemAttachment struct {
-	LifeID                int    `db:"life_id"`
-	NetNodeUUID           string `db:"net_node_uuid"`
-	ProvisionScopeID      int    `db:"provision_scope_id"`
-	StorageFilesystemUUID string `db:"storage_filesystem_uuid"`
-	UUID                  string `db:"uuid"`
+	LifeID                int              `db:"life_id"`
+	NetNodeUUID           string           `db:"net_node_uuid"`
+	ProvisionScopeID      int              `db:"provision_scope_id"`
+	StorageFilesystemUUID string           `db:"storage_filesystem_uuid"`
+	UUID                  string           `db:"uuid"`
+	ProviderID            sql.Null[string] `db:"provider_id"`
 }
 
 // insertStorageFilesystemInstance represents the set of values required for
@@ -77,11 +78,12 @@ type insertStorageVolume struct {
 // insertStorageVolumeAttachment represents the set of values required for
 // creating a new filesystem attachment in the model.
 type insertStorageVolumeAttachment struct {
-	LifeID            int    `db:"life_id"`
-	NetNodeUUID       string `db:"net_node_uuid"`
-	ProvisionScopeID  int    `db:"provision_scope_id"`
-	StorageVolumeUUID string `db:"storage_volume_uuid"`
-	UUID              string `db:"uuid"`
+	LifeID            int              `db:"life_id"`
+	NetNodeUUID       string           `db:"net_node_uuid"`
+	ProvisionScopeID  int              `db:"provision_scope_id"`
+	StorageVolumeUUID string           `db:"storage_volume_uuid"`
+	UUID              string           `db:"uuid"`
+	ProviderID        sql.Null[string] `db:"provider_id"`
 }
 
 // insertStorageVolumeInstance represents the set of values required for

@@ -2299,18 +2299,18 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
-					StorageName:  "gitlab-database",
-					FilesystemId: "",
-					Size:         1024,
-					MountPoint:   "path/to/here",
-					ReadOnly:     false,
+					StorageName:               "gitlab-database",
+					PersistentVolumeClaimName: "",
+					Size:                      1024,
+					MountPoint:                "path/to/here",
+					ReadOnly:                  false,
 					Status: status.StatusInfo{
 						Status: "attached",
 					},
 					Volume: caas.VolumeInfo{
-						VolumeId:   "pv-0",
-						Size:       1024,
-						Persistent: true,
+						PersistentVolumeName: "pv-0",
+						Size:                 1024,
+						Persistent:           true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2331,18 +2331,18 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
-					StorageName:  "gitlab-database",
-					FilesystemId: "",
-					Size:         1024,
-					MountPoint:   "path/to/here",
-					ReadOnly:     false,
+					StorageName:               "gitlab-database",
+					PersistentVolumeClaimName: "",
+					Size:                      1024,
+					MountPoint:                "path/to/here",
+					ReadOnly:                  false,
 					Status: status.StatusInfo{
 						Status: "attached",
 					},
 					Volume: caas.VolumeInfo{
-						VolumeId:   "pv-1",
-						Size:       1024,
-						Persistent: true,
+						PersistentVolumeName: "pv-1",
+						Size:                 1024,
+						Persistent:           true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2362,18 +2362,18 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
-					StorageName:  "gitlab-database",
-					FilesystemId: "",
-					Size:         1024,
-					MountPoint:   "path/to/here",
-					ReadOnly:     false,
+					StorageName:               "gitlab-database",
+					PersistentVolumeClaimName: "",
+					Size:                      1024,
+					MountPoint:                "path/to/here",
+					ReadOnly:                  false,
 					Status: status.StatusInfo{
 						Status: "attached",
 					},
 					Volume: caas.VolumeInfo{
-						VolumeId:   "pv-2",
-						Size:       1024,
-						Persistent: true,
+						PersistentVolumeName: "pv-2",
+						Size:                 1024,
+						Persistent:           true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2393,18 +2393,18 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
-					StorageName:  "gitlab-database",
-					FilesystemId: "",
-					Size:         1024,
-					MountPoint:   "path/to/here",
-					ReadOnly:     false,
+					StorageName:               "gitlab-database",
+					PersistentVolumeClaimName: "",
+					Size:                      1024,
+					MountPoint:                "path/to/here",
+					ReadOnly:                  false,
 					Status: status.StatusInfo{
 						Status: "attached",
 					},
 					Volume: caas.VolumeInfo{
-						VolumeId:   "pv-3",
-						Size:       1024,
-						Persistent: true,
+						PersistentVolumeName: "pv-3",
+						Size:                 1024,
+						Persistent:           true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2425,18 +2425,18 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
-					StorageName:  "gitlab-database",
-					FilesystemId: "",
-					Size:         1024,
-					MountPoint:   "path/to/here",
-					ReadOnly:     false,
+					StorageName:               "gitlab-database",
+					PersistentVolumeClaimName: "",
+					Size:                      1024,
+					MountPoint:                "path/to/here",
+					ReadOnly:                  false,
 					Status: status.StatusInfo{
 						Status: "attached",
 					},
 					Volume: caas.VolumeInfo{
-						VolumeId:   "pv-4",
-						Size:       1024,
-						Persistent: true,
+						PersistentVolumeName: "pv-4",
+						Size:                 1024,
+						Persistent:           true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2457,18 +2457,18 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
-					StorageName:  "gitlab-database",
-					FilesystemId: "",
-					Size:         1024,
-					MountPoint:   "path/to/here",
-					ReadOnly:     false,
+					StorageName:               "gitlab-database",
+					PersistentVolumeClaimName: "",
+					Size:                      1024,
+					MountPoint:                "path/to/here",
+					ReadOnly:                  false,
 					Status: status.StatusInfo{
 						Status: "attached",
 					},
 					Volume: caas.VolumeInfo{
-						VolumeId:   "pv-5",
-						Size:       1024,
-						Persistent: true,
+						PersistentVolumeName: "pv-5",
+						Size:                 1024,
+						Persistent:           true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2489,18 +2489,18 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
-					StorageName:  "gitlab-database",
-					FilesystemId: "",
-					Size:         1024,
-					MountPoint:   "path/to/here",
-					ReadOnly:     false,
+					StorageName:               "gitlab-database",
+					PersistentVolumeClaimName: "",
+					Size:                      1024,
+					MountPoint:                "path/to/here",
+					ReadOnly:                  false,
 					Status: status.StatusInfo{
 						Status: "attached",
 					},
 					Volume: caas.VolumeInfo{
-						VolumeId:   "pv-6",
-						Size:       1024,
-						Persistent: true,
+						PersistentVolumeName: "pv-6",
+						Size:                 1024,
+						Persistent:           true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2521,18 +2521,18 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
-					StorageName:  "gitlab-database",
-					FilesystemId: "",
-					Size:         1024,
-					MountPoint:   "path/to/here",
-					ReadOnly:     false,
+					StorageName:               "gitlab-database",
+					PersistentVolumeClaimName: "",
+					Size:                      1024,
+					MountPoint:                "path/to/here",
+					ReadOnly:                  false,
 					Status: status.StatusInfo{
 						Status: "attached",
 					},
 					Volume: caas.VolumeInfo{
-						VolumeId:   "pv-7",
-						Size:       1024,
-						Persistent: true,
+						PersistentVolumeName: "pv-7",
+						Size:                 1024,
+						Persistent:           true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2552,18 +2552,18 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
-					StorageName:  "gitlab-database",
-					FilesystemId: "",
-					Size:         1024,
-					MountPoint:   "path/to/here",
-					ReadOnly:     false,
+					StorageName:               "gitlab-database",
+					PersistentVolumeClaimName: "",
+					Size:                      1024,
+					MountPoint:                "path/to/here",
+					ReadOnly:                  false,
 					Status: status.StatusInfo{
 						Status: "attached",
 					},
 					Volume: caas.VolumeInfo{
-						VolumeId:   "pv-8",
-						Size:       1024,
-						Persistent: true,
+						PersistentVolumeName: "pv-8",
+						Size:                 1024,
+						Persistent:           true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",

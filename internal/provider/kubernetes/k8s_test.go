@@ -1100,11 +1100,11 @@ func (s *K8sBrokerSuite) TestUnits(c *tc.C) {
 			Since:   &now,
 		},
 		FilesystemInfo: []caas.FilesystemInfo{{
-			StorageName:  "database",
-			FilesystemId: "pvc-uuid",
-			Size:         uint64(podWithStorage.Spec.Volumes[0].PersistentVolumeClaim.Size()),
-			MountPoint:   "/path/to/here",
-			ReadOnly:     true,
+			StorageName:               "database",
+			PersistentVolumeClaimName: "pvc-uuid",
+			Size:                      uint64(podWithStorage.Spec.Volumes[0].PersistentVolumeClaim.Size()),
+			MountPoint:                "/path/to/here",
+			ReadOnly:                  true,
 			Status: status.StatusInfo{
 				Status:  "attached",
 				Message: "mounted",

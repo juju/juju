@@ -134,18 +134,18 @@ func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.
 		size = uint64(vol.EmptyDir.SizeLimit.Size())
 	}
 	return &caas.FilesystemInfo{
-		Size:         size,
-		FilesystemId: vol.Name,
-		MountPoint:   volMount.MountPath,
-		ReadOnly:     volMount.ReadOnly,
+		Size:                      size,
+		PersistentVolumeClaimName: vol.Name,
+		MountPoint:                volMount.MountPath,
+		ReadOnly:                  volMount.ReadOnly,
 		Status: status.StatusInfo{
 			Status: status.Attached,
 			Since:  &now,
 		},
 		Volume: caas.VolumeInfo{
-			VolumeId:   vol.Name,
-			Size:       size,
-			Persistent: false,
+			PersistentVolumeName: vol.Name,
+			Size:                 size,
+			Persistent:           false,
 			Status: status.StatusInfo{
 				Status: status.Attached,
 				Since:  &now,
@@ -212,20 +212,20 @@ func (k *kubernetesClient) volumeInfoForPVC(ctx context.Context, vol core.Volume
 	}
 
 	return &caas.FilesystemInfo{
-		StorageName:  storageName,
-		Size:         uint64(vol.PersistentVolumeClaim.Size()),
-		FilesystemId: string(pvc.UID),
-		MountPoint:   volMount.MountPath,
-		ReadOnly:     volMount.ReadOnly,
+		StorageName:               storageName,
+		Size:                      uint64(vol.PersistentVolumeClaim.Size()),
+		PersistentVolumeClaimName: pvc.Name,
+		MountPoint:                volMount.MountPath,
+		ReadOnly:                  volMount.ReadOnly,
 		Status: status.StatusInfo{
 			Status:  storage.FilesystemStatus(pvc.Status.Phase),
 			Message: statusMessage,
 			Since:   &since,
 		},
 		Volume: caas.VolumeInfo{
-			VolumeId:   pv.Name,
-			Size:       uint64(pv.Size()),
-			Persistent: true,
+			PersistentVolumeName: pv.Name,
+			Size:                 uint64(pv.Size()),
+			Persistent:           true,
 			Status: status.StatusInfo{
 				Status:  storage.VolumeStatus(pv.Status.Phase),
 				Message: pv.Status.Message,

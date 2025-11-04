@@ -950,13 +950,18 @@ func (st *State) makeInsertUnitFilesystemAttachmentArgs(
 			continue
 		}
 
-		rval = append(rval, insertStorageFilesystemAttachment{
+		insertArg := insertStorageFilesystemAttachment{
 			LifeID:                int(life.Alive),
 			NetNodeUUID:           arg.FilesystemAttachment.NetNodeUUID.String(),
 			ProvisionScopeID:      int(arg.FilesystemAttachment.ProvisionScope),
 			StorageFilesystemUUID: arg.FilesystemAttachment.FilesystemUUID.String(),
 			UUID:                  arg.FilesystemAttachment.UUID.String(),
-		})
+		}
+		if arg.FilesystemAttachment.ProviderID != nil {
+			insertArg.ProviderID.V = *arg.FilesystemAttachment.ProviderID
+			insertArg.ProviderID.Valid = true
+		}
+		rval = append(rval, insertArg)
 	}
 
 	return rval
@@ -1123,13 +1128,18 @@ func (st *State) makeInsertUnitVolumeAttachmentArgs(
 			continue
 		}
 
-		rval = append(rval, insertStorageVolumeAttachment{
+		insertArg := insertStorageVolumeAttachment{
 			LifeID:            int(life.Alive),
 			NetNodeUUID:       arg.VolumeAttachment.NetNodeUUID.String(),
 			ProvisionScopeID:  int(arg.VolumeAttachment.ProvisionScope),
 			StorageVolumeUUID: arg.VolumeAttachment.VolumeUUID.String(),
 			UUID:              arg.VolumeAttachment.UUID.String(),
-		})
+		}
+		if arg.VolumeAttachment.ProviderID != nil {
+			insertArg.ProviderID.V = *arg.VolumeAttachment.ProviderID
+			insertArg.ProviderID.Valid = true
+		}
+		rval = append(rval, insertArg)
 	}
 
 	return rval
