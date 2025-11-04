@@ -124,7 +124,7 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 	}
 
 	// We only accept gzip content types back.
-	const gzipContentType = "application/gzip"
+	const gzipContentType = "application/x-gzip"
 	req.Header.Set(headerAccept, gzipContentType)
 
 	resp, err := s.httpClient.Do(req)
