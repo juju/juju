@@ -671,15 +671,11 @@ func (s *Service) RemoveStorageInstance(
 	if cascaded.FileSystemUUID != nil {
 		fsUUID := storageprovisioning.FilesystemUUID(*cascaded.FileSystemUUID)
 		if force && wait > 0 {
-			if _, err := s.filesystemScheduleRemoval(
-				ctx, fsUUID, false, 0,
-			); err != nil {
+			if _, err := s.filesystemScheduleRemoval(ctx, fsUUID, false, 0); err != nil {
 				return errors.Capture(err)
 			}
 		}
-		if _, err := s.filesystemScheduleRemoval(
-			ctx, fsUUID, force, wait,
-		); err != nil {
+		if _, err := s.filesystemScheduleRemoval(ctx, fsUUID, force, wait); err != nil {
 			return errors.Capture(err)
 		}
 	}
@@ -687,15 +683,11 @@ func (s *Service) RemoveStorageInstance(
 	if cascaded.VolumeUUID != nil {
 		volUUID := storageprovisioning.VolumeUUID(*cascaded.VolumeUUID)
 		if force && wait > 0 {
-			if _, err := s.volumeScheduleRemoval(
-				ctx, volUUID, false, 0,
-			); err != nil {
+			if _, err := s.volumeScheduleRemoval(ctx, volUUID, false, 0); err != nil {
 				return errors.Capture(err)
 			}
 		}
-		if _, err := s.volumeScheduleRemoval(
-			ctx, volUUID, force, wait,
-		); err != nil {
+		if _, err := s.volumeScheduleRemoval(ctx, volUUID, force, wait); err != nil {
 			return errors.Capture(err)
 		}
 	}
@@ -714,15 +706,13 @@ func (s *Service) storageInstanceScheduleRemoval(
 	}
 
 	err = s.modelState.StorageInstanceScheduleRemoval(
-		ctx, jobUUID.String(), siUUID.String(),
-		force, s.clock.Now().UTC().Add(wait),
+		ctx, jobUUID.String(), siUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	)
 	if err != nil {
 		return "", errors.Errorf("storage instance %q: %w", siUUID, err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q for storage instance %q",
-		jobUUID, siUUID)
+	s.logger.Infof(ctx, "scheduled removal job %q for storage instance %q", jobUUID, siUUID)
 	return jobUUID, nil
 }
 
@@ -732,8 +722,7 @@ func (s *Service) processStorageInstanceRemovalJob(
 ) error {
 	if job.RemovalType != removal.StorageInstanceJob {
 		return errors.Errorf(
-			"job type: %q not valid for storage instance removal",
-			job.RemovalType,
+			"job type: %q not valid for storage instance removal", job.RemovalType,
 		).Add(removalerrors.RemovalJobTypeNotValid)
 	}
 
@@ -742,9 +731,7 @@ func (s *Service) processStorageInstanceRemovalJob(
 		// The storage instance has already been removed.
 		return nil
 	} else if err != nil {
-		return errors.Errorf(
-			"getting storage instance %q life: %w", job.EntityUUID, err,
-		)
+		return errors.Errorf("getting storage instance %q life: %w", job.EntityUUID, err)
 	}
 
 	if l == life.Alive {
@@ -754,13 +741,9 @@ func (s *Service) processStorageInstanceRemovalJob(
 	}
 
 	if !job.Force {
-		canRemove, err := s.modelState.CheckStorageInstanceHasNoChildren(
-			ctx, job.EntityUUID)
+		canRemove, err := s.modelState.CheckStorageInstanceHasNoChildren(ctx, job.EntityUUID)
 		if err != nil {
-			return errors.Errorf(
-				"checking storage instance %q has no children: %w",
-				job.EntityUUID, err,
-			)
+			return errors.Errorf("checking storage instance %q has no children: %w", job.EntityUUID, err)
 		}
 		if !canRemove {
 			return errors.Errorf(
@@ -771,9 +754,7 @@ func (s *Service) processStorageInstanceRemovalJob(
 
 	err = s.modelState.DeleteStorageInstance(ctx, job.EntityUUID)
 	if err != nil {
-		return errors.Errorf(
-			"deleting storage instance %q: %w", job.EntityUUID, err,
-		)
+		return errors.Errorf("deleting storage instance %q: %w", job.EntityUUID, err)
 	}
 
 	return nil
@@ -802,9 +783,7 @@ func (s *Service) MarkFilesystemAttachmentAsDead(
 
 	l, err := s.modelState.GetFilesystemAttachmentLife(ctx, uuid.String())
 	if err != nil {
-		return errors.Errorf(
-			"getting filesystem attachment %q life: %w", uuid, err,
-		)
+		return errors.Errorf("getting filesystem attachment %q life: %w", uuid, err)
 	}
 	if l == life.Alive {
 		return errors.Errorf(
@@ -816,9 +795,7 @@ func (s *Service) MarkFilesystemAttachmentAsDead(
 
 	err = s.modelState.MarkFilesystemAttachmentAsDead(ctx, uuid.String())
 	if err != nil {
-		return errors.Errorf(
-			"marking filesystem attachment %q as dead: %w", uuid, err,
-		)
+		return errors.Errorf("marking filesystem attachment %q as dead: %w", uuid, err)
 	}
 
 	return nil
@@ -861,9 +838,7 @@ func (s *Service) MarkVolumeAttachmentAsDead(
 
 	err = s.modelState.MarkVolumeAttachmentAsDead(ctx, uuid.String())
 	if err != nil {
-		return errors.Errorf(
-			"marking volume attachment %q as dead: %w", uuid, err,
-		)
+		return errors.Errorf("marking volume attachment %q as dead: %w", uuid, err)
 	}
 
 	return nil
@@ -906,9 +881,7 @@ func (s *Service) MarkVolumeAttachmentPlanAsDead(
 
 	err = s.modelState.MarkVolumeAttachmentPlanAsDead(ctx, uuid.String())
 	if err != nil {
-		return errors.Errorf(
-			"marking volume attachment plan %q as dead: %w", uuid, err,
-		)
+		return errors.Errorf("marking volume attachment plan %q as dead: %w", uuid, err)
 	}
 
 	return nil
@@ -949,9 +922,7 @@ func (s *Service) RemoveDeadFilesystem(
 	tombstone := int(status.StorageFilesystemStatusTypeTombstone)
 	err = s.modelState.SetFilesystemStatus(ctx, uuid.String(), tombstone)
 	if err != nil {
-		return errors.Errorf(
-			"setting filesystem tombstone status for %q: %w", uuid, err,
-		)
+		return errors.Errorf("setting filesystem tombstone status for %q: %w", uuid, err)
 	}
 
 	return nil
@@ -975,8 +946,7 @@ func (s *Service) filesystemScheduleRemoval(
 		return "", errors.Errorf("filesystem %q: %w", fsUUID, err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q for filesystem %q", jobUUID,
-		fsUUID)
+	s.logger.Infof(ctx, "scheduled removal job %q for filesystem %q", jobUUID, fsUUID)
 	return jobUUID, nil
 }
 
@@ -984,9 +954,7 @@ func (s *Service) filesystemScheduleRemoval(
 // For a non-forced removal job, the filesystem is deleted once the life is dead
 // and the status is tombstone. For forced removal job, deletion of a filesystem
 // happens once the filesystem is no longer alive.
-func (s *Service) processStorageFilesystemRemovalJob(
-	ctx context.Context, job removal.Job,
-) error {
+func (s *Service) processStorageFilesystemRemovalJob(ctx context.Context, job removal.Job) error {
 	if job.RemovalType != removal.StorageFilesystemJob {
 		return errors.Errorf(
 			"job type: %q not valid for storage filesystem removal",
@@ -999,28 +967,20 @@ func (s *Service) processStorageFilesystemRemovalJob(
 		// The filesystem has already been removed.
 		return nil
 	} else if err != nil {
-		return errors.Errorf(
-			"getting filesystem %q life: %w", job.EntityUUID, err,
-		)
+		return errors.Errorf("getting filesystem %q life: %w", job.EntityUUID, err)
 	}
 
 	if l == life.Alive {
-		return errors.Errorf(
-			"filesystem %q is alive", job.EntityUUID,
-		).Add(removalerrors.EntityStillAlive)
+		return errors.Errorf("filesystem %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	} else if !job.Force && l == life.Dying {
-		return errors.Errorf(
-			"filesystem %q is not dead", job.EntityUUID,
-		).Add(removalerrors.EntityNotDead)
+		return errors.Errorf("filesystem %q is not dead", job.EntityUUID).Add(removalerrors.EntityNotDead)
 	} else if !job.Force {
 		sv, err := s.modelState.GetFilesystemStatus(ctx, job.EntityUUID)
 		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
 			// The filesystem has already been removed.
 			return nil
 		} else if err != nil {
-			return errors.Errorf(
-				"getting filesystem %q status: %w", job.EntityUUID, err,
-			)
+			return errors.Errorf("getting filesystem %q status: %w", job.EntityUUID, err)
 		}
 		if sv == int(status.StorageFilesystemStatusTypeTombstone) {
 			goto deleteFilesystem
@@ -1028,17 +988,12 @@ func (s *Service) processStorageFilesystemRemovalJob(
 		// A filesystem that is machine provisioned, but backed by a volume that
 		// is model provisioned, it is impossible for it to reach the tombstone
 		// status, since there is no storage provisioner responsible for it.
-		canRemove, err := s.modelState.CheckVolumeBackedFilesystemCrossProvisioned(
-			ctx, job.EntityUUID,
-		)
+		canRemove, err := s.modelState.CheckVolumeBackedFilesystemCrossProvisioned(ctx, job.EntityUUID)
 		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
 			// The filesystem has already been removed.
 			return nil
 		} else if err != nil {
-			return errors.Errorf(
-				"checking filesystem %q is cross-provisioned: %w",
-				job.EntityUUID, err,
-			)
+			return errors.Errorf("checking filesystem %q is cross-provisioned: %w", job.EntityUUID, err)
 		}
 		if canRemove {
 			goto deleteFilesystem
@@ -1051,9 +1006,7 @@ func (s *Service) processStorageFilesystemRemovalJob(
 deleteFilesystem:
 	err = s.modelState.DeleteFilesystem(ctx, job.EntityUUID)
 	if err != nil {
-		return errors.Errorf(
-			"deleting filesystem %q: %w", job.EntityUUID, err,
-		)
+		return errors.Errorf("deleting filesystem %q: %w", job.EntityUUID, err)
 	}
 
 	return nil

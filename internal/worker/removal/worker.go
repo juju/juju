@@ -160,7 +160,7 @@ func (w *removalWorker) processRemovalJobs(ctx context.Context) error {
 			continue
 		}
 
-		w.cfg.Logger.Infof(ctx, "scheduling job %q", id)
+		w.cfg.Logger.Infof(ctx, "scheduling %s job %q", j.RemovalType, id)
 		if err := w.runner.StartWorker(ctx, id, newJobWorker(w.cfg.RemovalService, j)); err != nil {
 			return errors.Capture(err)
 		}
