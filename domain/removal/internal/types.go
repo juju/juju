@@ -233,11 +233,11 @@ func (c CascadedRemoteApplicationOffererLives) IsEmpty() bool {
 	return len(c.RelationUUIDs) == 0
 }
 
-// CascadedRemoteRelationLives contains identifiers for entities that need to
-// be removed along with the relations. Remote relations is somewhat of a
+// CascadedRelationWithRemoteOffererLives contains identifiers for entities that
+// need to be removed along with the relations. Remote relations is somewhat of a
 // special case, since there exist synthetic units (i.e. without a uniter)
 // that need to be departed manually.
-type CascadedRemoteRelationLives struct {
+type CascadedRelationWithRemoteOffererLives struct {
 	// SyntheticRelationUnitUUIDs identify the relation units that need to be
 	// departed to remove the relation.
 	SyntheticRelationUnitUUIDs []string

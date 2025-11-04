@@ -1352,7 +1352,7 @@ func (s *applicationSuite) TestDestroyRelationCrossModel(c *tc.C) {
 	removalUUID := tc.Must(c, removal.NewUUID)
 
 	s.removalService.EXPECT().RemoveRelation(gomock.Any(), relUUID, false, time.Duration(0)).Return("", removalerrors.RelationIsCrossModel)
-	s.removalService.EXPECT().RemoveRemoteRelation(gomock.Any(), relUUID, false, time.Duration(0)).Return(removalUUID, nil)
+	s.removalService.EXPECT().RemoveRelationWithRemoteOfferer(gomock.Any(), relUUID, false, time.Duration(0)).Return(removalUUID, nil)
 
 	arg := params.DestroyRelation{
 		RelationId: getUUIDArgs.RelationID,

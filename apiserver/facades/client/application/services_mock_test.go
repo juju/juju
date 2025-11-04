@@ -2738,6 +2738,45 @@ func (c *MockRemovalServiceRemoveRelationCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// RemoveRelationWithRemoteOfferer mocks base method.
+func (m *MockRemovalService) RemoveRelationWithRemoteOfferer(arg0 context.Context, arg1 relation.UUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveRelationWithRemoteOfferer", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(removal.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RemoveRelationWithRemoteOfferer indicates an expected call of RemoveRelationWithRemoteOfferer.
+func (mr *MockRemovalServiceMockRecorder) RemoveRelationWithRemoteOfferer(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveRelationWithRemoteOffererCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRelationWithRemoteOfferer", reflect.TypeOf((*MockRemovalService)(nil).RemoveRelationWithRemoteOfferer), arg0, arg1, arg2, arg3)
+	return &MockRemovalServiceRemoveRelationWithRemoteOffererCall{Call: call}
+}
+
+// MockRemovalServiceRemoveRelationWithRemoteOffererCall wrap *gomock.Call
+type MockRemovalServiceRemoveRelationWithRemoteOffererCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemovalServiceRemoveRelationWithRemoteOffererCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveRelationWithRemoteOffererCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemovalServiceRemoveRelationWithRemoteOffererCall) Do(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRelationWithRemoteOffererCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemovalServiceRemoveRelationWithRemoteOffererCall) DoAndReturn(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRelationWithRemoteOffererCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RemoveRemoteApplicationOfferer mocks base method.
 func (m *MockRemovalService) RemoveRemoteApplicationOfferer(arg0 context.Context, arg1 remoteapplication.UUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
 	m.ctrl.T.Helper()
@@ -2773,45 +2812,6 @@ func (c *MockRemovalServiceRemoveRemoteApplicationOffererCall) Do(f func(context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRemovalServiceRemoveRemoteApplicationOffererCall) DoAndReturn(f func(context.Context, remoteapplication.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRemoteApplicationOffererCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RemoveRemoteRelation mocks base method.
-func (m *MockRemovalService) RemoveRemoteRelation(arg0 context.Context, arg1 relation.UUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveRemoteRelation", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(removal.UUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RemoveRemoteRelation indicates an expected call of RemoveRemoteRelation.
-func (mr *MockRemovalServiceMockRecorder) RemoveRemoteRelation(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveRemoteRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRemoteRelation", reflect.TypeOf((*MockRemovalService)(nil).RemoveRemoteRelation), arg0, arg1, arg2, arg3)
-	return &MockRemovalServiceRemoveRemoteRelationCall{Call: call}
-}
-
-// MockRemovalServiceRemoveRemoteRelationCall wrap *gomock.Call
-type MockRemovalServiceRemoveRemoteRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRemovalServiceRemoveRemoteRelationCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveRemoteRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRemovalServiceRemoveRemoteRelationCall) Do(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRemoteRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemovalServiceRemoveRemoteRelationCall) DoAndReturn(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRemoteRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

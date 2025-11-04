@@ -405,7 +405,7 @@ func (s *Service) removeRelations(ctx context.Context, uuids []string, force boo
 
 		// This is a CMR relation, so we need to remove it with
 		// RemoveRemoteRelation.
-		if _, err := s.RemoveRemoteRelation(ctx, relation.UUID(relationUUID), force, wait); errors.Is(err, relationerrors.RelationNotFound) {
+		if _, err := s.RemoveRelationWithRemoteOfferer(ctx, relation.UUID(relationUUID), force, wait); errors.Is(err, relationerrors.RelationNotFound) {
 			// There could be a chance that the relation has already been
 			// removed by another process. We can safely ignore this error and
 			// continue with the next relation.

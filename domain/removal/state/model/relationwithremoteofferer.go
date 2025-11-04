@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// RemoteRelationExists returns true if a relation exists with the input
+// RelationWithRemoteOffererExists returns true if a relation exists with the input
 // UUID, and relates a synthetic application
-func (st *State) RemoteRelationExists(ctx context.Context, rUUID string) (bool, error) {
+func (st *State) RelationWithRemoteOffererExists(ctx context.Context, rUUID string) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -54,13 +54,13 @@ AND    cs.name = 'cmr'`, remoteRelationUUID)
 	return remoteRelationExists, errors.Capture(err)
 }
 
-// EnsureRemoteRelationNotAliveCascade ensures that the relation identified
+// EnsureRelationWithRemoteOffererNotAliveCascade ensures that the relation identified
 // by the input UUID is not alive, and sets the synthetic units in scope
 // of this relation to dead.
-func (st *State) EnsureRemoteRelationNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRemoteRelationLives, error) {
+func (st *State) EnsureRelationWithRemoteOffererNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRelationWithRemoteOffererLives, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return internal.CascadedRemoteRelationLives{}, errors.Capture(err)
+		return internal.CascadedRelationWithRemoteOffererLives{}, errors.Capture(err)
 	}
 
 	remoteRelationUUID := entityUUID{UUID: rUUID}
@@ -70,7 +70,7 @@ SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
 AND    life_id = 0`, remoteRelationUUID)
 	if err != nil {
-		return internal.CascadedRemoteRelationLives{}, errors.Errorf("preparing remote relation life update: %w", err)
+		return internal.CascadedRelationWithRemoteOffererLives{}, errors.Errorf("preparing remote relation life update: %w", err)
 	}
 
 	getSyntheticAppUUIDStmt, err := st.Prepare(`
@@ -84,7 +84,7 @@ JOIN   charm_source AS cs ON c.source_id = cs.id
 WHERE  r.uuid = $entityUUID.uuid
 AND    cs.name = 'cmr'`, remoteRelationUUID)
 	if err != nil {
-		return internal.CascadedRemoteRelationLives{},
+		return internal.CascadedRelationWithRemoteOffererLives{},
 			errors.Errorf("preparing remote relation synthetic application UUID query: %w", err)
 	}
 
@@ -95,7 +95,7 @@ JOIN   unit AS u ON ru.unit_uuid = u.uuid
 WHERE  u.application_uuid = $entityUUID.uuid
 	`, entityUUID{})
 	if err != nil {
-		return internal.CascadedRemoteRelationLives{}, errors.Errorf("preparing remote relation synthetic unit UUID query: %w", err)
+		return internal.CascadedRelationWithRemoteOffererLives{}, errors.Errorf("preparing remote relation synthetic unit UUID query: %w", err)
 	}
 
 	updateSyntheticUnitStmt, err := st.Prepare(`
@@ -105,7 +105,7 @@ WHERE  life_id = 0
 AND    application_uuid = $entityUUID.uuid
 `, entityUUID{})
 	if err != nil {
-		return internal.CascadedRemoteRelationLives{}, errors.Errorf("preparing remote relation synthetic unit update: %w", err)
+		return internal.CascadedRelationWithRemoteOffererLives{}, errors.Errorf("preparing remote relation synthetic unit update: %w", err)
 	}
 
 	var synthRelationUnitUUIDs []entityUUID
@@ -136,17 +136,17 @@ AND    application_uuid = $entityUUID.uuid
 		return nil
 	}))
 	if err != nil {
-		return internal.CascadedRemoteRelationLives{}, errors.Capture(err)
+		return internal.CascadedRelationWithRemoteOffererLives{}, errors.Capture(err)
 	}
 
-	return internal.CascadedRemoteRelationLives{
+	return internal.CascadedRelationWithRemoteOffererLives{
 		SyntheticRelationUnitUUIDs: transform.Slice(synthRelationUnitUUIDs, func(eu entityUUID) string { return eu.UUID }),
 	}, nil
 }
 
-// RemoteRelationScheduleRemoval schedules a removal job for the relation
+// RelationWithRemoteOffererScheduleRemoval schedules a removal job for the relation
 // with the input UUID, qualified with the input force boolean.
-func (st *State) RemoteRelationScheduleRemoval(ctx context.Context, removalUUID, relUUID string, force bool, when time.Time) error {
+func (st *State) RelationWithRemoteOffererScheduleRemoval(ctx context.Context, removalUUID, relUUID string, force bool, when time.Time) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -154,7 +154,7 @@ func (st *State) RemoteRelationScheduleRemoval(ctx context.Context, removalUUID,
 
 	removalRec := removalJob{
 		UUID:          removalUUID,
-		RemovalTypeID: uint64(removal.RemoteRelationJob),
+		RemovalTypeID: uint64(removal.RelationWithRemoteOffererJob),
 		EntityUUID:    relUUID,
 		Force:         force,
 		ScheduledFor:  when,
@@ -174,9 +174,9 @@ func (st *State) RemoteRelationScheduleRemoval(ctx context.Context, removalUUID,
 	}))
 }
 
-// DeleteRemoteRelation deletes a remote relation record under and all it's
+// DeleteRelationWithRemoteOfferer deletes a remote relation record under and all it's
 // and anything dependent upon it. This includes synthetic units.
-func (st *State) DeleteRemoteRelation(ctx context.Context, rUUID string) error {
+func (st *State) DeleteRelationWithRemoteOfferer(ctx context.Context, rUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)

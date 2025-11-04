@@ -46,7 +46,7 @@ func (s *relationSuite) TestRelationExistsDoesNotExist(c *tc.C) {
 }
 
 func (s *relationSuite) TestRelationExistsCrossModelRelation(c *tc.C) {
-	relUUID, _ := s.createRemoteRelation(c)
+	relUUID, _ := s.createRelationWithRemoteOfferer(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -306,9 +306,7 @@ VALUES (?, ?, 'old-key', 'old-value')`, rel, unit)
 
 func (s *relationSuite) TestLeaveScopeDeletesSyntheticUnits(c *tc.C) {
 	// Arrange
-	s.createRemoteRelation(c)
-
-	s.DumpTable(c, "unit", "relation_unit")
+	s.createRelationWithRemoteOfferer(c)
 
 	var relUnitUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

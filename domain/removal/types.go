@@ -43,8 +43,8 @@ const (
 	// RemoteApplicationOffererJob indicates a job to remove a remote
 	// application offerer.
 	RemoteApplicationOffererJob
-	// RemoteRelationJob indicates a job to remove a remote relation.
-	RemoteRelationJob
+	// RelationWithRemoteOffererJob indicates a job to remove a remote relation.
+	RelationWithRemoteOffererJob
 )
 
 // String is used in logging output make job type identifiers readable.
@@ -77,8 +77,8 @@ func (t JobType) String() string {
 		return "storage volume attachment plan"
 	case RemoteApplicationOffererJob:
 		return "remote application offerer"
-	case RemoteRelationJob:
-		return "remote relation"
+	case RelationWithRemoteOffererJob:
+		return "relation with remote offerer"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}

@@ -182,9 +182,9 @@ type StatusService interface {
 // RemovalService is an interface that defines the methods for
 // removing relations directly on the local model database.
 type RemovalService interface {
-	// RemoveRemoteRelation sets the relation with the given relation UUID
+	// RemoveRelationWithRemoteOfferer sets the relation with the given relation UUID
 	// from the local model to dying.
-	RemoveRemoteRelation(
+	RemoveRelationWithRemoteOfferer(
 		ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration,
 	) (removal.UUID, error)
 
