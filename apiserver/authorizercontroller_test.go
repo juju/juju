@@ -66,7 +66,7 @@ func (s *controllerAdminAuthorizerSuite) TestNotAUser(c *tc.C) {
 	}
 
 	for _, tag := range notSupportEntityTags {
-		c.Run(tag.String(), func(t *testing.T) {
+		c.Run(tag.String(), func(c *testing.T) {
 			authInfo := authentication.AuthInfo{
 				Delegator: s.permissionDelegator,
 				Tag:       tag,
@@ -76,12 +76,14 @@ func (s *controllerAdminAuthorizerSuite) TestNotAUser(c *tc.C) {
 				controllerTag: controllerTag,
 			}
 
-			err := authorizer.Authorize(t.Context(), authInfo)
-			tc.Check(t, err, tc.ErrorIs, coreerrors.NotSupported)
+			err := authorizer.Authorize(c.Context(), authInfo)
+			tc.Check(c, err, tc.ErrorIs, coreerrors.NotSupported)
 		})
 	}
 }
 
+// TestNonSuperUserPermissionNotAllowed is testing that for any other permission
+// set in the controller that is not super user the user is not authorized.
 func (s *controllerAdminAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -101,7 +103,7 @@ func (s *controllerAdminAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c 
 	}
 
 	for _, perm := range notAllowedPermissions {
-		c.Run(perm.String(), func(t *testing.T) {
+		c.Run(perm.String(), func(c *testing.T) {
 			delegator := NewMockPermissionDelegator(ctrl)
 			delegator.EXPECT().SubjectPermissions(
 				gomock.Any(),
@@ -122,7 +124,40 @@ func (s *controllerAdminAuthorizerSuite) TestNonSuperUserPermissionNotAllowed(c 
 			}
 
 			err := authorizer.Authorize(c.Context(), authInfo)
-			c.Check(err, tc.NotNil)
+			tc.Check(c, err, tc.NotNil)
 		})
 	}
+}
+
+// TestSuperUserPermissionAllowed tests that when a user has the super user
+// permission that authorize without error through the
+// [controllerAdminAuthorizer].
+func (s *controllerAdminAuthorizerSuite) TestSuperUserPermissionAllowed(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	controllerUUID := tc.Must(c, uuid.NewUUID)
+	controllerTag := names.NewControllerTag(controllerUUID.String())
+	userTag := tc.Must1(c, names.ParseUserTag, "user-fred")
+
+	s.permissionDelegator.EXPECT().SubjectPermissions(
+		gomock.Any(),
+		"fred",
+		corepermission.ID{
+			ObjectType: corepermission.Controller,
+			Key:        controllerUUID.String(),
+		},
+	).Return(corepermission.SuperuserAccess, nil)
+
+	authInfo := authentication.AuthInfo{
+		Delegator: s.permissionDelegator,
+		Tag:       userTag,
+	}
+
+	authorizer := controllerAdminAuthorizer{
+		controllerTag: controllerTag,
+	}
+
+	err := authorizer.Authorize(c.Context(), authInfo)
+	c.Check(err, tc.ErrorIsNil)
 }

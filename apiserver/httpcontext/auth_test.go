@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package httpcontext_test
+package httpcontext
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -24,7 +23,7 @@ import (
 type BasicAuthHandlerSuite struct {
 	testhelpers.IsolationSuite
 	stub     testhelpers.Stub
-	handler  *httpcontext.AuthHandler
+	handler  *AuthHandler
 	authInfo authentication.AuthInfo
 	server   *httptest.Server
 }
@@ -36,11 +35,11 @@ func TestBasicAuthHandlerSuite(t *testing.T) {
 func (s *BasicAuthHandlerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.stub.ResetCalls()
-	s.handler = &httpcontext.AuthHandler{
+	s.handler = &AuthHandler{
 		Authenticator: s,
 		Authorizer:    s,
 		NextHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authInfo, ok := httpcontext.RequestAuthInfo(r.Context())
+			authInfo, ok := RequestAuthInfo(r.Context())
 			if !ok || authInfo.Tag != s.authInfo.Tag {
 				w.WriteHeader(http.StatusBadRequest)
 			} else {
@@ -79,7 +78,7 @@ func (s *BasicAuthHandlerSuite) Authorize(ctx context.Context, authInfo authenti
 }
 
 func (s *BasicAuthHandlerSuite) TestRequestAuthInfoNoContext(c *tc.C) {
-	_, ok := httpcontext.RequestAuthInfo(c.Context())
+	_, ok := RequestAuthInfo(c.Context())
 	c.Assert(ok, tc.IsFalse)
 }
 
@@ -152,7 +151,7 @@ func (a stubAuthorizer) Authorize(ctx context.Context, info authentication.AuthI
 
 func (s *CompositeAuthSuite) TestAuthorizeSuccess(c *tc.C) {
 	authInfo := authentication.AuthInfo{Controller: true}
-	var auth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+	var auth CompositeAuthorizer = []authentication.Authorizer{
 		stubAuthorizer{
 			expected: authInfo,
 			err:      errors.New("unauthorized"),
@@ -167,7 +166,7 @@ func (s *CompositeAuthSuite) TestAuthorizeSuccess(c *tc.C) {
 
 func (s *CompositeAuthSuite) TestAuthorizeFail(c *tc.C) {
 	authInfo := authentication.AuthInfo{Controller: true}
-	var auth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+	var auth CompositeAuthorizer = []authentication.Authorizer{
 		stubAuthorizer{
 			expected: authInfo,
 			err:      errors.New("unauthorized"),

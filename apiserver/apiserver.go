@@ -719,6 +719,14 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				Authorizer:    handler.authorizer,
 			}
 		}
+
+		// Register the [httpcontext.ControllerModelSignalHandler] for every
+		// handler.
+		h = httpcontext.ControllerModelSignalHandler{
+			ControllerModelUUID: controllerModelUUID,
+			Handler:             h,
+		}
+
 		if !handler.noModelUUID {
 			if strings.HasPrefix(handler.pattern, modelRoutePrefix) {
 				h = &httpcontext.QueryModelHandler{
@@ -726,8 +734,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 					Query:   ":modeluuid",
 				}
 			} else if strings.HasPrefix(handler.pattern, charmsObjectsRoutePrefix) ||
+				// The charm upload path differs from [modelRoutePrefix] hence
+				// the existence of this special case.
 				strings.HasPrefix(handler.pattern, objectsRoutePrefix) {
-				h = &httpcontext.BucketModelHandler{
+				h = &httpcontext.QueryModelHandler{
 					Handler: h,
 					Query:   ":modeluuid",
 				}
@@ -803,16 +813,23 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
 		modelAgentBinaryStoreForHTTPContext(httpCtxt),
 	), "tools")
-	controllerToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
-		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
-		controllerAgentBinaryStoreForHTTPContext(httpCtxt),
-	), "tools")
-	var modelToolsUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+
+	// toolsUploadAuthorizer defines the authorizer that MUST be used for tools
+	// uploading in the controller. If the user is a controller admin then we
+	// can allow the request through, this must also be the case the if the
+	// model being uploaded to is the controller model. All other models it is
+	// acceptable for the user to be a model admin.
+	var toolsUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
 		controllerAdminAuthorizer,
-		modelPermissionAuthorizer{
-			perm: permission.AdminAccess,
+		controllerModelPermissionAuthorizer{
+			controllerAdminAuthorizer: controllerAdminAuthorizer,
+			fallThroughAuthorizer: modelPermissionAuthorizer{
+				perm: permission.AdminAccess,
+			},
+			ModelAuthorizationInfo: modelAuthorizationInfoForRequest(),
 		},
 	}
+
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
 
 	resourceAuthFunc := func(req *http.Request, tagKinds ...string) (names.Tag, error) {
@@ -922,7 +939,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, {
 		pattern:    modelRoutePrefix + "/tools",
 		handler:    modelToolsUploadHandler,
-		authorizer: modelToolsUploadAuthorizer,
+		authorizer: toolsUploadAuthorizer,
 	}, {
 		pattern:         modelRoutePrefix + "/tools/:version",
 		handler:         modelToolsDownloadHandler,
@@ -980,10 +997,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		pattern:         "/register",
 		handler:         registerHandler,
 		unauthenticated: true,
-	}, {
-		pattern:    "/tools",
-		handler:    controllerToolsUploadHandler,
-		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:         "/tools/:version",
 		handler:         modelToolsDownloadHandler,
