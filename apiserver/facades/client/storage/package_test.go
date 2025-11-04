@@ -3,4 +3,4 @@
 
 package storage_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package storage -destination domain_mock_test.go github.com/juju/juju/apiserver/facades/client/storage ApplicationService,BlockDeviceService,RemovalService,StorageService
+//go:generate go run go.uber.org/mock/mockgen -typed -package storage -destination domain_mock_test.go github.com/juju/juju/apiserver/facades/client/storage ApplicationService,RemovalService,StorageService
