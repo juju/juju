@@ -106,7 +106,7 @@ type FilesystemAccessor interface {
 
 	// FilesystemParams returns the parameters for creating the filesystems
 	// with the specified tags.
-	FilesystemParams(context.Context, []names.FilesystemTag) ([]params.FilesystemParamsResult, error)
+	FilesystemParams(context.Context, []names.FilesystemTag) ([]params.FilesystemParamsResultV5, error)
 
 	// RemoveFilesystemParams returns the parameters for destroying or
 	// releasing the filesystems with the specified tags.
@@ -114,7 +114,7 @@ type FilesystemAccessor interface {
 
 	// FilesystemAttachmentParams returns the parameters for creating the
 	// filesystem attachments with the specified tags.
-	FilesystemAttachmentParams(context.Context, []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error)
+	FilesystemAttachmentParams(context.Context, []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResultV5, error)
 
 	// SetFilesystemInfo records the details of newly provisioned filesystems.
 	SetFilesystemInfo(context.Context, []params.Filesystem) ([]params.ErrorResult, error)

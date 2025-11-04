@@ -127,7 +127,7 @@ func processDyingFilesystems(ctx context.Context, deps *dependencies, tags []nam
 func updateFilesystem(ctx context.Context, deps *dependencies, info storage.Filesystem) {
 	deps.filesystems[info.Tag] = info
 	for id, params := range deps.incompleteFilesystemAttachmentParams {
-		if params.ProviderId == "" && id.AttachmentTag == info.Tag.String() {
+		if id.AttachmentTag == info.Tag.String() {
 			updatePendingFilesystemAttachment(ctx, deps, id, params)
 		}
 	}
@@ -180,7 +180,7 @@ func updatePendingFilesystemAttachment(
 		deps.config.Logger.Debugf(ctx,
 			"pending filesystem attachment %v due to missing filesystem %v", id, params.Filesystem)
 	} else {
-		params.ProviderId = filesystem.ProviderId
+		params.FilesystemProviderId = filesystem.ProviderId
 		if filesystem.Volume != (names.VolumeTag{}) {
 			// The filesystem is volume-backed: if the filesystem
 			// was created in another session, then the block device
@@ -200,10 +200,10 @@ func updatePendingFilesystemAttachment(
 		deps.config.Logger.Debugf(ctx,
 			"pending filesystem attachment %v due to missing machine instance id", id)
 	}
-	if params.ProviderId == "" {
+	if params.FilesystemProviderId == "" {
 		incomplete = true
 		deps.config.Logger.Debugf(ctx,
-			"pending filesystem attachment %v due to missing provider id", id)
+			"pending filesystem attachment %v due to missing filesystem provider id", id)
 	}
 	if incomplete {
 		deps.incompleteFilesystemAttachmentParams[id] = params
@@ -507,7 +507,7 @@ func filesystemFromParams(in params.Filesystem) (storage.Filesystem, error) {
 	}, nil
 }
 
-func filesystemParamsFromParams(in params.FilesystemParams) (storage.FilesystemParams, error) {
+func filesystemParamsFromParams(in params.FilesystemParamsV5) (storage.FilesystemParams, error) {
 	filesystemTag, err := names.ParseFilesystemTag(in.FilesystemTag)
 	if err != nil {
 		return storage.FilesystemParams{}, errors.Trace(err)
@@ -525,12 +525,13 @@ func filesystemParamsFromParams(in params.FilesystemParams) (storage.FilesystemP
 		Volume:       volumeTag,
 		Size:         in.SizeMiB,
 		Provider:     providerType,
+		ProviderId:   in.ProviderId,
 		Attributes:   in.Attributes,
 		ResourceTags: in.Tags,
 	}, nil
 }
 
-func filesystemAttachmentParamsFromParams(in params.FilesystemAttachmentParams) (storage.FilesystemAttachmentParams, error) {
+func filesystemAttachmentParamsFromParams(in params.FilesystemAttachmentParamsV5) (storage.FilesystemAttachmentParams, error) {
 	hostTag, err := names.ParseTag(in.MachineTag)
 	if err != nil {
 		return storage.FilesystemAttachmentParams{}, errors.Trace(err)
@@ -542,12 +543,13 @@ func filesystemAttachmentParamsFromParams(in params.FilesystemAttachmentParams) 
 	return storage.FilesystemAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   storage.ProviderType(in.Provider),
+			ProviderId: in.AttachmentProviderId,
 			Machine:    hostTag,
 			InstanceId: instance.Id(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},
-		Filesystem: filesystemTag,
-		ProviderId: in.ProviderId,
-		Path:       in.MountPoint,
+		Filesystem:           filesystemTag,
+		FilesystemProviderId: in.FilesystemProviderId,
+		Path:                 in.MountPoint,
 	}, nil
 }

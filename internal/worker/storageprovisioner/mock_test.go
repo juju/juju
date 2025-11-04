@@ -376,10 +376,10 @@ func (v *mockFilesystemAccessor) FilesystemAttachments(_ context.Context, ids []
 	return result, nil
 }
 
-func (v *mockFilesystemAccessor) FilesystemParams(_ context.Context, filesystems []names.FilesystemTag) ([]params.FilesystemParamsResult, error) {
-	results := make([]params.FilesystemParamsResult, len(filesystems))
+func (v *mockFilesystemAccessor) FilesystemParams(_ context.Context, filesystems []names.FilesystemTag) ([]params.FilesystemParamsResultV5, error) {
+	results := make([]params.FilesystemParamsResultV5, len(filesystems))
 	for i, tag := range filesystems {
-		filesystemParams := params.FilesystemParams{
+		filesystemParams := params.FilesystemParamsV5{
 			FilesystemTag: tag.String(),
 			SizeMiB:       1024,
 			Provider:      "dummy",
@@ -392,7 +392,7 @@ func (v *mockFilesystemAccessor) FilesystemParams(_ context.Context, filesystems
 			// volumes with the same ID as the filesystem.
 			filesystemParams.VolumeTag = names.NewVolumeTag(tag.Id()).String()
 		}
-		results[i] = params.FilesystemParamsResult{Result: filesystemParams}
+		results[i] = params.FilesystemParamsResultV5{Result: filesystemParams}
 	}
 	return results, nil
 }
@@ -417,20 +417,20 @@ func (v *mockFilesystemAccessor) RemoveFilesystemParams(_ context.Context, files
 	return results, nil
 }
 
-func (f *mockFilesystemAccessor) FilesystemAttachmentParams(_ context.Context, ids []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error) {
-	var result []params.FilesystemAttachmentParamsResult
+func (f *mockFilesystemAccessor) FilesystemAttachmentParams(_ context.Context, ids []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResultV5, error) {
+	var result []params.FilesystemAttachmentParamsResultV5
 	for _, id := range ids {
 		// Parameters are returned regardless of whether the attachment
 		// exists; this is to support reattachment.
 		instanceId := f.provisionedMachines[id.MachineTag]
 		filesystemId := f.provisionedMachinesFilesystems[id.AttachmentTag].Info.ProviderId
-		result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
-			MachineTag:    id.MachineTag,
-			ProviderId:    filesystemId,
-			FilesystemTag: id.AttachmentTag,
-			InstanceId:    string(instanceId),
-			Provider:      "dummy",
-			ReadOnly:      true,
+		result = append(result, params.FilesystemAttachmentParamsResultV5{Result: params.FilesystemAttachmentParamsV5{
+			MachineTag:           id.MachineTag,
+			FilesystemProviderId: filesystemId,
+			FilesystemTag:        id.AttachmentTag,
+			InstanceId:           string(instanceId),
+			Provider:             "dummy",
+			ReadOnly:             true,
 		}})
 	}
 	return result, nil
@@ -715,7 +715,7 @@ func (s *dummyFilesystemSource) AttachFilesystems(ctx context.Context, params []
 
 	results := make([]storage.AttachFilesystemsResult, len(params))
 	for i, p := range params {
-		if p.ProviderId == "" {
+		if p.FilesystemProviderId == "" {
 			panic("AttachFilesystems called with unprovisioned filesystem")
 		}
 		if p.InstanceId == "" {
@@ -725,7 +725,7 @@ func (s *dummyFilesystemSource) AttachFilesystems(ctx context.Context, params []
 			Filesystem: p.Filesystem,
 			Machine:    p.Machine,
 			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
-				Path: "/srv/" + p.ProviderId,
+				Path: "/srv/" + p.FilesystemProviderId,
 			},
 		}
 	}

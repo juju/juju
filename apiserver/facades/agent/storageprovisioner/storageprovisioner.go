@@ -1682,7 +1682,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(
 			result.Result.Attachment = &params.FilesystemAttachmentParams{
 				FilesystemTag: attachmentV5.FilesystemTag,
 				MachineTag:    attachmentV5.MachineTag,
-				ProviderId:    attachmentV5.ProviderId,
+				ProviderId:    attachmentV5.FilesystemProviderId,
 				InstanceId:    attachmentV5.InstanceId,
 				Provider:      attachmentV5.Provider,
 				MountPoint:    attachmentV5.MountPoint,

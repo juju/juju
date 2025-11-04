@@ -137,7 +137,7 @@ func (s *rootfsSuite) TestAttachFilesystemsPathNotDir(c *tc.C) {
 	source := s.rootfsFilesystemSource(c)
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
-		ProviderId: "6",
+		FilesystemProviderId: "6",
 		Path:       "file",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -174,7 +174,7 @@ func (s *rootfsSuite) TestAttachFilesystemsNoPathSpecified(c *tc.C) {
 	source := s.rootfsFilesystemSource(c)
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
-		ProviderId: "6",
+		FilesystemProviderId: "6",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0].Error, tc.ErrorMatches, "filesystem mount point not specified")
@@ -188,7 +188,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBind(c *tc.C) {
 
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
-		ProviderId: "6",
+		FilesystemProviderId: "6",
 		Path:       "/srv",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -209,7 +209,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBound(c *tc.C) {
 
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
-		ProviderId: "6",
+		FilesystemProviderId: "6",
 		Path:       "/srv",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -230,7 +230,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBoundViaParent(c *tc.C) {
 
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
-		ProviderId: "6",
+		FilesystemProviderId: "6",
 		Path:       "/srv",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -252,7 +252,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBoundViaMultipleParents(c *tc.C) {
 
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
-		ProviderId: "6",
+		FilesystemProviderId: "6",
 		Path:       "/srv",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -276,7 +276,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindFailsDifferentFS(c *tc.C) {
 
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
-		ProviderId: "6",
+		FilesystemProviderId: "6",
 		Path:       "/srv",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -293,7 +293,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSEmptyDir(c *tc.C) {
 
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
-		ProviderId: "6",
+		FilesystemProviderId: "6",
 		Path:       "/srv",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -317,7 +317,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirUnclaimed(c *tc.
 
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
-		ProviderId: "6",
+		FilesystemProviderId: "6",
 		Path:       "/srv/666",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -336,7 +336,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *tc.C)
 
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
-		ProviderId: "6",
+		FilesystemProviderId: "6",
 		Path:       "/srv/666",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
