@@ -201,9 +201,12 @@ func (c *MockAgentBinaryStoreGetAvailableForVersionInStreamCall) DoAndReturn(f f
 }
 
 // GetAvailablePatchVersionsInStream mocks base method.
-func (m *MockAgentBinaryStore) GetAvailablePatchVersionsInStream(arg0 context.Context, arg1 semversion.Number, arg2 agentbinary.Stream) {
+func (m *MockAgentBinaryStore) GetAvailablePatchVersionsInStream(arg0 context.Context, arg1 semversion.Number, arg2 agentbinary.Stream) ([]agentbinary.AgentBinary, error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "GetAvailablePatchVersionsInStream", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetAvailablePatchVersionsInStream", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]agentbinary.AgentBinary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetAvailablePatchVersionsInStream indicates an expected call of GetAvailablePatchVersionsInStream.
@@ -219,19 +222,19 @@ type MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall) Return() *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall {
-	c.Call = c.Call.Return()
+func (c *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall) Return(arg0 []agentbinary.AgentBinary, arg1 error) *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall) Do(f func(context.Context, semversion.Number, agentbinary.Stream)) *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall {
+func (c *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall) Do(f func(context.Context, semversion.Number, agentbinary.Stream) ([]agentbinary.AgentBinary, error)) *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall) DoAndReturn(f func(context.Context, semversion.Number, agentbinary.Stream)) *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall {
+func (c *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall) DoAndReturn(f func(context.Context, semversion.Number, agentbinary.Stream) ([]agentbinary.AgentBinary, error)) *MockAgentBinaryStoreGetAvailablePatchVersionsInStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

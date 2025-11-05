@@ -13,9 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	agentbinary "github.com/juju/juju/core/agentbinary"
 	objectstore "github.com/juju/juju/core/objectstore"
-	agentbinary0 "github.com/juju/juju/domain/agentbinary"
+	agentbinary "github.com/juju/juju/domain/agentbinary"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -81,51 +80,11 @@ func (c *MockAgentObjectStoreStateCheckAgentBinarySHA256ExistsCall) DoAndReturn(
 	return c
 }
 
-// GetAgentBinarySHA256 mocks base method.
-func (m *MockAgentObjectStoreState) GetAgentBinarySHA256(arg0 context.Context, arg1 agentbinary.Version, arg2 agentbinary0.Stream) (bool, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAgentBinarySHA256", arg0, arg1, arg2)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetAgentBinarySHA256 indicates an expected call of GetAgentBinarySHA256.
-func (mr *MockAgentObjectStoreStateMockRecorder) GetAgentBinarySHA256(arg0, arg1, arg2 any) *MockAgentObjectStoreStateGetAgentBinarySHA256Call {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgentBinarySHA256", reflect.TypeOf((*MockAgentObjectStoreState)(nil).GetAgentBinarySHA256), arg0, arg1, arg2)
-	return &MockAgentObjectStoreStateGetAgentBinarySHA256Call{Call: call}
-}
-
-// MockAgentObjectStoreStateGetAgentBinarySHA256Call wrap *gomock.Call
-type MockAgentObjectStoreStateGetAgentBinarySHA256Call struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockAgentObjectStoreStateGetAgentBinarySHA256Call) Return(arg0 bool, arg1 string, arg2 error) *MockAgentObjectStoreStateGetAgentBinarySHA256Call {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockAgentObjectStoreStateGetAgentBinarySHA256Call) Do(f func(context.Context, agentbinary.Version, agentbinary0.Stream) (bool, string, error)) *MockAgentObjectStoreStateGetAgentBinarySHA256Call {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentObjectStoreStateGetAgentBinarySHA256Call) DoAndReturn(f func(context.Context, agentbinary.Version, agentbinary0.Stream) (bool, string, error)) *MockAgentObjectStoreStateGetAgentBinarySHA256Call {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetAllAgentStoreBinariesForStream mocks base method.
-func (m *MockAgentObjectStoreState) GetAllAgentStoreBinariesForStream(arg0 context.Context, arg1 agentbinary0.Stream) ([]agentbinary0.AgentBinary, error) {
+func (m *MockAgentObjectStoreState) GetAllAgentStoreBinariesForStream(arg0 context.Context, arg1 agentbinary.Stream) ([]agentbinary.AgentBinary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllAgentStoreBinariesForStream", arg0, arg1)
-	ret0, _ := ret[0].([]agentbinary0.AgentBinary)
+	ret0, _ := ret[0].([]agentbinary.AgentBinary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -143,19 +102,19 @@ type MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall) Return(arg0 []agentbinary0.AgentBinary, arg1 error) *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall {
+func (c *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall) Return(arg0 []agentbinary.AgentBinary, arg1 error) *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall) Do(f func(context.Context, agentbinary0.Stream) ([]agentbinary0.AgentBinary, error)) *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall {
+func (c *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall) Do(f func(context.Context, agentbinary.Stream) ([]agentbinary.AgentBinary, error)) *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall) DoAndReturn(f func(context.Context, agentbinary0.Stream) ([]agentbinary0.AgentBinary, error)) *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall {
+func (c *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall) DoAndReturn(f func(context.Context, agentbinary.Stream) ([]agentbinary.AgentBinary, error)) *MockAgentObjectStoreStateGetAllAgentStoreBinariesForStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -200,7 +159,7 @@ func (c *MockAgentObjectStoreStateGetObjectUUIDCall) DoAndReturn(f func(context.
 }
 
 // RegisterAgentBinary mocks base method.
-func (m *MockAgentObjectStoreState) RegisterAgentBinary(arg0 context.Context, arg1 agentbinary0.RegisterAgentBinaryArg) error {
+func (m *MockAgentObjectStoreState) RegisterAgentBinary(arg0 context.Context, arg1 agentbinary.RegisterAgentBinaryArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterAgentBinary", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -226,13 +185,13 @@ func (c *MockAgentObjectStoreStateRegisterAgentBinaryCall) Return(arg0 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentObjectStoreStateRegisterAgentBinaryCall) Do(f func(context.Context, agentbinary0.RegisterAgentBinaryArg) error) *MockAgentObjectStoreStateRegisterAgentBinaryCall {
+func (c *MockAgentObjectStoreStateRegisterAgentBinaryCall) Do(f func(context.Context, agentbinary.RegisterAgentBinaryArg) error) *MockAgentObjectStoreStateRegisterAgentBinaryCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentObjectStoreStateRegisterAgentBinaryCall) DoAndReturn(f func(context.Context, agentbinary0.RegisterAgentBinaryArg) error) *MockAgentObjectStoreStateRegisterAgentBinaryCall {
+func (c *MockAgentObjectStoreStateRegisterAgentBinaryCall) DoAndReturn(f func(context.Context, agentbinary.RegisterAgentBinaryArg) error) *MockAgentObjectStoreStateRegisterAgentBinaryCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
