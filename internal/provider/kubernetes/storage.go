@@ -9,6 +9,7 @@ import (
 
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -507,19 +508,22 @@ func (v *filesystemSource) getPersistentVolume(
 			"getting kubernetes PersistentVolume: %w", err,
 		)
 	}
-	size := uint64(0)
+	sizeMiB := uint64(0)
 	if pv.Spec.Capacity != nil {
 		storageCapacity := pv.Spec.Capacity.Storage()
 		if storageCapacity != nil {
-			// TODO(storage): does this need scaling to MiB?
-			size = uint64(storageCapacity.Value())
+			sizeMiB = quantityAsMibiBytes(*storageCapacity)
 		}
 	}
 	fs := jujustorage.FilesystemInfo{
 		ProviderId: pvName,
-		Size:       size,
+		Size:       sizeMiB,
 	}
 	return fs, nil
+}
+
+func quantityAsMibiBytes(q resource.Quantity) uint64 {
+	return uint64(q.MilliValue()) / 1000 / 1024 / 1024
 }
 
 // DestroyFilesystems is specified on the jujustorage.FilesystemSource interface.
