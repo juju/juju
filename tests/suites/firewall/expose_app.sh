@@ -76,3 +76,4 @@ test_expose_app_ec2() {
 		run "run_expose_app_ec2" "$@"
 	)
 }
+
