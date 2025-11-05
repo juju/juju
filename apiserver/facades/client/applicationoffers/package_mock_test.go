@@ -227,6 +227,45 @@ func (c *MockModelServiceGetModelByNameAndQualifierCall) DoAndReturn(f func(cont
 	return c
 }
 
+// ListAllModels mocks base method.
+func (m *MockModelService) ListAllModels(arg0 context.Context) ([]model.Model, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAllModels", arg0)
+	ret0, _ := ret[0].([]model.Model)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListAllModels indicates an expected call of ListAllModels.
+func (mr *MockModelServiceMockRecorder) ListAllModels(arg0 any) *MockModelServiceListAllModelsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAllModels", reflect.TypeOf((*MockModelService)(nil).ListAllModels), arg0)
+	return &MockModelServiceListAllModelsCall{Call: call}
+}
+
+// MockModelServiceListAllModelsCall wrap *gomock.Call
+type MockModelServiceListAllModelsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceListAllModelsCall) Return(arg0 []model.Model, arg1 error) *MockModelServiceListAllModelsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceListAllModelsCall) Do(f func(context.Context) ([]model.Model, error)) *MockModelServiceListAllModelsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceListAllModelsCall) DoAndReturn(f func(context.Context) ([]model.Model, error)) *MockModelServiceListAllModelsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockCrossModelRelationService is a mock of CrossModelRelationService interface.
 type MockCrossModelRelationService struct {
 	ctrl     *gomock.Controller

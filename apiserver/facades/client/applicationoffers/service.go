@@ -38,6 +38,10 @@ type AccessService interface {
 
 // ModelService defines the interface for interacting with the model domain.
 type ModelService interface {
+	// ListAllModels returns a slice of all models in the controller. If no models
+	// exist an empty slice is returned.
+	ListAllModels(ctx context.Context) ([]coremodel.Model, error)
+
 	// GetModelByNameAndQualifier returns the model associated with the given
 	// model name and qualifier.
 	GetModelByNameAndQualifier(

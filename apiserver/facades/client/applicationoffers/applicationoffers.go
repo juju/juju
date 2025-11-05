@@ -467,30 +467,36 @@ func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelationser
 		OfferName:              offerName,
 		ApplicationName:        filter.ApplicationName,
 		ApplicationDescription: filter.ApplicationDescription,
-		Endpoints:              make([]crossmodelrelationservice.EndpointFilterTerm, len(filter.Endpoints)),
-		AllowedConsumers:       make([]string, len(filter.AllowedConsumerTags)),
-		ConnectedUsers:         make([]string, len(filter.ConnectedUserTags)),
 	}
-	for i, ep := range filter.Endpoints {
-		offerFilter.Endpoints[i] = crossmodelrelationservice.EndpointFilterTerm{
-			Name:      ep.Name,
-			Interface: ep.Interface,
-			Role:      domaincharm.RelationRole(ep.Role),
+	if len(filter.Endpoints) > 0 {
+		offerFilter.Endpoints = make([]crossmodelrelationservice.EndpointFilterTerm, len(filter.Endpoints))
+		for i, ep := range filter.Endpoints {
+			offerFilter.Endpoints[i] = crossmodelrelationservice.EndpointFilterTerm{
+				Name:      ep.Name,
+				Interface: ep.Interface,
+				Role:      domaincharm.RelationRole(ep.Role),
+			}
 		}
 	}
-	for i, tag := range filter.AllowedConsumerTags {
-		u, err := names.ParseUserTag(tag)
-		if err != nil {
-			return crossmodelrelationservice.OfferFilter{}, errors.Capture(err)
+	if len(filter.AllowedConsumerTags) > 0 {
+		offerFilter.AllowedConsumers = make([]string, len(filter.AllowedConsumerTags))
+		for i, tag := range filter.AllowedConsumerTags {
+			u, err := names.ParseUserTag(tag)
+			if err != nil {
+				return crossmodelrelationservice.OfferFilter{}, errors.Capture(err)
+			}
+			offerFilter.AllowedConsumers[i] = u.Id()
 		}
-		offerFilter.AllowedConsumers[i] = u.Id()
 	}
-	for i, tag := range filter.ConnectedUserTags {
-		u, err := names.ParseUserTag(tag)
-		if err != nil {
-			return crossmodelrelationservice.OfferFilter{}, errors.Capture(err)
+	if len(filter.ConnectedUserTags) > 0 {
+		offerFilter.ConnectedUsers = make([]string, len(filter.ConnectedUserTags))
+		for i, tag := range filter.ConnectedUserTags {
+			u, err := names.ParseUserTag(tag)
+			if err != nil {
+				return crossmodelrelationservice.OfferFilter{}, errors.Capture(err)
+			}
+			offerFilter.ConnectedUsers[i] = u.Id()
 		}
-		offerFilter.ConnectedUsers[i] = u.Id()
 	}
 	return offerFilter, nil
 }
@@ -809,14 +815,34 @@ func filterFromURL(url corecrossmodel.OfferURL) params.OfferFilter {
 
 // FindApplicationOffers gets details about remote applications that match given filter.
 func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
-	var result params.QueryApplicationOffersResultsV5
+	var (
+		result       params.QueryApplicationOffersResultsV5
+		filtersToUse params.OfferFilters
+	)
 
+	// If there is only one filter term, and no model is specified, add in
+	// any models the user can see and query across those.
+	// If there's more than one filter term, each must specify a model.
+	if len(filters.Filters) == 1 && filters.Filters[0].ModelName == "" {
+		models, err := api.modelService.ListAllModels(ctx)
+		if err != nil {
+			return result, errors.Capture(err)
+		}
+		for _, m := range models {
+			modelFilter := filters.Filters[0]
+			modelFilter.ModelName = m.Name
+			modelFilter.ModelQualifier = m.Qualifier.String()
+			filtersToUse.Filters = append(filtersToUse.Filters, modelFilter)
+		}
+	} else {
+		filtersToUse = filters
+	}
 	apiUser, ok := api.authorizer.GetAuthTag().(names.UserTag)
 	if !ok {
 		return params.QueryApplicationOffersResultsV5{}, apiservererrors.ErrPerm
 	}
 
-	offers, err := api.getApplicationOffersDetails(ctx, apiUser, permission.ReadAccess, filters)
+	offers, err := api.getApplicationOffersDetails(ctx, apiUser, permission.ReadAccess, filtersToUse)
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
 	}
