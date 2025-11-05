@@ -171,8 +171,9 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 	return resp.Body, tool.Size, tool.SHA256, nil
 }
 
-// GetAvailableForVersion stream returns the available agent binaries for the
-// provided version and stream in the simple streams store.
+// GetAvailableForVersionInStream GetAvailableForVersion stream returns the
+// available agent binaries for the provided version and stream in the simple
+// streams store.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] if the stream value is not valid.
@@ -241,8 +242,8 @@ func (s *SimpleStreamsAgentBinaryStore) GetAvailableForVersionInStream(
 	return retVal, nil
 }
 
-// GetAvailablePatchVersionsInStream returns a slice of [agentbinary.AgentBinary]s that
-// are available from simple streams that share the the same major and minor
+// GetAvailablePatchVersionsInStream returns a slice of [agentbinary.AgentBinary]s
+// that are available from simple streams that share the same major and minor
 // version as that of the supplied version.
 //
 // The following errors may be returned:
