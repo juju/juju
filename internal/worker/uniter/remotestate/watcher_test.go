@@ -105,7 +105,6 @@ func (s *WatcherSuite) SetUpTest(c *tc.C) {
 			storageWatcher:                   newMockStringsWatcher(),
 			actionWatcher:                    newMockStringsWatcher(),
 			relationsWatcher:                 newMockStringsWatcher(),
-			instanceDataWatcher:              newMockNotifyWatcher(),
 		},
 		relations:                   make(map[names.RelationTag]*mockRelation),
 		storageAttachment:           make(map[params.StorageAttachmentId]params.StorageAttachment),
@@ -140,7 +139,6 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *tc.C) {
 
 	s.uniterClient.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.uniterClient.unit.application.applicationWatcher
-	s.uniterClient.unit.instanceDataWatcher = newMockNotifyWatcher()
 
 	w, err := remotestate.NewWatcher(s.setupWatcherConfig(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -196,7 +194,6 @@ func (s *WatcherSuite) setupWatcherConfig(c *tc.C) remotestate.WatcherConfig {
 		},
 		UnitTag:              s.uniterClient.unit.tag,
 		UpdateStatusChannel:  statusTicker,
-		CanApplyCharmProfile: s.modelType == model.IAAS,
 		WorkloadEventChannel: s.workloadEventChannel,
 		ShutdownChannel:      s.shutdownChannel,
 	}
@@ -251,9 +248,6 @@ func (s *WatcherSuite) TestInitialSignal(c *tc.C) {
 	s.uniterClient.unit.addressesWatcher.changes <- []string{"addresseshash"}
 	s.uniterClient.unit.configSettingsWatcher.changes <- []string{"confighash"}
 	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
-	if s.uniterClient.unit.instanceDataWatcher != nil {
-		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
-	}
 	s.uniterClient.unit.storageWatcher.changes <- []string{}
 	s.uniterClient.unit.actionWatcher.changes <- []string{}
 	if s.uniterClient.unit.application.applicationWatcher != nil {
@@ -281,9 +275,6 @@ func (s *WatcherSuite) signalAll() {
 	s.uniterClient.unit.storageWatcher.changes <- []string{}
 	s.applicationWatcher.changes <- struct{}{}
 	s.secretsClient.secretsWatcher.changes <- []string{}
-	if s.uniterClient.modelType == model.IAAS {
-		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
-	}
 }
 
 func (s *WatcherSuite) TestSnapshot(c *tc.C) {
@@ -411,10 +402,6 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *tc.C) {
 	s.uniterClient.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
 
-	if s.modelType == model.IAAS {
-		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
-		assertOneChange()
-	}
 	s.uniterClient.unit.application.forceUpgrade = true
 	s.applicationWatcher.changes <- struct{}{}
 	assertOneChange()
@@ -994,10 +981,6 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *tc.C) {
 	s.uniterClient.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
 
-	if s.modelType == model.IAAS {
-		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
-		assertOneChange()
-	}
 	s.uniterClient.unit.application.forceUpgrade = true
 	s.applicationWatcher.changes <- struct{}{}
 	assertOneChange()

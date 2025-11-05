@@ -12,8 +12,6 @@ import (
 	"github.com/juju/mutex/v2"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/lxdprofile"
-	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -262,24 +260,6 @@ func checkCharmInstallUpgrade(ctx context.Context, logger logger.Logger, charmDi
 		// If the unit is installed and already upgrading and the charm dir
 		// exists no need to start an upgrade.
 		if local.Kind == operation.Upgrade || (local.Hook != nil && local.Hook.Kind == hooks.UpgradeCharm) {
-			return nil
-		}
-	}
-
-	if local.Started && remote.CharmProfileRequired {
-		if remote.LXDProfileName == "" {
-			return nil
-		}
-		rev, err := lxdprofile.ProfileRevision(remote.LXDProfileName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		curl, err := jujucharm.ParseURL(remote.CharmURL)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if rev != curl.Revision {
-			logger.Tracef(ctx, "Charm profile required: current revision %d does not match new revision %d", rev, curl.Revision)
 			return nil
 		}
 	}

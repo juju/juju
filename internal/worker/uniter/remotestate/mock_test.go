@@ -233,8 +233,6 @@ type mockUnit struct {
 	storageWatcher                   *mockStringsWatcher
 	actionWatcher                    *mockStringsWatcher
 	relationsWatcher                 *mockStringsWatcher
-	instanceDataWatcher              *mockNotifyWatcher
-	lxdProfileName                   string
 }
 
 func (u *mockUnit) Life() life.Value {
@@ -242,7 +240,7 @@ func (u *mockUnit) Life() life.Value {
 }
 
 func (u *mockUnit) LXDProfileName(_ context.Context) (string, error) {
-	return u.lxdProfileName, nil
+	return "", nil
 }
 
 func (u *mockUnit) Refresh(context.Context) error {
@@ -298,7 +296,7 @@ func (u *mockUnit) WatchRelations(_ context.Context) (watcher.StringsWatcher, er
 }
 
 func (u *mockUnit) WatchInstanceData(_ context.Context) (watcher.NotifyWatcher, error) {
-	return u.instanceDataWatcher, nil
+	return nil, errors.NotSupportedf("LXD profiles are no longer supported; remove this watcher from uniter")
 }
 
 type mockApplication struct {

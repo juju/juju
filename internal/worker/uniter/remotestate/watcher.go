@@ -51,7 +51,6 @@ type RemoteStateWatcher struct {
 	updateStatusChannel       UpdateStatusTimerFunc
 	commandChannel            <-chan string
 	retryHookChannel          watcher.NotifyChannel
-	canApplyCharmProfile      bool
 	workloadEventChannel      <-chan string
 	shutdownChannel           <-chan bool
 
@@ -94,7 +93,6 @@ type WatcherConfig struct {
 	Sidecar                      bool
 	EnforcedCharmModifiedVersion int
 	Logger                       logger.Logger
-	CanApplyCharmProfile         bool
 	WorkloadEventChannel         <-chan string
 	InitialWorkloadEventIDs      []string
 	ShutdownChannel              <-chan bool
@@ -131,7 +129,6 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		retryHookChannel:          config.RetryHookChannel,
 		modelType:                 config.ModelType,
 		logger:                    config.Logger,
-		canApplyCharmProfile:      config.CanApplyCharmProfile,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
 		// on the channel to wake up the observer. It is non-blocking
@@ -439,11 +436,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
-	var (
-		seenApplicationChange  bool
-		seenInstanceDataChange bool
-		instanceDataChannel    watcher.NotifyChannel
-	)
+	var seenApplicationChange bool
 
 	applicationw, err := w.application.Watch(ctx)
 	if err != nil {
@@ -453,19 +446,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		return errors.Trace(err)
 	}
 	requiredEvents++
-
-	if w.canApplyCharmProfile {
-		// Note: canApplyCharmProfile will be false for a CAAS model.
-		instanceDataW, err := w.unit.WatchInstanceData(ctx)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := w.catacomb.Add(instanceDataW); err != nil {
-			return errors.Trace(err)
-		}
-		instanceDataChannel = instanceDataW.Changes()
-		requiredEvents++
-	}
 
 	var seenStorageChange bool
 	storagew, err := w.unit.WatchStorage(ctx)
@@ -592,16 +572,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenSecretsChange)
-
-		case _, ok := <-instanceDataChannel:
-			w.logger.Debugf(ctx, "got instance data change for %s", w.unit.Tag().Id())
-			if !ok {
-				return errors.New("instance data watcher closed")
-			}
-			if err := w.instanceDataChanged(ctx); err != nil {
-				return errors.Trace(err)
-			}
-			observedEvent(&seenInstanceDataChange)
 
 		case hashes, ok := <-charmConfigw.Changes():
 			w.logger.Debugf(ctx, "got config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
@@ -847,36 +817,29 @@ func (w *RemoteStateWatcher) applicationChanged(ctx context.Context) error {
 	if err := w.application.Refresh(ctx); err != nil {
 		return errors.Trace(err)
 	}
+
 	url, force, err := w.application.CharmURL(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	required := false
-	if w.canApplyCharmProfile {
-		ch, err := w.client.Charm(url)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		required, err = ch.LXDProfileRequired(ctx)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
+
 	ver, err := w.application.CharmModifiedVersion(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	// CAAS sidecar charms will wait for the provider to restart/recreate
 	// the unit before performing an upgrade.
 	if w.sidecar && ver != w.enforcedCharmModifiedVersion {
 		return nil
 	}
+
 	w.mu.Lock()
 	w.current.CharmURL = url
 	w.current.ForceCharmUpgrade = force
 	w.current.CharmModifiedVersion = ver
-	w.current.CharmProfileRequired = required
 	w.mu.Unlock()
+
 	return nil
 }
 
@@ -960,18 +923,6 @@ func (w *RemoteStateWatcher) secretDeletedRevisions(ctx context.Context, deleted
 	}
 	w.logger.Debugf(ctx, "deleted secret revisions: %v", w.current.DeletedSecretRevisions)
 	w.logger.Debugf(ctx, "obsolete secret revisions: %v", w.current.ObsoleteSecretRevisions)
-	return nil
-}
-
-func (w *RemoteStateWatcher) instanceDataChanged(ctx context.Context) error {
-	name, err := w.unit.LXDProfileName(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	w.mu.Lock()
-	w.current.LXDProfileName = name
-	w.mu.Unlock()
-	w.logger.Debugf(ctx, "LXDProfileName changed to %q", name)
 	return nil
 }
 

@@ -101,13 +101,6 @@ type Snapshot struct {
 	// If empty, the entire secret has been deleted.
 	DeletedSecretRevisions map[string][]int
 
-	// LXDProfileName is the name of the lxd profile applied to the unit's
-	// machine for the current charm version.
-	LXDProfileName string
-
-	// CharmProfileRequired is true if the charm has a lxdprofile.yaml.
-	CharmProfileRequired bool
-
 	// WorkloadEvents is a list of IDs of workload events that need to be
 	// processed.
 	WorkloadEvents []string
