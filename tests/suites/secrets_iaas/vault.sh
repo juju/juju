@@ -176,6 +176,7 @@ prepare_vault() {
 	wait_for "blocked" "$(workload_status vault 0).current"
 	vault_public_addr=$(juju status --format json | jq -r '.applications.vault.units."vault/0"."public-address"')
 	export VAULT_ADDR="https://${vault_public_addr}:8200"
+	mkdir -p ~/snap/vault/common/
 	TMP=$(mktemp -d ~/snap/vault/common/cacert-XXXXX)
 	cert_juju_secret_id=$(juju secrets --format=yaml | yq 'to_entries | .[] | select(.value.label == "self-signed-vault-ca-certificate") | .key')
 	juju show-secret "${cert_juju_secret_id}" --reveal --format=yaml | yq '.[].content.certificate' > "$TMP/vault.pem"
