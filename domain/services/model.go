@@ -604,19 +604,24 @@ func (s *ModelServices) ControllerUpgraderService() *controllerupgraderservice.S
 	controllerModelState := controllerupgraderstate.NewControllerModelState(
 		changestream.NewTxnRunnerFactory(s.modelDB),
 	)
-	// TODO (adisazhar123): replace with its respective New* method.
-	var controllerStore controllerupgraderservice.AgentBinaryQuerierStore
-	simplestreamStore := agentbinaryservice.NewAgentSimpleStreamsGetterStore(
+	controllerStore := agentbinaryservice.NewAgentObjectQuerierStore(
+		agentbinarystate.NewControllerState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+		),
+	)
+	ssStore := agentbinaryservice.NewAgentSimpleStreamsGetterStore(
 		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
 			s.providerFactory, s.modelUUID.String(),
-		), envtools.FindTools, s.simplestreamsClient,
+		),
+		envtools.FindTools,
+		s.simplestreamsClient,
 	)
 
 	agentBinaryFinder := controllerupgraderservice.NewStreamAgentBinaryFinder(
 		controllerState,
 		controllerModelState,
 		controllerStore,
-		simplestreamStore,
+		ssStore,
 	)
 	return controllerupgraderservice.NewService(
 		agentBinaryFinder,
