@@ -72,7 +72,7 @@ type AgentBinaryPutterStore interface {
 	) error
 }
 
-// AgentBinaryQuerierStore defines a agent binary store that can be queried for
+// AgentBinaryQuerierStore defines an agent binary store that can be queried for
 // what is available.
 type AgentBinaryQuerierStore interface {
 	// GetAvailableForVersionInStream returns the available agent binaries for
@@ -84,7 +84,7 @@ type AgentBinaryQuerierStore interface {
 		context.Context, semversion.Number, agentbinary.Stream,
 	) ([]agentbinary.AgentBinary, error)
 
-	// GetAvailablePatchVersions returns a slice of [agentbinary.AgentBinary]s
+	// GetAvailablePatchVersionsInStream returns a slice of [agentbinary.AgentBinary]s
 	// that are available from store that share the the same major and minor
 	// version as that of the supplied version.
 	//
@@ -92,7 +92,7 @@ type AgentBinaryQuerierStore interface {
 	// - [coreerrors.NotValid] if the stream value is not valid.
 	GetAvailablePatchVersionsInStream(
 		context.Context, semversion.Number, agentbinary.Stream,
-	)
+	) ([]agentbinary.AgentBinary, error)
 }
 
 // AgentBinaryStore defines a agent binary store that can queried, retriefed
