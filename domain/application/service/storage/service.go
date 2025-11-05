@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
@@ -40,6 +41,8 @@ type Service struct {
 	st State
 
 	storagePoolProvider StoragePoolProvider
+
+	logger logger.Logger
 }
 
 // State describes retrieval and persistence methods for
@@ -147,10 +150,11 @@ type State interface {
 }
 
 // NewService returns a new application storage service for the model.
-func NewService(st State, storagePoolProvider StoragePoolProvider) *Service {
+func NewService(st State, storagePoolProvider StoragePoolProvider, logger logger.Logger) *Service {
 	return &Service{
 		storagePoolProvider: storagePoolProvider,
 		st:                  st,
+		logger:              logger,
 	}
 }
 
