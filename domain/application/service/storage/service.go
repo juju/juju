@@ -454,6 +454,9 @@ func makeCAASStorageInstanceProviderIDAssociations(
 		map[string]string, len(providerFilesystemInfo),
 	)
 	for _, fsInfo := range providerFilesystemInfo {
+		if fsInfo.PersistentVolumeClaimName == "" {
+			continue
+		}
 		storageProviderIDsToAttachmentProviderIDs[fsInfo.Volume.PersistentVolumeName] = fsInfo.PersistentVolumeClaimName
 	}
 

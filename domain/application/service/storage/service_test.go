@@ -16,6 +16,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -115,13 +116,14 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		provider, nil,
 	).AnyTimes()
 
-	svc := NewService(s.state, s.poolProvider)
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
 	arg, err := svc.MakeUnitStorageArgs(
 		c.Context(),
 		attachNetNodeUUID,
 		storageDirectives,
 		append(existingSt1Storage, existingSt2Storage...),
+		nil,
 	)
 	c.Check(err, tc.IsNil)
 
@@ -290,7 +292,7 @@ func (s *serviceSuite) TestMakeIAASUnitStorageArgs(c *tc.C) {
 		StorageInstances: expectedStorageInstances,
 	}
 
-	svc := NewService(s.state, s.poolProvider)
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 	arg, err := svc.MakeIAASUnitStorageArgs(c.Context(), input)
 	c.Assert(err, tc.IsNil)
 	c.Check(arg.FilesystemsToOwn, tc.SameContents,

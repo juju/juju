@@ -12,6 +12,7 @@ import (
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 // charmStorageValidationSuite is a test suite for validating charm storage
@@ -54,7 +55,7 @@ func (s *charmStorageValidationSuite) TestProhibitedLocation(c *tc.C) {
 		},
 	}
 
-	svc := NewService(s.state, s.storagePoolProvider)
+	svc := NewService(s.state, s.storagePoolProvider, loggertesting.WrapCheckLog(c))
 	err := svc.ValidateCharmStorage(c.Context(), storage)
 
 	prohibitedErr, has :=
@@ -80,7 +81,7 @@ func (s *charmStorageValidationSuite) TestNonProhibitedLocation(c *tc.C) {
 		},
 	}
 
-	svc := NewService(s.state, s.storagePoolProvider)
+	svc := NewService(s.state, s.storagePoolProvider, loggertesting.WrapCheckLog(c))
 	err := svc.ValidateCharmStorage(c.Context(), storage)
 	c.Check(err, tc.IsNil)
 }
