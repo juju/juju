@@ -282,8 +282,9 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 			SHA256: ab.SHA256,
 			Size:   int64(ab.Size),
 			Version: semversion.Binary{
-				Arch:   ab.Architecture.String(),
-				Number: ab.Version,
+				Arch:    ab.Architecture.String(),
+				Release: strings.ToLower(os.Ubuntu.String()),
+				Number:  ab.Version,
 			},
 		})
 	}
