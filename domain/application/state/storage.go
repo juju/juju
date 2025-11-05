@@ -27,6 +27,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -257,7 +258,6 @@ FROM (
     WHERE     suo.unit_uuid = $entityUUID.uuid
 )
 `
-
 	stmt, err := st.Prepare(compositionQ, uuidInput, storageInstanceComposition{})
 	if err != nil {
 		return nil, nil, errors.Capture(err)
@@ -915,6 +915,87 @@ INSERT INTO machine_filesystem (*) VALUES ($insertFilesystemMachineOwner.*)
 	return nil
 }
 
+func (st *State) setFilesystemProviderIDs(
+	ctx context.Context, tx *sqlair.TX,
+	providerIDs map[domainstorageprov.FilesystemUUID]string,
+) error {
+	stmt, err := st.Prepare(`
+UPDATE storage_filesystem
+SET    provider_id = $setStorageFilesystemProviderID.provider_id
+WHERE  uuid = $setStorageFilesystemProviderID.uuid
+`, setStorageFilesystemProviderID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for uuid, providerID := range providerIDs {
+		input := setStorageFilesystemProviderID{
+			UUID:       uuid.String(),
+			ProviderID: providerID,
+		}
+		err := tx.Query(ctx, stmt, input).Run()
+		if err != nil {
+			return errors.Errorf(
+				"setting filesystem %s provider id: %w", uuid, err,
+			)
+		}
+	}
+
+	return nil
+}
+
+func (st *State) setFilesystemAttachmentProviderIDs(
+	ctx context.Context, tx *sqlair.TX,
+	providerIDs map[domainstorageprov.FilesystemAttachmentUUID]string,
+) error {
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_filesystem_attachment
+WHERE  uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+UPDATE storage_filesystem_attachment
+SET    provider_id = $setStorageFilesystemAttachmentProviderID.provider_id
+WHERE  uuid = $setStorageFilesystemAttachmentProviderID.uuid
+`, setStorageFilesystemAttachmentProviderID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for uuid, providerID := range providerIDs {
+		io := entityUUID{
+			UUID: uuid.String(),
+		}
+		err := tx.Query(ctx, existsStmt, io).Get(&io)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"filesystem attachment %s not found", uuid,
+			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"checking filesystem attachment %s provider id exists: %w",
+				uuid, err,
+			)
+		}
+		input := setStorageFilesystemAttachmentProviderID{
+			UUID:       uuid.String(),
+			ProviderID: providerID,
+		}
+		err = tx.Query(ctx, stmt, input).Get()
+		if err != nil {
+			return errors.Errorf(
+				"setting filesystem attachment %s provider id: %w", uuid, err,
+			)
+		}
+	}
+
+	return nil
+}
+
 // GetProviderTypeForPool returns the provider type that is in use for the
 // given pool.
 //
@@ -1046,18 +1127,13 @@ func (st *State) makeInsertUnitFilesystemAttachmentArgs(
 			continue
 		}
 
-		insertArg := insertStorageFilesystemAttachment{
+		rval = append(rval, insertStorageFilesystemAttachment{
 			LifeID:                int(life.Alive),
 			NetNodeUUID:           arg.FilesystemAttachment.NetNodeUUID.String(),
 			ProvisionScopeID:      int(arg.FilesystemAttachment.ProvisionScope),
 			StorageFilesystemUUID: arg.FilesystemAttachment.FilesystemUUID.String(),
 			UUID:                  arg.FilesystemAttachment.UUID.String(),
-		}
-		if arg.FilesystemAttachment.ProviderID != nil {
-			insertArg.ProviderID.V = *arg.FilesystemAttachment.ProviderID
-			insertArg.ProviderID.Valid = true
-		}
-		rval = append(rval, insertArg)
+		})
 	}
 
 	return rval
@@ -1224,18 +1300,13 @@ func (st *State) makeInsertUnitVolumeAttachmentArgs(
 			continue
 		}
 
-		insertArg := insertStorageVolumeAttachment{
+		rval = append(rval, insertStorageVolumeAttachment{
 			LifeID:            int(life.Alive),
 			NetNodeUUID:       arg.VolumeAttachment.NetNodeUUID.String(),
 			ProvisionScopeID:  int(arg.VolumeAttachment.ProvisionScope),
 			StorageVolumeUUID: arg.VolumeAttachment.VolumeUUID.String(),
 			UUID:              arg.VolumeAttachment.UUID.String(),
-		}
-		if arg.VolumeAttachment.ProviderID != nil {
-			insertArg.ProviderID.V = *arg.VolumeAttachment.ProviderID
-			insertArg.ProviderID.Valid = true
-		}
-		rval = append(rval, insertArg)
+		})
 	}
 
 	return rval

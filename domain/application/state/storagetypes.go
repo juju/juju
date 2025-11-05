@@ -17,6 +17,13 @@ type insertStorageFilesystem struct {
 	UUID             string `db:"uuid"`
 }
 
+// setStorageFilesystemProviderID is used to update the provider ID for an
+// existing filesystem.
+type setStorageFilesystemProviderID struct {
+	UUID       string `db:"uuid"`
+	ProviderID string `db:"provider_id"`
+}
+
 // insertStorageFilesystemAttachment represents the set of values required for
 // creating a new filesystem attachment in the model.
 type insertStorageFilesystemAttachment struct {
@@ -25,6 +32,13 @@ type insertStorageFilesystemAttachment struct {
 	ProvisionScopeID      int    `db:"provision_scope_id"`
 	StorageFilesystemUUID string `db:"storage_filesystem_uuid"`
 	UUID                  string `db:"uuid"`
+}
+
+// setStorageFilesystemAttachmentProviderID is used to update the provider ID
+// for an existing filesystem attachment.
+type setStorageFilesystemAttachmentProviderID struct {
+	UUID       string `db:"uuid"`
+	ProviderID string `db:"provider_id"`
 }
 
 // insertStorageFilesystemInstance represents the set of values required for
