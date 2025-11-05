@@ -16,6 +16,17 @@ import (
 type AgentBinaryGetterStore interface {
 	AgentBinaryQuerierStore
 
+	// GetAgentBinaryForSHA384 returns the agent binary associated with the
+	// given SHA384 sum.
+	//
+	// The following errors can be expected:
+	// - [agentbinaryerrors.NotFound] when no agent binaries exist for the
+	// provided sha.
+	GetAgentBinaryForSHA384(
+		ctx context.Context,
+		sha384Sum string,
+	) (io.ReadCloser, int64, error)
+
 	// GetAgentBinaryForVersionStream retrieves the agent binary
 	// corresponding to the given version and stream. If sucessfully found the
 	// the agent binary stream is returned along with its size and sha256 sum.
