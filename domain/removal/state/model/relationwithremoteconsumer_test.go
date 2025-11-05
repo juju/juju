@@ -25,7 +25,7 @@ func TestRelationWithRemoteConsumerSuite(t *testing.T) {
 }
 
 func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerExists(c *tc.C) {
-	relUUID, _ := s.createRelationWithRemoteConsumer(c)
+	relUUID, _, _ := s.createRelationWithRemoteConsumer(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -54,7 +54,7 @@ func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerExistsFalseFo
 }
 
 func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliveCascadeNormalSuccess(c *tc.C) {
-	relUUID, synthAppUUID := s.createRelationWithRemoteConsumer(c)
+	relUUID, synthAppUUID, _ := s.createRelationWithRemoteConsumer(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -111,7 +111,7 @@ func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliv
 }
 
 func (s *relationWithRemoteConsumer) TestRelationWithRemoteConsumerScheduleRemovalNormalSuccess(c *tc.C) {
-	relUUID, _ := s.createRelationWithRemoteConsumer(c)
+	relUUID, _, _ := s.createRelationWithRemoteConsumer(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -173,7 +173,7 @@ where  r.uuid = ?`, "removal-uuid",
 }
 
 func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnitsUnitsStillInScope(c *tc.C) {
-	relUUID, _ := s.createRelationWithRemoteConsumer(c)
+	relUUID, _, _ := s.createRelationWithRemoteConsumer(c)
 
 	s.advanceRelationLife(c, relUUID, life.Dying)
 
@@ -185,7 +185,7 @@ func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnitsUn
 
 func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnits(c *tc.C) {
 	// Arrange
-	relUUID, synthAppUUID := s.createRelationWithRemoteConsumer(c)
+	relUUID, synthAppUUID, _ := s.createRelationWithRemoteConsumer(c)
 
 	s.advanceRelationLife(c, relUUID, life.Dying)
 

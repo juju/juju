@@ -378,6 +378,9 @@ func (s *baseSuite) createOfferForApplication(c *tc.C, appName string, offerName
 	return offerUUID
 }
 
+// createRemoteApplicationOfferer creates a synthetic application intended to
+// correspond to an offering app in another model. Since SAAS are standalone
+// entities, we do not create a relation alongside it.
 func (s *baseSuite) createRemoteApplicationOfferer(
 	c *tc.C,
 	name string,
@@ -429,6 +432,9 @@ func (s *baseSuite) createRemoteApplicationOfferer(
 	return appUUID, remoteAppUUID
 }
 
+// createRemoteApplicationConsumer creates a synthetic application intended to
+// correspond to a consuming app in another model. Since these apps are NOT
+// standalone entities, we need to create a relation to an offer alongside.
 func (s *baseSuite) createRemoteApplicationConsumer(
 	c *tc.C,
 	name string,
@@ -546,7 +552,7 @@ func (s *baseSuite) createRelationWithRemoteOfferer(c *tc.C) (relation.UUID, cor
 	return relUUID, synthAppUUID
 }
 
-func (s *baseSuite) createRelationWithRemoteConsumer(c *tc.C) (relation.UUID, coreapplication.UUID) {
+func (s *baseSuite) createRelationWithRemoteConsumer(c *tc.C) (relation.UUID, coreapplication.UUID, offer.UUID) {
 	svc := s.setupApplicationService(c)
 	s.createIAASApplication(c, svc, "bar")
 	offerUUID := s.createOfferForApplication(c, "bar", "some-offer")
@@ -575,7 +581,7 @@ func (s *baseSuite) createRelationWithRemoteConsumer(c *tc.C) (relation.UUID, co
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return relUUID, synthAppUUID
+	return relUUID, synthAppUUID, offerUUID
 }
 
 func (s *baseSuite) createRemoteRelationBetween(c *tc.C, synthAppName, appName string) relation.UUID {
