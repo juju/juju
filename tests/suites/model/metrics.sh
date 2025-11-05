@@ -9,9 +9,9 @@ run_model_metrics() {
 	ensure "${testname}" "${file}"
 
 	# Deploy ubuntu with a different name, check that the metric send the charm name, not the application name.
-	juju deploy ubuntu app-one --base ubuntu@22.04
-	juju deploy juju-qa-test --base ubuntu@22.04
-	juju deploy juju-qa-dummy-subordinate --base ubuntu@22.04
+	juju deploy ubuntu app-one --base ubuntu@24.04
+	juju deploy juju-qa-test --base ubuntu@24.04
+	juju deploy juju-qa-dummy-subordinate --base ubuntu@24.04
 	juju config dummy-subordinate token=becomegreen
 	juju relate dummy-subordinate app-one
 
