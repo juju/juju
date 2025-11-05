@@ -12,28 +12,19 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/blockdevice"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreunit "github.com/juju/juju/core/unit"
+	coreversion "github.com/juju/juju/core/version"
 	domainremoval "github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storageservice "github.com/juju/juju/domain/storage/service"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
-
-type BlockDeviceService interface {
-	GetBlockDevicesForMachine(
-		ctx context.Context, machineUUID machine.UUID,
-	) ([]blockdevice.BlockDevice, error)
-}
 
 // RemovalService defines the interface required for removing storage related
 // entities in the model on behalf of an API caller.
@@ -68,18 +59,6 @@ type RemovalService interface {
 
 // StorageService defines apis on the storage service.
 type StorageService interface {
-	// CreateStoragePool creates a storage pool with the specified configuration.
-	// The following errors can be expected:
-	// - [storageerrors.PoolAlreadyExists] if a pool with the same name already exists.
-	CreateStoragePool(
-		ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs,
-	) error
-
-	// DeleteStoragePool deletes a storage pool with the specified name.
-	// The following errors can be expected:
-	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-	DeleteStoragePool(ctx context.Context, name string) error
-
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
 	// [domainstorageprovisioning.StorageAttachmentUUID] associated with the
 	// given storage instance id and unit name.
@@ -118,13 +97,6 @@ type StorageService interface {
 		storageID string,
 	) (domainstorage.StorageInstanceUUID, error)
 
-	// ReplaceStoragePool replaces an existing storage pool with the specified configuration.
-	// The following errors can be expected:
-	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-	ReplaceStoragePool(
-		ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs,
-	) error
-
 	// ListStoragePools returns all the storage pools.
 	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
 
@@ -151,17 +123,10 @@ type StorageService interface {
 	ListStoragePoolsByProviders(
 		ctx context.Context, providers domainstorage.Providers,
 	) ([]domainstorage.StoragePool, error)
-
-	// GetStoragePoolByName returns the storage pool with the specified name.
-	// The following errors can be expected:
-	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
 // ApplicationService defines apis on the application service.
 type ApplicationService interface {
-	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (machine.Name, error)
-
 	// GetUnitUUID returns the UUID for the named unit.
 	//
 	// The following errors may be returned:
@@ -180,7 +145,6 @@ type StorageAPIv6 struct {
 // StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
 	applicationService ApplicationService
-	blockDeviceService BlockDeviceService
 	removalService     RemovalService
 	storageService     StorageService
 
@@ -196,13 +160,11 @@ func NewStorageAPI(
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
 	applicationService ApplicationService,
-	blockDeviceService BlockDeviceService,
 	removalService RemovalService,
 	storageService StorageService,
 ) *StorageAPI {
 	return &StorageAPI{
 		applicationService: applicationService,
-		blockDeviceService: blockDeviceService,
 		removalService:     removalService,
 		storageService:     storageService,
 
@@ -233,16 +195,16 @@ func (a *StorageAPI) checkCanWrite(ctx context.Context) error {
 // storage identified by supplied tags. If specified storage cannot be
 // retrieved, individual error is returned instead of storage information.
 func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entities) (params.StorageDetailsResults, error) {
-	results := make([]params.StorageDetailsResult, len(entities.Entities))
-	return params.StorageDetailsResults{Results: results}, nil
+	return params.StorageDetailsResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
 
 // ListStorageDetails returns storage matching a filter.
 func (a *StorageAPI) ListStorageDetails(ctx context.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
-	results := params.StorageDetailsListResults{
-		Results: make([]params.StorageDetailsListResult, len(filters.Filters)),
-	}
-	return results, nil
+	return params.StorageDetailsListResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
 
 // ListPools returns a list of pools.
@@ -312,45 +274,35 @@ func (a *StorageAPI) listPools(ctx context.Context, filter params.StoragePoolFil
 
 // CreatePool creates a new pool with specified parameters.
 func (a *StorageAPI) CreatePool(ctx context.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(p.Pools)),
-	}
-	for i, pool := range p.Pools {
-		err := a.storageService.CreateStoragePool(
-			ctx,
-			pool.Name,
-			storage.ProviderType(pool.Provider),
-			pool.Attrs)
-		results.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return results, nil
+	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
 
 // ListVolumes lists volumes with the given filters. Each filter produces
 // an independent list of volumes, or an error if the filter is invalid
 // or the volumes could not be listed.
 func (a *StorageAPI) ListVolumes(ctx context.Context, filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
-	results := params.VolumeDetailsListResults{
-		Results: make([]params.VolumeDetailsListResult, len(filters.Filters)),
-	}
-	return results, nil
+	return params.VolumeDetailsListResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
 
 // ListFilesystems returns a list of filesystems in the environment matching
 // the provided filter. Each result describes a filesystem in detail, including
 // the filesystem's attachments.
 func (a *StorageAPI) ListFilesystems(ctx context.Context, filters params.FilesystemFilters) (params.FilesystemDetailsListResults, error) {
-	results := params.FilesystemDetailsListResults{
-		Results: make([]params.FilesystemDetailsListResult, len(filters.Filters)),
-	}
-	return results, nil
+	return params.FilesystemDetailsListResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
 
 // AddToUnit validates and creates additional storage instances for units.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) AddToUnit(ctx context.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
-	result := make([]params.AddStorageResult, len(args.Storages))
-	return params.AddStorageResults{Results: result}, nil
+	return params.AddStorageResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
 
 // Remove sets the specified storage entities to Dying, unless they are
@@ -455,66 +407,37 @@ func (a *StorageAPI) removeStorageInstance(
 // Attach attaches existing storage instances to units.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) Attach(ctx context.Context, args params.StorageAttachmentIds) (params.ErrorResults, error) {
-	result := make([]params.ErrorResult, len(args.Ids))
-	return params.ErrorResults{Results: result}, nil
+	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
 
 // Import imports existing storage into the model.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) Import(ctx context.Context, args params.BulkImportStorageParamsV2) (params.ImportStorageResults, error) {
-	results := make([]params.ImportStorageResult, len(args.Storage))
-	return params.ImportStorageResults{Results: results}, nil
+	return params.ImportStorageResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
 
 // Import imports existing storage into the model.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPIv6) Import(ctx context.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
-	v2Args := params.BulkImportStorageParamsV2{Storage: make([]params.ImportStorageParamsV2, len(args.Storage))}
-	for idx, param := range args.Storage {
-		v2Args.Storage[idx] = params.ImportStorageParamsV2{
-			Kind:        param.Kind,
-			Pool:        param.Pool,
-			ProviderId:  param.ProviderId,
-			StorageName: param.StorageName,
-			// Always false since force is not supported in v6.
-			Force: false,
-		}
-	}
-	return a.StorageAPI.Import(ctx, v2Args)
+	return params.ImportStorageResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
 
 // RemovePool deletes the named pool
 func (a *StorageAPI) RemovePool(ctx context.Context, p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(p.Pools)),
-	}
-	if err := a.checkCanWrite(ctx); err != nil {
-		return results, errors.Capture(err)
-	}
-
-	for i, pool := range p.Pools {
-		err := a.storageService.DeleteStoragePool(ctx, pool.Name)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return results, nil
+	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
 
 // UpdatePool deletes the named pool
 func (a *StorageAPI) UpdatePool(ctx context.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(p.Pools)),
-	}
-	if err := a.checkCanWrite(ctx); err != nil {
-		return results, errors.Capture(err)
-	}
-
-	for i, pool := range p.Pools {
-		err := a.storageService.ReplaceStoragePool(ctx, pool.Name, storage.ProviderType(pool.Provider), pool.Attrs)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return results, nil
+	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
+		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	)
 }
