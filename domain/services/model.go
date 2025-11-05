@@ -95,7 +95,6 @@ import (
 	storageprovisioningstate "github.com/juju/juju/domain/storageprovisioning/state"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/resource/store"
@@ -591,23 +590,29 @@ func (s *ModelServices) ChangeStream() *changestreamservice.Service {
 }
 
 func (s *ModelServices) ControllerUpgraderService() *controllerupgraderservice.Service {
-	controllerSt := controllerupgraderstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB))
-	controllerModelSt := controllerupgraderstate.NewControllerModelState(changestream.NewTxnRunnerFactory(s.modelDB))
-	agentFinder := controllerupgraderservice.NewAgentFinder(
-		envtools.PreferredStreams,
-		envtools.FindTools,
-		providertracker.ProviderRunner[environs.BootstrapEnviron](
-			s.providerFactory, s.modelUUID.String(),
-		),
+	controllerState := controllerupgraderstate.NewControllerState(
+		changestream.NewTxnRunnerFactory(s.controllerDB),
 	)
+	controllerModelState := controllerupgraderstate.NewControllerModelState(
+		changestream.NewTxnRunnerFactory(s.modelDB),
+	)
+	// TODO (adisazhar123): replace with its respective New* method.
+	var controllerStore controllerupgraderservice.AgentBinaryQuerierStore
+	simplestreamStore := agentbinaryservice.NewSimpleStreamAgentBinaryStore(
+		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
+			s.providerFactory, s.modelUUID.String(),
+		), envtools.FindTools, s.simplestreamsClient,
+	)
+
 	agentBinaryFinder := controllerupgraderservice.NewStreamAgentBinaryFinder(
-		controllerSt,
-		controllerModelSt,
-		agentFinder,
+		controllerState,
+		controllerModelState,
+		controllerStore,
+		simplestreamStore,
 	)
 	return controllerupgraderservice.NewService(
 		agentBinaryFinder,
-		controllerSt,
-		controllerModelSt,
+		controllerState,
+		controllerModelState,
 	)
 }
