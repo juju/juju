@@ -805,7 +805,7 @@ func (c *MockRelationServiceGetRelationDetailsCall) DoAndReturn(f func(context.C
 }
 
 // GetRelationKeyByUUID mocks base method.
-func (m *MockRelationService) GetRelationKeyByUUID(arg0 context.Context, arg1 string) (relation.Key, error) {
+func (m *MockRelationService) GetRelationKeyByUUID(arg0 context.Context, arg1 relation.UUID) (relation.Key, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRelationKeyByUUID", arg0, arg1)
 	ret0, _ := ret[0].(relation.Key)
@@ -832,13 +832,13 @@ func (c *MockRelationServiceGetRelationKeyByUUIDCall) Return(arg0 relation.Key, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceGetRelationKeyByUUIDCall) Do(f func(context.Context, string) (relation.Key, error)) *MockRelationServiceGetRelationKeyByUUIDCall {
+func (c *MockRelationServiceGetRelationKeyByUUIDCall) Do(f func(context.Context, relation.UUID) (relation.Key, error)) *MockRelationServiceGetRelationKeyByUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceGetRelationKeyByUUIDCall) DoAndReturn(f func(context.Context, string) (relation.Key, error)) *MockRelationServiceGetRelationKeyByUUIDCall {
+func (c *MockRelationServiceGetRelationKeyByUUIDCall) DoAndReturn(f func(context.Context, relation.UUID) (relation.Key, error)) *MockRelationServiceGetRelationKeyByUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

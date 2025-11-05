@@ -642,7 +642,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 	appName := "offerapp"
 	appUUIDStr := tc.Must(c, uuid.NewUUID).String()
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	remoteAppToken := tc.Must(c, uuid.NewUUID).String()
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
@@ -674,7 +674,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 		Return(&bakery.Macaroon{}, nil)
 
 	api := s.api(c)
-	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", macaroon.Slice{testMac})
+	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID.String(), "remoteapp:db", "db", macaroon.Slice{testMac})
 	results, err := api.RegisterRemoteRelations(c.Context(), params.RegisterConsumingRelationArgs{
 		Relations: []params.RegisterConsumingRelationArg{arg},
 	})
@@ -684,7 +684,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsSuccess(c *tc.C) {
 	c.Check(results.Results[0].Result.Token, tc.Equals, appUUIDStr)
 
 	c.Check(received.OfferUUID, tc.Equals, offerUUID)
-	c.Check(received.RelationUUID, tc.Equals, relationUUID)
+	c.Check(received.RelationUUID, tc.Equals, relationUUID.String())
 	c.Check(received.ConsumerApplicationUUID, tc.Equals, remoteAppToken)
 	c.Check(received.ConsumerApplicationEndpoint.Name, tc.Equals, "remoteapp:db")
 	c.Check(received.ConsumerApplicationEndpoint.Role, tc.Equals, domaincharm.RelationRole(internalcharm.RoleProvider))
@@ -789,7 +789,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsCreateMacaroonError(c *tc.C) {
 	appName := "offerapp"
 	appUUIDStr := tc.Must(c, uuid.NewUUID).String()
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	relationUUID := tc.Must(c, corerelation.NewUUID)
 	remoteAppToken := tc.Must(c, uuid.NewUUID).String()
 
 	s.crossModelRelationService.EXPECT().
@@ -813,7 +813,7 @@ func (s *facadeSuite) TestRegisterRemoteRelationsCreateMacaroonError(c *tc.C) {
 		Return(nil, errors.New("mint failed"))
 
 	api := s.api(c)
-	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID, "remoteapp:db", "db", nil)
+	arg := s.relationArg(c, remoteAppToken, offerUUID, relationUUID.String(), "remoteapp:db", "db", nil)
 	results, err := api.RegisterRemoteRelations(c.Context(), params.RegisterConsumingRelationArgs{Relations: []params.RegisterConsumingRelationArg{arg}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "creating relation macaroon: mint failed")
@@ -999,7 +999,7 @@ func (s *facadeSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 	appUUID := tc.Must(c, application.NewUUID)
 	uri := coresecrets.NewURI()
 
@@ -1042,7 +1042,7 @@ func (s *facadeSuite) TestWatchConsumedSecretsChangesNotFound(c *tc.C) {
 
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 	appUUID := tc.Must(c, application.NewUUID)
 
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return("", crossmodelrelationerrors.OfferNotFound)
@@ -1067,7 +1067,7 @@ func (s *facadeSuite) TestWatchConsumedSecretsChangesAuthError(c *tc.C) {
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 	appUUID := tc.Must(c, application.NewUUID)
 
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
@@ -1093,7 +1093,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesSuccess(c *tc.C) {
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 	networks := []string{"192.0.2.0/24", "198.51.100.0/24"}
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 
@@ -1136,7 +1136,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesSuccessSingleNetwork(c *tc
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 	network := "10.0.0.0/8"
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 
@@ -1247,7 +1247,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesOfferNotFound(c *tc.C) {
 
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 
 	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1279,7 +1279,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesAuthError(c *tc.C) {
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 
 	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1314,7 +1314,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesAddIngressError(c *tc.C) {
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 	networks := []string{"192.0.2.0/24"}
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 
@@ -1426,7 +1426,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesEmptyNetworks(c *tc.C) {
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 	saasIngressAllow := []string{"0.0.0.0/0", "::/0"}
 
 	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
@@ -1468,7 +1468,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesSubnetNotInWhitelist(c *tc
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 	networks := []string{"10.0.0.0/8"}
 	saasIngressAllow := []string{"192.168.0.0/16"}
 
@@ -1515,7 +1515,7 @@ func (s *facadeSuite) TestPublishIngressNetworkChangesModelConfigError(c *tc.C) 
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 	networks := []string{"192.0.2.0/24"}
 
 	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
@@ -1556,11 +1556,11 @@ func (s *facadeSuite) TestWatchRelationChanges(c *tc.C) {
 	relationTag := names.NewRelationTag(relationKey.String())
 	testMac, _ := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	appUUID := tc.Must(c, application.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 	offerUUID := tc.Must(c, offer.NewUUID)
 
 	// Setup successful authentication
-	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relationKey, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID).Return(relationKey, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).Return(nil)
@@ -1647,8 +1647,8 @@ func (s *facadeSuite) TestWatchRelationChangesAuthError(c *tc.C) {
 	relationKey, _ := corerelation.NewKeyFromString("one:db two:use")
 	testMac, _ := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
-	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relationKey, nil)
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID).Return(relationKey, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	tag := names.NewRelationTag(relationKey.String())
@@ -1678,13 +1678,13 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelations(c *tc.C) {
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 
 	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relKey, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID).Return(relKey, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
@@ -1725,9 +1725,9 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsNotFound(c *tc.C) {
 
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 
-	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(corerelation.Key{}, errors.New("relation not found"))
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID).Return(corerelation.Key{}, errors.New("relation not found"))
 
 	api := s.api(c)
 	results, err := api.WatchEgressAddressesForRelations(c.Context(), params.RemoteEntityArgs{
@@ -1748,12 +1748,12 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsOfferNotFound(c *tc.C)
 
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 
 	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relKey, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID).Return(relKey, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return("", crossmodelrelationerrors.OfferNotFound)
 
 	api := s.api(c)
@@ -1776,13 +1776,13 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsAuthError(c *tc.C) {
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 
 	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relKey, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID).Return(relKey, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
@@ -1808,13 +1808,13 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsWatcherError(c *tc.C) 
 	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	offerUUID := tc.Must(c, offer.NewUUID)
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := tc.Must(c, corerelation.NewUUID)
 
 	relKey, err := corerelation.NewKeyFromString("app1:ep1 app2:ep2")
 	c.Assert(err, tc.ErrorIsNil)
 	relationTag := names.NewRelationTag(relKey.String())
 
-	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID.String()).Return(relKey, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID).Return(relKey, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationTag, gomock.Any(), bakery.LatestVersion).
@@ -1850,7 +1850,7 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsMultipleRelations(c *t
 	relationTag1 := names.NewRelationTag(relKey1.String())
 
 	// First relation succeeds.
-	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID1.String()).Return(relKey1, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID1).Return(relKey1, nil)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID1).Return(offerUUID1, nil)
 	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
 	s.authenticator.EXPECT().CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID1.String(), relationTag1, gomock.Any(), bakery.LatestVersion).
@@ -1869,7 +1869,7 @@ func (s *facadeSuite) TestWatchEgressAddressesForRelationsMultipleRelations(c *t
 		})
 
 	// Second relation fails on GetRelationKeyByUUID.
-	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID2.String()).Return(corerelation.Key{}, errors.New("not found"))
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relUUID2).Return(corerelation.Key{}, errors.New("not found"))
 
 	api := s.api(c)
 	results, err := api.WatchEgressAddressesForRelations(c.Context(), params.RemoteEntityArgs{
@@ -1975,7 +1975,7 @@ func (s *facadeSuite) expectCheckRelationMacaroons(c *tc.C, err error) corerelat
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 
 	relationKey, _ := corerelation.NewKeyFromString("one:one two:two")
-	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relationUUID.String()).Return(relationKey, nil)
+	s.relationService.EXPECT().GetRelationKeyByUUID(gomock.Any(), relationUUID).Return(relationKey, nil)
 
 	offerUUID := tc.Must(c, offer.NewUUID)
 	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relationUUID).Return(offerUUID, nil)
