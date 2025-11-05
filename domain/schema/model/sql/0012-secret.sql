@@ -30,9 +30,13 @@ CREATE TABLE secret (
 CREATE TABLE secret_reference (
     secret_id TEXT NOT NULL PRIMARY KEY,
     latest_revision INT NOT NULL,
+    owner_application_uuid TEXT NOT NULL,
     CONSTRAINT fk_secret_id
     FOREIGN KEY (secret_id)
-    REFERENCES secret (id)
+    REFERENCES secret (id),
+    CONSTRAINT fk_secret_reference_application_uuid
+    FOREIGN KEY (owner_application_uuid)
+    REFERENCES application (uuid)
 );
 
 CREATE TABLE secret_metadata (

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -471,7 +472,15 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 		if labelToUpdate != nil {
 			consumerInfo.Label = *labelToUpdate
 		}
-		if err := s.secretsConsumer.SaveSecretConsumer(ctx, uri, unitName, *consumerInfo); err != nil {
+		if err := s.crossModelRelationService.SaveRemoteSecretConsumer(ctx, uri, unitName, *consumerInfo, appUUID, relationUUID); err != nil {
+			switch {
+			case errors.Is(err, secreterrors.SecretNotFound):
+				return nil, nil, false, errors.NotFoundf("secret %q", uri.ID)
+			case errors.Is(err, applicationerrors.UnitNotFound):
+				return nil, nil, false, errors.NotFoundf("unit %q", unitName)
+			case errors.Is(err, crossmodelrelationerrors.RemoteApplicationNotFound):
+				return nil, nil, false, errors.NotFoundf("related SAAS application for %q", consumerApp)
+			}
 			return nil, nil, false, errors.Trace(err)
 		}
 	}

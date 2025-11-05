@@ -331,19 +331,19 @@ func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets [
 	//		return errors.Errorf("saving remote secret reference for %q: %w", uri, err)
 	//	}
 	//}
-	for _, rs := range remoteSecrets {
-		unitName, err := unit.NewName(rs.Accessor.ID)
-		if err != nil {
-			return errors.Errorf("invalid remote secret consumer: %w", err)
-		}
-		if err := s.secretState.SaveSecretConsumer(ctx, rs.URI, unitName, coresecrets.SecretConsumerMetadata{
-			Label:           rs.Label,
-			CurrentRevision: rs.CurrentRevision,
-		}); err != nil {
-			return errors.Errorf("saving remote consumer %s-%s for secret %q: %w",
-				rs.Accessor.Kind, rs.Accessor.ID, rs.URI.ID, err)
-
-		}
-	}
+	//for _, rs := range remoteSecrets {
+	//	unitName, err := unit.NewName(rs.Accessor.ID)
+	//	if err != nil {
+	//		return errors.Errorf("invalid remote secret consumer: %w", err)
+	//	}
+	//	if err := s.secretState.SaveRemoteSecretConsumer(ctx, rs.URI, unitName, coresecrets.SecretConsumerMetadata{
+	//		Label:           rs.Label,
+	//		CurrentRevision: rs.CurrentRevision,
+	//	}); err != nil {
+	//		return errors.Errorf("saving remote consumer %s-%s for secret %q: %w",
+	//			rs.Accessor.Kind, rs.Accessor.ID, rs.URI.ID, err)
+	//
+	//	}
+	//}
 	return nil
 }

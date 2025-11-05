@@ -6,10 +6,13 @@ package service
 import (
 	"context"
 
+	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
@@ -30,7 +33,13 @@ type ModelSecretsState interface {
 	// SaveSecretRemoteConsumer saves the consumer metadata for the given secret and unit.
 	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md secrets.SecretConsumerMetadata) error
 	// UpdateRemoteSecretRevision records the latest revision of the specified cross model secret.
-	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
+	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int, applicationUUID string) error
+
+	// SaveRemoteSecretConsumer saves the consumer metadata for the given secret and unit.
+	SaveRemoteSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string,
+		md secrets.SecretConsumerMetadata, appUUID, relUUID string) error
+	// GetUnitUUID returns the unit UUID for the specified unit.
+	GetUnitUUID(ctx context.Context, unitName string) (string, error)
 
 	// GetSecretValue returns the contents - either data or value reference - of a
 	// given secret revision.
@@ -74,11 +83,40 @@ func (s *Service) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets
 // which has been consumed from a different model.
 // Run on the consuming model to record that a new revision for a secret
 // from the offering model is available.
-func (s *Service) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error {
+func (s *Service) UpdateRemoteSecretRevision(
+	ctx context.Context, uri *secrets.URI, latestRevision int, applicationUUID coreapplication.UUID,
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.modelState.UpdateRemoteSecretRevision(ctx, uri, latestRevision)
+	if err := applicationUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"validating application uuid: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
+	}
+
+	return s.modelState.UpdateRemoteSecretRevision(ctx, uri, latestRevision, applicationUUID.String())
+}
+
+// SaveRemoteSecretConsumer saves the consumer metadata for the given remote secret and unit.
+// If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
+// If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
+// If the corresponding synthetic application for the relation does not exist,
+// an error satisfying [crossmodelrelationerrors.RemoteApplicationNotFound] is returned.
+func (s *Service) SaveRemoteSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name,
+	md secrets.SecretConsumerMetadata, appUUID coreapplication.UUID, relationUUID relation.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	unitUUID, err := s.modelState.GetUnitUUID(ctx, unitName.String())
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return s.modelState.SaveRemoteSecretConsumer(ctx, uri, unitUUID, md, appUUID.String(), relationUUID.String())
 }
 
 func (s *Service) canRead(ctx context.Context, uri *secrets.URI, consumer domainsecret.AccessParams) error {

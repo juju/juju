@@ -518,44 +518,6 @@ func (c *MockSecretsConsumerRevokeSecretAccessCall) DoAndReturn(f func(context.C
 	return c
 }
 
-// SaveSecretConsumer mocks base method.
-func (m *MockSecretsConsumer) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md secrets.SecretConsumerMetadata) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSecretConsumer", ctx, uri, unitName, md)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SaveSecretConsumer indicates an expected call of SaveSecretConsumer.
-func (mr *MockSecretsConsumerMockRecorder) SaveSecretConsumer(ctx, uri, unitName, md any) *MockSecretsConsumerSaveSecretConsumerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).SaveSecretConsumer), ctx, uri, unitName, md)
-	return &MockSecretsConsumerSaveSecretConsumerCall{Call: call}
-}
-
-// MockSecretsConsumerSaveSecretConsumerCall wrap *gomock.Call
-type MockSecretsConsumerSaveSecretConsumerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSecretsConsumerSaveSecretConsumerCall) Return(arg0 error) *MockSecretsConsumerSaveSecretConsumerCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSecretsConsumerSaveSecretConsumerCall) Do(f func(context.Context, *secrets.URI, unit.Name, secrets.SecretConsumerMetadata) error) *MockSecretsConsumerSaveSecretConsumerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretsConsumerSaveSecretConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, unit.Name, secrets.SecretConsumerMetadata) error) *MockSecretsConsumerSaveSecretConsumerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchConsumedSecretsChanges mocks base method.
 func (m *MockSecretsConsumer) WatchConsumedSecretsChanges(ctx context.Context, unitName unit.Name) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
@@ -1124,6 +1086,44 @@ func (c *MockCrossModelRelationServiceGetMacaroonForRelationCall) Do(f func(cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelRelationServiceGetMacaroonForRelationCall) DoAndReturn(f func(context.Context, relation.UUID) (*macaroon.Macaroon, error)) *MockCrossModelRelationServiceGetMacaroonForRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SaveRemoteSecretConsumer mocks base method.
+func (m *MockCrossModelRelationService) SaveRemoteSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md secrets.SecretConsumerMetadata, applicationUUID application.UUID, relationUUID relation.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveRemoteSecretConsumer", ctx, uri, unitName, md, applicationUUID, relationUUID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveRemoteSecretConsumer indicates an expected call of SaveRemoteSecretConsumer.
+func (mr *MockCrossModelRelationServiceMockRecorder) SaveRemoteSecretConsumer(ctx, uri, unitName, md, applicationUUID, relationUUID any) *MockCrossModelRelationServiceSaveRemoteSecretConsumerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveRemoteSecretConsumer", reflect.TypeOf((*MockCrossModelRelationService)(nil).SaveRemoteSecretConsumer), ctx, uri, unitName, md, applicationUUID, relationUUID)
+	return &MockCrossModelRelationServiceSaveRemoteSecretConsumerCall{Call: call}
+}
+
+// MockCrossModelRelationServiceSaveRemoteSecretConsumerCall wrap *gomock.Call
+type MockCrossModelRelationServiceSaveRemoteSecretConsumerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceSaveRemoteSecretConsumerCall) Return(arg0 error) *MockCrossModelRelationServiceSaveRemoteSecretConsumerCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceSaveRemoteSecretConsumerCall) Do(f func(context.Context, *secrets.URI, unit.Name, secrets.SecretConsumerMetadata, application.UUID, relation.UUID) error) *MockCrossModelRelationServiceSaveRemoteSecretConsumerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceSaveRemoteSecretConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, unit.Name, secrets.SecretConsumerMetadata, application.UUID, relation.UUID) error) *MockCrossModelRelationServiceSaveRemoteSecretConsumerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

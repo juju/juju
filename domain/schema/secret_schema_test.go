@@ -123,7 +123,15 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretReference, 0)
 	s.assertChangeLogCount(c, 4, tableSecretReference, 0)
 
-	s.assertExecSQL(c, `INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, 1);`, secretURI.ID)
+	charmUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c, "INSERT INTO charm (uuid, reference_name, source_id, architecture_id) VALUES (?, 'mysql', 0, 0);", charmUUID)
+	s.assertExecSQL(c, "INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'mysql');", charmUUID)
+	appUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c, `
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?, ?, 'mysql', 0, ?);`, appUUID, charmUUID, network.AlphaSpaceId)
+
+	s.assertExecSQL(c, `INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid) VALUES (?, 1, ?);`, secretURI.ID, appUUID)
 	s.assertExecSQL(c, `UPDATE secret_reference SET latest_revision = 2 WHERE secret_id = ?;`, secretURI.ID)
 	s.assertExecSQL(c, `DELETE FROM secret_reference WHERE secret_id = ?;`, secretURI.ID)
 
@@ -141,15 +149,6 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 	// We only care about inserts into this table.
 	s.assertExecSQL(c, `INSERT INTO secret_deleted_value_ref (revision_uuid, backend_uuid, revision_id) VALUES (?, ?, ?);`, deletedRvisionUUID, backendUUIDUUID, "rev")
 	s.assertChangeLogCount(c, 1, tableSecretDeletedValueRef, 1)
-
-	charmUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, "INSERT INTO charm (uuid, reference_name, source_id, architecture_id) VALUES (?, 'mysql', 0, 0);", charmUUID)
-	s.assertExecSQL(c, "INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'mysql');", charmUUID)
-
-	appUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, `
-INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, 'mysql', 0, ?);`, appUUID, charmUUID, network.AlphaSpaceId)
 
 	unitNetNodeUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, unitNetNodeUUID)

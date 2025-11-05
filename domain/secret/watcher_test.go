@@ -620,35 +620,57 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 
 }
 
-func (s *watcherSuite) updateRemoteSecretRevisionInConsumingModel(c *tc.C, uri *coresecrets.URI, latestRevision int) {
+func (s *watcherSuite) updateRemoteSecretRevisionInConsumingModel(c *tc.C, uri *coresecrets.URI, latestRevision int, appUUID string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO secret (id) VALUES (?) ON CONFLICT(id) DO NOTHING`, uri.ID)
 		if err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, ?)
+INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid) VALUES (?, ?, ?)
 ON CONFLICT(secret_id) DO UPDATE SET
     latest_revision=excluded.latest_revision
 `,
-			uri.ID, latestRevision)
+			uri.ID, latestRevision, appUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
-	s.setupUnits(c, "mediawiki")
+	appUUID := s.setupUnits(c, "mediawiki")
+	var unitUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", "mediawiki/0").Scan(&unitUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
-	svc, st := s.setupServiceAndState(c)
+	svc, _ := s.setupServiceAndState(c)
 
-	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
-		consumer := coresecrets.SecretConsumerMetadata{
-			CurrentRevision: revision,
-		}
-		unitName := unittesting.GenNewName(c, consumerID)
-		err := st.SaveSecretConsumer(ctx, uri, unitName, consumer)
+	saveConsumer := func(uri *coresecrets.URI, revision int, consumerUUID string) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `INSERT INTO secret (id) VALUES (?) ON CONFLICT(id) DO NOTHING`, uri.ID)
+			if err != nil {
+				return err
+			}
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid) VALUES (?, ?, ?)
+ON CONFLICT(secret_id) DO UPDATE SET
+    latest_revision=excluded.latest_revision
+`, uri.ID, revision, appUUID)
+			if err != nil {
+				return err
+			}
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO secret_unit_consumer(secret_id, unit_uuid, source_model_uuid, current_revision)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
+    label=excluded.label,
+    current_revision=excluded.current_revision`,
+				uri.ID, consumerUUID, uri.SourceUUID, revision)
+			return err
+		})
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -666,9 +688,9 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(c, func(c *tc.C) {
 		// The consumed revision 1 is the initial revision - will be ignored.
-		saveConsumer(uri1, 1, "mediawiki/0")
+		saveConsumer(uri1, 1, unitUUID)
 		// The consumed revision 1 is the initial revision - will be ignored.
-		saveConsumer(uri2, 1, "mediawiki/0")
+		saveConsumer(uri2, 1, unitUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -676,7 +698,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	// We update the remote secret revision to 2.
 	// A remote consumed secret change event of uri1 should be fired.
 	harness.AddTest(c, func(c *tc.C) {
-		s.updateRemoteSecretRevisionInConsumingModel(c, uri1, 2)
+		s.updateRemoteSecretRevisionInConsumingModel(c, uri1, 2, appUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -703,7 +725,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 
 	harness1.AddTest(c, func(c *tc.C) {
 		// The consumed revision 2 is the updated current_revision.
-		saveConsumer(uri1, 2, "mediawiki/0")
+		saveConsumer(uri1, 2, unitUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -940,7 +962,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	harness1.Run(c, []corewatcher.SecretTriggerChange(nil))
 }
 
-func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
+func (s *watcherSuite) setupUnits(c *tc.C, appName string) string {
 	logger := loggertesting.WrapCheckLog(c)
 	st := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger)
 	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
@@ -971,7 +993,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 		logger,
 	)
 
-	_, err := svc.CreateIAASApplication(c.Context(),
+	appUUID, err := svc.CreateIAASApplication(c.Context(),
 		appName,
 		&stubCharm{},
 		corecharm.Origin{
@@ -994,6 +1016,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 		applicationservice.AddIAASUnitArg{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	return appUUID.String()
 }
 
 func (s *watcherSuite) setupServiceAndState(c *tc.C) (*service.WatchableService, *state.State) {
