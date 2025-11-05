@@ -205,9 +205,12 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 	}
 
 	return &caas.FilesystemInfo{
-		StorageName:               storageName,
-		Size:                      quantityAsMibiBytes(*pvc.Spec.Resources.Requests.Storage()),
-		PersistentVolumeClaimName: string(pvc.UID),
+		StorageName: storageName,
+		Size:        quantityAsMibiBytes(*pvc.Spec.Resources.Requests.Storage()),
+		// TODO(storage): TODO(migration): this value used to be the pvc.UID but
+		// is not the pvc.Name. Both are unique, but pvc.Name is better for
+		// end-users and is the same as what is done for PersistentVolumes.
+		PersistentVolumeClaimName: pvc.Name,
 		MountPoint:                volumeMount.MountPath,
 		ReadOnly:                  volumeMount.ReadOnly,
 		Status: status.StatusInfo{
