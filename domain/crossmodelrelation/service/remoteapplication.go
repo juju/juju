@@ -93,9 +93,10 @@ type ModelRemoteApplicationState interface {
 	// UUID for the given offer UUID.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, string, error)
 
-	// GetSyntheticApplicationUUIDByOfferUUID returns the synthetic application
-	// UUID for the given offer UUID.
-	GetSyntheticApplicationUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, error)
+	// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID returns the
+	// synthetic application UUID for the given offer UUID and remote relation
+	// UUID.
+	GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx context.Context, offerUUID string, remoteRelationUUID string) (string, error)
 
 	// EnsureUnitsExist ensures that the given synthetic units exist in the
 	// local model.
@@ -441,10 +442,9 @@ func (s *Service) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offe
 	return appName, coreapplication.UUID(appUUID), nil
 }
 
-// GetSyntheticApplicationUUIDByOfferUUID returns the synthetic application UUID
-// for the given offer UUID. Returns crossmodelrelationerrors.OfferNotFound if
-// the offer or associated synthetic application is not found.
-func (s *Service) GetSyntheticApplicationUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (coreapplication.UUID, error) {
+// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID returns the
+// synthetic application UUID for the given offer UUID and remote relation UUID.
+func (s *Service) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx context.Context, offerUUID offer.UUID, remoteRelationUUID corerelation.UUID) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -452,7 +452,11 @@ func (s *Service) GetSyntheticApplicationUUIDByOfferUUID(ctx context.Context, of
 		return "", internalerrors.Errorf("validating offer UUID: %w", err)
 	}
 
-	appUUID, err := s.modelState.GetSyntheticApplicationUUIDByOfferUUID(ctx, offerUUID.String())
+	if err := remoteRelationUUID.Validate(); err != nil {
+		return "", internalerrors.Errorf("validating remote relation UUID: %w", err)
+	}
+
+	appUUID, err := s.modelState.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx, offerUUID.String(), remoteRelationUUID.String())
 	if err != nil {
 		return "", internalerrors.Capture(err)
 	}

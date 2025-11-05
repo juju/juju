@@ -1332,41 +1332,41 @@ func (c *MockModelStateGetSecretValueCall) DoAndReturn(f func(context.Context, *
 	return c
 }
 
-// GetSyntheticApplicationUUIDByOfferUUID mocks base method.
-func (m *MockModelState) GetSyntheticApplicationUUIDByOfferUUID(arg0 context.Context, arg1 string) (string, error) {
+// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID mocks base method.
+func (m *MockModelState) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(arg0 context.Context, arg1, arg2 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSyntheticApplicationUUIDByOfferUUID", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetSyntheticApplicationUUIDByOfferUUID indicates an expected call of GetSyntheticApplicationUUIDByOfferUUID.
-func (mr *MockModelStateMockRecorder) GetSyntheticApplicationUUIDByOfferUUID(arg0, arg1 any) *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDCall {
+// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID indicates an expected call of GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID.
+func (mr *MockModelStateMockRecorder) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(arg0, arg1, arg2 any) *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSyntheticApplicationUUIDByOfferUUID", reflect.TypeOf((*MockModelState)(nil).GetSyntheticApplicationUUIDByOfferUUID), arg0, arg1)
-	return &MockModelStateGetSyntheticApplicationUUIDByOfferUUIDCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID", reflect.TypeOf((*MockModelState)(nil).GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID), arg0, arg1, arg2)
+	return &MockModelStateGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall{Call: call}
 }
 
-// MockModelStateGetSyntheticApplicationUUIDByOfferUUIDCall wrap *gomock.Call
-type MockModelStateGetSyntheticApplicationUUIDByOfferUUIDCall struct {
+// MockModelStateGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall wrap *gomock.Call
+type MockModelStateGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDCall) Return(arg0 string, arg1 error) *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDCall {
+func (c *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall) Return(arg0 string, arg1 error) *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDCall) Do(f func(context.Context, string) (string, error)) *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDCall {
+func (c *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall) Do(f func(context.Context, string, string) (string, error)) *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDCall {
+func (c *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall) DoAndReturn(f func(context.Context, string, string) (string, error)) *MockModelStateGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -134,7 +134,7 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 		return errors.Annotatef(err, "checking macaroons for relation %q", relationUUID)
 	}
 
-	applicationUUID, err := api.getApplicationUUIDFromToken(ctx, change.ApplicationOrOfferToken)
+	applicationUUID, err := api.getApplicationUUIDFromToken(ctx, change.ApplicationOrOfferToken, relationUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return errors.NotFoundf("application for offer %q", change.ApplicationOrOfferToken)
 	} else if err != nil {
@@ -176,13 +176,14 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 func (api *CrossModelRelationsAPIv3) getApplicationUUIDFromToken(
 	ctx context.Context,
 	token string,
+	relationUUID corerelation.UUID,
 ) (coreapplication.UUID, error) {
 	offerUUID, err := offer.ParseUUID(token)
 	if err != nil {
 		return "", errors.NotValidf("token %q is not a valid application or offer UUID", token)
 	}
 
-	appUUID, err := api.crossModelRelationService.GetSyntheticApplicationUUIDByOfferUUID(ctx, offerUUID)
+	appUUID, err := api.crossModelRelationService.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx, offerUUID, relationUUID)
 	if err != nil {
 		return "", errors.Annotatef(err, "getting application UUID from offer %q", offerUUID)
 	}
