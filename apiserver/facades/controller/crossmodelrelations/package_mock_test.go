@@ -284,41 +284,41 @@ func (c *MockCrossModelRelationServiceGetOfferingApplicationTokenCall) DoAndRetu
 	return c
 }
 
-// GetSyntheticApplicationUUIDByOfferUUID mocks base method.
-func (m *MockCrossModelRelationService) GetSyntheticApplicationUUIDByOfferUUID(arg0 context.Context, arg1 offer.UUID) (application.UUID, error) {
+// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID mocks base method.
+func (m *MockCrossModelRelationService) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(arg0 context.Context, arg1 offer.UUID, arg2 relation.UUID) (application.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSyntheticApplicationUUIDByOfferUUID", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID", arg0, arg1, arg2)
 	ret0, _ := ret[0].(application.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetSyntheticApplicationUUIDByOfferUUID indicates an expected call of GetSyntheticApplicationUUIDByOfferUUID.
-func (mr *MockCrossModelRelationServiceMockRecorder) GetSyntheticApplicationUUIDByOfferUUID(arg0, arg1 any) *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDCall {
+// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID indicates an expected call of GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID.
+func (mr *MockCrossModelRelationServiceMockRecorder) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(arg0, arg1, arg2 any) *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSyntheticApplicationUUIDByOfferUUID", reflect.TypeOf((*MockCrossModelRelationService)(nil).GetSyntheticApplicationUUIDByOfferUUID), arg0, arg1)
-	return &MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID", reflect.TypeOf((*MockCrossModelRelationService)(nil).GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID), arg0, arg1, arg2)
+	return &MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall{Call: call}
 }
 
-// MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDCall wrap *gomock.Call
-type MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDCall struct {
+// MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall wrap *gomock.Call
+type MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDCall) Return(arg0 application.UUID, arg1 error) *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDCall {
+func (c *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall) Return(arg0 application.UUID, arg1 error) *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDCall) Do(f func(context.Context, offer.UUID) (application.UUID, error)) *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDCall {
+func (c *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall) Do(f func(context.Context, offer.UUID, relation.UUID) (application.UUID, error)) *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDCall) DoAndReturn(f func(context.Context, offer.UUID) (application.UUID, error)) *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDCall {
+func (c *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall) DoAndReturn(f func(context.Context, offer.UUID, relation.UUID) (application.UUID, error)) *MockCrossModelRelationServiceGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

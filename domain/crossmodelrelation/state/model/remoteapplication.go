@@ -958,10 +958,11 @@ func (st *State) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offer
 	return applicationName, applicationUUID, nil
 }
 
-// GetSyntheticApplicationUUIDByOfferUUID returns the synthetic application UUID
-// for the given offer UUID. Returns [applicationerrors.ApplicationNotFound] if
-// the offer or associated synthetic application is not found.
-func (st *State) GetSyntheticApplicationUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, error) {
+// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID returns the synthetic application UUID
+// for the given offer UUID and the remote relation UUID.
+// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
+// synthetic application is not found.
+func (st *State) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx context.Context, offerUUID string, remRelationUUID string) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -969,19 +970,21 @@ func (st *State) GetSyntheticApplicationUUIDByOfferUUID(ctx context.Context, off
 
 	// The offer connection is a mapping between the offer and the synthetic
 	// application on the consuming side. Getting the offer connection for the
-	// offer UUID allows us to retrieve the synthetic application UUID.
+	// offer UUID and remote relation UUID allows us to retrieve the synthetic
+	// application UUID.
 	stmt, err := st.Prepare(`
 SELECT oc.uuid AS &uuid.uuid
 FROM   offer_connection AS oc
 WHERE  oc.offer_uuid = $uuid.uuid
-`, uuid{})
+AND    oc.remote_relation_uuid = $remoteRelationUUID.uuid
+`, uuid{}, remoteRelationUUID{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
 	var res uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err = tx.Query(ctx, stmt, uuid{UUID: offerUUID}).Get(&res); errors.Is(err, sqlair.ErrNoRows) {
+		if err = tx.Query(ctx, stmt, uuid{UUID: offerUUID}, remoteRelationUUID{UUID: remRelationUUID}).Get(&res); errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
 			return errors.Errorf("retrieving synthetic application UID from offer %q: %w", offerUUID, err)

@@ -130,7 +130,7 @@ func (s *facadeSuite) TestPublishRelationChanges(c *tc.C) {
 		Return(nil)
 
 	s.crossModelRelationService.EXPECT().
-		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(gomock.Any(), offerUUID, relationUUID).
 		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
@@ -207,7 +207,7 @@ func (s *facadeSuite) TestPublishRelationChangesMissingLife(c *tc.C) {
 		Return(nil)
 
 	s.crossModelRelationService.EXPECT().
-		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(gomock.Any(), offerUUID, relationUUID).
 		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
@@ -352,7 +352,7 @@ func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 		Return(nil)
 
 	s.crossModelRelationService.EXPECT().
-		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(gomock.Any(), offerUUID, relationUUID).
 		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
@@ -432,7 +432,7 @@ func (s *facadeSuite) TestPublishRelationChangesSuspended(c *tc.C) {
 		Return(nil)
 
 	s.crossModelRelationService.EXPECT().
-		GetSyntheticApplicationUUIDByOfferUUID(gomock.Any(), offerUUID).
+		GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(gomock.Any(), offerUUID, relationUUID).
 		Return(applicationUUID, nil)
 	s.applicationService.EXPECT().
 		GetApplicationDetails(gomock.Any(), applicationUUID).
