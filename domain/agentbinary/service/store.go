@@ -15,15 +15,15 @@ import (
 type AgentBinaryGetterStore interface {
 	AgentBinaryQuerierStore
 
-	// GetAgentBinaryForSHA384 returns the agent binary associated with the
-	// given SHA384 sum.
+	// GetAgentBinaryForSHA256 returns the agent binary associated with the
+	// given SHA256 sum.
 	//
 	// The following errors can be expected:
 	// - [agentbinaryerrors.NotFound] when no agent binaries exist for the
 	// provided sha.
-	GetAgentBinaryForSHA384(
+	GetAgentBinaryForSHA256(
 		ctx context.Context,
-		sha384Sum string,
+		sha256Sum string,
 	) (io.ReadCloser, int64, error)
 
 	// GetAgentBinaryForVersionStream retrieves the agent binary
@@ -45,7 +45,9 @@ type AgentBinaryGetterStore interface {
 // AgentBinaryPutterStore defines a agent binary store that can be used to
 // put agent binaries.
 type AgentBinaryPutterStore interface {
-	// AddAgentBinaryWithSHA256 adds a new agent binary to the store.
+	// AddAgentBinaryWithSHA256 adds a new agent binary to the store. The agent
+	// binary stream WILL be strictly checked for size and sha.
+	//
 	// The following errors can be returned:
 	// - [coreerrors.NotSupported] if the architecture is not supported.
 	// - [agentbinaryerrors.AlreadyExists] if an agent binary already exists for
@@ -54,20 +56,6 @@ type AgentBinaryPutterStore interface {
 	// - [agentbinaryerrors.HashMismatch] when the expected sha does not match
 	// that which was computed against the binary data.
 	AddAgentBinaryWithSHA256(
-		context.Context, io.Reader, agentbinary.Version, int64, string,
-	) error
-
-	// AddAgentBinaryWithSHA384 adds a new agent binary to the store.
-	//
-	// The following errors can be returned:
-	// - [github.com/juju/juju/core/errors.NotSupported] if the architecture is
-	// not supported.
-	// - [github.com/juju/juju/domain/agentbinary/errors.AlreadyExists] if an
-	// agent binary already exists for this version architecture and stream.
-	// - [coreerrors.NotValid] when the agent version is not considered valid.
-	// - [agentbinaryerrors.HashMismatch] when the expected sha does not match
-	// that which was computed against the binary data.
-	AddAgentBinaryWithSHA384(
 		context.Context, io.Reader, agentbinary.Version, int64, string,
 	) error
 }
