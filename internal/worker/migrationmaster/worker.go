@@ -130,10 +130,12 @@ type CharmService interface {
 // binaries within a controller and model.
 type AgentBinaryStore interface {
 	// GetAgentBinaryForSHA256 returns the agent binary associated with the
-	// given SHA256 sum. The following errors can be expected:
-	// - [github.com/juju/juju/domain/agentbinary/errors.NotFound] when no agent
-	// binaries exist for the provided sha.
-	GetAgentBinaryUsingSHA256(context.Context, string) (io.ReadCloser, int64, error)
+	// given SHA256 sum.
+	//
+	// The following errors can be expected:
+	// - [agentbinaryerrors.NotFound] when no agent binaries exist for the
+	// provided sha.
+	GetAgentBinaryForSHA256(context.Context, string) (io.ReadCloser, int64, error)
 }
 
 // Config defines the operation of a Worker.

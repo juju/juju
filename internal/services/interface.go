@@ -60,7 +60,7 @@ import (
 type ControllerDomainServices interface {
 	// ControllerAgentBinaryStore returns the agent binary store for the entire
 	// controller.
-	ControllerAgentBinaryStore() *agentbinaryservice.AgentBinaryStore
+	ControllerAgentBinaryStore() *agentbinaryservice.AgentObjectStore
 	// Controller returns the controller service.
 	Controller() *controllerservice.Service
 	// ControllerConfig returns the controller configuration service.
@@ -104,7 +104,7 @@ type ModelDomainServices interface {
 	// AgentBinary returns the agent binary service for the model.
 	AgentBinary() *agentbinaryservice.AgentBinaryService
 	// AgentBinaryStore returns the agent binary store for the current model.
-	AgentBinaryStore() *agentbinaryservice.AgentBinaryStore
+	AgentBinaryStore() *agentbinaryservice.AgentObjectStore
 	// Annotation returns the annotation service.
 	Annotation() *annotationService.Service
 	// Config returns the model config service.

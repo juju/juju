@@ -14,12 +14,12 @@ import (
 	"github.com/juju/errors"
 
 	agenttools "github.com/juju/juju/agent/tools"
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 )
 
@@ -47,7 +47,7 @@ type AgentBinaryStore interface {
 	// - [github.com/juju/juju/domain/agentbinary/errors.HashMismatch] when the
 	// expected sha does not match that which was computed against the binary
 	// data.
-	AddAgentBinaryWithSHA256(context.Context, io.Reader, coreagentbinary.Version, int64, string) error
+	AddAgentBinaryWithSHA256(context.Context, io.Reader, domainagentbinary.Version, int64, string) error
 }
 
 // PopulateAgentBinary is the function that is used to populate the agent
@@ -79,12 +79,21 @@ func PopulateAgentBinary(
 
 	logger.Debugf(ctx, "Adding agent binary: %v", agentTools.Version)
 
+	arch, converted := domainagentbinary.ArchitectureFromString(
+		agentTools.Version.Arch,
+	)
+	if !converted {
+		return nil, errors.Errorf(
+			"converting architecture %q", agentTools.Version.Arch,
+		)
+	}
+
 	err = agentBinaryStore.AddAgentBinaryWithSHA256(
 		ctx,
 		bytes.NewReader(data),
-		coreagentbinary.Version{
-			Number: agentTools.Version.Number,
-			Arch:   agentTools.Version.Arch,
+		domainagentbinary.Version{
+			Architecture: arch,
+			Number:       agentTools.Version.Number,
 		},
 		agentTools.Size,
 		agentTools.SHA256,
