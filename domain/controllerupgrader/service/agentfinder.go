@@ -47,6 +47,29 @@ type AgentFinderControllerModelState interface {
 	GetModelAgentStream(ctx context.Context) (agentbinary.Stream, error)
 }
 
+// AgentBinaryQuerierStore defines an agent binary store that can be queried for
+// what is available.
+type AgentBinaryQuerierStore interface {
+	// GetAvailableForVersionInStream returns the available agent binaries for
+	// the provided version and stream in the store.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] if the stream value is not valid.
+	GetAvailableForVersionInStream(
+		context.Context, semversion.Number, agentbinary.Stream,
+	) ([]agentbinary.AgentBinary, error)
+
+	// GetAvailablePatchVersionsInStream returns a slice of [agentbinary.AgentBinary]s
+	// that are available from store that share the same major and minor
+	// version as that of the supplied version.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] if the stream value is not valid.
+	GetAvailablePatchVersionsInStream(
+		context.Context, semversion.Number, agentbinary.Stream,
+	) ([]agentbinary.AgentBinary, error)
+}
+
 type GetPreferredSimpleStreamsFunc func(
 	vers *semversion.Number,
 	forceDevel bool,
