@@ -756,10 +756,8 @@ func (api *ProvisionerAPI) Constraints(ctx context.Context, args params.Entities
 // FindTools returns a List containing all tools matching the given parameters.
 func (api *ProvisionerAPI) FindTools(ctx context.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
 	list, err := api.toolsFinder.FindAgents(ctx, common.FindAgentsParams{
-		Number:      args.Number,
-		Arch:        args.Arch,
-		OSType:      args.OSType,
-		AgentStream: args.AgentStream,
+		Number: args.Number,
+		Arch:   args.Arch,
 	})
 	return params.FindToolsResult{
 		List:  list,

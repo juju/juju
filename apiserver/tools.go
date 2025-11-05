@@ -19,9 +19,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
@@ -48,7 +48,7 @@ type AgentBinaryStore interface {
 	AddAgentBinaryWithSHA256(
 		ctx context.Context,
 		data io.Reader,
-		version coreagentbinary.Version,
+		version domainagentbinary.Version,
 		dataSize int64,
 		dataSHA256Sum string,
 	) error
@@ -94,14 +94,15 @@ type DomainServicesGetter func(ctx context.Context) (services.DomainServices, er
 func (a *agentBinaryStoreLogShim) AddAgentBinaryWithSHA256(
 	ctx context.Context,
 	data io.Reader,
-	version coreagentbinary.Version,
+	version domainagentbinary.Version,
 	dataSize int64,
 	dataSHA256Sum string,
 ) error {
 	logger.Infof(
 		ctx,
-		"agent binaries being added to %q for %q with sha %q on behalf of entity %q",
-		a.StoreName, version.String(), dataSHA256Sum, httpcontext.EntityForContext(ctx),
+		"agent binaries being added to %q for version %q and architecture %q with sha %q on behalf of entity %q",
+		a.StoreName, version.Number.String(), version.Architecture.String(),
+		dataSHA256Sum, httpcontext.EntityForContext(ctx),
 	)
 	return a.AgentBinaryStore.AddAgentBinaryWithSHA256(ctx, data, version, dataSize, dataSHA256Sum)
 }
@@ -286,24 +287,33 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request) (_ io.ReadClo
 		return nil, 0, errors.Trace(err)
 	}
 
-	ver := coreagentbinary.Version{
-		Arch:   vers.Arch,
-		Number: vers.Number,
+	arch, converted := domainagentbinary.ArchitectureFromString(vers.Arch)
+	if !converted {
+		return nil, 0, internalerrors.Errorf("invalid architecture %q", vers.Arch)
+	}
+
+	ver := domainagentbinary.Version{
+		Architecture: arch,
+		Number:       vers.Number,
 	}
 	ctx := r.Context()
 	agentBinaryService := ds.AgentBinary()
-	agentBinaryStream, size, err := agentBinaryService.GetAgentBinary(ctx, ver)
+	agentBinaryStream, size, err := agentBinaryService.GetAgentBinaryForVersion(ctx, ver)
 	// Fallback to the controller agent binary store.
 	if errors.Is(err, agentbinaryerrors.NotFound) || agentBinaryStream == nil {
-		agentBinaryStream, size, _, err = agentBinaryService.GetExternalAgentBinary(ctx, ver)
+		agentBinaryStream, size, err = agentBinaryService.GetAndCacheExternalAgentBinary(ctx, ver)
 		if err != nil {
 			return nil, 0, internalerrors.Errorf(
-				"getting agent binary stream from external agent binary store for ver %q: %w", ver.String(), err)
+				"getting agent binary version %q and architecture %q from external source: %w",
+				ver.Number.String(), ver.Architecture.String(), err,
+			)
 		}
 	}
 	if err != nil {
 		return nil, 0, internalerrors.Errorf(
-			"getting agent binary stream from model agent binary service for ver %q: %w", ver.String(), err)
+			"getting agent binary version %q and architecture %q from external source: %w",
+			ver.Number.String(), ver.Architecture.String(), err,
+		)
 	}
 
 	return agentBinaryStream, size, nil
@@ -343,9 +353,18 @@ func (h *toolsUploadHandler) processPost(r *http.Request) (tools.Tools, error) {
 		).Add(coreerrors.BadRequest)
 	}
 
-	agentBinaryVersion := coreagentbinary.Version{
-		Number: parsedBinaryVersion.Number,
-		Arch:   parsedBinaryVersion.Arch,
+	arch, converted := domainagentbinary.ArchitectureFromString(
+		parsedBinaryVersion.Arch,
+	)
+	if !converted {
+		return tools.Tools{}, internalerrors.Errorf(
+			"invalid architecture %q", parsedBinaryVersion.Arch,
+		).Add(coreerrors.BadRequest)
+	}
+
+	agentBinaryVersion := domainagentbinary.Version{
+		Architecture: arch,
+		Number:       parsedBinaryVersion.Number,
 	}
 
 	// Make sure the content type is x-tar-gz.
@@ -394,7 +413,7 @@ func (h *toolsUploadHandler) handleUpload(
 	ctx context.Context,
 	r io.Reader,
 	agentBinaryStore AgentBinaryStore,
-	agentBinaryVersion coreagentbinary.Version,
+	agentBinaryVersion domainagentbinary.Version,
 ) (int64, string, error) {
 	blockChecker, err := h.blockCheckerGetter(ctx)
 	if err != nil {
@@ -426,7 +445,7 @@ func (h *toolsUploadHandler) handleUpload(
 	logger.Debugf(
 		ctx,
 		"uploading agent binaries for version %q and arch %q to agent binary store",
-		agentBinaryVersion.Number.String(), agentBinaryVersion.Arch,
+		agentBinaryVersion.Number.String(), agentBinaryVersion.Architecture.String(),
 	)
 
 	err = agentBinaryStore.AddAgentBinaryWithSHA256(
@@ -441,7 +460,7 @@ func (h *toolsUploadHandler) handleUpload(
 	// Happens when the agent binary version architecture isn't supported.
 	case errors.Is(err, coreerrors.NotSupported):
 		err = internalerrors.Errorf(
-			"unsupported architecture %q", agentBinaryVersion.Arch,
+			"unsupported architecture %q", agentBinaryVersion.Architecture.String(),
 		).Add(coreerrors.BadRequest)
 	// Happens when the agent binary version being uploaded for already exists.
 	// We never want to allow someone to overwrite an established agent binary
@@ -449,14 +468,14 @@ func (h *toolsUploadHandler) handleUpload(
 	case errors.Is(err, agentbinaryerrors.AlreadyExists):
 		err = internalerrors.Errorf(
 			"agent binary already exists for version %q and arch %q",
-			agentBinaryVersion.Number, agentBinaryVersion.Arch,
+			agentBinaryVersion.Number, agentBinaryVersion.Architecture.String(),
 		).Add(coreerrors.BadRequest)
 	// Unknown error. This case is considered an internal server error unrelated
 	// to any bad or missing infomration in the upload request.
 	case err != nil:
 		err = internalerrors.Errorf(
 			"unable to add uploaded agent binary for version %q and arch %q: %w",
-			agentBinaryVersion.Number, agentBinaryVersion.Arch, err,
+			agentBinaryVersion.Number, agentBinaryVersion.Architecture.String(), err,
 		)
 	}
 

@@ -21,12 +21,12 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/agentbinary"
-	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
@@ -213,19 +213,14 @@ type toolsFinder struct {
 	agentBinaryService AgentBinaryService
 }
 
-// AgentBinaryService is an interface for getting the
-// EnvironAgentBinariesFinder function.
+// AgentBinaryService is an interface for getting the available agent binaries
+// within a controller.
 type AgentBinaryService interface {
-	// GetEnvironAgentBinariesFinder returns the function to find agent binaries.
-	// This is used to find the agent binaries.
-	GetEnvironAgentBinariesFinder() agentbinaryservice.EnvironAgentBinariesFinderFunc
-
-	// ListAgentBinaries lists all agent binaries in the controller and model stores.
-	// It merges the two lists of agent binaries, with the model agent binaries
-	// taking precedence over the controller agent binaries.
-	// It returns a slice of agent binary metadata. The order of the metadata is not guaranteed.
-	// An empty slice is returned if no agent binaries are found.
-	ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error)
+	// GetAvailableAgentBinaryiesForVersion returns a list of all agent binaries
+	// available for the specified version across all architectures supported.
+	GetAvailableAgentBinaryiesForVersion(
+		context.Context, semversion.Number,
+	) ([]domainagentbinary.AgentBinary, error)
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
@@ -271,114 +266,29 @@ func (f *toolsFinder) FindAgents(ctx context.Context, args FindAgentsParams) (co
 // matching the given parameters.
 // If an exact match is specified (number, ostype and arch) and is found in
 // agent storage, then simplestreams will not be searched.
-func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsParams) (result coretools.List, _ error) {
-	exactMatch := args.Number != semversion.Zero && args.OSType != "" && args.Arch != ""
-
-	storageList, err := f.matchingStorageAgent(ctx, args)
-	if err != nil && err != coretools.ErrNoMatches {
-		return nil, err
-	}
-	if len(storageList) > 0 && exactMatch {
-		return storageList, nil
-	}
-
-	// Look for tools in simplestreams too, but don't replace
-	// any versions found in storage.
-	filter := toolsFilter(args)
-	majorVersion := args.Number.Major
-	minorVersion := args.Number.Minor
-	if args.Number == semversion.Zero {
-		majorVersion = args.MajorVersion
-		minorVersion = args.MinorVersion
-	}
-	environAgentBinariesFinder := f.agentBinaryService.GetEnvironAgentBinariesFinder()
-	simplestreamsList, err := environAgentBinariesFinder(
-		ctx,
-		majorVersion, minorVersion,
-		args.Number,
-		args.AgentStream,
-		filter,
+func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsParams) (coretools.List, error) {
+	agentBinaries, err := f.agentBinaryService.GetAvailableAgentBinaryiesForVersion(
+		ctx, args.Number,
 	)
-	if err != nil && len(storageList) == 0 {
-		return nil, err
-	}
-
-	list := storageList
-	found := make(map[semversion.Binary]bool)
-	for _, tools := range storageList {
-		found[tools.Version] = true
-	}
-	for _, tools := range simplestreamsList {
-		if !found[tools.Version] {
-			list = append(list, tools)
-		}
-	}
-	sort.Sort(list)
-	return list, nil
-}
-
-// matchingStorageAgent returns a coretools.List, with an entry for each
-// metadata entry in the agent storage that matches the given parameters.
-func (f *toolsFinder) matchingStorageAgent(ctx context.Context, args FindAgentsParams) (coretools.List, error) {
-	allMetadata, err := f.agentBinaryService.ListAgentBinaries(ctx)
 	if err != nil {
-		return nil, err
+		return nil, internalerrors.Errorf(
+			"getting available agent binaries: %w", err,
+		)
 	}
-	list := make(coretools.List, len(allMetadata))
-	for i, m := range allMetadata {
-		ver, err := semversion.Parse(m.Version)
-		if err != nil {
-			return nil, errors.Errorf(
-				"unexpected bad version %q of agent binary in storage: %w",
-				m.Version, err,
-			)
-		}
-		binVer := semversion.Binary{
-			Number:  ver,
-			Arch:    m.Arch,
-			Release: "ubuntu",
-		}
-		list[i] = &coretools.Tools{
-			Version: binVer,
-			Size:    m.Size,
-			SHA256:  m.SHA256,
-		}
-	}
-	list, err = list.Match(toolsFilter(args))
-	if err != nil {
-		return nil, err
-	}
-	// Return early if we are doing an exact match.
-	if args.Number != semversion.Zero {
-		if len(list) == 0 {
-			return nil, coretools.ErrNoMatches
-		}
-		return list, nil
-	}
-	// At this point, we are matching just on major or minor version
-	// rather than an exact match.
-	var matching coretools.List
-	for _, tools := range list {
-		if tools.Version.Major != args.MajorVersion {
-			continue
-		}
-		if args.MinorVersion > 0 && tools.Version.Minor != args.MinorVersion {
-			continue
-		}
-		matching = append(matching, tools)
-	}
-	if len(matching) == 0 {
-		return nil, coretools.ErrNoMatches
-	}
-	return matching, nil
-}
 
-func toolsFilter(args FindAgentsParams) coretools.Filter {
-	return coretools.Filter{
-		Number: args.Number,
-		Arch:   args.Arch,
-		OSType: args.OSType,
+	retVal := make(coretools.List, 0, len(agentBinaries))
+	for _, ab := range agentBinaries {
+		retVal = append(retVal, &coretools.Tools{
+			Version: semversion.Binary{
+				// TODO: tlm add missing fields
+				Number: ab.Version,
+				Arch:   ab.Architecture.String(),
+			},
+		})
 	}
+
+	sort.Sort(retVal)
+	return retVal, nil
 }
 
 type toolsURLGetter struct {
