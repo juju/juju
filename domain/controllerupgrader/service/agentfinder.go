@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/domain/agentbinary"
 	domainagentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
 	internaltools "github.com/juju/juju/internal/tools"
@@ -21,13 +20,6 @@ import (
 // AgentFinderControllerState defines the interface for interacting with the
 // controller state.
 type AgentFinderControllerState interface {
-	// GetAllAgentStoreBinariesForStream returns all agent binaries that are
-	// available in the controller store for a given stream. If no agent
-	// binaries exist for the stream, an empty slice is returned.
-	GetAllAgentStoreBinariesForStream(
-		ctx context.Context, stream agentbinary.Stream,
-	) ([]agentbinary.AgentBinary, error)
-
 	// GetControllerTargetVersion returns the target controller version in use by the
 	// cluster.
 	GetControllerTargetVersion(ctx context.Context) (semversion.Number, error)
@@ -86,66 +78,14 @@ type AgentBinaryFilterFunc func(
 	filter internaltools.Filter,
 ) (internaltools.List, error)
 
-type GetProviderFunc func(ctx context.Context) (environs.BootstrapEnviron, error)
-
-// SimpleStreamsAgentFinder provides helper methods for fetching
-// the binaries from simplestreams. This abstraction helps us mock the dependencies in tests.
-type SimpleStreamsAgentFinder interface {
-	// AgentBinaryFilter filters agent binaries based on the given parameters.
-	// It returns a list of agent binaries that match the filter criteria.
-	AgentBinaryFilter(
-		ctx context.Context,
-		ss envtools.SimplestreamsFetcher,
-		env environs.BootstrapEnviron,
-		majorVersion,
-		minorVersion int,
-		streams []string,
-		filter internaltools.Filter,
-	) (internaltools.List, error)
-
-	GetProvider(ctx context.Context) (environs.BootstrapEnviron, error)
-}
-
-// AgentFinder is a wrapper to expose helper functions for fetching
-// the binaries from simplestreams. It conforms to [SimpleStreamsAgentFinder].
-type AgentFinder struct {
-	GetPreferredSimpleStreamsFn GetPreferredSimpleStreamsFunc
-	AgentBinaryFilterFn         AgentBinaryFilterFunc
-	GetProviderFn               GetProviderFunc
-}
-
-// NewAgentFinder returns a new AgentFinder that exposes helper methods.
-func NewAgentFinder(
-	getPreferredSimpleStreamsFn GetPreferredSimpleStreamsFunc,
-	agentBinaryFilterFn AgentBinaryFilterFunc,
-	getProviderFn GetProviderFunc,
-) *AgentFinder {
-	return &AgentFinder{
-		GetPreferredSimpleStreamsFn: getPreferredSimpleStreamsFn,
-		AgentBinaryFilterFn:         agentBinaryFilterFn,
-		GetProviderFn:               getProviderFn,
-	}
-}
-
-// AgentBinaryFilter returns the agents from the provided streams that match the
-// supplied major and minor versions. It further narrows the results using the given filter.
-func (a AgentFinder) AgentBinaryFilter(
-	ctx context.Context, ss envtools.SimplestreamsFetcher, env environs.BootstrapEnviron, majorVersion, minorVersion int, streams []string, filter internaltools.Filter) (internaltools.List, error) {
-	return a.AgentBinaryFilterFn(ctx, ss, env, majorVersion, minorVersion, streams, filter)
-}
-
-// GetProvider returns a provider.
-func (a AgentFinder) GetProvider(ctx context.Context) (environs.BootstrapEnviron, error) {
-	return a.GetProviderFn(ctx)
-}
-
 // StreamAgentBinaryFinder exposes helper methods for fetching
 // the binaries from simplestreams.
 type StreamAgentBinaryFinder struct {
 	ctrlSt  AgentFinderControllerState
 	modelSt AgentFinderControllerModelState
 
-	agentFinder SimpleStreamsAgentFinder
+	controllerStore   AgentBinaryQuerierStore
+	simplestreamStore AgentBinaryQuerierStore
 }
 
 // NewStreamAgentBinaryFinder returns a new StreamAgentBinaryFinder to assist
@@ -153,138 +93,15 @@ type StreamAgentBinaryFinder struct {
 func NewStreamAgentBinaryFinder(
 	ctrlSt AgentFinderControllerState,
 	modelSt AgentFinderControllerModelState,
-	agentFinder SimpleStreamsAgentFinder,
+	controllerStore AgentBinaryQuerierStore,
+	simplestreamStore AgentBinaryQuerierStore,
 ) *StreamAgentBinaryFinder {
 	return &StreamAgentBinaryFinder{
-		ctrlSt:      ctrlSt,
-		modelSt:     modelSt,
-		agentFinder: agentFinder,
+		ctrlSt:            ctrlSt,
+		modelSt:           modelSt,
+		controllerStore:   controllerStore,
+		simplestreamStore: simplestreamStore,
 	}
-}
-
-// getSimpleStreamsPatchVersionsForController returns a slice of
-// [agentbinary.AgentBinary]s that are available from simple streams that share
-// the the same major and minor version as that of the supplied version.
-func (a *StreamAgentBinaryFinder) getSimpleStreamsPatchVersions(
-	ctx context.Context,
-	version semversion.Number,
-	stream agentbinary.Stream,
-) ([]agentbinary.AgentBinary, error) {
-	provider, err := a.agentFinder.GetProvider(ctx)
-	if errors.Is(err, coreerrors.NotSupported) {
-		return nil, errors.Errorf(
-			"environ provider does not support simple streams",
-		).Add(coreerrors.NotSupported)
-	} else if err != nil {
-		return nil, errors.Errorf(
-			"getting environ provider for use with simple streams: %w", err,
-		)
-	}
-
-	ssFetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	tools, err := a.agentFinder.AgentBinaryFilter(
-		ctx,
-		ssFetcher,
-		provider,
-		version.Major,
-		version.Minor,
-		[]string{stream.String()},
-		internaltools.Filter{},
-	)
-	// If no tools exists in simple streams this is not an error.
-	if err != nil && !errors.Is(err, internaltools.ErrNoMatches) {
-		return nil, errors.Errorf(
-			"getting simple streams agent binary patch versions for controller: %w",
-			err,
-		)
-	}
-
-	retVal := make([]agentbinary.AgentBinary, 0, len(tools))
-	for _, tool := range tools {
-		if tool == nil {
-			// The [internaltools.List] may contain nil pointers.
-			continue
-		}
-
-		arch, converted := agentbinary.ArchitectureFromString(tool.Version.Arch)
-		if !converted {
-			// If we don't understand the architecture this result is thrown
-			// away.
-			continue
-		}
-
-		retVal = append(retVal, agentbinary.AgentBinary{
-			Architecture: arch,
-			Version:      tool.Version.Number,
-			Stream:       stream,
-		})
-	}
-
-	return retVal, nil
-}
-
-// getSimpleStreamsAgentBinariesForVersionStream consults simplestreams for all
-// agent binary versions that exist for a given version and stream. If no agent
-// binaries exist, an empty slice is returned.
-func (a *StreamAgentBinaryFinder) getSimpleStreamsAgentBinariesForVersionStream(
-	ctx context.Context,
-	version semversion.Number,
-	stream agentbinary.Stream,
-) ([]agentbinary.AgentBinary, error) {
-	provider, err := a.agentFinder.GetProvider(ctx)
-	if errors.Is(err, coreerrors.NotSupported) {
-		return nil, errors.Errorf(
-			"environ provider does not support simple streams",
-		).Add(coreerrors.NotSupported)
-	} else if err != nil {
-		return nil, errors.Errorf(
-			"getting environ provider for use with simple streams: %w", err,
-		)
-	}
-
-	ssFetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	tools, err := a.agentFinder.AgentBinaryFilter(
-		ctx,
-		ssFetcher,
-		provider,
-		version.Major,
-		version.Minor,
-		[]string{stream.String()},
-		internaltools.Filter{
-			Number: version,
-		},
-	)
-
-	// If no tools exists in simple streams this is not an error.
-	if err != nil && !errors.Is(err, internaltools.ErrNoMatches) {
-		return nil, errors.Errorf(
-			"getting simple streams agent binary patch versions for controller: %w",
-			err,
-		)
-	}
-
-	retVal := make([]agentbinary.AgentBinary, 0, len(tools))
-	for _, tool := range tools {
-		if tool == nil {
-			// The [internaltools.List] may contain nil pointers.
-			continue
-		}
-
-		arch, converted := agentbinary.ArchitectureFromString(tool.Version.Arch)
-		if !converted {
-			// If we don't understand the architecture this result is thrown
-			// away.
-			continue
-		}
-
-		retVal = append(retVal, agentbinary.AgentBinary{
-			Architecture: arch,
-			Version:      tool.Version.Number,
-			Stream:       stream,
-		})
-	}
-
-	return retVal, nil
 }
 
 // HasBinariesForVersionAndArchitectures returns true if agent binaries exist
@@ -362,9 +179,7 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 		return true, nil
 	}
 
-	controllerBinaries, err := a.ctrlSt.GetAllAgentStoreBinariesForStream(
-		ctx, stream,
-	)
+	controllerBinaries, err := a.controllerStore.GetAvailableForVersionInStream(ctx, version, stream)
 	if err != nil {
 		return false, errors.Errorf(
 			"getting available agent binaries in the controller's object store for stream %q: %w",
@@ -372,11 +187,6 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 		)
 	}
 
-	// Filter out all agent binaries which are not for the version we care
-	// about.
-	controllerBinaries = slices.DeleteFunc(
-		controllerBinaries, agentbinary.AgentBinaryNotMatchingVersion(version),
-	)
 	foundArchs = slices.AppendSeq(
 		foundArchs,
 		agentbinary.AgentBinaryArchitectures(controllerBinaries),
@@ -387,8 +197,10 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 		return true, nil
 	}
 
-	ssBinaries, err := a.getSimpleStreamsAgentBinariesForVersionStream(
-		ctx, version, stream,
+	ssBinaries, err := a.simplestreamStore.GetAvailableForVersionInStream(
+		ctx,
+		version,
+		stream,
 	)
 	if err != nil {
 		return false, errors.Errorf(
@@ -426,17 +238,6 @@ func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailable(
 	return a.GetHighestPatchVersionAvailableForStream(ctx, stream)
 }
 
-// removeNonPatchVersions returns a helper func that can be used with
-// [slices.DeleteFunc] for removing all [agentbinary.AgentBinary]s from a slice
-// are not for a patch version of the supplied [semversion.Number].
-func removeNonPatchVersions(
-	v semversion.Number,
-) func(agentbinary.AgentBinary) bool {
-	return func(a agentbinary.AgentBinary) bool {
-		return a.Version.Major != v.Major || a.Version.Minor != v.Minor
-	}
-}
-
 // GetHighestPatchVersionAvailableForStream returns the highest patch version
 // available in the current stream relative to the controllers current version.
 //
@@ -460,18 +261,23 @@ func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailableForStream(
 		)
 	}
 
-	storeBinaries, err := a.ctrlSt.GetAllAgentStoreBinariesForStream(ctx, stream)
+	storeBinaries, err := a.controllerStore.GetAvailablePatchVersionsInStream(
+		ctx,
+		ctrlVersion,
+		stream,
+	)
 	if err != nil {
 		return semversion.Zero, errors.Errorf(
-			"getting all controller agent store binaries for stream %q: %w",
+			"getting available controller agent store patch versions for stream %q: %w",
 			stream.String(), err,
 		)
 	}
-	storeBinaries = slices.DeleteFunc(
-		storeBinaries, removeNonPatchVersions(ctrlVersion),
-	)
 
-	ssBinaries, err := a.getSimpleStreamsPatchVersions(ctx, ctrlVersion, stream)
+	ssBinaries, err := a.simplestreamStore.GetAvailablePatchVersionsInStream(
+		ctx,
+		ctrlVersion,
+		stream,
+	)
 	if err != nil {
 		return semversion.Zero, errors.Errorf(
 			"getting available simplestream patch versions for controller: %w",
