@@ -15,9 +15,6 @@ run_expose_app_ec2() {
 	# Ensure that CIDRs are correctly generated
 	assert_ingress_cidrs_for_exposed_app
 
-	# Ensure that the per-endpoint rules are included in exported bundles
-	assert_export_bundle_output_includes_exposed_endpoints
-
 	destroy_model "expose-app"
 }
 
@@ -63,18 +60,6 @@ assert_ingress_cidrs_for_exposed_app() {
 	# Port 1234 should only be opened for the CIDR specified for the ubuntu endpoint
 	wait_for_aws_ingress_cidrs_for_port_range "1234" "1234" "10.42.0.0/16" "ipv4"
 	wait_for_aws_ingress_cidrs_for_port_range "1234" "1234" "2002:0:0:1234::/64" "ipv6"
-}
-
-assert_export_bundle_output_includes_exposed_endpoints() {
-
-	echo "==> Checking that export-bundle output contains the exposed endpoint settings"
-
-	# TODO(gfouillet) - recover from 3.6, delete whenever export bundle is restored or deleted
-	got=$(juju export-bundle 2>&1 1>/dev/null)
-	if [[ $got != *"not implemented"* ]]; then
-		echo "ERROR: export-bundle should return 'not implemented'."
-		exit 1
-	fi
 }
 
 test_expose_app_ec2() {
