@@ -179,14 +179,14 @@ func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
 	c.Check(unitArgs, tc.DeepEquals, expected)
 }
 
-func (s *unitServiceSuite) TestUpdateCAASUnitNotAlive(c *tc.C) {
+func (s *unitServiceSuite) TestUpdateCAASUnitIsDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := tc.Must(c, coreapplication.NewUUID)
-	s.state.EXPECT().GetApplicationLifeByName(gomock.Any(), "foo").Return(id, life.Dying, nil)
+	s.state.EXPECT().GetApplicationLifeByName(gomock.Any(), "foo").Return(id, life.Dead, nil)
 
 	err := s.service.UpdateCAASUnit(c.Context(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
 func (s *unitServiceSuite) TestGetUnitRefreshAttributes(c *tc.C) {
