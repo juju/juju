@@ -294,7 +294,11 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 		ChangeMask: changestream.All,
 		Namespace:  "test_namespace",
 	}
-	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher)
+	matcher2 := eventSourceFilterMatcher{
+		ChangeMask: changestream.All,
+		Namespace:  "test_namespace_2",
+	}
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher, matcher2)
 
 	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchModelProvisionedFilesystems(c.Context())
@@ -372,13 +376,17 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().InitialWatchStatementModelProvisionedFilesystemAttachments().Return(
-		"test_namespace", namespaceQueryReturningError(c.T),
+		"test_namespace", "test_namespace_2", namespaceQueryReturningError(c.T),
 	)
 	matcher := eventSourceFilterMatcher{
 		ChangeMask: changestream.All,
 		Namespace:  "test_namespace",
 	}
-	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher)
+	matcher2 := eventSourceFilterMatcher{
+		ChangeMask: changestream.All,
+		Namespace:  "test_namespace_2",
+	}
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher, matcher2)
 
 	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchModelProvisionedFilesystemAttachments(c.Context())
