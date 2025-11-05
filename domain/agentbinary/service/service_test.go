@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/hex"
 	"io"
 	"strings"
@@ -439,8 +438,6 @@ func (s *serviceSuite) TestGetAndCacheExternalAgentBinary(c *tc.C) {
 	extSize := int64(len(extPayload))
 	extHash256Raw := sha256.Sum256(extPayload)
 	extHash256 := hex.EncodeToString(extHash256Raw[:])
-	extHash384Raw := sha512.Sum384(extPayload)
-	extHash384 := hex.EncodeToString(extHash384Raw[:])
 	extReader := io.NopCloser(bytes.NewReader(extPayload))
 
 	stateExp := s.state.EXPECT()
@@ -457,8 +454,8 @@ func (s *serviceSuite) TestGetAndCacheExternalAgentBinary(c *tc.C) {
 	var capturedStream io.Reader
 
 	baseStoreExp := s.baseStore.EXPECT()
-	baseStoreExp.AddAgentBinaryWithSHA384(
-		gomock.Any(), gomock.Any(), ver, extSize, extHash384,
+	baseStoreExp.AddAgentBinaryWithSHA256(
+		gomock.Any(), gomock.Any(), ver, extSize, extHash256,
 	).DoAndReturn(func(
 		_ context.Context,
 		s io.Reader,
@@ -472,7 +469,7 @@ func (s *serviceSuite) TestGetAndCacheExternalAgentBinary(c *tc.C) {
 		capturedStream = &copyStream
 		return nil
 	})
-	baseStoreExp.GetAgentBinaryForSHA384(gomock.Any(), extHash384).DoAndReturn(
+	baseStoreExp.GetAgentBinaryForSHA256(gomock.Any(), extHash256).DoAndReturn(
 		func(context.Context, string) (io.ReadCloser, int64, error) {
 			return io.NopCloser(capturedStream), extSize, nil
 		},
