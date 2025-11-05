@@ -185,6 +185,12 @@ func (st *State) DeleteRelationWithRemoteConsumer(ctx context.Context, rUUID str
 
 	remoteRelationUUID := entityUUID{UUID: rUUID}
 
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.deleteRelationWithRemoteConsumer(ctx, tx, remoteRelationUUID)
+	}))
+}
+
+func (st *State) deleteRelationWithRemoteConsumer(ctx context.Context, tx *sqlair.TX, remoteRelationUUID entityUUID) error {
 	getSyntheticAppUUIDStmt, err := st.Prepare(`
 SELECT a.uuid AS &entityUUID.uuid
 FROM   relation AS r
@@ -201,58 +207,56 @@ AND    cs.name = 'cmr'`, remoteRelationUUID)
 
 	deleteRelationNetworkIngressStmt, err := st.Prepare(`
 DELETE FROM relation_network_ingress
-WHERE  relation_uuid = $entityUUID.uuid`, entityUUID{})
+WHERE  relation_uuid = $entityUUID.uuid`, remoteRelationUUID)
 	if err != nil {
 		return errors.Errorf("preparing relation network egress deletion: %w", err)
+	}
+
+	deleteRemoteApplicationConsumerStmt, err := st.Prepare(`
+DELETE FROM application_remote_consumer
+WHERE offer_connection_uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing delete remote application consumer query: %w", err)
 	}
 
 	deleteOfferConnectionStmt, err := st.Prepare(`
 DELETE FROM offer_connection
 WHERE remote_relation_uuid = $entityUUID.uuid
-`, entityUUID{})
+`, remoteRelationUUID)
 	if err != nil {
 		return errors.Errorf("preparing offer connection deletion: %w", err)
 	}
 
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var synthAppUUID entityUUID
-		err = tx.Query(ctx, getSyntheticAppUUIDStmt, remoteRelationUUID).Get(&synthAppUUID)
-		if err != nil {
-			return errors.Errorf("getting application UUID: %w", err)
-		}
+	var synthAppUUID entityUUID
+	err = tx.Query(ctx, getSyntheticAppUUIDStmt, remoteRelationUUID).Get(&synthAppUUID)
+	if err != nil {
+		return errors.Errorf("getting application UUID: %w", err)
+	}
 
-		err = tx.Query(ctx, deleteRelationNetworkIngressStmt, remoteRelationUUID).Run()
-		if err != nil {
-			return errors.Errorf("running relation network egress deletion: %w", err)
-		}
+	err = tx.Query(ctx, deleteRelationNetworkIngressStmt, remoteRelationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation network egress deletion: %w", err)
+	}
 
-		deleteRemoteApplicationConsumerStmt, err := st.Prepare(`
-DELETE FROM application_remote_consumer
-WHERE offer_connection_uuid = $entityUUID.uuid
-`, synthAppUUID)
-		if err != nil {
-			return errors.Errorf("preparing delete remote application consumer query: %w", err)
-		}
+	err = tx.Query(ctx, deleteRemoteApplicationConsumerStmt, synthAppUUID).Run()
+	if err != nil {
+		return errors.Errorf("deleting synthetic application remote consumer: %w", err)
+	}
 
-		err = tx.Query(ctx, deleteRemoteApplicationConsumerStmt, synthAppUUID).Run()
-		if err != nil {
-			return errors.Errorf("deleting synthetic application remote consumer: %w", err)
-		}
+	err = tx.Query(ctx, deleteOfferConnectionStmt, remoteRelationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running offer connection deletion: %w", err)
+	}
 
-		err = tx.Query(ctx, deleteOfferConnectionStmt, remoteRelationUUID).Run()
-		if err != nil {
-			return errors.Errorf("running offer connection deletion: %w", err)
-		}
+	err = st.deleteRelation(ctx, tx, remoteRelationUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
 
-		err = st.deleteRelation(ctx, tx, remoteRelationUUID)
-		if err != nil {
-			return errors.Capture(err)
-		}
+	if err := st.deleteSynthApplication(ctx, tx, synthAppUUID); err != nil {
+		return errors.Errorf("deleting synthetic application: %w", err)
+	}
 
-		if err := st.deleteSynthApplication(ctx, tx, synthAppUUID); err != nil {
-			return errors.Errorf("deleting synthetic application: %w", err)
-		}
-
-		return nil
-	}))
+	return nil
 }
