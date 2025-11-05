@@ -3318,8 +3318,10 @@ WHERE  endpoint_uuid = $Endpoint.application_endpoint_uuid`, rows{}, ep)
 		return errors.Errorf("querying relation linked to endpoint %q: %w", ep, err)
 	}
 	if ep.Capacity > 0 && found.Count >= ep.Capacity {
-		return errors.Errorf("establishing a new relation for %s would exceed its maximum relation limit of %d", ep,
-			ep.Capacity).Add(relationerrors.EndpointQuotaLimitExceeded)
+		if ep.Capacity == 1 {
+			return errors.Errorf("only one relation allowed").Add(relationerrors.EndpointQuotaLimitExceeded)
+		}
+		return errors.Errorf("endpoint has reached its maximum relation limit of %d", ep.Capacity).Add(relationerrors.EndpointQuotaLimitExceeded)
 	}
 
 	return nil
