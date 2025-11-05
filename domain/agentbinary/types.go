@@ -144,6 +144,15 @@ func ArchitectureFromString(a string) (Architecture, bool) {
 	}
 }
 
+// IsValid returns true if the [Architecture] is a supported.
+func (a Architecture) IsValid() bool {
+	switch a {
+	case AMD64, ARM64, PPC64EL, S390X, RISCV64:
+		return true
+	}
+	return false
+}
+
 // String returns the primitive string values for [Architecture].
 func (a Architecture) String() string {
 	switch a {
