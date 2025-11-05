@@ -10,6 +10,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
@@ -178,15 +179,15 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	relKey := tc.Must1(c, relation.NewKeyFromString, "mediawkik:server mysql:database")
+	relTag := names.NewRelationTag(relKey.String())
 	relKey2 := tc.Must1(c, relation.NewKeyFromString, "wordpress:server mysql:database")
+	relTag2 := names.NewRelationTag(relKey2.String())
 	s.crossModelRelationService.EXPECT().IsCrossModelRelationValidForApplication(gomock.Any(), relKey, "mediawiki").Return(true, nil)
 	s.crossModelRelationService.EXPECT().IsCrossModelRelationValidForApplication(gomock.Any(), relKey2, "wordpress").Return(true, nil)
-	s.authenticator.EXPECT().CheckOfferMacaroons(
-		gomock.Any(), s.modelUUID.String(), offerUUID.String(), macaroon.Slice{mac.M()}, bakery.LatestVersion).
-		Return(nil, nil)
-	s.authenticator.EXPECT().CheckOfferMacaroons(
-		gomock.Any(), s.modelUUID.String(), offerUUID.String(), macaroon.Slice{mac2.M()}, bakery.LatestVersion).
-		Return(nil, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(
+		gomock.Any(), s.modelUUID.String(), offerUUID.String(), relTag, macaroon.Slice{mac.M()}, bakery.LatestVersion)
+	s.authenticator.EXPECT().CheckRelationMacaroons(
+		gomock.Any(), s.modelUUID.String(), offerUUID.String(), relTag2, macaroon.Slice{mac2.M()}, bakery.LatestVersion)
 
 	s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, params secretbackendservice.BackendConfigParams) (*provider.ModelBackendConfigInfo, error) {

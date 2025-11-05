@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -263,7 +264,8 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(
 
 	// A cross model secret can only be accessed if the corresponding cross model relation
 	// it is scoped to is accessible by the supplied macaroon.
-	_, err = s.auth.Authenticator().CheckOfferMacaroons(ctx, s.modelUUID.String(), offerUUID, mac, version)
+	relationTag := names.NewRelationTag(key.String())
+	err = s.auth.Authenticator().CheckRelationMacaroons(ctx, s.modelUUID.String(), offerUUID, relationTag, mac, version)
 	return err
 }
 

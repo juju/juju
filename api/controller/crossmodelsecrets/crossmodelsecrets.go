@@ -270,6 +270,7 @@ func (c *Client) GetRemoteSecretContentInfo(
 			}
 			args.Args[0].Macaroons = mac
 			args.Args[0].BakeryVersion = bakery.LatestVersion
+			c.cache.Upsert(appUUID.String(), mac)
 			return false
 		},
 		Delay:    retryDelay,
