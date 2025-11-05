@@ -255,6 +255,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 			machineNetNodeUUID,
 			storageDirectives,
 			nil,
+			nil,
 		)
 		if err != nil {
 			return nil, errors.Errorf(
@@ -316,6 +317,7 @@ func (s *ProviderService) makeCAASUnitArgs(
 			ctx,
 			netNodeUUID,
 			storageDirectives,
+			nil,
 			nil,
 		)
 		if err != nil {
