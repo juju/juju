@@ -178,55 +178,19 @@ func (s *AgentBinaryService) GetAndCacheExternalAgentBinary(
 		}
 	}(extReader)
 
-	rSHA, shaCalc := computeSHA256andSHA384(extReader)
-	cacheR, err := newStrictCacher(rSHA, extSize)
-	if errors.Is(err, ErrorReaderDesync) {
-		// This error happens when the number of bytes reported by the external
-		// store does not match what was provided.
-		return nil, 0, errors.Errorf(
-			"agent binary received from external store did not match the expected number of bytes %d",
-			extSize,
-		)
-	} else if err != nil {
-		return nil, 0, errors.Errorf(
-			"caching agent binary from external store for processing: %w", err,
-		)
-	}
-
-	defer func() {
-		err := cacheR.Close()
-		if err != nil {
-			s.logger.Errorf(
-				ctx, "closing external agent binary store cache: %s", err.Error(),
-			)
-		}
-	}()
-
-	sha256Calc, sha384Calc := shaCalc()
-	if sha256Calc != extSHA256 {
-		return nil, 0, errors.Errorf(
-			"computed sha from external store does not match expected value",
-		).Add(domainagenterrors.HashMismatch)
-	}
-
-	// Add the external agent binary to our store for faster access next time.
-	err = s.putableAgentStore.AddAgentBinaryWithSHA384(
-		ctx, cacheR, ver, extSize, sha384Calc,
+	err = s.putableAgentStore.AddAgentBinaryWithSHA256(
+		ctx, extReader, ver, extSize, extSHA256,
 	)
-	if errors.Is(err, domainagenterrors.AlreadyExists) {
-		// This is fine, it means the effort was wasted but the end result has
-		// been achieved.
-		s.logger.Debugf(ctx, "external agent binary has already been cached in store")
-	} else if err != nil {
-		return nil, 0, errors.Errorf(
-			"storing external agent binary in store for caching: %w", err,
-		)
-	}
-
-	r, size, err := s.putableAgentStore.GetAgentBinaryForSHA384(ctx, sha384Calc)
 	if err != nil {
 		return nil, 0, errors.Errorf(
-			"retrieving agent binary from store after caching: %w", err,
+			"saving external agent binary in agent store: %w", err,
+		)
+	}
+
+	r, size, err := s.putableAgentStore.GetAgentBinaryForSHA256(ctx, extSHA256)
+	if err != nil {
+		return nil, 0, errors.Errorf(
+			"retrieving agent binary from store after saving: %w", err,
 		)
 	}
 
