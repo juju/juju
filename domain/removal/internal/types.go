@@ -243,6 +243,16 @@ type CascadedRelationWithRemoteOffererLives struct {
 	SyntheticRelationUnitUUIDs []string
 }
 
+// CascadedRelationWithRemoteConsumerLives contains identifiers for entities that
+// need to be removed along with the relations. Remote relations is somewhat of a
+// special case, since there exist synthetic units (i.e. without a uniter)
+// that need to be departed manually.
+type CascadedRelationWithRemoteConsumerLives struct {
+	// SyntheticRelationUnitUUIDs identify the relation units that need to be
+	// departed to remove the relation.
+	SyntheticRelationUnitUUIDs []string
+}
+
 // StorageAttachmentDetachInfo contains the information required to establish
 // if a storage attachment in the model can be detached.
 type StorageAttachmentDetachInfo struct {

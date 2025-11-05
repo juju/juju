@@ -361,7 +361,7 @@ func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 			Name: "foo",
 		}, nil)
 	s.removalService.EXPECT().
-		RemoveRelationWithRemoteOfferer(gomock.Any(), relationUUID, true, time.Duration(0)).
+		RemoveRelationWithRemoteConsumer(gomock.Any(), relationUUID, true, time.Duration(0)).
 		Return("", nil)
 
 	api := s.api(c)

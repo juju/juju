@@ -1260,41 +1260,41 @@ func (c *MockRemovalServiceLeaveScopeCall) DoAndReturn(f func(context.Context, r
 	return c
 }
 
-// RemoveRelationWithRemoteOfferer mocks base method.
-func (m *MockRemovalService) RemoveRelationWithRemoteOfferer(arg0 context.Context, arg1 relation.UUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
+// RemoveRelationWithRemoteConsumer mocks base method.
+func (m *MockRemovalService) RemoveRelationWithRemoteConsumer(arg0 context.Context, arg1 relation.UUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveRelationWithRemoteOfferer", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "RemoveRelationWithRemoteConsumer", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(removal.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// RemoveRelationWithRemoteOfferer indicates an expected call of RemoveRelationWithRemoteOfferer.
-func (mr *MockRemovalServiceMockRecorder) RemoveRelationWithRemoteOfferer(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveRelationWithRemoteOffererCall {
+// RemoveRelationWithRemoteConsumer indicates an expected call of RemoveRelationWithRemoteConsumer.
+func (mr *MockRemovalServiceMockRecorder) RemoveRelationWithRemoteConsumer(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveRelationWithRemoteConsumerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRelationWithRemoteOfferer", reflect.TypeOf((*MockRemovalService)(nil).RemoveRelationWithRemoteOfferer), arg0, arg1, arg2, arg3)
-	return &MockRemovalServiceRemoveRelationWithRemoteOffererCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRelationWithRemoteConsumer", reflect.TypeOf((*MockRemovalService)(nil).RemoveRelationWithRemoteConsumer), arg0, arg1, arg2, arg3)
+	return &MockRemovalServiceRemoveRelationWithRemoteConsumerCall{Call: call}
 }
 
-// MockRemovalServiceRemoveRelationWithRemoteOffererCall wrap *gomock.Call
-type MockRemovalServiceRemoveRelationWithRemoteOffererCall struct {
+// MockRemovalServiceRemoveRelationWithRemoteConsumerCall wrap *gomock.Call
+type MockRemovalServiceRemoveRelationWithRemoteConsumerCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRemovalServiceRemoveRelationWithRemoteOffererCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveRelationWithRemoteOffererCall {
+func (c *MockRemovalServiceRemoveRelationWithRemoteConsumerCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveRelationWithRemoteConsumerCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemovalServiceRemoveRelationWithRemoteOffererCall) Do(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRelationWithRemoteOffererCall {
+func (c *MockRemovalServiceRemoveRelationWithRemoteConsumerCall) Do(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRelationWithRemoteConsumerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemovalServiceRemoveRelationWithRemoteOffererCall) DoAndReturn(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRelationWithRemoteOffererCall {
+func (c *MockRemovalServiceRemoveRelationWithRemoteConsumerCall) DoAndReturn(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRelationWithRemoteConsumerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

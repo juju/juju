@@ -17,29 +17,29 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// RelationWithRemoteOfferer describes retrieval and persistence
+// RelationWithRemoteConsumer describes retrieval and persistence
 // methods specific to remote relation removal.
-type RelationWithRemoteOfferer interface {
-	// RelationWithRemoteOffererExists returns true if a relation exists with
+type RelationWithRemoteConsumer interface {
+	// RelationWithRemoteConsumerExists returns true if a relation exists with
 	// the input UUID, and relates a synthetic application
-	RelationWithRemoteOffererExists(ctx context.Context, rUUID string) (bool, error)
+	RelationWithRemoteConsumerExists(ctx context.Context, rUUID string) (bool, error)
 
-	// EnsureRelationWithRemoteOffererNotAliveCascade ensures that the relation
+	// EnsureRelationWithRemoteConsumerNotAliveCascade ensures that the relation
 	// identified by the input UUID is not alive, and sets the synthetic units
 	// in scope of this relation to dead.
-	EnsureRelationWithRemoteOffererNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRelationWithRemoteOffererLives, error)
+	EnsureRelationWithRemoteConsumerNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRelationWithRemoteConsumerLives, error)
 
-	// RelationWithRemoteOffererScheduleRemoval schedules a removal job for the
+	// RelationWithRemoteConsumerScheduleRemoval schedules a removal job for the
 	// relation with the input UUID, qualified with the input force boolean.
-	RelationWithRemoteOffererScheduleRemoval(ctx context.Context, removalUUID, relUUID string, force bool, when time.Time) error
+	RelationWithRemoteConsumerScheduleRemoval(ctx context.Context, removalUUID, relUUID string, force bool, when time.Time) error
 
-	// DeleteRelationWithRemoteOfferer deletes a remote relation record under
+	// DeleteRelationWithRemoteConsumer deletes a remote relation record under
 	// and all it's and anything dependent upon it. This includes synthetic
 	// units.
-	DeleteRelationWithRemoteOfferer(ctx context.Context, rUUID string) error
+	DeleteRelationWithRemoteConsumer(ctx context.Context, rUUID string) error
 }
 
-// RemoveRelationWithRemoteOfferer checks if a relation with the input UUID exists.
+// RemoveRelationWithRemoteConsumer checks if a relation with the input UUID exists.
 // If it does, the relation is guaranteed after this call to be:
 // - No longer alive.
 // - Removed or scheduled to be removed with the input force qualification.
@@ -47,13 +47,13 @@ type RelationWithRemoteOfferer interface {
 // life-cycle advancement and removal to finish before forcefully removing the
 // remote application. This duration is ignored if the force argument is false.
 // The UUID for the scheduled removal job is returned.
-func (s *Service) RemoveRelationWithRemoteOfferer(
+func (s *Service) RemoveRelationWithRemoteConsumer(
 	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.modelState.RelationWithRemoteOffererExists(ctx, relUUID.String())
+	exists, err := s.modelState.RelationWithRemoteConsumerExists(ctx, relUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if remote relation %q exists: %w", relUUID, err)
 	}
@@ -61,7 +61,7 @@ func (s *Service) RemoveRelationWithRemoteOfferer(
 		return "", errors.Errorf("remote relation %q does not exist", relUUID).Add(relationerrors.RelationNotFound)
 	}
 
-	res, err := s.modelState.EnsureRelationWithRemoteOffererNotAliveCascade(ctx, relUUID.String())
+	res, err := s.modelState.EnsureRelationWithRemoteConsumerNotAliveCascade(ctx, relUUID.String())
 	if err != nil {
 		return "", errors.Errorf("setting remote relation %q to dying: %w", relUUID, err)
 	}
@@ -73,7 +73,7 @@ func (s *Service) RemoveRelationWithRemoteOfferer(
 			// schedule a normal removal job immediately. This will cause the
 			// earliest removal of the relation if the normal destruction
 			// workflows complete within the wait duration.
-			if _, err := s.relationWithRemoteOffererScheduleRemoval(ctx, relUUID, false, 0); err != nil {
+			if _, err := s.relationWithRemoteConsumerScheduleRemoval(ctx, relUUID, false, 0); err != nil {
 				return jUUID, errors.Capture(err)
 			}
 		}
@@ -84,14 +84,13 @@ func (s *Service) RemoveRelationWithRemoteOfferer(
 		}
 	}
 
-	jUUID, err = s.relationWithRemoteOffererScheduleRemoval(ctx, relUUID, force, wait)
+	jUUID, err = s.relationWithRemoteConsumerScheduleRemoval(ctx, relUUID, force, wait)
 	if err != nil {
 		return "", errors.Errorf("scheduling removal job for remote relation %q: %w", relUUID, err)
 	}
 
 	// Depart the synthetic units here ourselves, since synthetic units don't
 	// have their own uniter.
-	// TODO: This should ideally be handled in the same transaction as the cascade
 	for _, r := range res.SyntheticRelationUnitUUIDs {
 		if err := s.modelState.LeaveScope(ctx, r); err != nil {
 			return "", errors.Errorf("leaving scope for synthetic relation unit %q: %w", r, err)
@@ -101,7 +100,7 @@ func (s *Service) RemoveRelationWithRemoteOfferer(
 	return jUUID, nil
 }
 
-func (s *Service) relationWithRemoteOffererScheduleRemoval(
+func (s *Service) relationWithRemoteConsumerScheduleRemoval(
 	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()
@@ -109,7 +108,7 @@ func (s *Service) relationWithRemoteOffererScheduleRemoval(
 		return "", errors.Capture(err)
 	}
 
-	if err := s.modelState.RelationWithRemoteOffererScheduleRemoval(
+	if err := s.modelState.RelationWithRemoteConsumerScheduleRemoval(
 		ctx, jobUUID.String(), relUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
 		return "", errors.Errorf("scheduling remote relation %q for removal: %w", relUUID, err)
@@ -119,8 +118,8 @@ func (s *Service) relationWithRemoteOffererScheduleRemoval(
 	return jobUUID, nil
 }
 
-func (s *Service) processRelationWithRemoteOffererRemovalJob(ctx context.Context, job removal.Job) error {
-	if job.RemovalType != removal.RelationWithRemoteOffererJob {
+func (s *Service) processRelationWithRemoteConsumerRemovalJob(ctx context.Context, job removal.Job) error {
+	if job.RemovalType != removal.RelationWithRemoteConsumerJob {
 		return errors.Errorf("job type: %q not valid for remote relation removal", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotValid)
 	}
@@ -162,7 +161,7 @@ func (s *Service) processRelationWithRemoteOffererRemovalJob(ctx context.Context
 		}
 	}
 
-	if err := s.modelState.DeleteRelationWithRemoteOfferer(ctx, job.EntityUUID); err != nil {
+	if err := s.modelState.DeleteRelationWithRemoteConsumer(ctx, job.EntityUUID); err != nil {
 		return errors.Errorf("deleting remote relation %q: %w", job.EntityUUID, err)
 	}
 

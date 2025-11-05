@@ -462,8 +462,8 @@ func (s *baseSuite) createRemoteApplicationConsumer(
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	relationUUID := tc.Must(c, relation.NewUUID)
 	err := cmrState.AddConsumedRelation(c.Context(), name, crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		SynthApplicationUUID:        remoteAppUUID.String(),
-		ConsumerApplicationUUID:     appUUID.String(),
+		SynthApplicationUUID:        appUUID.String(),
+		ConsumerApplicationUUID:     remoteAppUUID.String(),
 		ConsumerApplicationEndpoint: "foo",
 		CharmUUID:                   tc.Must(c, uuid.NewUUID).String(),
 		Charm:                       ch,
@@ -530,6 +530,38 @@ func (s *baseSuite) createRelationWithRemoteOfferer(c *tc.C) (relation.UUID, cor
 	cmrState := crossmodelrelationstate.NewState(
 		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
 	)
+	err = cmrState.EnsureUnitsExist(c.Context(), synthAppUUID.String(), []string{"foo/0", "foo/1", "foo/2"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = relSvc.SetRelationRemoteApplicationAndUnitSettings(c.Context(), synthAppUUID, relUUID,
+		map[string]string{"do": "da"},
+		map[unit.Name]map[string]string{
+			unit.Name("foo/0"): {"do": "da"},
+			unit.Name("foo/1"): {"do": "da"},
+			unit.Name("foo/2"): {"do": "da"},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return relUUID, synthAppUUID
+}
+
+func (s *baseSuite) createRelationWithRemoteConsumer(c *tc.C) (relation.UUID, coreapplication.UUID) {
+	svc := s.setupApplicationService(c)
+	s.createIAASApplication(c, svc, "bar")
+	offerUUID := s.createOfferForApplication(c, "bar", "some-offer")
+	synthAppUUID, _ := s.createRemoteApplicationConsumer(c, "foo", offerUUID)
+
+	relSvc := s.setupRelationService(c)
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), domainrelation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{"foo:foo", "bar:bar"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrState := crossmodelrelationstate.NewState(
+		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	)
+
 	err = cmrState.EnsureUnitsExist(c.Context(), synthAppUUID.String(), []string{"foo/0", "foo/1", "foo/2"})
 	c.Assert(err, tc.ErrorIsNil)
 

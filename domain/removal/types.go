@@ -43,8 +43,12 @@ const (
 	// RemoteApplicationOffererJob indicates a job to remove a remote
 	// application offerer.
 	RemoteApplicationOffererJob
-	// RelationWithRemoteOffererJob indicates a job to remove a remote relation.
+	// RelationWithRemoteOffererJob indicates a job to remove a relation with
+	// a remote offerer.
 	RelationWithRemoteOffererJob
+	// RelationWithRemoteConsumerJob indicates a job to remove a relation with
+	// a remote consumer.
+	RelationWithRemoteConsumerJob
 )
 
 // String is used in logging output make job type identifiers readable.
@@ -79,6 +83,8 @@ func (t JobType) String() string {
 		return "remote application offerer"
 	case RelationWithRemoteOffererJob:
 		return "relation with remote offerer"
+	case RelationWithRemoteConsumerJob:
+		return "relation with remote consumer"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}
