@@ -23,6 +23,7 @@ vendor/
 .idea/
 *.pyc
 .vscode/
+.zed/
 juju-backup-*.tar.gz
 .editorconfig
 scripts/mgo-run-txn/mgo-run-txn
