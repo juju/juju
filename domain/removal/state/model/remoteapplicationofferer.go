@@ -323,6 +323,10 @@ WHERE  uuid = $entityUUID.uuid`, entityUUID{})
 		return errors.Errorf("getting charm UUID for application: %w", err)
 	}
 
+	if err := st.deleteOwnedSecretReferences(ctx, tx, synthApp); err != nil {
+		return errors.Errorf("deleting owned secret references for synthetic application: %w", err)
+	}
+
 	if err := st.deleteSynthUnitsForApplication(ctx, tx, synthApp); err != nil {
 		return errors.Errorf("deleting remote application offerer units: %w", err)
 	}

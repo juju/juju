@@ -316,3 +316,60 @@ func (st *State) prepareSecretDeletions() ([]*sqlair.Statement, []*sqlair.Statem
 
 	return rdStmts, sdStmts, nil
 }
+
+func (st *State) deleteOwnedSecretReferences(ctx context.Context, tx *sqlair.TX, appUUID entityUUID) error {
+	getConsumedSecretsStmt, err := st.Prepare(`
+SELECT &secretID.*
+FROM   secret_reference
+WHERE  owner_application_uuid = $entityUUID.uuid
+`, secretID{}, appUUID)
+	if err != nil {
+		return errors.Errorf("preparing consumed secrets query: %w", err)
+	}
+
+	deleteSecretUnitConsumerStmt, err := st.Prepare(`
+DELETE FROM secret_unit_consumer
+WHERE  secret_id IN ($secretIDs[:])
+`, secretIDs{})
+	if err != nil {
+		return errors.Errorf("preparing delete secret unit consumers query: %w", err)
+	}
+
+	deleteSecretReferencesStmt, err := st.Prepare(`
+DELETE FROM secret_reference
+WHERE  secret_id IN ($secretIDs[:])
+`, secretIDs{})
+	if err != nil {
+		return errors.Errorf("preparing delete secret references query: %w", err)
+	}
+
+	deleteSecretStmt, err := st.Prepare(`
+DELETE FROM secret
+WHERE  id IN ($secretIDs[:])
+`, secretIDs{})
+	if err != nil {
+		return errors.Errorf("preparing delete secrets query: %w", err)
+	}
+
+	var ids []secretID
+	if err := tx.Query(ctx, getConsumedSecretsStmt, appUUID).GetAll(&ids); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting consumed secrets: %w", err)
+	}
+	if len(ids) > 0 {
+		secretIDs := secretIDs(transform.Slice(ids, func(sid secretID) string { return sid.ID }))
+
+		if err := tx.Query(ctx, deleteSecretUnitConsumerStmt, secretIDs).Run(); err != nil {
+			return errors.Errorf("deleting consumed secret unit consumers: %w", err)
+		}
+
+		if err := tx.Query(ctx, deleteSecretReferencesStmt, appUUID).Run(); err != nil {
+			return errors.Errorf("deleting consumed secret references: %w", err)
+		}
+
+		if err := tx.Query(ctx, deleteSecretStmt, secretIDs).Run(); err != nil {
+			return errors.Errorf("deleting consumed secrets: %w", err)
+		}
+	}
+
+	return nil
+}
