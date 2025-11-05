@@ -445,7 +445,7 @@ func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *tc.C)
 func (s *addRelationSuite) TestAddRelationErrorCapacityExceededMessage(c *tc.C) {
 	// This test verifies that the error message for exceeding endpoint capacity
 	// is user-friendly and concise.
-	
+
 	// Test case 1: capacity limit of 1
 	relProvider := charm.Relation{
 		Name:  "replication",
@@ -488,7 +488,7 @@ func (s *addRelationSuite) TestAddRelationErrorCapacityExceededMessage(c *tc.C) 
 	c.Assert(err, tc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
 	// Assert error message is simplified and user-friendly
 	c.Check(err.Error(), tc.Matches, `.*only one relation allowed.*`)
-	
+
 	// Test case 2: capacity limit > 1
 	relProvider2 := charm.Relation{
 		Name:  "data",
@@ -498,7 +498,7 @@ func (s *addRelationSuite) TestAddRelationErrorCapacityExceededMessage(c *tc.C) 
 	}
 	appUUID4 := s.addApplication(c, "database")
 	s.addApplicationEndpointFromRelation(c, appUUID4, relProvider2)
-	
+
 	// Add 5 relations to reach the limit
 	for i := 0; i < 5; i++ {
 		requirer := charm.Relation{
@@ -517,7 +517,7 @@ func (s *addRelationSuite) TestAddRelationErrorCapacityExceededMessage(c *tc.C) 
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}
-	
+
 	// Try to add 6th relation, should fail
 	requirer := charm.Relation{
 		Name:  "consumer",
@@ -533,7 +533,7 @@ func (s *addRelationSuite) TestAddRelationErrorCapacityExceededMessage(c *tc.C) 
 		ApplicationName: "consumer-extra",
 		EndpointName:    "consumer",
 	})
-	
+
 	c.Assert(err, tc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
 	c.Check(err.Error(), tc.Matches, `.*maximum relation limit of 5.*`)
 }
