@@ -104,6 +104,76 @@ func (_ *typesSuite) TestAgentBinaryHighestVersion(c *tc.C) {
 	c.Check(ver, mc, AgentBinary{Version: version3})
 }
 
+// TestAgentBinaryNotMatchingArchitecture tests the
+// [AgentBinaryNotMatchingArchitectures] removes all agent binaries in a slice
+// not matching any of the target architectures.
+func (*typesSuite) TestAgentBinaryNotMatchingArchitecture(c *tc.C) {
+	version := tc.Must1(c, semversion.Parse, "4.0.1")
+
+	agentBinaries := []AgentBinary{
+		{
+			Architecture: AMD64,
+			Stream:       AgentStreamReleased,
+			Version:      version,
+		},
+		{
+			Architecture: RISCV64,
+			Stream:       AgentStreamReleased,
+			Version:      version,
+		},
+		{
+			Architecture: S390X,
+			Stream:       AgentStreamReleased,
+			Version:      version,
+		},
+	}
+
+	agentBinaries = slices.DeleteFunc(
+		agentBinaries,
+		AgentBinaryNotMatchingArchitectures([]Architecture{RISCV64}),
+	)
+
+	c.Check(agentBinaries, tc.SameContents, []AgentBinary{
+		{
+			Architecture: RISCV64,
+			Stream:       AgentStreamReleased,
+			Version:      version,
+		},
+	})
+}
+
+// TestAgentBinaryNotMatchingArchitectureNilBinaries tests that a nil arch slice
+// removes all agent binaries from a slice using
+// [AgentBinariesNotMatchingArchitectures].
+func (*typesSuite) TestAgentBinaryNotMatchingArchitectureNilArch(c *tc.C) {
+	version := tc.Must1(c, semversion.Parse, "4.0.1")
+
+	agentBinaries := []AgentBinary{
+		{
+			Architecture: AMD64,
+			Stream:       AgentStreamReleased,
+			Version:      version,
+		},
+		{
+			Architecture: RISCV64,
+			Stream:       AgentStreamReleased,
+			Version:      version,
+		},
+		{
+			Architecture: S390X,
+			Stream:       AgentStreamReleased,
+			Version:      version,
+		},
+	}
+
+	agentBinaries = slices.DeleteFunc(
+		agentBinaries,
+		AgentBinaryNotMatchingArchitectures(nil),
+	)
+
+	c.Check(agentBinaries, tc.HasLen, 0)
+}
+
 // TestAgentBinaryNotMatchinVersion tests the [AgentBinaryNotMatchingVersion]
 // with [slices.Delete] to confirm that it removes all [AgentBinaries] that do
 // match a target version.

@@ -84,6 +84,15 @@ func AgentBinaryCompactOnVersion(a, b AgentBinary) bool {
 	return a.Version.Compare(b.Version) == 0
 }
 
+// AgentBinaryNotMatchingArchitectures provides a helper closure to use with the
+// slices package for filtering agent binaries that do not match any of the
+// supplied architectures.
+func AgentBinaryNotMatchingArchitectures(archs []Architecture) func(AgentBinary) bool {
+	return func(a AgentBinary) bool {
+		return !slices.Contains(archs, a.Architecture)
+	}
+}
+
 // AgentBinaryNotMatchingVersion provides a helper closure to use with the
 // slices package for filtering agent binaries that do match the supplied
 // version.
