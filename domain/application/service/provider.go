@@ -589,7 +589,8 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	args AddApplicationArgs,
 	units ...AddIAASUnitArg,
 ) (string, application.AddIAASApplicationArg, []application.AddIAASUnitArg, error) {
-	if err := s.validateCreateApplicationArgs(ctx, name, charm, origin, args); err != nil {
+	var err error
+	if args, err = s.validateCreateApplicationArgs(ctx, name, charm, origin, args); err != nil {
 		return "", application.AddIAASApplicationArg{}, nil,
 			errors.Errorf("validating create application args: %w", err)
 	}
@@ -656,7 +657,8 @@ func (s *ProviderService) makeCAASApplicationArg(
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (string, application.AddCAASApplicationArg, []application.AddCAASUnitArg, error) {
-	if err := s.validateCreateApplicationArgs(ctx, name, charm, origin, args); err != nil {
+	var err error
+	if args, err = s.validateCreateApplicationArgs(ctx, name, charm, origin, args); err != nil {
 		return "", application.AddCAASApplicationArg{}, nil,
 			errors.Errorf("validating create application args: %w", err)
 	}
@@ -713,19 +715,19 @@ func (s *ProviderService) validateCreateApplicationArgs(
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
-) error {
+) (AddApplicationArgs, error) {
 	if err := validateCharmAndApplicationParams(
 		name,
 		args.ReferenceName,
 		charm,
 		origin,
 	); err != nil {
-		return errors.Errorf("invalid application args: %w", err)
+		return AddApplicationArgs{}, errors.Errorf("invalid application args: %w", err)
 	}
 
 	err := s.storageService.ValidateCharmStorage(ctx, charm.Meta().Storage)
 	if err != nil {
-		return errors.Errorf("invalid charm storage: %w", err)
+		return AddApplicationArgs{}, errors.Errorf("invalid charm storage: %w", err)
 	}
 
 	err = s.storageService.ValidateApplicationStorageDirectiveOverrides(
@@ -734,29 +736,29 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		args.StorageDirectiveOverrides,
 	)
 	if err != nil {
-		return errors.Errorf(
+		return AddApplicationArgs{}, errors.Errorf(
 			"invalid storage directive overrides: %w", err,
 		)
 	}
 
 	if err := validateDownloadInfoParams(origin.Source, args.DownloadInfo); err != nil {
-		return errors.Errorf("invalid application args: %w", err)
+		return AddApplicationArgs{}, errors.Errorf("invalid application args: %w", err)
 	}
 
 	if err := validateCreateApplicationResourceParams(charm, args.ResolvedResources, args.PendingResources); err != nil {
-		return errors.Errorf("create application: %w", err)
+		return AddApplicationArgs{}, errors.Errorf("create application: %w", err)
 	}
 
 	if err := validateDeviceConstraints(args.Devices, charm.Meta()); err != nil {
-		return errors.Errorf("validating device constraints: %w", err)
+		return AddApplicationArgs{}, errors.Errorf("validating device constraints: %w", err)
 	}
 
 	// ValidateApplicationConfig also coerces config values to the correct type
 	if args.ApplicationConfig, err = charm.Config().ValidateApplicationConfig(args.ApplicationConfig); err != nil {
-		return errors.Errorf("validating application config: %w", err)
+		return AddApplicationArgs{}, errors.Errorf("validating application config: %w", err)
 	}
 
-	return nil
+	return args, nil
 }
 
 func (s *ProviderService) makeApplicationArg(
@@ -944,7 +946,6 @@ func makeCreateApplicationArgs(
 	if err != nil {
 		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm origin: %w", err)
 	}
-
 	applicationConfig, err := application.EncodeApplicationConfig(args.ApplicationConfig, ch.Config)
 	if err != nil {
 		return application.BaseAddApplicationArg{}, errors.Errorf("encoding application config: %w", err)
