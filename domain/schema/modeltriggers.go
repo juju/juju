@@ -354,7 +354,7 @@ func filesystemProviderIDModelProvisioningTrigger(
 	namespace int,
 ) func() schema.Patch {
 	stmt := fmt.Sprintf(`
--- insert namespace for storage entity
+-- insert namespace for storage filesystem
 INSERT INTO change_log_namespace
 VALUES (%[1]d,
 		'custom_filesystem_provider_id_model_provisioning',
@@ -364,8 +364,8 @@ VALUES (%[1]d,
 CREATE TRIGGER trg_log_custom_filesystem_provider_id_model_provisioning
 AFTER UPDATE ON storage_filesystem
 FOR EACH ROW
-	WHEN NEW.provision_scope_id = 0
-	AND NEW.provider_id != OLD.provider_id
+    WHEN NEW.provision_scope_id = 0 AND
+         (NEW.provider_id != OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[1]d, NEW.filesystem_id, DATETIME('now', 'utc'));
