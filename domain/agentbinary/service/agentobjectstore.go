@@ -11,11 +11,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/agentbinary"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
@@ -24,18 +25,33 @@ import (
 	intobjectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
 
+// AgentObjectQuerierStore provides read only access to an agent binary store in
+// the controller for getting available agent versions.
+type AgentObjectQuerierStore struct {
+	state AgentObjectStoreState
+}
+
 type AgentObjectStore struct {
+	AgentObjectQuerierStore
+
 	logger            logger.Logger
-	st                AgentObjectStoreState
+	state             AgentObjectStoreState
 	objectStoreGetter objectstore.NamespacedObjectStoreGetter
 }
 
 type AgentObjectStoreState interface {
-	// CheckAgentBinarySHA256Exists checks that the given sha256 sum exists as an agent
-	// binary in the object store. This sha256 sum could exist as an object in
-	// the object store but unless the association has been made this will
-	// always return false.
+	// CheckAgentBinarySHA256Exists checks that the given sha256 sum exists as
+	// an agent binary in the object store. This sha256 sum could exist as an
+	// object in the object store but unless the association has been made this
+	// will always return false.
 	CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum string) (bool, error)
+
+	// GetAllAgentStoreBinariesForStream returns all agent binaries that are
+	// available in the controller store for a given stream. If no agent
+	// binaries exist for the stream, an empty slice is returned.
+	GetAllAgentStoreBinariesForStream(
+		context.Context, agentbinary.Stream,
+	) ([]agentbinary.AgentBinary, error)
 
 	// GetObjectUUID returns the object store UUID for the given object path.
 	// The following errors can be returned:
@@ -50,30 +66,101 @@ type AgentObjectStoreState interface {
 	// [coreerrors.NotSupported] if the architecture is not supported by the
 	// state layer.
 	RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error
-
-	// GetAgentBinarySHA256 retrieves the SHA256 value for the specified agent binary version.
-	// It returns false and an empty string if no matching record exists.
-	GetAgentBinarySHA256(ctx context.Context, version coreagentbinary.Version, stream agentbinary.Stream) (bool, string, error)
 }
 
-// NewAgentObjectStore returns a new instance of AgentBinaryStore.
+// NewAgentObjectQuerierStore returns a new instance of
+// [AgentObjectQuerierStore] that can be used for querying available agent
+// binaries available in one of the controllers object stores.
+func NewAgentObjectQuerierStore(
+	st AgentObjectStoreState,
+) *AgentObjectQuerierStore {
+	return &AgentObjectQuerierStore{
+		state: st,
+	}
+}
+
+// NewAgentObjectStore returns a new instance of [AgentObjectStore] that can be
+// used for adding, querying and getting agent binaries from one of the
+// controller's respective stores.
 func NewAgentObjectStore(
 	st AgentObjectStoreState,
 	logger logger.Logger,
 	objectStoreGetter objectstore.NamespacedObjectStoreGetter,
 ) *AgentObjectStore {
 	return &AgentObjectStore{
-		st:                st,
+		AgentObjectQuerierStore: AgentObjectQuerierStore{
+			state: st,
+		},
+		state:             st,
 		logger:            logger,
 		objectStoreGetter: objectStoreGetter,
 	}
+}
+
+// GetAvailableForVersionInStream returns the available agent binaries for
+// the provided version and stream in the store.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] if the stream value is not valid.
+func (s *AgentObjectQuerierStore) GetAvailableForVersionInStream(
+	ctx context.Context, ver semversion.Number, stream agentbinary.Stream,
+) ([]agentbinary.AgentBinary, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if ver == semversion.Zero {
+		return nil, errors.New("invalid version number").Add(coreerrors.NotValid)
+	}
+	if !stream.IsValid() {
+		return nil, errors.New("agent stream is not valid").Add(coreerrors.NotValid)
+	}
+
+	storeList, err := s.state.GetAllAgentStoreBinariesForStream(ctx, stream)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	retVal := slices.DeleteFunc(
+		storeList, agentbinary.AgentBinaryNotMatchingVersion(ver),
+	)
+	return retVal, nil
+}
+
+// GetAvailablePatchVersions returns a slice of [agentbinary.AgentBinary]s
+// that are available from store that share the the same major and minor
+// version as that of the supplied version.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] if the stream value is not valid.
+func (s *AgentObjectQuerierStore) GetAvailablePatchVersionsInStream(
+	ctx context.Context, ver semversion.Number, stream agentbinary.Stream,
+) ([]agentbinary.AgentBinary, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if ver == semversion.Zero {
+		return nil, errors.New("invalid version number").Add(coreerrors.NotValid)
+	}
+	if !stream.IsValid() {
+		return nil, errors.New("agent stream is not valid").Add(coreerrors.NotValid)
+	}
+
+	storeList, err := s.state.GetAllAgentStoreBinariesForStream(ctx, stream)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	retVal := slices.DeleteFunc(
+		storeList, agentbinary.AgentBinaryNotWithinPatchOfVersion(ver),
+	)
+	return retVal, nil
 }
 
 // generatePath generates the path for the agent binary in the object store.
 // The path is in the format of "agent-binaries/{version}-{arch}-{sha384}".
 // We don't want to generate the path using the String() of the version
 // because it may change in the future.
-func generatePath(version coreagentbinary.Version, sha384 string) string {
+func generatePath(version agentbinary.Version, sha384 string) string {
 	num := version.Number
 	numberStr := fmt.Sprintf("%d.%d.%d", num.Major, num.Minor, num.Patch)
 	if num.Tag != "" {
@@ -82,7 +169,12 @@ func generatePath(version coreagentbinary.Version, sha384 string) string {
 	if num.Build > 0 {
 		numberStr += fmt.Sprintf(".%d", num.Build)
 	}
-	return fmt.Sprintf("agent-binaries/%s-%s-%s", numberStr, version.Arch, sha384)
+	return fmt.Sprintf(
+		"agent-binaries/%s-%s-%s",
+		numberStr,
+		version.Architecture.String(),
+		sha384,
+	)
 }
 
 // AddAgentBinaryWithSHA256 adds a new agent binary to the object store and saves its metadata to the database.
@@ -99,23 +191,40 @@ func generatePath(version coreagentbinary.Version, sha384 string) string {
 // which was computed against the binary data.
 func (s *AgentObjectStore) AddAgentBinaryWithSHA256(
 	ctx context.Context, r io.Reader,
-	version coreagentbinary.Version,
+	version agentbinary.Version,
 	size int64, sha256 string,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	if err := version.Validate(); err != nil {
 		return errors.Errorf("agent version %q is not valid: %w", version, err)
 	}
 
-	// Ideally, we should pass the SHA256 hash to the object store
-	// and let it verify the hash. But the object store doesn't support
-	// this yet. So we have to calculate the hash ourselves.
-	data, encoded256, encoded384, err := tmpCacheAndHash(r, size)
-	if err != nil {
-		return errors.Errorf("generating SHA for agent binary %q: %w", version, err)
+	shaReader, shaCalc := computeSHA256andSHA384(r)
+	cacheReader, err := newStrictCacher(shaReader, size)
+	if errors.Is(err, ErrorReaderDesync) {
+		return errors.New(
+			"supplied agent binary stream does not match the size",
+		)
+	} else if err != nil {
+		return errors.Errorf(
+			"caching agent binary before sending to object store: %w", err,
+		)
 	}
-	defer func() { _ = data.Close() }()
+
+	defer func() {
+		err := cacheReader.Close()
+		if err != nil {
+			s.logger.Errorf(
+				ctx,
+				"closing cache reader when stream agent binary to object store: %w",
+				err,
+			)
+		}
+	}()
+
+	encoded256, encoded384 := shaCalc()
 
 	if sha256 != encoded256 {
 		return errors.Errorf(
@@ -123,44 +232,14 @@ func (s *AgentObjectStore) AddAgentBinaryWithSHA256(
 			version, sha256, encoded256,
 		).Add(agentbinaryerrors.HashMismatch)
 	}
-	return s.add(ctx, data, version, size, encoded384)
-}
 
-// AddAgentBinaryWithSHA384 adds a new agent binary to the store and saves its
-// metadata to the database.
-//
-// The following errors can be returned:
-// - [github.com/juju/juju/core/errors.NotSupported] if the architecture is
-// not supported.
-// - [github.com/juju/juju/domain/agentbinary/errors.AlreadyExists] if an
-// agent binary already exists for this version architecture and stream.
-// - [agentbinaryerrors.ObjectNotFound] if there was a problem referencing
-// the agent binary metadata with the previously saved binary object. This
-// error should be considered an internal problem. It is discussed here to
-// make the caller aware of future problems.
-// - [coreerrors.NotValid] when the agent version is not considered valid.
-// - [agentbinaryerrors.HashMismatch] when the expected sha does not match
-// that which was computed against the binary data.
-func (s *AgentObjectStore) AddAgentBinaryWithSHA384(
-	ctx context.Context,
-	r io.Reader,
-	version coreagentbinary.Version,
-	size int64,
-	sha384 string,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := version.Validate(); err != nil {
-		return errors.Errorf("agent version %q is not valid: %w", version, err)
-	}
-	return s.add(ctx, r, version, size, sha384)
+	return s.add(ctx, cacheReader, version, size, encoded384)
 }
 
 // We use sha384 for validating the binary later in the concrete implementations.
 func (s *AgentObjectStore) add(
 	ctx context.Context, r io.Reader,
-	version coreagentbinary.Version,
+	version agentbinary.Version,
 	size int64, sha384 string,
 ) (resultErr error) {
 	objectStore, err := s.objectStoreGetter.GetObjectStore(ctx)
@@ -175,7 +254,7 @@ func (s *AgentObjectStore) add(
 	// We still need the unique uuid so we can make sure it is registered
 	// against this path.
 	case errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists):
-		existingObjectUUID, err := s.st.GetObjectUUID(ctx, path)
+		existingObjectUUID, err := s.state.GetObjectUUID(ctx, path)
 		if err != nil {
 			return errors.Errorf("getting object store UUID for %q: %w", path, err)
 		}
@@ -194,12 +273,12 @@ func (s *AgentObjectStore) add(
 		ctx,
 		"adding agent binary %q with arch %q to agent binary store",
 		version.Number,
-		version.Arch,
+		version.Architecture.String(),
 	)
 
-	err = s.st.RegisterAgentBinary(ctx, agentbinary.RegisterAgentBinaryArg{
+	err = s.state.RegisterAgentBinary(ctx, agentbinary.RegisterAgentBinaryArg{
 		Version:         version.Number.String(),
-		Arch:            version.Arch,
+		Architecture:    version.Architecture,
 		ObjectStoreUUID: uuid,
 	})
 	if errors.IsOneOf(err,
@@ -223,21 +302,23 @@ func (s *AgentObjectStore) add(
 	return nil
 }
 
-// GetAgentBinaryUsingSHA256 returns the agent binary associated with the given
-// SHA256 sum. The following errors can be expected:
-// - [agentbinaryerrors.NotFound] when no agent binaries exist for the provided
-// sha.
-func (s *AgentObjectStore) GetAgentBinaryUsingSHA256(
+// GetAgentBinaryForSHA256 returns the agent binary associated with the given
+// SHA256 sum.
+//
+// The following errors can be expected:
+// - [agentbinaryerrors.NotFound] when no agent binaries exist for the
+// provided sha.
+func (s *AgentObjectStore) GetAgentBinaryForSHA256(
 	ctx context.Context,
 	sha256Sum string,
 ) (io.ReadCloser, int64, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// We check that this sha256 exists in the database and is associated with
+	// We check that this sha384 exists in the database and is associated with
 	// agent binaries. If we don't do this the possibility exists to leak other
 	// non-related objects out of the store via this interface.
-	exists, err := s.st.CheckAgentBinarySHA256Exists(ctx, sha256Sum)
+	exists, err := s.state.CheckAgentBinarySHA256Exists(ctx, sha256Sum)
 	if err != nil {
 		return nil, 0, errors.Errorf(
 			"checking if agent binaries exist for sha256 %q: %w", sha256Sum, err,
@@ -252,8 +333,11 @@ func (s *AgentObjectStore) GetAgentBinaryUsingSHA256(
 
 	store, err := s.objectStoreGetter.GetObjectStore(ctx)
 	if err != nil {
-		return nil, 0, errors.Errorf("getting object store for agent binary %q: %w", sha256Sum, err)
+		return nil, 0, errors.Errorf(
+			"getting object store for agent binary %q: %w", sha256Sum, err,
+		)
 	}
+
 	reader, size, err := store.GetBySHA256(ctx, sha256Sum)
 	if errors.Is(err, intobjectstoreerrors.ObjectNotFound) {
 		return nil, 0, errors.Errorf(
@@ -268,39 +352,68 @@ func (s *AgentObjectStore) GetAgentBinaryUsingSHA256(
 	return reader, size, nil
 }
 
-// GetAgentBinaryWithSHA256 retrieves the agent binary corresponding to the given version
-// and stream from simple stream.
-// The caller is responsible for closing the returned reader.
+// GetAgentBinaryForVersionStream retrieves the agent binary
+// corresponding to the given version and stream. If sucessfully found the
+// the agent binary stream is returned along with its size and sha256 sum.
+// It is the caller's responsibility to close the returned stream when no
+// error condition exists.
 //
 // The following errors may be returned:
-// - [domainagenterrors.NotFound] if the agent binary metadata does not exist.
-func (s *AgentObjectStore) GetAgentBinaryWithSHA256(
+// - [github.com/juju/juju/domain/agentbinary/errors.NotFound] if the agent
+// binary does not exist.
+func (s *AgentObjectStore) GetAgentBinaryForVersionStreamSHA256(
 	ctx context.Context,
-	ver coreagentbinary.Version,
+	ver agentbinary.Version,
 	stream agentbinary.Stream,
 ) (io.ReadCloser, int64, string, error) {
-	s.logger.Debugf(ctx, "retrieving agent binary from agent binary store for ver %q and stream %q", ver.String(), stream.String())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 
-	hasAgentBinary, sha256Sum, err := s.st.GetAgentBinarySHA256(ctx, ver, stream)
+	s.logger.Debugf(
+		ctx,
+		"retrieving agent binary from agent binary store for ver %q, arch %q and stream %q",
+		ver.Number.String(), ver.Architecture.String(), stream.String(),
+	)
+
+	storeBinaries, err := s.state.GetAllAgentStoreBinariesForStream(ctx, stream)
 	if err != nil {
-		return nil, 0, "", errors.Errorf("checking availability of agent binary in agent binary store: %w", err)
+		return nil, 0, "", errors.Errorf(
+			"getting agent binaries for stream %q in store: %w", stream.String(),
+			err,
+		)
 	}
 
-	if !hasAgentBinary {
-		return nil, 0, "", errors.Errorf("no agent binary found for version %q", ver.String()).Add(agentbinaryerrors.NotFound)
+	storeBinaries = slices.DeleteFunc(
+		storeBinaries, agentbinary.AgentBinaryNotMatchinAgentVersion(ver),
+	)
+
+	if len(storeBinaries) == 0 {
+		return nil, 0, "", errors.Errorf(
+			"no agent binary exists for version %q, architecture %q in stream %q",
+			ver.Number.String(), ver.Architecture.String(), stream.String(),
+		).Add(agentbinaryerrors.NotFound)
 	}
 
 	store, err := s.objectStoreGetter.GetObjectStore(ctx)
 	if err != nil {
-		return nil, 0, "", errors.Errorf("getting object store for agent binary %q: %w", sha256Sum, err)
+		return nil, 0, "", errors.Errorf(
+			"getting object store to stream agent binary: %w", err,
+		)
 	}
-	reader, size, err := store.GetBySHA256(ctx, sha256Sum)
+
+	reader, size, err := store.GetBySHA256(ctx, storeBinaries[0].SHA256)
 	if errors.Is(err, intobjectstoreerrors.ObjectNotFound) {
-		return nil, 0, "", errors.New("agent binary not found in agent binary object store").Add(agentbinaryerrors.NotFound)
+		return nil, 0, "", errors.Errorf(
+			"agent binary is missing for version %q, architecture %q and stream %q in binary object store",
+			ver.Number.String(), ver.Architecture.String(), stream.String(),
+		).Add(agentbinaryerrors.NotFound)
 	} else if err != nil {
-		return nil, 0, "", errors.Errorf("getting agent binary with sha %q from agent binary object store: %w", sha256Sum, err)
+		return nil, 0, "", errors.Errorf(
+			"getting agent binary object stream for version %q, architecture %q and stream %q: %w",
+			ver.Number.String(), ver.Architecture.String(), stream.String(), err,
+		)
 	}
-	return reader, size, sha256Sum, nil
+	return reader, size, storeBinaries[0].SHA256, nil
 }
 
 func tmpCacheAndHash(r io.Reader, size int64) (_ io.ReadCloser, _ string, _ string, err error) {
