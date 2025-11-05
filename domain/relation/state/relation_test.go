@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -439,6 +440,102 @@ func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *tc.C)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
+}
+
+func (s *addRelationSuite) TestAddRelationErrorCapacityExceededMessage(c *tc.C) {
+	// This test verifies that the error message for exceeding endpoint capacity
+	// is user-friendly and concise.
+	
+	// Test case 1: capacity limit of 1
+	relProvider := charm.Relation{
+		Name:  "replication",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+		Limit: 1,
+	}
+	relRequirer := charm.Relation{
+		Name:  "replication-offer",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	appUUID1 := s.addApplication(c, "postgresql")
+	appUUID2 := s.addApplication(c, "offer1")
+	appUUID3 := s.addApplication(c, "offer2")
+	s.addApplicationEndpointFromRelation(c, appUUID1, relProvider)
+	s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
+	s.addApplicationEndpointFromRelation(c, appUUID3, relRequirer)
+
+	// Add first relation successfully
+	_, _, err := s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "postgresql",
+		EndpointName:    "replication",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "offer1",
+		EndpointName:    "replication-offer",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Try to add second relation, should fail with simplified error
+	_, _, err = s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "postgresql",
+		EndpointName:    "replication",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "offer2",
+		EndpointName:    "replication-offer",
+	})
+
+	// Assert error type
+	c.Assert(err, tc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
+	// Assert error message is simplified and user-friendly
+	c.Check(err.Error(), tc.Matches, `.*only one relation allowed.*`)
+	
+	// Test case 2: capacity limit > 1
+	relProvider2 := charm.Relation{
+		Name:  "data",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+		Limit: 5,
+	}
+	appUUID4 := s.addApplication(c, "database")
+	s.addApplicationEndpointFromRelation(c, appUUID4, relProvider2)
+	
+	// Add 5 relations to reach the limit
+	for i := 0; i < 5; i++ {
+		requirer := charm.Relation{
+			Name:  "consumer",
+			Role:  charm.RoleRequirer,
+			Scope: charm.ScopeGlobal,
+		}
+		consumerApp := s.addApplication(c, fmt.Sprintf("consumer-%d", i))
+		s.addApplicationEndpointFromRelation(c, consumerApp, requirer)
+		_, _, err = s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+			ApplicationName: "database",
+			EndpointName:    "data",
+		}, domainrelation.CandidateEndpointIdentifier{
+			ApplicationName: fmt.Sprintf("consumer-%d", i),
+			EndpointName:    "consumer",
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	
+	// Try to add 6th relation, should fail
+	requirer := charm.Relation{
+		Name:  "consumer",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	consumerApp := s.addApplication(c, "consumer-extra")
+	s.addApplicationEndpointFromRelation(c, consumerApp, requirer)
+	_, _, err = s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "database",
+		EndpointName:    "data",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "consumer-extra",
+		EndpointName:    "consumer",
+	})
+	
+	c.Assert(err, tc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
+	c.Check(err.Error(), tc.Matches, `.*maximum relation limit of 5.*`)
 }
 
 func (s *addRelationSuite) TestAddRelationWithCIDRs(c *tc.C) {
