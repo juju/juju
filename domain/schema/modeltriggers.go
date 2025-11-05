@@ -49,6 +49,12 @@ func customModelTriggers() []func() schema.Patch {
 			customNamespaceStorageFilesystemAttachmentLifeModelProvisioning,
 		),
 
+		// Setup triggers for filesystem attachment provider id changes in the
+		// model that are model provisioned.
+		filesystemAttachmentProviderIDModelProvisioningTrigger(
+			customNamespaceStorageFilesystemAttachmentProviderIDModelProvisioning,
+		),
+
 		// Setup triggers for lifecycle events on volumes in the model that are
 		// machine provisioned.
 		storageLifeMachineProvisioningTrigger(
@@ -369,6 +375,31 @@ FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[1]d, NEW.filesystem_id, DATETIME('now', 'utc'));
+END;
+`, namespace)
+
+	return func() schema.Patch { return schema.MakePatch(stmt) }
+}
+
+func filesystemAttachmentProviderIDModelProvisioningTrigger(
+	namespace int,
+) func() schema.Patch {
+	stmt := fmt.Sprintf(`
+-- insert namespace for storage filesystem attachment
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+		'custom_filesystem_attachment_provider_id_model_provisioning',
+		'changes for filesystem attachment provider IDs that are model provisioned');
+
+-- update trigger for storage filesystem attachment.
+CREATE TRIGGER trg_log_custom_filesystem_attachment_provider_id_model_provisioning
+AFTER UPDATE ON storage_filesystem_attachment
+FOR EACH ROW
+    WHEN NEW.provision_scope_id = 0 AND
+         (NEW.provider_id != OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL))
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[1]d, NEW.uuid, DATETIME('now', 'utc'));
 END;
 `, namespace)
 
