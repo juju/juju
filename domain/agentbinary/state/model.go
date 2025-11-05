@@ -135,19 +135,10 @@ func (s *ModelState) RegisterAgentBinary(ctx context.Context, arg agentbinary.Re
 		return errors.Capture(err)
 	}
 
-	archVal := architectureRecord{Name: arg.Arch}
 	agentBinary := agentBinaryRecord{
-		Version:         arg.Version,
+		ArchitectureID:  int(arg.Architecture),
 		ObjectStoreUUID: arg.ObjectStoreUUID.String(),
-	}
-
-	archStmt, err := s.Prepare(`
-SELECT &architectureRecord.*
-FROM   architecture
-WHERE  name = $architectureRecord.name
-`, archVal)
-	if err != nil {
-		return errors.Capture(err)
+		Version:         arg.Version,
 	}
 
 	insertStmt, err := s.Prepare(`
@@ -171,18 +162,6 @@ VALUES ($agentBinaryRecord.*)
 			).Add(agentbinaryerrors.ObjectNotFound)
 		}
 
-		// Check if the architecture exists and get its ID
-		err = tx.Query(ctx, archStmt, archVal).Get(&archVal)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"architecture %q is not supported",
-				arg.Arch,
-			).Add(coreerrors.NotSupported)
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		agentBinary.ArchitectureID = archVal.ID
 		err = tx.Query(ctx, insertStmt, agentBinary).Run()
 		if jujudb.IsErrConstraintPrimaryKey(err) {
 			// There must be an agent version for this version and arch already.
@@ -222,7 +201,7 @@ VALUES ($agentBinaryRecord.*)
 	if err != nil {
 		return errors.Errorf(
 			"adding agent binary for version %q and arch %q to model state: %w",
-			arg.Version, arg.Arch, err,
+			arg.Version, arg.Architecture, err,
 		)
 	}
 	return nil

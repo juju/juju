@@ -5,6 +5,21 @@ package state
 
 import "github.com/juju/juju/domain/agentbinary"
 
+// agentStoreBinary represents an agent binary that exists within the object
+// store.
+type agentStoreBinary struct {
+	ArchitectureID int    `db:"architecture_id"`
+	SHA256         string `db:"sha_256"`
+	Size           int64  `db:"size"`
+	StreamID       int    `db:"stream_id"`
+	Version        string `db:"version"`
+}
+
+// agentStream represents the stream in use for the agent.
+type agentStream struct {
+	StreamID int `db:"stream_id"`
+}
+
 // architectureRecord represents an architecture row in the database.
 type architectureRecord struct {
 	ID   int    `db:"id"`
