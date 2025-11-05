@@ -21,7 +21,7 @@ import (
 var deleteDBLogger = internallogger.GetLogger("juju.database.deletedb")
 
 // DeleteDB deletes the dqlite database with the given name from the sql.DB.
-func DeleteDB(ctx context.Context, db *sql.DB, name string) error {
+func DeleteDB(ctx context.Context, db *sql.DB) error {
 
 	// We need to ensure that foreign keys are disabled before we can blanket
 	// delete the database.

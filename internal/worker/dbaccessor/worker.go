@@ -766,7 +766,7 @@ func (w *dbWorker) deleteDatabase(ctx context.Context, namespace string) error {
 	}
 	defer func() { _ = db.Close() }()
 
-	if err := internaldatabase.DeleteDB(ctx, db, namespace); err != nil {
+	if err := internaldatabase.DeleteDB(ctx, db); err != nil {
 		return errors.Annotatef(err, "deleting database %q", namespace)
 	}
 
