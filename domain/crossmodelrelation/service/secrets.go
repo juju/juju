@@ -25,7 +25,7 @@ type ModelSecretsState interface {
 	// of changes to consumed secrets in an offering model.
 	InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appUUID string) (string, eventsource.NamespaceQuery)
 	// GetRemoteConsumedSecretURIsWithChangesFromOfferingSide composes changes to consumed secrets in an offering model.
-	GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appUUID string, secretIDs ...string) ([]string, error)
+	GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appUUID string, revisionUUIDs ...string) ([]string, error)
 
 	// GetSecretRemoteConsumer returns the secret consumer info from a cross model consumer
 	// for the specified unit and secret.

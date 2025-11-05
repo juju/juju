@@ -904,7 +904,7 @@ func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUID
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDWithOfferConnection(c *tc.C) {
+func (s *baseSuite) setupRemoteApplicationConsumer(c *tc.C) (string, string, string, string) {
 	// Create application, charm and offer first
 	synthApplicationUUID := tc.Must(c, coreapplication.NewUUID)
 	realApplicationUUID := tc.Must(c, coreapplication.NewUUID)
@@ -924,11 +924,15 @@ VALUES (?, ?, ?, 'bob')`, synthApplicationUUID, offerUUID, relUUID)
 	s.query(c, `
 INSERT INTO application_remote_consumer (offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
 VALUES (?, ?, ?, ?, 0)`, synthApplicationUUID, realApplicationUUID, tc.Must(c, coreapplication.NewUUID), tc.Must(c, coreapplication.NewUUID))
+	return offerUUID, relUUID, realApplicationUUID.String(), synthApplicationUUID.String()
+}
 
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDWithOfferConnection(c *tc.C) {
+	offerUUID, relUUID, _, synthApplicationUUID := s.setupRemoteApplicationConsumer(c)
 	// Retrieve application UUID by offer UUID and remote relation UUID - should return the correct UUID
 	uuid, err := s.state.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(c.Context(), offerUUID, relUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(uuid, tc.Equals, synthApplicationUUID.String())
+	c.Check(uuid, tc.Equals, synthApplicationUUID)
 }
 
 func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDNotFound(c *tc.C) {
@@ -1848,7 +1852,7 @@ WHERE consumer_application_uuid = ?
 	c.Check(count, tc.Equals, 1)
 }
 
-func (s *modelRemoteApplicationSuite) createOffer(c *tc.C, offerUUID string) {
+func (s *baseSuite) createOffer(c *tc.C, offerUUID string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Create an offer record
 		_, err := tx.Exec(`
@@ -1860,7 +1864,7 @@ VALUES (?, 'test-offer')
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelRemoteApplicationSuite) createApplication(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string) {
+func (s *baseSuite) createApplication(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string) {
 	s.createApplicationWithLife(c, applicationUUID, charmUUID, offerUUID, life.Alive)
 }
 
@@ -1872,7 +1876,7 @@ func (s *modelRemoteApplicationSuite) createDyingApplication(c *tc.C, applicatio
 	s.createApplicationWithLife(c, applicationUUID, charmUUID, offerUUID, life.Dying)
 }
 
-func (s *modelRemoteApplicationSuite) createApplicationWithLife(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string, l life.Life) {
+func (s *baseSuite) createApplicationWithLife(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string, l life.Life) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Create an application record
 		_, err := tx.Exec(`
@@ -1908,7 +1912,7 @@ VALUES (?, ?, ?, ?, ?)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelRemoteApplicationSuite) createCharm(c *tc.C, charmUUID string) {
+func (s *baseSuite) createCharm(c *tc.C, charmUUID string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Create a charm record
 		_, err := tx.Exec(`

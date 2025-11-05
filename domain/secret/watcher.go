@@ -87,7 +87,9 @@ func (w *secretWatcher[T]) loop() error {
 			historyIDs.Add(id)
 		}
 
-		out = w.out
+		if len(changes) != 0 {
+			out = w.out
+		}
 		return nil
 	}
 

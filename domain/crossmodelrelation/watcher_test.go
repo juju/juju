@@ -29,7 +29,6 @@ import (
 	modelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	"github.com/juju/juju/domain/life"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
-	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -40,6 +39,8 @@ type watcherSuite struct {
 
 	modelUUID  string
 	modelIdler *changestreamtesting.Idler
+
+	relationCount int
 }
 
 func TestWatcherSuite(t *stdtesting.T) {
@@ -197,6 +198,110 @@ func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
 	return mac
 }
 
+func (s *watcherSuite) createCharm(c *tc.C, db database.TxnRunner, charmUUID string) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Create a charm record
+		_, err := tx.Exec(`
+INSERT INTO charm (uuid, reference_name, source_id)
+VALUES (?, ?, 1)
+`, charmUUID, charmUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) createOffer(c *tc.C, db database.TxnRunner, offerUUID string) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Create an offer record
+		_, err := tx.Exec(`
+INSERT INTO offer (uuid, name)
+VALUES (?, 'test-offer')
+`, offerUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) createApplication(c *tc.C, db database.TxnRunner, applicationUUID application.UUID, charmUUID string, offerUUID string) {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Create an application record
+		_, err := tx.Exec(`
+INSERT INTO application (uuid, name, charm_uuid, life_id, space_uuid)
+VALUES (?, ?, ?, ?, ?)
+`, applicationUUID, applicationUUID, charmUUID, 0, network.AlphaSpaceId)
+		if err != nil {
+			return err
+		}
+
+		charmRelationUUID := tc.Must(c, uuid.NewUUID).String()
+		charmEndpointUUID := tc.Must(c, uuid.NewUUID).String()
+
+		// Insert charm_relation and application_endpoint records
+		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharmRelation, charmRelationUUID, charmUUID, "0", "0", "endpoint0")
+		if err != nil {
+			return err
+		}
+		insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertEndpoint, charmEndpointUUID, applicationUUID, network.AlphaSpaceId, charmRelationUUID)
+		if err != nil {
+			return err
+		}
+		// Insert an offer endpoint record if it's not empty.
+		if offerUUID == "" {
+			return nil
+		}
+		insertOfferEndpoint := `INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertOfferEndpoint, offerUUID, charmEndpointUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) addRelation(c *tc.C, db database.TxnRunner) corerelation.UUID {
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(c.Context(), `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id) 
+VALUES (?, 0, ?, 0)
+`, relationUUID, s.relationCount)
+		s.relationCount++
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return relationUUID
+}
+
+func (s *watcherSuite) setupRemoteApplicationConsumer(c *tc.C, db database.TxnRunner) (string, string) {
+	// Create application, charm and offer first
+	synthApplicationUUID := tc.Must(c, application.NewUUID)
+	realApplicationUUID := tc.Must(c, application.NewUUID)
+	synthCharmUUID := tc.Must(c, uuid.NewUUID).String()
+	realCharmUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	s.createOffer(c, db, offerUUID)
+	s.createCharm(c, db, synthCharmUUID)
+	s.createCharm(c, db, realCharmUUID)
+	s.createApplication(c, db, synthApplicationUUID, synthCharmUUID, offerUUID)
+	s.createApplication(c, db, realApplicationUUID, realCharmUUID, "")
+	relUUID := s.addRelation(c, db).String()
+
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(c.Context(), `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, 'bob')`, synthApplicationUUID, offerUUID, relUUID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(c.Context(), `
+INSERT INTO application_remote_consumer (offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
+VALUES (?, ?, ?, ?, 0)`, synthApplicationUUID, realApplicationUUID, tc.Must(c, application.NewUUID).String(), tc.Must(c, uuid.NewUUID).String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return realApplicationUUID.String(), synthApplicationUUID.String()
+}
+
 func (s *watcherSuite) createLocalOfferForConsumer(c *tc.C, db database.TxnRunner, offerUUID offer.UUID) {
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Create charm.
@@ -343,39 +448,6 @@ VALUES (?, ?, (SELECT MAX(revision)+1 FROM secret_revision WHERE secret_id=?), ?
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *watcherSuite) setupRemoteApp(c *tc.C, db database.TxnRunner, appName string) application.UUID {
-	appUUID := uuid.MustNewUUID().String()
-	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		charmUUID := uuid.MustNewUUID().String()
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, reference_name, architecture_id)
-VALUES (?, ?, 0);
-`, charmUUID, appName)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_metadata (charm_uuid, name)
-VALUES (?, ?);
-		`, charmUUID, appName)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, ?, ?, ?)
-`, appUUID, charmUUID, appName, life.Alive, network.AlphaSpaceId)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return application.UUID(appUUID)
-}
-
 func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
 
@@ -399,9 +471,9 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	uri1.SourceUUID = s.modelUUID
 	uri2 := coresecrets.NewURI()
 	uri2.SourceUUID = s.modelUUID
-	appUUID := s.setupRemoteApp(c, db, "mediawiki")
+	realApplicationUUID, syntheticApplicationUUID := s.setupRemoteApplicationConsumer(c, db)
 
-	w, err := svc.WatchRemoteConsumedSecretsChanges(ctx, appUUID)
+	w, err := svc.WatchRemoteConsumedSecretsChanges(ctx, application.UUID(realApplicationUUID))
 	c.Assert(err, tc.IsNil)
 	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
@@ -412,9 +484,9 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 		s.createSecret(c, db, uri2, map[string]string{"foo": "bar"})
 
 		// The consumed revision 1 is the initial revision - will be ignored.
-		saveRemoteConsumer(uri1, 1, "mediawiki/0")
+		saveRemoteConsumer(uri1, 1, syntheticApplicationUUID+"/0")
 		// The consumed revision 1 is the initial revision - will be ignored.
-		saveRemoteConsumer(uri2, 1, "mediawiki/0")
+		saveRemoteConsumer(uri2, 1, syntheticApplicationUUID+"/0")
 
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -424,7 +496,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	// A remote consumed secret change event of uri1 should be fired.
 	harness.AddTest(c, func(c *tc.C) {
 		s.addRevision(c, db, uri1, map[string]string{"foo": "bar2"})
-		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2, appUUID.String())
+		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2, syntheticApplicationUUID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -437,7 +509,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	harness.Run(c, []string(nil))
 
 	// Pretend that the agent restarted and the watcher is re-created.
-	w1, err := svc.WatchRemoteConsumedSecretsChanges(ctx, appUUID)
+	w1, err := svc.WatchRemoteConsumedSecretsChanges(ctx, application.UUID(realApplicationUUID))
 	c.Assert(err, tc.IsNil)
 	c.Assert(w1, tc.NotNil)
 	defer watchertest.CleanKill(c, w1)
@@ -453,7 +525,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 
 	harness1.AddTest(c, func(c *tc.C) {
 		// The consumed revision 2 is the updated current_revision.
-		saveRemoteConsumer(uri1, 2, "mediawiki/0")
+		saveRemoteConsumer(uri1, 2, syntheticApplicationUUID+"/0")
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -461,7 +533,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 
 	// Pretend that the agent restarted and the watcher is re-created again.
 	// Since we consume the latest revision already, so there should be no change.
-	w2, err := svc.WatchRemoteConsumedSecretsChanges(ctx, appUUID)
+	w2, err := svc.WatchRemoteConsumedSecretsChanges(ctx, application.UUID(realApplicationUUID))
 	c.Assert(err, tc.IsNil)
 	c.Assert(w2, tc.NotNil)
 	defer watchertest.CleanKill(c, w2)
