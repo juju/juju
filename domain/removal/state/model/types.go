@@ -118,6 +118,12 @@ type storageAttachmentDetachInfo struct {
 	UnitUUID         string `db:"unit_uuid"`
 }
 
+type secretID struct {
+	ID string `db:"secret_id"`
+}
+
+type secretIDs []string
+
 type secretRevision struct {
 	// UUID uniquely identifies a secret revision.
 	UUID string `db:"uuid"`

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	"github.com/juju/juju/domain/life"
@@ -301,4 +302,58 @@ func (s *remoteApplicationOffererSuite) TestDeleteRemoteApplicationOffererWithUn
 
 	c.Check(numUnits, tc.Equals, 0)
 	c.Check(numNetNodes, tc.Equals, 0)
+}
+
+func (s *remoteApplicationOffererSuite) TestDeleteRemoteApplicationOffererWithSecrets(c *tc.C) {
+	// Arrange
+	synthAppUUID, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
+	appUUID := s.createIAASApplication(c, s.setupApplicationService(c), "bar")
+
+	relSvc := s.setupRelationService(c)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), "foo:foo", "bar:bar")
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), relation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrState := crossmodelrelationstate.NewState(
+		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	)
+	err = cmrState.EnsureUnitsExist(c.Context(), synthAppUUID.String(), []string{"foo/0"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var unitUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", "foo/0").Scan(&unitUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	uri, err := secrets.ParseURI("secret://6e270c18-409a-4773-8f00-65aadcd5478f/d45k0o29uu0s0cdal8vg")
+	c.Assert(err, tc.ErrorIsNil)
+	err = cmrState.SaveRemoteSecretConsumer(c.Context(), uri, unitUUID, secrets.SecretConsumerMetadata{},
+		appUUID.String(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.advanceRemoteApplicationOffererLife(c, remoteAppUUID.String(), life.Dying)
+	s.advanceRelationLife(c, relUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteRelation(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	err = st.DeleteRemoteApplicationOfferer(c.Context(), remoteAppUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.RemoteApplicationOffererExists(c.Context(), remoteAppUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	exists, err = st.ApplicationExists(c.Context(), synthAppUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
 }
