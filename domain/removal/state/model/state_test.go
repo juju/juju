@@ -217,9 +217,11 @@ func (s *baseSuite) setupApplicationService(c *tc.C) *applicationservice.Provide
 	)
 	state := applicationstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
 	storageSvc := applicationstorageservice.NewService(
-		state, applicationstorageservice.NewStoragePoolProvider(
+		state,
+		applicationstorageservice.NewStoragePoolProvider(
 			storageProviderRegistryGetter, state,
 		),
+		loggertesting.WrapCheckLog(c),
 	)
 
 	return applicationservice.NewProviderService(
