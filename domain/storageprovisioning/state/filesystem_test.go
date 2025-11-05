@@ -626,8 +626,9 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystemAtt
 	s.newMachineFilesystemAttachment(c, fsUUID, netNode)
 
 	st := NewState(s.TxnRunnerFactory())
-	ns, initialQuery := st.InitialWatchStatementModelProvisionedFilesystemAttachments()
+	ns, ns2, initialQuery := st.InitialWatchStatementModelProvisionedFilesystemAttachments()
 	c.Check(ns, tc.Equals, "storage_filesystem_attachment_life_model_provisioning")
+	c.Check(ns2, tc.Equals, "custom_filesystem_attachment_provider_id_model_provisioning")
 
 	db := s.TxnRunner()
 	fsaUUIDs, err := initialQuery(c.Context(), db)
@@ -649,8 +650,9 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystemAtt
 	fsaTwoUUID := s.newModelFilesystemAttachment(c, fsTwoUUID, netNodeUUID)
 	s.newMachineFilesystemAttachment(c, fsThreeUUID, netNodeUUID)
 
-	ns, initialQuery := st.InitialWatchStatementModelProvisionedFilesystemAttachments()
+	ns, ns2, initialQuery := st.InitialWatchStatementModelProvisionedFilesystemAttachments()
 	c.Check(ns, tc.Equals, "storage_filesystem_attachment_life_model_provisioning")
+	c.Check(ns2, tc.Equals, "custom_filesystem_attachment_provider_id_model_provisioning")
 
 	db := s.TxnRunner()
 	fsaUUIDs, err := initialQuery(c.Context(), db)
