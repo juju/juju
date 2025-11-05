@@ -117,7 +117,7 @@ type filesystemAttachmentParams struct {
 	MachineInstanceID              sql.Null[string] `db:"machine_instance_id"`
 	MountPoint                     sql.Null[string] `db:"mount_point"`
 	FilesystemProviderID           sql.Null[string] `db:"filesystem_provider_id"`
-	FilesystemAttachmentProviderID sql.Null[string] `db:"filesyste_attachment_provider_id"`
+	FilesystemAttachmentProviderID sql.Null[string] `db:"filesystem_attachment_provider_id"`
 	StoragePoolType                string           `db:"storage_pool_type"`
 }
 

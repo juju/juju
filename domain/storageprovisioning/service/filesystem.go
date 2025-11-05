@@ -191,7 +191,7 @@ type FilesystemState interface {
 	// the namespace for watching filesystem attachment life changes where the
 	// filesystem attachment is model provisioned and the initial query for
 	// getting the current set of model provisioned filesystem attachments.
-	InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery)
+	InitialWatchStatementModelProvisionedFilesystemAttachments() (string, string, eventsource.NamespaceQuery)
 
 	// GetFilesystemTemplatesForApplication returns all the filesystem templates
 	// for a given application.
@@ -748,12 +748,13 @@ func (s *Service) WatchModelProvisionedFilesystemAttachments(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystemAttachments()
+	lifeNS, providerIdNS, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystemAttachments()
 	return s.watcherFactory.NewNamespaceWatcher(
 		ctx,
 		initialQuery,
 		"model provisioned filesystem attachment watcher",
-		eventsource.NamespaceFilter(ns, corechangestream.All),
+		eventsource.NamespaceFilter(lifeNS, corechangestream.All),
+		eventsource.NamespaceFilter(providerIdNS, corechangestream.All),
 	)
 }
 

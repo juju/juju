@@ -1179,7 +1179,7 @@ func (st *State) InitialWatchStatementMachineProvisionedFilesystemAttachments(
 // namespace for watching filesystem life changes where the filesystem is model
 // provisioned. On top of this the initial query for getting all filesystems
 // in the model that model provisioned is returned.
-func (st *State) InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchStatementModelProvisionedFilesystemAttachments() (string, string, eventsource.NamespaceQuery) {
 	query := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
 SELECT &entityUUID.*
@@ -1206,7 +1206,9 @@ WHERE  provision_scope_id=0
 		}
 		return rval, nil
 	}
-	return "storage_filesystem_attachment_life_model_provisioning", query
+	return "storage_filesystem_attachment_life_model_provisioning",
+		"custom_filesystem_attachment_provider_id_model_provisioning",
+		query
 }
 
 // SetFilesystemProvisionedInfo sets on the provided filesystem the
