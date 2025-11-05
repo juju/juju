@@ -11,7 +11,9 @@ import (
 
 // RestartDelay holds the length of time that a worker
 // will wait between exiting and restarting.
-const RestartDelay = 3 * time.Second
+func RestartDelay(attempts int, lastErr error) time.Duration {
+	return time.Second * 3
+}
 
 // Runner is implemented by instances capable of starting and stopping workers.
 type Runner interface {

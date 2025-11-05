@@ -5,7 +5,6 @@ package objectstore
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -132,7 +131,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker
 			return false
 		},
 		ShouldRestart: internalworker.ShouldRunnerRestart,
-		RestartDelay:  time.Second * 10,
+		RestartDelay:  internalworker.RestartDelay,
 		Logger:        internalworker.WrapLogger(cfg.Logger),
 	})
 	if err != nil {

@@ -150,8 +150,10 @@ func New(config Config) (worker.Worker, error) {
 		IsFatal:       neverFatal,
 		ShouldRestart: internalworker.ShouldRunnerRestart,
 		MoreImportant: neverImportant,
-		RestartDelay:  config.ErrorDelay,
-		Logger:        internalworker.WrapLogger(config.Logger),
+		RestartDelay: func(attempts int, lastErr error) time.Duration {
+			return config.ErrorDelay
+		},
+		Logger: internalworker.WrapLogger(config.Logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

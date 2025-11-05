@@ -73,9 +73,11 @@ func New(
 		IsFatal: func(error) bool { return false },
 
 		// If the API connection fails, try again in 1 minute.
-		RestartDelay: time.Minute,
-		Clock:        clock,
-		Logger:       internalworker.WrapLogger(logger),
+		RestartDelay: func(attempts int, lastErr error) time.Duration {
+			return time.Minute
+		},
+		Clock:  clock,
+		Logger: internalworker.WrapLogger(logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

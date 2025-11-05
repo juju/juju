@@ -281,7 +281,9 @@ func NewWorker(config Config) (ReportableWorker, error) {
 		},
 
 		// For any failures, try again in 15 seconds.
-		RestartDelay: 15 * time.Second,
+		RestartDelay: func(attempts int, lastErr error) time.Duration {
+			return time.Second * 15
+		},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

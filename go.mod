@@ -309,3 +309,5 @@ replace go.uber.org/mock => go.uber.org/mock v0.4.0
 replace gopkg.in/check.v1 => github.com/hpidcock/gc-compat-tc v0.0.0-20250523041742-c3a83c867edf
 
 replace github.com/juju/testing => ./internal/testhelpers/compat
+
+replace github.com/juju/worker/v4 => github.com/SimonRichardson/worker/v4 v4.0.0-20251105211049-32f832070207

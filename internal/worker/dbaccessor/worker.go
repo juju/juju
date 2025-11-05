@@ -244,8 +244,10 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 		ShouldRestart: func(err error) bool {
 			return !internalerrors.IsOneOf(err, database.ErrDBDead, database.ErrDBNotFound)
 		},
-		RestartDelay: time.Second * 10,
-		Logger:       internalworker.WrapLogger(cfg.Logger),
+		RestartDelay: func(attempts int, lastErr error) time.Duration {
+			return time.Second * 10
+		},
+		Logger: internalworker.WrapLogger(cfg.Logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
