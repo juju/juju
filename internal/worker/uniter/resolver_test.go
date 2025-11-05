@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 	"github.com/juju/juju/internal/worker/uniter/secrets"
 	"github.com/juju/juju/internal/worker/uniter/storage"
-	"github.com/juju/juju/internal/worker/uniter/verifycharmprofile"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -115,7 +114,6 @@ func (s *baseResolverSuite) SetUpTest(c *tc.C, modelType model.ModelType, reboot
 		Reboot:              reboot.NewResolver(logger, rebootDetected),
 		Leadership:          leadership.NewResolver(logger),
 		Actions:             uniteractions.NewResolver(logger),
-		VerifyCharmProfile:  verifycharmprofile.NewResolver(logger, modelType),
 		CreatedRelations:    nopResolver{},
 		Relations:           nopResolver{},
 		Storage:             storage.NewResolver(logger, attachments, modelType),
@@ -461,21 +459,6 @@ func (s *resolverSuite) TestUpgradeOperation(c *tc.C) {
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
 
-func (s *iaasResolverSuite) TestUpgradeOperationVerifyCPFail(c *tc.C) {
-	opFactory := setupUpgradeOpFactory(c)
-	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
-		State: operation.State{
-			Kind:      operation.Upgrade,
-			Installed: true,
-			Started:   true,
-		},
-	}
-	s.remoteState.CharmProfileRequired = true
-	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
-	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
-}
-
 func (s *resolverSuite) TestContinueUpgradeOperation(c *tc.C) {
 	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
@@ -539,22 +522,6 @@ func (s *resolverSuite) TestOperationWithOptionalResolvers(c *tc.C) {
 	c.Assert(s.lastOptionalResolver.callCount, tc.Equals, 0)
 }
 
-func (s *iaasResolverSuite) TestContinueUpgradeOperationVerifyCPFail(c *tc.C) {
-	opFactory := setupUpgradeOpFactory(c)
-	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
-		State: operation.State{
-			Kind:      operation.Continue,
-			Installed: true,
-			Started:   true,
-		},
-	}
-	s.setupForceCharmModifiedTrue()
-	s.remoteState.CharmProfileRequired = true
-	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
-	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
-}
-
 func (s *resolverSuite) TestRunHookPendingUpgradeOperation(c *tc.C) {
 	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
@@ -604,23 +571,6 @@ func (s *conflictedResolverSuite) TestNextOpConflicted(c *tc.C) {
 	}
 	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrWaiting)
-}
-
-func (s *conflictedResolverSuite) TestNextOpConflictedVerifyCPFail(c *tc.C) {
-	s.baseResolverSuite.SetUpTest(c, model.IAAS, rebootNotDetected)
-	opFactory := setupUpgradeOpFactory(c)
-	localState := resolver.LocalState{
-		CharmURL:   s.charmURL,
-		Conflicted: true,
-		State: operation.State{
-			Kind:      operation.Upgrade,
-			Installed: true,
-			Started:   true,
-		},
-	}
-	s.remoteState.CharmProfileRequired = true
-	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
-	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
 func (s *conflictedResolverSuite) TestNextOpConflictedNewResolvedUpgrade(c *tc.C) {

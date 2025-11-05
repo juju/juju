@@ -272,64 +272,6 @@ func (s *UniterSuite) TestUniterStartupStatus(c *tc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterStartupStatusCharmProfile(c *tc.C) {
-	// addCharmProfile customises the wordpress charm's metadata,
-	// adding an lxd profile for the charm. We do it here rather
-	// than in the charm itself to avoid modifying all of the other
-	// scenarios.
-	addCharmProfile := func(c tc.LikeC, ctx *testContext, path string) {
-		f, err := os.OpenFile(filepath.Join(path, "lxd-profile.yaml"), os.O_RDWR|os.O_CREATE, 0644)
-		c.Assert(err, tc.ErrorIsNil)
-		defer func() {
-			err := f.Close()
-			c.Assert(err, tc.ErrorIsNil)
-		}()
-		_, err = io.WriteString(f, `
-config:
-  security.nesting: "false"
-  security.privileged: "true"`)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"unit status and message at startup, charm waiting for profile",
-			createCharm{customize: addCharmProfile},
-			serveCharm{},
-			createApplicationAndUnit{container: true},
-			startUniter{
-				newExecutorFunc: executorFunc(c),
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Waiting,
-				info:         "required charm profile not yet applied to machine",
-			},
-			expectError{"required charm profile on machine not found"},
-		),
-		ut(
-			"unit status and message at startup, charm profile found",
-			createCharm{customize: addCharmProfile},
-			serveCharm{},
-			createApplicationAndUnit{container: true},
-			addCharmProfileToMachine{profiles: []string{"default", "juju-model-u-0"}},
-			startUniter{
-				newExecutorFunc: executorFunc(c),
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Waiting,
-				info:         status.MessageInitializingAgent,
-			},
-			waitUnitAgent{
-				status: status.Failed,
-				info:   "resolver loop error",
-			},
-			expectError{".*some error occurred.*"},
-		),
-	})
-}
-
 func (s *UniterSuite) TestUniterInstallHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(

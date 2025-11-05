@@ -124,11 +124,10 @@ type testContext struct {
 	// Data model aka "state".
 	stateMu sync.Mutex
 
-	machineProfiles []string
-	storage         map[string]*storageAttachment
-	relationUnits   map[int]relationUnitSettings
-	actionCounter   atomic.Int32
-	pendingActions  []*apiuniter.Action
+	storage        map[string]*storageAttachment
+	relationUnits  map[int]relationUnitSettings
+	actionCounter  atomic.Int32
+	pendingActions []*apiuniter.Action
 
 	createdSecretURI *secrets.URI
 	secretsRotateCh  chan []string
@@ -382,7 +381,6 @@ func (s addCharm) step(c tc.LikeC, ctx *testContext) {
 	ctx.charm.EXPECT().URL().Return(s.curl).AnyTimes()
 	ctx.charm.EXPECT().ArchiveSha256(gomock.Any()).Return(hash, nil).AnyTimes()
 	ctx.api.EXPECT().Charm(s.curl).Return(ctx.charm, nil).AnyTimes()
-	ctx.charm.EXPECT().LXDProfileRequired(gomock.Any()).Return(s.dir.LXDProfile() != nil, nil).AnyTimes()
 }
 
 type serveCharm struct{}
@@ -392,16 +390,6 @@ func (s serveCharm) step(c tc.LikeC, ctx *testContext) {
 		ctx.servedCharms[storagePath] = data
 		delete(ctx.charms, storagePath)
 	}
-}
-
-type addCharmProfileToMachine struct {
-	profiles []string
-}
-
-func (acpm addCharmProfileToMachine) step(c tc.LikeC, ctx *testContext) {
-	ctx.stateMu.Lock()
-	ctx.machineProfiles = acpm.profiles
-	ctx.stateMu.Unlock()
 }
 
 type createApplicationAndUnit struct {

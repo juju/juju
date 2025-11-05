@@ -22,12 +22,10 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
-	jujucharm "github.com/juju/juju/internal/charm"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter/actions"
@@ -48,7 +46,6 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/internal/worker/uniter/secrets"
 	"github.com/juju/juju/internal/worker/uniter/storage"
-	"github.com/juju/juju/internal/worker/uniter/verifycharmprofile"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -321,7 +318,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 	}
 
-	canApplyCharmProfile, charmURL, charmModifiedVersion, err := u.charmState(ctx)
+	charmURL, charmModifiedVersion, err := u.charmState(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -372,7 +369,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				RetryHookChannel:             retryHookChan,
 				ModelType:                    u.modelType,
 				Logger:                       u.logger.Child("remotestate"),
-				CanApplyCharmProfile:         canApplyCharmProfile,
 				Sidecar:                      u.sidecar,
 				EnforcedCharmModifiedVersion: u.enforcedCharmModifiedVersion,
 				WorkloadEventChannel:         u.workloadEventChannel,
@@ -433,10 +429,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			StopRetryHookTimer:  retryHookTimer.Reset,
 			Actions: actions.NewResolver(
 				u.logger.Child("actions"),
-			),
-			VerifyCharmProfile: verifycharmprofile.NewResolver(
-				u.logger.Child("verifycharmprofile"),
-				u.modelType,
 			),
 			Reboot: rebootResolver,
 			Leadership: uniterleadership.NewResolver(
@@ -540,100 +532,41 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	return err
 }
 
-func (u *Uniter) verifyCharmProfile(ctx stdcontext.Context, url string) error {
-	// NOTE: this is very similar code to verifyCharmProfile.NextOp,
-	// if you make changes here, check to see if they are needed there.
-	ch, err := u.client.Charm(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	required, err := ch.LXDProfileRequired(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !required {
-		// If no lxd profile is required for this charm, move on.
-		u.logger.Debugf(ctx, "no lxd profile required for %s", url)
-		return nil
-	}
-	profile, err := u.unit.LXDProfileName(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if profile == "" {
-		if err := u.unit.SetUnitStatus(ctx, status.Waiting, "required charm profile not yet applied to machine", nil); err != nil {
-			return errors.Trace(err)
-		}
-		u.logger.Debugf(ctx, "required lxd profile not found on machine")
-		return errors.NotFoundf("required charm profile on machine")
-	}
-	// double check profile revision matches charm revision.
-	rev, err := lxdprofile.ProfileRevision(profile)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	curl, err := jujucharm.ParseURL(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if rev != curl.Revision {
-		if err := u.unit.SetUnitStatus(ctx, status.Waiting, fmt.Sprintf("required charm profile %q not yet applied to machine", profile), nil); err != nil {
-			return errors.Trace(err)
-		}
-		u.logger.Debugf(ctx, "charm is revision %d, charm profile has revision %d", curl.Revision, rev)
-		return errors.NotFoundf("required charm profile, %q, on machine", profile)
-	}
-	u.logger.Debugf(ctx, "required lxd profile %q FOUND on machine", profile)
-	if err := u.unit.SetUnitStatus(ctx, status.Waiting, status.MessageInitializingAgent, nil); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // charmState returns data for the local state setup.
 // While gathering the data, look for interrupted Install or pending
 // charm upgrade, execute if found.
-func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
+func (u *Uniter) charmState(ctx stdcontext.Context) (string, int, error) {
 	// Install is a special case, as it must run before there
 	// is any remote state, and before the remote state watcher
 	// is started.
 	var charmURL string
 	var charmModifiedVersion int
 
-	canApplyCharmProfile, err := u.unit.CanApplyLXDProfile(ctx)
-	if err != nil {
-		return canApplyCharmProfile, charmURL, charmModifiedVersion, err
-	}
-
 	opState := u.operationExecutor.State()
 	if opState.Kind == operation.Install {
 		u.logger.Infof(ctx, "resuming charm install")
-		if canApplyCharmProfile {
-			// Note: canApplyCharmProfile will be false for a CAAS model.
-			// Verify the charm profile before proceeding.
-			if err := u.verifyCharmProfile(ctx, opState.CharmURL); err != nil {
-				return canApplyCharmProfile, charmURL, charmModifiedVersion, err
-			}
-		}
+
 		op, err := u.operationFactory.NewInstall(opState.CharmURL)
 		if err != nil {
-			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+			return charmURL, charmModifiedVersion, errors.Trace(err)
 		}
+
 		if err := u.operationExecutor.Run(ctx, op, nil); err != nil {
-			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+			return charmURL, charmModifiedVersion, errors.Trace(err)
 		}
+
 		charmURL = opState.CharmURL
-		return canApplyCharmProfile, charmURL, charmModifiedVersion, nil
+		return charmURL, charmModifiedVersion, nil
 	}
 	// No install needed, find the curl and start.
 	curl, err := u.unit.CharmURL(ctx)
 	if err != nil {
-		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		return charmURL, charmModifiedVersion, errors.Trace(err)
 	}
 	charmURL = curl
 	app, err := u.unit.Application(ctx)
 	if err != nil {
-		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		return charmURL, charmModifiedVersion, errors.Trace(err)
 	}
 
 	// TODO (hml) 25-09-2020 - investigate
@@ -642,10 +575,10 @@ func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
 	// it could be acted on.
 	charmModifiedVersion, err = app.CharmModifiedVersion(ctx)
 	if err != nil {
-		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		return charmURL, charmModifiedVersion, errors.Trace(err)
 	}
 
-	return canApplyCharmProfile, charmURL, charmModifiedVersion, nil
+	return charmURL, charmModifiedVersion, nil
 }
 
 func (u *Uniter) terminate(ctx stdcontext.Context) error {
