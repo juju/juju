@@ -17,6 +17,12 @@ type AgentBinary struct {
 	// Architecture is the architecture of the agent binary.
 	Architecture Architecture
 
+	// SHA256 represents the sha256 sum of the agent binary.
+	SHA256 string
+
+	// Size is the size of the agent binary in bytes.
+	Size uint64
+
 	// Stream represents the stream the agent binary is applicable to.
 	Stream Stream
 
@@ -31,8 +37,8 @@ type AgentBinary struct {
 type RegisterAgentBinaryArg struct {
 	// Version is the version of the agent binary.
 	Version string
-	// Arch is the architecture of the agent binary.
-	Arch string
+	// Architecture is the architecture of the agent binary.
+	Architecture Architecture
 	// ObjectStoreUUID is the UUID primary key of the object store record where the agent binary is stored.
 	ObjectStoreUUID objectstore.UUID
 }
@@ -99,6 +105,16 @@ func AgentBinaryNotMatchingArchitectures(archs []Architecture) func(AgentBinary)
 func AgentBinaryNotMatchingVersion(v semversion.Number) func(AgentBinary) bool {
 	return func(a AgentBinary) bool {
 		return a.Version.Compare(v) != 0
+	}
+}
+
+// AgentBinaryNotMatchinAgentVersion returns a helper closure to use with the
+// slices package for filtering agent binaries that do not matach the supplied
+// [Version]. This func differs from [AgentBinaryNotMatchingVersion] in that
+// both version number and architecture are compared.
+func AgentBinaryNotMatchinAgentVersion(v Version) func(AgentBinary) bool {
+	return func(a AgentBinary) bool {
+		return a.Version.Compare(v.Number) != 0 || a.Architecture != v.Architecture
 	}
 }
 
