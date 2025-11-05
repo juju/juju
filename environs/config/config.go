@@ -800,11 +800,7 @@ func Validate(_ctx context.Context, cfg, old *Config) error {
 				return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
 			}
 		}
-		if _, oldFound := old.AgentVersion(); oldFound {
-			if _, newFound := cfg.AgentVersion(); !newFound {
-				return errors.New("cannot clear agent-version")
-			}
-		}
+
 		if _, oldFound := old.CharmHubURL(); oldFound {
 			if _, newFound := cfg.CharmHubURL(); !newFound {
 				return errors.New("cannot clear charmhub-url")
