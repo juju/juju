@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -26,10 +25,10 @@ var (
 	headerContentType = "Content-Type"
 )
 
-// AgentBinaryFilter is a function that filters agent binaries based on the
+// SimpleStreamsFilter is a function that filters agent binaries based on the
 // given parameters. It returns a list of agent binaries that match the filter
 // criteria.
-type AgentBinaryFilter func(
+type SimpleStreamsFilter func(
 	ctx context.Context,
 	ss envtools.SimplestreamsFetcher,
 	env environs.BootstrapEnviron,
@@ -51,21 +50,21 @@ type ProviderForAgentBinaryFinder interface {
 	environs.BootstrapEnviron
 }
 
-// SimpleStreamsAgentBinaryStore fetches agent binaries from simplestreams
+// AgentSimpleStreamsGetterStore fetches agent binaries from simplestreams
 // using a provider-aware filter and an HTTP client.
-type SimpleStreamsAgentBinaryStore struct {
+type AgentSimpleStreamsGetterStore struct {
 	providerForAgentBinaryFinder providertracker.ProviderGetter[ProviderForAgentBinaryFinder]
-	agentBinaryFilter            AgentBinaryFilter
+	agentBinaryFilter            SimpleStreamsFilter
 	httpClient                   Doer
 }
 
-// NewSimpleStreamAgentBinaryStore returns a new instance of SimpleStreamsAgentBinaryStore.
-func NewSimpleStreamAgentBinaryStore(
+// NewAgentSimpleStreamsGetterStore returns a new instance of SimpleStreamsAgentBinaryStore.
+func NewAgentSimpleStreamsGetterStore(
 	providerForAgentBinaryFinder providertracker.ProviderGetter[ProviderForAgentBinaryFinder],
-	agentBinaryFilter AgentBinaryFilter,
+	agentBinaryFilter SimpleStreamsFilter,
 	httpClient Doer,
-) *SimpleStreamsAgentBinaryStore {
-	return &SimpleStreamsAgentBinaryStore{
+) *AgentSimpleStreamsGetterStore {
+	return &AgentSimpleStreamsGetterStore{
 		providerForAgentBinaryFinder: providerForAgentBinaryFinder,
 		agentBinaryFilter:            agentBinaryFilter,
 		httpClient:                   httpClient,
@@ -88,31 +87,42 @@ func getPreferredFallbackStreams(stream agentbinary.Stream) []string {
 	return []string{}
 }
 
+// GetAgentBinaryForSHA256 to be implemented with a better error.
+func (s *AgentSimpleStreamsGetterStore) GetAgentBinaryForSHA256(
+	_ context.Context, _ string,
+) (io.ReadCloser, int64, error) {
+	return nil, 0, errors.New("not implemented")
+}
+
 // GetAgentBinaryWithSHA256 retrieves the agent binary corresponding to the given version
 // and stream from simple stream.
 // The caller is responsible for closing the returned reader.
 //
 // The following errors may be returned:
 // - [domainagenterrors.NotFound] if the agent binary metadata does not exist.
-func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
+func (s *AgentSimpleStreamsGetterStore) GetAgentBinaryForVersionStreamSHA256(
 	ctx context.Context,
-	ver coreagentbinary.Version,
+	ver agentbinary.Version,
 	stream agentbinary.Stream,
 ) (io.ReadCloser, int64, string, error) {
 	foundToolsList, err := s.searchSimpleStreams(ctx, stream, ver)
 	if err != nil {
 		return nil, 0, "", errors.Errorf(
-			"searching simple streams for %q in stream %q: %w",
-			ver.String(), stream, err,
+			"searching simple streams for version %q and architecture %q in stream %q: %w",
+			ver.Number, ver.Architecture, stream, err,
 		)
 	}
 
 	if len(foundToolsList) == 0 {
-		return nil, 0, "", errors.Errorf("getting agent binary for version %q", ver.String()).Add(domainagenterrors.NotFound)
+		return nil, 0, "", errors.Errorf(
+			"getting agent binary for version %q and architecture %q in stream %q",
+			ver.Number.String(), ver.Architecture.String(), stream.String(),
+		).Add(domainagenterrors.NotFound)
 	} else if len(foundToolsList) != 1 {
 		return nil, 0, "", errors.Errorf(
-			"multiple tools found for version: %q in stream %q, expected 1 result got %d",
-			ver.String(), stream, len(foundToolsList),
+			"multiple tools found for version %q and architecture %q in stream %q, expected 1 result got %d",
+			ver.Number.String(), ver.Architecture.String(),
+			stream, len(foundToolsList),
 		)
 	}
 
@@ -162,6 +172,7 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 	}
 
 	if resp.Header.Get(headerContentType) != gzipContentType {
+		closeOnErr()
 		return nil, 0, "", errors.Errorf(
 			"simplestreams url %q returned unexpected content type %q",
 			toolURL, resp.Header.Get(headerContentType),
@@ -177,7 +188,7 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] if the stream value is not valid.
-func (s *SimpleStreamsAgentBinaryStore) GetAvailableForVersionInStream(
+func (s *AgentSimpleStreamsGetterStore) GetAvailableForVersionInStream(
 	ctx context.Context,
 	version semversion.Number,
 	stream agentbinary.Stream,
@@ -248,7 +259,7 @@ func (s *SimpleStreamsAgentBinaryStore) GetAvailableForVersionInStream(
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] if the stream value is not valid.
-func (s *SimpleStreamsAgentBinaryStore) GetAvailablePatchVersionsInStream(
+func (s *AgentSimpleStreamsGetterStore) GetAvailablePatchVersionsInStream(
 	ctx context.Context,
 	version semversion.Number,
 	stream agentbinary.Stream,
@@ -313,10 +324,10 @@ func (s *SimpleStreamsAgentBinaryStore) GetAvailablePatchVersionsInStream(
 
 // searchSimpleStreams prepares and conducts a simplestreams search for the
 // required agent binary version in the given stream.
-func (s *SimpleStreamsAgentBinaryStore) searchSimpleStreams(
+func (s *AgentSimpleStreamsGetterStore) searchSimpleStreams(
 	ctx context.Context,
 	stream agentbinary.Stream,
-	version coreagentbinary.Version,
+	version agentbinary.Version,
 ) (coretools.List, error) {
 	provider, err := s.providerForAgentBinaryFinder(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
@@ -332,7 +343,7 @@ func (s *SimpleStreamsAgentBinaryStore) searchSimpleStreams(
 	major := version.Number.Major
 	minor := version.Number.Minor
 	filter := coretools.Filter{
-		Arch:   version.Arch,
+		Arch:   version.Architecture.String(),
 		Number: version.Number,
 	}
 
