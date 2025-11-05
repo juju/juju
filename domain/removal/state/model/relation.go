@@ -294,6 +294,14 @@ WHERE  relation_endpoint_uuid IN (
 		return errors.Errorf("preparing relation status deletion: %w", err)
 	}
 
+	secretPermissionStmt, err := st.Prepare(`
+DELETE FROM secret_permission
+WHERE  scope_type_id = 3
+AND    scope_uuid = $entityUUID.uuid`, relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation secret permission deletion: %w", err)
+	}
+
 	relStmt, err := st.Prepare("DELETE FROM relation WHERE uuid = $entityUUID.uuid ", relationUUID)
 	if err != nil {
 		return errors.Errorf("preparing relation deletion: %w", err)
@@ -325,6 +333,11 @@ WHERE  relation_endpoint_uuid IN (
 	err = tx.Query(ctx, statusStmt, relationUUID).Run()
 	if err != nil {
 		return errors.Errorf("running relation status deletion: %w", err)
+	}
+
+	err = tx.Query(ctx, secretPermissionStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation secret permission deletion: %w", err)
 	}
 
 	err = tx.Query(ctx, relStmt, relationUUID).Run()

@@ -252,6 +252,34 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccessHasSecretPermission(c *tc.C) {
+	rel, _, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
+
+	_, err := s.DB().Exec(`INSERT INTO secret (id) VALUES (?)`, "secret-id")
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO secret_metadata (secret_id, version, rotate_policy_id)
+VALUES (?, ?, ?)`, "secret-id", 1, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO secret_permission (secret_id, role_id, subject_uuid, subject_type_id, scope_uuid, scope_type_id)
+VALUES (?, ?, ?, ?, ?, ?)`, "secret-id", 0, "subject-uuid", 0, rel, 3)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteRelationUnits(c.Context(), rel)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteRelation(c.Context(), rel)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetRelationLife(c.Context(), rel)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
 func (s *relationSuite) TestLeaveScopeSuccess(c *tc.C) {
 	// Arrange
 	rel, unit, relUnit := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)

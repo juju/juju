@@ -52,7 +52,7 @@ WHERE  aro.application_uuid = $entityUUID.uuid
 	return remoteAppOffererUUID.UUID, nil
 }
 
-// GetRemoteApplicationOfferer returns true if a remote application exists
+// RemoteApplicationOffererExists returns true if a remote application exists
 // with the input UUID.
 func (st *State) RemoteApplicationOffererExists(ctx context.Context, rUUID string) (bool, error) {
 	db, err := st.DB(ctx)
@@ -321,6 +321,10 @@ WHERE  uuid = $entityUUID.uuid`, entityUUID{})
 	synthCharmUUID, err := st.getCharmUUIDForApplication(ctx, tx, synthApp.UUID)
 	if err != nil {
 		return errors.Errorf("getting charm UUID for application: %w", err)
+	}
+
+	if err := st.deleteOwnedSecretReferences(ctx, tx, synthApp); err != nil {
+		return errors.Errorf("deleting owned secret references for synthetic application: %w", err)
 	}
 
 	if err := st.deleteSynthUnitsForApplication(ctx, tx, synthApp); err != nil {
