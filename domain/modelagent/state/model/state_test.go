@@ -197,7 +197,7 @@ VALUES ($dbMetadataPath.*)`, pathRecord)
 	err = agentbinarystate.NewModelState(s.TxnRunnerFactory()).RegisterAgentBinary(
 		c.Context(),
 		domainagentbinary.RegisterAgentBinaryArg{
-			Arch:            version.Arch,
+			Architecture:            version.Arch,
 			ObjectStoreUUID: objectstore.UUID(storeUUID),
 			Version:         version.Number.String(),
 		},
