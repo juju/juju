@@ -152,3 +152,9 @@ func (a Architecture) String() string {
 		return ""
 	}
 }
+
+// SupportedArchitectures returns a slice of all supported architectures for
+// Juju binaries.
+func SupportedArchitectures() []Architecture {
+	return []Architecture{AMD64, ARM64, PPC64EL, S390X, RISCV64}
+}
