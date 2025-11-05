@@ -387,6 +387,130 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *providerServiceSuite) TestCreateIAASApplicationWithConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(s.storageService)
+
+	id := tc.Must(c, coreapplication.NewUUID)
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+
+	option := make(map[string]applicationcharm.Option)
+	option["foo"] = applicationcharm.Option{
+		Type:        "int",
+		Description: "foo option",
+		Default:     0,
+	}
+	ch := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Name:  "ubuntu",
+			RunAs: "default",
+		},
+		Manifest:        s.minimalManifest(),
+		ReferenceName:   "ubuntu",
+		Source:          applicationcharm.CharmHubSource,
+		Revision:        42,
+		Architecture:    architecture.ARM64,
+		ObjectStoreUUID: objectStoreUUID,
+		Config: applicationcharm.Config{
+			Options: option,
+		},
+	}
+	platform := deployment.Platform{
+		Channel:      "24.04",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+
+	app := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: ch,
+			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance:         applicationcharm.ProvenanceDownload,
+				CharmhubIdentifier: "foo",
+				DownloadURL:        "https://example.com/foo",
+				DownloadSize:       42,
+			},
+			Platform: platform,
+			Constraints: constraints.Constraints{
+				CpuCores: ptr(uint64(4)),
+				CpuPower: ptr(uint64(75)),
+				Arch:     ptr("arm64"),
+			},
+			Config: map[string]application.AddApplicationConfig{
+				"foo": {
+					Value: "3",
+					Type:  applicationcharm.OptionInt,
+				},
+			},
+		},
+	}
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
+		Base: corebase.Base{
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "24.04",
+			},
+		},
+		Placement: "zone=default",
+	}).Return(nil)
+
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil, nil)
+	options := make(map[string]charm.Option)
+	options["foo"] = charm.Option{
+		Type:        "int",
+		Description: "foo option",
+		Default:     0,
+	}
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{
+		Options: options,
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.Stable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}).MinTimes(1)
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "ubuntu",
+	}).MinTimes(1)
+	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "ubuntu",
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
+		CharmObjectStoreUUID: objectStoreUUID,
+		Constraints:          coreconstraints.MustParse("arch=arm64 cores=4 cpu-power=75"),
+		ApplicationConfig: charm.Config{
+			"foo": "3",
+		},
+	}, AddIAASUnitArg{
+		AddUnitArg: AddUnitArg{
+			Placement: &instance.Placement{
+				Scope:     instance.ModelScope,
+				Directive: "zone=default",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	setCreateApplicationNoopStorageExpects(s.storageService)
