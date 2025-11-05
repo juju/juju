@@ -232,6 +232,48 @@ func (*typesSuite) TestAgentBinaryNotMatchinVersion(c *tc.C) {
 	})
 }
 
+// TestAgentBinaryNotWithinPatchOfVersion tests that agent binaries that are not
+// within a patch version of the supplied version are removed from the
+// [AgentBinary] slice.
+func (*typesSuite) TestAgentBinaryNotWithinPatchOfVersion(c *tc.C) {
+	version := tc.Must1(c, semversion.Parse, "4.0.0")
+
+	agentBinaries := []AgentBinary{
+		{
+			Architecture: AMD64,
+			Stream:       AgentStreamReleased,
+			Version:      tc.Must1(c, semversion.Parse, "4.0.0"),
+		},
+		{
+			Architecture: ARM64,
+			Stream:       AgentStreamProposed,
+			Version:      tc.Must1(c, semversion.Parse, "4.0.9"),
+		},
+		{
+			Architecture: S390X,
+			Stream:       AgentStreamReleased,
+			Version:      tc.Must1(c, semversion.Parse, "4.1.0"),
+		},
+	}
+
+	agentBinaries = slices.DeleteFunc(
+		agentBinaries, AgentBinaryNotWithinPatchOfVersion(version),
+	)
+
+	tc.Check(c, agentBinaries, tc.DeepEquals, []AgentBinary{
+		{
+			Architecture: AMD64,
+			Stream:       AgentStreamReleased,
+			Version:      tc.Must1(c, semversion.Parse, "4.0.0"),
+		},
+		{
+			Architecture: ARM64,
+			Stream:       AgentStreamProposed,
+			Version:      tc.Must1(c, semversion.Parse, "4.0.9"),
+		},
+	})
+}
+
 // TestArchitectureFromStringNotRecognised ensures that if the string
 // architecture is not recognised then the returned Architecture is 0 with a
 // false conversion value.

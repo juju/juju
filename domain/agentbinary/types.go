@@ -102,6 +102,15 @@ func AgentBinaryNotMatchingVersion(v semversion.Number) func(AgentBinary) bool {
 	}
 }
 
+// AgentBinaryNotWithinPatchOfVersion returns a helper func that can be used
+// with [slices.DeleteFunc] for removing all [agentbinary.AgentBinary]s from a
+// slice that are not for a patch version of the supplied [semversion.Number].
+func AgentBinaryNotWithinPatchOfVersion(v semversion.Number) func(AgentBinary) bool {
+	return func(a AgentBinary) bool {
+		return a.Version.Major != v.Major || a.Version.Minor != v.Minor
+	}
+}
+
 // AgentBinaryHighestVersion is a func for use with [slices.MaxFunc] to extract
 // the highest [AgentBinary.Version] available in a slice.
 //
