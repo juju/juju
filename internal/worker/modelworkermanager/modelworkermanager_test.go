@@ -257,7 +257,7 @@ func (s *suite) TestRestartsFinishedWorker(c *tc.C) {
 
 	activatedModelUUID1 := modeltesting.GenModelUUID(c)
 	s.expectServicesForModelTimes(activatedModelUUID1, 2)
-	s.expectGetModelTimes(activatedModelUUID1, 2)
+	s.expectGetGModelTimes(activatedModelUUID1, 2)
 
 	s.runTest(c, func(w worker.Worker) {
 		select {
@@ -447,10 +447,10 @@ func (s *suite) expectServicesForModelTimes(modelUUID coremodel.UUID, times int)
 }
 
 func (s *suite) expectGetModel(modelUUID coremodel.UUID) {
-	s.expectGetModelTimes(modelUUID, 1)
+	s.expectGetGModelTimes(modelUUID, 1)
 }
 
-func (s *suite) expectGetModelTimes(modelUUID coremodel.UUID, times int) {
+func (s *suite) expectGetGModelTimes(modelUUID coremodel.UUID, times int) {
 	s.modelService.EXPECT().Model(gomock.Any(), modelUUID).Return(coremodel.Model{
 		UUID:      modelUUID,
 		ModelType: coremodel.IAAS,

@@ -94,11 +94,16 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(hc, nil)
 	s.agentPasswordService.EXPECT().SetMachinePassword(gomock.Any(), coremachine.Name("0"), gomock.Any()).Return(nil)
 
-	metadata := []agentbinary.Metadata{{
-		Version: "2.6.6",
-		Arch:    "amd64",
-	}}
-	s.agentBinaryService.EXPECT().ListAgentBinaries(gomock.Any()).Return(metadata, nil)
+	s.agentBinaryService.EXPECT().GetAvailableAgentBinaryiesForVersion(
+		gomock.Any(), tc.Must1(c, semversion.Parse, "2.6.6"),
+	).Return([]agentbinary.AgentBinary{
+		{
+			Architecture: agentbinary.AMD64,
+			SHA256:       "sha256",
+			Size:         100,
+			Version:      tc.Must1(c, semversion.Parse, "2.6.6"),
+		},
+	}, nil)
 
 	addrs := []string{"1.2.3.4:1"}
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil).MinTimes(2)

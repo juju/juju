@@ -31,7 +31,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
-	agentbinarystate "github.com/juju/juju/domain/agentbinary/state"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -194,13 +193,12 @@ VALUES ($dbMetadataPath.*)`, pathRecord)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = agentbinarystate.NewModelState(s.TxnRunnerFactory()).RegisterAgentBinary(
-		c.Context(),
-		domainagentbinary.RegisterAgentBinaryArg{
-			Architecture:            version.Arch,
-			ObjectStoreUUID: objectstore.UUID(storeUUID),
-			Version:         version.Number.String(),
-		},
+	archId, converted := domainagentbinary.ArchitectureFromString(version.Arch)
+	c.Assert(converted, tc.Equals, true)
+
+	_, err = s.DB().Exec(
+		"INSERT INTO agent_binary_store (?, ?, ?)",
+		version.Number.String(), archId, objectstore.UUID(storeUUID),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 

@@ -15,8 +15,8 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
-	agentbinary "github.com/juju/juju/core/agentbinary"
 	watcher "github.com/juju/juju/core/watcher"
+	agentbinary "github.com/juju/juju/domain/agentbinary"
 	gomock "go.uber.org/mock/gomock"
 )
 

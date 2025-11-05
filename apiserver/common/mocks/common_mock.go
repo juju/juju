@@ -27,7 +27,6 @@ import (
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	agentbinary0 "github.com/juju/juju/domain/agentbinary"
-	service "github.com/juju/juju/domain/agentbinary/service"
 	blockcommand "github.com/juju/juju/domain/blockcommand"
 	model0 "github.com/juju/juju/domain/model"
 	unitstate "github.com/juju/juju/domain/unitstate"
@@ -1642,79 +1641,41 @@ func (m *MockAgentBinaryService) EXPECT() *MockAgentBinaryServiceMockRecorder {
 	return m.recorder
 }
 
-// GetEnvironAgentBinariesFinder mocks base method.
-func (m *MockAgentBinaryService) GetEnvironAgentBinariesFinder() service.EnvironAgentBinariesFinderFunc {
+// GetAvailableAgentBinaryiesForVersion mocks base method.
+func (m *MockAgentBinaryService) GetAvailableAgentBinaryiesForVersion(arg0 context.Context, arg1 semversion.Number) ([]agentbinary0.AgentBinary, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEnvironAgentBinariesFinder")
-	ret0, _ := ret[0].(service.EnvironAgentBinariesFinderFunc)
-	return ret0
-}
-
-// GetEnvironAgentBinariesFinder indicates an expected call of GetEnvironAgentBinariesFinder.
-func (mr *MockAgentBinaryServiceMockRecorder) GetEnvironAgentBinariesFinder() *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnvironAgentBinariesFinder", reflect.TypeOf((*MockAgentBinaryService)(nil).GetEnvironAgentBinariesFinder))
-	return &MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall{Call: call}
-}
-
-// MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall wrap *gomock.Call
-type MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall) Return(arg0 service.EnvironAgentBinariesFinderFunc) *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall) Do(f func() service.EnvironAgentBinariesFinderFunc) *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall) DoAndReturn(f func() service.EnvironAgentBinariesFinderFunc) *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ListAgentBinaries mocks base method.
-func (m *MockAgentBinaryService) ListAgentBinaries(arg0 context.Context) ([]agentbinary0.Metadata, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListAgentBinaries", arg0)
-	ret0, _ := ret[0].([]agentbinary0.Metadata)
+	ret := m.ctrl.Call(m, "GetAvailableAgentBinaryiesForVersion", arg0, arg1)
+	ret0, _ := ret[0].([]agentbinary0.AgentBinary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListAgentBinaries indicates an expected call of ListAgentBinaries.
-func (mr *MockAgentBinaryServiceMockRecorder) ListAgentBinaries(arg0 any) *MockAgentBinaryServiceListAgentBinariesCall {
+// GetAvailableAgentBinaryiesForVersion indicates an expected call of GetAvailableAgentBinaryiesForVersion.
+func (mr *MockAgentBinaryServiceMockRecorder) GetAvailableAgentBinaryiesForVersion(arg0, arg1 any) *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAgentBinaries", reflect.TypeOf((*MockAgentBinaryService)(nil).ListAgentBinaries), arg0)
-	return &MockAgentBinaryServiceListAgentBinariesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAvailableAgentBinaryiesForVersion", reflect.TypeOf((*MockAgentBinaryService)(nil).GetAvailableAgentBinaryiesForVersion), arg0, arg1)
+	return &MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall{Call: call}
 }
 
-// MockAgentBinaryServiceListAgentBinariesCall wrap *gomock.Call
-type MockAgentBinaryServiceListAgentBinariesCall struct {
+// MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall wrap *gomock.Call
+type MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAgentBinaryServiceListAgentBinariesCall) Return(arg0 []agentbinary0.Metadata, arg1 error) *MockAgentBinaryServiceListAgentBinariesCall {
+func (c *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall) Return(arg0 []agentbinary0.AgentBinary, arg1 error) *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentBinaryServiceListAgentBinariesCall) Do(f func(context.Context) ([]agentbinary0.Metadata, error)) *MockAgentBinaryServiceListAgentBinariesCall {
+func (c *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall) Do(f func(context.Context, semversion.Number) ([]agentbinary0.AgentBinary, error)) *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentBinaryServiceListAgentBinariesCall) DoAndReturn(f func(context.Context) ([]agentbinary0.Metadata, error)) *MockAgentBinaryServiceListAgentBinariesCall {
+func (c *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall) DoAndReturn(f func(context.Context, semversion.Number) ([]agentbinary0.AgentBinary, error)) *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

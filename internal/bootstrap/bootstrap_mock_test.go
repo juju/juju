@@ -17,12 +17,12 @@ import (
 	reflect "reflect"
 
 	caas "github.com/juju/juju/caas"
-	agentbinary "github.com/juju/juju/core/agentbinary"
 	application "github.com/juju/juju/core/application"
 	base "github.com/juju/juju/core/base"
 	charm "github.com/juju/juju/core/charm"
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
+	agentbinary "github.com/juju/juju/domain/agentbinary"
 	application0 "github.com/juju/juju/domain/application"
 	service "github.com/juju/juju/domain/application/service"
 	config "github.com/juju/juju/environs/config"
