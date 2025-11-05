@@ -279,10 +279,11 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 	retVal := make(coretools.List, 0, len(agentBinaries))
 	for _, ab := range agentBinaries {
 		retVal = append(retVal, &coretools.Tools{
+			SHA256: ab.SHA256,
+			Size:   int64(ab.Size),
 			Version: semversion.Binary{
-				// TODO: tlm add missing fields
-				Number: ab.Version,
 				Arch:   ab.Architecture.String(),
+				Number: ab.Version,
 			},
 		})
 	}
