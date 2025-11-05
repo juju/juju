@@ -136,6 +136,7 @@ FROM (
 		retVal = append(retVal, agentbinary.AgentBinary{
 			Architecture: agentbinary.Architecture(dbVal.ArchitectureID),
 			SHA256:       dbVal.SHA256,
+			Size:         dbVal.Size,
 			Stream:       agentbinary.Stream(dbVal.StreamID),
 			Version:      version,
 		})

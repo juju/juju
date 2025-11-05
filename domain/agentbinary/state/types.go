@@ -10,7 +10,7 @@ import "github.com/juju/juju/domain/agentbinary"
 type agentStoreBinary struct {
 	ArchitectureID int    `db:"architecture_id"`
 	SHA256         string `db:"sha_256"`
-	Size           int64  `db:"size"`
+	Size           uint64 `db:"size"`
 	StreamID       int    `db:"stream_id"`
 	Version        string `db:"version"`
 }
