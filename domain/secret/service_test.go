@@ -132,9 +132,11 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 		},
 	)
 	storageSvc := applicationstorageservice.NewService(
-		st, applicationstorageservice.NewStoragePoolProvider(
+		st,
+		applicationstorageservice.NewStoragePoolProvider(
 			storageProviderRegistryGetter, st,
 		),
+		loggertesting.WrapCheckLog(c),
 	)
 
 	appService := applicationservice.NewProviderService(
