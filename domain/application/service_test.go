@@ -394,7 +394,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.svc = service.NewProviderService(
 		state,
-		applicationservicestorage.NewService(state, poolProvider),
+		applicationservicestorage.NewService(state, poolProvider, loggertesting.WrapCheckLog(c)),
 		domaintesting.NoopLeaderEnsurer(),
 		nil,
 		func(ctx context.Context) (service.Provider, error) {
