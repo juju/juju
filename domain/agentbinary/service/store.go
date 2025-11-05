@@ -6,7 +6,6 @@ import (
 	"context"
 	"io"
 
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
 )
@@ -38,7 +37,7 @@ type AgentBinaryGetterStore interface {
 	// binary does not exist.
 	GetAgentBinaryForVersionStreamSHA256(
 		context.Context,
-		coreagentbinary.Version,
+		agentbinary.Version,
 		agentbinary.Stream,
 	) (io.ReadCloser, int64, string, error)
 }
@@ -55,7 +54,7 @@ type AgentBinaryPutterStore interface {
 	// - [agentbinaryerrors.HashMismatch] when the expected sha does not match
 	// that which was computed against the binary data.
 	AddAgentBinaryWithSHA256(
-		context.Context, io.Reader, coreagentbinary.Version, int64, string,
+		context.Context, io.Reader, agentbinary.Version, int64, string,
 	) error
 
 	// AddAgentBinaryWithSHA384 adds a new agent binary to the store.
@@ -69,7 +68,7 @@ type AgentBinaryPutterStore interface {
 	// - [agentbinaryerrors.HashMismatch] when the expected sha does not match
 	// that which was computed against the binary data.
 	AddAgentBinaryWithSHA384(
-		context.Context, io.Reader, coreagentbinary.Version, int64, string,
+		context.Context, io.Reader, agentbinary.Version, int64, string,
 	) error
 }
 
