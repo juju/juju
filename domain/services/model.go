@@ -170,8 +170,8 @@ func NewModelServices(
 
 // AgentBinaryStore returns the model's [agentbinaryservice.AgentBinaryStore]
 // for the current model.
-func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
-	return agentbinaryservice.NewAgentBinaryStore(
+func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentObjectStore {
+	return agentbinaryservice.NewAgentObjectStore(
 		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("agentbinary"),
 		s.modelObjectStoreGetter,
@@ -180,23 +180,31 @@ func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore 
 
 // AgentBinary returns the model's [agentbinaryservice.AgentBinaryService].
 func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
-	return agentbinaryservice.NewAgentBinaryService(
+	ssStore := agentbinaryservice.NewAgentSimpleStreamsGetterStore(
 		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
 			s.providerFactory, s.modelUUID.String(),
-		), envtools.PreferredStreams, envtools.FindTools,
-		agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.AgentBinaryStore(),
-		agentbinaryservice.NewAgentBinaryStore(
-			agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-			s.logger.Child("controlleragentbinary"),
-			s.controllerObjectStoreGetter,
 		),
-		agentbinaryservice.NewSimpleStreamAgentBinaryStore(
-			providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
-				s.providerFactory, s.modelUUID.String(),
-			), envtools.FindTools, s.simplestreamsClient,
-		))
+		envtools.FindTools,
+		s.simplestreamsClient,
+	)
+	controllerStore := agentbinaryservice.NewAgentObjectStore(
+		agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.logger.Child("controller-agent-binary-store"),
+		s.controllerObjectStoreGetter,
+	)
+	modelStore := agentbinaryservice.NewAgentObjectStore(
+		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.logger.Child("model-agent-binary-store"),
+		s.modelObjectStoreGetter,
+	)
+
+	return agentbinaryservice.NewService(
+		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.logger.Child("agentbinaryservice"),
+		modelStore,
+		controllerStore,
+		ssStore,
+	)
 }
 
 // AgentProvisioner returns the agent provisioner service.
@@ -598,7 +606,7 @@ func (s *ModelServices) ControllerUpgraderService() *controllerupgraderservice.S
 	)
 	// TODO (adisazhar123): replace with its respective New* method.
 	var controllerStore controllerupgraderservice.AgentBinaryQuerierStore
-	simplestreamStore := agentbinaryservice.NewSimpleStreamAgentBinaryStore(
+	simplestreamStore := agentbinaryservice.NewAgentSimpleStreamsGetterStore(
 		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
 			s.providerFactory, s.modelUUID.String(),
 		), envtools.FindTools, s.simplestreamsClient,

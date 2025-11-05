@@ -199,8 +199,8 @@ func (s *ControllerServices) Macaroon() *macaroonservice.Service {
 // ControllerAgentBinaryStore returns the [agentbinaryservice.AgentBinaryStore]
 // for the entire controller. This should be used when wanting to cache agent
 // binaries controller wide.
-func (s *ControllerServices) ControllerAgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
-	return agentbinaryservice.NewAgentBinaryStore(
+func (s *ControllerServices) ControllerAgentBinaryStore() *agentbinaryservice.AgentObjectStore {
+	return agentbinaryservice.NewAgentObjectStore(
 		agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.logger.Child("agentbinary"),
 		s.controllerObjectStore,
