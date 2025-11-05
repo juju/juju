@@ -5,7 +5,6 @@ package dbaccessor
 
 import (
 	"context"
-	"database/sql"
 	"net"
 	"sync"
 	"time"
@@ -23,7 +22,6 @@ import (
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/dqlite"
-	"github.com/juju/juju/internal/database/pragma"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
@@ -758,30 +756,18 @@ func (w *dbWorker) deleteDatabase(ctx context.Context, namespace string) error {
 		return errors.Annotatef(err, "waiting for worker to die")
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, dbOpenTimeout)
+	openCtx, cancel := context.WithTimeout(ctx, dbOpenTimeout)
 	defer cancel()
 
 	// Open the database directly as we can't use the worker to do it for us.
-	db, err := w.dbApp.Open(ctx, namespace)
+	db, err := w.dbApp.Open(openCtx, namespace)
 	if err != nil {
 		return errors.Annotatef(err, "opening database for deletion")
 	}
 	defer func() { _ = db.Close() }()
 
-	// We need to ensure that foreign keys are disabled before we can blanket
-	// delete the database.
-	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, false); err != nil {
-		return errors.Annotate(err, "setting foreign keys pragma")
-	}
-
-	// Now attempt to delete the database and all of it's contents.
-	// This can be replaced with DROP DB once it's supported by dqlite.
-	if err := internaldatabase.Retry(ctx, func() error {
-		return internaldatabase.StdTxn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
-			return deleteDBContents(ctx, tx, w.cfg.Logger)
-		})
-	}); err != nil {
-		return errors.Annotatef(err, "deleting database contents")
+	if err := internaldatabase.DeleteDB(ctx, db); err != nil {
+		return errors.Annotatef(err, "deleting database %q", namespace)
 	}
 
 	return nil

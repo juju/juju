@@ -193,7 +193,10 @@ func (w *modelWorker) loop() error {
 }
 
 func (w *modelWorker) deleteModel(ctx context.Context) error {
-	if err := w.removalService.DeleteModel(ctx); err != nil && !errors.Is(err, modelerrors.NotFound) {
+	if err := w.removalService.DeleteModel(ctx); err != nil && !errors.IsOneOf(err,
+		coredatabase.ErrDBNotFound,
+		modelerrors.NotFound,
+	) {
 		return errors.Errorf("deleting model: %w", err)
 	}
 

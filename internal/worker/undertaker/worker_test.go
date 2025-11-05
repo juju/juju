@@ -14,9 +14,11 @@ import (
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 )
 
 type workerSuite struct {
@@ -40,6 +42,80 @@ func (s *workerSuite) TestRemoveDeadModel(c *tc.C) {
 
 	s.removalServiceGetter.EXPECT().GetRemovalService(gomock.Any(), model.UUID("model-1")).Return(s.removalService, nil)
 	s.removalService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
+
+	done := make(chan struct{})
+	s.dbDeleter.EXPECT().DeleteDB("model-1").DoAndReturn(func(s string) error {
+		close(done)
+		return nil
+	})
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting to send model names")
+	}
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for model deletion")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestRemoveDeadModelNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan struct{}, 1)
+	s.controllerModelService.EXPECT().WatchModels(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
+		return watchertest.NewMockNotifyWatcher(ch), nil
+	})
+
+	s.controllerModelService.EXPECT().GetDeadModels(gomock.Any()).Return([]model.UUID{model.UUID("model-1")}, nil)
+
+	s.removalServiceGetter.EXPECT().GetRemovalService(gomock.Any(), model.UUID("model-1")).Return(s.removalService, nil)
+	s.removalService.EXPECT().DeleteModel(gomock.Any()).Return(modelerrors.NotFound)
+
+	done := make(chan struct{})
+	s.dbDeleter.EXPECT().DeleteDB("model-1").DoAndReturn(func(s string) error {
+		close(done)
+		return nil
+	})
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting to send model names")
+	}
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for model deletion")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestRemoveDeadModelDBNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan struct{}, 1)
+	s.controllerModelService.EXPECT().WatchModels(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
+		return watchertest.NewMockNotifyWatcher(ch), nil
+	})
+
+	s.controllerModelService.EXPECT().GetDeadModels(gomock.Any()).Return([]model.UUID{model.UUID("model-1")}, nil)
+
+	s.removalServiceGetter.EXPECT().GetRemovalService(gomock.Any(), model.UUID("model-1")).Return(s.removalService, nil)
+	s.removalService.EXPECT().DeleteModel(gomock.Any()).Return(coredatabase.ErrDBNotFound)
 
 	done := make(chan struct{})
 	s.dbDeleter.EXPECT().DeleteDB("model-1").DoAndReturn(func(s string) error {
