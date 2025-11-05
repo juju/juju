@@ -6,7 +6,7 @@
 package client
 
 import (
-	"github.com/canonical/go-dqlite/client"
+	"github.com/canonical/go-dqlite/v3/client"
 )
 
 type Client = client.Client

@@ -7,8 +7,8 @@ package app
 
 import (
 	"crypto/tls"
-	"github.com/canonical/go-dqlite/app"
-	"github.com/canonical/go-dqlite/client"
+	"github.com/canonical/go-dqlite/v3/app"
+	"github.com/canonical/go-dqlite/v3/client"
 )
 
 // Option can be used to tweak app parameters.

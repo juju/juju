@@ -5,7 +5,7 @@
 
 package dqlite
 
-import "github.com/canonical/go-dqlite"
+import "github.com/canonical/go-dqlite/v3"
 
 const (
 	// Enabled is true if dqlite is enabled.

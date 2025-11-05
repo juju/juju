@@ -5,7 +5,7 @@
 
 package driver
 
-import "github.com/canonical/go-dqlite/driver"
+import "github.com/canonical/go-dqlite/v3/driver"
 
 // Error is returned in case of database errors.
 type Error = driver.Error

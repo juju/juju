@@ -250,7 +250,7 @@ define run_cgo_build
 	@env PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -lraft -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
+		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
@@ -280,7 +280,7 @@ define run_cgo_install
 	@env PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -lraft -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
+		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
@@ -438,7 +438,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 		PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -lraft -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
+		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
@@ -470,7 +470,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 	@PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -lraft -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
+		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
@@ -482,7 +482,7 @@ go-test-alias: musl-install-if-missing dqlite-install-if-missing
 	@echo alias jt=\'PATH=\"${MUSL_BIN_PATH}:$$${PPATH}\" \
 		CC=\"musl-gcc\" \
 		CGO_CFLAGS=\"-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include\" \
-		CGO_LDFLAGS=\"-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -lraft -llz4 -lsqlite3 -Wl,-z,stack-size=1048576\" \
+		CGO_LDFLAGS=\"-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576\" \
 		CGO_LDFLAGS_ALLOW=\""(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"\" \
 		LD_LIBRARY_PATH=\"${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}\" \
 		CGO_ENABLED=\"1\" \
