@@ -156,6 +156,13 @@ func updatePendingFilesystem(ctx context.Context, deps *dependencies, params sto
 	scheduleOperations(deps, &createFilesystemOp{args: params})
 }
 
+func addPendingFilesystem(ctx context.Context, deps *dependencies, params storage.FilesystemParams) {
+	deps.incompleteFilesystemParams[params.Tag] = params
+	deps.config.Logger.Debugf(ctx,
+		"pending filesystem %v waiting for provider wanted changes", params.Tag,
+	)
+}
+
 func removePendingFilesystem(ctx context.Context, deps *dependencies, tag names.FilesystemTag) {
 	deps.config.Logger.Debugf(ctx,
 		"pending filesystem %v removed", tag)
@@ -213,6 +220,18 @@ func updatePendingFilesystemAttachment(
 	}
 	delete(deps.incompleteFilesystemAttachmentParams, id)
 	scheduleOperations(deps, &attachFilesystemOp{args: params})
+}
+
+func addPendingFilesystemAttachment(
+	ctx context.Context,
+	deps *dependencies,
+	id params.MachineStorageId,
+	params storage.FilesystemAttachmentParams,
+) {
+	deps.incompleteFilesystemAttachmentParams[id] = params
+	deps.config.Logger.Debugf(ctx,
+		"pending filesystem attachment %v waiting for provider wanted changes", id,
+	)
 }
 
 // removePendingFilesystemAttachment removes the specified pending filesystem

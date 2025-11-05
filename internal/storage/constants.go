@@ -3,6 +3,10 @@
 
 package storage
 
+import (
+	"github.com/juju/juju/internal/errors"
+)
+
 const (
 	// K8sStorageMediumConst is the constant key
 	K8sStorageMediumConst = "storage-medium"
@@ -18,4 +22,16 @@ const (
 	K8sStorageProvisioner = "storage-provisioner"
 	K8sStorageMedium      = "storage-medium"
 	K8sStorageMode        = "storage-mode"
+)
+
+const (
+	// FilesystemCreateParamsIncomplete is used to signal to the storage
+	// provisioner that it needs to wait for more filesystem create parameters
+	// to change before trying to create the filesystem.
+	FilesystemCreateParamsIncomplete = errors.ConstError("filesystem create params incomplete")
+
+	// FilesystemAttachParamsIncomplete is used to signal to the storage
+	// provisioner that it needs to wait for more filesystem attach parameters
+	// to change before trying to attach the filesystem.
+	FilesystemAttachParamsIncomplete = errors.ConstError("filesystem attach params incomplete")
 )

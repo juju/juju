@@ -44,6 +44,9 @@ func createFilesystems(ctx context.Context, deps *dependencies, ops map[names.Fi
 		for i, err := range validationErrors {
 			if err == nil {
 				continue
+			} else if errors.Is(err, storage.FilesystemCreateParamsIncomplete) {
+				addPendingFilesystem(ctx, deps, filesystemParams[i])
+				continue
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    filesystemParams[i].Tag.String(),
@@ -161,6 +164,14 @@ func attachFilesystems(ctx context.Context, deps *dependencies, ops map[params.M
 		}
 		for i, result := range results {
 			p := filesystemAttachmentParams[i]
+			id := params.MachineStorageId{
+				MachineTag:    p.Machine.String(),
+				AttachmentTag: p.Filesystem.String(),
+			}
+			if errors.Is(result.Error, storage.FilesystemAttachParamsIncomplete) {
+				addPendingFilesystemAttachment(ctx, deps, id, p)
+				continue
+			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    p.Filesystem.String(),
 				Status: status.Attached.String(),
@@ -168,10 +179,6 @@ func attachFilesystems(ctx context.Context, deps *dependencies, ops map[params.M
 			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
 				// Reschedule the filesystem attachment.
-				id := params.MachineStorageId{
-					MachineTag:    p.Machine.String(),
-					AttachmentTag: p.Filesystem.String(),
-				}
 				reschedule = append(reschedule, ops[id])
 
 				// Note: we keep the status as "attaching" to

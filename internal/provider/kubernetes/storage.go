@@ -452,7 +452,7 @@ func (v *filesystemSource) ValidateFilesystemParams(
 	if params.ProviderId == nil {
 		return errors.Errorf(
 			"kubernetes filesystem %q missing provider id", params.Tag.Id(),
-		).Add(coreerrors.NotValid)
+		).Add(jujustorage.FilesystemCreateParamsIncomplete)
 	}
 	return nil
 }
@@ -467,7 +467,8 @@ func (v *filesystemSource) CreateFilesystems(
 		var result jujustorage.CreateFilesystemsResult
 		if param.ProviderId == nil {
 			result.Error = errors.Errorf(
-				"kubernetes filesystem %q missing provider id", param.Tag.Id(),
+				"creating kubernetes filesystem %q with missing provider id",
+				param.Tag.Id(),
 			).Add(coreerrors.NotValid)
 			results = append(results, result)
 			continue
@@ -570,7 +571,7 @@ func (v *filesystemSource) AttachFilesystems(
 			result.Error = errors.Errorf(
 				"kubernetes filesystem %q attachment to %q missing provider id",
 				param.Filesystem.Id(), param.Machine.Id(),
-			)
+			).Add(jujustorage.FilesystemAttachParamsIncomplete)
 			results = append(results, result)
 			continue
 		}
