@@ -6,7 +6,6 @@ package common
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/juju/names/v6"
@@ -22,11 +21,11 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
+	domainagentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
@@ -216,11 +215,16 @@ type toolsFinder struct {
 // AgentBinaryService is an interface for getting the available agent binaries
 // within a controller.
 type AgentBinaryService interface {
-	// GetAvailableAgentBinaryiesForVersion returns a list of all agent binaries
-	// available for the specified version across all architectures supported.
-	GetAvailableAgentBinaryiesForVersion(
-		context.Context, semversion.Number,
-	) ([]domainagentbinary.AgentBinary, error)
+	// FindAgentBinaryForVersion attempts to find a compatible agent binary for the
+	// version requested.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the supplied version is not valid.
+	// - [domainagenterrors.NotFound] if no agent binary is found for the specified
+	// version.
+	FindAgentBinaryForVersion(
+		context.Context, domainagentbinary.Version,
+	) (domainagentbinary.AgentBinary, error)
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
@@ -242,6 +246,12 @@ func (f *toolsFinder) FindAgents(ctx context.Context, args FindAgentsParams) (co
 	list, err := f.findMatchingAgents(ctx, args)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(list) == 0 {
+		return nil, errors.Errorf("no matching agent tools found").Add(
+			coreerrors.NotFound,
+		)
 	}
 
 	// Rewrite the URLs so they point at the API servers. If the
@@ -267,30 +277,36 @@ func (f *toolsFinder) FindAgents(ctx context.Context, args FindAgentsParams) (co
 // If an exact match is specified (number, ostype and arch) and is found in
 // agent storage, then simplestreams will not be searched.
 func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsParams) (coretools.List, error) {
-	agentBinaries, err := f.agentBinaryService.GetAvailableAgentBinaryiesForVersion(
-		ctx, args.Number,
+	archVal, converted := domainagentbinary.ArchitectureFromString(args.Arch)
+	if !converted {
+		return nil, errors.New(
+			"unrecognised architecture when finding agents",
+		).Add(coreerrors.NotValid)
+	}
+	agentBinary, err := f.agentBinaryService.FindAgentBinaryForVersion(
+		ctx, domainagentbinary.Version{Architecture: archVal, Number: args.Number},
 	)
-	if err != nil {
-		return nil, internalerrors.Errorf(
+	if errors.Is(err, domainagentbinaryerrors.NotFound) {
+		return nil, errors.New("no matching agents found").Add(
+			coreerrors.NotFound,
+		)
+	} else if err != nil {
+		return nil, errors.Errorf(
 			"getting available agent binaries: %w", err,
 		)
 	}
 
-	retVal := make(coretools.List, 0, len(agentBinaries))
-	for _, ab := range agentBinaries {
-		retVal = append(retVal, &coretools.Tools{
-			SHA256: ab.SHA256,
-			Size:   int64(ab.Size),
+	return coretools.List{
+		{
+			SHA256: agentBinary.SHA256,
+			Size:   int64(agentBinary.Size),
 			Version: semversion.Binary{
-				Arch:    ab.Architecture.String(),
+				Arch:    agentBinary.Architecture.String(),
 				Release: strings.ToLower(os.Ubuntu.String()),
-				Number:  ab.Version,
+				Number:  agentBinary.Version,
 			},
-		})
-	}
-
-	sort.Sort(retVal)
-	return retVal, nil
+		},
+	}, nil
 }
 
 type toolsURLGetter struct {

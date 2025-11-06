@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/os/v2"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -22,7 +21,8 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain/agentbinary"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
+	domainagentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -82,7 +82,7 @@ func (s *getToolsSuite) TestTools(c *tc.C) {
 	current := coretesting.CurrentVersion()
 	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number: current.Number,
-		OSType: os.Ubuntu.String(),
+		OSType: "ubuntu",
 		Arch:   current.Arch,
 	}).Return(coretools.List{{
 		Version: current,
@@ -154,115 +154,33 @@ func (s *findToolsSuite) setup(c *tc.C) *gomock.Controller {
 func (s *findToolsSuite) TestFindToolsMatchMajor(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	envtoolsList := coretools.List{
-		&coretools.Tools{
-			Version: semversion.MustParseBinary("123.456.0-ubuntu-alpha"),
-			Size:    2048,
-			SHA256:  "badf00d",
-		},
-		&coretools.Tools{
-			Version: semversion.MustParseBinary("123.456.1-ubuntu-alpha"),
-		},
+	ver := domainagentbinary.Version{
+		Architecture: domainagentbinary.AMD64,
+		Number:       tc.Must1(c, semversion.Parse, "123.456.0"),
 	}
-
-	s.mockAgentBinaryService.EXPECT().GetEnvironAgentBinariesFinder().Return(
-		func(_ context.Context, major, minor int, version semversion.Number, _ string, filter coretools.Filter) (coretools.List, error) {
-			c.Assert(major, tc.Equals, 123)
-			c.Assert(minor, tc.Equals, 456)
-			c.Assert(filter.OSType, tc.Equals, "ubuntu")
-			c.Assert(filter.Arch, tc.Equals, "alpha")
-			return envtoolsList, nil
-		},
-	)
-	storageMetadata := []agentbinary.Metadata{{
-		Version: "123.456.0",
-		Size:    1024,
-		Arch:    "alpha",
-		SHA256:  "feedface",
-	}, {
-		Version: "666.456.0",
-		Size:    1024,
-		Arch:    "alpha",
-		SHA256:  "feedface666",
-	}}
-	s.mockAgentBinaryService.EXPECT().ListAgentBinaries(gomock.Any()).Return(storageMetadata, nil)
+	s.mockAgentBinaryService.EXPECT().FindAgentBinaryForVersion(
+		gomock.Any(), ver,
+	).Return(domainagentbinary.AgentBinary{
+		Architecture: domainagentbinary.AMD64,
+		SHA256:       "feedface",
+		Size:         1024,
+		Version:      tc.Must1(c, semversion.Parse, "123.456.0"),
+	}, nil)
 
 	toolsFinder := common.NewToolsFinder(s.urlGetter, s.store, s.mockAgentBinaryService)
 
 	result, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{
-		MajorVersion: 123,
-		MinorVersion: 456,
-		OSType:       "ubuntu",
-		Arch:         "alpha",
+		Arch:   "amd64",
+		Number: tc.Must1(c, semversion.Parse, "123.456.0"),
 	})
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, coretools.List{
 		&coretools.Tools{
-			Version: semversion.MustParseBinary("123.456.0-ubuntu-alpha"),
+			Version: tc.Must1(c, semversion.ParseBinary, "123.456.0-ubuntu-amd64"),
 			Size:    1024,
 			SHA256:  "feedface",
-			URL:     "tools:123.456.0-ubuntu-alpha",
-		},
-		&coretools.Tools{
-			Version: semversion.MustParseBinary("123.456.1-ubuntu-alpha"),
-			URL:     "tools:123.456.1-ubuntu-alpha",
-		},
-	})
-}
-
-func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *tc.C) {
-	defer s.setup(c).Finish()
-
-	envtoolsList := coretools.List{
-		&coretools.Tools{
-			Version: semversion.MustParseBinary("123.456.0-ubuntu-alpha"),
-			Size:    2048,
-			SHA256:  "badf00d",
-		},
-		&coretools.Tools{
-			Version: semversion.MustParseBinary("123.456.1-ubuntu-alpha"),
-		},
-	}
-
-	s.mockAgentBinaryService.EXPECT().GetEnvironAgentBinariesFinder().Return(
-		func(_ context.Context, major, minor int, version semversion.Number, requestedStream string, filter coretools.Filter) (coretools.List, error) {
-			c.Assert(major, tc.Equals, 123)
-			c.Assert(minor, tc.Equals, 456)
-			c.Assert(requestedStream, tc.Equals, "pretend")
-			c.Assert(filter.OSType, tc.Equals, "ubuntu")
-			c.Assert(filter.Arch, tc.Equals, "alpha")
-			return envtoolsList, nil
-		},
-	)
-
-	storageMetadata := []agentbinary.Metadata{{
-		Version: "123.456.0",
-		Size:    1024,
-		Arch:    "alpha",
-		SHA256:  "feedface",
-	}}
-	s.mockAgentBinaryService.EXPECT().ListAgentBinaries(gomock.Any()).Return(storageMetadata, nil)
-
-	toolsFinder := common.NewToolsFinder(s.urlGetter, s.store, s.mockAgentBinaryService)
-	result, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{
-		MajorVersion: 123,
-		MinorVersion: 456,
-		OSType:       "ubuntu",
-		Arch:         "alpha",
-		AgentStream:  "pretend",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, coretools.List{
-		&coretools.Tools{
-			Version: semversion.MustParseBinary("123.456.0-ubuntu-alpha"),
-			Size:    1024,
-			SHA256:  "feedface",
-			URL:     "tools:123.456.0-ubuntu-alpha",
-		},
-		&coretools.Tools{
-			Version: semversion.MustParseBinary("123.456.1-ubuntu-alpha"),
-			URL:     "tools:123.456.1-ubuntu-alpha",
+			URL:     "tools:123.456.0-ubuntu-amd64",
 		},
 	})
 }
@@ -270,30 +188,16 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *tc.C) {
 func (s *findToolsSuite) TestFindToolsNotFound(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockAgentBinaryService.EXPECT().GetEnvironAgentBinariesFinder().Return(
-		func(_ context.Context, major, minor int, version semversion.Number, requestedStream string, filter coretools.Filter) (coretools.List, error) {
-			return nil, errors.NotFoundf("tools")
-		},
-	)
-
-	s.mockAgentBinaryService.EXPECT().ListAgentBinaries(gomock.Any()).Return(nil, nil)
+	s.mockAgentBinaryService.EXPECT().FindAgentBinaryForVersion(
+		gomock.Any(), gomock.Any(),
+	).Return(domainagentbinary.AgentBinary{}, domainagentbinaryerrors.NotFound)
 
 	toolsFinder := common.NewToolsFinder(nil, s.store, s.mockAgentBinaryService)
-	_, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{})
+	_, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{
+		Arch:   "amd64",
+		Number: tc.Must1(c, semversion.Parse, "4.0.0"),
+	})
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
-}
-
-func (s *findToolsSuite) TestFindToolsToolsStorageError(c *tc.C) {
-	defer s.setup(c).Finish()
-
-	s.mockAgentBinaryService.EXPECT().ListAgentBinaries(gomock.Any()).Return(nil, errors.New("AllMetadata failed"))
-
-	toolsFinder := common.NewToolsFinder(s.urlGetter, s.store, s.mockAgentBinaryService)
-	_, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{})
-	// ToolsStorage errors always cause FindAgents to bail. Only
-	// if AllMetadata succeeds but returns nothing that matches
-	// do we continue on to searching simplestreams.
-	c.Assert(err, tc.ErrorMatches, "AllMetadata failed")
 }
 
 func TestGetUrlSuite(t *testing.T) {

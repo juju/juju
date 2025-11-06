@@ -1641,41 +1641,41 @@ func (m *MockAgentBinaryService) EXPECT() *MockAgentBinaryServiceMockRecorder {
 	return m.recorder
 }
 
-// GetAvailableAgentBinaryiesForVersion mocks base method.
-func (m *MockAgentBinaryService) GetAvailableAgentBinaryiesForVersion(arg0 context.Context, arg1 semversion.Number) ([]agentbinary0.AgentBinary, error) {
+// FindAgentBinaryForVersion mocks base method.
+func (m *MockAgentBinaryService) FindAgentBinaryForVersion(arg0 context.Context, arg1 agentbinary0.Version) (agentbinary0.AgentBinary, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAvailableAgentBinaryiesForVersion", arg0, arg1)
-	ret0, _ := ret[0].([]agentbinary0.AgentBinary)
+	ret := m.ctrl.Call(m, "FindAgentBinaryForVersion", arg0, arg1)
+	ret0, _ := ret[0].(agentbinary0.AgentBinary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAvailableAgentBinaryiesForVersion indicates an expected call of GetAvailableAgentBinaryiesForVersion.
-func (mr *MockAgentBinaryServiceMockRecorder) GetAvailableAgentBinaryiesForVersion(arg0, arg1 any) *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall {
+// FindAgentBinaryForVersion indicates an expected call of FindAgentBinaryForVersion.
+func (mr *MockAgentBinaryServiceMockRecorder) FindAgentBinaryForVersion(arg0, arg1 any) *MockAgentBinaryServiceFindAgentBinaryForVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAvailableAgentBinaryiesForVersion", reflect.TypeOf((*MockAgentBinaryService)(nil).GetAvailableAgentBinaryiesForVersion), arg0, arg1)
-	return &MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAgentBinaryForVersion", reflect.TypeOf((*MockAgentBinaryService)(nil).FindAgentBinaryForVersion), arg0, arg1)
+	return &MockAgentBinaryServiceFindAgentBinaryForVersionCall{Call: call}
 }
 
-// MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall wrap *gomock.Call
-type MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall struct {
+// MockAgentBinaryServiceFindAgentBinaryForVersionCall wrap *gomock.Call
+type MockAgentBinaryServiceFindAgentBinaryForVersionCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall) Return(arg0 []agentbinary0.AgentBinary, arg1 error) *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall {
+func (c *MockAgentBinaryServiceFindAgentBinaryForVersionCall) Return(arg0 agentbinary0.AgentBinary, arg1 error) *MockAgentBinaryServiceFindAgentBinaryForVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall) Do(f func(context.Context, semversion.Number) ([]agentbinary0.AgentBinary, error)) *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall {
+func (c *MockAgentBinaryServiceFindAgentBinaryForVersionCall) Do(f func(context.Context, agentbinary0.Version) (agentbinary0.AgentBinary, error)) *MockAgentBinaryServiceFindAgentBinaryForVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall) DoAndReturn(f func(context.Context, semversion.Number) ([]agentbinary0.AgentBinary, error)) *MockAgentBinaryServiceGetAvailableAgentBinaryiesForVersionCall {
+func (c *MockAgentBinaryServiceFindAgentBinaryForVersionCall) DoAndReturn(f func(context.Context, agentbinary0.Version) (agentbinary0.AgentBinary, error)) *MockAgentBinaryServiceFindAgentBinaryForVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

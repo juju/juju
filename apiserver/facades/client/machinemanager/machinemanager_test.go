@@ -26,7 +26,7 @@ import (
 	semversion "github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/agentbinary"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
@@ -567,15 +567,17 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *tc.C) {
 	arch := "amd64"
 	s.expectProvisioningMachine(&arch)
 
-	s.agentBinaryService.EXPECT().GetAvailableAgentBinaryiesForVersion(
-		gomock.Any(), tc.Must1(c, semversion.Parse, "2.6.6"),
-	).Return([]agentbinary.AgentBinary{
-		{
-			Architecture: agentbinary.AMD64,
-			SHA256:       "sha256",
-			Size:         4,
-			Version:      tc.Must1(c, semversion.Parse, "2.6.6"),
-		},
+	ver := domainagentbinary.Version{
+		Architecture: domainagentbinary.AMD64,
+		Number:       tc.Must1(c, semversion.Parse, "2.6.6"),
+	}
+	s.agentBinaryService.EXPECT().FindAgentBinaryForVersion(
+		gomock.Any(), ver,
+	).Return(domainagentbinary.AgentBinary{
+		Architecture: domainagentbinary.AMD64,
+		SHA256:       "sha256",
+		Size:         100,
+		Version:      tc.Must1(c, semversion.Parse, "2.6.6"),
 	}, nil)
 
 	addrs := []string{"0.2.4.6:1"}
@@ -641,15 +643,17 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	arch := "amd64"
 	s.expectProvisioningMachine(&arch)
 
-	s.agentBinaryService.EXPECT().GetAvailableAgentBinaryiesForVersion(
-		gomock.Any(), tc.Must1(c, semversion.Parse, "2.6.6"),
-	).Return([]agentbinary.AgentBinary{
-		{
-			Architecture: agentbinary.AMD64,
-			SHA256:       "sha256",
-			Size:         4,
-			Version:      tc.Must1(c, semversion.Parse, "2.6.6"),
-		},
+	ver := domainagentbinary.Version{
+		Architecture: domainagentbinary.AMD64,
+		Number:       tc.Must1(c, semversion.Parse, "2.6.6"),
+	}
+	s.agentBinaryService.EXPECT().FindAgentBinaryForVersion(
+		gomock.Any(), ver,
+	).Return(domainagentbinary.AgentBinary{
+		Architecture: domainagentbinary.AMD64,
+		SHA256:       "sha256",
+		Size:         100,
+		Version:      tc.Must1(c, semversion.Parse, "2.6.6"),
 	}, nil)
 
 	addrs := []string{"0.2.4.6:1"}
