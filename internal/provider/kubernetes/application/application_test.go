@@ -2300,7 +2300,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
 					StorageName:               "gitlab-database",
-					PersistentVolumeClaimName: "",
+					PersistentVolumeClaimName: "gitlab-database-uniqid-gitlab-0",
 					Size:                      1024,
 					MountPoint:                "path/to/here",
 					ReadOnly:                  false,
@@ -2332,7 +2332,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
 					StorageName:               "gitlab-database",
-					PersistentVolumeClaimName: "",
+					PersistentVolumeClaimName: "gitlab-database-uniqid-gitlab-1",
 					Size:                      1024,
 					MountPoint:                "path/to/here",
 					ReadOnly:                  false,
@@ -2363,7 +2363,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
 					StorageName:               "gitlab-database",
-					PersistentVolumeClaimName: "",
+					PersistentVolumeClaimName: "gitlab-database-uniqid-gitlab-2",
 					Size:                      1024,
 					MountPoint:                "path/to/here",
 					ReadOnly:                  false,
@@ -2394,7 +2394,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
 					StorageName:               "gitlab-database",
-					PersistentVolumeClaimName: "",
+					PersistentVolumeClaimName: "gitlab-database-uniqid-gitlab-3",
 					Size:                      1024,
 					MountPoint:                "path/to/here",
 					ReadOnly:                  false,
@@ -2426,7 +2426,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
 					StorageName:               "gitlab-database",
-					PersistentVolumeClaimName: "",
+					PersistentVolumeClaimName: "gitlab-database-uniqid-gitlab-4",
 					Size:                      1024,
 					MountPoint:                "path/to/here",
 					ReadOnly:                  false,
@@ -2458,7 +2458,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
 					StorageName:               "gitlab-database",
-					PersistentVolumeClaimName: "",
+					PersistentVolumeClaimName: "gitlab-database-uniqid-gitlab-5",
 					Size:                      1024,
 					MountPoint:                "path/to/here",
 					ReadOnly:                  false,
@@ -2490,7 +2490,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
 					StorageName:               "gitlab-database",
-					PersistentVolumeClaimName: "",
+					PersistentVolumeClaimName: "gitlab-database-uniqid-gitlab-6",
 					Size:                      1024,
 					MountPoint:                "path/to/here",
 					ReadOnly:                  false,
@@ -2522,7 +2522,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
 					StorageName:               "gitlab-database",
-					PersistentVolumeClaimName: "",
+					PersistentVolumeClaimName: "gitlab-database-uniqid-gitlab-7",
 					Size:                      1024,
 					MountPoint:                "path/to/here",
 					ReadOnly:                  false,
@@ -2553,7 +2553,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
 					StorageName:               "gitlab-database",
-					PersistentVolumeClaimName: "",
+					PersistentVolumeClaimName: "gitlab-database-uniqid-gitlab-8",
 					Size:                      1024,
 					MountPoint:                "path/to/here",
 					ReadOnly:                  false,
