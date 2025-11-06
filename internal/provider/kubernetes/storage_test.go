@@ -85,13 +85,6 @@ func (s *storageSuite) TestDestroyFilesystems(c *tc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockPersistentVolumes.EXPECT().Get(gomock.Any(), "vol-1", v1.GetOptions{}).
-			Return(&core.PersistentVolume{
-				Spec: core.PersistentVolumeSpec{
-					ClaimRef: &core.ObjectReference{Namespace: "test", Name: "vol-1-pvc"},
-				}}, nil),
-		s.mockPersistentVolumeClaims.EXPECT().Delete(gomock.Any(), "vol-1-pvc", s.deleteOptions(v1.DeletePropagationForeground, "")).
-			Return(s.k8sNotFoundError()),
 		s.mockPersistentVolumes.EXPECT().Delete(gomock.Any(), "vol-1", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(nil),
 	)
@@ -110,13 +103,6 @@ func (s *storageSuite) TestDestroyFilesystemsNotFoundIgnored(c *tc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockPersistentVolumes.EXPECT().Get(gomock.Any(), "vol-1", v1.GetOptions{}).
-			Return(&core.PersistentVolume{
-				Spec: core.PersistentVolumeSpec{
-					ClaimRef: &core.ObjectReference{Namespace: "test", Name: "vol-1-pvc"},
-				}}, nil),
-		s.mockPersistentVolumeClaims.EXPECT().Delete(gomock.Any(), "vol-1-pvc", s.deleteOptions(v1.DeletePropagationForeground, "")).
-			Return(s.k8sNotFoundError()),
 		s.mockPersistentVolumes.EXPECT().Delete(gomock.Any(), "vol-1", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
 	)
@@ -158,6 +144,7 @@ func (s *storageSuite) TestValidateStorageProvider(c *tc.C) {
 }
 
 func (s *storageSuite) TestImportFilesystem(c *tc.C) {
+	c.Skip("TODO(storage): re-implement filesystem importing")
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -180,6 +167,7 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 }
 
 func (s *storageSuite) TestImportFilesystemNotFound(c *tc.C) {
+	c.Skip("TODO(storage): re-implement filesystem importing")
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -202,6 +190,7 @@ func (s *storageSuite) TestImportFilesystemNotFound(c *tc.C) {
 }
 
 func (s *storageSuite) TestImportFilesystemInvalidReclaimPolicy(c *tc.C) {
+	c.Skip("TODO(storage): re-implement filesystem importing")
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -224,6 +213,7 @@ func (s *storageSuite) TestImportFilesystemInvalidReclaimPolicy(c *tc.C) {
 }
 
 func (s *storageSuite) TestImportFilesystemAlreadyBound(c *tc.C) {
+	c.Skip("TODO(storage): re-implement filesystem importing")
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 

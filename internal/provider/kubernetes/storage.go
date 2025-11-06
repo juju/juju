@@ -158,7 +158,25 @@ func (*noopFSSource) AttachFilesystems(
 func (*noopFSSource) CreateFilesystems(
 	_ context.Context, params []jujustorage.FilesystemParams,
 ) ([]jujustorage.CreateFilesystemsResult, error) {
-	return make([]jujustorage.CreateFilesystemsResult, len(params)), nil
+	// This is a no-op, but we must reflect the input back to the storage
+	// provisioner so that it can set the provisioned state.
+	results := make([]jujustorage.CreateFilesystemsResult, 0, len(params))
+	for _, v := range params {
+		result := jujustorage.CreateFilesystemsResult{
+			Filesystem: &jujustorage.Filesystem{
+				Tag: v.Tag,
+				FilesystemInfo: jujustorage.FilesystemInfo{
+					// ProviderId must be set for the filesystem attachment to
+					// progress. Since this is a no-op fs, the filesystem tag is
+					// sufficient.
+					ProviderId: v.Tag.Id(),
+					Size:       v.Size,
+				},
+			},
+		}
+		results = append(results, result)
+	}
+	return results, nil
 }
 
 // DefaultPools returns the default storage pools for [rootfsStorageProvider].
