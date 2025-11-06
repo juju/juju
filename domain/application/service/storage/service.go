@@ -501,7 +501,7 @@ func makeCAASStorageInstanceProviderIDAssociations(
 		}
 
 		rvalFilesystemProviderIDs[inst.Filesystem.UUID] = availableIDs[0]
-		availableIDs = availableIDs[1:]
+		unassignedStorageNameToIDMap[storageNameKey] = availableIDs[1:]
 	}
 
 	for _, inst := range unitStorageToCreate {
@@ -518,7 +518,7 @@ func makeCAASStorageInstanceProviderIDAssociations(
 		}
 
 		rvalFilesystemProviderIDs[inst.Filesystem.UUID] = availableIDs[0]
-		availableIDs = availableIDs[1:]
+		unassignedStorageNameToIDMap[storageNameKey] = availableIDs[1:]
 	}
 
 filesystemAttachmentLoop:
