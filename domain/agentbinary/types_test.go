@@ -7,8 +7,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/tc"
+
+	"github.com/juju/juju/core/semversion"
 )
 
 // typesSuite is responsible for testing the types provides by this package.
@@ -174,7 +175,7 @@ func (_ *typesSuite) TestArchitectureFromStringNotRecognised(c *tc.C) {
 // TestArchitectureFromString ensures that [ArchitectureFromString] correctly
 // converts known architecture strings to their corresponding [Architecture]
 // values.
-func (_ *typesSuite) TestArchitectureFromString(c *tc.C) {
+func (*typesSuite) TestArchitectureFromString(c *tc.C) {
 	tests := []struct {
 		A Architecture
 		S string
