@@ -5,12 +5,8 @@ package service
 
 import (
 	"context"
-	cryptosha256 "crypto/sha256"
-	cryptosha512 "crypto/sha512"
-	"encoding/hex"
 	"fmt"
 	"io"
-	"os"
 	"slices"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -353,7 +349,7 @@ func (s *AgentObjectStore) GetAgentBinaryForSHA256(
 }
 
 // GetAgentBinaryForVersionStream retrieves the agent binary
-// corresponding to the given version and stream. If sucessfully found the
+// corresponding to the given version and stream. If successfully found the
 // the agent binary stream is returned along with its size and sha256 sum.
 // It is the caller's responsibility to close the returned stream when no
 // error condition exists.
@@ -414,58 +410,4 @@ func (s *AgentObjectStore) GetAgentBinaryForVersionStreamSHA256(
 		)
 	}
 	return reader, size, storeBinaries[0].SHA256, nil
-}
-
-func tmpCacheAndHash(r io.Reader, size int64) (_ io.ReadCloser, _ string, _ string, err error) {
-	tmpFile, err := os.CreateTemp("", "juju-agent-binary-rehash*.tmp")
-	if err != nil {
-		return nil, "", "", errors.Capture(err)
-	}
-
-	defer func() {
-		if err != nil {
-			_ = tmpFile.Close()
-			_ = os.Remove(tmpFile.Name())
-		}
-	}()
-
-	hasher256 := cryptosha256.New()
-	hasher384 := cryptosha512.New384()
-
-	tr := io.TeeReader(r, io.MultiWriter(hasher256, hasher384))
-	written, err := io.Copy(tmpFile, tr)
-	if err != nil {
-		return nil, "", "", errors.Errorf("writing agent binary to temp file for re-computing hash: %w", err)
-	}
-
-	if written != size {
-		return nil, "", "", errors.Errorf(
-			"agent binary size mismatch: expected %d, got %d", size, written,
-		).Add(coreerrors.NotValid)
-	}
-
-	encoded256 := hex.EncodeToString(hasher256.Sum(nil))
-	encoded384 := hex.EncodeToString(hasher384.Sum(nil))
-
-	if _, err = tmpFile.Seek(0, io.SeekStart); err != nil {
-		return nil, "", "", errors.Capture(err)
-	}
-	cleanupFunc := func() { _ = os.Remove(tmpFile.Name()) }
-	return &cleanupReadCloser{
-		ReadCloser: tmpFile,
-		cleanup:    cleanupFunc,
-	}, encoded256, encoded384, nil
-}
-
-type cleanupReadCloser struct {
-	io.ReadCloser
-	cleanup func()
-}
-
-func (c *cleanupReadCloser) Close() error {
-	err := c.ReadCloser.Close()
-	if c.cleanup != nil {
-		c.cleanup()
-	}
-	return err
 }
