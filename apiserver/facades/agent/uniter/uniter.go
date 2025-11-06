@@ -2576,8 +2576,7 @@ func (u *UniterAPI) goalStateRelations(
 		for _, e := range endPoints {
 			appUUID, err := u.applicationService.GetApplicationUUIDByName(ctx, e.ApplicationName)
 			if errors.Is(err, applicationerrors.ApplicationNotFound) {
-				u.logger.Debugf(ctx, "application %q must be a remote application.", e.ApplicationName)
-				continue
+				return nil, errors.NotFoundf("application %q", e.ApplicationName)
 			} else if err != nil {
 				return nil, internalerrors.Capture(err)
 			}
