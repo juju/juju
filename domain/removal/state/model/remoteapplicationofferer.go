@@ -397,27 +397,41 @@ WHERE application_uuid = $entityUUID.uuid`, synthApp)
 	return nil
 }
 
-func (st *State) deleteSynthUnit(ctx context.Context, tx *sqlair.TX, entityUUID entityUUID) error {
-	deleteNetNodeStmt, err := st.Prepare(`
-DELETE FROM net_node
-WHERE uuid = $entityUUID.uuid`, entityUUID)
+func (st *State) deleteSynthUnit(ctx context.Context, tx *sqlair.TX, synthUnit entityUUID) error {
+	getNetNodeUUIDStmt, err := st.Prepare(`
+SELECT net_node_uuid AS &entityUUID.uuid
+FROM   unit
+WHERE  uuid = $entityUUID.uuid`, entityUUID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	deleteUnitStmt, err := st.Prepare(`
 DELETE FROM unit
-WHERE uuid = $entityUUID.uuid`, entityUUID)
+WHERE uuid = $entityUUID.uuid`, synthUnit)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, deleteNetNodeStmt, entityUUID).Run(); err != nil {
+	deleteNetNodeStmt, err := st.Prepare(`
+DELETE FROM net_node
+WHERE uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, deleteUnitStmt, entityUUID).Run(); err != nil {
-		return errors.Capture(err)
+	var netNode entityUUID
+	err = tx.Query(ctx, getNetNodeUUIDStmt, synthUnit).Get(&netNode)
+	if err != nil {
+		return errors.Errorf("getting net node UUID for synthetic unit: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteUnitStmt, synthUnit).Run(); err != nil {
+		return errors.Errorf("deleting synthetic unit: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteNetNodeStmt, netNode).Run(); err != nil {
+		return errors.Errorf("deleting net node for synthetic unit: %w", err)
 	}
 
 	return nil

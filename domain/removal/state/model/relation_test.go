@@ -336,13 +336,26 @@ func (s *relationSuite) TestLeaveScopeDeletesSyntheticUnits(c *tc.C) {
 	// Arrange
 	s.createRelationWithRemoteOfferer(c)
 
-	var relUnitUUID string
+	var (
+		relUnitUUID string
+		netNodeUUID string
+	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
+		err := tx.QueryRowContext(ctx, `
 SELECT ru.uuid
 FROM relation_unit AS ru
 JOIN unit AS u ON ru.unit_uuid = u.uuid
 WHERE u.name = ?`, "foo/0").Scan(&relUnitUUID)
+		if err != nil {
+			return err
+		}
+
+		err = tx.QueryRowContext(ctx, `SELECT net_node_uuid FROM unit WHERE name = ?`, "foo/0").Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -354,9 +367,17 @@ WHERE u.name = ?`, "foo/0").Scan(&relUnitUUID)
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
-	var unitCount int
+	var (
+		unitCount    int
+		netNodeCount int
+	)
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM unit WHERE name = ?`, "foo/0").Scan(&unitCount)
+		if err != nil {
+			return err
+		}
+
+		err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM net_node WHERE uuid = ?`, netNodeUUID).Scan(&netNodeCount)
 		if err != nil {
 			return err
 		}
@@ -365,6 +386,7 @@ WHERE u.name = ?`, "foo/0").Scan(&relUnitUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(unitCount, tc.Equals, 0)
+	c.Check(netNodeCount, tc.Equals, 0)
 }
 
 func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
