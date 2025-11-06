@@ -35,7 +35,8 @@ SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
 FROM      secret_remote_unit_consumer sruc
 LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
 JOIN      application app ON app.name = substr(sruc.unit_name, 1, instr(sruc.unit_name, '/')-1)
-WHERE     app.uuid = $applicationUUID.uuid
+JOIN      application_remote_consumer arc ON arc.offer_connection_uuid = app.uuid
+WHERE     arc.offerer_application_uuid = $applicationUUID.uuid
 GROUP BY  sruc.secret_id
 HAVING    sruc.current_revision < MAX(sr.revision)`
 		app := applicationUUID{UUID: appUUID}
@@ -79,7 +80,8 @@ SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
 FROM      secret_remote_unit_consumer sruc
 LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
 JOIN      application app ON app.name = substr(sruc.unit_name, 1, instr(sruc.unit_name, '/')-1)
-WHERE     app.uuid = $applicationUUID.uuid`
+JOIN      application_remote_consumer arc ON arc.offer_connection_uuid = app.uuid
+WHERE     arc.offerer_application_uuid = $applicationUUID.uuid`
 	queryParams := []any{
 		applicationUUID{UUID: appUUID},
 	}

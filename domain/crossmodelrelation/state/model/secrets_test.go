@@ -195,19 +195,20 @@ func (s *modelSecretsSuite) prepareWatchForRemoteConsumedSecretsChangesFromOffer
 	s.createSecret(c, uri2, map[string]string{"foo": "bar", "hello": "world"}, nil)
 	uri2.SourceUUID = s.ModelUUID()
 
-	appUUID := s.setupRemoteApp(c, "mediawiki")
+	_, _, realApplicationUUID, syntheticApplicationUUID := s.setupRemoteApplicationConsumer(c)
 
 	// The consumed revision 1.
-	saveRemoteConsumer(uri1, 1, "mediawiki/0")
+	saveRemoteConsumer(uri1, 1, syntheticApplicationUUID+"/0")
 	// The consumed revision 1.
-	saveRemoteConsumer(uri2, 1, "mediawiki/0")
+	saveRemoteConsumer(uri2, 1, syntheticApplicationUUID+"/0")
 
 	// create revision 2.
 	s.addRevision(c, uri1, map[string]string{"foo": "bar2"})
 
-	err := s.state.UpdateRemoteSecretRevision(ctx, uri1, 2, appUUID)
+	err := s.state.UpdateRemoteSecretRevision(ctx, uri1, 2, syntheticApplicationUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	return appUUID, uri1, uri2
+
+	return realApplicationUUID, uri1, uri2
 }
 
 func (s *modelSecretsSuite) TestInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(c *tc.C) {

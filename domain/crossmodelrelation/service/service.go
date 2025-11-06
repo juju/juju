@@ -218,8 +218,8 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	processChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
-		return s.modelState.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appUUID.String(), secretIDs...)
+	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
+		return s.modelState.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appUUID.String(), revisionUUIDs...)
 	}
 	return secret.NewSecretStringWatcher(w, s.logger, processChanges)
 }
