@@ -218,10 +218,9 @@ FROM (
 	return rval, nil
 }
 
-// GetUnitOwnedStorageInstances returns the storage instance compositions
-// for all storage instances owned by the unit in the model. If the unit
-// does not currently own any storage instances then an empty result is
-// returned.
+// GetUnitOwnedStorageInstances returns the storage compositions for all
+// storage instances owned by the unit in the model. If the unit does not
+// currently own any storage instances then an empty result is returned.
 //
 // The following errors can be expected:
 // - [applicationerrors.UnitNotFound] when the unit no longer exists.

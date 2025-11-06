@@ -452,7 +452,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	}
 	if appLife == life.Dead {
 		return errors.Errorf(
-			"application %q is not dead", appName,
+			"application %q is dead", appName,
 		).Add(applicationerrors.ApplicationIsDead)
 	}
 

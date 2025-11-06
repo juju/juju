@@ -1314,7 +1314,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		err = st.setFilesystemProviderIDs(ctx, tx, arg.FilesystemProviderIDs)
 		if err != nil {
 			return errors.Errorf(
-				"setting filesystem provier IDs for unit %q: %w",
+				"setting filesystem provider IDs for unit %q: %w",
 				arg.UnitName, err,
 			)
 		}

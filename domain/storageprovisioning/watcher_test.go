@@ -1044,7 +1044,7 @@ WHERE  uuid = ?
 
 // changeFilesystemProviderID is a utility function for changing the provider id
 // of a filesystem to a value chosen by this func. The purpose of this is to
-// help test chaning the provider id, which the watcher is interested in.
+// help test changing the provider id, which the watcher is interested in.
 func (s *watcherSuite) changeFilesystemProviderID(
 	c *tc.C, uuid string,
 ) {
@@ -1086,7 +1086,7 @@ WHERE  uuid = ?
 
 // changeFilesystemAttachmentProviderID is a utility function for changing the
 // provider id of a filesystem attachment to a value chosen by this func. The
-// purpose of this is to help test chaning the provider id, which the watcher is
+// purpose of this is to help test changing the provider id, which the watcher is
 // interested in.
 func (s *watcherSuite) changeFilesystemAttachmentProviderID(
 	c *tc.C, uuid string,
