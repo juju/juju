@@ -4,21 +4,27 @@
 package service
 
 import (
+	"testing"
+
+	"github.com/juju/tc"
+
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-const gzipContentType = "application/gzip"
+//const gzipContentType = "application/gzip"
 
 type simplestreamStoreSuite struct {
 	testhelpers.IsolationSuite
-
-	mockProviderForAgentBinaryFinder *MockProviderForAgentBinaryFinder
 }
 
-//func TestSimplestreamStoreSuite(t *testing.T) {
-//	tc.Run(t, &simplestreamStoreSuite{})
-//}
-//
+func TestSimplestreamStoreSuite(t *testing.T) {
+	tc.Run(t, &simplestreamStoreSuite{})
+}
+
+func (*simplestreamStoreSuite) TestStub(c *tc.C) {
+	c.Skip("re implement after 4.0 release")
+}
+
 //func (s *simplestreamStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 //	ctrl := gomock.NewController(c)
 //	s.mockProviderForAgentBinaryFinder = NewMockProviderForAgentBinaryFinder(ctrl)

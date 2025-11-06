@@ -20,13 +20,14 @@ type agentObjectQuerierSuite struct {
 
 type agentObjectStoreSuite struct {
 	testhelpers.IsolationSuite
-	state             *MockAgentObjectStoreState
-	objectStore       *MockObjectStore
-	objectStoreGetter *MockNamespacedObjectStoreGetter
 }
 
 func TestAgentObjectQuerierSuite(t *testing.T) {
 	tc.Run(t, &agentObjectQuerierSuite{})
+}
+
+func TestAgentObjectStoreSuite(t *testing.T) {
+	tc.Run(t, &agentObjectStoreSuite{})
 }
 
 func (s *agentObjectQuerierSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -38,21 +39,8 @@ func (s *agentObjectQuerierSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *agentObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.state = NewMockAgentObjectStoreState(ctrl)
-	s.objectStore = NewMockObjectStore(ctrl)
-	s.objectStoreGetter = NewMockNamespacedObjectStoreGetter(ctrl)
-	s.objectStoreGetter.EXPECT().GetObjectStore(
-		gomock.Any()).Return(s.objectStore, nil).AnyTimes()
-
-	c.Cleanup(func() {
-		s.state = nil
-		s.objectStore = nil
-		s.objectStoreGetter = nil
-		s.objectStoreGetter = nil
-	})
-	return ctrl
+func (*agentObjectStoreSuite) TestSub(c *tc.C) {
+	c.Skip("reimplement after 4.0 release")
 }
 
 func (s *agentObjectQuerierSuite) TestGetAvailableForVersionInStream(c *tc.C) {

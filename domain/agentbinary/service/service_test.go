@@ -17,7 +17,6 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/agentbinary"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	domainagentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -124,8 +123,8 @@ func (s *serviceSuite) TestFindAgentBinaryForVersionNotValid(c *tc.C) {
 
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c), s.baseStore)
 	_, err := svc.FindAgentBinaryForVersion(
-		c.Context(), agentbinary.Version{
-			Number: semversion.Zero, Architecture: agentbinary.AMD64,
+		c.Context(), domainagentbinary.Version{
+			Number: semversion.Zero, Architecture: domainagentbinary.AMD64,
 		},
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
@@ -178,8 +177,8 @@ func (s *serviceSuite) TestFindAgentBinaryForVersionSingleSource(c *tc.C) {
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c), primaryStore, nil)
 	found, err := svc.FindAgentBinaryForVersion(
 		c.Context(),
-		agentbinary.Version{
-			Architecture: agentbinary.ARM64,
+		domainagentbinary.Version{
+			Architecture: domainagentbinary.ARM64,
 			Number:       version,
 		},
 	)
@@ -241,8 +240,8 @@ func (s *serviceSuite) TestFindAgentBinaryForVersionMultipleSources(c *tc.C) {
 	)
 	found, err := svc.FindAgentBinaryForVersion(
 		c.Context(),
-		agentbinary.Version{
-			Architecture: agentbinary.RISCV64,
+		domainagentbinary.Version{
+			Architecture: domainagentbinary.RISCV64,
 			Number:       version,
 		},
 	)
@@ -305,8 +304,8 @@ func (s *serviceSuite) TestFindAgentBinaryForVersionNotFound(c *tc.C) {
 	)
 	_, err := svc.FindAgentBinaryForVersion(
 		c.Context(),
-		agentbinary.Version{
-			Architecture: agentbinary.S390X,
+		domainagentbinary.Version{
+			Architecture: domainagentbinary.S390X,
 			Number:       version,
 		},
 	)

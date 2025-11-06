@@ -27,7 +27,7 @@ type AgentBinaryGetterStore interface {
 	) (io.ReadCloser, int64, error)
 
 	// GetAgentBinaryForVersionStream retrieves the agent binary
-	// corresponding to the given version and stream. If sucessfully found the
+	// corresponding to the given version and stream. If successfully found the
 	// the agent binary stream is returned along with its size and sha256 sum.
 	// It is the caller's responsibility to close the returned stream when no
 	// error condition exists.

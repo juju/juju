@@ -3,8 +3,6 @@
 
 package state
 
-import "github.com/juju/juju/domain/agentbinary"
-
 // agentStoreBinary represents an agent binary that exists within the object
 // store.
 type agentStoreBinary struct {
@@ -45,33 +43,7 @@ type agentBinaryRecord struct {
 	ObjectStoreUUID string `db:"object_store_uuid"`
 }
 
-type metadataRecord struct {
-	// Version is the version of the agent binary.
-	Version string `db:"version"`
-	// Arch is the architecture of the agent binary.
-	Arch string `db:"architecture_name"`
-	// Size is the size of the agent binary in bytes.
-	Size int64 `db:"size"`
-	// SHA256 is the SHA256 hash of the agent binary.
-	SHA256 string `db:"sha_256"`
-}
-
 // modelAgentStream represents the stream in use for the agent.
 type modelAgentStream struct {
 	StreamID int `db:"stream_id"`
-}
-
-type metadataRecords []metadataRecord
-
-func (m metadataRecords) toMetadata() []agentbinary.Metadata {
-	metadata := make([]agentbinary.Metadata, len(m))
-	for i, record := range m {
-		metadata[i] = agentbinary.Metadata{
-			Version: record.Version,
-			Arch:    record.Arch,
-			Size:    record.Size,
-			SHA256:  record.SHA256,
-		}
-	}
-	return metadata
 }

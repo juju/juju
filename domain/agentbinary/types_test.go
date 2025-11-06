@@ -7,8 +7,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/tc"
+
+	"github.com/juju/juju/core/semversion"
 )
 
 // typesSuite is responsible for testing the types provides by this package.

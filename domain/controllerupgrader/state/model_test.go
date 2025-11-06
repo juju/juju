@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/agentbinary"
-	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -40,9 +39,9 @@ func TestControllerModelStateSuite(t *testing.T) {
 // checkModelAgentStream is a testing utility for asserting the current value
 // of the model's agent stream is equal to the supplied value.
 func (s *controllerModelStateSuite) checkModelAgentStream(
-	c *tc.C, stream domainagentbinary.Stream,
+	c *tc.C, stream agentbinary.Stream,
 ) {
-	var val domainagentbinary.Stream
+	var val agentbinary.Stream
 	err := s.DB().QueryRow("SELECT stream_id FROM agent_version").Scan(&val)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(val, tc.Equals, stream)
@@ -82,13 +81,13 @@ VALUES            (?, ?, "test-model", "iaas", "test-cloud", "ec2", "testq")
 // setModelTargetAgentVersion is a testing utility for establishing an initial
 // target agent version for the model.
 func (s *controllerModelStateSuite) setModelTargetAgentVersion(c *tc.C, vers string) {
-	s.setModelTargetAgentVersionAndStream(c, vers, domainagentbinary.AgentStreamReleased)
+	s.setModelTargetAgentVersionAndStream(c, vers, agentbinary.AgentStreamReleased)
 }
 
 // setModelTargetAgentVersionAndStream is a testing utility for establishing an
 // initial target agent version and stream for the model.
 func (s *controllerModelStateSuite) setModelTargetAgentVersionAndStream(
-	c *tc.C, vers string, stream domainagentbinary.Stream,
+	c *tc.C, vers string, stream agentbinary.Stream,
 ) {
 	db, err := domain.NewStateBase(s.TxnRunnerFactory()).DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -132,7 +131,7 @@ VALUES (?, ?, ?, ?)
 // It is dependent upon architecture and object store metadata for its foreign keys.
 // Architecture is auto seeded in the DDL. However, addObjectStore must be invoked prior to
 // addAgentBinaryStore.
-func (s *controllerModelStateSuite) addAgentBinaryStore(c *tc.C, version semversion.Number, architecture domainagentbinary.Architecture, storeUUID objectstore.UUID) {
+func (s *controllerModelStateSuite) addAgentBinaryStore(c *tc.C, version semversion.Number, architecture agentbinary.Architecture, storeUUID objectstore.UUID) {
 	_, err := s.DB().Exec(`
 INSERT INTO agent_binary_store(version, architecture_id, object_store_uuid) VALUES(?, ?, ?)
 `, version.String(), int(architecture), storeUUID.String())
@@ -226,7 +225,7 @@ func (s *controllerModelStateSuite) TestSetModelTargetAgentVersionAndStreamNotSe
 	st := NewControllerModelState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
-		c.Context(), preCondition, toVersion, domainagentbinary.AgentStreamTesting,
+		c.Context(), preCondition, toVersion, agentbinary.AgentStreamTesting,
 	)
 	c.Check(err, tc.NotNil)
 }
@@ -240,11 +239,11 @@ func (s *controllerModelStateSuite) TestSetModelTargetAgentVersionAndStreamPreco
 	toVersion, err := semversion.Parse("4.2.0")
 	c.Assert(err, tc.ErrorIsNil)
 	s.seedControllerModel(c)
-	s.setModelTargetAgentVersionAndStream(c, "4.1.1", domainagentbinary.AgentStreamTesting)
+	s.setModelTargetAgentVersionAndStream(c, "4.1.1", agentbinary.AgentStreamTesting)
 	st := NewControllerModelState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
-		c.Context(), preCondition, toVersion, domainagentbinary.AgentStreamDevel,
+		c.Context(), preCondition, toVersion, agentbinary.AgentStreamDevel,
 	)
 	c.Check(err, tc.NotNil)
 
@@ -252,7 +251,7 @@ func (s *controllerModelStateSuite) TestSetModelTargetAgentVersionAndStreamPreco
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver.String(), tc.Equals, "4.1.1")
 
-	s.checkModelAgentStream(c, domainagentbinary.AgentStreamTesting)
+	s.checkModelAgentStream(c, agentbinary.AgentStreamTesting)
 }
 
 // TestSetModelTargetAgentVersionAndStream is a happy path test for
@@ -263,11 +262,11 @@ func (s *controllerModelStateSuite) TestSetModelTargetAgentVersionAndStream(c *t
 	toVersion, err := semversion.Parse("4.2.0")
 	c.Assert(err, tc.ErrorIsNil)
 	s.seedControllerModel(c)
-	s.setModelTargetAgentVersionAndStream(c, "4.1.0", domainagentbinary.AgentStreamReleased)
+	s.setModelTargetAgentVersionAndStream(c, "4.1.0", agentbinary.AgentStreamReleased)
 	st := NewControllerModelState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
-		c.Context(), preCondition, toVersion, domainagentbinary.AgentStreamDevel,
+		c.Context(), preCondition, toVersion, agentbinary.AgentStreamDevel,
 	)
 	c.Check(err, tc.ErrorIsNil)
 
@@ -275,7 +274,7 @@ func (s *controllerModelStateSuite) TestSetModelTargetAgentVersionAndStream(c *t
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver.String(), tc.Equals, "4.2.0")
 
-	s.checkModelAgentStream(c, domainagentbinary.AgentStreamDevel)
+	s.checkModelAgentStream(c, agentbinary.AgentStreamDevel)
 }
 
 // TestSetModelTargetAgentVersionAndStreamNotController asserts that if this
@@ -287,11 +286,11 @@ func (s *controllerModelStateSuite) TestSetModelTargetAgentVersionAndStreamNotCo
 	toVersion, err := semversion.Parse("4.2.0")
 	c.Assert(err, tc.ErrorIsNil)
 	s.seedModel(c)
-	s.setModelTargetAgentVersionAndStream(c, "4.1.0", domainagentbinary.AgentStreamDevel)
+	s.setModelTargetAgentVersionAndStream(c, "4.1.0", agentbinary.AgentStreamDevel)
 	st := NewControllerModelState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
-		c.Context(), preCondition, toVersion, domainagentbinary.AgentStreamReleased,
+		c.Context(), preCondition, toVersion, agentbinary.AgentStreamReleased,
 	)
 	c.Check(err, tc.NotNil)
 }
@@ -306,11 +305,11 @@ func (s *controllerModelStateSuite) TestSetModelTargetAgentVersionAndStreamNoStr
 	toVersion, err := semversion.Parse("4.2.0")
 	c.Assert(err, tc.ErrorIsNil)
 	s.seedControllerModel(c)
-	s.setModelTargetAgentVersionAndStream(c, "4.1.0", domainagentbinary.AgentStreamReleased)
+	s.setModelTargetAgentVersionAndStream(c, "4.1.0", agentbinary.AgentStreamReleased)
 	st := NewControllerModelState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
-		c.Context(), preCondition, toVersion, domainagentbinary.AgentStreamReleased,
+		c.Context(), preCondition, toVersion, agentbinary.AgentStreamReleased,
 	)
 	c.Check(err, tc.ErrorIsNil)
 
@@ -318,21 +317,21 @@ func (s *controllerModelStateSuite) TestSetModelTargetAgentVersionAndStreamNoStr
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver.String(), tc.Equals, "4.2.0")
 
-	s.checkModelAgentStream(c, domainagentbinary.AgentStreamReleased)
+	s.checkModelAgentStream(c, agentbinary.AgentStreamReleased)
 }
 
 // TestGetModelAgentStream tests getting the stream currently in use for the agent.
 func (s *controllerModelStateSuite) TestGetModelAgentStream(c *tc.C) {
 	version, err := semversion.Parse("4.0.0")
 	c.Assert(err, tc.ErrorIsNil)
-	s.setModelTargetAgentVersionAndStream(c, version.String(), domainagentbinary.AgentStreamReleased)
+	s.setModelTargetAgentVersionAndStream(c, version.String(), agentbinary.AgentStreamReleased)
 
 	st := NewControllerModelState(s.TxnRunnerFactory())
 
 	agent, err := st.GetModelAgentStream(c.Context())
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(agent, tc.DeepEquals, domainagentbinary.AgentStreamReleased)
+	c.Assert(agent, tc.DeepEquals, agentbinary.AgentStreamReleased)
 }
 
 // TestGetModelAgentStreamDoesntExist tests getting the stream when it is missing.
@@ -351,12 +350,12 @@ func (s *controllerModelStateSuite) TestGetModelAgentStreamDoesntExist(c *tc.C) 
 func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForStreamEmpty(c *tc.C) {
 	s.seedModel(c)
 	s.setModelTargetAgentVersionAndStream(
-		c, "4.1.0", domainagentbinary.AgentStreamReleased,
+		c, "4.1.0", agentbinary.AgentStreamReleased,
 	)
 
 	st := NewControllerModelState(s.TxnRunnerFactory())
 	vals, err := st.GetAllAgentStoreBinariesForStream(
-		c.Context(), domainagentbinary.AgentStreamReleased,
+		c.Context(), agentbinary.AgentStreamReleased,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(vals, tc.HasLen, 0)
@@ -368,7 +367,7 @@ func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForStreamEmpty(c
 func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForNotCurrentStream(c *tc.C) {
 	s.seedModel(c)
 	s.setModelTargetAgentVersionAndStream(
-		c, "4.0.0", domainagentbinary.AgentStreamDevel,
+		c, "4.0.0", agentbinary.AgentStreamDevel,
 	)
 
 	ver, err := semversion.Parse("4.0.0")
@@ -378,7 +377,7 @@ func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForNotCurrentStr
 
 	st := NewControllerModelState(s.TxnRunnerFactory())
 	vals, err := st.GetAllAgentStoreBinariesForStream(
-		c.Context(), domainagentbinary.AgentStreamReleased,
+		c.Context(), agentbinary.AgentStreamReleased,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(vals, tc.HasLen, 0)
@@ -387,7 +386,7 @@ func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForNotCurrentStr
 func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForStream(c *tc.C) {
 	s.seedModel(c)
 	s.setModelTargetAgentVersionAndStream(
-		c, "4.0.0", domainagentbinary.AgentStreamReleased,
+		c, "4.0.0", agentbinary.AgentStreamReleased,
 	)
 
 	ver1, err := semversion.Parse("4.0.1")
@@ -406,23 +405,23 @@ func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForStream(c *tc.
 
 	st := NewControllerModelState(s.TxnRunnerFactory())
 	vals, err := st.GetAllAgentStoreBinariesForStream(
-		c.Context(), domainagentbinary.AgentStreamReleased,
+		c.Context(), agentbinary.AgentStreamReleased,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(vals, tc.SameContents, []agentbinary.AgentBinary{
 		{
 			Architecture: agentbinary.AMD64,
-			Stream:       domainagentbinary.AgentStreamReleased,
+			Stream:       agentbinary.AgentStreamReleased,
 			Version:      ver3,
 		},
 		{
 			Architecture: agentbinary.AMD64,
-			Stream:       domainagentbinary.AgentStreamReleased,
+			Stream:       agentbinary.AgentStreamReleased,
 			Version:      ver1,
 		},
 		{
 			Architecture: agentbinary.AMD64,
-			Stream:       domainagentbinary.AgentStreamReleased,
+			Stream:       agentbinary.AgentStreamReleased,
 			Version:      ver2,
 		},
 	})

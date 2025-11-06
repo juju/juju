@@ -6,9 +6,10 @@ package agentbinary
 import (
 	"testing"
 
+	"github.com/juju/tc"
+
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/tc"
 )
 
 // versionSuite represents a set of tests for validation [Version].
