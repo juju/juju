@@ -31,6 +31,14 @@ const (
 	ErrAutoSubnetsInvalid = errors.ConstError("cannot use auto subnets")
 )
 
+const (
+	// firstNetInterface describes the first network interface index for Google
+	// Cloud.
+	// TODO(network): This might not always hold true, so an alternative must be
+	// reached.
+	firstNetInterface = 4
+)
+
 type subnetMap map[string]corenetwork.SubnetInfo
 
 // Subnets implements environs.NetworkingEnviron.
@@ -430,19 +438,24 @@ func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]c
 					continue
 				}
 
-				shadowAddrs = append(shadowAddrs,
-					corenetwork.NewMachineAddress(accessConf.GetNatIP(), corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
-				)
+				shadowAddrs = append(shadowAddrs, corenetwork.NewMachineAddress(
+					ensureCIDRNotation(accessConf.GetNatIP()),
+					corenetwork.WithScope(corenetwork.ScopePublic),
+				).AsProviderAddress())
 			}
 
+			// interfaceName holds the expected interface name for this network
+			// interface. This value is determined through testing Ubuntu 24.04
+			// on Google Cloud with both VirtIO and gVNIC interfaces.
+			interfaceName := fmt.Sprintf("ens%d", firstNetInterface+i)
 			infos[idx] = append(infos[idx], corenetwork.InterfaceInfo{
 				DeviceIndex: i,
 				// The network interface has no id in GCE so it's
 				// identified by the machine's id + its name.
 				ProviderId:    corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.GetName())),
-				InterfaceName: iface.GetName(),
+				InterfaceName: interfaceName,
 				Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-					iface.GetNetworkIP(),
+					ensureCIDRNotation(iface.GetNetworkIP()),
 					corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 					corenetwork.WithCIDR(details.cidr),
 					corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -462,6 +475,20 @@ func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]c
 		err = environs.ErrPartialInstances
 	}
 	return infos, err
+}
+
+func ensureCIDRNotation(addr string) string {
+	subnet := strings.Split(addr, "/")
+	if len(subnet) == 2 {
+		return fmt.Sprintf("%s/%s", addr, subnet[1])
+	}
+	switch corenetwork.DeriveAddressType(addr) {
+	case corenetwork.IPv4Address:
+		return fmt.Sprintf("%s/32", addr)
+	case corenetwork.IPv6Address:
+		return fmt.Sprintf("%s/128", addr)
+	}
+	return addr
 }
 
 func getUniqueSubnetURLs(ids []instance.Id, insts []instances.Instance) (set.Strings, error) {
