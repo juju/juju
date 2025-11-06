@@ -392,22 +392,22 @@ AND    cs.name = 'cmr'
 		err = tx.Query(ctx, isSyntheticStmt, id).Get(&synthUnitUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 		} else if err != nil {
-			return errors.Errorf("running relation unit exists query: %w", err)
+			return errors.Errorf("checking if unit is synthetic: %w", err)
 		}
 
 		err = st.archiveRelationUnitSettings(ctx, tx, id)
 		if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("archiving relation unit settings: %w", err)
 		}
 
 		err = st.deleteRelationUnit(ctx, tx, id)
 		if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("deleting relation unit: %w", err)
 		}
 
 		if synthUnitUUID.UUID != "" {
 			if err := st.deleteSynthUnit(ctx, tx, synthUnitUUID); err != nil {
-				return errors.Capture(err)
+				return errors.Errorf("deleting synthetic unit %q: %w", synthUnitUUID.UUID, err)
 			}
 		}
 
@@ -435,7 +435,7 @@ WHERE (relation_uuid, unit_name) IN (
 	}
 
 	if err := tx.Query(ctx, delStmt, id).Run(); err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("deleting existing archived relation unit settings: %w", err)
 	}
 
 	copyStmt, err := st.Prepare(`
@@ -451,7 +451,7 @@ WHERE  ru.uuid = $entityUUID.uuid`, id)
 	}
 
 	if err := tx.Query(ctx, copyStmt, id).Run(); err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("archiving relation unit settings: %w", err)
 	}
 
 	return nil
@@ -466,7 +466,7 @@ WHERE relation_unit_uuid = $entityUUID.uuid`, id)
 	}
 	err = tx.Query(ctx, deleteSettingsStmt, id).Run()
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("deleting relation unit settings: %w", err)
 	}
 
 	deleteSettingsHashStmt, err := st.Prepare(`
@@ -477,7 +477,7 @@ WHERE relation_unit_uuid = $entityUUID.uuid`, id)
 	}
 	err = tx.Query(ctx, deleteSettingsHashStmt, id).Run()
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("deleting relation unit settings hash: %w", err)
 	}
 
 	deleteRelationUnitStmt, err := st.Prepare(`
@@ -490,14 +490,14 @@ WHERE uuid = $entityUUID.uuid`, id)
 	var outcome sqlair.Outcome
 	err = tx.Query(ctx, deleteRelationUnitStmt, id).Get(&outcome)
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("deleting relation unit: %w", err)
 	}
 
 	rows, err := outcome.Result().RowsAffected()
 	if err != nil {
 		return errors.Capture(err)
 	} else if rows != 1 {
-		return errors.Errorf("deleting relation unit: expected 1 row affected, got %d", rows)
+		return errors.Errorf("checking delete relation unit outcome: expected 1 row affected, got %d", rows)
 	}
 
 	return nil
