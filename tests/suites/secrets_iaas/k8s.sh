@@ -10,20 +10,20 @@ run_secrets_k8s() {
 
 	model_name='model-secrets-k8s-charm-owned'
 	add_model "$model_name"
-	juju --show-log model-config secret-backend=myk8s -m "$model_name"
+	juju --show-log model-secret-backend myk8s -m "$model_name"
 	check_secrets
 	destroy_model "$model_name"
 
 	model_name='model-secrets-k8s-model-owned'
 	add_model "$model_name"
-	juju --show-log model-config secret-backend=myk8s -m "$model_name"
+	juju --show-log model-secret-backend myk8s -m "$model_name"
 	run_user_secrets "$model_name"
 	destroy_model "$model_name"
 
 	# test remove-secret-backend with force.
 	model_name='model-remove-secret-backend-with-force'
 	add_model "$model_name"
-	juju --show-log model-config secret-backend=myk8s -m "$model_name"
+	juju --show-log model-secret-backend myk8s -m "$model_name"
 	# add a secret to the k8s backend to make sure the backend is in-use.
 	juju add-secret foo token=1
 	check_contains "$(juju show-secret-backend myk8s | yq -r .myk8s.secrets)" 1

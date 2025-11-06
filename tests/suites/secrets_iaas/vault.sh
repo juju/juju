@@ -17,14 +17,14 @@ run_secrets_vault() {
 
 	model_name='model-secrets-vault-model-owned'
 	add_model "$model_name"
-	juju --show-log model-config secret-backend=myvault -m "$model_name"
+	juju --show-log model-secret-backend myvault -m "$model_name"
 	run_user_secrets "$model_name"
 	destroy_model "$model_name"
 
 	# test remove-secret-backend with force.
 	model_name='model-remove-secret-backend-with-force'
 	add_model "$model_name"
-	juju --show-log model-config secret-backend=myvault -m "$model_name"
+	juju --show-log model-secret-backend myvault -m "$model_name"
 	# add a secret to the vault backend to make sure the backend is in-use.
 	# (make it a large secret which encodes to approx 1MB in size).
 	echo "data: $(cat /dev/zero | tr '\0' A | head -c 749500)" >"${TEST_DIR}/secret.txt"
@@ -179,7 +179,7 @@ prepare_vault() {
 	mkdir -p ~/snap/vault/common/
 	TMP=$(mktemp -d ~/snap/vault/common/cacert-XXXXX)
 	cert_juju_secret_id=$(juju secrets --format=yaml | yq 'to_entries | .[] | select(.value.label == "self-signed-vault-ca-certificate") | .key')
-	juju show-secret "${cert_juju_secret_id}" --reveal --format=yaml | yq '.[].content.certificate' > "$TMP/vault.pem"
+	juju show-secret "${cert_juju_secret_id}" --reveal --format=yaml | yq '.[].content.certificate' >"$TMP/vault.pem"
 	export VAULT_CAPATH="$TMP/vault.pem"
 	vault status || true
 	vault_init_output=$(vault operator init -key-shares=5 -key-threshold=3 -format json)
