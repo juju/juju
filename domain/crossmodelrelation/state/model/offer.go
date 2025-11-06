@@ -148,6 +148,59 @@ func (st *State) GetOfferUUID(ctx context.Context, name string) (string, error) 
 	return offerUUID, err
 }
 
+// GetConsumeDetails returns the offer uuid and endpoints necessary to
+// consume the offer.
+// Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
+func (st *State) GetConsumeDetails(
+	ctx context.Context,
+	offerName string,
+) (crossmodelrelation.ConsumeDetails, error) {
+	var empty crossmodelrelation.ConsumeDetails
+	db, err := st.DB(ctx)
+	if err != nil {
+		return empty, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT (o.uuid, cr.name, cr.interface, cr.capacity) AS (&consumeDetail.*),
+       crr.name AS &consumeDetail.role
+FROM   offer AS o
+JOIN   offer_endpoint AS oe ON o.uuid = oe.offer_uuid
+JOIN   application_endpoint AS ae ON oe.endpoint_uuid = ae.uuid
+JOIN   application AS a ON ae.application_uuid = a.uuid
+JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+JOIN   charm_relation_role AS crr ON cr.role_id = crr.id
+WHERE  o.name = $name.name
+`, consumeDetail{}, name{})
+	if err != nil {
+		return empty, errors.Errorf("preparing consume detail query: %w", err)
+	}
+
+	var details []consumeDetail
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, name{Name: offerName}).GetAll(&details)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return crossmodelrelationerrors.OfferNotFound
+		}
+		return err
+	})
+	if err != nil {
+		return empty, errors.Errorf("fetching consume details for %q: %w", offerName, err)
+	}
+	endpoints := transform.Slice(details, func(in consumeDetail) crossmodelrelation.OfferEndpoint {
+		return crossmodelrelation.OfferEndpoint{
+			Name:      in.EndpointName,
+			Role:      in.EndpointRole,
+			Interface: in.EndpointInterface,
+			Limit:     in.EndpointLimit,
+		}
+	})
+	return crossmodelrelation.ConsumeDetails{
+		OfferUUID: details[0].OfferUUID,
+		Endpoints: endpoints,
+	}, nil
+}
+
 // GetOfferDetails returns the OfferDetail of every offer in the model.
 // No error is returned if offers are found.
 func (st *State) GetOfferDetails(

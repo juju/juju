@@ -535,6 +535,45 @@ func (c *MockModelStateGetApplicationNameAndUUIDByOfferUUIDCall) DoAndReturn(f f
 	return c
 }
 
+// GetConsumeDetails mocks base method.
+func (m *MockModelState) GetConsumeDetails(arg0 context.Context, arg1 string) (crossmodelrelation.ConsumeDetails, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConsumeDetails", arg0, arg1)
+	ret0, _ := ret[0].(crossmodelrelation.ConsumeDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetConsumeDetails indicates an expected call of GetConsumeDetails.
+func (mr *MockModelStateMockRecorder) GetConsumeDetails(arg0, arg1 any) *MockModelStateGetConsumeDetailsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumeDetails", reflect.TypeOf((*MockModelState)(nil).GetConsumeDetails), arg0, arg1)
+	return &MockModelStateGetConsumeDetailsCall{Call: call}
+}
+
+// MockModelStateGetConsumeDetailsCall wrap *gomock.Call
+type MockModelStateGetConsumeDetailsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetConsumeDetailsCall) Return(arg0 crossmodelrelation.ConsumeDetails, arg1 error) *MockModelStateGetConsumeDetailsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetConsumeDetailsCall) Do(f func(context.Context, string) (crossmodelrelation.ConsumeDetails, error)) *MockModelStateGetConsumeDetailsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetConsumeDetailsCall) DoAndReturn(f func(context.Context, string) (crossmodelrelation.ConsumeDetails, error)) *MockModelStateGetConsumeDetailsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetConsumerRelationUUIDs mocks base method.
 func (m *MockModelState) GetConsumerRelationUUIDs(arg0 context.Context, arg1 ...string) ([]string, error) {
 	m.ctrl.T.Helper()

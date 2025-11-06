@@ -35,6 +35,13 @@ type ModelOfferState interface {
 		offer.UUID,
 	) error
 
+	// GetConsumeDetails returns the offer uuid and endpoints necessary to
+	// consume the offer.
+	GetConsumeDetails(
+		ctx context.Context,
+		offerName string,
+	) (crossmodelrelation.ConsumeDetails, error)
+
 	// GetOfferDetails returns the OfferDetail of every offer in the model.
 	// No error is returned if offers are found.
 	GetOfferDetails(context.Context, crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)
@@ -152,6 +159,18 @@ func (s *Service) Offer(
 	}
 	err = errors.Errorf("creating access for offer %q: %w", args.OfferName, err)
 	return errors.Capture(err)
+}
+
+// GetConsumeDetails returns the offer uuid and endpoints necessary to
+// consume the offer.
+func (s *Service) GetConsumeDetails(
+	ctx context.Context,
+	offerURL crossmodel.OfferURL,
+) (crossmodelrelation.ConsumeDetails, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.modelState.GetConsumeDetails(ctx, offerURL.Name)
 }
 
 // GetOffers returns offer details for all offers satisfying any of the

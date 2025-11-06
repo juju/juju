@@ -440,9 +440,9 @@ func (s *modelOfferSuite) TestGetOfferUUID(c *tc.C) {
 
 	appName := "test-application"
 	appUUID := s.addApplication(c, charmUUID, appName)
-	appEndpointUUD := s.addApplicationEndpoint(c, appUUID, relationUUID)
+	appEndpointUUID := s.addApplicationEndpoint(c, appUUID, relationUUID)
 	offerName := "test-offer"
-	offerUUID := s.addOffer(c, offerName, []string{appEndpointUUD})
+	offerUUID := s.addOffer(c, offerName, []string{appEndpointUUID})
 
 	// Act
 	obtainedOfferUUID, err := s.state.GetOfferUUID(c.Context(), offerName)
@@ -459,6 +459,63 @@ func (s *modelOfferSuite) TestGetOfferUUIDNotFound(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 	c.Assert(offerUUID, tc.Equals, "")
+}
+
+func (s *modelOfferSuite) TestGetConsumeDetails(c *tc.C) {
+	// Arrange
+	// Create an offer with two endpoints
+	charmUUID := s.addCharm(c)
+	description := "testing application"
+	s.addCharmMetadataWithDescription(c, charmUUID, description)
+	relation := charm.Relation{
+		Name:      "db-admin",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+		Limit:     4,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+	relationTwo := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "other",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationTwoUUID := s.addCharmRelation(c, charmUUID, relationTwo)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	appEndpointUUID := s.addApplicationEndpoint(c, appUUID, relationUUID)
+	appEndpointTwoUUID := s.addApplicationEndpoint(c, appUUID, relationTwoUUID)
+	offerName := "test-offer"
+	offerUUID := s.addOffer(c, offerName, []string{appEndpointUUID, appEndpointTwoUUID})
+
+	// Act
+	obtained, err := s.state.GetConsumeDetails(c.Context(), offerName)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained.OfferUUID, tc.Equals, offerUUID.String())
+	c.Check(obtained.Endpoints, tc.SameContents, []crossmodelrelation.OfferEndpoint{
+		{
+			Name:      relation.Name,
+			Role:      domaincharm.RoleProvider,
+			Interface: relation.Interface,
+			Limit:     4,
+		}, {
+			Name:      relationTwo.Name,
+			Role:      domaincharm.RoleProvider,
+			Interface: relationTwo.Interface,
+		},
+	})
+}
+
+func (s *modelOfferSuite) TestGetConsumeDetailsNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetConsumeDetails(c.Context(), "failure")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }
 
 // setupForGetOfferDetails
