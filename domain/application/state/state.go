@@ -1396,7 +1396,7 @@ func (st *State) checkApplicationLife(ctx context.Context, tx *sqlair.TX, appUUI
 SELECT &life.*
 FROM application AS a
 JOIN charm AS c ON a.charm_uuid = c.uuid
-WHERE a.uuid = $entityUUID.uuid AND c.source_id < 2;
+WHERE a.uuid = $entityUUID.uuid;
 `
 	stmt, err := st.Prepare(query, ident, life{})
 	if err != nil {

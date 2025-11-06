@@ -2519,8 +2519,8 @@ func (u *UniterAPI) oneGoalState(ctx context.Context, unitName coreunit.Name) (*
 	appName := unitName.Application()
 
 	appID, err := u.applicationService.GetApplicationUUIDByUnitName(ctx, unitName)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, errors.NotFoundf("application %q", appName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.NotFoundf("unit %q", appName)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2627,7 +2627,6 @@ func (u *UniterAPI) goalStateRelations(
 // goalStateUnits loops through all application units related to principalName,
 // and stores the goal state status in UnitsGoalState.
 func (u *UniterAPI) goalStateUnits(ctx context.Context, appName string, appID application.UUID, principalName coreunit.Name) (params.UnitsGoalState, error) {
-
 	allUnitNames, err := u.applicationService.GetUnitNamesForApplication(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %q", appName)
