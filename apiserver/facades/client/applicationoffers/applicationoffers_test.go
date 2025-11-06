@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
@@ -1466,9 +1467,6 @@ func (s *offerSuite) TestGetConsumeDetails(c *tc.C) {
 	}, nil)
 
 	adminTag := s.setupAuthUser(user.AdminUserName.Name())
-	adminUser := user.User{DisplayName: "fred smith"}
-	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
-	s.expectEntityHasPermission(adminTag, permission.SuperuserAccess)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(nil)
 
 	s.testGetConsumeDetails(c, adminTag.Id())
@@ -1484,9 +1482,6 @@ func (s *offerSuite) TestGetConsumeDetailsUserIsModelAdmin(c *tc.C) {
 	}, nil)
 
 	adminTag := s.setupAuthUser(user.AdminUserName.Name())
-	adminUser := user.User{DisplayName: "fred smith"}
-	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
-	s.expectEntityHasPermission(adminTag, permission.SuperuserAccess)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(authentication.ErrorEntityMissingPermission)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, gomock.AssignableToTypeOf(names.ModelTag{})).Return(nil)
 
@@ -1507,32 +1502,14 @@ func (s *offerSuite) testGetConsumeDetails(c *tc.C, userID string) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelationservice.OfferFilter{
-		{
-			OfferName: "hosted-mysql",
+	offerDetails := crossmodelrelation.ConsumeDetails{
+		OfferUUID: offerUUID.String(),
+		Endpoints: []crossmodelrelation.OfferEndpoint{
+			{Name: "endpoint"},
 		},
 	}
-	charmLocator := charm.CharmLocator{
-		Name:         "app",
-		Revision:     42,
-		Source:       charm.CharmHubSource,
-		Architecture: architecture.AMD64,
-	}
-
-	offerDetails := []*crossmodelrelation.OfferDetail{
-		{
-			OfferUUID:              offerUUID.String(),
-			OfferName:              domainFilters[0].OfferName,
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "endpoint"},
-			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
-		},
-	}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	offerURL, _ := corecrossmodel.ParseOfferURL("fred-external/test-model.hosted-mysql")
+	s.crossModelRelationService.EXPECT().GetConsumeDetails(gomock.Any(), offerURL).Return(offerDetails, nil)
 
 	bakeryMacaroon := newBakeryMacaroon(c, "test")
 	macaroon := bakeryMacaroon.M()
@@ -1555,15 +1532,10 @@ func (s *offerSuite) testGetConsumeDetails(c *tc.C, userID string) {
 					CACert:        "i am a ca cert",
 				},
 				Offer: &params.ApplicationOfferDetailsV5{
-					SourceModelTag:         names.NewModelTag(modelUUID.String()).String(),
-					OfferURL:               "fred-external/test-model.hosted-mysql",
-					OfferName:              "hosted-mysql",
-					OfferUUID:              offerUUID.String(),
-					ApplicationDescription: "testing application",
-					Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
-					Users: []params.OfferUserDetails{
-						{UserName: "admin", DisplayName: "fred smith", Access: "admin"},
-					},
+					SourceModelTag: names.NewModelTag(modelUUID.String()).String(),
+					OfferURL:       offerURL.String(),
+					OfferUUID:      offerUUID.String(),
+					Endpoints:      []params.RemoteEndpoint{{Name: "endpoint"}},
 				},
 				Macaroon: macaroon,
 			},
@@ -1581,10 +1553,7 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 	}, nil)
 
 	userTag := names.NewUserTag("mary")
-	adminUser := user.User{DisplayName: "fred smith"}
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(nil)
-	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(adminUser, nil)
-	s.expectEntityHasPermission(userTag, permission.SuperuserAccess)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(authentication.ErrorEntityMissingPermission)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, gomock.AssignableToTypeOf(names.ModelTag{})).Return(nil)
 
@@ -1601,32 +1570,14 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelationservice.OfferFilter{
-		{
-			OfferName: "hosted-mysql",
+	consumeDetails := crossmodelrelation.ConsumeDetails{
+		OfferUUID: offerUUID.String(),
+		Endpoints: []crossmodelrelation.OfferEndpoint{
+			{Name: "endpoint"},
 		},
 	}
-	charmLocator := charm.CharmLocator{
-		Name:         "app",
-		Revision:     42,
-		Source:       charm.CharmHubSource,
-		Architecture: architecture.AMD64,
-	}
-
-	offerDetails := []*crossmodelrelation.OfferDetail{
-		{
-			OfferUUID:              offerUUID.String(),
-			OfferName:              domainFilters[0].OfferName,
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "endpoint"},
-			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "mary", Access: permission.AdminAccess}},
-		},
-	}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	offerURL, _ := corecrossmodel.ParseOfferURL("fred-external/test-model.hosted-mysql")
+	s.crossModelRelationService.EXPECT().GetConsumeDetails(gomock.Any(), offerURL).Return(consumeDetails, nil)
 
 	bakeryMacaroon := newBakeryMacaroon(c, "test")
 	macaroon := bakeryMacaroon.M()
@@ -1650,15 +1601,10 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 					CACert:        "i am a ca cert",
 				},
 				Offer: &params.ApplicationOfferDetailsV5{
-					SourceModelTag:         names.NewModelTag(modelUUID.String()).String(),
-					OfferURL:               "fred-external/test-model.hosted-mysql",
-					OfferName:              "hosted-mysql",
-					OfferUUID:              offerUUID.String(),
-					ApplicationDescription: "testing application",
-					Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
-					Users: []params.OfferUserDetails{
-						{UserName: "mary", DisplayName: "fred smith", Access: "admin"},
-					},
+					SourceModelTag: names.NewModelTag(modelUUID.String()).String(),
+					OfferURL:       offerURL.String(),
+					OfferUUID:      offerUUID.String(),
+					Endpoints:      []params.RemoteEndpoint{{Name: "endpoint"}},
 				},
 				Macaroon: macaroon,
 			},
@@ -1708,10 +1654,7 @@ func (s *offerSuite) TestGetConsumeDetailsNoOffers(c *tc.C) {
 		APIAddresses: []string{"10.0.0.1:17070"},
 	}, nil)
 
-	adminTag := s.setupAuthUser(user.AdminUserName.Name())
-	adminUser := user.User{DisplayName: "fred smith"}
-	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
-	s.expectEntityHasPermission(adminTag, permission.SuperuserAccess)
+	s.setupAuthUser(user.AdminUserName.Name())
 
 	modelName := "test-model"
 	modelOwnerTag := names.NewUserTag("fred@external")
@@ -1724,14 +1667,9 @@ func (s *offerSuite) TestGetConsumeDetailsNoOffers(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []crossmodelrelationservice.OfferFilter{
-		{
-			OfferName: "hosted-mysql",
-		},
-	}
-
-	offerDetails := []*crossmodelrelation.OfferDetail{}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	offerDetails := crossmodelrelation.ConsumeDetails{}
+	offerURL, _ := corecrossmodel.ParseOfferURL("fred-external/test-model.hosted-mysql")
+	s.crossModelRelationService.EXPECT().GetConsumeDetails(gomock.Any(), offerURL).Return(offerDetails, crossmodelrelationerrors.OfferNotFound)
 
 	offerAPI := s.offerAPI(c)
 	details, err := offerAPI.GetConsumeDetails(c.Context(), params.ConsumeOfferDetailsArg{
@@ -1745,7 +1683,7 @@ func (s *offerSuite) TestGetConsumeDetailsNoOffers(c *tc.C) {
 		Results: []params.ConsumeOfferDetailsResult{{
 			Error: &params.Error{
 				Code:    params.CodeNotFound,
-				Message: `application offer "fred-external/test-model.hosted-mysql"`,
+				Message: `application offer "fred-external/test-model.hosted-mysql" not found`,
 			},
 		}},
 	})
@@ -1773,12 +1711,8 @@ func (s *offerSuite) TestGetConsumeDetailsInvalidOfferURLEndpoint(c *tc.C) {
 	c.Check(details, tc.DeepEquals, params.ConsumeOfferDetailsResults{
 		Results: []params.ConsumeOfferDetailsResult{{
 			Error: &params.Error{
-				Code: params.CodeNotSupported,
-
-				// Annoyingly, because the URL is normalized, we lose the
-				// original URL. We could potentially feed this through, but
-				// it's not worth the effort right now.
-				Message: `saas application "fred-external/test-model.hosted-mysql:db" shouldn't include endpoint`,
+				Code:    params.CodeNotSupported,
+				Message: `saas application "fred@external/test-model.hosted-mysql:db" shouldn't include endpoint`,
 			},
 		}},
 	})
