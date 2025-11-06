@@ -137,7 +137,7 @@ func (c *upgradeControllerCommand) getModelUpgraderAPI(ctx context.Context) (Mod
 	if c.modelUpgraderAPI != nil {
 		return c.modelUpgraderAPI, nil
 	}
-	root, err := c.NewAPIRoot(ctx)
+	root, err := c.NewModelAPIRoot(ctx, bootstrap.ControllerModelName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
