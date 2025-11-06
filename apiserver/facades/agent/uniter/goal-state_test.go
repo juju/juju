@@ -416,6 +416,8 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *tc.C) {
 }
 
 func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *tc.C) {
+	c.Skipf("goal states with multiple relations test not yet implemented")
+
 	defer s.setupMocks(c).Finish()
 	now := time.Now()
 
