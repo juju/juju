@@ -136,6 +136,15 @@ run_govulncheck() {
 		# The vulnerability below is for a method not used since Juju 1.x.
 		# https://pkg.go.dev/vuln/GO-2025-3798
 		"GO-2025-3798"
+		# TODO(nvinuesa): this ignore is only temporary until we update
+		# LXD to a tagged version that includes the fixes and we address the
+		# breaking changes from it.
+		"GO-2025-3999"
+		"GO-2025-4000"
+		"GO-2025-4001"
+		"GO-2025-4002"
+		"GO-2025-4003"
+		"GO-2025-4005"
 	)
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 
