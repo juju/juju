@@ -297,6 +297,24 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 
+		var volumeClaimTemplates []corev1.PersistentVolumeClaim
+		if err = configureStorage(
+			config.StorageUniqueID,
+			func(pvc corev1.PersistentVolumeClaim,
+				attachParams jujustorage.KubernetesFilesystemAttachmentParams,
+			) (*corev1.VolumeMount, error) {
+				if err := storage.PushUniqueVolumeClaimTemplate(&volumeClaimTemplates, pvc); err != nil {
+					return nil, errors.Trace(err)
+				}
+				return &corev1.VolumeMount{
+					Name:      pvc.GetName(),
+					ReadOnly:  attachParams.ReadOnly,
+					MountPath: attachParams.Path,
+				}, nil
+			},
+		); err != nil {
+			return errors.Trace(err)
+		}
 		sts := &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      a.name,
@@ -317,29 +335,12 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					},
 					Spec: *podSpec,
 				},
-				PodManagementPolicy: appsv1.ParallelPodManagement,
-				ServiceName:         HeadlessServiceName(a.name),
+				VolumeClaimTemplates: volumeClaimTemplates,
+				PodManagementPolicy:  appsv1.ParallelPodManagement,
+				ServiceName:          HeadlessServiceName(a.name),
 			},
 		}
 		statefulset := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, sts)
-
-		if err = configureStorage(
-			config.StorageUniqueID,
-			func(pvc corev1.PersistentVolumeClaim,
-				attachParams jujustorage.KubernetesFilesystemAttachmentParams,
-			) (*corev1.VolumeMount, error) {
-				if err := storage.PushUniqueVolumeClaimTemplate(&statefulset.Spec, pvc); err != nil {
-					return nil, errors.Trace(err)
-				}
-				return &corev1.VolumeMount{
-					Name:      pvc.GetName(),
-					ReadOnly:  attachParams.ReadOnly,
-					MountPath: attachParams.Path,
-				}, nil
-			},
-		); err != nil {
-			return errors.Trace(err)
-		}
 
 		applier.Apply(statefulset)
 	case caas.DeploymentStateless:
@@ -1922,7 +1923,6 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				MountPath: "/charm/bin",
 				SubPath:   "charm/bin",
 			},
-			// DO we need this in init container????
 			{
 				Name:      constants.CharmVolumeName,
 				MountPath: "/charm/containers",
