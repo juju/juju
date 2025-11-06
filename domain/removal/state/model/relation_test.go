@@ -9,11 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	crossmodelrelationstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	"github.com/juju/juju/domain/life"
+	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -387,6 +393,87 @@ WHERE u.name = ?`, "foo/0").Scan(&relUnitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(unitCount, tc.Equals, 0)
 	c.Check(netNodeCount, tc.Equals, 0)
+}
+
+func (s *relationSuite) TestLeaveScopeSyntheticUnitsInMultipleRelations(c *tc.C) {
+	// Arrange
+	synthAppUUID, _ := s.createRemoteApplicationOfferer(c, "foo")
+
+	s.createIAASApplication(c, s.setupApplicationService(c), "bar1",
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+	)
+	s.createIAASApplication(c, s.setupApplicationService(c), "bar2",
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+	)
+
+	relSvc := s.setupRelationService(c)
+	_, _, err := relSvc.AddRelation(c.Context(), "foo:foo", "bar1:bar")
+	c.Assert(err, tc.ErrorIsNil)
+	_, _, err = relSvc.AddRelation(c.Context(), "foo:foo", "bar2:bar")
+	c.Assert(err, tc.ErrorIsNil)
+
+	rel1UUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), domainrelation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{"foo:foo", "bar1:bar"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	rel2UUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), domainrelation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{"foo:foo", "bar2:bar"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrState := crossmodelrelationstate.NewState(
+		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()), testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	)
+	err = cmrState.EnsureUnitsExist(c.Context(), synthAppUUID.String(), []string{"foo/0", "foo/1", "foo/2"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = relSvc.SetRelationRemoteApplicationAndUnitSettings(c.Context(), synthAppUUID, rel1UUID,
+		map[string]string{"do": "da"},
+		map[unit.Name]map[string]string{
+			unit.Name("foo/0"): {"do": "da"},
+			unit.Name("foo/1"): {"do": "da"},
+			unit.Name("foo/2"): {"do": "da"},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = relSvc.SetRelationRemoteApplicationAndUnitSettings(c.Context(), synthAppUUID, rel2UUID,
+		map[string]string{"da": "do"},
+		map[unit.Name]map[string]string{
+			unit.Name("foo/0"): {"da": "do"},
+			unit.Name("foo/1"): {"da": "do"},
+			unit.Name("foo/2"): {"da": "do"},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var relUnitUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `
+SELECT ru.uuid
+FROM relation_unit AS ru
+JOIN unit AS u ON ru.unit_uuid = u.uuid
+WHERE u.name = ?`, "foo/0").Scan(&relUnitUUID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Act
+	err = st.LeaveScope(c.Context(), relUnitUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
