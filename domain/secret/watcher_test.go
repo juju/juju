@@ -971,9 +971,11 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) string {
 		},
 	)
 	storageSvc := applicationstorageservice.NewService(
-		st, applicationstorageservice.NewStoragePoolProvider(
+		st,
+		applicationstorageservice.NewStoragePoolProvider(
 			storageProviderRegistryGetter, st,
 		),
+		loggertesting.WrapCheckLog(c),
 	)
 
 	svc := applicationservice.NewProviderService(

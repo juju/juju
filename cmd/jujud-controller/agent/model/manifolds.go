@@ -349,6 +349,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:  config.Clock,
 		}))),
 
+		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+			APICallerName:       apiCallerName,
+			Clock:               config.Clock,
+			Logger:              config.LoggingContext.GetLogger("juju.worker.modelstorageprovisioner"),
+			StorageRegistryName: providerTrackerName,
+			Model:               modelTag,
+			NewWorker:           storageprovisioner.NewStorageProvisioner,
+		})),
+
 		asyncCharmDownloader: ifResponsible(asynccharmdownloader.Manifold(asynccharmdownloader.ManifoldConfig{
 			DomainServicesName:     domainServicesName,
 			HTTPClientName:         httpClientName,
@@ -398,8 +407,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // IAASManifolds returns a set of interdependent dependency manifolds that will
 // run together to administer an IAAS model, as configured.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	agentConfig := config.Agent.CurrentConfig()
-	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
 		// Everything else should be wrapped in ifResponsible,
 		// ifNotDead, or ifNotMigrating (which also
@@ -434,14 +441,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:             config.LoggingContext.GetLogger("juju.worker.provisioner"),
 
 			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
-		})),
-		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-			APICallerName:       apiCallerName,
-			Clock:               config.Clock,
-			Logger:              config.LoggingContext.GetLogger("juju.worker.modelstorageprovisioner"),
-			StorageRegistryName: providerTrackerName,
-			Model:               modelTag,
-			NewWorker:           storageprovisioner.NewStorageProvisioner,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
 			AgentName:          agentName,

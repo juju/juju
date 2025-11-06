@@ -445,6 +445,19 @@ type FilesystemParams struct {
 	Attachment    *FilesystemAttachmentParams `json:"attachment,omitempty"`
 }
 
+// FilesystemParamsV5 holds the parameters for creating a storage filesystem for
+// the V5 storage provisioner facade.
+type FilesystemParamsV5 struct {
+	FilesystemTag string                        `json:"filesystem-tag"`
+	VolumeTag     string                        `json:"volume-tag,omitempty"`
+	SizeMiB       uint64                        `json:"size"`
+	Provider      string                        `json:"provider"`
+	ProviderId    *string                       `json:"provider-id,omitempty"`
+	Attributes    map[string]any                `json:"attributes,omitempty"`
+	Tags          map[string]string             `json:"tags,omitempty"`
+	Attachment    *FilesystemAttachmentParamsV5 `json:"attachment,omitempty"`
+}
+
 // RemoveFilesystemParams holds the parameters for destroying or releasing
 // a filesystem.
 type RemoveFilesystemParams struct {
@@ -472,6 +485,19 @@ type FilesystemAttachmentParams struct {
 	Provider   string `json:"provider"`
 	MountPoint string `json:"mount-point,omitempty"`
 	ReadOnly   bool   `json:"read-only,omitempty"`
+}
+
+// FilesystemAttachmentParamsV5 holds the parameters for creating a filesystem
+// attachment for the V5 storage provisioner facade.
+type FilesystemAttachmentParamsV5 struct {
+	FilesystemTag        string  `json:"filesystem-tag"`
+	MachineTag           string  `json:"machine-tag"`
+	FilesystemProviderId string  `json:"filesystem-provider-id,omitempty"`
+	InstanceId           string  `json:"instance-id,omitempty"`
+	Provider             string  `json:"provider"`
+	AttachmentProviderId *string `json:"attachment-provider-id,omitempty"`
+	MountPoint           string  `json:"mount-point,omitempty"`
+	ReadOnly             bool    `json:"read-only,omitempty"`
 }
 
 // FilesystemAttachmentResult holds the details of a single filesystem attachment,
@@ -508,6 +534,17 @@ type FilesystemParamsResults struct {
 	Results []FilesystemParamsResult `json:"results,omitempty"`
 }
 
+// FilesystemParamsResultV5 holds provisioning parameters for a filesystem.
+type FilesystemParamsResultV5 struct {
+	Result FilesystemParamsV5 `json:"result"`
+	Error  *Error             `json:"error,omitempty"`
+}
+
+// FilesystemParamsResultsV5 holds provisioning parameters for multiple filesystems.
+type FilesystemParamsResultsV5 struct {
+	Results []FilesystemParamsResultV5 `json:"results,omitempty"`
+}
+
 // RemoveFilesystemParamsResult holds parameters for destroying or releasing
 // a filesystem.
 type RemoveFilesystemParamsResult struct {
@@ -532,6 +569,19 @@ type FilesystemAttachmentParamsResult struct {
 // filesystem attachments.
 type FilesystemAttachmentParamsResults struct {
 	Results []FilesystemAttachmentParamsResult `json:"results,omitempty"`
+}
+
+// FilesystemAttachmentParamsResultV5 holds provisioning parameters for a filesystem
+// attachment.
+type FilesystemAttachmentParamsResultV5 struct {
+	Result FilesystemAttachmentParamsV5 `json:"result"`
+	Error  *Error                       `json:"error,omitempty"`
+}
+
+// FilesystemAttachmentParamsResultsV5 holds provisioning parameters for multiple
+// filesystem attachments.
+type FilesystemAttachmentParamsResultsV5 struct {
+	Results []FilesystemAttachmentParamsResultV5 `json:"results,omitempty"`
 }
 
 // StorageDetails holds information about storage.

@@ -22,7 +22,7 @@ func setAddUnitNoopStorageExpects(
 		[]application.StorageDirective{}, nil,
 	).AnyTimes()
 	storageService.EXPECT().MakeUnitStorageArgs(
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().MakeIAASUnitStorageArgs(
 		gomock.Any(), gomock.Any(),
@@ -44,7 +44,7 @@ func setCreateApplicationNoopStorageExpects(
 		gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(nil, nil).AnyTimes()
 	storageService.EXPECT().MakeUnitStorageArgs(
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().MakeIAASUnitStorageArgs(
 		gomock.Any(), gomock.Any(),

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
@@ -40,6 +41,8 @@ type Service struct {
 	st State
 
 	storagePoolProvider StoragePoolProvider
+
+	logger logger.Logger
 }
 
 // State describes retrieval and persistence methods for
@@ -123,17 +126,20 @@ type State interface {
 		ctx context.Context, storageID corestorage.ID,
 	) (domainstorage.StorageInstanceUUID, error)
 
-	// GetUnitOwnedStorageInstances returns the storage instance compositions
-	// for all storage instances owned by the unit in the model. If the unit
-	// does not currently own any storage instances then an empty result is
-	// returned.
+	// GetUnitOwnedStorageInstances returns the storage compositions for all
+	// storage instances owned by the unit in the model. If the unit does not
+	// currently own any storage instances then an empty result is returned.
 	//
 	// The following errors can be expected:
 	// - [applicationerrors.UnitNotFound] when the unit no longer exists.
 	GetUnitOwnedStorageInstances(
 		context.Context,
 		coreunit.UUID,
-	) ([]internal.StorageInstanceComposition, error)
+	) (
+		[]internal.StorageInstanceComposition,
+		[]internal.StorageAttachmentComposition,
+		error,
+	)
 
 	// GetUnitStorageDirectives returns the storage directives that are set for
 	// a unit. If the unit does not have any storage directives set then an
@@ -147,10 +153,11 @@ type State interface {
 }
 
 // NewService returns a new application storage service for the model.
-func NewService(st State, storagePoolProvider StoragePoolProvider) *Service {
+func NewService(st State, storagePoolProvider StoragePoolProvider, logger logger.Logger) *Service {
 	return &Service{
 		storagePoolProvider: storagePoolProvider,
 		st:                  st,
+		logger:              logger,
 	}
 }
 
@@ -228,7 +235,8 @@ func (s Service) MakeRegisterExistingCAASUnitStorageArg(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	existingUnitStorage, err := s.st.GetUnitOwnedStorageInstances(ctx, unitUUID)
+	existingUnitStorage, existingUnitStorageAttachments, err := s.st.GetUnitOwnedStorageInstances(
+		ctx, unitUUID)
 	if err != nil {
 		return internal.RegisterUnitStorageArg{}, errors.Errorf(
 			"getting unit %q owned storage instances: %w", unitUUID, err,
@@ -248,6 +256,7 @@ func (s Service) MakeRegisterExistingCAASUnitStorageArg(
 		providerFilesystemInfo,
 		directivesToFollow,
 		existingUnitStorage,
+		existingUnitStorageAttachments,
 	)
 }
 
@@ -281,6 +290,7 @@ func (s Service) MakeRegisterNewCAASUnitStorageArg(
 		providerFilesystemInfo,
 		directivesToFollow,
 		nil, // new unit so there is no existing storage to supply.
+		nil, // new unit so there is also no existing storage attachments.
 	)
 }
 
@@ -304,17 +314,18 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 	providerFilesystemInfo []caas.FilesystemInfo,
 	directivesToFollow []application.StorageDirective,
 	existingUnitOwnedStorage []internal.StorageInstanceComposition,
+	existingUnitOwnedStorageAttachments []internal.StorageAttachmentComposition,
 ) (internal.RegisterUnitStorageArg, error) {
-	// We don't consider the volume information in the caas filesystem info.
-	providerIDs := make([]string, 0, len(providerFilesystemInfo))
+	storageProviderIDs := make([]string, 0, len(providerFilesystemInfo))
 	for _, fsInfo := range providerFilesystemInfo {
-		providerIDs = append(providerIDs, fsInfo.FilesystemId)
+		storageProviderIDs = append(storageProviderIDs,
+			fsInfo.Volume.PersistentVolumeName)
 	}
 
 	// We fetch all existing storage instances in the model that are using one
 	// of the provider ids and not owned by a unit.
 	existingProviderStorage, err := s.st.GetStorageInstancesForProviderIDs(
-		ctx, providerIDs,
+		ctx, storageProviderIDs,
 	)
 	if err != nil {
 		return internal.RegisterUnitStorageArg{}, errors.Errorf(
@@ -328,6 +339,7 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 		attachmentNetNodeUUID,
 		directivesToFollow,
 		append(existingUnitOwnedStorage, existingProviderStorage...),
+		existingUnitOwnedStorageAttachments,
 	)
 	if err != nil {
 		return internal.RegisterUnitStorageArg{}, errors.Errorf(
@@ -336,15 +348,16 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 	}
 
 	// For the existing provider storage instances that are about to be attached
-	// make sure they are owned by the unit.
+	// make sure they are owned by the unit. Make sure they also have their
+	// attachment provider ID mapped if one exists.
 	for _, storageInstance := range existingProviderStorage {
-		isBeingAttached := slices.ContainsFunc(
+		attachmentIndex := slices.IndexFunc(
 			unitStorageArgs.StorageToAttach,
 			func(e internal.CreateUnitStorageAttachmentArg) bool {
 				return e.StorageInstanceUUID == storageInstance.UUID
 			},
 		)
-		if !isBeingAttached {
+		if attachmentIndex == -1 {
 			continue
 		}
 
@@ -354,17 +367,26 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 		)
 	}
 
-	filesystemProviderIDs, volumeProviderIDs :=
-		makeCAASStorageInstanceProviderIDAssociations(
+	var (
+		filesystemProviderIDs,
+		volumeProviderIDs,
+		filesystemAttachmentProviderIDs,
+		volumeAttachmentProviderIDs = makeCAASStorageInstanceProviderIDAssociations(
 			providerFilesystemInfo,
 			existingProviderStorage,
+			existingUnitOwnedStorage,
+			existingUnitOwnedStorageAttachments,
 			unitStorageArgs.StorageInstances,
+			unitStorageArgs.StorageToAttach,
 		)
+	)
 
 	return internal.RegisterUnitStorageArg{
-		CreateUnitStorageArg:  unitStorageArgs,
-		FilesystemProviderIDs: filesystemProviderIDs,
-		VolumeProviderIDs:     volumeProviderIDs,
+		CreateUnitStorageArg:            unitStorageArgs,
+		FilesystemProviderIDs:           filesystemProviderIDs,
+		VolumeProviderIDs:               volumeProviderIDs,
+		FilesystemAttachmentProviderIDs: filesystemAttachmentProviderIDs,
+		VolumeAttachmentProviderIDs:     volumeAttachmentProviderIDs,
 	}, nil
 }
 
@@ -413,22 +435,39 @@ func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) e
 func makeCAASStorageInstanceProviderIDAssociations(
 	providerFilesystemInfo []caas.FilesystemInfo,
 	existingProviderStorage []internal.StorageInstanceComposition,
+	existingUnitOwnedStorage []internal.StorageInstanceComposition,
+	existingUnitAttachments []internal.StorageAttachmentComposition,
 	unitStorageToCreate []internal.CreateUnitStorageInstanceArg,
+	unitStorageToAttach []internal.CreateUnitStorageAttachmentArg,
 ) (
 	map[domainstorageprov.FilesystemUUID]string,
 	map[domainstorageprov.VolumeUUID]string,
+	map[domainstorageprov.FilesystemAttachmentUUID]string,
+	map[domainstorageprov.VolumeAttachmentUUID]string,
 ) {
 	rvalFilesystemProviderIDs := map[domainstorageprov.FilesystemUUID]string{}
 	rvalVolumeProviderIDs := map[domainstorageprov.VolumeUUID]string{}
+	rvalFilesystemAttachmentProviderIDs := map[domainstorageprov.FilesystemAttachmentUUID]string{}
+	rvalVolumeAttachmentProviderIDs := map[domainstorageprov.VolumeAttachmentUUID]string{}
+
+	storageProviderIDsToAttachmentProviderIDs := make(
+		map[string]string, len(providerFilesystemInfo),
+	)
+	for _, fsInfo := range providerFilesystemInfo {
+		if fsInfo.PersistentVolumeClaimName == "" {
+			continue
+		}
+		storageProviderIDsToAttachmentProviderIDs[fsInfo.Volume.PersistentVolumeName] = fsInfo.PersistentVolumeClaimName
+	}
 
 	unassignedStorageNameToIDMap := map[string][]string{}
 	for _, providerFS := range providerFilesystemInfo {
 		alreadyInUse := slices.ContainsFunc(
 			existingProviderStorage,
 			func(e internal.StorageInstanceComposition) bool {
-				if e.Filesystem != nil && e.Filesystem.ProviderID == providerFS.FilesystemId {
+				if e.Filesystem != nil && e.Filesystem.ProviderID == providerFS.Volume.PersistentVolumeName {
 					return true
-				} else if e.Volume != nil && e.Volume.ProviderID == providerFS.FilesystemId {
+				} else if e.Volume != nil && e.Volume.ProviderID == providerFS.Volume.PersistentVolumeName {
 					return true
 				}
 				return false
@@ -440,27 +479,112 @@ func makeCAASStorageInstanceProviderIDAssociations(
 
 		unassignedStorageNameToIDMap[providerFS.StorageName] = append(
 			unassignedStorageNameToIDMap[providerFS.StorageName],
-			providerFS.FilesystemId,
+			providerFS.Volume.PersistentVolumeName,
 		)
 	}
 
-	for _, inst := range unitStorageToCreate {
-		availableIDs, exists := unassignedStorageNameToIDMap[inst.Name.String()]
-		// If there is not provider id available for this new storage instance
-		// then we do nothing.
-		if !exists || len(availableIDs) == 0 {
+	// Assign existing storage instances without a provider ID here.
+	for _, inst := range existingUnitOwnedStorage {
+		if inst.Filesystem == nil {
+			continue
+		}
+		if inst.Filesystem.ProviderID != "" {
 			continue
 		}
 
-		if inst.Filesystem != nil {
-			rvalFilesystemProviderIDs[inst.Filesystem.UUID] = availableIDs[0]
+		storageNameKey := inst.StorageName.String()
+		availableIDs, exists := unassignedStorageNameToIDMap[storageNameKey]
+		if !exists || len(availableIDs) == 0 {
+			// If there is no provider id available for this existing storage
+			// instance then we do nothing.
+			continue
 		}
-		if inst.Volume != nil {
-			rvalVolumeProviderIDs[inst.Volume.UUID] = availableIDs[0]
+
+		rvalFilesystemProviderIDs[inst.Filesystem.UUID] = availableIDs[0]
+		unassignedStorageNameToIDMap[storageNameKey] = availableIDs[1:]
+	}
+
+	for _, inst := range unitStorageToCreate {
+		if inst.Filesystem == nil {
+			continue
+		}
+
+		storageNameKey := inst.Name.String()
+		availableIDs, exists := unassignedStorageNameToIDMap[storageNameKey]
+		if !exists || len(availableIDs) == 0 {
+			// If there is no provider id available for this new storage
+			// instance then we do nothing.
+			continue
+		}
+
+		rvalFilesystemProviderIDs[inst.Filesystem.UUID] = availableIDs[0]
+		unassignedStorageNameToIDMap[storageNameKey] = availableIDs[1:]
+	}
+
+filesystemAttachmentLoop:
+	for fsUUID, fsProviderID := range rvalFilesystemProviderIDs {
+		fsaID, ok := storageProviderIDsToAttachmentProviderIDs[fsProviderID]
+		if !ok {
+			continue
+		}
+		for _, v := range existingUnitAttachments {
+			if v.FilesystemAttachment == nil {
+				continue
+			}
+			if v.FilesystemAttachment.FilesystemUUID != fsUUID {
+				continue
+			}
+			fsaUUID := v.FilesystemAttachment.UUID
+			rvalFilesystemAttachmentProviderIDs[fsaUUID] = fsaID
+			continue filesystemAttachmentLoop
+		}
+		for _, v := range unitStorageToAttach {
+			if v.FilesystemAttachment == nil {
+				continue
+			}
+			if v.FilesystemAttachment.FilesystemUUID != fsUUID {
+				continue
+			}
+			fsaUUID := v.FilesystemAttachment.UUID
+			rvalFilesystemAttachmentProviderIDs[fsaUUID] = fsaID
+			continue filesystemAttachmentLoop
 		}
 	}
 
-	return rvalFilesystemProviderIDs, rvalVolumeProviderIDs
+volumeAttachmentLoop:
+	for volUUID, volProviderID := range rvalVolumeProviderIDs {
+		vaID, ok := storageProviderIDsToAttachmentProviderIDs[volProviderID]
+		if !ok {
+			continue
+		}
+		for _, v := range existingUnitAttachments {
+			if v.VolumeAttachment == nil {
+				continue
+			}
+			if v.VolumeAttachment.VolumeUUID != volUUID {
+				continue
+			}
+			vaUUID := v.VolumeAttachment.UUID
+			rvalVolumeAttachmentProviderIDs[vaUUID] = vaID
+			continue volumeAttachmentLoop
+		}
+		for _, v := range unitStorageToAttach {
+			if v.VolumeAttachment == nil {
+				continue
+			}
+			if v.VolumeAttachment.VolumeUUID != volUUID {
+				continue
+			}
+			vaUUID := v.VolumeAttachment.UUID
+			rvalVolumeAttachmentProviderIDs[vaUUID] = vaID
+			continue volumeAttachmentLoop
+		}
+	}
+
+	return rvalFilesystemProviderIDs,
+		rvalVolumeProviderIDs,
+		rvalFilesystemAttachmentProviderIDs,
+		rvalVolumeAttachmentProviderIDs
 }
 
 // makeStorageAttachmentArgFromExistingStorageInstance is responsible for taking
@@ -599,6 +723,7 @@ func (s Service) MakeUnitStorageArgs(
 	attachNetNodeUUID domainnetwork.NetNodeUUID,
 	storageDirectives []application.StorageDirective,
 	existingStorage []internal.StorageInstanceComposition,
+	existingStorageAttachments []internal.StorageAttachmentComposition,
 ) (internal.CreateUnitStorageArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -681,7 +806,14 @@ func (s Service) MakeUnitStorageArgs(
 		}
 
 		existingStorageToUse := existingStorageInstances[:toUse]
+	storageToAttachLoop:
 		for _, inst := range existingStorageToUse {
+			for _, existingAttachment := range existingStorageAttachments {
+				if existingAttachment.StorageInstanceUUID == inst.UUID {
+					// This storage instance is already attached to this unit.
+					continue storageToAttachLoop
+				}
+			}
 			storageAttachArg, err :=
 				makeStorageAttachmentArgFromExistingStorageInstance(
 					attachNetNodeUUID, inst,

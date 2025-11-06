@@ -512,8 +512,9 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystemsNo
 	st := NewState(s.TxnRunnerFactory())
 	_, _ = s.newMachineFilesystem(c)
 
-	ns, initialQuery := st.InitialWatchStatementModelProvisionedFilesystems()
+	ns, ns2, initialQuery := st.InitialWatchStatementModelProvisionedFilesystems()
 	c.Check(ns, tc.Equals, "storage_filesystem_life_model_provisioning")
+	c.Check(ns2, tc.Equals, "custom_filesystem_provider_id_model_provisioning")
 
 	db := s.TxnRunner()
 	fsIDs, err := initialQuery(c.Context(), db)
@@ -530,8 +531,9 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystems(c
 	_, fsTwoID := s.newModelFilesystem(c)
 	_, _ = s.newMachineFilesystem(c)
 
-	ns, initialQuery := st.InitialWatchStatementModelProvisionedFilesystems()
+	ns, ns2, initialQuery := st.InitialWatchStatementModelProvisionedFilesystems()
 	c.Check(ns, tc.Equals, "storage_filesystem_life_model_provisioning")
+	c.Check(ns2, tc.Equals, "custom_filesystem_provider_id_model_provisioning")
 
 	db := s.TxnRunner()
 	fsIDs, err := initialQuery(c.Context(), db)
@@ -624,8 +626,9 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystemAtt
 	s.newMachineFilesystemAttachment(c, fsUUID, netNode)
 
 	st := NewState(s.TxnRunnerFactory())
-	ns, initialQuery := st.InitialWatchStatementModelProvisionedFilesystemAttachments()
+	ns, ns2, initialQuery := st.InitialWatchStatementModelProvisionedFilesystemAttachments()
 	c.Check(ns, tc.Equals, "storage_filesystem_attachment_life_model_provisioning")
+	c.Check(ns2, tc.Equals, "custom_filesystem_attachment_provider_id_model_provisioning")
 
 	db := s.TxnRunner()
 	fsaUUIDs, err := initialQuery(c.Context(), db)
@@ -647,8 +650,9 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystemAtt
 	fsaTwoUUID := s.newModelFilesystemAttachment(c, fsTwoUUID, netNodeUUID)
 	s.newMachineFilesystemAttachment(c, fsThreeUUID, netNodeUUID)
 
-	ns, initialQuery := st.InitialWatchStatementModelProvisionedFilesystemAttachments()
+	ns, ns2, initialQuery := st.InitialWatchStatementModelProvisionedFilesystemAttachments()
 	c.Check(ns, tc.Equals, "storage_filesystem_attachment_life_model_provisioning")
+	c.Check(ns2, tc.Equals, "custom_filesystem_attachment_provider_id_model_provisioning")
 
 	db := s.TxnRunner()
 	fsaUUIDs, err := initialQuery(c.Context(), db)
@@ -1035,9 +1039,9 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMachineAttached(c *tc
 		CharmStorageReadOnly: false,
 		MachineInstanceID:    "machine-id-123",
 		// We don't expect a mount point to have been set yet.
-		MountPoint: "",
-		Provider:   "canonical",
-		ProviderID: "provider-id",
+		MountPoint:           "",
+		Provider:             "canonical",
+		FilesystemProviderID: "provider-id",
 	})
 }
 
@@ -1085,7 +1089,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C)
 		CharmStorageReadOnly: false,
 		MachineInstanceID:    "",
 		Provider:             "canonical",
-		ProviderID:           "",
+		FilesystemProviderID: "",
 	})
 }
 
@@ -1136,7 +1140,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountPointSet(c *tc.C
 		MachineInstanceID:    "machine-id-123",
 		MountPoint:           mountPoint,
 		Provider:             "canonical",
-		ProviderID:           "provider-id",
+		FilesystemProviderID: "provider-id",
 	})
 }
 

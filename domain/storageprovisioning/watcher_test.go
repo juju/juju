@@ -249,11 +249,19 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C) {
 	})
 
 	// Assert that changing something about a filesystem attachment which isn't
-	// the life does not produce a change in the watcher.
+	// life or provider_id, does not produce a change in the watcher.
 	harness.AddTest(c, func(c *tc.C) {
 		s.changeFilesystemAttachmentMountPoint(c, fsaTwoUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
+	})
+
+	// Assert that changing filesystem attachment provider id is reported in the
+	// watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeFilesystemAttachmentProviderID(c, fsaTwoUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertChange()
 	})
 
 	// Assert that deleting a filesystem attachment is reported in the watcher.
@@ -307,12 +315,19 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 		)
 	})
 
-	// Assert that changing something about a filesystem which isn't the life
-	// does not produce a change in the watcher.
+	// Assert that changing something about a filesystem which isn't the life or
+	// provider_id, does not produce a change in the watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeFilesystemSizeMiB(c, fsTwoUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Assert that changing filesystem provider id is reported in the watcher.
 	harness.AddTest(c, func(c *tc.C) {
 		s.changeFilesystemProviderID(c, fsTwoUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
+		w.AssertChange()
 	})
 
 	// Assert that deleting a filesystem is reported in the watcher.
@@ -1029,7 +1044,7 @@ WHERE  uuid = ?
 
 // changeFilesystemProviderID is a utility function for changing the provider id
 // of a filesystem to a value chosen by this func. The purpose of this is to
-// change something about a filesystem that isn't the life.
+// help test changing the provider id, which the watcher is interested in.
 func (s *watcherSuite) changeFilesystemProviderID(
 	c *tc.C, uuid string,
 ) {
@@ -1038,6 +1053,49 @@ func (s *watcherSuite) changeFilesystemProviderID(
 			ctx,
 			`
 UPDATE storage_filesystem
+SET    provider_id = 'foobar'
+WHERE  uuid = ?
+`,
+			uuid,
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// changeFilesystemSizeMiB is a utility function for changing the size_mib of a
+// filesystem to a value chosen by this func. The purpose of this is to change
+// something about a filesystem that isn't the life or provider_id.
+func (s *watcherSuite) changeFilesystemSizeMiB(
+	c *tc.C, uuid string,
+) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
+UPDATE storage_filesystem
+SET    size_mib = 9001
+WHERE  uuid = ?
+`,
+			uuid,
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// changeFilesystemAttachmentProviderID is a utility function for changing the
+// provider id of a filesystem attachment to a value chosen by this func. The
+// purpose of this is to help test changing the provider id, which the watcher is
+// interested in.
+func (s *watcherSuite) changeFilesystemAttachmentProviderID(
+	c *tc.C, uuid string,
+) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
+UPDATE storage_filesystem_attachment
 SET    provider_id = 'foobar'
 WHERE  uuid = ?
 `,

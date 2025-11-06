@@ -112,10 +112,10 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			Message: "different",
 		},
 		FilesystemInfo: []caas.FilesystemInfo{{
-			StorageName:  "s",
-			FilesystemId: "fsid",
+			StorageName:               "s",
+			PersistentVolumeClaimName: "fsid",
 			Volume: caas.VolumeInfo{
-				VolumeId: "vid",
+				PersistentVolumeName: "vid",
 			},
 		}},
 	}, {

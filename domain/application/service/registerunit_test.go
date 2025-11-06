@@ -100,8 +100,8 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 		Address: "10.6.6.6",
 		Ports:   []string{"8080"},
 		FilesystemInfo: []caas.FilesystemInfo{{
-			FilesystemId: "fs-providerid-1",
-			StorageName:  "st1",
+			PersistentVolumeClaimName: "fs-providerid-1",
+			StorageName:               "st1",
 		}},
 	}}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
@@ -174,8 +174,8 @@ func (s *registerCAASUnitSuite) TestRegisterExistingCAASUnit(c *tc.C) {
 		Address: "10.6.6.6",
 		Ports:   []string{"8080"},
 		FilesystemInfo: []caas.FilesystemInfo{{
-			FilesystemId: "fs-providerid-1",
-			StorageName:  "st1",
+			PersistentVolumeClaimName: "fs-providerid-1",
+			StorageName:               "st1",
 		}},
 	}}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)

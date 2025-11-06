@@ -15,7 +15,7 @@ import (
 
 func (s *applicationSuite) TestApplicationScaleStateful(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {})
 
 	c.Assert(app.Scale(20), tc.ErrorIsNil)
 	ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
@@ -29,7 +29,7 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *tc.C) {
 
 func (s *applicationSuite) TestApplicationScaleStateless(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {})
 
 	c.Assert(app.Scale(20), tc.ErrorIsNil)
 	dep, err := s.client.AppsV1().Deployments(s.namespace).Get(
@@ -43,14 +43,14 @@ func (s *applicationSuite) TestApplicationScaleStateless(c *tc.C) {
 
 func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {})
 
 	c.Assert(app.Scale(-1), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *applicationSuite) TestCurrentScale(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {})
 
 	c.Assert(app.Scale(3), tc.ErrorIsNil)
 
@@ -65,7 +65,7 @@ func (s *applicationSuite) TestCurrentScale(c *tc.C) {
 
 func (s *applicationSuite) TestEnsurePVCs(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {})
 
 	// Test EnsurePVCs with filesystem params and unit attachments
 	filesystems := []storage.KubernetesFilesystemParams{

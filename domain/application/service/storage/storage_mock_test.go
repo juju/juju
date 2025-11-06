@@ -419,12 +419,13 @@ func (c *MockStateGetStorageUUIDByIDCall) DoAndReturn(f func(context.Context, st
 }
 
 // GetUnitOwnedStorageInstances mocks base method.
-func (m *MockState) GetUnitOwnedStorageInstances(arg0 context.Context, arg1 unit.UUID) ([]internal.StorageInstanceComposition, error) {
+func (m *MockState) GetUnitOwnedStorageInstances(arg0 context.Context, arg1 unit.UUID) ([]internal.StorageInstanceComposition, []internal.StorageAttachmentComposition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitOwnedStorageInstances", arg0, arg1)
 	ret0, _ := ret[0].([]internal.StorageInstanceComposition)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].([]internal.StorageAttachmentComposition)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetUnitOwnedStorageInstances indicates an expected call of GetUnitOwnedStorageInstances.
@@ -440,19 +441,19 @@ type MockStateGetUnitOwnedStorageInstancesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitOwnedStorageInstancesCall) Return(arg0 []internal.StorageInstanceComposition, arg1 error) *MockStateGetUnitOwnedStorageInstancesCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateGetUnitOwnedStorageInstancesCall) Return(arg0 []internal.StorageInstanceComposition, arg1 []internal.StorageAttachmentComposition, arg2 error) *MockStateGetUnitOwnedStorageInstancesCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitOwnedStorageInstancesCall) Do(f func(context.Context, unit.UUID) ([]internal.StorageInstanceComposition, error)) *MockStateGetUnitOwnedStorageInstancesCall {
+func (c *MockStateGetUnitOwnedStorageInstancesCall) Do(f func(context.Context, unit.UUID) ([]internal.StorageInstanceComposition, []internal.StorageAttachmentComposition, error)) *MockStateGetUnitOwnedStorageInstancesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitOwnedStorageInstancesCall) DoAndReturn(f func(context.Context, unit.UUID) ([]internal.StorageInstanceComposition, error)) *MockStateGetUnitOwnedStorageInstancesCall {
+func (c *MockStateGetUnitOwnedStorageInstancesCall) DoAndReturn(f func(context.Context, unit.UUID) ([]internal.StorageInstanceComposition, []internal.StorageAttachmentComposition, error)) *MockStateGetUnitOwnedStorageInstancesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

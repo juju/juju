@@ -63,7 +63,7 @@ func NewLogger(config WorkerConfig) (worker.Worker, error) {
 		config:     config,
 		lastConfig: config.Context.Config().String(),
 	}
-	config.Logger.Debugf(context.Background(), "initial log config: %q", logger.lastConfig)
+	config.Logger.Infof(context.Background(), "initial log config: %q", logger.lastConfig)
 
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: logger,
@@ -79,7 +79,7 @@ func (l *loggerWorker) setLogging(ctx context.Context) {
 	logger := l.config.Logger
 
 	if override := l.config.Override; override != "" {
-		logger.Debugf(ctx, "overriding logging config with override from agent.conf %q", override)
+		logger.Infof(ctx, "overriding logging config with override from agent.conf %q", override)
 		loggingConfig = override
 	} else {
 		modelLoggingConfig, err := l.config.API.LoggingConfig(ctx, l.config.Tag)
@@ -91,7 +91,7 @@ func (l *loggerWorker) setLogging(ctx context.Context) {
 	}
 
 	if loggingConfig != l.lastConfig {
-		logger.Debugf(ctx, "reconfiguring logging from %q to %q", l.lastConfig, loggingConfig)
+		logger.Infof(ctx, "reconfiguring logging from %q to %q", l.lastConfig, loggingConfig)
 		loggerContext := l.config.Context
 		loggerContext.ResetLoggerLevels()
 		if err := loggerContext.ConfigureLoggers(loggingConfig); err != nil {

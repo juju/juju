@@ -207,8 +207,8 @@ func (s *managedfsSuite) testAttachFilesystems(c *tc.C, readOnly, reattach bool,
 	}
 
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
-		Filesystem: names.NewFilesystemTag("0/0"),
-		ProviderId: "filesystem-0-0",
+		Filesystem:           names.NewFilesystemTag("0/0"),
+		FilesystemProviderId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{
 			Machine:    names.NewMachineTag("0"),
 			InstanceId: "inst-ance",

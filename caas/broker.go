@@ -290,22 +290,22 @@ type Service struct {
 // FilesystemInfo represents information about a filesystem
 // mounted by a unit.
 type FilesystemInfo struct {
-	StorageName  string
-	FilesystemId string
-	Size         uint64
-	MountPoint   string
-	ReadOnly     bool
-	Status       status.StatusInfo
-	Volume       VolumeInfo
+	StorageName               string
+	PersistentVolumeClaimName string
+	Size                      uint64
+	MountPoint                string
+	ReadOnly                  bool
+	Status                    status.StatusInfo
+	Volume                    VolumeInfo
 }
 
 // VolumeInfo represents information about a volume
 // mounted by a unit.
 type VolumeInfo struct {
-	VolumeId   string
-	Size       uint64
-	Persistent bool
-	Status     status.StatusInfo
+	PersistentVolumeName string
+	Size                 uint64
+	Persistent           bool
+	Status               status.StatusInfo
 }
 
 // Unit represents information about the status of a "pod".

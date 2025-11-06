@@ -299,14 +299,14 @@ func (st *Client) RemoveVolumeParams(ctx context.Context, tags []names.VolumeTag
 
 // FilesystemParams returns the parameters for creating the filesystems
 // with the specified tags.
-func (st *Client) FilesystemParams(ctx context.Context, tags []names.FilesystemTag) ([]params.FilesystemParamsResult, error) {
+func (st *Client) FilesystemParams(ctx context.Context, tags []names.FilesystemTag) ([]params.FilesystemParamsResultV5, error) {
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
 	}
 	for i, tag := range tags {
 		args.Entities[i].Tag = tag.String()
 	}
-	var results params.FilesystemParamsResults
+	var results params.FilesystemParamsResultsV5
 	err := st.facade.FacadeCall(ctx, "FilesystemParams", args, &results)
 	if err != nil {
 		return nil, err
@@ -354,9 +354,9 @@ func (st *Client) VolumeAttachmentParams(ctx context.Context, ids []params.Machi
 
 // FilesystemAttachmentParams returns the parameters for creating the
 // filesystem attachments with the specified tags.
-func (st *Client) FilesystemAttachmentParams(ctx context.Context, ids []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error) {
+func (st *Client) FilesystemAttachmentParams(ctx context.Context, ids []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResultV5, error) {
 	args := params.MachineStorageIds{ids}
-	var results params.FilesystemAttachmentParamsResults
+	var results params.FilesystemAttachmentParamsResultsV5
 	err := st.facade.FacadeCall(ctx, "FilesystemAttachmentParams", args, &results)
 	if err != nil {
 		return nil, err

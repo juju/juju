@@ -95,6 +95,7 @@ type StorageService interface {
 		attachNetNodeUUID domainnetwork.NetNodeUUID,
 		storageDirectives []application.StorageDirective,
 		existingStorage []internal.StorageInstanceComposition,
+		existingStorageAttachments []internal.StorageAttachmentComposition,
 	) (internal.CreateUnitStorageArg, error)
 
 	// MakeIAASUnitStorageArgs returns [internal.CreateIAASUnitStorageArg] that

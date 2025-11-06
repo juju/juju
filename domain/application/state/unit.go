@@ -1311,6 +1311,24 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			return errors.Errorf("updating cloud container for unit %q: %w", arg.UnitName, err)
 		}
 
+		err = st.setFilesystemProviderIDs(ctx, tx, arg.FilesystemProviderIDs)
+		if err != nil {
+			return errors.Errorf(
+				"setting filesystem provider IDs for unit %q: %w",
+				arg.UnitName, err,
+			)
+		}
+
+		err = st.setFilesystemAttachmentProviderIDs(ctx, tx, arg.FilesystemAttachmentProviderIDs)
+		if err != nil {
+			return errors.Errorf(
+				"setting filesystem attachment provider IDs for unit %q: %w",
+				arg.UnitName, err,
+			)
+		}
+
+		// TODO(storage): set volume and volume attachment provider IDs.
+
 		err = st.setUnitPassword(ctx, tx, toUpdate.UnitUUID, application.PasswordInfo{
 			PasswordHash:  arg.PasswordHash,
 			HashAlgorithm: application.HashAlgorithmSHA256,

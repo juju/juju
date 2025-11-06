@@ -852,9 +852,11 @@ func (s *watcherSuite) setupApplicationService(c *tc.C, factory domain.Watchable
 	)
 	state := applicationstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
 	storageSvc := applicationstorageservice.NewService(
-		state, applicationstorageservice.NewStoragePoolProvider(
+		state,
+		applicationstorageservice.NewStoragePoolProvider(
 			storageProviderRegistryGetter, state,
 		),
+		loggertesting.WrapCheckLog(c),
 	)
 
 	return applicationservice.NewWatchableService(

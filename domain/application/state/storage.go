@@ -27,6 +27,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -217,20 +218,23 @@ FROM (
 	return rval, nil
 }
 
-// GetUnitOwnedStorageInstances returns the storage instance compositions
-// for all storage instances owned by the unit in the model. If the unit
-// does not currently own any storage instances then an empty result is
-// returned.
+// GetUnitOwnedStorageInstances returns the storage compositions for all
+// storage instances owned by the unit in the model. If the unit does not
+// currently own any storage instances then an empty result is returned.
 //
 // The following errors can be expected:
 // - [applicationerrors.UnitNotFound] when the unit no longer exists.
 func (st *State) GetUnitOwnedStorageInstances(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
-) ([]internal.StorageInstanceComposition, error) {
+) (
+	[]internal.StorageInstanceComposition,
+	[]internal.StorageAttachmentComposition,
+	error,
+) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
 	uuidInput := entityUUID{UUID: unitUUID.String()}
@@ -253,13 +257,41 @@ FROM (
     WHERE     suo.unit_uuid = $entityUUID.uuid
 )
 `
-
 	stmt, err := st.Prepare(compositionQ, uuidInput, storageInstanceComposition{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
+	}
+
+	attachmentCompositionQ := `
+SELECT &storageAttachmentComposition.*
+FROM (
+    SELECT    sia.storage_instance_uuid AS storage_instance_uuid,
+              sia.uuid AS uuid,
+              sfa.uuid AS filesystem_attachment_uuid,
+              sfa.storage_filesystem_uuid AS filesystem_uuid,
+              sfa.provision_scope_id AS filesystem_attachment_provision_scope,
+              sva.uuid AS volume_attachment_uuid,
+              sva.storage_volume_uuid AS volume_uuid,
+              sva.provision_scope_id AS volume_attachment_provision_scope
+    FROM      storage_attachment sia
+    JOIN      unit u ON sia.unit_uuid = u.uuid
+    LEFT JOIN storage_instance_filesystem sif ON sia.storage_instance_uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem_attachment sfa ON sif.storage_filesystem_uuid = sfa.storage_filesystem_uuid AND u.net_node_uuid = sfa.net_node_uuid
+    LEFT JOIN storage_instance_volume siv ON sia.storage_instance_uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume_attachment sva ON siv.storage_volume_uuid = sva.storage_volume_uuid AND u.net_node_uuid = sva.net_node_uuid
+    WHERE     sia.unit_uuid = $entityUUID.uuid
+)
+`
+	attachmentStmt, err := st.Prepare(
+		attachmentCompositionQ,
+		uuidInput,
+		storageAttachmentComposition{})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
 	}
 
 	var dbVals []storageInstanceComposition
+	var dbAttachmentVals []storageAttachmentComposition
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkUnitExists(ctx, tx, unitUUID)
 		if err != nil {
@@ -274,6 +306,10 @@ FROM (
 		}
 
 		err = tx.Query(ctx, stmt, uuidInput).GetAll(&dbVals)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		err = tx.Query(ctx, attachmentStmt, uuidInput).GetAll(&dbAttachmentVals)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
@@ -281,10 +317,17 @@ FROM (
 	})
 
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
-	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
+	attachmentsByStorageInstance := make(map[string][]storageAttachmentComposition)
+	for _, dbVal := range dbAttachmentVals {
+		attachmentsByStorageInstance[dbVal.UUID] = append(
+			attachmentsByStorageInstance[dbVal.UUID], dbVal,
+		)
+	}
+
+	retInstComp := make([]internal.StorageInstanceComposition, 0, len(dbVals))
 	for _, dbVal := range dbVals {
 		v := internal.StorageInstanceComposition{
 			StorageName: domainstorage.Name(dbVal.StorageName),
@@ -293,21 +336,73 @@ FROM (
 
 		if dbVal.FilesystemUUID.Valid {
 			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
-				UUID:           domainstorageprov.FilesystemUUID(dbVal.FilesystemUUID.V),
+				ProvisionScope: domainstorageprov.ProvisionScope(
+					dbVal.FilesystemProvisionScope.V,
+				),
+				UUID: domainstorageprov.FilesystemUUID(
+					dbVal.FilesystemUUID.V,
+				),
 			}
 		}
 
 		if dbVal.VolumeUUID.Valid {
 			v.Volume = &internal.StorageInstanceCompositionVolume{
-				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.VolumeProvisionScope.V),
-				UUID:           domainstorageprov.VolumeUUID(dbVal.VolumeUUID.V),
+				ProvisionScope: domainstorageprov.ProvisionScope(
+					dbVal.VolumeProvisionScope.V,
+				),
+				UUID: domainstorageprov.VolumeUUID(
+					dbVal.VolumeUUID.V,
+				),
 			}
 		}
 
-		rval = append(rval, v)
+		retInstComp = append(retInstComp, v)
 	}
-	return rval, nil
+
+	retAttachmentComp := make(
+		[]internal.StorageAttachmentComposition, 0, len(dbAttachmentVals),
+	)
+	for _, dbAttachmentVal := range dbAttachmentVals {
+		v := internal.StorageAttachmentComposition{
+			UUID: domainstorageprov.StorageAttachmentUUID(dbAttachmentVal.UUID),
+			StorageInstanceUUID: domainstorage.StorageInstanceUUID(
+				dbAttachmentVal.StorageInstanceUUID,
+			),
+		}
+		if dbAttachmentVal.FilesystemAttachmentUUID.Valid &&
+			dbAttachmentVal.FilesystemUUID.Valid {
+			r := internal.StorageInstanceCompositionFilesystemAttachment{
+				ProvisionScope: domainstorageprov.ProvisionScope(
+					dbAttachmentVal.FilesystemAttachmentProvisionScope.V,
+				),
+				UUID: domainstorageprov.FilesystemAttachmentUUID(
+					dbAttachmentVal.FilesystemAttachmentUUID.V,
+				),
+				FilesystemUUID: domainstorageprov.FilesystemUUID(
+					dbAttachmentVal.FilesystemUUID.V,
+				),
+			}
+			v.FilesystemAttachment = &r
+		}
+		if dbAttachmentVal.VolumeAttachmentUUID.Valid &&
+			dbAttachmentVal.VolumeUUID.Valid {
+			r := internal.StorageInstanceCompositionVolumeAttachment{
+				ProvisionScope: domainstorageprov.ProvisionScope(
+					dbAttachmentVal.VolumeAttachmentProvisionScope.V,
+				),
+				UUID: domainstorageprov.VolumeAttachmentUUID(
+					dbAttachmentVal.VolumeAttachmentUUID.V,
+				),
+				VolumeUUID: domainstorageprov.VolumeUUID(
+					dbAttachmentVal.VolumeUUID.V,
+				),
+			}
+			v.VolumeAttachment = &r
+		}
+		retAttachmentComp = append(retAttachmentComp, v)
+	}
+
+	return retInstComp, retAttachmentComp, nil
 }
 
 // GetUnitStorageDirectives returns the storage directives that are set for
@@ -814,6 +909,87 @@ INSERT INTO machine_filesystem (*) VALUES ($insertFilesystemMachineOwner.*)
 		return errors.Errorf(
 			"setting filesystem machine owner: %w", err,
 		)
+	}
+
+	return nil
+}
+
+func (st *State) setFilesystemProviderIDs(
+	ctx context.Context, tx *sqlair.TX,
+	providerIDs map[domainstorageprov.FilesystemUUID]string,
+) error {
+	stmt, err := st.Prepare(`
+UPDATE storage_filesystem
+SET    provider_id = $setStorageFilesystemProviderID.provider_id
+WHERE  uuid = $setStorageFilesystemProviderID.uuid
+`, setStorageFilesystemProviderID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for uuid, providerID := range providerIDs {
+		input := setStorageFilesystemProviderID{
+			UUID:       uuid.String(),
+			ProviderID: providerID,
+		}
+		err := tx.Query(ctx, stmt, input).Run()
+		if err != nil {
+			return errors.Errorf(
+				"setting filesystem %s provider id: %w", uuid, err,
+			)
+		}
+	}
+
+	return nil
+}
+
+func (st *State) setFilesystemAttachmentProviderIDs(
+	ctx context.Context, tx *sqlair.TX,
+	providerIDs map[domainstorageprov.FilesystemAttachmentUUID]string,
+) error {
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_filesystem_attachment
+WHERE  uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+UPDATE storage_filesystem_attachment
+SET    provider_id = $setStorageFilesystemAttachmentProviderID.provider_id
+WHERE  uuid = $setStorageFilesystemAttachmentProviderID.uuid
+`, setStorageFilesystemAttachmentProviderID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for uuid, providerID := range providerIDs {
+		io := entityUUID{
+			UUID: uuid.String(),
+		}
+		err := tx.Query(ctx, existsStmt, io).Get(&io)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"filesystem attachment %s not found", uuid,
+			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"checking filesystem attachment %s provider id exists: %w",
+				uuid, err,
+			)
+		}
+		input := setStorageFilesystemAttachmentProviderID{
+			UUID:       uuid.String(),
+			ProviderID: providerID,
+		}
+		err = tx.Query(ctx, stmt, input).Get()
+		if err != nil {
+			return errors.Errorf(
+				"setting filesystem attachment %s provider id: %w", uuid, err,
+			)
+		}
 	}
 
 	return nil

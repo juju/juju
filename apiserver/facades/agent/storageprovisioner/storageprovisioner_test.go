@@ -49,7 +49,7 @@ type provisionerSuite struct {
 	blockDeviceService         *MockBlockDeviceService
 	removalService             *MockRemovalService
 
-	api *StorageProvisionerAPIv4
+	api *StorageProvisionerAPI
 
 	machineName    machine.Name
 	modelUUID      model.UUID
@@ -80,7 +80,7 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	s.removalService = NewMockRemovalService(ctrl)
 
 	var err error
-	s.api, err = NewStorageProvisionerAPIv4(
+	s.api, err = NewStorageProvisionerAPI(
 		c.Context(),
 		s.watcherRegistry,
 		testclock.NewClock(time.Now()),
@@ -1292,9 +1292,10 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 		Attributes: map[string]string{
 			"foo": "bar",
 		},
-		ID:       "fs-id123",
-		Provider: "myprovider",
-		SizeMiB:  10,
+		ID:         "fs-id123",
+		Provider:   "myprovider",
+		ProviderID: ptr("fs-provider-id"),
+		SizeMiB:    10,
 	}, nil)
 
 	results, err := s.api.FilesystemParams(c.Context(), params.Entities{
@@ -1304,13 +1305,14 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Result, tc.DeepEquals, params.FilesystemParams{
+	c.Check(results.Results[0].Result, tc.DeepEquals, params.FilesystemParamsV5{
 		Attributes: map[string]any{
 			"foo": "bar",
 		},
 		FilesystemTag: tag.String(),
 		SizeMiB:       10,
 		Provider:      "myprovider",
+		ProviderId:    ptr("fs-provider-id"),
 		Tags: map[string]string{
 			"tag1": "value1",
 		},
@@ -1584,11 +1586,12 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 		gomock.Any(), fsaUUID,
 	).Return(
 		storageprovisioning.FilesystemAttachmentParams{
-			CharmStorageReadOnly: true,
-			MachineInstanceID:    "12",
-			Provider:             "myprovider",
-			ProviderID:           "env-123",
-			MountPoint:           "/var/foo",
+			CharmStorageReadOnly:           true,
+			MachineInstanceID:              "12",
+			Provider:                       "myprovider",
+			FilesystemProviderID:           "fs-123",
+			FilesystemAttachmentProviderID: ptr("fs-attachment-123"),
+			MountPoint:                     "/var/foo",
 		}, nil,
 	)
 
@@ -1603,14 +1606,15 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Result, tc.DeepEquals, params.FilesystemAttachmentParams{
-		FilesystemTag: tag.String(),
-		MachineTag:    unitTag.String(),
-		ProviderId:    "env-123",
-		InstanceId:    "12",
-		Provider:      "myprovider",
-		MountPoint:    "/var/foo",
-		ReadOnly:      true,
+	c.Check(results.Results[0].Result, tc.DeepEquals, params.FilesystemAttachmentParamsV5{
+		FilesystemTag:        tag.String(),
+		MachineTag:           unitTag.String(),
+		FilesystemProviderId: "fs-123",
+		AttachmentProviderId: ptr("fs-attachment-123"),
+		InstanceId:           "12",
+		Provider:             "myprovider",
+		MountPoint:           "/var/foo",
+		ReadOnly:             true,
 	})
 }
 

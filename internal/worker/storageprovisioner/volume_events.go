@@ -258,10 +258,6 @@ func volumeAttachmentsChanged(
 // removing them from provisioning-pending as necessary.
 func processDyingVolumes(ctx context.Context, deps *dependencies, tags []names.Tag) error {
 	deps.config.Logger.Tracef(ctx, "volumesChanged: %#v", tags)
-	if deps.isApplicationKind() {
-		// only care dead for application.
-		return nil
-	}
 	for _, tag := range tags {
 		removePendingVolume(ctx, deps, tag.(names.VolumeTag))
 	}
@@ -444,10 +440,6 @@ func processAliveVolumes(
 	ctx context.Context,
 	deps *dependencies, tags []names.Tag, volumeResults []params.VolumeResult) error {
 	deps.config.Logger.Tracef(ctx, "processAliveVolumes: %#v %#v", tags, volumeResults)
-	if deps.isApplicationKind() {
-		// only care dead for application kind.
-		return nil
-	}
 
 	// Filter out the already-provisioned volumes.
 	pending := make([]names.VolumeTag, 0, len(tags))

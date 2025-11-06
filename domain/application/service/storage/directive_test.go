@@ -16,6 +16,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type directiveSuite struct {
@@ -170,7 +171,7 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 				gomock.Any(),
 			).Return(test.ModelStoragePools, nil).AnyTimes()
 
-			svc := NewService(s.state, s.poolProvider)
+			svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 			args, err := svc.MakeApplicationStorageDirectiveArgs(
 				t.Context(),
 				test.Overrides,
@@ -205,7 +206,7 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesNoMaxLi
 		},
 	}
 
-	svc := NewService(s.state, s.poolProvider)
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 	err := svc.ValidateApplicationStorageDirectiveOverrides(
 		c.Context(), charmStorageDefs, overrides,
 	)
@@ -235,7 +236,7 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedM
 		},
 	}
 
-	svc := NewService(s.state, s.poolProvider)
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 	err := svc.ValidateApplicationStorageDirectiveOverrides(
 		c.Context(), charmStorageDefs, overrides,
 	)

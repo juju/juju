@@ -126,7 +126,7 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstancesUnitNotFound(c *tc.C)
 		loggertesting.WrapCheckLog(c),
 	)
 
-	_, err := st.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
+	_, _, err := st.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -142,7 +142,7 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstancesNoStorage(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 
-	insts, err := st.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
+	insts, _, err := st.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(insts, tc.HasLen, 0)
 }
@@ -159,7 +159,7 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstances(c *tc.C) {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	owned, err := st.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
+	owned, _, err := st.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIsNil)
 
 	expected := []internal.StorageInstanceComposition{

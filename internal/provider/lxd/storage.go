@@ -552,7 +552,7 @@ func (s *lxdFilesystemSource) attachFilesystem(
 	arg storage.FilesystemAttachmentParams,
 	inst *environInstance,
 ) error {
-	poolName, volumeName, err := parseFilesystemId(arg.ProviderId)
+	poolName, volumeName, err := parseFilesystemId(arg.FilesystemProviderId)
 	if err != nil {
 		return errors.Trace(err)
 	}

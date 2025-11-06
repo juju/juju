@@ -22,6 +22,7 @@ func (s *registerSuite) TestRegister(c *tc.C) {
 
 	registry := NewMockFacadeRegistry(ctrl)
 	registry.EXPECT().MustRegister("StorageProvisioner", 4, gomock.Any(), gomock.Any()).AnyTimes()
+	registry.EXPECT().MustRegister("StorageProvisioner", 5, gomock.Any(), gomock.Any()).AnyTimes()
 	registry.EXPECT().MustRegister("VolumeAttachmentsWatcher", 2, gomock.Any(), gomock.Any()).AnyTimes()
 	registry.EXPECT().MustRegister("VolumeAttachmentPlansWatcher", 1, gomock.Any(), gomock.Any()).AnyTimes()
 	registry.EXPECT().MustRegister("FilesystemAttachmentsWatcher", 2, gomock.Any(), gomock.Any()).AnyTimes()

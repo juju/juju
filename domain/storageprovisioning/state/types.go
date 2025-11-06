@@ -111,13 +111,14 @@ func (l filesystemLives) Iter(yield func(string, life.Life) bool) {
 // filesystemAttachmentParams represents the attachment params for a filesystem
 // attachment from the model database.
 type filesystemAttachmentParams struct {
-	CharmStorageCountMax int              `db:"charm_storage_count_max"`
-	CharmStorageLocation sql.Null[string] `db:"charm_storage_location"`
-	CharmStorageReadOnly sql.Null[bool]   `db:"charm_storage_read_only"`
-	MachineInstanceID    sql.Null[string] `db:"machine_instance_id"`
-	MountPoint           sql.Null[string] `db:"mount_point"`
-	ProviderID           sql.Null[string] `db:"provider_id"`
-	StoragePoolType      string           `db:"storage_pool_type"`
+	CharmStorageCountMax           int              `db:"charm_storage_count_max"`
+	CharmStorageLocation           sql.Null[string] `db:"charm_storage_location"`
+	CharmStorageReadOnly           sql.Null[bool]   `db:"charm_storage_read_only"`
+	MachineInstanceID              sql.Null[string] `db:"machine_instance_id"`
+	MountPoint                     sql.Null[string] `db:"mount_point"`
+	FilesystemProviderID           sql.Null[string] `db:"filesystem_provider_id"`
+	FilesystemAttachmentProviderID sql.Null[string] `db:"filesystem_attachment_provider_id"`
+	StoragePoolType                string           `db:"storage_pool_type"`
 }
 
 // filesystemProvisioningParams represents the provisioning params for a filesystem from the
@@ -127,6 +128,7 @@ type filesystemProvisioningParams struct {
 	Type         string           `db:"type"`
 	SizeMiB      uint64           `db:"size_mib"`
 	VolumeID     sql.Null[string] `db:"volume_id"`
+	ProviderID   sql.Null[string] `db:"provider_id"`
 }
 
 // filesystemRemovalParams represents the removal params for a filesystem from

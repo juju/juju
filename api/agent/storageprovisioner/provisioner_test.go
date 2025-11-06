@@ -507,10 +507,10 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "FilesystemParams")
 		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{"filesystem-100"}}})
-		c.Assert(result, tc.FitsTypeOf, &params.FilesystemParamsResults{})
-		*(result.(*params.FilesystemParamsResults)) = params.FilesystemParamsResults{
-			Results: []params.FilesystemParamsResult{{
-				Result: params.FilesystemParams{
+		c.Assert(result, tc.FitsTypeOf, &params.FilesystemParamsResultsV5{})
+		*(result.(*params.FilesystemParamsResultsV5)) = params.FilesystemParamsResultsV5{
+			Results: []params.FilesystemParamsResultV5{{
+				Result: params.FilesystemParamsV5{
 					FilesystemTag: "filesystem-100",
 					SizeMiB:       1024,
 					Provider:      "loop",
@@ -526,8 +526,8 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 	filesystemParams, err := st.FilesystemParams(c.Context(), []names.FilesystemTag{names.NewFilesystemTag("100")})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(callCount, tc.Equals, 1)
-	c.Assert(filesystemParams, tc.DeepEquals, []params.FilesystemParamsResult{{
-		Result: params.FilesystemParams{
+	c.Assert(filesystemParams, tc.DeepEquals, []params.FilesystemParamsResultV5{{
+		Result: params.FilesystemParamsV5{
 			FilesystemTag: "filesystem-100", SizeMiB: 1024, Provider: "loop",
 		},
 	}})
@@ -606,8 +606,8 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *tc.C) {
 }
 
 func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
-	paramsResults := []params.FilesystemAttachmentParamsResult{{
-		Result: params.FilesystemAttachmentParams{
+	paramsResults := []params.FilesystemAttachmentParamsResultV5{{
+		Result: params.FilesystemAttachmentParamsV5{
 			MachineTag:    "machine-100",
 			FilesystemTag: "filesystem-100",
 			InstanceId:    "inst-ance",
@@ -627,8 +627,8 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 				MachineTag: "machine-100", AttachmentTag: "filesystem-100",
 			}},
 		})
-		c.Assert(result, tc.FitsTypeOf, &params.FilesystemAttachmentParamsResults{})
-		*(result.(*params.FilesystemAttachmentParamsResults)) = params.FilesystemAttachmentParamsResults{
+		c.Assert(result, tc.FitsTypeOf, &params.FilesystemAttachmentParamsResultsV5{})
+		*(result.(*params.FilesystemAttachmentParamsResultsV5)) = params.FilesystemAttachmentParamsResultsV5{
 			Results: paramsResults,
 		}
 		callCount++
@@ -1168,8 +1168,8 @@ func (s *provisionerSuite) TestRemoveVolumeParamsServerError(c *tc.C) {
 
 func (s *provisionerSuite) TestFilesystemParamsServerError(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.FilesystemParamsResults)) = params.FilesystemParamsResults{
-			Results: []params.FilesystemParamsResult{{
+		*(result.(*params.FilesystemParamsResultsV5)) = params.FilesystemParamsResultsV5{
+			Results: []params.FilesystemParamsResultV5{{
 				Error: &params.Error{Message: "MSG", Code: "621"},
 			}},
 		}

@@ -1045,6 +1045,7 @@ func (s *K8sBrokerSuite) TestUnits(c *tc.C) {
 
 	pvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
+			Name:   "pvc-name",
 			UID:    "pvc-uuid",
 			Labels: map[string]string{"juju-storage": "database"},
 		},
@@ -1100,11 +1101,11 @@ func (s *K8sBrokerSuite) TestUnits(c *tc.C) {
 			Since:   &now,
 		},
 		FilesystemInfo: []caas.FilesystemInfo{{
-			StorageName:  "database",
-			FilesystemId: "pvc-uuid",
-			Size:         uint64(podWithStorage.Spec.Volumes[0].PersistentVolumeClaim.Size()),
-			MountPoint:   "/path/to/here",
-			ReadOnly:     true,
+			StorageName:               "database",
+			PersistentVolumeClaimName: "pvc-name",
+			Size:                      uint64(podWithStorage.Spec.Volumes[0].PersistentVolumeClaim.Size()),
+			MountPoint:                "/path/to/here",
+			ReadOnly:                  true,
 			Status: status.StatusInfo{
 				Status:  "attached",
 				Message: "mounted",

@@ -255,6 +255,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 			machineNetNodeUUID,
 			storageDirectives,
 			nil,
+			nil,
 		)
 		if err != nil {
 			return nil, errors.Errorf(
@@ -316,6 +317,7 @@ func (s *ProviderService) makeCAASUnitArgs(
 			ctx,
 			netNodeUUID,
 			storageDirectives,
+			nil,
 			nil,
 		)
 		if err != nil {
@@ -434,8 +436,7 @@ func (s *Service) AddIAASSubordinateUnit(
 }
 
 // UpdateCAASUnit updates the specified CAAS unit, returning an error satisfying
-// [applicationerrors.ApplicationNotAlive] if the unit's application is not
-// alive.
+// [applicationerrors.ApplicationIsDead] if the unit's application is dead.
 func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -449,8 +450,10 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	if err != nil {
 		return errors.Errorf("getting application %q life: %w", appName, err)
 	}
-	if appLife != life.Alive {
-		return errors.Errorf("application %q is not alive", appName).Add(applicationerrors.ApplicationNotAlive)
+	if appLife == life.Dead {
+		return errors.Errorf(
+			"application %q is dead", appName,
+		).Add(applicationerrors.ApplicationIsDead)
 	}
 
 	agentStatus, err := encodeUnitAgentStatus(params.AgentStatus)

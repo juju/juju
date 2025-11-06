@@ -8548,7 +8548,7 @@
     {
         "Name": "StorageProvisioner",
         "Description": "",
-        "Version": 4,
+        "Version": 5,
         "Schema": {
             "type": "object",
             "properties": {
@@ -8592,7 +8592,7 @@
                             "$ref": "#/definitions/MachineStorageIds"
                         },
                         "Result": {
-                            "$ref": "#/definitions/FilesystemAttachmentParamsResults"
+                            "$ref": "#/definitions/FilesystemAttachmentParamsResultsV5"
                         }
                     }
                 },
@@ -8614,7 +8614,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/FilesystemParamsResults"
+                            "$ref": "#/definitions/FilesystemParamsResultsV5"
                         }
                     }
                 },
@@ -9160,10 +9160,40 @@
                     },
                     "additionalProperties": false
                 },
-                "FilesystemAttachmentParams": {
+                "FilesystemAttachmentParamsResultV5": {
                     "type": "object",
                     "properties": {
-                        "filesystem-id": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/FilesystemAttachmentParamsV5"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
+                    ]
+                },
+                "FilesystemAttachmentParamsResultsV5": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/FilesystemAttachmentParamsResultV5"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "FilesystemAttachmentParamsV5": {
+                    "type": "object",
+                    "properties": {
+                        "attachment-provider-id": {
+                            "type": "string"
+                        },
+                        "filesystem-provider-id": {
                             "type": "string"
                         },
                         "filesystem-tag": {
@@ -9191,33 +9221,6 @@
                         "machine-tag",
                         "provider"
                     ]
-                },
-                "FilesystemAttachmentParamsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "$ref": "#/definitions/FilesystemAttachmentParams"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "FilesystemAttachmentParamsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/FilesystemAttachmentParamsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "FilesystemAttachmentResult": {
                     "type": "object",
@@ -9281,11 +9284,38 @@
                         "size"
                     ]
                 },
-                "FilesystemParams": {
+                "FilesystemParamsResultV5": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/FilesystemParamsV5"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
+                    ]
+                },
+                "FilesystemParamsResultsV5": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/FilesystemParamsResultV5"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "FilesystemParamsV5": {
                     "type": "object",
                     "properties": {
                         "attachment": {
-                            "$ref": "#/definitions/FilesystemAttachmentParams"
+                            "$ref": "#/definitions/FilesystemAttachmentParamsV5"
                         },
                         "attributes": {
                             "type": "object",
@@ -9300,6 +9330,9 @@
                             "type": "string"
                         },
                         "provider": {
+                            "type": "string"
+                        },
+                        "provider-id": {
                             "type": "string"
                         },
                         "size": {
@@ -9323,33 +9356,6 @@
                         "size",
                         "provider"
                     ]
-                },
-                "FilesystemParamsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "$ref": "#/definitions/FilesystemParams"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "FilesystemParamsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/FilesystemParamsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "FilesystemResult": {
                     "type": "object",

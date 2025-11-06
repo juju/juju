@@ -288,6 +288,11 @@ type AttachmentParams struct {
 	// create the attachment.
 	Provider ProviderType
 
+	// ProviderId is the provider's identifier for this filesystem attachment.
+	// It may be set if the filesystem attachment already exists but needs to be
+	// finalised.
+	ProviderId *string
+
 	// Machine is the tag of the Juju machine that the storage should be
 	// attached to. Storage providers may use this to perform machine-
 	// specific operations, such as configuring access controls for the
@@ -322,9 +327,13 @@ type FilesystemParams struct {
 	// The provider type for this filesystem.
 	Provider ProviderType
 
+	// ProviderId is the provider's identifier for this filesystem. It may be
+	// set if the filesystem already exists but needs to be finalised.
+	ProviderId *string
+
 	// Attributes is a set of provider-specific options for storage creation,
 	// as defined in a storage pool.
-	Attributes map[string]interface{}
+	Attributes map[string]any
 
 	// ResourceTags is a set of tags to set on the created filesystem, if the
 	// storage provider supports tags.
@@ -345,9 +354,9 @@ type FilesystemAttachmentParams struct {
 	// should be attached/detached.
 	Filesystem names.FilesystemTag
 
-	// ProviderId is the unique provider-supplied ID for the filesystem that
+	// FilesystemProviderId is the unique provider-supplied ID for the filesystem that
 	// should be attached/detached.
-	ProviderId string
+	FilesystemProviderId string
 
 	// Path is the path at which the filesystem is to be mounted on the machine that
 	// this attachment corresponds to.

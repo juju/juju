@@ -262,6 +262,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		applicationstorageservice.NewStoragePoolProvider(
 			s.storageRegistry, state,
 		),
+		logger,
 	)
 
 	return applicationservice.NewWatchableService(

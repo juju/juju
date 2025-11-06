@@ -606,7 +606,8 @@ func (st *State) GetFilesystemAttachmentParams(
 	*/
 	stmt, err := st.Prepare(`
 SELECT &filesystemAttachmentParams.* FROM (
-    SELECT    sf.provider_id,
+    SELECT    sf.provider_id AS filesystem_provider_id,
+              sfa.provider_id AS filesystem_attachment_provider_id,
               mci.instance_id AS machine_instance_id,
               cs.location AS charm_storage_location,
               cs.count_max AS charm_storage_count_max,
@@ -658,15 +659,20 @@ SELECT &filesystemAttachmentParams.* FROM (
 		return storageprovisioning.FilesystemAttachmentParams{}, errors.Capture(err)
 	}
 
-	return storageprovisioning.FilesystemAttachmentParams{
+	retVal := storageprovisioning.FilesystemAttachmentParams{
 		CharmStorageCountMax: dbVal.CharmStorageCountMax,
 		CharmStorageLocation: dbVal.CharmStorageLocation.V,
 		CharmStorageReadOnly: dbVal.CharmStorageReadOnly.V,
 		MachineInstanceID:    dbVal.MachineInstanceID.V,
 		MountPoint:           dbVal.MountPoint.V,
 		Provider:             dbVal.StoragePoolType,
-		ProviderID:           dbVal.ProviderID.V,
-	}, nil
+		FilesystemProviderID: dbVal.FilesystemProviderID.V,
+	}
+	if dbVal.FilesystemAttachmentProviderID.Valid {
+		v := dbVal.FilesystemAttachmentProviderID.V
+		retVal.FilesystemAttachmentProviderID = &v
+	}
+	return retVal, nil
 }
 
 // GetFilesystemAttachmentUUIDForFilesystemNetNode returns the filesystem
@@ -879,6 +885,7 @@ func (st *State) GetFilesystemParams(
 	paramsStmt, err := st.Prepare(`
 SELECT &filesystemProvisioningParams.* FROM (
     SELECT    sf.filesystem_id,
+              sf.provider_id,
               si.requested_size_mib AS size_mib,
               sp.type,
               sv.volume_id
@@ -967,6 +974,11 @@ WHERE  sf.uuid = $filesystemUUID.uuid
 		retVal.BackingVolume = &storageprovisioning.FilesystemBackingVolume{
 			VolumeID: paramsVal.VolumeID.V,
 		}
+	}
+
+	if paramsVal.ProviderID.Valid {
+		v := paramsVal.ProviderID.V
+		retVal.ProviderID = &v
 	}
 
 	return retVal, nil
@@ -1114,7 +1126,7 @@ func (st *State) InitialWatchStatementMachineProvisionedFilesystems(
 // for watching filesystem life changes where the filesystem is model
 // provisioned. On top of this the initial query for getting all filesystems
 // in the model that model provisioned is returned.
-func (st *State) InitialWatchStatementModelProvisionedFilesystems() (string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchStatementModelProvisionedFilesystems() (string, string, eventsource.NamespaceQuery) {
 	query := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
 SELECT &filesystemID.*
@@ -1142,7 +1154,9 @@ WHERE provision_scope_id=0
 		}
 		return rval, nil
 	}
-	return "storage_filesystem_life_model_provisioning", query
+	return "storage_filesystem_life_model_provisioning",
+		"custom_filesystem_provider_id_model_provisioning",
+		query
 }
 
 // InitialWatchStatementMachineProvisionedFilesystemAttachments returns
@@ -1165,7 +1179,7 @@ func (st *State) InitialWatchStatementMachineProvisionedFilesystemAttachments(
 // namespace for watching filesystem life changes where the filesystem is model
 // provisioned. On top of this the initial query for getting all filesystems
 // in the model that model provisioned is returned.
-func (st *State) InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchStatementModelProvisionedFilesystemAttachments() (string, string, eventsource.NamespaceQuery) {
 	query := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
 SELECT &entityUUID.*
@@ -1192,7 +1206,9 @@ WHERE  provision_scope_id=0
 		}
 		return rval, nil
 	}
-	return "storage_filesystem_attachment_life_model_provisioning", query
+	return "storage_filesystem_attachment_life_model_provisioning",
+		"custom_filesystem_attachment_provider_id_model_provisioning",
+		query
 }
 
 // SetFilesystemProvisionedInfo sets on the provided filesystem the

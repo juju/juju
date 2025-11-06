@@ -288,13 +288,17 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().InitialWatchStatementModelProvisionedFilesystems().Return(
-		"test_namespace", namespaceQueryReturningError(c.T),
+		"test_namespace", "test_namespace_2", namespaceQueryReturningError(c.T),
 	)
 	matcher := eventSourceFilterMatcher{
 		ChangeMask: changestream.All,
 		Namespace:  "test_namespace",
 	}
-	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher)
+	matcher2 := eventSourceFilterMatcher{
+		ChangeMask: changestream.All,
+		Namespace:  "test_namespace_2",
+	}
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher, matcher2)
 
 	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchModelProvisionedFilesystems(c.Context())
@@ -372,13 +376,17 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().InitialWatchStatementModelProvisionedFilesystemAttachments().Return(
-		"test_namespace", namespaceQueryReturningError(c.T),
+		"test_namespace", "test_namespace_2", namespaceQueryReturningError(c.T),
 	)
 	matcher := eventSourceFilterMatcher{
 		ChangeMask: changestream.All,
 		Namespace:  "test_namespace",
 	}
-	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher)
+	matcher2 := eventSourceFilterMatcher{
+		ChangeMask: changestream.All,
+		Namespace:  "test_namespace_2",
+	}
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher, matcher2)
 
 	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchModelProvisionedFilesystemAttachments(c.Context())
@@ -728,9 +736,10 @@ func (s *filesystemSuite) TestGetFilesystemParams(c *tc.C) {
 			Attributes: map[string]string{
 				"foo": "bar",
 			},
-			ID:       "spid",
-			Provider: "myprovider",
-			SizeMiB:  10,
+			ID:         "spid",
+			Provider:   "myprovider",
+			ProviderID: ptr("fs-provider-id"),
+			SizeMiB:    10,
 		}, nil,
 	)
 
@@ -740,9 +749,10 @@ func (s *filesystemSuite) TestGetFilesystemParams(c *tc.C) {
 		Attributes: map[string]string{
 			"foo": "bar",
 		},
-		ID:       "spid",
-		Provider: "myprovider",
-		SizeMiB:  10,
+		ID:         "spid",
+		Provider:   "myprovider",
+		ProviderID: ptr("fs-provider-id"),
+		SizeMiB:    10,
 	})
 }
 
@@ -881,7 +891,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcSingelton(c 
 			MachineInstanceID:    "inst-1",
 			MountPoint:           "", // No mount point has been set.
 			Provider:             "myprovider",
-			ProviderID:           "p-123",
+			FilesystemProviderID: "p-123",
 		}, nil,
 	)
 
@@ -895,7 +905,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcSingelton(c 
 		MachineInstanceID:    "inst-1",
 		MountPoint:           "/mnt/charm1",
 		Provider:             "myprovider",
-		ProviderID:           "p-123",
+		FilesystemProviderID: "p-123",
 	})
 }
 
@@ -918,7 +928,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalc(c *tc.C) {
 			MachineInstanceID:    "inst-1",
 			MountPoint:           "", // No mount point has been set.
 			Provider:             "myprovider",
-			ProviderID:           "p-123",
+			FilesystemProviderID: "p-123",
 		}, nil,
 	)
 
@@ -932,7 +942,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalc(c *tc.C) {
 		MachineInstanceID:    "inst-1",
 		MountPoint:           "/mnt/charm1/" + fsaUUID.String(),
 		Provider:             "myprovider",
-		ProviderID:           "p-123",
+		FilesystemProviderID: "p-123",
 	})
 }
 
@@ -956,7 +966,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcNoCharmLocat
 			MachineInstanceID:    "inst-1",
 			MountPoint:           "", // No mount point has been set.
 			Provider:             "myprovider",
-			ProviderID:           "p-123",
+			FilesystemProviderID: "p-123",
 		}, nil,
 	)
 
@@ -969,9 +979,9 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMountCalcNoCharmLocat
 		CharmStorageReadOnly: true,
 		MachineInstanceID:    "inst-1",
 		// Default storage location of /var/lib/juju/storage is used.
-		MountPoint: "/var/lib/juju/storage/" + fsaUUID.String(),
-		Provider:   "myprovider",
-		ProviderID: "p-123",
+		MountPoint:           "/var/lib/juju/storage/" + fsaUUID.String(),
+		Provider:             "myprovider",
+		FilesystemProviderID: "p-123",
 	})
 }
 

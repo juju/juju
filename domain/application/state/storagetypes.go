@@ -17,6 +17,13 @@ type insertStorageFilesystem struct {
 	UUID             string `db:"uuid"`
 }
 
+// setStorageFilesystemProviderID is used to update the provider ID for an
+// existing filesystem.
+type setStorageFilesystemProviderID struct {
+	UUID       string `db:"uuid"`
+	ProviderID string `db:"provider_id"`
+}
+
 // insertStorageFilesystemAttachment represents the set of values required for
 // creating a new filesystem attachment in the model.
 type insertStorageFilesystemAttachment struct {
@@ -25,6 +32,13 @@ type insertStorageFilesystemAttachment struct {
 	ProvisionScopeID      int    `db:"provision_scope_id"`
 	StorageFilesystemUUID string `db:"storage_filesystem_uuid"`
 	UUID                  string `db:"uuid"`
+}
+
+// setStorageFilesystemAttachmentProviderID is used to update the provider ID
+// for an existing filesystem attachment.
+type setStorageFilesystemAttachmentProviderID struct {
+	UUID       string `db:"uuid"`
+	ProviderID string `db:"provider_id"`
 }
 
 // insertStorageFilesystemInstance represents the set of values required for
@@ -125,6 +139,19 @@ type storageInstanceComposition struct {
 	UUID                     string           `db:"uuid"`
 	VolumeProvisionScope     sql.Null[int]    `db:"volume_provision_scope"`
 	VolumeUUID               sql.Null[string] `db:"volume_uuid"`
+}
+
+// storageAttachmentComposition is used to get the composition of a storage
+// attachment within the model.
+type storageAttachmentComposition struct {
+	UUID                               string           `db:"uuid"`
+	StorageInstanceUUID                string           `db:"storage_instance_uuid"`
+	FilesystemAttachmentProvisionScope sql.Null[int]    `db:"filesystem_attachment_provision_scope"`
+	FilesystemAttachmentUUID           sql.Null[string] `db:"filesystem_attachment_uuid"`
+	FilesystemUUID                     sql.Null[string] `db:"filesystem_uuid"`
+	VolumeAttachmentProvisionScope     sql.Null[int]    `db:"volume_attachment_provision_scope"`
+	VolumeAttachmentUUID               sql.Null[string] `db:"volume_attachment_uuid"`
+	VolumeUUID                         sql.Null[string] `db:"volume_uuid"`
 }
 
 // storageModelConfigKeys is used to get model config to select the storage pool
