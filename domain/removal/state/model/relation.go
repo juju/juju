@@ -379,6 +379,18 @@ JOIN   charm_source AS cs ON c.source_id = cs.id
 WHERE  re.uuid = $entityUUID.uuid
 AND    cs.name = 'cmr'
 	`, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing relation unit is synthetic query: %w", err)
+	}
+
+	isUnitStillInScopeStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   relation_unit
+WHERE  unit_uuid = $entityUUID.uuid
+	`, count{}, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing synthetic unit still in scope query: %w", err)
+	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, existsStmt, id).Get(&id)
@@ -406,8 +418,16 @@ AND    cs.name = 'cmr'
 		}
 
 		if synthUnitUUID.UUID != "" {
-			if err := st.deleteSynthUnit(ctx, tx, synthUnitUUID); err != nil {
-				return errors.Errorf("deleting synthetic unit %q: %w", synthUnitUUID.UUID, err)
+			var unitStillInScope count
+			err = tx.Query(ctx, isUnitStillInScopeStmt, synthUnitUUID).Get(&unitStillInScope)
+			if err != nil {
+				return errors.Errorf("checking if synthetic unit still in scope: %w", err)
+			}
+
+			if unitStillInScope.Count == 0 {
+				if err := st.deleteSynthUnit(ctx, tx, synthUnitUUID); err != nil {
+					return errors.Errorf("deleting synthetic unit %q: %w", synthUnitUUID.UUID, err)
+				}
 			}
 		}
 
