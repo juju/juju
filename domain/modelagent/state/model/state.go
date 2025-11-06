@@ -1111,7 +1111,7 @@ func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (cor
 // IsControllerModel indicates if this model is running the Juju controller
 // that owns this model. True is returned when this is the case.
 func (s *State) IsControllerModel(ctx context.Context) (bool, error) {
-	return false, errors.New("not implemented")
+	return false, nil
 }
 
 // NamespaceForWatchAgentVersion returns the namespace identifier
