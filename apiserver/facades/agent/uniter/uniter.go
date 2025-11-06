@@ -2577,20 +2577,21 @@ func (u *UniterAPI) goalStateRelations(
 			appUUID, err := u.applicationService.GetApplicationUUIDByName(ctx, e.ApplicationName)
 			if errors.Is(err, applicationerrors.ApplicationNotFound) {
 				u.logger.Debugf(ctx, "application %q must be a remote application.", e.ApplicationName)
-				// TODO(jack-w-shaw): Once CMRs have been implemented in DQLite,
-				// set the appName to the remote application URL.
 				continue
 			} else if err != nil {
-				return nil, err
+				return nil, internalerrors.Capture(err)
 			}
 
-			// We don't show units for the same application as we are currently processing.
+			// We don't show units for the same application as we are currently
+			// processing.
 			if e.ApplicationName == baseAppName {
 				continue
 			}
 
+			// If we are on the offering side of a remote relation, don't show
+			// anything in goal state for that relation.
 			if ok, err := u.crossModelRelationService.IsRemoteApplicationConsumer(ctx, appUUID); err != nil {
-				return nil, err
+				return nil, internalerrors.Capture(err)
 			} else if ok {
 				continue
 			}
