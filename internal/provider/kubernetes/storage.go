@@ -220,9 +220,9 @@ func (*tmpfsStorageProvider) DefaultPools() []*jujustorage.Config {
 //
 // Implements the [jujustorage.FilesystemSource] interface.
 func (*noopFSSource) DestroyFilesystems(
-	_ context.Context, _ []string,
+	_ context.Context, providerIDs []string,
 ) ([]error, error) {
-	return nil, nil
+	return make([]error, len(providerIDs)), nil
 }
 
 // DetatchFilesystems is a noop operation for detaching filesystems in this
