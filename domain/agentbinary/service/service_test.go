@@ -17,6 +17,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/agentbinary"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	domainagentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -115,20 +116,24 @@ func (s *serviceSuite) TestGetAgentBinaryForVersion(c *tc.C) {
 	c.Check(gotSize, tc.Equals, int64(10))
 }
 
-// TestGetAvailableAgentBinariesForVersionNotValid tests getting available
-// agent binaries for an invalid version. It is expected the caller is returned
-// an error satisfying [coreerrors.NotValid].
-func (s *serviceSuite) TestGetAvailableAgentBinariesForVersionNotValid(c *tc.C) {
+// TestFindAgentBinaryForVersionNotValid tests finding an agent binary for an
+// invalid version. It is expected the caller is returned an error satisfying
+// [coreerrors.NotValid].
+func (s *serviceSuite) TestFindAgentBinaryForVersionNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c), s.baseStore)
-	_, err := svc.GetAvailableAgentBinaryiesForVersion(c.Context(), semversion.Zero)
+	_, err := svc.FindAgentBinaryForVersion(
+		c.Context(), agentbinary.Version{
+			Number: semversion.Zero, Architecture: agentbinary.AMD64,
+		},
+	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestGetAvailableAgentBinariesForVersionSingleSource tests getting available
-// agent binaries for a version from a single store sources.
-func (s *serviceSuite) TestGetAvailableAgentBinariesForVersionSingleSource(c *tc.C) {
+// TestFindAgentBinaryForVersionSingleSource tests getting available agent
+// binaries for a version from a single store sources.
+func (s *serviceSuite) TestFindAgentBinaryForVersionSingleSource(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -171,40 +176,24 @@ func (s *serviceSuite) TestGetAvailableAgentBinariesForVersionSingleSource(c *tc
 	}, nil)
 
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c), primaryStore, nil)
-	found, err := svc.GetAvailableAgentBinaryiesForVersion(c.Context(), version)
+	found, err := svc.FindAgentBinaryForVersion(
+		c.Context(),
+		agentbinary.Version{
+			Architecture: agentbinary.ARM64,
+			Number:       version,
+		},
+	)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(found, tc.SameContents, []domainagentbinary.AgentBinary{
-		{
-			Architecture: domainagentbinary.AMD64,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-		{
-			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-		{
-			Architecture: domainagentbinary.S390X,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-		{
-			Architecture: domainagentbinary.RISCV64,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-		{
-			Architecture: domainagentbinary.PPC64EL,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
+	c.Check(found, tc.Equals, domainagentbinary.AgentBinary{
+		Architecture: domainagentbinary.ARM64,
+		Stream:       domainagentbinary.AgentStreamReleased,
+		Version:      version,
 	})
 }
 
-// TestGetAvailableAgentBinariesForVersionMultipleSources tests getting
-// available agent binaries for a version from multiple store sources.
-func (s *serviceSuite) TestGetAvailableAgentBinariesForVersionMultipleSources(c *tc.C) {
+// TestFindAgentBinaryForVersionMultipleSources tests finding an agent
+// binary for a version from multiple store sources.
+func (s *serviceSuite) TestFindAgentBinaryForVersionMultipleSources(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -218,30 +207,13 @@ func (s *serviceSuite) TestGetAvailableAgentBinariesForVersionMultipleSources(c 
 	exp := primaryStore.EXPECT()
 	exp.GetAvailableForVersionInStream(
 		gomock.Any(), version, domainagentbinary.AgentStreamReleased,
-	).Return([]domainagentbinary.AgentBinary{
-		{
-			Architecture: domainagentbinary.AMD64,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-		{
-			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-	}, nil)
+	).Return([]domainagentbinary.AgentBinary{}, nil)
 
 	extStore1 := NewMockAgentBinaryStore(ctrl)
 	exp = extStore1.EXPECT()
 	exp.GetAvailableForVersionInStream(
 		gomock.Any(), version, domainagentbinary.AgentStreamReleased,
-	).Return([]domainagentbinary.AgentBinary{
-		{
-			Architecture: domainagentbinary.S390X,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-	}, nil)
+	).Return([]domainagentbinary.AgentBinary{}, nil)
 
 	extStore2 := NewMockAgentBinaryStore(ctrl)
 	exp = extStore2.EXPECT()
@@ -267,41 +239,24 @@ func (s *serviceSuite) TestGetAvailableAgentBinariesForVersionMultipleSources(c 
 		extStore1,
 		extStore2,
 	)
-	found, err := svc.GetAvailableAgentBinaryiesForVersion(c.Context(), version)
+	found, err := svc.FindAgentBinaryForVersion(
+		c.Context(),
+		agentbinary.Version{
+			Architecture: agentbinary.RISCV64,
+			Number:       version,
+		},
+	)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(found, tc.SameContents, []domainagentbinary.AgentBinary{
-		{
-			Architecture: domainagentbinary.AMD64,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-		{
-			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-		{
-			Architecture: domainagentbinary.S390X,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-		{
-			Architecture: domainagentbinary.RISCV64,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-		{
-			Architecture: domainagentbinary.PPC64EL,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
+	c.Check(found, tc.Equals, domainagentbinary.AgentBinary{
+		Architecture: domainagentbinary.RISCV64,
+		Stream:       domainagentbinary.AgentStreamReleased,
+		Version:      version,
 	})
 }
 
-// TestGetAvailableAgentBinariesForVersionNotAllAvailable tests getting
-// available agent binaries for a version from multiple store sources where not
-// every architecture is available.
-func (s *serviceSuite) TestGetAvailableAgentBinariesForVersionNotAllAvailable(c *tc.C) {
+// TestFindAgentBinaryForVersionNotFound tests finding an agent binary for a
+// version and it does not exist across any store source.
+func (s *serviceSuite) TestFindAgentBinaryForVersionNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -348,62 +303,14 @@ func (s *serviceSuite) TestGetAvailableAgentBinariesForVersionNotAllAvailable(c 
 		extStore1,
 		extStore2,
 	)
-	found, err := svc.GetAvailableAgentBinaryiesForVersion(c.Context(), version)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(found, tc.SameContents, []domainagentbinary.AgentBinary{
-		{
-			Architecture: domainagentbinary.AMD64,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
+	_, err := svc.FindAgentBinaryForVersion(
+		c.Context(),
+		agentbinary.Version{
+			Architecture: agentbinary.S390X,
+			Number:       version,
 		},
-		{
-			Architecture: domainagentbinary.RISCV64,
-			Stream:       domainagentbinary.AgentStreamReleased,
-			Version:      version,
-		},
-	})
-}
-
-// TestGetAvailableAgentBinariesForVersionNone tests that when no stores have
-// any agent binaries available for a version an empty result is returned.
-func (s *serviceSuite) TestGetAvailableAgentBinariesForVersionNone(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	version := tc.Must1(c, semversion.Parse, "4.0.0")
-
-	s.state.EXPECT().GetAgentStream(gomock.Any()).Return(
-		domainagentbinary.AgentStreamReleased, nil,
 	)
-
-	primaryStore := NewMockAgentBinaryStore(ctrl)
-	exp := primaryStore.EXPECT()
-	exp.GetAvailableForVersionInStream(
-		gomock.Any(), version, domainagentbinary.AgentStreamReleased,
-	).Return(nil, nil)
-
-	extStore1 := NewMockAgentBinaryStore(ctrl)
-	exp = extStore1.EXPECT()
-	exp.GetAvailableForVersionInStream(
-		gomock.Any(), version, domainagentbinary.AgentStreamReleased,
-	).Return(nil, nil)
-
-	extStore2 := NewMockAgentBinaryStore(ctrl)
-	exp = extStore2.EXPECT()
-	exp.GetAvailableForVersionInStream(
-		gomock.Any(), version, domainagentbinary.AgentStreamReleased,
-	).Return(nil, nil)
-
-	svc := NewService(
-		s.state,
-		loggertesting.WrapCheckLog(c),
-		primaryStore,
-		extStore1,
-		extStore2,
-	)
-	found, err := svc.GetAvailableAgentBinaryiesForVersion(c.Context(), version)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(found, tc.HasLen, 0)
+	c.Check(err, tc.ErrorIs, domainagentbinaryerrors.NotFound)
 }
 
 // TestGetAndCacheExternalAgentBinaryVersionNotValid tests that passing a bad

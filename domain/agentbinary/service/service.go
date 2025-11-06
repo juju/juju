@@ -8,9 +8,7 @@ import (
 	"io"
 	"slices"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/agentbinary"
 	domainagenterrors "github.com/juju/juju/domain/agentbinary/errors"
@@ -197,77 +195,67 @@ func (s *AgentBinaryService) GetAndCacheExternalAgentBinary(
 	return r, size, nil
 }
 
-// GetAvailableAgentBinaryiesForVersion returns a list of all agent binaries
-// available for the specified version across all architectures supported.
+// FindAgentBinaryForVersion attempts to find a compatible agent binary for the
+// version requested.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the supplied version is not valid.
-func (s *AgentBinaryService) GetAvailableAgentBinaryiesForVersion(
-	ctx context.Context, ver semversion.Number,
-) ([]agentbinary.AgentBinary, error) {
-	if ver == semversion.Zero {
-		return nil, errors.New("version cannot be zero").Add(coreerrors.NotValid)
+// - [domainagenterrors.NotFound] if no agent binary is found for the specified
+// version.
+func (s *AgentBinaryService) FindAgentBinaryForVersion(
+	ctx context.Context, ver agentbinary.Version,
+) (agentbinary.AgentBinary, error) {
+	if err := ver.Validate(); err != nil {
+		return agentbinary.AgentBinary{}, errors.Capture(err)
 	}
 
 	stream, err := s.state.GetAgentStream(ctx)
 	if err != nil {
-		return nil, errors.Errorf(
+		return agentbinary.AgentBinary{}, errors.Errorf(
 			"getting model's current agent stream: %w", err,
 		)
 	}
 
-	archsToFind := agentbinary.SupportedArchitectures()
-	retVal := make([]agentbinary.AgentBinary, 0, len(archsToFind))
-
 	available, err := s.putableAgentStore.GetAvailableForVersionInStream(
-		ctx, ver, stream,
+		ctx, ver.Number, stream,
 	)
 	if err != nil {
-		return nil, errors.Errorf(
-			"getting available agent binaries in store for version %q in stream %q: %w",
-			ver, stream, err,
+		return agentbinary.AgentBinary{}, errors.Errorf(
+			"finding available agent binaries in store for version %q, architecture %q in stream %q: %w",
+			ver.Number, ver.Architecture, stream, err,
 		)
 	}
 
 	available = slices.DeleteFunc(
-		available, agentbinary.AgentBinaryNotMatchingArchitectures(archsToFind),
+		available, agentbinary.AgentBinaryNotMatchingArchitectures(ver.Architecture),
 	)
-	archsToFind = agentbinary.ArchitectureNotIn(
-		archsToFind,
-		slices.Collect(agentbinary.AgentBinaryArchitectures(available)),
-	)
-	retVal = append(retVal, available...)
-
-	if len(archsToFind) == 0 {
-		// Found all agent binaries nothing more to do.
-		return retVal, nil
+	if len(available) > 0 {
+		// Found agent binary nothing more to do.
+		return available[0], nil
 	}
 
 	for i, store := range s.externalStores {
 		available, err := store.GetAvailableForVersionInStream(
-			ctx, ver, stream,
+			ctx, ver.Number, stream,
 		)
 		if err != nil {
-			return nil, errors.Errorf(
-				"getting available agent binaries in external store %d for version %q in stream %q: %w",
-				i, ver, stream, err,
+			return agentbinary.AgentBinary{}, errors.Errorf(
+				"finding available agent binaries in external store %d for version %q, architecture %q in stream %q: %w",
+				i, ver.Number, ver.Architecture, stream, err,
 			)
 		}
 
 		available = slices.DeleteFunc(
-			available, agentbinary.AgentBinaryNotMatchingArchitectures(archsToFind),
+			available, agentbinary.AgentBinaryNotMatchingArchitectures(ver.Architecture),
 		)
-		archsToFind = agentbinary.ArchitectureNotIn(
-			archsToFind,
-			slices.Collect(agentbinary.AgentBinaryArchitectures(available)),
-		)
-		retVal = append(retVal, available...)
 
-		if len(archsToFind) == 0 {
-			// Found all agent binaries nothing more to do.
-			return retVal, nil
+		if len(available) > 0 {
+			// Found agent binary nothing more to do.
+			return available[0], nil
 		}
 	}
 
-	return retVal, nil
+	return agentbinary.AgentBinary{}, errors.New(
+		"unable to find agent binary matching version",
+	).Add(domainagenterrors.NotFound)
 }
