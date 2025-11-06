@@ -130,7 +130,7 @@ func (*typesSuite) TestAgentBinaryNotMatchingArchitecture(c *tc.C) {
 
 	agentBinaries = slices.DeleteFunc(
 		agentBinaries,
-		AgentBinaryNotMatchingArchitectures([]Architecture{RISCV64}),
+		AgentBinaryNotMatchingArchitectures(RISCV64),
 	)
 
 	c.Check(agentBinaries, tc.SameContents, []AgentBinary{
@@ -168,7 +168,7 @@ func (*typesSuite) TestAgentBinaryNotMatchingArchitectureNilArch(c *tc.C) {
 
 	agentBinaries = slices.DeleteFunc(
 		agentBinaries,
-		AgentBinaryNotMatchingArchitectures(nil),
+		AgentBinaryNotMatchingArchitectures(),
 	)
 
 	c.Check(agentBinaries, tc.HasLen, 0)
