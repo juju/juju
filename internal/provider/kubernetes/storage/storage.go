@@ -72,7 +72,7 @@ func VolumeSourceForFilesystem(fs storage.KubernetesFilesystemParams) (*corev1.V
 	case storageprovider.TmpfsProviderType:
 		medium, ok := fs.Attributes[constants.StorageMedium]
 		if !ok {
-			medium = corev1.StorageMediumMemory
+			medium = corev1.StorageMediumDefault
 		}
 		return &corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{

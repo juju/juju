@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -178,13 +177,13 @@ func PushUniqueVolumeMount(container *corev1.Container, volMount corev1.VolumeMo
 }
 
 // PushUniqueVolumeClaimTemplate ensures to only add unique volume claim template to a statefulset.
-func PushUniqueVolumeClaimTemplate(spec *apps.StatefulSetSpec, pvc corev1.PersistentVolumeClaim) error {
-	for _, v := range spec.VolumeClaimTemplates {
+func PushUniqueVolumeClaimTemplate(existing *[]corev1.PersistentVolumeClaim, pvc corev1.PersistentVolumeClaim) error {
+	for _, v := range *existing {
 		if v.Name == pvc.Name {
 			// PVC name has to be unique.
 			return errors.NotValidf("duplicated PVC %q", pvc.Name)
 		}
 	}
-	spec.VolumeClaimTemplates = append(spec.VolumeClaimTemplates, pvc)
+	*existing = append(*existing, pvc)
 	return nil
 }
