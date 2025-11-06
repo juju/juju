@@ -23,9 +23,10 @@ import (
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	semversion "github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/agentbinary"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
@@ -566,13 +567,18 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *tc.C) {
 	arch := "amd64"
 	s.expectProvisioningMachine(&arch)
 
-	metadata := []agentbinary.Metadata{{
-		Version: "2.6.6",
-		Arch:    arch,
-		Size:    4,
-		SHA256:  "sha256",
-	}}
-	s.agentBinaryService.EXPECT().ListAgentBinaries(gomock.Any()).Return(metadata, nil)
+	ver := domainagentbinary.Version{
+		Architecture: domainagentbinary.AMD64,
+		Number:       tc.Must1(c, semversion.Parse, "2.6.6"),
+	}
+	s.agentBinaryService.EXPECT().FindAgentBinaryForVersion(
+		gomock.Any(), ver,
+	).Return(domainagentbinary.AgentBinary{
+		Architecture: domainagentbinary.AMD64,
+		SHA256:       "sha256",
+		Size:         100,
+		Version:      tc.Must1(c, semversion.Parse, "2.6.6"),
+	}, nil)
 
 	addrs := []string{"0.2.4.6:1"}
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil).MinTimes(2)
@@ -637,13 +643,18 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	arch := "amd64"
 	s.expectProvisioningMachine(&arch)
 
-	metadata := []agentbinary.Metadata{{
-		Version: "2.6.6",
-		Arch:    arch,
-		Size:    4,
-		SHA256:  "sha256",
-	}}
-	s.agentBinaryService.EXPECT().ListAgentBinaries(gomock.Any()).Return(metadata, nil)
+	ver := domainagentbinary.Version{
+		Architecture: domainagentbinary.AMD64,
+		Number:       tc.Must1(c, semversion.Parse, "2.6.6"),
+	}
+	s.agentBinaryService.EXPECT().FindAgentBinaryForVersion(
+		gomock.Any(), ver,
+	).Return(domainagentbinary.AgentBinary{
+		Architecture: domainagentbinary.AMD64,
+		SHA256:       "sha256",
+		Size:         100,
+		Version:      tc.Must1(c, semversion.Parse, "2.6.6"),
+	}, nil)
 
 	addrs := []string{"0.2.4.6:1"}
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil).MinTimes(2)

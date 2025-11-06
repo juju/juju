@@ -8,10 +8,10 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/agentbinary"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
@@ -37,7 +37,9 @@ func NewControllerState(factory database.TxnRunnerFactory) *ControllerState {
 // agent binary in the object store. This sha256 sum could exist as an object in
 // the object store but unless the association has been made this will always
 // return false.
-func (s *ControllerState) CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum string) (bool, error) {
+func (s *ControllerState) CheckAgentBinarySHA256Exists(
+	ctx context.Context, sha256Sum string,
+) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -74,6 +76,73 @@ WHERE sha_256 = $objectStoreSHA256Sum.sha_256
 	}
 
 	return exists, nil
+}
+
+// GetAllAgentStoreBinariesForStream returns all agent binaries that are
+// available in the controller store for a given stream. If no agent binaries
+// exist for the stream, an empty slice is returned.
+func (s *ControllerState) GetAllAgentStoreBinariesForStream(
+	ctx context.Context, stream agentbinary.Stream,
+) ([]agentbinary.AgentBinary, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	streamInput := agentStream{StreamID: int(stream)}
+
+	q := `
+SELECT &agentStoreBinary.*
+FROM (
+    SELECT abs.version,
+           abs.architecture_id,
+           osm.size,
+           $agentStream.stream_id AS stream_id,
+           osm.sha_256
+    FROM   agent_binary_store abs
+    JOIN   object_store_metadata osm
+)
+`
+
+	stmt, err := s.Prepare(q, streamInput, agentStoreBinary{})
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing get all agent binaries for stream query: %w", err,
+		)
+	}
+
+	dbVals := []agentStoreBinary{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, streamInput).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	retVal := make([]agentbinary.AgentBinary, 0, len(dbVals))
+	for _, dbVal := range dbVals {
+		version, err := semversion.Parse(dbVal.Version)
+		if err != nil {
+			return nil, errors.Errorf(
+				"parsing agent binary version %q: %w",
+				dbVal.Version, err,
+			)
+		}
+
+		retVal = append(retVal, agentbinary.AgentBinary{
+			Architecture: agentbinary.Architecture(dbVal.ArchitectureID),
+			SHA256:       dbVal.SHA256,
+			Size:         dbVal.Size,
+			Stream:       agentbinary.Stream(dbVal.StreamID),
+			Version:      version,
+		})
+	}
+
+	return retVal, nil
 }
 
 // GetObjectUUID returns the object store UUID for the given file path.
@@ -135,25 +204,19 @@ func (s *ControllerState) RegisterAgentBinary(ctx context.Context, arg agentbina
 		return errors.Capture(err)
 	}
 
-	archVal := architectureRecord{Name: arg.Arch}
 	agentBinary := agentBinaryRecord{
-		Version:         arg.Version,
+		ArchitectureID:  int(arg.Architecture),
 		ObjectStoreUUID: arg.ObjectStoreUUID.String(),
+		Version:         arg.Version,
 	}
 
-	archStmt, err := s.Prepare(`
-SELECT &architectureRecord.*
-FROM   architecture
-WHERE  name = $architectureRecord.name
-`, archVal)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	insertStmt, err := s.Prepare(`
+	insertStmt, err := s.Prepare(
+		`
 INSERT INTO agent_binary_store (*)
 VALUES ($agentBinaryRecord.*)
-`, agentBinary)
+`,
+		agentBinary,
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -171,18 +234,6 @@ VALUES ($agentBinaryRecord.*)
 			).Add(agentbinaryerrors.ObjectNotFound)
 		}
 
-		// Check if the architecture exists and get its ID
-		err = tx.Query(ctx, archStmt, archVal).Get(&archVal)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"architecture %q is not supported",
-				arg.Arch,
-			).Add(coreerrors.NotSupported)
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		agentBinary.ArchitectureID = archVal.ID
 		err = tx.Query(ctx, insertStmt, agentBinary).Run()
 		if jujudb.IsErrConstraintPrimaryKey(err) {
 			// There must be an agent version for this version and arch already.
@@ -222,7 +273,7 @@ VALUES ($agentBinaryRecord.*)
 	if err != nil {
 		return errors.Errorf(
 			"adding agent binary for version %q and arch %q to controller state: %w",
-			arg.Version, arg.Arch, err,
+			arg.Version, arg.Architecture, err,
 		)
 	}
 	return nil
@@ -292,76 +343,4 @@ WHERE  uuid = $objectStoreUUID.uuid
 		)
 	}
 	return true, nil
-}
-
-// ListAgentBinaries lists all agent binaries in the state.
-// It returns a slice of agent binary metadata.
-// An empty slice is returned if no agent binaries are found.
-func (s *ControllerState) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
-	db, err := s.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	stmt, err := s.Prepare(`
-SELECT &metadataRecord.*
-FROM   v_agent_binary_store`, metadataRecord{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var records metadataRecords
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt).GetAll(&records)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// No agent binaries found.
-			return nil
-		}
-		return errors.Capture(err)
-	})
-	if err != nil {
-		return nil, errors.Errorf("listing agent binary metadata: %w", err)
-	}
-	return records.toMetadata(), nil
-}
-
-// GetAgentBinarySHA256 retrieves the SHA256 value for the specified agent binary version.
-// It returns false and an empty string if no matching record exists.
-func (s *ControllerState) GetAgentBinarySHA256(ctx context.Context, version coreagentbinary.Version, stream agentbinary.Stream) (bool, string, error) {
-	db, err := s.DB(ctx)
-	if err != nil {
-		return false, "", errors.Capture(err)
-	}
-
-	record := metadataRecord{
-		Version: version.Number.String(),
-	}
-
-	stmt, err := s.Prepare(`
-SELECT &metadataRecord.*
-FROM   v_agent_binary_store
-WHERE version = $metadataRecord.version`, record)
-	if err != nil {
-		return false, "", errors.Capture(err)
-	}
-
-	exists := false
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, record).Get(&record)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return errors.Errorf(
-				"checking database to see if agent binary for version %q exists: %w",
-				version.Number.String(), err,
-			)
-		}
-		exists = true
-		return nil
-	})
-
-	if err != nil {
-		return false, "", errors.Capture(err)
-	}
-
-	return exists, record.SHA256, nil
 }

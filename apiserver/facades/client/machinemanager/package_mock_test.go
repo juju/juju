@@ -22,10 +22,9 @@ import (
 	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
 	agentbinary "github.com/juju/juju/domain/agentbinary"
-	service "github.com/juju/juju/domain/agentbinary/service"
 	blockcommand "github.com/juju/juju/domain/blockcommand"
 	machine0 "github.com/juju/juju/domain/machine"
-	service0 "github.com/juju/juju/domain/machine/service"
+	service "github.com/juju/juju/domain/machine/service"
 	removal "github.com/juju/juju/domain/removal"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
@@ -319,10 +318,10 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 }
 
 // AddMachine mocks base method.
-func (m *MockMachineService) AddMachine(arg0 context.Context, arg1 machine0.AddMachineArgs) (service0.AddMachineResults, error) {
+func (m *MockMachineService) AddMachine(arg0 context.Context, arg1 machine0.AddMachineArgs) (service.AddMachineResults, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddMachine", arg0, arg1)
-	ret0, _ := ret[0].(service0.AddMachineResults)
+	ret0, _ := ret[0].(service.AddMachineResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -340,19 +339,19 @@ type MockMachineServiceAddMachineCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceAddMachineCall) Return(arg0 service0.AddMachineResults, arg1 error) *MockMachineServiceAddMachineCall {
+func (c *MockMachineServiceAddMachineCall) Return(arg0 service.AddMachineResults, arg1 error) *MockMachineServiceAddMachineCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceAddMachineCall) Do(f func(context.Context, machine0.AddMachineArgs) (service0.AddMachineResults, error)) *MockMachineServiceAddMachineCall {
+func (c *MockMachineServiceAddMachineCall) Do(f func(context.Context, machine0.AddMachineArgs) (service.AddMachineResults, error)) *MockMachineServiceAddMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceAddMachineCall) DoAndReturn(f func(context.Context, machine0.AddMachineArgs) (service0.AddMachineResults, error)) *MockMachineServiceAddMachineCall {
+func (c *MockMachineServiceAddMachineCall) DoAndReturn(f func(context.Context, machine0.AddMachineArgs) (service.AddMachineResults, error)) *MockMachineServiceAddMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1040,79 +1039,41 @@ func (m *MockAgentBinaryService) EXPECT() *MockAgentBinaryServiceMockRecorder {
 	return m.recorder
 }
 
-// GetEnvironAgentBinariesFinder mocks base method.
-func (m *MockAgentBinaryService) GetEnvironAgentBinariesFinder() service.EnvironAgentBinariesFinderFunc {
+// FindAgentBinaryForVersion mocks base method.
+func (m *MockAgentBinaryService) FindAgentBinaryForVersion(arg0 context.Context, arg1 agentbinary.Version) (agentbinary.AgentBinary, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEnvironAgentBinariesFinder")
-	ret0, _ := ret[0].(service.EnvironAgentBinariesFinderFunc)
-	return ret0
-}
-
-// GetEnvironAgentBinariesFinder indicates an expected call of GetEnvironAgentBinariesFinder.
-func (mr *MockAgentBinaryServiceMockRecorder) GetEnvironAgentBinariesFinder() *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnvironAgentBinariesFinder", reflect.TypeOf((*MockAgentBinaryService)(nil).GetEnvironAgentBinariesFinder))
-	return &MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall{Call: call}
-}
-
-// MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall wrap *gomock.Call
-type MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall) Return(arg0 service.EnvironAgentBinariesFinderFunc) *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall) Do(f func() service.EnvironAgentBinariesFinderFunc) *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall) DoAndReturn(f func() service.EnvironAgentBinariesFinderFunc) *MockAgentBinaryServiceGetEnvironAgentBinariesFinderCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ListAgentBinaries mocks base method.
-func (m *MockAgentBinaryService) ListAgentBinaries(arg0 context.Context) ([]agentbinary.Metadata, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListAgentBinaries", arg0)
-	ret0, _ := ret[0].([]agentbinary.Metadata)
+	ret := m.ctrl.Call(m, "FindAgentBinaryForVersion", arg0, arg1)
+	ret0, _ := ret[0].(agentbinary.AgentBinary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListAgentBinaries indicates an expected call of ListAgentBinaries.
-func (mr *MockAgentBinaryServiceMockRecorder) ListAgentBinaries(arg0 any) *MockAgentBinaryServiceListAgentBinariesCall {
+// FindAgentBinaryForVersion indicates an expected call of FindAgentBinaryForVersion.
+func (mr *MockAgentBinaryServiceMockRecorder) FindAgentBinaryForVersion(arg0, arg1 any) *MockAgentBinaryServiceFindAgentBinaryForVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAgentBinaries", reflect.TypeOf((*MockAgentBinaryService)(nil).ListAgentBinaries), arg0)
-	return &MockAgentBinaryServiceListAgentBinariesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAgentBinaryForVersion", reflect.TypeOf((*MockAgentBinaryService)(nil).FindAgentBinaryForVersion), arg0, arg1)
+	return &MockAgentBinaryServiceFindAgentBinaryForVersionCall{Call: call}
 }
 
-// MockAgentBinaryServiceListAgentBinariesCall wrap *gomock.Call
-type MockAgentBinaryServiceListAgentBinariesCall struct {
+// MockAgentBinaryServiceFindAgentBinaryForVersionCall wrap *gomock.Call
+type MockAgentBinaryServiceFindAgentBinaryForVersionCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAgentBinaryServiceListAgentBinariesCall) Return(arg0 []agentbinary.Metadata, arg1 error) *MockAgentBinaryServiceListAgentBinariesCall {
+func (c *MockAgentBinaryServiceFindAgentBinaryForVersionCall) Return(arg0 agentbinary.AgentBinary, arg1 error) *MockAgentBinaryServiceFindAgentBinaryForVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentBinaryServiceListAgentBinariesCall) Do(f func(context.Context) ([]agentbinary.Metadata, error)) *MockAgentBinaryServiceListAgentBinariesCall {
+func (c *MockAgentBinaryServiceFindAgentBinaryForVersionCall) Do(f func(context.Context, agentbinary.Version) (agentbinary.AgentBinary, error)) *MockAgentBinaryServiceFindAgentBinaryForVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentBinaryServiceListAgentBinariesCall) DoAndReturn(f func(context.Context) ([]agentbinary.Metadata, error)) *MockAgentBinaryServiceListAgentBinariesCall {
+func (c *MockAgentBinaryServiceFindAgentBinaryForVersionCall) DoAndReturn(f func(context.Context, agentbinary.Version) (agentbinary.AgentBinary, error)) *MockAgentBinaryServiceFindAgentBinaryForVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

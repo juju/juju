@@ -17,11 +17,10 @@ import (
 
 	"github.com/juju/juju/apiserver/httpcontext"
 	apitesting "github.com/juju/juju/apiserver/testing"
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
-	corearch "github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -166,9 +165,9 @@ func (s *toolsSuite) TestUploadAgentBinaryServiceInvalidArch(c *tc.C) {
 	s.agentBinaryStore.EXPECT().AddAgentBinaryWithSHA256(
 		gomock.Any(),
 		gomock.Any(),
-		coreagentbinary.Version{
-			Number: semversion.MustParse("4.0.0"),
-			Arch:   corearch.AMD64,
+		domainagentbinary.Version{
+			Architecture: domainagentbinary.AMD64,
+			Number:       semversion.MustParse("4.0.0"),
 		},
 		int64(9),
 		"15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225",
@@ -194,9 +193,9 @@ func (s *toolsSuite) TestUploadAgentBinaryServiceAlreadyExists(c *tc.C) {
 	s.agentBinaryStore.EXPECT().AddAgentBinaryWithSHA256(
 		gomock.Any(),
 		gomock.Any(),
-		coreagentbinary.Version{
-			Number: semversion.MustParse("4.0.0"),
-			Arch:   corearch.AMD64,
+		domainagentbinary.Version{
+			Architecture: domainagentbinary.AMD64,
+			Number:       semversion.MustParse("4.0.0"),
 		},
 		int64(9),
 		"15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225",
@@ -230,9 +229,9 @@ func (s *toolsSuite) TestUploadAgentBinary(c *tc.C) {
 	s.agentBinaryStore.EXPECT().AddAgentBinaryWithSHA256(
 		gomock.Any(),
 		gomock.Any(),
-		coreagentbinary.Version{
-			Number: semversion.MustParse("4.0.0"),
-			Arch:   corearch.AMD64,
+		domainagentbinary.Version{
+			Architecture: domainagentbinary.AMD64,
+			Number:       semversion.MustParse("4.0.0"),
 		},
 		int64(9),
 		"15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225",

@@ -16,8 +16,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/domain/agentbinary"
-	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/password"
@@ -26,16 +25,11 @@ import (
 // AgentBinaryService is an interface for getting the
 // EnvironAgentBinariesFinder function.
 type AgentBinaryService interface {
-	// GetEnvironAgentBinariesFinder returns the function to find agent binaries.
-	// This is used to find the agent binaries.
-	GetEnvironAgentBinariesFinder() agentbinaryservice.EnvironAgentBinariesFinderFunc
-
-	// ListAgentBinaries lists all agent binaries in the controller and model stores.
-	// It merges the two lists of agent binaries, with the model agent binaries
-	// taking precedence over the controller agent binaries.
-	// It returns a slice of agent binary metadata. The order of the metadata is not guaranteed.
-	// An empty slice is returned if no agent binaries are found.
-	ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error)
+	// FindAgentBinaryForVersion attempts to find a compatible agent binary for the
+	// version requested.
+	FindAgentBinaryForVersion(
+		context.Context, domainagentbinary.Version,
+	) (domainagentbinary.AgentBinary, error)
 }
 
 // AgentPasswordService defines the methods required to set an agent password

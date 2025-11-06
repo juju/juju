@@ -95,7 +95,6 @@ import (
 	storageprovisioningstate "github.com/juju/juju/domain/storageprovisioning/state"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/resource/store"
@@ -171,8 +170,8 @@ func NewModelServices(
 
 // AgentBinaryStore returns the model's [agentbinaryservice.AgentBinaryStore]
 // for the current model.
-func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
-	return agentbinaryservice.NewAgentBinaryStore(
+func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentObjectStore {
+	return agentbinaryservice.NewAgentObjectStore(
 		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("agentbinary"),
 		s.modelObjectStoreGetter,
@@ -181,23 +180,31 @@ func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore 
 
 // AgentBinary returns the model's [agentbinaryservice.AgentBinaryService].
 func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
-	return agentbinaryservice.NewAgentBinaryService(
+	ssStore := agentbinaryservice.NewAgentSimpleStreamsGetterStore(
 		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
 			s.providerFactory, s.modelUUID.String(),
-		), envtools.PreferredStreams, envtools.FindTools,
-		agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.AgentBinaryStore(),
-		agentbinaryservice.NewAgentBinaryStore(
-			agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-			s.logger.Child("controlleragentbinary"),
-			s.controllerObjectStoreGetter,
 		),
-		agentbinaryservice.NewSimpleStreamAgentBinaryStore(
-			providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
-				s.providerFactory, s.modelUUID.String(),
-			), envtools.FindTools, s.simplestreamsClient,
-		))
+		envtools.FindTools,
+		s.simplestreamsClient,
+	)
+	controllerStore := agentbinaryservice.NewAgentObjectStore(
+		agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.logger.Child("controller-agent-binary-store"),
+		s.controllerObjectStoreGetter,
+	)
+	modelStore := agentbinaryservice.NewAgentObjectStore(
+		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.logger.Child("model-agent-binary-store"),
+		s.modelObjectStoreGetter,
+	)
+
+	return agentbinaryservice.NewService(
+		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.logger.Child("agentbinaryservice"),
+		modelStore,
+		controllerStore,
+		ssStore,
+	)
 }
 
 // AgentProvisioner returns the agent provisioner service.
@@ -592,23 +599,34 @@ func (s *ModelServices) ChangeStream() *changestreamservice.Service {
 }
 
 func (s *ModelServices) ControllerUpgraderService() *controllerupgraderservice.Service {
-	controllerSt := controllerupgraderstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB))
-	controllerModelSt := controllerupgraderstate.NewControllerModelState(changestream.NewTxnRunnerFactory(s.modelDB))
-	agentFinder := controllerupgraderservice.NewAgentFinder(
-		envtools.PreferredStreams,
-		envtools.FindTools,
-		providertracker.ProviderRunner[environs.BootstrapEnviron](
-			s.providerFactory, s.modelUUID.String(),
+	controllerState := controllerupgraderstate.NewControllerState(
+		changestream.NewTxnRunnerFactory(s.controllerDB),
+	)
+	controllerModelState := controllerupgraderstate.NewControllerModelState(
+		changestream.NewTxnRunnerFactory(s.modelDB),
+	)
+	controllerStore := agentbinaryservice.NewAgentObjectQuerierStore(
+		agentbinarystate.NewControllerState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
 		),
 	)
+	ssStore := agentbinaryservice.NewAgentSimpleStreamsGetterStore(
+		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
+			s.providerFactory, s.modelUUID.String(),
+		),
+		envtools.FindTools,
+		s.simplestreamsClient,
+	)
+
 	agentBinaryFinder := controllerupgraderservice.NewStreamAgentBinaryFinder(
-		controllerSt,
-		controllerModelSt,
-		agentFinder,
+		controllerState,
+		controllerModelState,
+		controllerStore,
+		ssStore,
 	)
 	return controllerupgraderservice.NewService(
 		agentBinaryFinder,
-		controllerSt,
-		controllerModelSt,
+		controllerState,
+		controllerModelState,
 	)
 }

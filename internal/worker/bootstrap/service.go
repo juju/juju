@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/access/service"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/controllernode"
@@ -46,7 +46,7 @@ type AgentBinaryStore interface {
 	AddAgentBinaryWithSHA256(
 		_ context.Context,
 		data io.Reader,
-		varions coreagentbinary.Version,
+		varions domainagentbinary.Version,
 		size int64,
 		sha256 string,
 	) error

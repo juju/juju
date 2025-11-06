@@ -17,7 +17,6 @@ import (
 
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
-	agentbinary "github.com/juju/juju/core/agentbinary"
 	application "github.com/juju/juju/core/application"
 	charm "github.com/juju/juju/core/charm"
 	instance "github.com/juju/juju/core/instance"
@@ -27,6 +26,7 @@ import (
 	unit "github.com/juju/juju/core/unit"
 	user "github.com/juju/juju/core/user"
 	service "github.com/juju/juju/domain/access/service"
+	agentbinary "github.com/juju/juju/domain/agentbinary"
 	application0 "github.com/juju/juju/domain/application"
 	service0 "github.com/juju/juju/domain/application/service"
 	controllernode "github.com/juju/juju/domain/controllernode"

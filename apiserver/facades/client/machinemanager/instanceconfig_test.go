@@ -16,7 +16,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/agentbinary"
+	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -94,11 +94,18 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(hc, nil)
 	s.agentPasswordService.EXPECT().SetMachinePassword(gomock.Any(), coremachine.Name("0"), gomock.Any()).Return(nil)
 
-	metadata := []agentbinary.Metadata{{
-		Version: "2.6.6",
-		Arch:    "amd64",
-	}}
-	s.agentBinaryService.EXPECT().ListAgentBinaries(gomock.Any()).Return(metadata, nil)
+	ver := domainagentbinary.Version{
+		Architecture: domainagentbinary.AMD64,
+		Number:       tc.Must1(c, semversion.Parse, "2.6.6"),
+	}
+	s.agentBinaryService.EXPECT().FindAgentBinaryForVersion(
+		gomock.Any(), ver,
+	).Return(domainagentbinary.AgentBinary{
+		Architecture: domainagentbinary.AMD64,
+		SHA256:       "sha256",
+		Size:         100,
+		Version:      tc.Must1(c, semversion.Parse, "2.6.6"),
+	}, nil)
 
 	addrs := []string{"1.2.3.4:1"}
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil).MinTimes(2)
