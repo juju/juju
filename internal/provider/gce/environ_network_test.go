@@ -241,12 +241,12 @@ func (s *environNetSuite) TestInterfaces(c *tc.C) {
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:   0,
 		ProviderId:    "inst-0/netif-0",
-		InterfaceName: "netif-0",
+		InterfaceName: "ens4",
 		InterfaceType: corenetwork.EthernetDevice,
 		Disabled:      false,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.20.3",
+			"10.0.20.3/32",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -306,12 +306,12 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *tc.C) {
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:   0,
 		ProviderId:    "inst-0/netif-0",
-		InterfaceName: "netif-0",
+		InterfaceName: "ens4",
 		InterfaceType: corenetwork.EthernetDevice,
 		Disabled:      false,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.20.3",
+			"10.0.20.3/32",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -326,12 +326,12 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *tc.C) {
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:   0,
 		ProviderId:    "inst-1/netif-0",
-		InterfaceName: "netif-0",
+		InterfaceName: "ens4",
 		InterfaceType: corenetwork.EthernetDevice,
 		Disabled:      false,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.10.42",
+			"10.0.10.42/32",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -342,12 +342,12 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *tc.C) {
 	}, {
 		DeviceIndex:   1,
 		ProviderId:    "inst-1/netif-1",
-		InterfaceName: "netif-1",
+		InterfaceName: "ens5",
 		InterfaceType: corenetwork.EthernetDevice,
 		Disabled:      false,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.20.44",
+			"10.0.20.44/32",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -355,7 +355,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *tc.C) {
 			corenetwork.WithProviderSubnetID("sub-network1"),
 		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"25.185.142.227",
+			"25.185.142.227/32",
 			corenetwork.WithScope(corenetwork.ScopePublic),
 		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
@@ -384,12 +384,12 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *tc.C) {
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:   0,
 		ProviderId:    "inst-0/netif-0",
-		InterfaceName: "netif-0",
+		InterfaceName: "ens4",
 		InterfaceType: corenetwork.EthernetDevice,
 		Disabled:      false,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.20.3",
+			"10.0.20.3/32",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -437,12 +437,12 @@ func (s *environNetSuite) TestInterfacesMulti(c *tc.C) {
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:   0,
 		ProviderId:    "inst-0/netif-0",
-		InterfaceName: "netif-0",
+		InterfaceName: "ens4",
 		InterfaceType: corenetwork.EthernetDevice,
 		Disabled:      false,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.20.3",
+			"10.0.20.3/32",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -453,12 +453,12 @@ func (s *environNetSuite) TestInterfacesMulti(c *tc.C) {
 	}, {
 		DeviceIndex:   1,
 		ProviderId:    "inst-0/othernetif",
-		InterfaceName: "othernetif",
+		InterfaceName: "ens5",
 		InterfaceType: corenetwork.EthernetDevice,
 		Disabled:      false,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.10.4",
+			"10.0.10.4/32",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -466,7 +466,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *tc.C) {
 			corenetwork.WithProviderSubnetID("sub-network1"),
 		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+			corenetwork.NewMachineAddress("25.185.142.227/32", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -502,18 +502,18 @@ func (s *environNetSuite) TestInterfacesLegacy(c *tc.C) {
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:   0,
 		ProviderId:    "inst-0/somenetif",
-		InterfaceName: "somenetif",
+		InterfaceName: "ens4",
 		InterfaceType: corenetwork.EthernetDevice,
 		Disabled:      false,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.240.0.2",
+			"10.240.0.2/32",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.240.0.0/16"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+			corenetwork.NewMachineAddress("25.185.142.227/32", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -553,12 +553,12 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *tc.C) {
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:   0,
 		ProviderId:    "inst-0/netif-0",
-		InterfaceName: "netif-0",
+		InterfaceName: "ens4",
 		InterfaceType: corenetwork.EthernetDevice,
 		Disabled:      false,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.20.3",
+			"10.0.20.3/32",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -569,12 +569,12 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *tc.C) {
 	}, {
 		DeviceIndex:   1,
 		ProviderId:    "inst-0/othernetif",
-		InterfaceName: "othernetif",
+		InterfaceName: "ens5",
 		InterfaceType: corenetwork.EthernetDevice,
 		Disabled:      false,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.10.4",
+			"10.0.10.4/32",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -582,7 +582,7 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *tc.C) {
 			corenetwork.WithProviderSubnetID("sub-network1"),
 		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+			corenetwork.NewMachineAddress("25.185.142.227/32", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
