@@ -35,11 +35,12 @@ type ApplicationService interface {
 	// GetUnitUUID returns the UUID for the named unit.
 	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 
-	// GetApplicationUUIDByUnitName returns the application UUID for the named unit.
+	// GetApplicationUUIDByUnitName returns the application UUID for the named
+	// unit.
 	GetApplicationUUIDByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.UUID, error)
 
-	// GetApplicationUUIDByName returns an application UUID by application name. It
-	// returns an error if the application can not be found by the name.
+	// GetApplicationUUIDByName returns an application UUID by application name.
+	// It returns an error if the application can not be found by the name.
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationCharmOrigin returns the charm origin for the specified
@@ -47,19 +48,17 @@ type ApplicationService interface {
 	GetApplicationCharmOrigin(ctx context.Context, name string) (charm.Origin, error)
 }
 
+// ResourceService provides the functionality for managing application
+// resources.
 type ResourceService interface {
-	// GetApplicationResourceID returns the UUID of the resource specified by natural key
-	// of application and resource name.
+	// GetApplicationResourceID returns the UUID of the resource specified by
+	// natural key of application and resource name.
 	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
 
 	// GetResource returns the identified application resource.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
 
 	// OpenResource returns the details of and a reader for the resource.
-	//
-	// The following error types can be expected to be returned:
-	//   - [resourceerrors.StoredResourceNotFound] if the specified resource is not
-	//     in the resource store.
 	OpenResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, io.ReadCloser, error)
 
 	// StoreResource adds the application resource to blob storage and updates the

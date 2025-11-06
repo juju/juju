@@ -1721,9 +1721,6 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 }
 
 // GetApplicationUUIDByUnitName returns the application UUID for the named unit.
-//
-// Returns an error satisfying [applicationerrors.UnitNotFound] if the unit
-// doesn't exist.
 func (st *State) GetApplicationUUIDByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
