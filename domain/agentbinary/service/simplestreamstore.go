@@ -161,7 +161,7 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 		)
 	}
 
-	if resp.Header.Get(headerContentType) != gzipxContentType ||
+	if resp.Header.Get(headerContentType) != gzipxContentType &&
 		resp.Header.Get(headerContentType) != gzipContentType {
 		return nil, 0, "", errors.Errorf(
 			"simplestreams url %q returned unexpected content type %q",
