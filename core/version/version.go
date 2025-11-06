@@ -12,14 +12,14 @@ import (
 	"strconv"
 	"strings"
 
-	semversion "github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/errors"
 )
 
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "4.0-beta8"
+const version = "4.0-rc1"
 
 // UserAgentVersion defines a user agent version used for communication for
 // outside resources.
