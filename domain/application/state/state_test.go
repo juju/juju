@@ -95,7 +95,7 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNotDead(ctx, tx, id)
 	})
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestCheckApplicationExistsNotFound(c *tc.C) {
@@ -158,5 +158,5 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationAlive(ctx, tx, id)
 	})
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }

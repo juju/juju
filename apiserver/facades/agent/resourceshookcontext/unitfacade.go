@@ -14,6 +14,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -66,7 +67,9 @@ type UnitFacade struct {
 func (uf *UnitFacade) getApplicationUUID(ctx context.Context) (coreapplication.UUID, error) {
 	if uf.applicationID == "" {
 		applicationID, err := uf.getApplicationUUIDFromAPI(ctx)
-		if err != nil {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return "", jujuerrors.NotFoundf("application for unit")
+		} else if err != nil {
 			return uf.applicationID, err
 		}
 		uf.applicationID = applicationID

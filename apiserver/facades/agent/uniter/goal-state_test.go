@@ -31,9 +31,10 @@ import (
 type uniterGoalStateSuite struct {
 	testhelpers.IsolationSuite
 
-	applicationService *MockApplicationService
-	relationService    *MockRelationService
-	statusService      *MockStatusService
+	applicationService        *MockApplicationService
+	relationService           *MockRelationService
+	statusService             *MockStatusService
+	crossModelRelationService *MockCrossModelRelationService
 
 	uniter *UniterAPI
 }
@@ -431,6 +432,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *tc.C) {
 	wpAppID := tc.Must(c, application.NewUUID)
 	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), wpUnit).Return(wpAppID, nil)
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "wordpress").Return(wpAppID, nil).MinTimes(1)
+	s.crossModelRelationService.EXPECT().IsRemoteApplicationConsumer(gomock.Any(), wpAppID).Return(false, nil).MinTimes(1)
 	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "wordpress").
 		Return([]coreunit.Name{wpUnit, otherWpUnit}, nil)
 	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), wpUnit).Return("", false, nil)
@@ -444,7 +446,9 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *tc.C) {
 	otherAppMysqlUnit := coreunit.Name("other-mysql/0")
 	otherMysqlAppID := tc.Must(c, application.NewUUID)
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "mysql").Return(mysqlAppID, nil)
+	//s.crossModelRelationService.EXPECT().IsRemoteApplicationConsumer(gomock.Any(), mysqlAppID).Return(false, nil)
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "other-mysql").Return(otherMysqlAppID, nil)
+	//s.crossModelRelationService.EXPECT().IsRemoteApplicationConsumer(gomock.Any(), otherMysqlAppID).Return(false, nil)
 	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "mysql").
 		Return([]coreunit.Name{mysqlUnit, otherMysqlUnit}, nil)
 	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "other-mysql").
@@ -459,6 +463,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *tc.C) {
 	loggingUnit := coreunit.Name("logging/0")
 	loggingAppID := tc.Must(c, application.NewUUID)
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "logging").Return(loggingAppID, nil)
+	//s.crossModelRelationService.EXPECT().IsRemoteApplicationConsumer(gomock.Any(), otherMysqlAppID).Return(false, nil)
 	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "logging").
 		Return([]coreunit.Name{loggingUnit}, nil)
 	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), loggingUnit).Return("", false, nil)
@@ -628,6 +633,7 @@ func (s *uniterGoalStateSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
+	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
 
 	authFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
@@ -636,18 +642,20 @@ func (s *uniterGoalStateSuite) setupMocks(c *tc.C) *gomock.Controller {
 	}
 
 	s.uniter = &UniterAPI{
-		applicationService: s.applicationService,
-		relationService:    s.relationService,
-		statusService:      s.statusService,
-		accessApplication:  authFunc,
-		accessUnit:         authFunc,
-		logger:             loggertesting.WrapCheckLog(c),
+		applicationService:        s.applicationService,
+		relationService:           s.relationService,
+		statusService:             s.statusService,
+		crossModelRelationService: s.crossModelRelationService,
+		accessApplication:         authFunc,
+		accessUnit:                authFunc,
+		logger:                    loggertesting.WrapCheckLog(c),
 	}
 
 	c.Cleanup(func() {
 		s.applicationService = nil
 		s.relationService = nil
 		s.statusService = nil
+		s.crossModelRelationService = nil
 		s.uniter = nil
 	})
 
