@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/juju/core/agentbinary"
 	corebase "github.com/juju/juju/core/base"
@@ -883,22 +882,24 @@ func (s *Service) validateModelCanBeUpgraded(
 		).Add(modelagenterrors.CannotUpgradeControllerModel)
 	}
 
-	failedMachineCount, err := s.modelSt.GetMachineCountNotUsingBase(ctx, corebase.WorkloadBases())
-	if err != nil {
-		return errors.Errorf(
-			"getting count of machines in model not running a supported workload base: %w",
-			err,
-		)
-	}
-
-	if failedMachineCount > 0 {
-		return modelagenterrors.ModelUpgradeBlocker{
-			Reason: fmt.Sprintf(
-				"model has %d machines using unsupported bases: %v",
-				failedMachineCount, corebase.WorkloadBases(),
-			),
-		}
-	}
+	// TODO(@adisazhar123): discussed with @tlm we can comment out for now.
+	// Will require a future effort to fix this.
+	//failedMachineCount, err := s.modelSt.GetMachineCountNotUsingBase(ctx, corebase.WorkloadBases())
+	//if err != nil {
+	//	return errors.Errorf(
+	//		"getting count of machines in model not running a supported workload base: %w",
+	//		err,
+	//	)
+	//}
+	//
+	//if failedMachineCount > 0 {
+	//	return modelagenterrors.ModelUpgradeBlocker{
+	//		Reason: fmt.Sprintf(
+	//			"model has %d machines using unsupported bases: %v",
+	//			failedMachineCount, corebase.WorkloadBases(),
+	//		),
+	//	}
+	//}
 
 	return nil
 }
@@ -982,6 +983,10 @@ func (s *Service) validateModelCanBeUpgradedTo(
 func (s *Service) getRecommendedVersion(
 	ctx context.Context,
 ) (semversion.Number, error) {
+	// TODO(adisazhar123): Discussed with @tlm that it can be commented out.
+	// Right now we get the model to upgrade to the version the controller
+	// agent is running.
+
 	//versions, err := s.controllerSt.
 	//	GetControllerAgentVersions(ctx)
 	//if err != nil {
