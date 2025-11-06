@@ -91,6 +91,10 @@ type CrossModelRelationService interface {
 	// relation UUID. This method works for both offerer and consumer side
 	// relations.
 	GetRelationRemoteModelUUID(ctx context.Context, relationUUID corerelation.UUID) (model.UUID, error)
+
+	// IsApplicationSynthetic returns whether the given application is synthetic
+	// in a cross model relation.
+	IsApplicationSynthetic(ctx context.Context, appName string) (bool, error)
 }
 
 // ModelConfigService is used by the provisioner facade to get model config.

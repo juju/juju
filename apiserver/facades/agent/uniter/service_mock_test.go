@@ -3769,3 +3769,42 @@ func (c *MockCrossModelRelationServiceGetRelationRemoteModelUUIDCall) DoAndRetur
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// IsApplicationSynthetic mocks base method.
+func (m *MockCrossModelRelationService) IsApplicationSynthetic(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsApplicationSynthetic", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsApplicationSynthetic indicates an expected call of IsApplicationSynthetic.
+func (mr *MockCrossModelRelationServiceMockRecorder) IsApplicationSynthetic(arg0, arg1 any) *MockCrossModelRelationServiceIsApplicationSyntheticCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationSynthetic", reflect.TypeOf((*MockCrossModelRelationService)(nil).IsApplicationSynthetic), arg0, arg1)
+	return &MockCrossModelRelationServiceIsApplicationSyntheticCall{Call: call}
+}
+
+// MockCrossModelRelationServiceIsApplicationSyntheticCall wrap *gomock.Call
+type MockCrossModelRelationServiceIsApplicationSyntheticCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceIsApplicationSyntheticCall) Return(arg0 bool, arg1 error) *MockCrossModelRelationServiceIsApplicationSyntheticCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceIsApplicationSyntheticCall) Do(f func(context.Context, string) (bool, error)) *MockCrossModelRelationServiceIsApplicationSyntheticCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceIsApplicationSyntheticCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockCrossModelRelationServiceIsApplicationSyntheticCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

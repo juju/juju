@@ -2579,6 +2579,13 @@ func (u *UniterAPI) goalStateRelations(
 			if err == nil {
 				appName = e.ApplicationName
 			} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				if ok, err := u.crossModelRelationService.IsApplicationSynthetic(ctx, appName); err != nil {
+					return nil, err
+				} else if ok {
+					u.logger.Debugf(ctx, "application %q is synthetic, skipping goal state.", appName)
+					continue
+				}
+
 				u.logger.Debugf(ctx, "application %q must be a remote application.", e.ApplicationName)
 				// TODO(jack-w-shaw): Once CMRs have been implemented in DQLite,
 				// set the appName to the remote application URL.
@@ -2627,7 +2634,6 @@ func (u *UniterAPI) goalStateRelations(
 // goalStateUnits loops through all application units related to principalName,
 // and stores the goal state status in UnitsGoalState.
 func (u *UniterAPI) goalStateUnits(ctx context.Context, appName string, appID application.UUID, principalName coreunit.Name) (params.UnitsGoalState, error) {
-
 	allUnitNames, err := u.applicationService.GetUnitNamesForApplication(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %q", appName)
@@ -2668,7 +2674,7 @@ func (u *UniterAPI) goalStateUnits(ctx context.Context, appName string, appID ap
 		unitGoalState := params.GoalStateStatus{}
 		statusInfo, ok := unitWorkloadStatuses[unitName]
 		if !ok {
-			return nil, errors.Errorf("status for unit %q not found", unitName)
+			continue
 		}
 		unitGoalState.Status = statusInfo.Status.String()
 		if unitLife == life.Dying {
