@@ -313,3 +313,29 @@ func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *tc.C) {
 	_, err := facade.RemoveSecretBackends(c.Context(), params.RemoveSecretBackendArgs{})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
+
+func (s *SecretsSuite) TestRemoveSecretBackendsInUse(c *tc.C) {
+	facade, ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
+
+	gomock.InOrder(
+		s.mockBackendService.EXPECT().DeleteSecretBackend(gomock.Any(),
+			secretbackendservice.DeleteSecretBackendParams{
+				BackendIdentifier: secretbackend.BackendIdentifier{Name: "myvault"},
+			}).Return(secretbackenderrors.Forbidden),
+	)
+
+	results, err := facade.RemoveSecretBackends(c.Context(), params.RemoveSecretBackendArgs{
+		Args: []params.RemoveSecretBackendArg{{
+			Name: "myvault",
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{
+			Code:    "not supported",
+			Message: `deleting in use secret backend not supported`}},
+	})
+}
