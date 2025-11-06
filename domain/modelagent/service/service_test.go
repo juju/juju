@@ -21,7 +21,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
-	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -756,7 +755,7 @@ func (s *serviceSuite) TestSetAgentStream(c *tc.C) {
 // support upgrade tests by contriving a version that needs to be upgraded
 // relative to the current version of Juju.
 func (s *modelUpgradeSuite) getVersionMinorLess() semversion.Number {
-	rval := semversion.MustParse("4.0.1")
+	rval := jujuversion.Current
 	// We don't want to drag the Minor version into negative numbers
 	if rval.Minor > 0 {
 		rval.Minor--
@@ -788,30 +787,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionControllerModel(c 
 	c.Check(err, tc.ErrorIs, modelagenterrors.CannotUpgradeControllerModel)
 }
 
-// TestUpgradeModelTargetAgentVersionMachineBaseValidation tests that if a
-// caller asks for the current model's target agent version to be
-// upgraded, but there are machines in the model that are not running a
-// supported base. The upgrade must fail with an error satisfying
-// [modelagenterrors.ModelUpgradeBlocker].
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionMachineBaseValidation(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil).AnyTimes()
-	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
-	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
-	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(1, nil)
-
-	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	_, err := svc.UpgradeModelTargetAgentVersion(c.Context())
-	_, isBlockedErr := errors.AsType[modelagenterrors.ModelUpgradeBlocker](err)
-	c.Check(isBlockedErr, tc.IsTrue)
-}
-
 // TestUpgradeModelTargetAgentVersion is a happy path test of
 // [Service.UpgradeMoelTargetAgentVersion]. In this test we want to see that the
 // model is upgraded to that highest available version available.
@@ -819,11 +794,11 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
-	version1 := semversion.MustParse("4.0.1")
-	version2 := semversion.MustParse("4.0.2")
-	version3 := semversion.MustParse("4.0.3")
-	version4 := semversion.MustParse("4.0.4")
-	desiredVersion := semversion.MustParse("4.0.5")
+	version1 := semversion.MustParse("4.0-beta1")
+	version2 := semversion.MustParse("4.0-beta2")
+	version3 := semversion.MustParse("4.0-beta3")
+	version4 := semversion.MustParse("4.0-beta4")
+	desiredVersion := jujuversion.Current
 	// Our service has logic to narrow down to pick the highest version
 	// which is `desiredVersion`.
 	s.controllerState.EXPECT().GetControllerAgentVersions(
@@ -836,7 +811,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersion(c *tc.C) {
 		version1,
 	}, nil).AnyTimes()
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
-	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
 	s.modelState.EXPECT().SetModelTargetAgentVersion(
@@ -860,10 +834,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionWithStreamControll
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil).AnyTimes()
+
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
@@ -883,40 +854,10 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionWithStreamNotValid
 	defer s.setupMocks(c).Finish()
 
 	domainAgentStream := domainagentbinary.Stream(-1)
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
 	_, err := svc.UpgradeModelTargetAgentVersionWithStream(c.Context(), domainAgentStream)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
-}
-
-// TestUpgradeModelTargetAgentVersionWithStreamMachineBaseValidation tests that if a
-// caller asks for the current model's target agent version to be
-// upgraded, but there are machines in the model that are not running a
-// supported base. The upgrade must fail with an error satisfying
-// [modelagenterrors.ModelUpgradeBlocker].
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionWithStreamMachineBaseValidation(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil).AnyTimes()
-	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
-	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(gomock.Any()).Return(true, nil)
-	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(1, nil)
-
-	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	_, err := svc.UpgradeModelTargetAgentVersionWithStream(
-		c.Context(), domainagentbinary.AgentStreamDevel,
-	)
-	_, isBlockedErr := errors.AsType[modelagenterrors.ModelUpgradeBlocker](err)
-	c.Check(isBlockedErr, tc.IsTrue)
 }
 
 // TestUpgradeModelTargetAgentVersionWithStream is a happy path test of
@@ -926,12 +867,11 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionWithStream(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
+	desiredVersion := jujuversion.Current
 	s.controllerState.EXPECT().GetControllerAgentVersions(
 		gomock.Any(),
 	).Return([]semversion.Number{desiredVersion}, nil).AnyTimes()
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
-	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
 	s.modelState.EXPECT().SetModelTargetAgentVersionAndStream(
@@ -972,9 +912,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToOverMax(c *tc.C)
 	defer s.setupMocks(c).Finish()
 	version := semversion.MustParse("4.0.0")
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version, nil)
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{version}, nil)
+
 	// This is a version that is greater than the max supported version of the
 	// controller.
 	upgradeTo := version
@@ -992,10 +930,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToMissingAgentBina
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil)
+	desiredVersion := jujuversion.Current
+
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(false, nil)
 
@@ -1011,10 +947,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToControllerModel(
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil)
+	desiredVersion := jujuversion.Current
+
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
@@ -1024,44 +958,16 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToControllerModel(
 	c.Check(err, tc.ErrorIs, modelagenterrors.CannotUpgradeControllerModel)
 }
 
-// TestUpgradeModelTargetAgentVersionToMachineBaseValidation is a test that
-// asserts a model cannot be upgraded to a new version when there exists
-// machines in the model that are running unsupported bases. This test expects
-// that the caller gets back an error satisfying
-// [modelagenterrors.ModelUpgradeBlocker].
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionToMachineBaseValidation(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil)
-	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
-	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
-	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(1, nil)
-
-	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	err := svc.UpgradeModelAgentToTargetVersion(c.Context(), desiredVersion)
-	_, isBlockedErr := errors.AsType[modelagenterrors.ModelUpgradeBlocker](err)
-	c.Check(isBlockedErr, tc.IsTrue)
-}
-
 // TestUpgradeModelAgentToTargetVersion is a happy path test for upgrading a
 // model to a specific target agent version.
 func (s *modelUpgradeSuite) TestUpgradeModelAgentToTargetVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil)
+	desiredVersion := jujuversion.Current
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 	s.modelState.EXPECT().SetModelTargetAgentVersion(
 		gomock.Any(),
 		currentTargetVersion,
@@ -1079,15 +985,11 @@ func (s *modelUpgradeSuite) TestUpgradeModelAgentToTargetVersion(c *tc.C) {
 func (s *modelUpgradeSuite) TestUpgradeModelAgentToTargetVersionSameVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	currentTargetVersion := semversion.MustParse("4.0.1")
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil)
+	currentTargetVersion := jujuversion.Current
+	desiredVersion := jujuversion.Current
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
 	err := svc.UpgradeModelAgentToTargetVersion(c.Context(), desiredVersion)
@@ -1120,9 +1022,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelAgentToTargetVersionOverMax(c *tc.C)
 	defer s.setupMocks(c).Finish()
 
 	version := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{version}, nil)
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version, nil)
 
 	// This is a version that is greater than the max supported version of the
@@ -1144,10 +1043,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToMissingAge
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil)
+	desiredVersion := jujuversion.Current
+
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(false, nil)
 
@@ -1165,10 +1062,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToController
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil)
+	desiredVersion := jujuversion.Current
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
@@ -1197,46 +1091,16 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToInvalidStr
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestUpgradeModelTargetAgentVersionToMachineBaseValidation is a test that
-// asserts a model cannot be upgraded to a new version when there exists
-// machines in the model that are running unsupported bases. This test expects
-// that the caller gets back an error satisfying
-// [modelagenterrors.ModelUpgradeBlocker].
-func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamToMachineBaseValidation(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil)
-	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
-	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
-	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(1, nil)
-
-	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	err := svc.UpgradeModelTargetAgentVersionStreamTo(
-		c.Context(), desiredVersion, domainagentbinary.AgentStreamReleased,
-	)
-	_, isBlockedErr := errors.AsType[modelagenterrors.ModelUpgradeBlocker](err)
-	c.Check(isBlockedErr, tc.IsTrue)
-}
-
 // TestUpgradeModelTargetAgentVersionTo is a happy path test for upgrading a
 // model to a specific target agent version.
 func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamTo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	currentTargetVersion := s.getVersionMinorLess()
-	desiredVersion := semversion.MustParse("4.0.1")
-	s.controllerState.EXPECT().GetControllerAgentVersions(
-		gomock.Any(),
-	).Return([]semversion.Number{desiredVersion}, nil)
+	desiredVersion := jujuversion.Current
 	s.modelState.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(currentTargetVersion, nil)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
-	s.modelState.EXPECT().GetMachineCountNotUsingBase(gomock.Any(), gomock.Any()).Return(0, nil)
 	s.modelState.EXPECT().SetModelTargetAgentVersionAndStream(
 		gomock.Any(),
 		currentTargetVersion,

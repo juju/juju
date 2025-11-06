@@ -539,44 +539,6 @@ func (c *MockSimpleStreamsAgentFinderAgentBinaryFilterCall) DoAndReturn(f func(c
 	return c
 }
 
-// GetPreferredSimpleStreams mocks base method.
-func (m *MockSimpleStreamsAgentFinder) GetPreferredSimpleStreams(arg0 *semversion.Number, arg1 bool, arg2 string) []string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPreferredSimpleStreams", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]string)
-	return ret0
-}
-
-// GetPreferredSimpleStreams indicates an expected call of GetPreferredSimpleStreams.
-func (mr *MockSimpleStreamsAgentFinderMockRecorder) GetPreferredSimpleStreams(arg0, arg1, arg2 any) *MockSimpleStreamsAgentFinderGetPreferredSimpleStreamsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPreferredSimpleStreams", reflect.TypeOf((*MockSimpleStreamsAgentFinder)(nil).GetPreferredSimpleStreams), arg0, arg1, arg2)
-	return &MockSimpleStreamsAgentFinderGetPreferredSimpleStreamsCall{Call: call}
-}
-
-// MockSimpleStreamsAgentFinderGetPreferredSimpleStreamsCall wrap *gomock.Call
-type MockSimpleStreamsAgentFinderGetPreferredSimpleStreamsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSimpleStreamsAgentFinderGetPreferredSimpleStreamsCall) Return(arg0 []string) *MockSimpleStreamsAgentFinderGetPreferredSimpleStreamsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSimpleStreamsAgentFinderGetPreferredSimpleStreamsCall) Do(f func(*semversion.Number, bool, string) []string) *MockSimpleStreamsAgentFinderGetPreferredSimpleStreamsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSimpleStreamsAgentFinderGetPreferredSimpleStreamsCall) DoAndReturn(f func(*semversion.Number, bool, string) []string) *MockSimpleStreamsAgentFinderGetPreferredSimpleStreamsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetProvider mocks base method.
 func (m *MockSimpleStreamsAgentFinder) GetProvider(arg0 context.Context) (environs.BootstrapEnviron, error) {
 	m.ctrl.T.Helper()
