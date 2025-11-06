@@ -194,6 +194,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelation(c *tc.C) {
 
 	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "wordpress").Return(otherAppID, nil)
+	s.crossModelRelationService.EXPECT().IsRemoteApplicationConsumer(gomock.Any(), otherAppID).Return(false, nil)
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "mysql").Return(otherAppID, nil)
 	s.statusService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appID).
 		Return(map[coreunit.Name]corestatus.StatusInfo{
