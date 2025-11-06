@@ -147,6 +147,10 @@ type ModelRemoteApplicationState interface {
 	// 'cmr'.
 	IsApplicationSynthetic(ctx context.Context, appName string) (bool, error)
 
+	// IsRemoteApplicationConsumer checks if the remote application is a
+	// consumer in this model i.e. they're a proxy consumer for an application.
+	IsRemoteApplicationConsumer(ctx context.Context, appUUID string) (bool, error)
+
 	// GetRelationRemoteModelUUID returns the remote model UUID for the given
 	// relation UUID. This method works for both offerer and consumer side
 	// relations.
@@ -583,6 +587,19 @@ func (s *Service) IsApplicationSynthetic(ctx context.Context, appName string) (b
 	defer span.End()
 
 	return s.modelState.IsApplicationSynthetic(ctx, appName)
+}
+
+// IsRemoteApplicationConsumer checks if the remote application is a
+// consumer in this model i.e. they're a proxy consumer for an application.
+func (s *Service) IsRemoteApplicationConsumer(ctx context.Context, appUUID coreapplication.UUID) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appUUID.Validate(); err != nil {
+		return false, applicationerrors.ApplicationUUIDNotValid
+	}
+
+	return s.modelState.IsRemoteApplicationConsumer(ctx, appUUID.String())
 }
 
 // GetOffererModelUUID returns the offering model UUID, based on a given

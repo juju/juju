@@ -1335,7 +1335,7 @@ func (s *applicationStateSuite) TestGetApplicationUUIDByUnitName(c *tc.C) {
 
 func (s *applicationStateSuite) TestGetApplicationUUIDByUnitNameUnitUnitNotFound(c *tc.C) {
 	_, err := s.state.GetApplicationUUIDByUnitName(c.Context(), "failme")
-	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationUUIDAndNameByUnitName(c *tc.C) {
@@ -2293,7 +2293,7 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = s.state.GetApplicationConfigAndSettings(c.Context(), id)
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsNotFound(c *tc.C) {

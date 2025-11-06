@@ -975,7 +975,7 @@ func (s *uniterSuite) TestConfigSettings(c *tc.C) {
 	}
 	s.expectedGetConfigSettings("mysql/0", settings, nil)
 	s.expectedGetConfigSettings("wordpress/0", nil, nil)
-	s.expectedGetConfigSettings("postgresql/0", nil, applicationerrors.UnitNotFound)
+	s.expectedGetConfigSettings("postgresql/0", nil, applicationerrors.ApplicationNotFound)
 	s.badTag = names.NewUnitTag("foo/42")
 
 	// Act:

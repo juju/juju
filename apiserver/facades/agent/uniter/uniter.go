@@ -779,7 +779,7 @@ func (u *UniterAPI) charmModifiedVersion(
 			return -1, err
 		}
 		id, err = u.applicationService.GetApplicationUUIDByUnitName(ctx, name)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			// Return an error that also matches a generic not found error.
 			return -1, internalerrors.Join(err, errors.Hide(errors.NotFound))
 		} else if err != nil {
@@ -1079,7 +1079,7 @@ func (u *UniterAPI) ConfigSettings(ctx context.Context, args params.Entities) (p
 		}
 
 		appID, err := u.applicationService.GetApplicationUUIDByUnitName(ctx, unitName)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		} else if err != nil {
@@ -2574,21 +2574,24 @@ func (u *UniterAPI) goalStateRelations(
 
 		// Now gather the goal state.
 		for _, e := range endPoints {
-			var appName string
-			appID, err := u.applicationService.GetApplicationUUIDByName(ctx, e.ApplicationName)
-			if err == nil {
-				appName = e.ApplicationName
-			} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
-				u.logger.Debugf(ctx, "application %q must be a remote application.", e.ApplicationName)
-				// TODO(jack-w-shaw): Once CMRs have been implemented in DQLite,
-				// set the appName to the remote application URL.
-				continue
-			} else {
-				return nil, err
+			appUUID, err := u.applicationService.GetApplicationUUIDByName(ctx, e.ApplicationName)
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				return nil, errors.NotFoundf("application %q", e.ApplicationName)
+			} else if err != nil {
+				return nil, internalerrors.Capture(err)
 			}
 
-			// We don't show units for the same application as we are currently processing.
-			if appName == baseAppName {
+			// We don't show units for the same application as we are currently
+			// processing.
+			if e.ApplicationName == baseAppName {
+				continue
+			}
+
+			// If we are on the offering side of a remote relation, don't show
+			// anything in goal state for that relation.
+			if ok, err := u.crossModelRelationService.IsRemoteApplicationConsumer(ctx, appUUID); err != nil {
+				return nil, internalerrors.Capture(err)
+			} else if ok {
 				continue
 			}
 
@@ -2599,9 +2602,9 @@ func (u *UniterAPI) goalStateRelations(
 			if relationGoalState == nil {
 				relationGoalState = params.UnitsGoalState{}
 			}
-			relationGoalState[appName] = goalState
+			relationGoalState[e.ApplicationName] = goalState
 
-			units, err := u.goalStateUnits(ctx, appName, appID, principalName)
+			units, err := u.goalStateUnits(ctx, e.ApplicationName, appUUID, principalName)
 			if err != nil {
 				return nil, err
 			}
@@ -2627,12 +2630,16 @@ func (u *UniterAPI) goalStateRelations(
 // goalStateUnits loops through all application units related to principalName,
 // and stores the goal state status in UnitsGoalState.
 func (u *UniterAPI) goalStateUnits(ctx context.Context, appName string, appID application.UUID, principalName coreunit.Name) (params.UnitsGoalState, error) {
-
 	allUnitNames, err := u.applicationService.GetUnitNamesForApplication(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %q", appName)
 	} else if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// We have no units for this application, so return empty goal state.
+	if len(allUnitNames) == 0 {
+		return params.UnitsGoalState{}, nil
 	}
 
 	unitWorkloadStatuses, err := u.statusService.GetUnitWorkloadStatusesForApplication(ctx, appID)

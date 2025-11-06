@@ -1682,6 +1682,45 @@ func (c *MockModelStateIsRelationWithEndpointIdentifiersSuspendedCall) DoAndRetu
 	return c
 }
 
+// IsRemoteApplicationConsumer mocks base method.
+func (m *MockModelState) IsRemoteApplicationConsumer(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsRemoteApplicationConsumer", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsRemoteApplicationConsumer indicates an expected call of IsRemoteApplicationConsumer.
+func (mr *MockModelStateMockRecorder) IsRemoteApplicationConsumer(arg0, arg1 any) *MockModelStateIsRemoteApplicationConsumerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRemoteApplicationConsumer", reflect.TypeOf((*MockModelState)(nil).IsRemoteApplicationConsumer), arg0, arg1)
+	return &MockModelStateIsRemoteApplicationConsumerCall{Call: call}
+}
+
+// MockModelStateIsRemoteApplicationConsumerCall wrap *gomock.Call
+type MockModelStateIsRemoteApplicationConsumerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateIsRemoteApplicationConsumerCall) Return(arg0 bool, arg1 error) *MockModelStateIsRemoteApplicationConsumerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateIsRemoteApplicationConsumerCall) Do(f func(context.Context, string) (bool, error)) *MockModelStateIsRemoteApplicationConsumerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateIsRemoteApplicationConsumerCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelStateIsRemoteApplicationConsumerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceForRelationIngressNetworksWatcher mocks base method.
 func (m *MockModelState) NamespaceForRelationIngressNetworksWatcher() string {
 	m.ctrl.T.Helper()

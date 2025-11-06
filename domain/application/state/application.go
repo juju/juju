@@ -1721,9 +1721,6 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 }
 
 // GetApplicationUUIDByUnitName returns the application UUID for the named unit.
-//
-// Returns an error satisfying [applicationerrors.UnitNotFound] if the unit
-// doesn't exist.
 func (st *State) GetApplicationUUIDByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
@@ -1748,7 +1745,7 @@ WHERE name = $unitName.name;
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, unit).Get(&app)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.UnitNotFound
+			return applicationerrors.ApplicationNotFound
 		}
 		return err
 	})

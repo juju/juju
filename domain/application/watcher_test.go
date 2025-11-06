@@ -1018,7 +1018,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchUnitAddressesHash(c.Context(), "bad-unit-name")
-	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {

@@ -1756,6 +1756,37 @@ AND    cs.name = 'cmr'`, countResult{}, name{})
 	return result.Count > 0, nil
 }
 
+// IsRemoteApplicationConsumer checks if the given application UUID exists in
+// the model and is a remote application consumer.
+func (st *State) IsRemoteApplicationConsumer(ctx context.Context, appUUID string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM   application_remote_consumer AS a
+WHERE  a.offer_connection_uuid = $uuid.uuid
+`, countResult{}, uuid{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result countResult
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, uuid{UUID: appUUID}).Get(&result)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return result.Count > 0, nil
+}
+
 // GetRelationRemoteModelUUID returns the remote model UUID for the given
 // relation UUID. This method works for both offerer and consumer side
 // relations by checking which application in the relation is synthetic

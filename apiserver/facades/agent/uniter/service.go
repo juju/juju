@@ -91,6 +91,10 @@ type CrossModelRelationService interface {
 	// relation UUID. This method works for both offerer and consumer side
 	// relations.
 	GetRelationRemoteModelUUID(ctx context.Context, relationUUID corerelation.UUID) (model.UUID, error)
+
+	// IsRemoteApplicationConsumer checks if the remote application is a
+	// consumer in this model i.e. they're a proxy consumer for an application.
+	IsRemoteApplicationConsumer(ctx context.Context, appUUID coreapplication.UUID) (bool, error)
 }
 
 // ModelConfigService is used by the provisioner facade to get model config.
@@ -134,15 +138,9 @@ type ApplicationService interface {
 	GetUnitPrincipal(context.Context, coreunit.Name) (coreunit.Name, bool, error)
 
 	// GetUnitMachineName gets the name of the unit's machine.
-	//
-	// The following errors may be returned:
-	//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
-	//     machine assigned.
 	GetUnitMachineName(context.Context, coreunit.Name) (coremachine.Name, error)
 
-	// GetUnitMachineUUID gets the uuid of the unit's machine. If the unit's
-	// machine cannot be found [applicationerrors.UnitMachineNotAssigned] is
-	// returned.
+	// GetUnitMachineUUID gets the uuid of the unit's machine.
 	GetUnitMachineUUID(context.Context, coreunit.Name) (coremachine.UUID, error)
 
 	// GetUnitNamesForApplication returns a slice of the unit names for the given application
@@ -154,20 +152,12 @@ type ApplicationService interface {
 	// WatchUnitForLegacyUniter watches for some specific changes to the unit with
 	// the given name. The watcher will emit a notification when there is a change to
 	// the unit's inherent properties, it's subordinates or it's resolved mode.
-	//
-	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
-	// will be returned.
 	WatchUnitForLegacyUniter(context.Context, coreunit.Name) (watcher.NotifyWatcher, error)
 
 	// GetApplicationUUIDByUnitName returns the application UUID for the named unit.
-	//
-	// Returns [applicationerrors.UnitNotFound] if the unit is not found.
 	GetApplicationUUIDByUnitName(context.Context, coreunit.Name) (coreapplication.UUID, error)
 
 	// GetApplicationUUIDByName returns an application UUID by application name.
-	//
-	// Returns [applicationerrors.ApplicationNotFound] if the application is not
-	// found.
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
