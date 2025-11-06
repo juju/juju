@@ -105,10 +105,10 @@ func (_ *typesSuite) TestAgentBinaryHighestVersion(c *tc.C) {
 	c.Check(ver, mc, AgentBinary{Version: version3})
 }
 
-// TestAgentBinaryNotMatchinVersion tests the [AgentBinaryNotMatchingVersion]
+// TestAgentBinaryNotMatchingVersion tests the [AgentBinaryNotMatchingVersion]
 // with [slices.Delete] to confirm that it removes all [AgentBinaries] that do
 // match a target version.
-func (*typesSuite) TestAgentBinaryNotMatchinVersion(c *tc.C) {
+func (*typesSuite) TestAgentBinaryNotMatchingVersion(c *tc.C) {
 	versionToMatch, err := semversion.Parse("4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 

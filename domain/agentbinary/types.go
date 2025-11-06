@@ -103,7 +103,7 @@ func AgentBinaryHighestVersion(a, b AgentBinary) int {
 }
 
 // ArchitectureNotIn returns a the slice of [Architecture]s from a that do not
-// exist in b. Nilnes of a is guaranteed to be preserved.
+// exist in b. Nilness of a is guaranteed to be preserved.
 func ArchitectureNotIn(a, b []Architecture) []Architecture {
 	var retVal []Architecture
 	for _, archA := range a {
@@ -116,7 +116,7 @@ func ArchitectureNotIn(a, b []Architecture) []Architecture {
 }
 
 // ArchitectureFromString takes a string representation of an architecture and
-// returns the equivalent [Architecture] value. If the string  is not recognised
+// returns the equivalent [Architecture] value. If the string is not recognised
 // a zero value [Architecture] and false is returned.
 func ArchitectureFromString(a string) (Architecture, bool) {
 	switch a {

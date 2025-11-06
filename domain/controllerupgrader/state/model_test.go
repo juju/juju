@@ -387,7 +387,7 @@ func (s *controllerModelStateSuite) TestGetModelAgentStreamDoesntExist(c *tc.C) 
 
 // TestGetAllAgentStoreBinariesForStreamEmpty tests that then the model's object
 // store has no binaries available
-// [ControllerModelState.GetAllAgentStorebinariesForStream] returns an empty
+// [ControllerModelState.GetAllAgentStoreBinariesForStream] returns an empty
 // list.
 func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForStreamEmpty(c *tc.C) {
 	s.seedModel(c)
@@ -404,7 +404,7 @@ func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForStreamEmpty(c
 }
 
 // TestGetAllAgentStoreBinariesForNotCurrentStream tests that if we ask for the
-// agennt binaries of a stream that differs from that of the model an empty
+// agent binaries of a stream that differs from that of the model an empty
 // slice of results is returned.
 func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForNotCurrentStream(c *tc.C) {
 	s.seedModel(c)
