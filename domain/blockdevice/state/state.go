@@ -208,7 +208,7 @@ WHERE  machine_uuid = $entityUUID.uuid
 		retVal[uuid] = r
 	}
 
-	return retVal, errors.Capture(err)
+	return retVal, nil
 }
 
 func (st *State) checkMachineNotDead(
