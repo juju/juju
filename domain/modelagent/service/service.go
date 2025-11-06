@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"github.com/juju/juju/core/agentbinary"
 	corebase "github.com/juju/juju/core/base"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
@@ -982,22 +982,23 @@ func (s *Service) validateModelCanBeUpgradedTo(
 func (s *Service) getRecommendedVersion(
 	ctx context.Context,
 ) (semversion.Number, error) {
-	versions, err := s.controllerSt.
-		GetControllerAgentVersions(ctx)
-	if err != nil {
-		return semversion.Zero, errors.Capture(err)
-	}
-
-	if len(versions) == 0 {
-		return semversion.Zero, errors.New("no recommended versions found")
-	}
-
-	// Sort it descendingly so the highest version is the first element.
-	slices.SortFunc(versions, func(a, b semversion.Number) int {
-		return a.Compare(b) * -1
-	})
-
-	return versions[0], nil
+	//versions, err := s.controllerSt.
+	//	GetControllerAgentVersions(ctx)
+	//if err != nil {
+	//	return semversion.Zero, errors.Capture(err)
+	//}
+	//
+	//if len(versions) == 0 {
+	//	return semversion.Zero, errors.New("no recommended versions found")
+	//}
+	//
+	//// Sort it descendingly so the highest version is the first element.
+	//slices.SortFunc(versions, func(a, b semversion.Number) int {
+	//	return a.Compare(b) * -1
+	//})
+	//
+	//return versions[0], nil
+	return jujuversion.Current, nil
 }
 
 // RunPreUpgradeChecks performs a series of pre-upgrade validation checks

@@ -148,7 +148,7 @@ func (c *upgradeControllerCommand) getModelConfigAPI(ctx context.Context) (Model
 	if c.modelConfigAPI != nil {
 		return c.modelConfigAPI, nil
 	}
-	api, err := c.NewAPIRoot(ctx)
+	api, err := c.NewModelAPIRoot(ctx, "controller")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

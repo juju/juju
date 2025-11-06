@@ -21,7 +21,6 @@ var controllerFacadeNames = set.NewStrings(
 	"CrossController",
 	"MigrationTarget",
 	"ModelManager",
-	"ModelUpgrader",
 	"ModelSummaryWatcher",
 	"SecretBackends",
 	"UserManager",
