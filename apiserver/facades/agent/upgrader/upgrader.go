@@ -187,10 +187,16 @@ func (u *UpgraderAPI) DesiredVersion(ctx context.Context, args params.Entities) 
 		// first - once they have restarted and are running the
 		// new version other agents will start to see the new
 		// agent version.
-		isController, err := u.isControllerMachine(tag)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
+		var isController bool
+		if tag.Kind() == names.ControllerTagKind {
+			isController = true
+		} else {
+			var err error
+			isController, err = u.isControllerMachine(tag)
+			if err != nil {
+				results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
 		}
 
 		if !isNewerVersion || isController {
