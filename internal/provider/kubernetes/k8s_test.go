@@ -1045,6 +1045,7 @@ func (s *K8sBrokerSuite) TestUnits(c *tc.C) {
 
 	pvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
+			Name:   "pvc-name",
 			UID:    "pvc-uuid",
 			Labels: map[string]string{"juju-storage": "database"},
 		},
@@ -1101,7 +1102,7 @@ func (s *K8sBrokerSuite) TestUnits(c *tc.C) {
 		},
 		FilesystemInfo: []caas.FilesystemInfo{{
 			StorageName:               "database",
-			PersistentVolumeClaimName: "pvc-uuid",
+			PersistentVolumeClaimName: "pvc-name",
 			Size:                      uint64(podWithStorage.Spec.Volumes[0].PersistentVolumeClaim.Size()),
 			MountPoint:                "/path/to/here",
 			ReadOnly:                  true,
