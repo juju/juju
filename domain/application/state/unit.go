@@ -1955,7 +1955,10 @@ func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplic
 	}
 
 	appUUID := entityUUID{UUID: uuid.String()}
-	query := ` SELECT &unitName.* FROM unit WHERE application_uuid = $entityUUID.uuid`
+	query := `
+SELECT &unitName.*
+FROM unit
+WHERE application_uuid = $entityUUID.uuid`
 	stmt, err := st.Prepare(query, unitName{}, appUUID)
 	if err != nil {
 		return nil, errors.Capture(err)

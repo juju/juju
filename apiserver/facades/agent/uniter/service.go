@@ -91,6 +91,10 @@ type CrossModelRelationService interface {
 	// relation UUID. This method works for both offerer and consumer side
 	// relations.
 	GetRelationRemoteModelUUID(ctx context.Context, relationUUID corerelation.UUID) (model.UUID, error)
+
+	// IsRemoteApplicationConsumer checks if the remote application is a
+	// consumer in this model i.e. they're a proxy consumer for an application.
+	IsRemoteApplicationConsumer(ctx context.Context, appUUID coreapplication.UUID) (bool, error)
 }
 
 // ModelConfigService is used by the provisioner facade to get model config.
