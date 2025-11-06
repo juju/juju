@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/schema"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
@@ -286,7 +287,7 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 		// cause the upgrade to be marked as failed, and the next time the agent
 		// restarts, it will try again.
 		w.logger.Errorf(ctx, "failed to set controller ready: %v", err)
-		return w.abort(ctx, upgradeUUID)
+		return w.abort(ctx, upgradeUUID, internalerrors.Errorf("failed to set controller ready: %w", err))
 	}
 	w.logger.Infof(ctx, "marking the controller ready for upgrade")
 
@@ -368,7 +369,7 @@ func (w *upgradeDBWorker) runUpgrade(ctx context.Context, upgradeUUID domainupgr
 			return w.catacomb.ErrDying()
 
 		case <-w.clock.After(defaultUpgradeTimeout):
-			return w.abort(ctx, upgradeUUID)
+			return w.abort(ctx, upgradeUUID, errors.New("upgrade timed out"))
 
 		case <-watcher.Changes():
 			w.logger.Infof(ctx, "database upgrade starting")
@@ -389,13 +390,13 @@ func (w *upgradeDBWorker) runUpgrade(ctx context.Context, upgradeUUID domainupgr
 
 			w.logger.Errorf(ctx, "database upgrade failed, check logs for details")
 
-			return w.abort(ctx, upgradeUUID)
+			return w.abort(ctx, upgradeUUID, err)
 		}
 	}
 }
 
-func (w *upgradeDBWorker) abort(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
-	return w.abortWithError(ctx, upgradeUUID, dependency.ErrBounce)
+func (w *upgradeDBWorker) abort(ctx context.Context, upgradeUUID domainupgrade.UUID, err error) error {
+	return w.abortWithError(ctx, upgradeUUID, internalerrors.Errorf("aborting upgrade: %w", err).Add(dependency.ErrBounce))
 }
 
 // abort marks the upgrade as failed and returns dependency.ErrBounce.
