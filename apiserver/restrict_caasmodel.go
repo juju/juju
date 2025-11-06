@@ -43,6 +43,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"MigrationStatusWatcher",
 	"MigrationTarget",
 	"ModelConfig",
+	"ModelUpgrader",
 	"NotifyWatcher",
 	"OfferStatusWatcher",
 	"Payloads",

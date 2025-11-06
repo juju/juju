@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/juju/errors"
@@ -82,7 +83,7 @@ func (s *getToolsSuite) TestTools(c *tc.C) {
 	current := coretesting.CurrentVersion()
 	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number: current.Number,
-		OSType: os.Ubuntu.String(),
+		OSType: strings.ToLower(os.Ubuntu.String()),
 		Arch:   current.Arch,
 	}).Return(coretools.List{{
 		Version: current,

@@ -192,43 +192,48 @@ func (s *controllerStateSuite) TestSetControllerVersionMultipleSetSafe(c *tc.C) 
 	c.Check(ver, tc.Equals, upgradeVersion)
 }
 
-// TestHasAgentBinaryForVersionArchitecturesAndStream tests determining whether an agent for
-// a given version and architectures work without errors.
-func (s *controllerStateSuite) TestHasAgentBinaryForVersionArchitecturesAndStream(c *tc.C) {
-	version, err := semversion.Parse("4.0.0")
-	c.Assert(err, tc.ErrorIsNil)
-	storeUUID := s.addObjectStore(c)
-	s.addAgentBinaryStore(c, version, domainagentbinary.AMD64, storeUUID)
-	s.addAgentBinaryStore(c, version, domainagentbinary.ARM64, storeUUID)
-
+// TestGetAllAgentStoreBinariesForStreamEmpty tests that when no agent binaries
+// exist for a given stream an empty slice is returned with no error.
+func (s *controllerStateSuite) TestGetAllAgentStoreBinariesForStreamEmpty(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
-
-	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.ARM64}, domainagentbinary.AgentStreamReleased)
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(agents, tc.DeepEquals, map[domainagentbinary.Architecture]bool{
-		domainagentbinary.AMD64: true,
-		domainagentbinary.ARM64: true,
-	})
+	vals, err := st.GetAllAgentStoreBinariesForStream(
+		c.Context(), domainagentbinary.AgentStreamReleased,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(vals, tc.HasLen, 0)
 }
 
-// TestHasAgentBinaryForVersionArchitecturesAndStream tests determining whether an agent for
-// a given version and architectures work with some architectures not existing.
-func (s *controllerStateSuite) TestHasAgentBinaryForVersionArchitecturesAndStreamNotSupported(c *tc.C) {
-	version, err := semversion.Parse("4.0.0")
+// TestGetAllAgentStoreBinariesForStream tests that when the controller storage
+// has agent binaries they are returned to the caller.
+//
+// NOTE (tlm): We currently don't have the agent stream against binaries in the
+// controller store. This needs to be done in a future patch. For the moment we
+// just return all binaries regardless of stream.
+func (s *controllerStateSuite) TestGetAllAgentStoreBinariesForStream(c *tc.C) {
+	version1, err := semversion.Parse("4.0.0")
 	c.Assert(err, tc.ErrorIsNil)
-	storeUUID := s.addObjectStore(c)
-	s.addAgentBinaryStore(c, version, domainagentbinary.AMD64, storeUUID)
-	s.addAgentBinaryStore(c, version, domainagentbinary.ARM64, storeUUID)
+	version2, err := semversion.Parse("4.1.0")
+	c.Assert(err, tc.ErrorIsNil)
+	storeUUID1 := s.addObjectStore(c)
+	s.addAgentBinaryStore(c, version1, domainagentbinary.AMD64, storeUUID1)
+	storeUUID2 := s.addObjectStore(c)
+	s.addAgentBinaryStore(c, version2, domainagentbinary.ARM64, storeUUID2)
 
 	st := NewControllerState(s.TxnRunnerFactory())
-
-	agents, err := st.HasAgentBinariesForVersionArchitecturesAndStream(c.Context(), version, []domainagentbinary.Architecture{domainagentbinary.AMD64, domainagentbinary.PPC64EL, domainagentbinary.RISCV64}, domainagentbinary.AgentStreamReleased)
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(agents, tc.DeepEquals, map[domainagentbinary.Architecture]bool{
-		domainagentbinary.AMD64:   true,
-		domainagentbinary.PPC64EL: false,
-		domainagentbinary.RISCV64: false,
+	agentBinaries, err := st.GetAllAgentStoreBinariesForStream(
+		c.Context(), domainagentbinary.AgentStreamReleased,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(agentBinaries, tc.SameContents, []domainagentbinary.AgentBinary{
+		{
+			Architecture: domainagentbinary.ARM64,
+			Stream:       domainagentbinary.AgentStreamReleased,
+			Version:      version2,
+		},
+		{
+			Architecture: domainagentbinary.AMD64,
+			Stream:       domainagentbinary.AgentStreamReleased,
+			Version:      version1,
+		},
 	})
 }

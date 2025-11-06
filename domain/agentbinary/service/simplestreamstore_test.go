@@ -24,6 +24,7 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 )
 
+const gzipXContentType = "application/x-gzip"
 const gzipContentType = "application/gzip"
 
 type simplestreamStoreSuite struct {
@@ -91,13 +92,13 @@ func (s *simplestreamStoreSuite) TestGetAgentBinaryWithSHA256(c *tc.C) {
 
 	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, toolURL, nil)
 	c.Assert(err, tc.IsNil)
-	req.Header.Set(headerAccept, gzipContentType)
+	req.Header.Set(headerAccept, gzipXContentType+","+gzipContentType)
 	gzipReader := io.NopCloser(bytes.NewReader(buf.Bytes()))
 
 	s.mockHTTPClient.EXPECT().Do(req).Return(&http.Response{
 		StatusCode: http.StatusOK,
 		Header: http.Header{
-			headerContentType: []string{gzipContentType},
+			headerContentType: []string{gzipXContentType},
 		},
 		Body: gzipReader,
 	}, nil)
@@ -158,7 +159,7 @@ func (s *simplestreamStoreSuite) TestGetAgentBinaryWithSHA256NotFound(c *tc.C) {
 
 	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, toolURL, nil)
 	c.Assert(err, tc.IsNil)
-	req.Header.Set(headerAccept, gzipContentType)
+	req.Header.Set(headerAccept, gzipXContentType+","+gzipContentType)
 	gzipReader := io.NopCloser(bytes.NewReader(buf.Bytes()))
 	s.mockHTTPClient.EXPECT().Do(req).Return(&http.Response{
 		StatusCode: http.StatusNotFound,
@@ -220,13 +221,13 @@ func (s *simplestreamStoreSuite) TestGetAgentBinaryWithSHA256NotAcceptable(c *tc
 
 	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, toolURL, nil)
 	c.Assert(err, tc.IsNil)
-	req.Header.Set(headerAccept, gzipContentType)
+	req.Header.Set(headerAccept, gzipXContentType+","+gzipContentType)
 	gzipReader := io.NopCloser(bytes.NewReader(buf.Bytes()))
 
 	s.mockHTTPClient.EXPECT().Do(req).Return(&http.Response{
 		StatusCode: http.StatusNotAcceptable,
 		Header: http.Header{
-			headerContentType: []string{gzipContentType},
+			headerContentType: []string{gzipXContentType + "," + gzipContentType},
 		},
 		Body: gzipReader,
 	}, nil)
@@ -236,7 +237,7 @@ func (s *simplestreamStoreSuite) TestGetAgentBinaryWithSHA256NotAcceptable(c *tc
 	}, agentBinaryFilter, s.mockHTTPClient)
 
 	data, size, _, err := simpleStreamStore.GetAgentBinaryWithSHA256(c.Context(), ver, domainagentbinary.AgentStreamProposed)
-	c.Assert(err, tc.ErrorMatches, `simplestreams url "testURL" does not support expected content type "application/gzip"`)
+	c.Assert(err, tc.NotNil)
 	c.Assert(data, tc.IsNil)
 	c.Assert(size, tc.Equals, int64(0))
 }

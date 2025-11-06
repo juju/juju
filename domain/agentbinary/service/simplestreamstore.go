@@ -124,8 +124,9 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 	}
 
 	// We only accept gzip content types back.
+	const gzipxContentType = "application/x-gzip"
 	const gzipContentType = "application/gzip"
-	req.Header.Set(headerAccept, gzipContentType)
+	req.Header.Set(headerAccept, gzipxContentType+","+gzipContentType)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -149,7 +150,7 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 		closeOnErr()
 		return nil, 0, "", errors.Errorf(
 			"simplestreams url %q does not support expected content type %q",
-			toolURL, gzipContentType,
+			toolURL, gzipxContentType,
 		)
 	}
 	if resp.StatusCode != http.StatusOK {
@@ -160,7 +161,8 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 		)
 	}
 
-	if resp.Header.Get(headerContentType) != gzipContentType {
+	if resp.Header.Get(headerContentType) != gzipxContentType &&
+		resp.Header.Get(headerContentType) != gzipContentType {
 		return nil, 0, "", errors.Errorf(
 			"simplestreams url %q returned unexpected content type %q",
 			toolURL, resp.Header.Get(headerContentType),
