@@ -33,9 +33,6 @@ type applicationWorker struct {
 
 	portsWatcher watcher.NotifyWatcher
 
-	initial           bool
-	previouslyExposed bool
-
 	currentPorts network.GroupedPortRanges
 
 	logger logger.Logger
@@ -53,7 +50,6 @@ func newApplicationWorker(
 		portService:        portService,
 		applicationService: applicationService,
 		broker:             broker,
-		initial:            true,
 		logger:             logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
