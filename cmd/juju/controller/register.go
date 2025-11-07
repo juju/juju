@@ -293,11 +293,10 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	var supportsOIDCLogin bool
 	var sessionToken string
 
-	// we set up a login provider that will first try to log in using
-	// oauth device flow, failing that it will try to log in using
-	// user-pass or macaroons.
-	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
-		loggo.GetLogger("juju.cmd.loginprovider"),
+	loginProviders := []api.LoginProvider{
+		api.NewClientCredentialsLoginProviderFromEnvironment(
+			func() { supportsOIDCLogin = true },
+		),
 		api.NewSessionTokenLoginProvider(
 			"",
 			ctx.Stderr,
@@ -307,6 +306,14 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 			},
 		),
 		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
+	}
+
+	// we set up a login provider that will first try to log in using
+	// oauth device flow, failing that it will try to log in using
+	// user-pass or macaroons.
+	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+		loggo.GetLogger("juju.cmd.loginprovider"),
+		loginProviders...,
 	)
 
 	conn, err := c.apiOpen(&api.Info{

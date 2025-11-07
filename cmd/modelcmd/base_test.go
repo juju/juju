@@ -5,9 +5,11 @@ package modelcmd_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -232,16 +234,109 @@ func (s *BaseCommandSuite) TestNewAPIRootExternalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// TestLoginWithOIDC verifies that when we have a controller supporting
-// OAuth/OIDC login (i.e. JAAS) that the login provider can return a new
-// session token which is then saved in the client's account store.
-// This specifically tests all commands *besides* `juju login`
-// since `juju login` uses a different code path.
-func (s *BaseCommandSuite) TestLoginWithOIDC(c *gc.C) {
+// TestNewAPIConnectionParams checks that the connection
+// parameters used to establish a connection are valid,
+// currently only the login provider is verified.
+func (s *BaseCommandSuite) TestNewAPIConnectionParams(c *gc.C) {
+	baseCmd := new(modelcmd.ModelCommandBase)
+	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
+	modelcmd.SetRunStarted(baseCmd)
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar", Password: "hunter2",
+	}
+	account := s.store.Accounts["foo"]
+	params, err := baseCmd.NewAPIConnectionParams(s.store, s.store.CurrentControllerName, "", &account)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(params.DialOpts.LoginProvider, gc.IsNil)
+}
+
+// TestNewAPIRoot_OIDCLogin_ClientCredentials verifies that when we have a controller supporting
+// OAuth/OIDC login (i.e. JAAS) that the client credential login provider is tried, and if successful
+// logs the user in.
+func (s *BaseCommandSuite) TestNewAPIRoot_OIDCLogin_ClientCredentials(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
+
 	ctx := context.Background()
+
 	conn := mocks.NewMockConnection(ctrl)
+
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"testing.invalid:1234"},
+		OIDCLogin:    true,
+	}
+
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.SetClientStore(s.store)
+	baseCmd.SetAPIOpen(func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		// We don't care about the result, just the APICalls made to the login facades.
+		_, err := opts.LoginProvider.Login(ctx, conn)
+		c.Check(err, gc.IsNil)
+		return conn, nil
+	})
+	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
+	modelcmd.SetRunStarted(baseCmd)
+
+	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
+
+	request := struct {
+		ClientID     string `json:"client-id"`
+		ClientSecret string `json:"client-secret"`
+	}{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+	}
+	os.Setenv("JUJU_CLIENT_ID", request.ClientID)
+	os.Setenv("JUJU_CLIENT_SECRET", request.ClientSecret)
+	defer func() {
+		os.Unsetenv("JUJU_CLIENT_ID")
+		os.Unsetenv("JUJU_CLIENT_SECRET")
+	}()
+
+	// Expect env login to succeed.
+	conn.EXPECT().
+		APICall(
+			"Admin",
+			gomock.Any(),
+			gomock.Any(),
+			"LoginWithClientCredentials",
+			request,
+			gomock.Any(),
+		).
+		DoAndReturn(func(_ string, _ int, _ string, _ string, _ interface{}, response interface{}) error {
+			if r, ok := response.(*params.LoginResult); ok {
+				// Set server version so the login calls NewLoginResultParams can succeed.
+				r.ServerVersion = "3.6.9"
+			} else {
+				return fmt.Errorf("unexpected response type %T", response)
+			}
+			return nil
+		})
+
+	conn.EXPECT().AuthTag()
+	conn.EXPECT().APIHostPorts()
+	conn.EXPECT().ServerVersion()
+	conn.EXPECT().Addr()
+	conn.EXPECT().IPAddr()
+	conn.EXPECT().PublicDNSName()
+	conn.EXPECT().IsProxied()
+	conn.EXPECT().ControllerAccess()
+
+	_, err := baseCmd.NewAPIRoot()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestNewAPIRoot_OIDCLogin_SessionToken verifies that when we have a controller supporting
+// OAuth/OIDC login (i.e. JAAS) that the login provider can return a new
+// session token which is then saved in the client's account store.
+func (s *BaseCommandSuite) TestNewAPIRoot_OIDCLogin_SessionToken(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+
+	conn := mocks.NewMockConnection(ctrl)
+
 	sessionLoginFactory := mocks.NewMockSessionLoginFactory(ctrl)
 	sessionLoginProvider := mocks.NewMockLoginProvider(ctrl)
 
@@ -250,7 +345,7 @@ func (s *BaseCommandSuite) TestLoginWithOIDC(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		return conn, nil
 	}
-	externalName := "kian@external"
+	externalName := "alice@external"
 
 	conn.EXPECT().AuthTag().Return(names.NewUserTag(externalName)).MinTimes(1)
 	conn.EXPECT().APIHostPorts()
@@ -297,43 +392,77 @@ func (s *BaseCommandSuite) TestLoginWithOIDC(c *gc.C) {
 	c.Assert(s.store.Accounts["foo"].SessionToken, gc.Equals, "new-token")
 }
 
-// TestNewAPIConnectionParams checks that the connection
-// parameters used to establish a connection are valid,
-// currently only the login provider is verified.
-func (s *BaseCommandSuite) TestNewAPIConnectionParams(c *gc.C) {
-	baseCmd := new(modelcmd.ModelCommandBase)
-	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
-	modelcmd.SetRunStarted(baseCmd)
-	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar", Password: "hunter2",
-	}
-	account := s.store.Accounts["foo"]
-	params, err := baseCmd.NewAPIConnectionParams(s.store, s.store.CurrentControllerName, "", &account)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(params.DialOpts.LoginProvider, gc.IsNil)
-}
+// TestNewAPIRoot_OIDCLogin_TriesInOrder verifies that the client credential flow is attempted first and subsequently the
+// session token flow. The error returned to the user is the session token flow.
+func (s *BaseCommandSuite) TestNewAPIRoot_OIDCLogin_TriesInOrder(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-// TestNewAPIConnectionParamsWithOAuthController is similar
-// to TestNewAPIConnectionParams but verifies that when
-// connecting to a controller supporting OIDC, we default
-// to a specific kind of login provider.
-func (s *BaseCommandSuite) TestNewAPIConnectionParamsWithOAuthController(c *gc.C) {
-	newController, err := s.store.ControllerByName(s.store.CurrentControllerName)
-	c.Assert(err, jc.ErrorIsNil)
-	newController.OIDCLogin = true
-	s.store.Controllers["oauth-controller"] = *newController
+	ctx := context.Background()
+
+	conn := mocks.NewMockConnection(ctrl)
+
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"testing.invalid:1234"},
+		OIDCLogin:    true,
+	}
 
 	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.SetClientStore(s.store)
+	baseCmd.SetAPIOpen(func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		_, err := opts.LoginProvider.Login(ctx, conn)
+		return conn, err
+	})
 	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
-	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar", Password: "hunter2",
+
+	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
+
+	request := struct {
+		ClientID     string `json:"client-id"`
+		ClientSecret string `json:"client-secret"`
+	}{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
 	}
-	account := s.store.Accounts["foo"]
-	params, err := baseCmd.NewAPIConnectionParams(s.store, "oauth-controller", "", &account)
-	c.Assert(err, jc.ErrorIsNil)
-	sessionTokenLogin := api.NewSessionTokenLoginProvider("", nil, nil)
-	c.Assert(params.DialOpts.LoginProvider, gc.FitsTypeOf, sessionTokenLogin)
+	os.Setenv("JUJU_CLIENT_ID", request.ClientID)
+	os.Setenv("JUJU_CLIENT_SECRET", request.ClientSecret)
+	defer func() {
+		os.Unsetenv("JUJU_CLIENT_ID")
+		os.Unsetenv("JUJU_CLIENT_SECRET")
+	}()
+
+	// Expect env login to failed.
+	conn.EXPECT().
+		APICall(
+			"Admin",
+			gomock.Any(),
+			gomock.Any(),
+			"LoginWithClientCredentials",
+			request,
+			gomock.Any(),
+		).
+		DoAndReturn(func(_ string, _ int, _ string, _ string, _ interface{}, response interface{}) error {
+			return errors.New("unauthorised") // Simulate a failed client credential login.
+		})
+
+		// Expect session login to be tried next and also fail
+	conn.EXPECT().
+		APICall(
+			"Admin",
+			gomock.Any(),
+			gomock.Any(),
+			"LoginWithSessionToken",
+			gomock.Any(),
+			gomock.Any(),
+		).
+		DoAndReturn(func(_ string, _ int, _ string, _ string, _ interface{}, response interface{}) error {
+			return errors.New("session token unauthorised")
+		})
+
+	_, err := baseCmd.NewAPIRoot()
+	// Expect an unauthorised error from the session token attempt.
+	c.Assert(err, gc.ErrorMatches, "session token unauthorised")
 }
 
 type NewGetBootstrapConfigParamsFuncSuite struct {

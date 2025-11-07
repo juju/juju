@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apibase "github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
@@ -474,11 +475,13 @@ func (s *LoginCommandSuite) TestLoginWithOIDCWithNoAccount(c *gc.C) {
 		ControllerUUID: testing.ControllerTag.Id(),
 		OIDCLogin:      true,
 	}
+
 	s.store.CurrentControllerName = "oidc-controller"
 	var checkPatchFuncCalled bool
+
 	s.PatchValue(user.NewAPIConnection, func(p juju.NewAPIConnectionParams) (api.Connection, error) {
-		sessionTokenLogin := api.NewSessionTokenLoginProvider("", nil, nil)
-		c.Check(p.DialOpts.LoginProvider, gc.FitsTypeOf, sessionTokenLogin)
+		loginProvider := loginprovider.NewTryInOrderLoginProvider(logger)
+		c.Check(p.DialOpts.LoginProvider, gc.FitsTypeOf, loginProvider)
 		c.Check(p.AccountDetails, gc.NotNil)
 		if p.AccountDetails != nil {
 			p.AccountDetails.SessionToken = "new-token"

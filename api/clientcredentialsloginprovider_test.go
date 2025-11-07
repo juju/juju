@@ -4,7 +4,10 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"os"
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
@@ -16,6 +19,7 @@ import (
 	"github.com/juju/juju/api/base"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
+	jujuparams "github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -96,4 +100,38 @@ func (s *clientCredentialsLoginProviderBasicSuite) TestClientCredentialsAuthHead
 	got, err := lp.AuthHeader()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, jc.DeepEquals, expectedHeader)
+}
+
+func (s *clientCredentialsLoginProviderBasicSuite) TestNewClientCredentialsLoginProviderFromEnvironment_NotSet(c *gc.C) {
+	ctx := context.Background()
+
+	_, err := api.NewClientCredentialsLoginProviderFromEnvironment(func() {}).Login(ctx, nil)
+	c.Assert(err, gc.ErrorMatches, "both client id and client secret must be set")
+}
+
+func (s *clientCredentialsLoginProviderBasicSuite) TestNewClientCredentialsLoginProviderFromEnvironment(c *gc.C) {
+	ctx := context.Background()
+
+	os.Setenv("JUJU_CLIENT_ID", "test-client-id")
+	os.Setenv("JUJU_CLIENT_SECRET", "test-client-secret")
+	defer func() {
+		os.Unsetenv("JUJU_CLIENT_ID")
+		os.Unsetenv("JUJU_CLIENT_SECRET")
+	}()
+	res, err := api.NewClientCredentialsLoginProviderFromEnvironment(func() {}).Login(ctx, callStub{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(res, gc.NotNil)
+}
+
+type callStub struct {
+	base.APICaller
+}
+
+func (c callStub) APICall(objType string, version int, id string, request string, params interface{}, response interface{}) error {
+	if r, ok := response.(*jujuparams.LoginResult); ok {
+		r.ServerVersion = "3.6.9"
+	} else {
+		return fmt.Errorf("unexpected response type %T", response)
+	}
+	return nil
 }
