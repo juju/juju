@@ -41,12 +41,6 @@ type ApplicationService interface {
 	// application is not found.
 	GetApplicationLife(context.Context, application.UUID) (life.Value, error)
 
-	// IsApplicationExposed returns whether the provided application is exposed or not.
-	//
-	// If no application is found, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned.
-	IsApplicationExposed(ctx context.Context, name string) (bool, error)
-
 	// GetCharmByApplicationUUID returns the charm for the specified application
 	// UUID.
 	//
@@ -57,16 +51,6 @@ type ApplicationService interface {
 	// valid, an error satisfying [applicationerrors.ApplicationNameNotValid] is
 	// returned.
 	GetCharmByApplicationUUID(context.Context, application.UUID) (internalcharm.Charm, charm.CharmLocator, error)
-
-	// WatchApplicationExposed watches for changes to the specified application's
-	// exposed endpoints.
-	// This notifies on any changes to the application's exposed endpoints. It is up
-	// to the caller to determine if the exposed endpoints they're interested in has
-	// changed.
-	//
-	// If the application does not exist an error satisfying
-	// [applicationerrors.ApplicationNotFound] will be returned.
-	WatchApplicationExposed(ctx context.Context, name string) (watcher.NotifyWatcher, error)
 
 	// WatchApplications returns a watcher that emits application uuids when
 	// applications are added or removed.
