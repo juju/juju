@@ -18,7 +18,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
 	mongo "github.com/juju/juju/mongo"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	shell "github.com/juju/utils/v3/shell"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"

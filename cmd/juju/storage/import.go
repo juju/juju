@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	apistorage "github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"

@@ -16,7 +16,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	network0 "github.com/juju/juju/network"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

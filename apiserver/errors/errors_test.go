@@ -10,7 +10,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"

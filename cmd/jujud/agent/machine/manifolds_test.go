@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	worker "github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"

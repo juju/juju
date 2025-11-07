@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	vault "github.com/mittwald/vaultgo"
 
 	"github.com/juju/juju/secrets/provider"

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/permission"

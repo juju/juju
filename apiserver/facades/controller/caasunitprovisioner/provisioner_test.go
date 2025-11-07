@@ -10,7 +10,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"

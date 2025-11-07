@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"

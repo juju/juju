@@ -11,7 +11,7 @@ import (
 
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/utils/v3/shell"

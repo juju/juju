@@ -13,7 +13,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

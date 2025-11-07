@@ -4,7 +4,7 @@
 package kubernetes
 
 import (
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/version/v2"
 	"k8s.io/client-go/kubernetes"
 

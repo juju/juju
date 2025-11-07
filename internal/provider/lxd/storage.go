@@ -12,7 +12,7 @@ import (
 	"github.com/canonical/lxd/shared/units"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/container/lxd"

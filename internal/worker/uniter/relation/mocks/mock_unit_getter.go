@@ -13,7 +13,7 @@ import (
 	reflect "reflect"
 
 	relation "github.com/juju/juju/internal/worker/uniter/relation"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

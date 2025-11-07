@@ -5,7 +5,7 @@ package operation
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/internal/worker/common/charmrunner"

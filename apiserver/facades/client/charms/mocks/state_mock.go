@@ -22,7 +22,7 @@ import (
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	mgo "github.com/juju/mgo/v3"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

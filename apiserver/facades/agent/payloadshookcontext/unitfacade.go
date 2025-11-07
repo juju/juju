@@ -6,7 +6,7 @@ package payloadshookcontext
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"

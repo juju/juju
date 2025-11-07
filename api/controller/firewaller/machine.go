@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/instance"

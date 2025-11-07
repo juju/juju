@@ -5,7 +5,7 @@ package jujuc
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 )
 
 // newStorageIdValue returns a gnuflag.Value for convenient parsing of storage

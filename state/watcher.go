@@ -23,7 +23,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
 

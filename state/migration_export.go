@@ -17,7 +17,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"

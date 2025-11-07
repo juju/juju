@@ -8,7 +8,7 @@ import (
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"

@@ -6,7 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 )
 
 type addStorageForUnitOperation struct {

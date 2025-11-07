@@ -15,7 +15,7 @@ import (
 	base "github.com/juju/juju/core/base"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

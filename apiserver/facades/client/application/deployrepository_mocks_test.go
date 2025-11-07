@@ -22,7 +22,7 @@ import (
 	config "github.com/juju/juju/environs/config"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )

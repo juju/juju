@@ -5,7 +5,7 @@ package sshclient
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/network"

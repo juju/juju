@@ -6,7 +6,7 @@ package storage
 import (
 	"time"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/state"

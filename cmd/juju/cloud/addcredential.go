@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	apicloud "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/cloud"

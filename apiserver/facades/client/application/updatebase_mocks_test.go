@@ -21,7 +21,7 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	state "github.com/juju/juju/state"
 	tools "github.com/juju/juju/tools"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	schema "github.com/juju/schema"
 	gomock "go.uber.org/mock/gomock"
 	environschema "gopkg.in/juju/environschema.v1"

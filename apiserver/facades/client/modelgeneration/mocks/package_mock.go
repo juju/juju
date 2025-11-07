@@ -16,7 +16,7 @@ import (
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	cache "github.com/juju/juju/core/cache"
 	settings "github.com/juju/juju/core/settings"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

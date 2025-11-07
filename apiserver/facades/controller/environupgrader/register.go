@@ -6,7 +6,7 @@ package environupgrader
 import (
 	"reflect"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"

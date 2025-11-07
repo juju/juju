@@ -4,7 +4,7 @@
 package storageprovisioner
 
 import (
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"

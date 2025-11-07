@@ -14,7 +14,7 @@ import (
 
 	facade "github.com/juju/juju/apiserver/facade"
 	permission "github.com/juju/juju/core/permission"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

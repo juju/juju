@@ -6,7 +6,7 @@ package state
 import (
 	"strings"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"

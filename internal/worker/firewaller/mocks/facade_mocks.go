@@ -24,7 +24,7 @@ import (
 	instances "github.com/juju/juju/environs/instances"
 	firewaller0 "github.com/juju/juju/internal/worker/firewaller"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 	macaroon "gopkg.in/macaroon.v2"
 )

@@ -22,7 +22,7 @@ import (
 	context "github.com/juju/juju/environs/context"
 	proxy "github.com/juju/juju/proxy"
 	storage "github.com/juju/juju/storage"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )

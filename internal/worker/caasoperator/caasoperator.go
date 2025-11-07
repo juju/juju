@@ -13,7 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jujusymlink "github.com/juju/utils/v3/symlink"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"

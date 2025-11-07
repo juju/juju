@@ -17,7 +17,7 @@ import (
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"k8s.io/client-go/rest"
 

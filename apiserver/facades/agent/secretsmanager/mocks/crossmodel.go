@@ -15,7 +15,7 @@ import (
 	secrets "github.com/juju/juju/core/secrets"
 	secrets0 "github.com/juju/juju/secrets"
 	provider "github.com/juju/juju/secrets/provider"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 	macaroon "gopkg.in/macaroon.v2"
 )

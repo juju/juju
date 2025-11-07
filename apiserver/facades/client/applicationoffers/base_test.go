@@ -5,7 +5,7 @@ package applicationoffers_test
 
 import (
 	"github.com/juju/charm/v12"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"

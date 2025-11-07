@@ -3,7 +3,7 @@
 
 package tags
 
-import "github.com/juju/names/v5"
+import "github.com/juju/names/v6"
 
 const (
 	// JujuTagPrefix is the prefix for Juju-managed tags.

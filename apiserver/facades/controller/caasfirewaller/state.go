@@ -4,7 +4,7 @@
 package caasfirewaller
 
 import (
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/core/config"

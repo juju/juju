@@ -14,7 +14,7 @@ import (
 	time "time"
 
 	description "github.com/juju/description/v9"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

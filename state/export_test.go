@@ -19,7 +19,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	txntesting "github.com/juju/txn/v3/testing"

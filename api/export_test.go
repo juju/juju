@@ -10,7 +10,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 

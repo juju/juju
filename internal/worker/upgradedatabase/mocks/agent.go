@@ -19,7 +19,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	mongo "github.com/juju/juju/mongo"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	shell "github.com/juju/utils/v3/shell"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"

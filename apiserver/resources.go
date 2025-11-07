@@ -14,7 +14,7 @@ import (
 
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	api "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/core/resources"
