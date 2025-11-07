@@ -21,11 +21,9 @@ import (
 )
 
 type applicationWorker struct {
-	catacomb       catacomb.Catacomb
-	controllerUUID string
-	modelUUID      string
-	appName        string
-	appUUID        application.UUID
+	catacomb catacomb.Catacomb
+	appName  string
+	appUUID  application.UUID
 
 	portService        PortService
 	applicationService ApplicationService
@@ -46,8 +44,6 @@ type applicationWorker struct {
 }
 
 func newApplicationWorker(
-	controllerUUID string,
-	modelUUID string,
 	appUUID application.UUID,
 	portService PortService,
 	applicationSewrvice ApplicationService,
@@ -55,8 +51,6 @@ func newApplicationWorker(
 	logger logger.Logger,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
-		controllerUUID:     controllerUUID,
-		modelUUID:          modelUUID,
 		appUUID:            appUUID,
 		portService:        portService,
 		applicationService: applicationSewrvice,

@@ -22,9 +22,6 @@ type ManifoldConfig struct {
 	BrokerName         string
 	DomainServicesName string
 
-	ControllerUUID string
-	ModelUUID      string
-
 	NewWorker func(Config) (worker.Worker, error)
 	Logger    logger.Logger
 }
@@ -43,14 +40,6 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 // Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.ControllerUUID == "" {
-		return errors.New("not valid empty ControllerUUID").Add(
-			coreerrors.NotValid,
-		)
-	}
-	if config.ModelUUID == "" {
-		return errors.New("not valid empty ModelUUID").Add(coreerrors.NotValid)
-	}
 	if config.BrokerName == "" {
 		return errors.New("not valid empty BrokerName").Add(coreerrors.NotValid)
 	}
@@ -90,8 +79,6 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 
 	w, err := config.NewWorker(Config{
-		ControllerUUID:     config.ControllerUUID,
-		ModelUUID:          config.ModelUUID,
 		PortService:        domainServices.Port(),
 		ApplicationService: domainServices.Application(),
 		Broker:             broker,

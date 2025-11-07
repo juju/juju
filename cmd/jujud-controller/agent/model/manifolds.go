@@ -478,8 +478,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			caasfirewaller.ManifoldConfig{
 				BrokerName:         providerTrackerName,
 				DomainServicesName: domainServicesName,
-				ControllerUUID:     agentConfig.Controller().Id(),
-				ModelUUID:          agentConfig.Model().Id(),
 				NewWorker:          caasfirewaller.NewWorker,
 				Logger:             config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
 			},

@@ -21,7 +21,6 @@ import (
 	portservice "github.com/juju/juju/domain/port/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
@@ -75,8 +74,6 @@ func (s *manifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
 	return caasfirewaller.ManifoldConfig{
 		BrokerName:         "broker",
 		DomainServicesName: "domain-services",
-		ControllerUUID:     coretesting.ControllerTag.Id(),
-		ModelUUID:          coretesting.ModelTag.Id(),
 		NewWorker:          s.newWorker,
 		Logger:             s.logger,
 	}
@@ -111,18 +108,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Run("valid", func(c *testing.T) {
 		config := s.validConfig()
 		tc.Check(c, config.Validate(), tc.ErrorIsNil)
-	})
-
-	c.Run("empty controller uuid", func(c *testing.T) {
-		config := s.validConfig()
-		config.ControllerUUID = ""
-		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
-	})
-
-	c.Run("empty model uuid", func(c *testing.T) {
-		config := s.validConfig()
-		config.ModelUUID = ""
-		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
 	})
 
 	c.Run("empty broker name", func(c *testing.T) {
@@ -176,8 +161,6 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	s.CheckCallNames(c, "NewWorker")
 
 	s.CheckCall(c, 0, "NewWorker", caasfirewaller.Config{
-		ControllerUUID:     coretesting.ControllerTag.Id(),
-		ModelUUID:          coretesting.ModelTag.Id(),
 		Broker:             s.broker,
 		Logger:             s.logger,
 		PortService:        (*portservice.WatchableService)(nil),

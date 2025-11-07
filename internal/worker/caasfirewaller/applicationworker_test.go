@@ -84,8 +84,6 @@ func (s *appWorkerSuite) getController(c *tc.C) *gomock.Controller {
 
 func (s *appWorkerSuite) getWorker(c *tc.C) worker.Worker {
 	w, err := caasfirewaller.NewApplicationWorker(
-		testing.ControllerTag.Id(),
-		testing.ModelTag.Id(),
 		s.appUUID,
 		s.portService,
 		s.applicationService,
