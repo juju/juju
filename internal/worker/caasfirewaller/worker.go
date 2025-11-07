@@ -20,8 +20,6 @@ import (
 
 // Config holds configuration for the CAAS unit firewaller worker.
 type Config struct {
-	ControllerUUID     string
-	ModelUUID          string
 	PortService        PortService
 	ApplicationService ApplicationService
 	Broker             CAASBroker
@@ -34,16 +32,6 @@ type Config struct {
 // The following errors may be returned:
 // - [coreerrors.NotValid] when a required field has an invalid value.
 func (config Config) Validate() error {
-	if config.ControllerUUID == "" {
-		return errors.New("not valid empty ControllerUUID").Add(
-			coreerrors.NotValid,
-		)
-	}
-	if config.ModelUUID == "" {
-		return errors.New("not valid empty ModelUUID").Add(
-			coreerrors.NotValid,
-		)
-	}
 	if config.Broker == nil {
 		return errors.New("not valid nil Broker").Add(
 			coreerrors.NotValid,
@@ -90,8 +78,6 @@ type firewaller struct {
 }
 
 type applicationWorkerCreator func(
-	controllerUUID string,
-	modelUUID string,
 	appUUID application.UUID,
 	portService PortService,
 	applicationService ApplicationService,
@@ -193,8 +179,6 @@ func (p *firewaller) loop() error {
 				}
 
 				w, err := p.newApplicationWorker(
-					p.config.ControllerUUID,
-					p.config.ModelUUID,
 					appUUID,
 					p.config.PortService,
 					p.config.ApplicationService,

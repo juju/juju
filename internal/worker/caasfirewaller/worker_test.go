@@ -52,8 +52,6 @@ func TestWorkerSuite(t *stdtesting.T) {
 // suite.
 func (s *workerSuite) getValidConfig(t *stdtesting.T) caasfirewaller.Config {
 	return caasfirewaller.Config{
-		ControllerUUID:     testing.ControllerTag.Id(),
-		ModelUUID:          testing.ModelTag.Id(),
 		ApplicationService: s.applicationService,
 		PortService:        s.portService,
 		Broker:             s.broker,
@@ -67,18 +65,6 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	c.Run("valid", func(c *stdtesting.T) {
 		config := s.getValidConfig(c)
 		tc.Check(c, config.Validate(), tc.ErrorIsNil)
-	})
-
-	c.Run("missing controller uuid", func(c *stdtesting.T) {
-		config := s.getValidConfig(c)
-		config.ControllerUUID = ""
-		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
-	})
-
-	c.Run("missing model uuid", func(c *stdtesting.T) {
-		config := s.getValidConfig(c)
-		config.ModelUUID = ""
-		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
 	})
 
 	c.Run("missing broker", func(c *stdtesting.T) {
@@ -129,8 +115,6 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 	app2Worker := mocks.NewMockWorker(ctrl)
 
 	workerCreator := func(
-		controllerUUID string,
-		modelUUID string,
 		appUUID coreapplication.UUID,
 		portService caasfirewaller.PortService,
 		applicationService caasfirewaller.ApplicationService,
@@ -307,8 +291,6 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.broker = mocks.NewMockCAASBroker(ctrl)
 
 	s.config = caasfirewaller.Config{
-		ControllerUUID:     testing.ControllerTag.Id(),
-		ModelUUID:          testing.ModelTag.Id(),
 		ApplicationService: s.applicationService,
 		PortService:        s.portService,
 		Broker:             s.broker,
