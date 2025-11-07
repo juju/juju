@@ -35,6 +35,7 @@ type Socket struct {
 	TLSConfig *tls.Config
 }
 
+// Dialer creates a connection based on the provided socket parameters.
 func Dialer(soc Socket) (net.Conn, error) {
 	var conn net.Conn
 	var err error
@@ -53,6 +54,7 @@ func Dialer(soc Socket) (net.Conn, error) {
 	return conn, nil
 }
 
+// Dial creates an RPC client based on the provided socket parameters.
 func Dial(soc Socket) (*rpc.Client, error) {
 	conn, err := Dialer(soc)
 	if err != nil {
@@ -61,6 +63,7 @@ func Dial(soc Socket) (*rpc.Client, error) {
 	return rpc.NewClient(conn), nil
 }
 
+// Listen creates a listener based on the provided socket parameters.
 func Listen(soc Socket) (net.Listener, error) {
 	listener, err := innerListen(soc)
 	if err != nil {
