@@ -233,6 +233,12 @@ const (
 	// value of 0 means all queries will be output.
 	QueryTracingThreshold = "query-tracing-threshold"
 
+	// DqliteBusyTimeout sets the timeout for how long a database operation will
+	// wait for a lock to be released before returning an error (SQLITE_BUSY),
+	// that is the amount of time a writer will wait for others to finish
+	// writing on the same database.
+	DqliteBusyTimeout = "dqlite-busy-timeout"
+
 	// OpenTelemetryEnabled returns whether open telemetry is enabled.
 	OpenTelemetryEnabled = "open-telemetry-enabled"
 
@@ -409,6 +415,12 @@ const (
 	// for query tracing. If a query takes longer than this to complete
 	// it will be logged if query tracing is enabled.
 	DefaultQueryTracingThreshold = time.Second
+
+	// DefaultDqliteBusyTimeout is the default value for the timeout for how
+	// long a database operation will wait for a lock to be released before
+	// returning an error (SQLITE_BUSY), that is the amount of time a writer
+	// will wait for others to finish writing on the same database.
+	DefaultDqliteBusyTimeout = 1 * time.Second
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
 	// exclude from the audit log.
@@ -1001,6 +1013,14 @@ func (c Config) QueryTracingThreshold() time.Duration {
 	return c.durationOrDefault(QueryTracingThreshold, DefaultQueryTracingThreshold)
 }
 
+// DqliteBusyTimeout returns the timeout for how long a database operation will
+// wait for a lock to be released before returning an error (SQLITE_BUSY),
+// that is the amount of time a writer will wait for others to finish
+// writing on the same database.
+func (c Config) DqliteBusyTimeout() time.Duration {
+	return c.durationOrDefault(DqliteBusyTimeout, DefaultDqliteBusyTimeout)
+}
+
 // OpenTelemetryEnabled returns whether open telemetry tracing is enabled.
 func (c Config) OpenTelemetryEnabled() bool {
 	return c.boolOrDefault(OpenTelemetryEnabled, DefaultOpenTelemetryEnabled)
@@ -1271,8 +1291,8 @@ func Validate(c Config) error {
 		maxUnitStateSize += DefaultMaxAgentStateSize
 	}
 
-	if mongoMax := 16 * 1024 * 1024; maxUnitStateSize > mongoMax {
-		return errors.Errorf("invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got %d", maxUnitStateSize)
+	if maxSize := 16 * 1024 * 1024; maxUnitStateSize > maxSize {
+		return errors.Errorf("invalid max charm/agent state sizes: combined value should not exceed 16M per-document limit, got %d", maxUnitStateSize)
 	}
 
 	if v, ok := c[MigrationMinionWaitMax].(string); ok {
@@ -1287,6 +1307,14 @@ func Validate(c Config) error {
 	} else if err == nil {
 		if v < 0 {
 			return errors.Errorf("%s value %q must be a positive duration", QueryTracingThreshold, v)
+		}
+	}
+
+	if v, err := parseDuration(c, DqliteBusyTimeout); err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Trace(err)
+	} else if err == nil {
+		if v < 0 {
+			return errors.Errorf("%s value %q must be a positive duration", DqliteBusyTimeout, v)
 		}
 	}
 

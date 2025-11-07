@@ -50,6 +50,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ControllerResourceDownloadLimit:    schema.ForceInt(),
 	QueryTracingEnabled:                schema.Bool(),
 	QueryTracingThreshold:              schema.TimeDurationString(),
+	DqliteBusyTimeout:                  schema.TimeDurationString(),
 	OpenTelemetryEnabled:               schema.Bool(),
 	OpenTelemetryEndpoint:              schema.String(),
 	OpenTelemetryInsecure:              schema.Bool(),
@@ -104,6 +105,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ControllerResourceDownloadLimit:    schema.Omit,
 	QueryTracingEnabled:                DefaultQueryTracingEnabled,
 	QueryTracingThreshold:              DefaultQueryTracingThreshold,
+	DqliteBusyTimeout:                  DefaultDqliteBusyTimeout,
 	OpenTelemetryEnabled:               DefaultOpenTelemetryEnabled,
 	OpenTelemetryEndpoint:              schema.Omit,
 	OpenTelemetryInsecure:              DefaultOpenTelemetryInsecure,
@@ -280,6 +282,13 @@ Use "caas-image-repo" instead.`,
 		Description: `The minimum duration of a query for it to be traced. The lower the
 threshold, the more queries will be output. A value of 0 means all queries
 will be output if tracing is enabled.`,
+	},
+	DqliteBusyTimeout: {
+		Type: configschema.Tstring,
+		Description: `The timeout for how long a database operation will
+wait for a lock to be released before returning an error (SQLITE_BUSY),
+that is the amount of time a writer will wait for others to finish
+writing on the same database.`,
 	},
 	OpenTelemetryEnabled: {
 		Type:        configschema.Tbool,

@@ -42,6 +42,7 @@ func (s *EncodeToStringSuite) TestEncodeToString(c *tc.C) {
 		"audit-log-max-size":        "200M",
 		"audit-log-max-backups":     "5",
 		"query-tracing-threshold":   "1s",
+		"dqlite-busy-timeout":       "1s",
 		"object-store-type":         "file",
 	})
 }

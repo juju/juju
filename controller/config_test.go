@@ -249,12 +249,12 @@ var newConfigTests = []struct {
 	},
 	expectError: `invalid max agent state size: should be a number of bytes \(or 0 to disable limit\), got -42`,
 }, {
-	about: "combined charm/agent state cannot exceed mongo's 16M limit/doc",
+	about: "combined charm/agent state cannot exceed 16M limit/doc",
 	config: controller.Config{
 		controller.MaxCharmStateSize: "14000000",
 		controller.MaxAgentStateSize: "3000000",
 	},
-	expectError: `invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got 17000000`,
+	expectError: `invalid max charm/agent state sizes: combined value should not exceed 16M per-document limit, got 17000000`,
 }, {
 	about: "public-dns-address: expect string, got number",
 	config: controller.Config{
@@ -308,6 +308,18 @@ var newConfigTests = []struct {
 		controller.QueryTracingThreshold: "-1s",
 	},
 	expectError: `query-tracing-threshold value "-1s" must be a positive duration`,
+}, {
+	about: "invalid dqlite busy timeout value",
+	config: controller.Config{
+		controller.DqliteBusyTimeout: "invalid",
+	},
+	expectError: `dqlite-busy-timeout: conversion to duration: time: invalid duration "invalid"`,
+}, {
+	about: "negative dqlite busy timeout duration",
+	config: controller.Config{
+		controller.DqliteBusyTimeout: "-1s",
+	},
+	expectError: `dqlite-busy-timeout value "-1s" must be a positive duration`,
 }, {
 	about: "invalid open telemetry tracing enabled value",
 	config: controller.Config{
