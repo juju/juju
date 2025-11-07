@@ -254,8 +254,12 @@ func (w *dbReplWorker) loop() (err error) {
 			w.execShowDDL(ctx, args[1:])
 		case ".query-models":
 			w.execQueryForModels(ctx, args[1:])
-		case ".fk_list":
+		case ".foreign-key-list", ".fk-list":
 			w.execForeignKeysList(ctx, args[1:])
+		case ".change-log":
+			w.changeLog(ctx)
+		case ".change-stream":
+			w.changeStream(ctx)
 		case ".describe-cluster":
 			w.describeCluster(ctx)
 
@@ -593,6 +597,123 @@ func (w *dbReplWorker) execViews(ctx context.Context) {
 	}
 }
 
+func (w *dbReplWorker) changeLog(ctx context.Context) {
+	type row struct {
+		id        int
+		editType  string
+		namespace string
+		changed   string
+		createdAt string
+	}
+	var changelogRows []row
+
+	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT c.id, t.edit_type, n.namespace, c.changed, c.created_at 
+FROM change_log AS c
+JOIN change_log_edit_type AS t ON c.edit_type_id = t.id
+JOIN change_log_namespace AS n ON c.namespace_id = n.id;
+`)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var r row
+			if err := rows.Scan(&r.id, &r.editType, &r.namespace, &r.changed, &r.createdAt); err != nil {
+				return err
+			}
+			changelogRows = append(changelogRows, r)
+		}
+		return rows.Err()
+	})
+
+	if err != nil {
+		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
+		return
+	}
+
+	headerStyle := color.New(color.Bold)
+	var sb strings.Builder
+	writer := ansiterm.NewTabWriter(&sb, 0, 8, 1, '\t', 0)
+
+	_, _ = headerStyle.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t\n",
+		"id", "edit_type", "namespace", "changed", "created_at")
+	for _, r := range changelogRows {
+		_, _ = fmt.Fprintf(writer, "%d\t%s\t%s\t%s\t%s\t\n",
+			r.id, r.editType, r.namespace, r.changed, r.createdAt)
+	}
+
+	if err := writer.Flush(); err != nil {
+		w.cfg.Logger.Errorf(ctx, "failed to flush writer: %v", err)
+		// If the flush fails, we still want to print the
+		// output that has been written so far.
+	}
+
+	_, _ = fmt.Fprintln(w.cfg.Stdout, sb.String())
+}
+
+func (w *dbReplWorker) changeStream(ctx context.Context) {
+	type row struct {
+		id        int
+		editType  string
+		namespace string
+		changed   string
+		createdAt string
+	}
+	var changelogRows []row
+
+	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT MAX(c.id), t.edit_type, n.namespace, changed, created_at
+FROM change_log AS c
+JOIN change_log_edit_type AS t ON c.edit_type_id = t.id
+JOIN change_log_namespace AS n ON c.namespace_id = n.id
+WHERE c.id > ?
+GROUP BY c.namespace_id, c.changed
+ORDER BY c.id;
+`, 0)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var r row
+			if err := rows.Scan(&r.id, &r.editType, &r.namespace, &r.changed, &r.createdAt); err != nil {
+				return err
+			}
+			changelogRows = append(changelogRows, r)
+		}
+
+		return rows.Err()
+	})
+
+	if err != nil {
+		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
+		return
+	}
+	headerStyle := color.New(color.Bold)
+	var sb strings.Builder
+	writer := ansiterm.NewTabWriter(&sb, 0, 8, 1, '\t', 0)
+
+	_, _ = headerStyle.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t\n",
+		"id", "edit_type", "namespace", "changed", "created_at")
+	for _, r := range changelogRows {
+		_, _ = fmt.Fprintf(writer, "%d\t%s\t%s\t%s\t%s\t\n",
+			r.id, r.editType, r.namespace, r.changed, r.createdAt)
+	}
+
+	if err := writer.Flush(); err != nil {
+		w.cfg.Logger.Errorf(ctx, "failed to flush writer: %v", err)
+		// If the flush fails, we still want to print the
+		// output that has been written so far.
+	}
+
+	_, _ = fmt.Fprintln(w.cfg.Stdout, sb.String())
+}
+
 func (w *dbReplWorker) describeCluster(ctx context.Context) {
 	cluster, err := w.cfg.ClusterIntrospector.DescribeCluster(ctx)
 	if err != nil {
@@ -723,13 +844,13 @@ The following commands are available:
 
 Database commands:
 
-  .models                  	  Show all models.
+  .models                     Show all models.
   .switch model-<model>       Switch to a different model.
   .switch controller          Switch to the controller global database.
   .open <model-uuid>          Open a specific model database by UUID.
   .tables                     Show all standard tables in the current database.
   .triggers                   Show all trigger tables in the current database.
-  .fk_list <table> <column> [identifier]
+  .fk-list <table> <column> [identifier]
                               List foreign keys referencing the specified table and column.
                               Shows child tables that have foreign keys pointing to the given
                               parent table/column. Returns fk_id (constraint identifier) and
@@ -739,6 +860,8 @@ Database commands:
   .views                      Show all views in the current database.
   .ddl <name>                 Show the DDL for the specified table, trigger, or view.
   .query-models <query>       Execute a query on all models and print the results.
+  .change-log                 Show the change log entries in the current database.
+  .change-stream              Show the entries of the change log that the change stream will view.
 
 DQlite cluster commands:
 
