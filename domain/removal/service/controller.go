@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -40,40 +41,58 @@ type ControllerState interface {
 }
 
 // RemoveController checks if a model is the controller model, and will set the
-// controller model to dying and then will set all models to dying. This
-// should also ensure that no new models can be created in the controller
-// if it is set to dying.
+// controller model to dying and then will set all models to dying. This should
+// also ensure that no new models can be created in the controller if it is set
+// to dying.
 //
-// If force is true, the controller will be removed immediately without waiting
-// for any ongoing operations to complete. If wait is specified, it will wait
-// for the specified duration before proceeding with the removal.
+// The removal of the controller will always use force as we need to remove the
+// controller model. Passing in force will remove all entities from the mortal
+// coil and not do any proper clean up. Instead, we need to first attempt a
+// graceful removal, then it can be called again, which will check the
+// controller model life state. If it is already dying, which will indicate
+// that a previous removal attempt was made, then we can set force to true and
+// use the maxWait time.
+// The maxWait will always use the new input value, which will be used when
+// removing the controller model.
 func (s *Service) RemoveController(
 	ctx context.Context,
-	force bool,
 	wait time.Duration,
-) ([]model.UUID, error) {
+) ([]model.UUID, bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if ok, err := s.modelState.IsControllerModel(ctx, s.modelUUID.String()); err != nil {
-		return nil, errors.Capture(err)
-	} else if !ok {
-		return nil, errors.Errorf("model %q is not the controller model", s.modelUUID)
-	}
-
-	// First get all the models in the controller, we can then iterate through
+	// Get all the models in the controller, we can then iterate through
 	// them and set them to dying.
 	modelUUIDs, err := s.controllerState.GetModelUUIDs(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, false, errors.Capture(err)
+	}
+
+	typedModelUUIDs := transform.Slice(modelUUIDs, func(m string) model.UUID {
+		return model.UUID(m)
+	})
+
+	if ok, err := s.modelState.IsControllerModel(ctx, s.modelUUID.String()); errors.Is(err, modelerrors.NotFound) {
+		return typedModelUUIDs, true, nil
+	} else if err != nil {
+		return nil, false, errors.Capture(err)
+	} else if !ok {
+		return nil, false, errors.Errorf("model %q is not the controller model", s.modelUUID)
+	}
+
+	// If the controller model is already dying, we can set force to true and
+	// use the maxWait time.
+	var modelForce bool
+	if lifeState, err := s.modelState.GetModelLife(ctx, s.modelUUID.String()); err != nil {
+		return nil, false, errors.Capture(err)
+	} else if lifeState == life.Dying {
+		modelForce = true
 	}
 
 	// We're the controller model, so we can proceed with the removal.
-	if _, err := s.removeModel(ctx, s.modelUUID, force, wait); err != nil {
-		return nil, errors.Capture(err)
+	if _, err := s.removeModel(ctx, s.modelUUID, modelForce, wait); err != nil {
+		return nil, false, errors.Capture(err)
 	}
 
-	return transform.Slice(modelUUIDs, func(m string) model.UUID {
-		return model.UUID(m)
-	}), nil
+	return typedModelUUIDs, modelForce, nil
 }

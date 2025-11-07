@@ -44,7 +44,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	if err != nil {
 		return apiservererrors.ServerError(err)
 	}
-	if err := ensureNotBlocked(ctx, c.modelService, c.blockCommandServiceGetter, modelUUIDs, c.logger); err != nil {
+	if err := ensureNotBlocked(ctx, c.blockCommandServiceGetter, modelUUIDs, c.logger); err != nil {
 		return apiservererrors.ServerError(err)
 	}
 
@@ -74,10 +74,6 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 		return apiservererrors.ServerError(err)
 	}
 
-	var force bool
-	if args.Force != nil {
-		force = *args.Force
-	}
 	var maxWait time.Duration
 	if args.MaxWait != nil {
 		maxWait = *args.MaxWait
@@ -87,7 +83,15 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	if err != nil {
 		return apiservererrors.ServerError(err)
 	}
-	childModelUUIDs, err := removalService.RemoveController(ctx, force, maxWait)
+
+	// Force isn't set here because using force will ensure that the controller
+	// and all it's models are removed with force. This isn't desired behaviour.
+	// Instead, the removal service will determine if force is required based
+	// on the state of the controller model.
+	// If the controller model is already dying, force will be used and the
+	// maxWait time will be applied. The modelForce will indicate to the
+	// removal of the hosted models if force should be used.
+	childModelUUIDs, modelForce, err := removalService.RemoveController(ctx, maxWait)
 	if err != nil {
 		c.logger.Warningf(ctx, "failed destroying controller: %v", err)
 		return apiservererrors.ServerError(err)
@@ -100,7 +104,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 			return apiservererrors.ServerError(err)
 		}
 
-		if _, err := removalService.RemoveModel(ctx, modelUUID, force, maxWait); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		if _, err := removalService.RemoveModel(ctx, modelUUID, modelForce, maxWait); err != nil && !errors.Is(err, modelerrors.NotFound) {
 			c.logger.Warningf(ctx, "failed destroying controller: %v", err)
 			return apiservererrors.ServerError(err)
 		}
@@ -111,7 +115,6 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 
 func ensureNotBlocked(
 	ctx context.Context,
-	modelService ModelService,
 	blockCommandServiceGetter func(context.Context, model.UUID) (BlockCommandService, error),
 	uuids []model.UUID,
 	logger corelogger.Logger,
