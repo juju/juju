@@ -7,10 +7,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -50,34 +51,29 @@ func (s *Service) RemoveController(
 	ctx context.Context,
 	force bool,
 	wait time.Duration,
-) error {
+) ([]model.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if ok, err := s.modelState.IsControllerModel(ctx, s.modelUUID.String()); err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	} else if !ok {
-		return errors.Errorf("model %q is not the controller model", s.modelUUID)
+		return nil, errors.Errorf("model %q is not the controller model", s.modelUUID)
 	}
 
 	// First get all the models in the controller, we can then iterate through
 	// them and set them to dying.
 	modelUUIDs, err := s.controllerState.GetModelUUIDs(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	// We're the controller model, so we can proceed with the removal.
 	if _, err := s.removeModel(ctx, s.modelUUID, force, wait); err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	for _, modelUUID := range modelUUIDs {
-		if _, err := s.removeModel(ctx, model.UUID(modelUUID), force, wait); err != nil &&
-			!errors.Is(err, modelerrors.NotFound) {
-			return errors.Capture(err)
-		}
-	}
-
-	return nil
+	return transform.Slice(modelUUIDs, func(m string) model.UUID {
+		return model.UUID(m)
+	}), nil
 }
