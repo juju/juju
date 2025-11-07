@@ -87,6 +87,10 @@ type NodeManager interface {
 	// that will enable tracing of Dqlite operations.
 	WithTracingOption() app.Option
 
+	// WithBusyTimeoutOption returns a Dqlite application Option
+	// that will set the busy timeout for database connections.
+	WithBusyTimeoutOption() app.Option
+
 	// WithAddressOption returns a Dqlite application Option
 	// for specifying the local address:port to use.
 	WithAddressOption(string) app.Option
@@ -645,6 +649,7 @@ func (w *dbWorker) startDqliteNode(ctx context.Context, options ...app.Option) e
 	dqliteOptions := append(options,
 		mgr.WithLogFuncOption(),
 		mgr.WithTracingOption(),
+		mgr.WithBusyTimeoutOption(),
 	)
 	if w.dbApp, err = w.cfg.NewApp(dataDir, dqliteOptions...); err != nil {
 		return errors.Trace(err)
