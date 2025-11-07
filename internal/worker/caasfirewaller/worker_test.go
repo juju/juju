@@ -8,7 +8,6 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/common/charms"
 	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
@@ -47,25 +48,50 @@ func TestWorkerSuite(t *stdtesting.T) {
 	tc.Run(t, &workerSuite{})
 }
 
+// getValidConfig returns a valid [Config] that can be used for testing in this
+// suite.
+func (s *workerSuite) getValidConfig(t *stdtesting.T) caasfirewaller.Config {
+	return caasfirewaller.Config{
+		ControllerUUID:     testing.ControllerTag.Id(),
+		ModelUUID:          testing.ModelTag.Id(),
+		ApplicationService: s.applicationService,
+		PortService:        s.portService,
+		Broker:             s.broker,
+		Logger:             loggertesting.WrapCheckLog(t),
+	}
+}
+
 func (s *workerSuite) TestValidateConfig(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
+	c.Run("valid", func(c *stdtesting.T) {
+		config := s.getValidConfig(c)
+		tc.Check(c, config.Validate(), tc.ErrorIsNil)
+	})
+
+	c.Run("missing controller uuid", func(c *stdtesting.T) {
+		config := s.getValidConfig(c)
 		config.ControllerUUID = ""
-	}, `missing ControllerUUID not valid`)
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
 
-	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
+	c.Run("missing model uuid", func(c *stdtesting.T) {
+		config := s.getValidConfig(c)
 		config.ModelUUID = ""
-	}, `missing ModelUUID not valid`)
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
 
-	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
+	c.Run("missing broker", func(c *stdtesting.T) {
+		config := s.getValidConfig(c)
 		config.Broker = nil
-	}, `missing Broker not valid`)
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
 
-	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
+	c.Run("missing logger", func(c *stdtesting.T) {
+		config := s.getValidConfig(c)
 		config.Logger = nil
-	}, `missing Logger not valid`)
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
 }
 
 func (s *workerSuite) testValidateConfig(c *tc.C, f func(*caasfirewaller.Config), expect string) {
@@ -242,7 +268,7 @@ func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *tc.C) {
 	s.applicationService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), app1UUID).DoAndReturn(
 		func(ctx context.Context, id coreapplication.UUID) (internalcharm.Charm, charm.CharmLocator, error) {
 			close(done)
-			return nil, charm.CharmLocator{}, errors.NotFoundf("app1")
+			return nil, charm.CharmLocator{}, coreerrors.NotFound
 		},
 	)
 
