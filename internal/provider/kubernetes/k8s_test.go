@@ -3428,11 +3428,6 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 			Generation: pointer.Int64Ptr(1),
 			Status: status.StatusInfo{
 				Status: status.Active,
-				Data: map[string]interface{}{
-					"app.juju.is/uuid":               "appuuid",
-					"controller.juju.is/id":          testing.ControllerTag.Id(),
-					"charm.juju.is/modified-version": "0",
-				},
 			},
 		},
 		expectedCalls...,
@@ -3527,11 +3522,6 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 			Generation: pointer.Int64Ptr(1),
 			Status: status.StatusInfo{
 				Status: status.Active,
-				Data: map[string]interface{}{
-					"controller.juju.is/id":          testing.ControllerTag.Id(),
-					"fred":                           "mary",
-					"charm.juju.is/modified-version": "0",
-				},
 			},
 		},
 		expectedCalls...,
@@ -3598,10 +3588,6 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 			Generation: pointer.Int64Ptr(1),
 			Status: status.StatusInfo{
 				Status: status.Active,
-				Data: map[string]interface{}{
-					"controller.juju.is/id":          testing.ControllerTag.Id(),
-					"charm.juju.is/modified-version": "0",
-				},
 			},
 		},
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
