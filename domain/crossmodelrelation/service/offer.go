@@ -35,6 +35,13 @@ type ModelOfferState interface {
 		offer.UUID,
 	) error
 
+	// GetConsumeDetails returns the offer uuid and endpoints necessary to
+	// consume the offer.
+	GetConsumeDetails(
+		ctx context.Context,
+		offerName string,
+	) (crossmodelrelation.ConsumeDetails, error)
+
 	// GetOfferDetails returns the OfferDetail of every offer in the model.
 	// No error is returned if offers are found.
 	GetOfferDetails(context.Context, crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)
@@ -50,10 +57,17 @@ type ModelOfferState interface {
 }
 
 // GetOfferUUID returns the uuid for the provided offer URL.
-// Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
+// Returns crossmodelrelationerrors.OfferNotFound if the offer is not found.
+// Returns crossmodelrelationerrors.OfferURLNotValid if the offer URL has
+// no name.
 func (s *Service) GetOfferUUID(ctx context.Context, offerURL crossmodel.OfferURL) (offer.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if offerURL.Name == "" {
+		return "", errors.Errorf("offer %q missing name: not valid", offerURL.String()).
+			Add(crossmodelrelationerrors.OfferURLNotValid)
+	}
 
 	offerUUID, err := s.modelState.GetOfferUUID(ctx, offerURL.Name)
 	if err != nil {
@@ -152,6 +166,27 @@ func (s *Service) Offer(
 	}
 	err = errors.Errorf("creating access for offer %q: %w", args.OfferName, err)
 	return errors.Capture(err)
+}
+
+// GetConsumeDetails returns the offer uuid and endpoints necessary to
+// consume the offer.
+// Returns crossmodelrelationerrors.OfferNotFound if the offer is not found.
+// Returns crossmodelrelationerrors.OfferURLNotValid if the offer URL has
+// no name.
+func (s *Service) GetConsumeDetails(
+	ctx context.Context,
+	offerURL crossmodel.OfferURL,
+) (crossmodelrelation.ConsumeDetails, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if offerURL.Name == "" {
+		return crossmodelrelation.ConsumeDetails{},
+			errors.Errorf("offer %q missing name: not valid", offerURL.String()).
+				Add(crossmodelrelationerrors.OfferURLNotValid)
+	}
+
+	return s.modelState.GetConsumeDetails(ctx, offerURL.Name)
 }
 
 // GetOffers returns offer details for all offers satisfying any of the

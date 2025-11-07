@@ -851,7 +851,8 @@ func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.
 }
 
 // GetConsumeDetails returns the details necessary to pass to another model
-// to allow the specified args user to consume the offers represented by the args URLs.
+// to allow the specified args user to consume the offers represented by the
+// args URLs.
 func (api *OffersAPI) GetConsumeDetails(ctx context.Context, args params.ConsumeOfferDetailsArg) (params.ConsumeOfferDetailsResults, error) {
 	var user names.UserTag
 	if args.UserTag != "" {
@@ -890,6 +891,44 @@ func (api *OffersAPI) getControllerInfo(ctx context.Context) (controller.Control
 	return c, nil
 }
 
+func parseOfferURLs(apiUserTag names.UserTag, in []string) ([]corecrossmodel.OfferURL, []params.ConsumeOfferDetailsResult) {
+	offerURLs := make([]corecrossmodel.OfferURL, len(in))
+	results := make([]params.ConsumeOfferDetailsResult, len(in))
+
+	for i, url := range in {
+		offerURL, err := corecrossmodel.ParseOfferURL(url)
+		if err != nil {
+			results[i].Error = &params.Error{
+				Code:    params.CodeBadRequest,
+				Message: fmt.Sprintf("unable parse offer URL %q: %s", url, err.Error()),
+			}
+			continue
+		}
+		// Ensure that we have a valid normalized model qualifier.
+		offerURL.ModelQualifier = constructModelQualifier(offerURL.ModelQualifier, apiUserTag).String()
+
+		// URL must not have an endpoint.
+		if offerURL.HasEndpoint() {
+			results[i].Error = &params.Error{
+				Code:    params.CodeNotSupported,
+				Message: fmt.Sprintf("saas application %q shouldn't include endpoint", url),
+			}
+			continue
+		}
+
+		// URL must be local.
+		if offerURL.Source != "" {
+			results[i].Error = &params.Error{
+				Code:    params.CodeNotSupported,
+				Message: "query for non-local application offers",
+			}
+			continue
+		}
+		offerURLs[i] = offerURL
+	}
+	return offerURLs, results
+}
+
 func (api *OffersAPI) getConsumeDetails(
 	ctx context.Context,
 	controllerInfo controller.ControllerInfo,
@@ -902,35 +941,48 @@ func (api *OffersAPI) getConsumeDetails(
 		CACert:        controllerInfo.CACert,
 	}
 
-	offers, err := api.getApplicationOffers(ctx, apiUser, urls)
-	if err != nil {
-		return params.ConsumeOfferDetailsResults{}, apiservererrors.ServerError(err)
-	}
+	offerURLs, results := parseOfferURLs(apiUser, urls.OfferURLs)
 
-	results := make([]params.ConsumeOfferDetailsResult, len(offers))
-	for i, offerResult := range offers {
-		if offerResult.Error != nil {
-			results[i].Error = offerResult.Error
+	// Per the facade the caller can provide more than one OfferURL, practically
+	// only one is given at a time. No need to be more efficient finding the offers.
+	// TODO: address in the client API changes.
+	for i, offerURL := range offerURLs {
+		if results[i].Error != nil {
 			continue
 		}
 
-		offerDetails := offerResult.Result.ApplicationOfferDetailsV5
-
-		modelTag, err := names.ParseModelTag(offerDetails.SourceModelTag)
+		model, err := api.modelForName(ctx, offerURL.ModelName, offerURL.ModelQualifier)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		modelUUID := model.UUID(modelTag.Id())
-		err = api.checkAPIUserAdmin(ctx, modelUUID)
+		crossModelRelationService, err := api.crossModelRelationServiceGetter(ctx, model.UUID)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		details, err := crossModelRelationService.GetConsumeDetails(ctx, offerURL)
+		if err != nil {
+			if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
+				results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeNotFound,
+					"application offer %q not found", offerURL,
+				)
+			} else {
+				results[i].Error = apiservererrors.ServerError(err)
+			}
+			continue
+		}
+
+		err = api.checkAPIUserAdmin(ctx, model.UUID)
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		} else if err != nil {
 			// The user isn't admin on the model, so they must be allowed to
-			// consume the offer.
-			appOffer := names.NewApplicationOfferTag(offerDetails.OfferUUID)
+			// consume the offerDetail.
+			appOffer := names.NewApplicationOfferTag(details.OfferUUID)
 			err = api.authorizer.EntityHasPermission(ctx, apiUser, permission.ConsumeAccess, appOffer)
 			if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 				results[i].Error = apiservererrors.ServerError(err)
@@ -949,14 +1001,27 @@ func (api *OffersAPI) getConsumeDetails(
 			}
 		}
 
-		offerMacaroon, err := api.crossModelAuthContext.CreateConsumeOfferMacaroon(ctx, modelUUID, offerDetails.OfferUUID, apiUser.Id(), urls.BakeryVersion)
+		offerMacaroon, err := api.crossModelAuthContext.CreateConsumeOfferMacaroon(ctx, model.UUID, details.OfferUUID, apiUser.Id(), urls.BakeryVersion)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
+		endpoints := transform.Slice(details.Endpoints, func(in crossmodelrelation.OfferEndpoint) params.RemoteEndpoint {
+			return params.RemoteEndpoint{
+				Name:      in.Name,
+				Interface: in.Interface,
+				Role:      charm.RelationRole(in.Role),
+				Limit:     in.Limit,
+			}
+		})
 		results[i].ConsumeOfferDetails = params.ConsumeOfferDetails{
-			Offer:          &offerDetails,
+			Offer: &params.ApplicationOfferDetailsV5{
+				SourceModelTag: names.NewModelTag(model.UUID.String()).String(),
+				OfferUUID:      details.OfferUUID,
+				OfferURL:       offerURL.String(),
+				Endpoints:      endpoints,
+			},
 			ControllerInfo: externalControllerInfo,
 			Macaroon:       offerMacaroon.M(),
 		}

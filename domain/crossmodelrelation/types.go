@@ -96,6 +96,12 @@ type OfferDetail struct {
 	TotalActiveConnections int
 }
 
+// ConsumeDetails contains details about a offer which is being consumed.
+type ConsumeDetails struct {
+	OfferUUID string
+	Endpoints []OfferEndpoint
+}
+
 // OfferEndpoint contains details of charm endpoints as needed for offer
 // details.
 type OfferEndpoint struct {

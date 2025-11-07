@@ -593,6 +593,62 @@ func (s *offerServiceSuite) TestGetOfferUUIDError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }
 
+func (s *offerServiceSuite) TestGetOfferUUIDOfferURLNotValid(c *tc.C) {
+	// Act
+	_, err := s.service(c).GetOfferUUID(c.Context(), crossmodel.OfferURL{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferURLNotValid)
+}
+
+func (s *offerServiceSuite) TestGetConsumeDetails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerURL, err := crossmodel.ParseOfferURL("postgresql.db-admin")
+	c.Assert(err, tc.IsNil)
+	expected := crossmodelrelation.ConsumeDetails{
+		OfferUUID: tc.Must(c, offer.NewUUID).String(),
+		Endpoints: []crossmodelrelation.OfferEndpoint{{
+			Name:      "test",
+			Role:      charm.RoleProvider,
+			Interface: "db",
+			Limit:     7},
+		},
+	}
+	s.modelState.EXPECT().GetConsumeDetails(gomock.Any(), offerURL.Name).Return(expected, nil)
+
+	// Act
+	obtained, err := s.service(c).GetConsumeDetails(c.Context(), offerURL)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtained, tc.DeepEquals, expected)
+}
+
+func (s *offerServiceSuite) TestGetConsumeDetailsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerURL, err := crossmodel.ParseOfferURL("postgresql.db-admin")
+	c.Assert(err, tc.IsNil)
+	s.modelState.EXPECT().GetConsumeDetails(gomock.Any(), offerURL.Name).Return(crossmodelrelation.ConsumeDetails{}, crossmodelrelationerrors.OfferNotFound)
+
+	// Act
+	_, err = s.service(c).GetConsumeDetails(c.Context(), offerURL)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
+}
+
+func (s *offerServiceSuite) TestGetConsumeDetailsOfferURLNotValid(c *tc.C) {
+	// Act
+	_, err := s.service(c).GetConsumeDetails(c.Context(), crossmodel.OfferURL{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferURLNotValid)
+}
+
 type createOfferArgsMatcher struct {
 	c        *tc.C
 	expected crossmodelrelation.CreateOfferArgs
