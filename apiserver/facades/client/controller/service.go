@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/removal"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -260,5 +261,8 @@ type ModelAgentService interface {
 // RemovalService provides access to the removal service.
 type RemovalService interface {
 	// RemoveController removes the controller and all models.
-	RemoveController(ctx context.Context, force bool, wait time.Duration) error
+	RemoveController(ctx context.Context, force bool, wait time.Duration) ([]coremodel.UUID, error)
+
+	// RemoveModel removes the specified model.
+	RemoveModel(ctx context.Context, modelUUID coremodel.UUID, force bool, wait time.Duration) (removal.UUID, error)
 }

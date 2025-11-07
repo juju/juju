@@ -87,9 +87,23 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	if err != nil {
 		return apiservererrors.ServerError(err)
 	}
-	if err := removalService.RemoveController(ctx, force, maxWait); err != nil {
+	childModelUUIDs, err := removalService.RemoveController(ctx, force, maxWait)
+	if err != nil {
 		c.logger.Warningf(ctx, "failed destroying controller: %v", err)
 		return apiservererrors.ServerError(err)
+	}
+
+	for _, modelUUID := range childModelUUIDs {
+		c.logger.Infof(ctx, "destroyed hosted model %s", modelUUID.String())
+		removalService, err := c.removalServiceGetter(ctx, modelUUID)
+		if err != nil {
+			return apiservererrors.ServerError(err)
+		}
+
+		if _, err := removalService.RemoveModel(ctx, modelUUID, force, maxWait); err != nil && !errors.Is(err, modelerrors.NotFound) {
+			c.logger.Warningf(ctx, "failed destroying controller: %v", err)
+			return apiservererrors.ServerError(err)
+		}
 	}
 
 	return nil
