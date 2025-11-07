@@ -4,7 +4,6 @@
 package caasfirewaller_test
 
 import (
-	"context"
 	stdtesting "testing"
 	"time"
 
@@ -37,10 +36,8 @@ type appWorkerSuite struct {
 	broker             *mocks.MockCAASBroker
 	brokerApp          *caasmocks.MockApplication
 
-	applicationChanges chan struct{}
-	portsChanges       chan struct{}
+	portsChanges chan struct{}
 
-	appsWatcher  watcher.NotifyWatcher
 	portsWatcher watcher.NotifyWatcher
 }
 
@@ -54,14 +51,12 @@ func (s *appWorkerSuite) SetUpTest(c *tc.C) {
 
 	s.appName = "app1"
 	s.appUUID = tc.Must(c, coreapplication.NewUUID)
-	s.applicationChanges = make(chan struct{})
 	s.portsChanges = make(chan struct{})
 }
 
 func (s *appWorkerSuite) getController(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.appsWatcher = watchertest.NewMockNotifyWatcher(s.applicationChanges)
 	s.portsWatcher = watchertest.NewMockNotifyWatcher(s.portsChanges)
 
 	s.portService = mocks.NewMockPortService(ctrl)
@@ -71,7 +66,6 @@ func (s *appWorkerSuite) getController(c *tc.C) *gomock.Controller {
 	s.brokerApp = caasmocks.NewMockApplication(ctrl)
 
 	c.Cleanup(func() {
-		s.appsWatcher = nil
 		s.portsWatcher = nil
 		s.portService = nil
 		s.applicationService = nil
@@ -107,8 +101,6 @@ func (s *appWorkerSuite) TestWorker(c *tc.C) {
 		s.portsChanges <- struct{}{}
 		// 3rd port change event, including another application.
 		s.portsChanges <- struct{}{}
-
-		s.applicationChanges <- struct{}{}
 	}()
 
 	gpr1 := network.GroupedPortRanges{
@@ -128,7 +120,6 @@ func (s *appWorkerSuite) TestWorker(c *tc.C) {
 
 	gomock.InOrder(
 		s.applicationService.EXPECT().GetApplicationName(gomock.Any(), s.appUUID).Return(s.appName, nil),
-		s.applicationService.EXPECT().WatchApplicationExposed(gomock.Any(), s.appName).Return(s.appsWatcher, nil),
 		s.portService.EXPECT().WatchOpenedPortsForApplication(gomock.Any(), s.appUUID).Return(s.portsWatcher, nil),
 		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
 
@@ -164,11 +155,9 @@ func (s *appWorkerSuite) TestWorker(c *tc.C) {
 				TargetPort: 2000,
 				Protocol:   "udp",
 			},
-		}, false).Return(nil),
-
-		s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), s.appName).DoAndReturn(func(_ context.Context, _ string) (bool, error) {
+		}, false).DoAndReturn(func([]caas.ServicePort, bool) error {
 			close(done)
-			return false, nil
+			return nil
 		}),
 	)
 

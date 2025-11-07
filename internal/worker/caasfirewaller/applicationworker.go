@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -32,7 +31,6 @@ type applicationWorker struct {
 	portMutator    PortMutator
 	serviceUpdater ServiceUpdater
 
-	appWatcher   watcher.NotifyWatcher
 	portsWatcher watcher.NotifyWatcher
 
 	initial           bool
@@ -83,19 +81,6 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 	if err != nil {
 		return errors.Errorf("getting application %q name: %w", w.appUUID, err)
 	}
-	w.appWatcher, err = w.applicationService.WatchApplicationExposed(ctx, w.appName)
-	if err != nil {
-		return errors.Errorf(
-			"getting application %q exposed watcher: %w", w.appUUID, err,
-		)
-	}
-	if err := w.catacomb.Add(w.appWatcher); err != nil {
-		return errors.Errorf(
-			"adding application %q exposed watcher to catacomb: %w",
-			w.appUUID, err,
-		)
-	}
-
 	w.portsWatcher, err = w.portService.WatchOpenedPortsForApplication(ctx, w.appUUID)
 	if err != nil {
 		return errors.Errorf("getting application %q opened ports watcher: %w",
@@ -146,21 +131,6 @@ func (w *applicationWorker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case _, ok := <-w.appWatcher.Changes():
-			if !ok {
-				return errors.New(
-					"application exposed watcher channel closed unexpectedly",
-				)
-			}
-
-			// We know this is a v2 charm at this point, because this child
-			// worker is only ever started for v2 charms.
-			if err := w.onApplicationChanged(ctx); err != nil {
-				if strings.Contains(err.Error(), "unexpected EOF") {
-					return nil
-				}
-				return errors.Capture(err)
-			}
 		case _, ok := <-w.portsWatcher.Changes():
 			if !ok {
 				return errors.New(
@@ -216,52 +186,6 @@ func (w *applicationWorker) onPortChanged(ctx context.Context) error {
 	return nil
 }
 
-func (w *applicationWorker) onApplicationChanged(ctx context.Context) (err error) {
-	defer func() {
-		// Not found could be because the app got removed or there's
-		// no container service created yet as the app is still being set up.
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			// Perhaps the app got removed while we were processing.
-			if _, err2 := w.applicationService.GetApplicationLife(ctx, w.appUUID); err2 != nil {
-				err = err2
-				return
-			}
-			// Ignore not found error because the ip could be not ready yet at this stage.
-			w.logger.Warningf(ctx, "processing change for application %q, %v", w.appName, err)
-			err = nil
-		}
-	}()
-
-	exposed, err := w.applicationService.IsApplicationExposed(ctx, w.appName)
-	if err != nil {
-		return errors.Errorf(
-			"checking if application %q is exposed: %w", w.appUUID, err,
-		)
-	}
-	if !w.initial && exposed == w.previouslyExposed {
-		return nil
-	}
-
-	w.initial = false
-	w.previouslyExposed = exposed
-	if exposed {
-		return exposeService(w.serviceUpdater)
-	}
-	return unExposeService(w.serviceUpdater)
-}
-
 func (w *applicationWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
-}
-
-func exposeService(_ ServiceUpdater) error {
-	// TODO(sidecar): implement expose once it's modelled.
-	// app.UpdateService()
-	return nil
-}
-
-func unExposeService(_ ServiceUpdater) error {
-	// TODO(sidecar): implement un-expose once it's modelled.
-	// app.UpdateService()
-	return nil
 }
