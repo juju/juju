@@ -1310,84 +1310,6 @@ func (c *MockImageServerGetImagesCall) DoAndReturn(f func() ([]api.Image, error)
 	return c
 }
 
-// GetImagesAllProjects mocks base method.
-func (m *MockImageServer) GetImagesAllProjects() ([]api.Image, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetImagesAllProjects")
-	ret0, _ := ret[0].([]api.Image)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetImagesAllProjects indicates an expected call of GetImagesAllProjects.
-func (mr *MockImageServerMockRecorder) GetImagesAllProjects() *MockImageServerGetImagesAllProjectsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImagesAllProjects", reflect.TypeOf((*MockImageServer)(nil).GetImagesAllProjects))
-	return &MockImageServerGetImagesAllProjectsCall{Call: call}
-}
-
-// MockImageServerGetImagesAllProjectsCall wrap *gomock.Call
-type MockImageServerGetImagesAllProjectsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockImageServerGetImagesAllProjectsCall) Return(arg0 []api.Image, arg1 error) *MockImageServerGetImagesAllProjectsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockImageServerGetImagesAllProjectsCall) Do(f func() ([]api.Image, error)) *MockImageServerGetImagesAllProjectsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImageServerGetImagesAllProjectsCall) DoAndReturn(f func() ([]api.Image, error)) *MockImageServerGetImagesAllProjectsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetImagesAllProjectsWithFilter mocks base method.
-func (m *MockImageServer) GetImagesAllProjectsWithFilter(arg0 []string) ([]api.Image, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetImagesAllProjectsWithFilter", arg0)
-	ret0, _ := ret[0].([]api.Image)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetImagesAllProjectsWithFilter indicates an expected call of GetImagesAllProjectsWithFilter.
-func (mr *MockImageServerMockRecorder) GetImagesAllProjectsWithFilter(arg0 any) *MockImageServerGetImagesAllProjectsWithFilterCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImagesAllProjectsWithFilter", reflect.TypeOf((*MockImageServer)(nil).GetImagesAllProjectsWithFilter), arg0)
-	return &MockImageServerGetImagesAllProjectsWithFilterCall{Call: call}
-}
-
-// MockImageServerGetImagesAllProjectsWithFilterCall wrap *gomock.Call
-type MockImageServerGetImagesAllProjectsWithFilterCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockImageServerGetImagesAllProjectsWithFilterCall) Return(arg0 []api.Image, arg1 error) *MockImageServerGetImagesAllProjectsWithFilterCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockImageServerGetImagesAllProjectsWithFilterCall) Do(f func([]string) ([]api.Image, error)) *MockImageServerGetImagesAllProjectsWithFilterCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImageServerGetImagesAllProjectsWithFilterCall) DoAndReturn(f func([]string) ([]api.Image, error)) *MockImageServerGetImagesAllProjectsWithFilterCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetImagesWithFilter mocks base method.
 func (m *MockImageServer) GetImagesWithFilter(arg0 []string) ([]api.Image, error) {
 	m.ctrl.T.Helper()
@@ -1527,6 +1449,44 @@ func NewMockInstanceServer(ctrl *gomock.Controller) *MockInstanceServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockInstanceServer) EXPECT() *MockInstanceServerMockRecorder {
 	return m.recorder
+}
+
+// CheckExtension mocks base method.
+func (m *MockInstanceServer) CheckExtension(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckExtension", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckExtension indicates an expected call of CheckExtension.
+func (mr *MockInstanceServerMockRecorder) CheckExtension(arg0 any) *MockInstanceServerCheckExtensionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckExtension", reflect.TypeOf((*MockInstanceServer)(nil).CheckExtension), arg0)
+	return &MockInstanceServerCheckExtensionCall{Call: call}
+}
+
+// MockInstanceServerCheckExtensionCall wrap *gomock.Call
+type MockInstanceServerCheckExtensionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockInstanceServerCheckExtensionCall) Return(arg0 error) *MockInstanceServerCheckExtensionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockInstanceServerCheckExtensionCall) Do(f func(string) error) *MockInstanceServerCheckExtensionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockInstanceServerCheckExtensionCall) DoAndReturn(f func(string) error) *MockInstanceServerCheckExtensionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // ConsoleContainer mocks base method.
@@ -8953,6 +8913,45 @@ func (c *MockInstanceServerGetNetworkACLsCall) DoAndReturn(f func() ([]api.Netwo
 	return c
 }
 
+// GetNetworkACLsAllProjects mocks base method.
+func (m *MockInstanceServer) GetNetworkACLsAllProjects() ([]api.NetworkACL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkACLsAllProjects")
+	ret0, _ := ret[0].([]api.NetworkACL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkACLsAllProjects indicates an expected call of GetNetworkACLsAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetNetworkACLsAllProjects() *MockInstanceServerGetNetworkACLsAllProjectsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkACLsAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkACLsAllProjects))
+	return &MockInstanceServerGetNetworkACLsAllProjectsCall{Call: call}
+}
+
+// MockInstanceServerGetNetworkACLsAllProjectsCall wrap *gomock.Call
+type MockInstanceServerGetNetworkACLsAllProjectsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockInstanceServerGetNetworkACLsAllProjectsCall) Return(arg0 []api.NetworkACL, arg1 error) *MockInstanceServerGetNetworkACLsAllProjectsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockInstanceServerGetNetworkACLsAllProjectsCall) Do(f func() ([]api.NetworkACL, error)) *MockInstanceServerGetNetworkACLsAllProjectsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockInstanceServerGetNetworkACLsAllProjectsCall) DoAndReturn(f func() ([]api.NetworkACL, error)) *MockInstanceServerGetNetworkACLsAllProjectsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetNetworkAllocations mocks base method.
 func (m *MockInstanceServer) GetNetworkAllocations(arg0 bool) ([]api.NetworkAllocations, error) {
 	m.ctrl.T.Helper()
@@ -9699,6 +9698,45 @@ func (c *MockInstanceServerGetNetworkZonesCall) DoAndReturn(f func() ([]api.Netw
 	return c
 }
 
+// GetNetworkZonesAllProjects mocks base method.
+func (m *MockInstanceServer) GetNetworkZonesAllProjects() ([]api.NetworkZone, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkZonesAllProjects")
+	ret0, _ := ret[0].([]api.NetworkZone)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkZonesAllProjects indicates an expected call of GetNetworkZonesAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetNetworkZonesAllProjects() *MockInstanceServerGetNetworkZonesAllProjectsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkZonesAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkZonesAllProjects))
+	return &MockInstanceServerGetNetworkZonesAllProjectsCall{Call: call}
+}
+
+// MockInstanceServerGetNetworkZonesAllProjectsCall wrap *gomock.Call
+type MockInstanceServerGetNetworkZonesAllProjectsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockInstanceServerGetNetworkZonesAllProjectsCall) Return(arg0 []api.NetworkZone, arg1 error) *MockInstanceServerGetNetworkZonesAllProjectsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockInstanceServerGetNetworkZonesAllProjectsCall) Do(f func() ([]api.NetworkZone, error)) *MockInstanceServerGetNetworkZonesAllProjectsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockInstanceServerGetNetworkZonesAllProjectsCall) DoAndReturn(f func() ([]api.NetworkZone, error)) *MockInstanceServerGetNetworkZonesAllProjectsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetNetworks mocks base method.
 func (m *MockInstanceServer) GetNetworks() ([]api.Network, error) {
 	m.ctrl.T.Helper()
@@ -9734,6 +9772,45 @@ func (c *MockInstanceServerGetNetworksCall) Do(f func() ([]api.Network, error)) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockInstanceServerGetNetworksCall) DoAndReturn(f func() ([]api.Network, error)) *MockInstanceServerGetNetworksCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetNetworksAllProjects mocks base method.
+func (m *MockInstanceServer) GetNetworksAllProjects() ([]api.Network, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworksAllProjects")
+	ret0, _ := ret[0].([]api.Network)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworksAllProjects indicates an expected call of GetNetworksAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetNetworksAllProjects() *MockInstanceServerGetNetworksAllProjectsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworksAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworksAllProjects))
+	return &MockInstanceServerGetNetworksAllProjectsCall{Call: call}
+}
+
+// MockInstanceServerGetNetworksAllProjectsCall wrap *gomock.Call
+type MockInstanceServerGetNetworksAllProjectsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockInstanceServerGetNetworksAllProjectsCall) Return(arg0 []api.Network, arg1 error) *MockInstanceServerGetNetworksAllProjectsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockInstanceServerGetNetworksAllProjectsCall) Do(f func() ([]api.Network, error)) *MockInstanceServerGetNetworksAllProjectsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockInstanceServerGetNetworksAllProjectsCall) DoAndReturn(f func() ([]api.Network, error)) *MockInstanceServerGetNetworksAllProjectsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -10289,6 +10366,45 @@ func (c *MockInstanceServerGetProfilesCall) DoAndReturn(f func() ([]api.Profile,
 	return c
 }
 
+// GetProfilesAllProjects mocks base method.
+func (m *MockInstanceServer) GetProfilesAllProjects() ([]api.Profile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProfilesAllProjects")
+	ret0, _ := ret[0].([]api.Profile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProfilesAllProjects indicates an expected call of GetProfilesAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetProfilesAllProjects() *MockInstanceServerGetProfilesAllProjectsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfilesAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetProfilesAllProjects))
+	return &MockInstanceServerGetProfilesAllProjectsCall{Call: call}
+}
+
+// MockInstanceServerGetProfilesAllProjectsCall wrap *gomock.Call
+type MockInstanceServerGetProfilesAllProjectsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockInstanceServerGetProfilesAllProjectsCall) Return(arg0 []api.Profile, arg1 error) *MockInstanceServerGetProfilesAllProjectsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockInstanceServerGetProfilesAllProjectsCall) Do(f func() ([]api.Profile, error)) *MockInstanceServerGetProfilesAllProjectsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockInstanceServerGetProfilesAllProjectsCall) DoAndReturn(f func() ([]api.Profile, error)) *MockInstanceServerGetProfilesAllProjectsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetProject mocks base method.
 func (m *MockInstanceServer) GetProject(arg0 string) (*api.Project, string, error) {
 	m.ctrl.T.Helper()
@@ -10797,6 +10913,45 @@ func (c *MockInstanceServerGetStoragePoolBucketsCall) Do(f func(string) ([]api.S
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockInstanceServerGetStoragePoolBucketsCall) DoAndReturn(f func(string) ([]api.StorageBucket, error)) *MockInstanceServerGetStoragePoolBucketsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetStoragePoolBucketsAllProjects mocks base method.
+func (m *MockInstanceServer) GetStoragePoolBucketsAllProjects(arg0 string) ([]api.StorageBucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolBucketsAllProjects", arg0)
+	ret0, _ := ret[0].([]api.StorageBucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolBucketsAllProjects indicates an expected call of GetStoragePoolBucketsAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetStoragePoolBucketsAllProjects(arg0 any) *MockInstanceServerGetStoragePoolBucketsAllProjectsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBucketsAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBucketsAllProjects), arg0)
+	return &MockInstanceServerGetStoragePoolBucketsAllProjectsCall{Call: call}
+}
+
+// MockInstanceServerGetStoragePoolBucketsAllProjectsCall wrap *gomock.Call
+type MockInstanceServerGetStoragePoolBucketsAllProjectsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockInstanceServerGetStoragePoolBucketsAllProjectsCall) Return(arg0 []api.StorageBucket, arg1 error) *MockInstanceServerGetStoragePoolBucketsAllProjectsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockInstanceServerGetStoragePoolBucketsAllProjectsCall) Do(f func(string) ([]api.StorageBucket, error)) *MockInstanceServerGetStoragePoolBucketsAllProjectsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockInstanceServerGetStoragePoolBucketsAllProjectsCall) DoAndReturn(f func(string) ([]api.StorageBucket, error)) *MockInstanceServerGetStoragePoolBucketsAllProjectsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
