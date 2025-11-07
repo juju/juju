@@ -301,6 +301,9 @@ type mockConfig struct {
 	queryTracingThreshold    time.Duration
 	queryTracingThresholdSet bool
 
+	dqliteBusyTimeout    time.Duration
+	dqliteBusyTimeoutSet bool
+
 	openTelemetryEnabled    bool
 	openTelemetryEnabledSet bool
 
@@ -363,6 +366,18 @@ func (mc *mockConfig) QueryTracingThreshold() time.Duration {
 func (mc *mockConfig) SetQueryTracingThreshold(threshold time.Duration) {
 	mc.queryTracingThreshold = threshold
 	mc.queryTracingThresholdSet = true
+}
+
+func (mc *mockConfig) DqliteBusyTimeout() time.Duration {
+	if mc.dqliteBusyTimeout == 0 {
+		return controller.DefaultDqliteBusyTimeout
+	}
+	return mc.dqliteBusyTimeout
+}
+
+func (mc *mockConfig) SetDqliteBusyTimeout(timeout time.Duration) {
+	mc.dqliteBusyTimeout = timeout
+	mc.dqliteBusyTimeoutSet = true
 }
 
 func (mc *mockConfig) OpenTelemetryEnabled() bool {

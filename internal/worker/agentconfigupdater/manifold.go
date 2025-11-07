@@ -124,6 +124,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configQueryTracingThreshold := controllerConfig.QueryTracingThreshold()
 			queryTracingThresholdChanged := agentsQueryTracingThreshold != configQueryTracingThreshold
 
+			agentsDqliteBusyTimeout := currentConfig.DqliteBusyTimeout()
+			configDqliteBusyTimeout := controllerConfig.DqliteBusyTimeout()
+			dqliteBusyTimeoutChanged := agentsDqliteBusyTimeout != configDqliteBusyTimeout
+
 			agentsOpenTelemetryEnabled := currentConfig.OpenTelemetryEnabled()
 			configOpenTelemetryEnabled := controllerConfig.OpenTelemetryEnabled()
 			openTelemetryEnabledChanged := agentsOpenTelemetryEnabled != configOpenTelemetryEnabled
@@ -180,6 +184,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf(ctx, "setting agent config query tracing threshold: %d => %d", agentsQueryTracingThreshold, configQueryTracingThreshold)
 					config.SetQueryTracingThreshold(configQueryTracingThreshold)
 				}
+				if dqliteBusyTimeoutChanged {
+					logger.Debugf(ctx, "setting dqlite busy timeout: %s => %s", agentsDqliteBusyTimeout, configDqliteBusyTimeout)
+					config.SetDqliteBusyTimeout(configDqliteBusyTimeout)
+				}
 				if openTelemetryEnabledChanged {
 					logger.Debugf(ctx, "setting open telemetry enabled: %t => %t", agentsOpenTelemetryEnabled, configOpenTelemetryEnabled)
 					config.SetOpenTelemetryEnabled(configOpenTelemetryEnabled)
@@ -221,6 +229,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				logger.Infof(ctx, "restarting agent for new query tracing threshold")
 				reason = append(reason, controller.QueryTracingThreshold)
 			}
+			if dqliteBusyTimeoutChanged {
+				logger.Infof(ctx, "restarting agent for new dqlite busy timeout")
+				reason = append(reason, controller.DqliteBusyTimeout)
+			}
 			if openTelemetryEnabledChanged {
 				logger.Infof(ctx, "restarting agent for new open telemetry enabled")
 				reason = append(reason, controller.OpenTelemetryEnabled)
@@ -255,6 +267,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerConfigService:            controllerConfigService,
 				QueryTracingEnabled:                configQueryTracingEnabled,
 				QueryTracingThreshold:              configQueryTracingThreshold,
+				DqliteBusyTimeout:                  configDqliteBusyTimeout,
 				OpenTelemetryEnabled:               configOpenTelemetryEnabled,
 				OpenTelemetryEndpoint:              configOpenTelemetryEndpoint,
 				OpenTelemetryInsecure:              configOpenTelemetryInsecure,

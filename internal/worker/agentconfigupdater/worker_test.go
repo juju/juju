@@ -201,6 +201,47 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
+func (s *WorkerSuite) TestUpdateDqliteBusyTimeout(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newConfig := maps.Clone(s.controllerConfig)
+	d := time.Second * 2
+	newConfig[controller.DqliteBusyTimeout] = d.String()
+
+	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case ch <- []string{}:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not sent")
+	}
+
+	select {
+	case <-dispatched1:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	// Snap channel is the same, worker still alive.
+	workertest.CheckAlive(c, w)
+
+	select {
+	case ch <- []string{}:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not sent")
+	}
+
+	select {
+	case <-dispatched2:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
+}
+
 func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -451,6 +492,7 @@ func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		conf: mockConfig{
 			queryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 			queryTracingThreshold:              controller.DefaultQueryTracingThreshold,
+			dqliteBusyTimeout:                  controller.DefaultDqliteBusyTimeout,
 			openTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
 			openTelemetryEndpoint:              "",
 			openTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
@@ -464,6 +506,7 @@ func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		ControllerConfigService:            s.controllerConifgService,
 		QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 		QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
+		DqliteBusyTimeout:                  controller.DefaultDqliteBusyTimeout,
 		OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
 		OpenTelemetryEndpoint:              "",
 		OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
@@ -475,6 +518,7 @@ func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerConfig = controller.Config{
 		controller.QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 		controller.QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
+		controller.DqliteBusyTimeout:                  controller.DefaultDqliteBusyTimeout,
 		controller.OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
 		controller.OpenTelemetryEndpoint:              "",
 		controller.OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,

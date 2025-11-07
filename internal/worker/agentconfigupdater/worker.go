@@ -38,6 +38,7 @@ type WorkerConfig struct {
 	ControllerConfigService            ControllerConfigService
 	QueryTracingEnabled                bool
 	QueryTracingThreshold              time.Duration
+	DqliteBusyTimeout                  time.Duration
 	OpenTelemetryEnabled               bool
 	OpenTelemetryEndpoint              string
 	OpenTelemetryInsecure              bool
@@ -69,6 +70,7 @@ type agentConfigUpdater struct {
 
 	queryTracingEnabled                bool
 	queryTracingThreshold              time.Duration
+	dqliteBusyTimeout                  time.Duration
 	openTelemetryEnabled               bool
 	openTelemetryEndpoint              string
 	openTelemetryInsecure              bool
@@ -88,6 +90,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 		config:                             config,
 		queryTracingEnabled:                config.QueryTracingEnabled,
 		queryTracingThreshold:              config.QueryTracingThreshold,
+		dqliteBusyTimeout:                  config.DqliteBusyTimeout,
 		openTelemetryEnabled:               config.OpenTelemetryEnabled,
 		openTelemetryEndpoint:              config.OpenTelemetryEndpoint,
 		openTelemetryInsecure:              config.OpenTelemetryInsecure,
@@ -144,6 +147,9 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 	queryTracingThreshold := config.QueryTracingThreshold()
 	queryTracingThresholdChanged := queryTracingThreshold != w.queryTracingThreshold
 
+	dqliteBusyTimeout := config.DqliteBusyTimeout()
+	dqliteBusyTimeoutChanged := dqliteBusyTimeout != w.dqliteBusyTimeout
+
 	openTelemetryEnabled := config.OpenTelemetryEnabled()
 	openTelemetryEnabledChanged := openTelemetryEnabled != w.openTelemetryEnabled
 
@@ -164,6 +170,7 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 
 	changeDetected := queryTracingEnabledChanged ||
 		queryTracingThresholdChanged ||
+		dqliteBusyTimeoutChanged ||
 		openTelemetryEnabledChanged ||
 		openTelemetryEndpointChanged ||
 		openTelemetryInsecureChanged ||
@@ -185,6 +192,10 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 		if queryTracingThresholdChanged {
 			w.config.Logger.Debugf(ctx, "setting agent config query tracing threshold: %v => %v", w.queryTracingThreshold, queryTracingThreshold)
 			setter.SetQueryTracingThreshold(queryTracingThreshold)
+		}
+		if dqliteBusyTimeoutChanged {
+			w.config.Logger.Debugf(ctx, "setting agent config dqlite busy timeout: %v => %v", w.dqliteBusyTimeout, dqliteBusyTimeout)
+			setter.SetDqliteBusyTimeout(dqliteBusyTimeout)
 		}
 		if openTelemetryEnabledChanged {
 			w.config.Logger.Debugf(ctx, "setting agent config open telemetry enabled: %v => %v", w.openTelemetryEnabled, openTelemetryEnabled)
@@ -222,6 +233,9 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 	}
 	if queryTracingThresholdChanged {
 		reason = append(reason, controller.QueryTracingThreshold)
+	}
+	if dqliteBusyTimeoutChanged {
+		reason = append(reason, controller.DqliteBusyTimeout)
 	}
 	if openTelemetryEnabledChanged {
 		reason = append(reason, controller.OpenTelemetryEnabled)
