@@ -80,12 +80,6 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	})
 }
 
-func (s *workerSuite) testValidateConfig(c *tc.C, f func(*caasfirewaller.Config), expect string) {
-	config := s.config
-	f(&config)
-	c.Check(config.Validate(), tc.ErrorMatches, expect)
-}
-
 func (s *workerSuite) TestStartStop(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
