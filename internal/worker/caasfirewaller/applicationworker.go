@@ -46,14 +46,14 @@ type applicationWorker struct {
 func newApplicationWorker(
 	appUUID application.UUID,
 	portService PortService,
-	applicationSewrvice ApplicationService,
+	applicationService ApplicationService,
 	broker CAASBroker,
 	logger logger.Logger,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
 		appUUID:            appUUID,
 		portService:        portService,
-		applicationService: applicationSewrvice,
+		applicationService: applicationService,
 		broker:             broker,
 		initial:            true,
 		logger:             logger,
