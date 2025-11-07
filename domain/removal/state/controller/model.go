@@ -228,7 +228,12 @@ FROM   model;
 
 	var modelUUIDs []entityUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt).GetAll(&modelUUIDs)
+		if err := tx.Query(ctx, stmt).GetAll(&modelUUIDs); errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("running get model UUIDs query: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, errors.Errorf("getting model UUIDs: %w", err)

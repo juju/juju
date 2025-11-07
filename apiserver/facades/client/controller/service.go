@@ -261,7 +261,7 @@ type ModelAgentService interface {
 // RemovalService provides access to the removal service.
 type RemovalService interface {
 	// RemoveController removes the controller and all models.
-	RemoveController(ctx context.Context, force bool, wait time.Duration) ([]coremodel.UUID, error)
+	RemoveController(ctx context.Context, wait time.Duration) ([]coremodel.UUID, bool, error)
 
 	// RemoveModel removes the specified model.
 	RemoveModel(ctx context.Context, modelUUID coremodel.UUID, force bool, wait time.Duration) (removal.UUID, error)
