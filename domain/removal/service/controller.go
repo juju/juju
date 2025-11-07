@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/collections/transform"
-
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
@@ -68,12 +66,18 @@ func (s *Service) RemoveController(
 		return nil, false, errors.Capture(err)
 	}
 
-	typedModelUUIDs := transform.Slice(modelUUIDs, func(m string) model.UUID {
-		return model.UUID(m)
-	})
+	var filteredModelUUIDs []model.UUID
+	for _, mUUID := range modelUUIDs {
+		typedUUID := model.UUID(mUUID)
+		if typedUUID == s.modelUUID {
+			// Don't include the controller model in the returned slice.
+			continue
+		}
+		filteredModelUUIDs = append(filteredModelUUIDs, typedUUID)
+	}
 
 	if ok, err := s.modelState.IsControllerModel(ctx, s.modelUUID.String()); errors.Is(err, modelerrors.NotFound) {
-		return typedModelUUIDs, true, nil
+		return filteredModelUUIDs, true, nil
 	} else if err != nil {
 		return nil, false, errors.Capture(err)
 	} else if !ok {
@@ -85,7 +89,7 @@ func (s *Service) RemoveController(
 	var modelForce bool
 	if lifeState, err := s.modelState.GetModelLife(ctx, s.modelUUID.String()); err != nil {
 		return nil, false, errors.Capture(err)
-	} else if lifeState == life.Dying {
+	} else if lifeState != life.Alive {
 		modelForce = true
 	}
 
@@ -94,5 +98,5 @@ func (s *Service) RemoveController(
 		return nil, false, errors.Capture(err)
 	}
 
-	return typedModelUUIDs, modelForce, nil
+	return filteredModelUUIDs, modelForce, nil
 }

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 )
 
@@ -30,6 +31,7 @@ func (s *controllerSuite) TestRemoveController(c *tc.C) {
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), s.modelUUID.String()).Return(true, nil)
+	mExp.GetModelLife(gomock.Any(), s.modelUUID.String()).Return(life.Alive, nil)
 
 	cExp := s.controllerState.EXPECT()
 	cExp.GetModelUUIDs(gomock.Any()).Return([]string{"model-1"}, nil)
@@ -41,9 +43,36 @@ func (s *controllerSuite) TestRemoveController(c *tc.C) {
 	mExp.EnsureModelNotAliveCascade(gomock.Any(), s.modelUUID.String(), false).Return(removal.ModelArtifacts{}, nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), s.modelUUID.String(), false, when.UTC()).Return(nil)
 
-	modelUUIDs, err := s.newService(c).RemoveController(c.Context(), false, 0)
+	modelUUIDs, modelForce, err := s.newService(c).RemoveController(c.Context(), 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelUUIDs, tc.DeepEquals, []model.UUID{"model-1"})
+	c.Check(modelForce, tc.IsFalse)
+}
+
+func (s *controllerSuite) TestRemoveControllerAlreadyDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	mExp := s.modelState.EXPECT()
+	mExp.IsControllerModel(gomock.Any(), s.modelUUID.String()).Return(true, nil)
+	mExp.GetModelLife(gomock.Any(), s.modelUUID.String()).Return(life.Dying, nil)
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelUUIDs(gomock.Any()).Return([]string{"model-1"}, nil)
+
+	cExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(true, nil)
+	cExp.EnsureModelNotAliveCascade(gomock.Any(), s.modelUUID.String(), true).Return(nil)
+
+	mExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(false, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), s.modelUUID.String(), true).Return(removal.ModelArtifacts{}, nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), s.modelUUID.String(), true, when.UTC()).Return(nil)
+
+	modelUUIDs, modelForce, err := s.newService(c).RemoveController(c.Context(), 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelUUIDs, tc.DeepEquals, []model.UUID{"model-1"})
+	c.Check(modelForce, tc.IsTrue)
 }
 
 func (s *controllerSuite) TestRemoveControllerEmptyController(c *tc.C) {
@@ -54,6 +83,8 @@ func (s *controllerSuite) TestRemoveControllerEmptyController(c *tc.C) {
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), s.modelUUID.String()).Return(true, nil)
+	mExp.GetModelLife(gomock.Any(), s.modelUUID.String()).Return(life.Alive, nil)
+
 	mExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(true, nil)
 	mExp.EnsureModelNotAliveCascade(gomock.Any(), s.modelUUID.String(), false).Return(removal.ModelArtifacts{}, nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), s.modelUUID.String(), false, when.UTC()).Return(nil)
@@ -63,17 +94,21 @@ func (s *controllerSuite) TestRemoveControllerEmptyController(c *tc.C) {
 	cExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(true, nil)
 	cExp.EnsureModelNotAliveCascade(gomock.Any(), s.modelUUID.String(), false).Return(nil)
 
-	modelUUID, err := s.newService(c).RemoveController(c.Context(), false, 0)
+	modelUUID, modelForce, err := s.newService(c).RemoveController(c.Context(), 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelUUID, tc.DeepEquals, []model.UUID{})
+	c.Check(modelForce, tc.IsFalse)
 }
 
 func (s *controllerSuite) TestRemoveControllerNotController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelUUIDs(gomock.Any()).Return([]string{}, nil)
+
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), s.modelUUID.String()).Return(false, nil)
 
-	_, err := s.newService(c).RemoveController(c.Context(), false, 0)
+	_, _, err := s.newService(c).RemoveController(c.Context(), 0)
 	c.Assert(err, tc.ErrorMatches, `.*not the controller model.*`)
 }

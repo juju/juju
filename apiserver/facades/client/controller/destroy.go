@@ -33,9 +33,8 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	}
 
 	isControllerModel, err := c.modelInfoService.IsControllerModel(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return apiservererrors.ServerError(err)
-
 	} else if !isControllerModel {
 		return apiservererrors.ServerError(errors.BadRequestf("current model is not the controller model"))
 	}
