@@ -288,6 +288,10 @@ type Config interface {
 	// means all queries will be output.
 	QueryTracingThreshold() time.Duration
 
+	// DqliteBusyTimeout returns the busy timeout for dqlite database
+	// operations.
+	DqliteBusyTimeout() time.Duration
+
 	// OpenTelemetryEnabled returns whether the open telemetry is enabled.
 	OpenTelemetryEnabled() bool
 
@@ -359,6 +363,10 @@ type configSetterOnly interface {
 
 	// SetQueryTracingThreshold sets the threshold for query tracing.
 	SetQueryTracingThreshold(time.Duration)
+
+	// SetDqliteBusyTimeout sets the busy timeout for dqlite database
+	// operations.
+	SetDqliteBusyTimeout(time.Duration)
 
 	// SetOpenTelemetryEnabled sets whether open telemetry is enabled.
 	SetOpenTelemetryEnabled(bool)
@@ -460,6 +468,7 @@ type configInternal struct {
 	agentLogfileMaxBackups             int
 	queryTracingEnabled                bool
 	queryTracingThreshold              time.Duration
+	dqliteBusyTimeout                  time.Duration
 	openTelemetryEnabled               bool
 	openTelemetryEndpoint              string
 	openTelemetryInsecure              bool
@@ -488,6 +497,7 @@ type AgentConfigParams struct {
 	AgentLogfileMaxBackups             int
 	QueryTracingEnabled                bool
 	QueryTracingThreshold              time.Duration
+	DqliteBusyTimeout                  time.Duration
 	OpenTelemetryEnabled               bool
 	OpenTelemetryEndpoint              string
 	OpenTelemetryInsecure              bool
@@ -559,6 +569,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		agentLogfileMaxBackups:             configParams.AgentLogfileMaxBackups,
 		queryTracingEnabled:                configParams.QueryTracingEnabled,
 		queryTracingThreshold:              configParams.QueryTracingThreshold,
+		dqliteBusyTimeout:                  configParams.DqliteBusyTimeout,
 		openTelemetryEnabled:               configParams.OpenTelemetryEnabled,
 		openTelemetryEndpoint:              configParams.OpenTelemetryEndpoint,
 		openTelemetryInsecure:              configParams.OpenTelemetryInsecure,
@@ -874,6 +885,16 @@ func (c *configInternal) QueryTracingThreshold() time.Duration {
 // SetQueryTracingThreshold implements configSetterOnly.
 func (c *configInternal) SetQueryTracingThreshold(v time.Duration) {
 	c.queryTracingThreshold = v
+}
+
+// DqliteBusyTimeout implements Config.
+func (c *configInternal) DqliteBusyTimeout() time.Duration {
+	return c.dqliteBusyTimeout
+}
+
+// SetDqliteBusyTimeout implements configSetterOnly.
+func (c *configInternal) SetDqliteBusyTimeout(v time.Duration) {
+	c.dqliteBusyTimeout = v
 }
 
 // OpenTelemetryEnabled implements Config.
