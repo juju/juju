@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -72,7 +73,8 @@ func (s *Service) RemoveController(
 	}
 
 	for _, modelUUID := range modelUUIDs {
-		if _, err := s.removeModel(ctx, model.UUID(modelUUID), force, wait); err != nil {
+		if _, err := s.removeModel(ctx, model.UUID(modelUUID), force, wait); err != nil &&
+			!errors.Is(err, modelerrors.NotFound) {
 			return errors.Capture(err)
 		}
 	}
