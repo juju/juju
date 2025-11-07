@@ -16,7 +16,7 @@ jobs:
       matrix:
         # TODO: add microk8s tests
         cloud: ["lxd"]
-        channel: ["2.9/stable", "3.1/stable"]
+        channel: ["3.1/stable"] # "2.9/stable" deploy of application on LXD is currently broken due to a snapd issue. 
         client: ['source', 'target']
 
     steps:
