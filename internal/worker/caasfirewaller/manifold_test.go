@@ -6,7 +6,6 @@ package caasfirewaller_test
 import (
 	"testing"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -16,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	caasmocks "github.com/juju/juju/caas/mocks"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	portservice "github.com/juju/juju/domain/port/service"
@@ -106,50 +106,42 @@ func (s *manifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 	return dt.StubGetter(resources)
 }
 
-func (s *manifoldSuite) TestMissingControllerUUID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+// TestValidateConfig tests the validation of [ManifoldConfig].
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
+	c.Run("valid", func(c *testing.T) {
+		config := s.validConfig()
+		tc.Check(c, config.Validate(), tc.ErrorIsNil)
+	})
 
-	config := s.validConfig()
-	config.ControllerUUID = ""
-	s.checkConfigInvalid(c, config, "empty ControllerUUID not valid")
-}
+	c.Run("empty controller uuid", func(c *testing.T) {
+		config := s.validConfig()
+		config.ControllerUUID = ""
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
 
-func (s *manifoldSuite) TestMissingModelUUID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+	c.Run("empty model uuid", func(c *testing.T) {
+		config := s.validConfig()
+		config.ModelUUID = ""
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
 
-	config := s.validConfig()
-	config.ModelUUID = ""
-	s.checkConfigInvalid(c, config, "empty ModelUUID not valid")
-}
+	c.Run("empty broker name", func(c *testing.T) {
+		config := s.validConfig()
+		config.BrokerName = ""
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
 
-func (s *manifoldSuite) TestMissingBrokerName(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+	c.Run("missing new worker", func(c *testing.T) {
+		config := s.validConfig()
+		config.NewWorker = nil
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
 
-	config := s.validConfig()
-	config.BrokerName = ""
-	s.checkConfigInvalid(c, config, "empty BrokerName not valid")
-}
-
-func (s *manifoldSuite) TestMissingNewWorker(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	config := s.validConfig()
-	config.NewWorker = nil
-	s.checkConfigInvalid(c, config, "nil NewWorker not valid")
-}
-
-func (s *manifoldSuite) TestMissingLogger(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	config := s.validConfig()
-	config.Logger = nil
-	s.checkConfigInvalid(c, config, "nil Logger not valid")
-}
-
-func (s *manifoldSuite) checkConfigInvalid(c *tc.C, config caasfirewaller.ManifoldConfig, expect string) {
-	err := config.Validate()
-	c.Check(err, tc.ErrorMatches, expect)
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Run("missing logger", func(c *testing.T) {
+		config := s.validConfig()
+		config.Logger = nil
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
 }
 
 var expectedInputs = []string{"broker", "domain-services"}
@@ -164,11 +156,13 @@ func (s *manifoldSuite) TestMissingInputs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	for _, input := range expectedInputs {
-		getter := s.newGetter(map[string]interface{}{
-			input: dependency.ErrMissing,
+		c.Run("missing input "+input, func(c *testing.T) {
+			getter := s.newGetter(map[string]interface{}{
+				input: dependency.ErrMissing,
+			})
+			_, err := s.manifold.Start(c.Context(), getter)
+			tc.Check(c, err, tc.ErrorIs, dependency.ErrMissing)
 		})
-		_, err := s.manifold.Start(c.Context(), getter)
-		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
