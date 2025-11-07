@@ -7,16 +7,17 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 type applicationWorker struct {
@@ -68,7 +69,7 @@ func newApplicationWorker(
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Errorf("invoking worker in catacomb: %w", err)
 	}
 	return w, nil
 }
@@ -86,22 +87,32 @@ func (w *applicationWorker) Wait() error {
 func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 	w.appName, err = w.applicationService.GetApplicationName(ctx, w.appUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf("getting application %q name: %w", w.appUUID, err)
 	}
 	w.appWatcher, err = w.applicationService.WatchApplicationExposed(ctx, w.appName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf(
+			"getting application %q exposed watcher: %w", w.appUUID, err,
+		)
 	}
 	if err := w.catacomb.Add(w.appWatcher); err != nil {
-		return errors.Trace(err)
+		return errors.Errorf(
+			"adding application %q exposed watcher to catacomb: %w",
+			w.appUUID, err,
+		)
 	}
 
 	w.portsWatcher, err = w.portService.WatchOpenedPortsForApplication(ctx, w.appUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf("getting application %q opened ports watcher: %w",
+			w.appUUID, err,
+		)
 	}
 	if err := w.catacomb.Add(w.portsWatcher); err != nil {
-		return errors.Trace(err)
+		return errors.Errorf(
+			"adding application %q opened ports watcher to catacomb: %w",
+			w.appUUID, err,
+		)
 	}
 
 	// TODO(sidecar): support deployment other than statefulset
@@ -109,10 +120,15 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 	w.portMutator = app
 	w.serviceUpdater = app
 
-	if w.currentPorts, err = w.portService.GetApplicationOpenedPortsByEndpoint(ctx, w.appUUID); err != nil {
-		return errors.Annotatef(err, "failed to get initial openned ports for application")
+	w.currentPorts, err = w.portService.GetApplicationOpenedPortsByEndpoint(
+		ctx, w.appUUID,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"getting application %q opened ports: %w",
+			w.appUUID, err,
+		)
 	}
-
 	return nil
 }
 
@@ -122,14 +138,14 @@ func (w *applicationWorker) loop() (err error) {
 
 	defer func() {
 		// If the application has been deleted, we can return nil.
-		if errors.Is(err, errors.NotFound) {
+		if errors.Is(err, coreerrors.NotFound) {
 			w.logger.Debugf(ctx, "sidecar caas firewaller application %v has been removed", w.appName)
 			err = nil
 		}
 	}()
 
 	if err = w.setUp(ctx); err != nil {
-		return errors.Trace(err)
+		return errors.Errorf("setting up initial watcher state: %w", err)
 	}
 
 	for {
@@ -138,22 +154,27 @@ func (w *applicationWorker) loop() (err error) {
 			return w.catacomb.ErrDying()
 		case _, ok := <-w.appWatcher.Changes():
 			if !ok {
-				return errors.New("application watcher closed")
+				return errors.New(
+					"application exposed watcher channel closed unexpectedly",
+				)
 			}
+
 			// We know this is a v2 charm at this point, because this child
 			// worker is only ever started for v2 charms.
 			if err := w.onApplicationChanged(ctx); err != nil {
 				if strings.Contains(err.Error(), "unexpected EOF") {
 					return nil
 				}
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 		case _, ok := <-w.portsWatcher.Changes():
 			if !ok {
-				return errors.New("application watcher closed")
+				return errors.New(
+					"application opened ports watcher channel closed unexpectedly",
+				)
 			}
 			if err := w.onPortChanged(ctx); err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 		}
 	}
@@ -188,11 +209,13 @@ func (w *applicationWorker) onPortChanged(ctx context.Context) error {
 	}
 
 	err = w.portMutator.UpdatePorts(toServicePorts(changedPortRanges), false)
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, coreerrors.NotFound) {
 		return nil
 	}
 	if err != nil {
-		return errors.Annotatef(err, "cannot update service port for application %q", w.appName)
+		return errors.Errorf(
+			"updating application %q ports in broker: %w", w.appUUID, err,
+		)
 	}
 
 	w.currentPorts = changedPortRanges
@@ -217,7 +240,9 @@ func (w *applicationWorker) onApplicationChanged(ctx context.Context) (err error
 
 	exposed, err := w.applicationService.IsApplicationExposed(ctx, w.appName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf(
+			"checking if application %q is exposed: %w", w.appUUID, err,
+		)
 	}
 	if !w.initial && exposed == w.previouslyExposed {
 		return nil
@@ -226,9 +251,9 @@ func (w *applicationWorker) onApplicationChanged(ctx context.Context) (err error
 	w.initial = false
 	w.previouslyExposed = exposed
 	if exposed {
-		return errors.Trace(exposeService(w.serviceUpdater))
+		return exposeService(w.serviceUpdater)
 	}
-	return errors.Trace(unExposeService(w.serviceUpdater))
+	return unExposeService(w.serviceUpdater)
 }
 
 func (w *applicationWorker) scopedContext() (context.Context, context.CancelFunc) {
