@@ -134,7 +134,7 @@ func (p *firewaller) loop() error {
 				appUUID, err := application.ParseUUID(app)
 				if err != nil {
 					return errors.Errorf(
-						"parsing recieved watcher application %q uuid: %w",
+						"parsing received watcher application %q uuid: %w",
 						app, err,
 					)
 				}
@@ -146,7 +146,7 @@ func (p *firewaller) loop() error {
 					continue
 				} else if err != nil {
 					return errors.Errorf(
-						"getting recieved watcher application %q charm format: %w",
+						"getting received watcher application %q charm format: %w",
 						appUUID, err,
 					)
 				}
@@ -169,7 +169,7 @@ func (p *firewaller) loop() error {
 				}
 				if err != nil {
 					return errors.Errorf(
-						"getting recieved watcher application %q current life: %w",
+						"getting received watcher application %q current life: %w",
 						appUUID, err,
 					)
 				}
