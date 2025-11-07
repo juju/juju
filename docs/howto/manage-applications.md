@@ -405,6 +405,67 @@ juju set-constraints apache2 mem=
 See more: {ref}`command-juju-set-constraints`
 ```
 
+(manage-storage-for-an-application)=
+## Manage storage for an application
+
+```{ibnote}
+See also: {ref}`storage`
+```
+
+**Set values.** You can set storage directives for an application during deployment or later.
+
+- To set storage directives for an application during deployment, run the `deploy` command with the `--storage` flag followed by the relevant key-value pair or a quotes-enclosed list of key-value pairs. For example, to deploy MySQL on a storage that has at least 6 GiB of memory using the rootfs pool:
+
+``` text
+juju deploy mysql --storage pgdata=6G,rootfs,1
+```
+
+````{dropdown} More examples
+
+Assuming a LXD cloud, to deploy PostgreSQL using a specific storage pool, you can use a combination of the `pool`, `size` and `count` specifications, as below
+
+``` text
+juju deploy postgresql --storage pgdata=lxd,1,3G
+```
+
+To deploy MySQL with a minimum size of 1.5 GiB using the default storage pool and default count of 1, execute:
+
+``` text
+juju deploy mysql --storage pgdata=1.5G
+```
+
+To deploy two units of MySQL using the rootFS storage pool with a default size of 1 GiB and default of count 1
+
+``` text
+juju deploy mysql -n 2 --storage database=rootfs
+```
+
+````
+
+```{ibnote}
+See more: {ref}`command-juju-deploy`
+```
+
+- To set storage directives for an application after deployment, run the `application-storage` command followed by the desired ("-enclosed list of) key-value pair(s), as below. This will affect any future units you may add to the application.
+
+``` text
+juju application-storage mysql database=1,3G,lxd
+```
+
+```{ibnote}
+See more: {ref}`command-juju-application-storage`
+```
+
+**Get values.** To view an application's current storage directives, use the `application-storage` command:
+
+``` text
+juju application-storage mysql
+```
+
+```{ibnote}
+See more: {ref}`command-juju-application-storage`
+```
+
 ## Change space bindings for an application
 
 You can set space bindings for an application during deployment or post-deployment. In both cases you can set either a default space for the entire application or a specific space for one or more individual application endpoints or both.
