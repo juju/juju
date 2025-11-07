@@ -593,6 +593,14 @@ func (s *offerServiceSuite) TestGetOfferUUIDError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }
 
+func (s *offerServiceSuite) TestGetOfferUUIDOfferURLNotValid(c *tc.C) {
+	// Act
+	_, err := s.service(c).GetOfferUUID(c.Context(), crossmodel.OfferURL{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferURLNotValid)
+}
+
 func (s *offerServiceSuite) TestGetConsumeDetails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -631,6 +639,14 @@ func (s *offerServiceSuite) TestGetConsumeDetailsError(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
+}
+
+func (s *offerServiceSuite) TestGetConsumeDetailsOfferURLNotValid(c *tc.C) {
+	// Act
+	_, err := s.service(c).GetConsumeDetails(c.Context(), crossmodel.OfferURL{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferURLNotValid)
 }
 
 type createOfferArgsMatcher struct {
