@@ -3634,7 +3634,7 @@ func (st *State) precheckUpgradeRelation(ctx context.Context, tx *sqlair.TX, app
 			return errors.Errorf("cannot change interface of relation %q from %s to %s", appRelation.Name, appRelation.Interface, charmRelation.Interface)
 		} else if charmRelation.Scope == string(charm.ScopeContainer) && appRelation.Scope == string(charm.ScopeGlobal) {
 			return errors.Errorf("cannot change scope of relation %q from %s to %s", appRelation.Name, appRelation.Scope, charmRelation.Scope)
-		} else if appRelation.Count > charmRelation.Capacity {
+		} else if charmRelation.Capacity > 0 && appRelation.Count > charmRelation.Capacity {
 			return errors.Errorf("new charm version imposes a maximum relation limit of %d for %q which cannot be"+
 				" satisfied by the number of already established relations (%d)", charmRelation.Capacity,
 				appRelation.Name, appRelation.Count)

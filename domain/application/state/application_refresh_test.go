@@ -165,6 +165,41 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEsta
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestSetApplicationCharmSuccessWithRelationEstablishedNoLimit verifies that an
+// application charm can be updated successfully when an active relation exists
+// and the charm has no relation limit (0).
+func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEstablishedNoLimit(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		relations: []charm.Relation{
+			{
+				Name:      "established",
+				Role:      charm.RoleProvider,
+				Interface: "limited",
+				Limit:     0,
+			},
+		},
+	})
+	s.establishRelationWith(c, appID, "established", charm.RoleRequirer)
+	s.establishRelationWith(c, appID, "established", charm.RoleRequirer)
+
+	// Simulate updating the charm with the same relation/limit.
+	charmID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
+		{
+			Name:      "established",
+			Role:      charm.RoleProvider,
+			Interface: "limited",
+			Limit:     0,
+		},
+	}})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *applicationRefreshSuite) TestSetApplicationCharmChangeChannel(c *tc.C) {
 	// Arrange
 	appID := s.createApplication(c, createApplicationArgs{})
