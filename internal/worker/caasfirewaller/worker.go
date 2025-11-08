@@ -187,7 +187,7 @@ func (p *firewaller) observeApplicationFirewallChange(
 		}
 	}
 
-	format, err := p.charmFormat(ctx, appUUID)
+	isV2, err := p.isV2Charm(ctx, appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// Application no longer exists, make sure that any workers are stopped.
 		if err := p.ensureApplicationWorkerStopped(ctx, appUUID); err != nil {
@@ -195,11 +195,11 @@ func (p *firewaller) observeApplicationFirewallChange(
 		}
 	} else if err != nil {
 		return errors.Errorf(
-			"getting charm format for application %q: %w", appUUID, err,
+			"determing charm v2 format for application %q: %w", appUUID, err,
 		)
 	}
 
-	if format < charm.FormatV2 {
+	if !isV2 {
 		p.logger.Debugf(
 			ctx,
 			"application %q is for a v1 charm, no caas firewaller required",
@@ -255,13 +255,23 @@ func (p *firewaller) loop() error {
 	}
 }
 
-// charmFormat returns the [charm.Format] for the supplied application uuid.
-func (p *firewaller) charmFormat(ctx context.Context, appUUID application.UUID) (charm.Format, error) {
+// isV2Charm works out if the charm backing the application uuid is on the v2
+// format returning true or false.
+//
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist.
+func (p *firewaller) isV2Charm(
+	ctx context.Context, appUUID application.UUID,
+) (bool, error) {
 	ch, _, err := p.appService.GetCharmByApplicationUUID(ctx, appUUID)
 	if err != nil {
-		return charm.FormatUnknown, errors.Errorf(
+		return false, errors.Errorf(
 			"getting charm information: %w", err,
 		)
 	}
-	return charm.MetaFormat(ch), nil
+
+	if charm.MetaFormat(ch) < charm.FormatV2 {
+		return false, nil
+	}
+	return true, nil
 }
