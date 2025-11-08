@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -108,13 +109,19 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 }
 
 func (w *applicationWorker) loop() (err error) {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
+	ctx := w.catacomb.Context(nil)
 	defer func() {
 		// If the application has been deleted, we can return nil.
-		if errors.Is(err, coreerrors.NotFound) {
-			w.logger.Debugf(ctx, "sidecar caas firewaller application %v has been removed", w.appName)
+		// If are returning because of an application not found error then
+		// return a nil error as this worker has nothing more to do. The
+		// application has gone away. Returning will force the catacomb to shut
+		// down the watchers used.
+		if errors.Is(err, domainapplicationerrors.ApplicationNotFound) {
+			w.logger.Debugf(
+				ctx,
+				"caas firewaller for application %q shutting down",
+				w.appUUID,
+			)
 			err = nil
 		}
 	}()
