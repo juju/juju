@@ -24,8 +24,8 @@ type ApplicationWorkerCreator func(
 	appUUID application.UUID,
 ) (worker.Worker, error)
 
-// Config holds configuration for the CAAS unit firewaller worker.
-type Config struct {
+// FirewallerConfig holds configuration for the CAAS unit firewaller worker.
+type FirewallerConfig struct {
 	ApplicationService ApplicationService
 	Logger             logger.Logger
 	WorkerCreator      ApplicationWorkerCreator
@@ -42,12 +42,12 @@ type firewaller struct {
 	workerCreator ApplicationWorkerCreator
 }
 
-// Validate takes the worker [Config] and checks that each field is set to an
+// Validate takes the worker [FirewallerConfig] and checks that each field is set to an
 // acceptable value for the worker to operate.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when a required field has an invalid value.
-func (config Config) Validate() error {
+func (config FirewallerConfig) Validate() error {
 	if config.ApplicationService == nil {
 		return errors.New("not valid nil ApplicationService").Add(
 			coreerrors.NotValid,
@@ -68,7 +68,7 @@ func (config Config) Validate() error {
 
 // NewFirewallerWorker starts and returns a new CAAS firewaller worker watching
 // and responding to application firewall events in the model.
-func NewFirewallerWorker(config Config) (worker.Worker, error) {
+func NewFirewallerWorker(config FirewallerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Errorf("validating worker configuration: %w", err)
 	}
@@ -170,9 +170,7 @@ func (p *firewaller) observeApplicationFirewallChange(
 	appLife, err := p.appService.GetApplicationLife(ctx, appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// Application no longer exists, make sure that any workers are stopped.
-		if err := p.ensureApplicationWorkerStopped(ctx, appUUID); err != nil {
-			return err
-		}
+		return p.ensureApplicationWorkerStopped(ctx, appUUID)
 	} else if err != nil {
 		return errors.Errorf(
 			"getting current life for application %q: %w",
@@ -182,17 +180,15 @@ func (p *firewaller) observeApplicationFirewallChange(
 
 	if appLife == life.Dead {
 		// Application is dead, make sure that any workers are stopped.
-		if err := p.ensureApplicationWorkerStopped(ctx, appUUID); err != nil {
-			return err
-		}
+		return p.ensureApplicationWorkerStopped(ctx, appUUID)
 	}
 
+	// We only ever need to perform this check if no worker already exists for
+	// the application. If a worker already exists then the implication exists.
 	isV2, err := p.isV2Charm(ctx, appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// Application no longer exists, make sure that any workers are stopped.
-		if err := p.ensureApplicationWorkerStopped(ctx, appUUID); err != nil {
-			return err
-		}
+		return p.ensureApplicationWorkerStopped(ctx, appUUID)
 	} else if err != nil {
 		return errors.Errorf(
 			"determing charm v2 format for application %q: %w", appUUID, err,
@@ -263,6 +259,13 @@ func (p *firewaller) loop() error {
 func (p *firewaller) isV2Charm(
 	ctx context.Context, appUUID application.UUID,
 ) (bool, error) {
+	if _, ok := p.appWorkers[appUUID]; ok {
+		// If the application uuid already has a started worker then it can be
+		// inferred that it is a V2 charm. This avoids excess trips to the
+		// service.
+		return true, nil
+	}
+
 	ch, _, err := p.appService.GetCharmByApplicationUUID(ctx, appUUID)
 	if err != nil {
 		return false, errors.Errorf(
