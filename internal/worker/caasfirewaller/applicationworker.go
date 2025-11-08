@@ -14,26 +14,17 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
 type applicationWorker struct {
 	catacomb catacomb.Catacomb
-	appName  string
-	appUUID  application.UUID
 
-	portService        PortService
+	appUUID            application.UUID
 	applicationService ApplicationService
-
-	broker         CAASBroker
-	portMutator    PortMutator
-	serviceUpdater ServiceUpdater
-
-	portsWatcher watcher.NotifyWatcher
-
-	currentPorts network.GroupedPortRanges
+	broker             CAASBroker
+	portService        PortService
 
 	logger logger.Logger
 }
@@ -52,14 +43,27 @@ func newApplicationWorker(
 		broker:             broker,
 		logger:             logger,
 	}
-	if err := catacomb.Invoke(catacomb.Plan{
+
+	err := catacomb.Invoke(catacomb.Plan{
 		Name: "caas-firewaller-application",
 		Site: &w.catacomb,
 		Work: w.loop,
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, errors.Errorf("invoking worker in catacomb: %w", err)
 	}
 	return w, nil
+}
+
+// getPortMutator returns the portMutator for the current application.
+func (w *applicationWorker) getPortMutator(ctx context.Context) (PortMutator, error) {
+	appName, err := w.applicationService.GetApplicationName(ctx, w.appUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting application %q name: %w", w.appUUID, err)
+	}
+
+	app := w.broker.Application(appName, caas.DeploymentStateful)
+	return app, nil
 }
 
 // Kill is part of the worker.Worker interface.
@@ -72,43 +76,8 @@ func (w *applicationWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *applicationWorker) setUp(ctx context.Context) (err error) {
-	w.appName, err = w.applicationService.GetApplicationName(ctx, w.appUUID)
-	if err != nil {
-		return errors.Errorf("getting application %q name: %w", w.appUUID, err)
-	}
-	w.portsWatcher, err = w.portService.WatchOpenedPortsForApplication(ctx, w.appUUID)
-	if err != nil {
-		return errors.Errorf("getting application %q opened ports watcher: %w",
-			w.appUUID, err,
-		)
-	}
-	if err := w.catacomb.Add(w.portsWatcher); err != nil {
-		return errors.Errorf(
-			"adding application %q opened ports watcher to catacomb: %w",
-			w.appUUID, err,
-		)
-	}
-
-	// TODO(sidecar): support deployment other than statefulset
-	app := w.broker.Application(w.appName, caas.DeploymentStateful)
-	w.portMutator = app
-	w.serviceUpdater = app
-
-	w.currentPorts, err = w.portService.GetApplicationOpenedPortsByEndpoint(
-		ctx, w.appUUID,
-	)
-	if err != nil {
-		return errors.Errorf(
-			"getting application %q opened ports: %w",
-			w.appUUID, err,
-		)
-	}
-	return nil
-}
-
 func (w *applicationWorker) loop() (err error) {
-	ctx := w.catacomb.Context(nil)
+	ctx := w.catacomb.Context(context.Background())
 	defer func() {
 		// If the application has been deleted, we can return nil.
 		// If are returning because of an application not found error then
@@ -125,15 +94,45 @@ func (w *applicationWorker) loop() (err error) {
 		}
 	}()
 
-	if err = w.setUp(ctx); err != nil {
-		return errors.Errorf("setting up initial watcher state: %w", err)
+	portMutator, err := w.getPortMutator(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"getting application %q port mutator: %w",
+			w.appUUID, err,
+		)
+	}
+
+	// lastCheckPoint keeps track of the last known port ranges that have been
+	// applied to the application.
+	lastCheckPoint := network.GroupedPortRanges{}
+
+	// Ensure the applications initial set of open port requirements are applied.
+	lastCheckPoint, err = w.ensureOpenPorts(ctx, portMutator, lastCheckPoint)
+	if err != nil {
+		return errors.Errorf(
+			"ensuring initial open port requirements for application %q are applied: %w",
+			w.appUUID, err,
+		)
+	}
+
+	portsWatcher, err := w.portService.WatchOpenedPortsForApplication(ctx, w.appUUID)
+	if err != nil {
+		return errors.Errorf("getting application %q opened ports watcher: %w",
+			w.appUUID, err,
+		)
+	}
+	if err := w.catacomb.Add(portsWatcher); err != nil {
+		return errors.Errorf(
+			"adding application %q opened ports watcher to catacomb: %w",
+			w.appUUID, err,
+		)
 	}
 
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case _, ok := <-w.portsWatcher.Changes():
+		case _, ok := <-portsWatcher.Changes():
 			if !ok {
 				return errors.New(
 					"application opened ports watcher channel closed unexpectedly",
@@ -143,8 +142,10 @@ func (w *applicationWorker) loop() (err error) {
 			w.logger.Debugf(
 				ctx, "received application %q port change event", w.appUUID,
 			)
-			if err := w.onPortChanged(ctx); err != nil {
-				return errors.Capture(err)
+
+			lastCheckPoint, err = w.ensureOpenPorts(ctx, portMutator, lastCheckPoint)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -166,29 +167,32 @@ func toServicePorts(in network.GroupedPortRanges) []caas.ServicePort {
 	return out
 }
 
-func (w *applicationWorker) onPortChanged(ctx context.Context) error {
+// ensureOpenPorts is responsible for making sure that the applications
+// current open port requirements are reflected on the application via the
+// [PortMutator]. This func returns the latest [network.GroupedPortRanges] that
+// have been applied to the application.
+func (w *applicationWorker) ensureOpenPorts(
+	ctx context.Context,
+	mutator PortMutator,
+	lastCheckPoint network.GroupedPortRanges,
+) (network.GroupedPortRanges, error) {
 	changedPortRanges, err := w.portService.GetApplicationOpenedPortsByEndpoint(ctx, w.appUUID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if w.currentPorts.EqualTo(changedPortRanges) {
+	if lastCheckPoint.EqualTo(changedPortRanges) {
 		w.logger.Debugf(ctx, "application %q opened ports are up to date, no work to be performed")
-		return nil
+		return lastCheckPoint, nil
 	}
 
 	w.logger.Infof(ctx, "applying application %q updated port changes", w.appUUID)
-	err = w.portMutator.UpdatePorts(toServicePorts(changedPortRanges), false)
+	err = mutator.UpdatePorts(toServicePorts(changedPortRanges), false)
 	if err != nil {
-		return errors.Errorf(
+		return nil, errors.Errorf(
 			"updating application %q ports in broker: %w", w.appUUID, err,
 		)
 	}
 
-	w.currentPorts = changedPortRanges
-	return nil
-}
-
-func (w *applicationWorker) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
+	return changedPortRanges, nil
 }
