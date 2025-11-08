@@ -10,6 +10,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/caas"
+	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
@@ -22,8 +23,9 @@ type ManifoldConfig struct {
 	BrokerName         string
 	DomainServicesName string
 
-	NewWorker func(Config) (worker.Worker, error)
-	Logger    logger.Logger
+	NewAppFirewallWorker func(coreapplication.UUID, AppFirewallerConfig) (worker.Worker, error)
+	NewFirewallWorker    func(FirewallerConfig) (worker.Worker, error)
+	Logger               logger.Logger
 }
 
 // Manifold returns a Manifold that encapsulates the firewaller worker.
@@ -48,8 +50,15 @@ func (config ManifoldConfig) Validate() error {
 			coreerrors.NotValid,
 		)
 	}
-	if config.NewWorker == nil {
-		return errors.New("not valid nil NewWorker").Add(coreerrors.NotValid)
+	if config.NewAppFirewallWorker == nil {
+		return errors.New("not valid nil NewAppFirewallWorker").Add(
+			coreerrors.NotValid,
+		)
+	}
+	if config.NewFirewallWorker == nil {
+		return errors.New("not valid nil NewFirewallWorker").Add(
+			coreerrors.NotValid,
+		)
 	}
 	if config.Logger == nil {
 		return errors.New("not valid nil Logger").Add(coreerrors.NotValid)
@@ -78,11 +87,23 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		)
 	}
 
-	w, err := config.NewWorker(Config{
-		PortService:        domainServices.Port(),
+	// appFirewallCreator is a closure around the dependencies required for
+	// constructing an application firewall worker.
+	appFirewallCreator := func(a coreapplication.UUID) (worker.Worker, error) {
+		return config.NewAppFirewallWorker(
+			a, AppFirewallerConfig{
+				ApplicationService: domainServices.Application(),
+				PortService:        domainServices.Port(),
+				Broker:             broker,
+				Logger:             config.Logger,
+			},
+		)
+	}
+
+	w, err := config.NewFirewallWorker(FirewallerConfig{
 		ApplicationService: domainServices.Application(),
-		Broker:             broker,
 		Logger:             config.Logger,
+		WorkerCreator:      appFirewallCreator,
 	})
 	if err != nil {
 		return nil, errors.Errorf("starting new worker for manifold: %w", err)
