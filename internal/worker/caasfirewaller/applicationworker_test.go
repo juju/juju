@@ -5,11 +5,9 @@ package caasfirewaller_test
 
 import (
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -17,28 +15,18 @@ import (
 	caasmocks "github.com/juju/juju/caas/mocks"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
 type appWorkerSuite struct {
-	testing.BaseSuite
-
-	appName string
-	appUUID coreapplication.UUID
-
 	portService        *mocks.MockPortService
 	applicationService *mocks.MockApplicationService
 	broker             *mocks.MockCAASBroker
 	brokerApp          *caasmocks.MockApplication
-
-	portsChanges chan struct{}
-
-	portsWatcher watcher.NotifyWatcher
 }
 
 func TestAppWorkerSuite(t *stdtesting.T) {
@@ -46,27 +34,17 @@ func TestAppWorkerSuite(t *stdtesting.T) {
 	tc.Run(t, &appWorkerSuite{})
 }
 
-func (s *appWorkerSuite) SetUpTest(c *tc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	s.appName = "app1"
-	s.appUUID = tc.Must(c, coreapplication.NewUUID)
-	s.portsChanges = make(chan struct{})
-}
-
-func (s *appWorkerSuite) getController(c *tc.C) *gomock.Controller {
+// setupMocks is responsible for creating a testing gomock controller and
+// establishing the mocks used by the suite.
+func (s *appWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-
-	s.portsWatcher = watchertest.NewMockNotifyWatcher(s.portsChanges)
 
 	s.portService = mocks.NewMockPortService(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
-
 	s.broker = mocks.NewMockCAASBroker(ctrl)
 	s.brokerApp = caasmocks.NewMockApplication(ctrl)
 
 	c.Cleanup(func() {
-		s.portsWatcher = nil
 		s.portService = nil
 		s.applicationService = nil
 		s.broker = nil
@@ -76,9 +54,14 @@ func (s *appWorkerSuite) getController(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *appWorkerSuite) getWorker(c *tc.C) worker.Worker {
+// makeWorker is a test suite helper to construct a new application worker off
+// of the suite's mocks. [appWorkerSuite.setupMocks] must have been called by
+// the test first.
+func (s *appWorkerSuite) makeWorker(
+	c *tc.C, appUUID coreapplication.UUID,
+) worker.Worker {
 	w, err := caasfirewaller.NewApplicationWorker(
-		s.appUUID,
+		appUUID,
 		s.portService,
 		s.applicationService,
 		s.broker,
@@ -88,20 +71,94 @@ func (s *appWorkerSuite) getWorker(c *tc.C) worker.Worker {
 	return w
 }
 
+// TestWorkerCleanShutdownOnApplicationRemoval ensures that when an application
+// is removed the worker cleanly shuts down without error. This is a regression
+// test after moving to Dqlite. The wrong error type was being check and the
+// worker would not exit cleanly.
+func (s *appWorkerSuite) TestWorkerCleanShutdownOnApplicationRemoval(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "mysql"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	// Create the ports watcher buffered with all of the events. A buffered
+	// channel avoids having to use goroutines to send the events.
+	portsChangeCh := make(chan struct{}, 2)
+	portsWatcher := watchertest.NewMockNotifyWatcher(portsChangeCh)
+	// 1st port change event.
+	portsChangeCh <- struct{}{}
+	// 2nd port change event but the application has been removed.
+	portsChangeCh <- struct{}{}
+
+	portChange1 := network.GroupedPortRanges{
+		"": []network.PortRange{
+			network.MustParsePortRange("1000/tcp"),
+		},
+	}
+
+	appSvcEXP := s.applicationService.EXPECT()
+	appSvcEXP.GetApplicationName(gomock.Any(), appUUID).Return(appName, nil).AnyTimes()
+
+	portSvcExp := s.portService.EXPECT()
+	portSvcExp.WatchOpenedPortsForApplication(gomock.Any(), appUUID).Return(
+		portsWatcher, nil,
+	)
+	// Initial fetch on worker setup
+	portSvcExp.GetApplicationOpenedPortsByEndpoint(
+		gomock.Any(), appUUID,
+	).Return(network.GroupedPortRanges{}, nil)
+
+	// 1st change event for port change.
+	portSvcExp.GetApplicationOpenedPortsByEndpoint(
+		gomock.Any(), appUUID,
+	).Return(portChange1, nil)
+
+	// 2nd change event for port change, application not found as it has been
+	// removed.
+	portSvcExp.GetApplicationOpenedPortsByEndpoint(
+		gomock.Any(), appUUID,
+	).Return(nil, domainapplicationerrors.ApplicationNotFound)
+
+	brokerExp := s.broker.EXPECT()
+	brokerExp.Application(appName, caas.DeploymentStateful).Return(
+		s.brokerApp).AnyTimes()
+
+	brokerAppExp := s.brokerApp.EXPECT()
+	// 1st change event port update
+	brokerAppExp.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "1000-tcp",
+			Port:       1000,
+			TargetPort: 1000,
+			Protocol:   "tcp",
+		},
+	}, false).Return(nil)
+
+	w := s.makeWorker(c, appUUID)
+	c.Check(
+		w.Wait(),
+		tc.ErrorIsNil,
+		tc.Commentf("expected clean worker shutdown on application removal"),
+	)
+}
+
 func (s *appWorkerSuite) TestWorker(c *tc.C) {
-	ctrl := s.getController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	done := make(chan struct{})
+	appName := "mysql"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
 
-	go func() {
-		// 1st port change event.
-		s.portsChanges <- struct{}{}
-		// 2nd port change event.
-		s.portsChanges <- struct{}{}
-		// 3rd port change event, including another application.
-		s.portsChanges <- struct{}{}
-	}()
+	// Create the ports watcher buffered with all of the events. A buffered
+	// channel avoids having to use goroutines to send the events.
+	portsChangeCh := make(chan struct{}, 3)
+	portsWatcher := watchertest.NewMockNotifyWatcher(portsChangeCh)
+	// 1st port change event.
+	portsChangeCh <- struct{}{}
+	// 2nd port change event.
+	portsChangeCh <- struct{}{}
+	// 3nd port change event.
+	portsChangeCh <- struct{}{}
 
 	gpr1 := network.GroupedPortRanges{
 		"": []network.PortRange{
@@ -118,55 +175,76 @@ func (s *appWorkerSuite) TestWorker(c *tc.C) {
 		},
 	}
 
-	gomock.InOrder(
-		s.applicationService.EXPECT().GetApplicationName(gomock.Any(), s.appUUID).Return(s.appName, nil),
-		s.portService.EXPECT().WatchOpenedPortsForApplication(gomock.Any(), s.appUUID).Return(s.portsWatcher, nil),
-		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
+	appSvcExp := s.applicationService.EXPECT()
+	appSvcExp.GetApplicationName(gomock.Any(), appUUID).Return(
+		appName, nil).AnyTimes()
 
-		// initial fetch.
-		s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), s.appUUID).Return(network.GroupedPortRanges{}, nil),
-
-		// 1st triggered by port change event.
-		s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), s.appUUID).Return(gpr1, nil),
-		s.brokerApp.EXPECT().UpdatePorts([]caas.ServicePort{
-			{
-				Name:       "1000-tcp",
-				Port:       1000,
-				TargetPort: 1000,
-				Protocol:   "tcp",
-			},
-		}, false).Return(nil),
-
-		// 2nd triggered by port change event, no UpdatePorts because no diff on the portchanges.
-		s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), s.appUUID).Return(gpr1, nil),
-
-		// 3rd triggered by port change event.
-		s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), s.appUUID).Return(gpr2, nil),
-		s.brokerApp.EXPECT().UpdatePorts([]caas.ServicePort{
-			{
-				Name:       "1000-tcp",
-				Port:       1000,
-				TargetPort: 1000,
-				Protocol:   "tcp",
-			},
-			{
-				Name:       "2000-udp",
-				Port:       2000,
-				TargetPort: 2000,
-				Protocol:   "udp",
-			},
-		}, false).DoAndReturn(func([]caas.ServicePort, bool) error {
-			close(done)
-			return nil
-		}),
+	portSvcExp := s.portService.EXPECT()
+	portSvcExp.WatchOpenedPortsForApplication(gomock.Any(), appUUID).Return(
+		portsWatcher, nil,
 	)
 
-	w := s.getWorker(c)
+	// initial fetch.
+	portSvcExp.GetApplicationOpenedPortsByEndpoint(
+		gomock.Any(), appUUID,
+	).Return(network.GroupedPortRanges{}, nil)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Errorf("timed out waiting for worker")
-	}
-	workertest.CleanKill(c, w)
+	// 1st watcher change
+	portSvcExp.GetApplicationOpenedPortsByEndpoint(
+		gomock.Any(), appUUID,
+	).Return(gpr1, nil)
+
+	// 2nd watcher change, no change to ports
+	portSvcExp.GetApplicationOpenedPortsByEndpoint(
+		gomock.Any(), appUUID,
+	).Return(gpr1, nil)
+
+	// 3rd watcher change
+	portSvcExp.GetApplicationOpenedPortsByEndpoint(
+		gomock.Any(), appUUID,
+	).Return(gpr2, nil)
+
+	brokerExp := s.broker.EXPECT()
+	brokerExp.Application(appName, caas.DeploymentStateful).Return(s.brokerApp)
+
+	brokerAppExp := s.brokerApp.EXPECT()
+	// 1st watcher change
+	brokerAppExp.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "1000-tcp",
+			Port:       1000,
+			TargetPort: 1000,
+			Protocol:   "tcp",
+		},
+	}, false).Return(nil)
+
+	// Create the worker var to capture the worker in the mock closure.
+	var w worker.Worker
+
+	// 3rd watcher change
+	brokerAppExp.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "1000-tcp",
+			Port:       1000,
+			TargetPort: 1000,
+			Protocol:   "tcp",
+		},
+		{
+			Name:       "2000-udp",
+			Port:       2000,
+			TargetPort: 2000,
+			Protocol:   "udp",
+		},
+	}, false).DoAndReturn(func([]caas.ServicePort, bool) error {
+		// Last mock expect so we can kill the worker.
+		w.Kill()
+		return nil
+	})
+
+	w = s.makeWorker(c, appUUID)
+	c.Check(
+		w.Wait(),
+		tc.ErrorIsNil,
+		tc.Commentf("expected clean worker shutdown on application removal"),
+	)
 }
