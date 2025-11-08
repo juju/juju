@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
@@ -180,9 +179,6 @@ func (w *applicationWorker) onPortChanged(ctx context.Context) error {
 
 	w.logger.Infof(ctx, "applying application %q updated port changes", w.appUUID)
 	err = w.portMutator.UpdatePorts(toServicePorts(changedPortRanges), false)
-	if errors.Is(err, coreerrors.NotFound) {
-		return nil
-	}
 	if err != nil {
 		return errors.Errorf(
 			"updating application %q ports in broker: %w", w.appUUID, err,
