@@ -119,7 +119,7 @@ func (w *applicationWorker) loop() (err error) {
 		if errors.Is(err, domainapplicationerrors.ApplicationNotFound) {
 			w.logger.Debugf(
 				ctx,
-				"caas firewaller for application %q shutting down",
+				"application %q removed, shutting down caas firewaller",
 				w.appUUID,
 			)
 			err = nil
@@ -140,6 +140,10 @@ func (w *applicationWorker) loop() (err error) {
 					"application opened ports watcher channel closed unexpectedly",
 				)
 			}
+
+			w.logger.Debugf(
+				ctx, "received application %q port change event", w.appUUID,
+			)
 			if err := w.onPortChanged(ctx); err != nil {
 				return errors.Capture(err)
 			}
@@ -168,13 +172,13 @@ func (w *applicationWorker) onPortChanged(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	w.logger.Tracef(ctx, "current port for app %q, %v", w.appName, w.currentPorts)
-	w.logger.Tracef(ctx, "port changed for app %q, %v", w.appName, changedPortRanges)
+
 	if w.currentPorts.EqualTo(changedPortRanges) {
-		w.logger.Debugf(ctx, "no port changes for app %q", w.appName)
+		w.logger.Debugf(ctx, "application %q opened ports are up to date, no work to be performed")
 		return nil
 	}
 
+	w.logger.Infof(ctx, "applying application %q updated port changes", w.appUUID)
 	err = w.portMutator.UpdatePorts(toServicePorts(changedPortRanges), false)
 	if errors.Is(err, coreerrors.NotFound) {
 		return nil
