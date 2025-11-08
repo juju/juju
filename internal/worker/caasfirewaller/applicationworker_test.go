@@ -23,21 +23,21 @@ import (
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
-type appWorkerSuite struct {
+type appFirewallerSuite struct {
 	portService        *mocks.MockPortService
 	applicationService *mocks.MockApplicationService
 	broker             *mocks.MockCAASBroker
 	brokerApp          *caasmocks.MockApplication
 }
 
-func TestAppWorkerSuite(t *stdtesting.T) {
+func TestAppFirewallerSuite(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
-	tc.Run(t, &appWorkerSuite{})
+	tc.Run(t, &appFirewallerSuite{})
 }
 
 // setupMocks is responsible for creating a testing gomock controller and
 // establishing the mocks used by the suite.
-func (s *appWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
+func (s *appFirewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.portService = mocks.NewMockPortService(ctrl)
@@ -58,15 +58,17 @@ func (s *appWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 // makeWorker is a test suite helper to construct a new application worker off
 // of the suite's mocks. [appWorkerSuite.setupMocks] must have been called by
 // the test first.
-func (s *appWorkerSuite) makeWorker(
+func (s *appFirewallerSuite) makeWorker(
 	c *tc.C, appUUID coreapplication.UUID,
 ) worker.Worker {
 	w, err := caasfirewaller.NewApplicationWorker(
 		appUUID,
-		s.portService,
-		s.applicationService,
-		s.broker,
-		loggertesting.WrapCheckLog(c),
+		caasfirewaller.AppFirewallerConfig{
+			ApplicationService: s.applicationService,
+			Broker:             s.broker,
+			PortService:        s.portService,
+			Logger:             loggertesting.WrapCheckLog(c),
+		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return w
@@ -76,7 +78,7 @@ func (s *appWorkerSuite) makeWorker(
 // is removed the worker cleanly shuts down without error. This is a regression
 // test after moving to Dqlite. The wrong error type was being check and the
 // worker would not exit cleanly.
-func (s *appWorkerSuite) TestWorkerCleanShutdownOnApplicationRemoval(c *tc.C) {
+func (s *appFirewallerSuite) TestWorkerCleanShutdownOnApplicationRemoval(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "mysql"
@@ -147,7 +149,7 @@ func (s *appWorkerSuite) TestWorkerCleanShutdownOnApplicationRemoval(c *tc.C) {
 // [applicationWorker] to make sure that when the broker returns a
 // [coreerrors.NotFound] it is propogated through the worker instead of being
 // discarded.
-func (s *appWorkerSuite) TestWorkerPropogatesBrokerNotFoundError(c *tc.C) {
+func (s *appFirewallerSuite) TestWorkerPropogatesBrokerNotFoundError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "mysql"
@@ -203,7 +205,7 @@ func (s *appWorkerSuite) TestWorkerPropogatesBrokerNotFoundError(c *tc.C) {
 	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
-func (s *appWorkerSuite) TestWorker(c *tc.C) {
+func (s *appFirewallerSuite) TestWorker(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
