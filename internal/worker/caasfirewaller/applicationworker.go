@@ -12,13 +12,25 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
-type applicationWorker struct {
+// AppFirewallerConfig is the configuration for starting a new
+// [AppFirewaller].
+type AppFirewallerConfig struct {
+	ApplicationService ApplicationService
+	Broker             CAASBroker
+	PortService        PortService
+	Logger             logger.Logger
+}
+
+// AppFirewaller is a single application firewaller worker ensuring the exposed
+// ports of the application are refelcted in the broker.
+type AppFirewaller struct {
 	catacomb catacomb.Catacomb
 
 	appUUID            application.UUID
@@ -29,34 +41,38 @@ type applicationWorker struct {
 	logger logger.Logger
 }
 
-func newApplicationWorker(
-	appUUID application.UUID,
-	portService PortService,
-	applicationService ApplicationService,
-	broker CAASBroker,
-	logger logger.Logger,
-) (worker.Worker, error) {
-	w := &applicationWorker{
-		appUUID:            appUUID,
-		portService:        portService,
-		applicationService: applicationService,
-		broker:             broker,
-		logger:             logger,
+// ensureOpenPorts is responsible for making sure that the applications
+// current open port requirements are reflected on the application via the
+// [PortMutator]. This func returns the latest [network.GroupedPortRanges] that
+// have been applied to the application.
+func (w *AppFirewaller) ensureOpenPorts(
+	ctx context.Context,
+	mutator PortMutator,
+	lastCheckPoint network.GroupedPortRanges,
+) (network.GroupedPortRanges, error) {
+	changedPortRanges, err := w.portService.GetApplicationOpenedPortsByEndpoint(ctx, w.appUUID)
+	if err != nil {
+		return nil, err
 	}
 
-	err := catacomb.Invoke(catacomb.Plan{
-		Name: "caas-firewaller-application",
-		Site: &w.catacomb,
-		Work: w.loop,
-	})
-	if err != nil {
-		return nil, errors.Errorf("invoking worker in catacomb: %w", err)
+	if lastCheckPoint.EqualTo(changedPortRanges) {
+		w.logger.Debugf(ctx, "application %q opened ports are up to date, no work to be performed")
+		return lastCheckPoint, nil
 	}
-	return w, nil
+
+	w.logger.Infof(ctx, "applying application %q updated port changes", w.appUUID)
+	err = mutator.UpdatePorts(toServicePorts(changedPortRanges), false)
+	if err != nil {
+		return nil, errors.Errorf(
+			"updating application %q ports in broker: %w", w.appUUID, err,
+		)
+	}
+
+	return changedPortRanges, nil
 }
 
 // getPortMutator returns the portMutator for the current application.
-func (w *applicationWorker) getPortMutator(ctx context.Context) (PortMutator, error) {
+func (w *AppFirewaller) getPortMutator(ctx context.Context) (PortMutator, error) {
 	appName, err := w.applicationService.GetApplicationName(ctx, w.appUUID)
 	if err != nil {
 		return nil, errors.Errorf("getting application %q name: %w", w.appUUID, err)
@@ -67,16 +83,21 @@ func (w *applicationWorker) getPortMutator(ctx context.Context) (PortMutator, er
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *applicationWorker) Kill() {
+// Kill sets this [AppFirewaller] to dying with a nil error shutting down the
+// main loop and any child workers.
+//
+// Implements the [worker.Worker] interface.
+func (w *AppFirewaller) Kill() {
 	w.catacomb.Kill(nil)
 }
 
-// Wait is part of the worker.Worker interface.
-func (w *applicationWorker) Wait() error {
-	return w.catacomb.Wait()
-}
-
-func (w *applicationWorker) loop() (err error) {
+// loop is the main processing routine of the worker waiting for applications to
+// be added or removed from the model. For each application in the model a child
+// worker will be created to manage the open ports of the application.
+//
+// loop returns when the worker is placed into a dying state or an expected
+// error occurs.
+func (w *AppFirewaller) loop() (err error) {
 	ctx := w.catacomb.Context(context.Background())
 	defer func() {
 		// If the application has been deleted, we can return nil.
@@ -151,6 +172,42 @@ func (w *applicationWorker) loop() (err error) {
 	}
 }
 
+// NewAppFirewaller constructs and runs a new [AppFirewaller].
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the configuration is invalid.
+func NewAppFirewaller(
+	appUUID application.UUID,
+	config AppFirewallerConfig,
+) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Errorf("validating configuration: %w", err)
+	}
+
+	w := &AppFirewaller{
+		applicationService: config.ApplicationService,
+		appUUID:            appUUID,
+		broker:             config.Broker,
+		portService:        config.PortService,
+		logger:             config.Logger,
+	}
+
+	err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-firewaller-application",
+		Site: &w.catacomb,
+		Work: w.loop,
+	})
+	if err != nil {
+		return nil, errors.Errorf("invoking worker in catacomb: %w", err)
+	}
+	return w, nil
+}
+
+// Wait is part of the worker.Worker interface.
+func (w *AppFirewaller) Wait() error {
+	return w.catacomb.Wait()
+}
+
 func toServicePorts(in network.GroupedPortRanges) []caas.ServicePort {
 	ports := in.UniquePortRanges()
 	network.SortPortRanges(ports)
@@ -167,32 +224,35 @@ func toServicePorts(in network.GroupedPortRanges) []caas.ServicePort {
 	return out
 }
 
-// ensureOpenPorts is responsible for making sure that the applications
-// current open port requirements are reflected on the application via the
-// [PortMutator]. This func returns the latest [network.GroupedPortRanges] that
-// have been applied to the application.
-func (w *applicationWorker) ensureOpenPorts(
-	ctx context.Context,
-	mutator PortMutator,
-	lastCheckPoint network.GroupedPortRanges,
-) (network.GroupedPortRanges, error) {
-	changedPortRanges, err := w.portService.GetApplicationOpenedPortsByEndpoint(ctx, w.appUUID)
-	if err != nil {
-		return nil, err
-	}
-
-	if lastCheckPoint.EqualTo(changedPortRanges) {
-		w.logger.Debugf(ctx, "application %q opened ports are up to date, no work to be performed")
-		return lastCheckPoint, nil
-	}
-
-	w.logger.Infof(ctx, "applying application %q updated port changes", w.appUUID)
-	err = mutator.UpdatePorts(toServicePorts(changedPortRanges), false)
-	if err != nil {
-		return nil, errors.Errorf(
-			"updating application %q ports in broker: %w", w.appUUID, err,
+// Validate checks and confirms that this [AppFirewallerConfig] is valid by
+// having set and correct values.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when a value in the configuration fails validation.
+func (c *AppFirewallerConfig) Validate() error {
+	if c.ApplicationService == nil {
+		return errors.New("not valid nil ApplicationService").Add(
+			coreerrors.NotValid,
 		)
 	}
 
-	return changedPortRanges, nil
+	if c.Broker == nil {
+		return errors.New("not valid nil Broker").Add(
+			coreerrors.NotValid,
+		)
+	}
+
+	if c.PortService == nil {
+		return errors.New("not valid nil PortService").Add(
+			coreerrors.NotValid,
+		)
+	}
+
+	if c.Logger == nil {
+		return errors.New("not valid nil Logger").Add(
+			coreerrors.NotValid,
+		)
+	}
+
+	return nil
 }
