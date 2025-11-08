@@ -20,20 +20,26 @@ import (
 
 // applicationWorkerCreator describes a func that is capable of starting new
 // application firewall worker.
-type applicationWorkerCreator func(
+type ApplicationWorkerCreator func(
 	appUUID application.UUID,
-	portService PortService,
-	applicationService ApplicationService,
-	broker CAASBroker,
-	logger logger.Logger,
 ) (worker.Worker, error)
 
 // Config holds configuration for the CAAS unit firewaller worker.
 type Config struct {
-	PortService        PortService
 	ApplicationService ApplicationService
-	Broker             CAASBroker
 	Logger             logger.Logger
+	WorkerCreator      ApplicationWorkerCreator
+}
+
+// firewaller is a worker responsible for watching applications in the model and
+// ensuring they have their corresponding application firewall events handled.
+type firewaller struct {
+	catacomb   catacomb.Catacomb
+	appService ApplicationService
+	logger     logger.Logger
+
+	appWorkers    map[application.UUID]worker.Worker
+	workerCreator ApplicationWorkerCreator
 }
 
 // Validate takes the worker [Config] and checks that each field is set to an
@@ -42,16 +48,6 @@ type Config struct {
 // The following errors may be returned:
 // - [coreerrors.NotValid] when a required field has an invalid value.
 func (config Config) Validate() error {
-	if config.Broker == nil {
-		return errors.New("not valid nil Broker").Add(
-			coreerrors.NotValid,
-		)
-	}
-	if config.PortService == nil {
-		return errors.New("not valid nil PortService").Add(
-			coreerrors.NotValid,
-		)
-	}
 	if config.ApplicationService == nil {
 		return errors.New("not valid nil ApplicationService").Add(
 			coreerrors.NotValid,
@@ -62,37 +58,34 @@ func (config Config) Validate() error {
 			coreerrors.NotValid,
 		)
 	}
+	if config.WorkerCreator == nil {
+		return errors.New("not valid nil WorkerCreator").Add(
+			coreerrors.NotValid,
+		)
+	}
 	return nil
 }
 
-// NewWorker starts and returns a new CAAS unit firewaller worker.
-func NewWorker(config Config) (worker.Worker, error) {
+// NewFirewallerWorker starts and returns a new CAAS firewaller worker watching
+// and responding to application firewall events in the model.
+func NewFirewallerWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Errorf("validating worker configuration: %w", err)
 	}
-	p := newFirewaller(config, newApplicationWorker)
+
+	p := &firewaller{
+		appService:    config.ApplicationService,
+		logger:        config.Logger,
+		appWorkers:    make(map[application.UUID]worker.Worker),
+		workerCreator: config.WorkerCreator,
+	}
+
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "caas-firewaller",
 		Site: &p.catacomb,
 		Work: p.loop,
 	})
 	return p, err
-}
-
-type firewaller struct {
-	catacomb catacomb.Catacomb
-	config   Config
-
-	appWorkers           map[application.UUID]worker.Worker
-	newApplicationWorker applicationWorkerCreator
-}
-
-func newFirewaller(config Config, f applicationWorkerCreator) *firewaller {
-	return &firewaller{
-		config:               config,
-		appWorkers:           make(map[application.UUID]worker.Worker),
-		newApplicationWorker: f,
-	}
 }
 
 // ensureApplicationWorkerStarted ensures that a firewall worker exists for the
@@ -105,17 +98,11 @@ func (p *firewaller) ensureApplicationWorkerStarted(
 		return nil
 	}
 
-	p.config.Logger.Debugf(
+	p.logger.Debugf(
 		ctx, "creating application %q caas firewaller worker", appUUID,
 	)
 
-	w, err := p.newApplicationWorker(
-		appUUID,
-		p.config.PortService,
-		p.config.ApplicationService,
-		p.config.Broker,
-		p.config.Logger,
-	)
+	w, err := p.workerCreator(appUUID)
 	if err != nil {
 		return errors.Errorf(
 			"starting new application %q firewall worker: %w",
@@ -151,7 +138,7 @@ func (p *firewaller) ensureApplicationWorkerStopped(
 		return nil
 	}
 
-	p.config.Logger.Debugf(
+	p.logger.Debugf(
 		ctx, "removing application %q caas firewaller worker", appUUID,
 	)
 
@@ -180,7 +167,7 @@ func (p *firewaller) Kill() {
 func (p *firewaller) observeApplicationFirewallChange(
 	ctx context.Context, appUUID application.UUID,
 ) error {
-	appLife, err := p.config.ApplicationService.GetApplicationLife(ctx, appUUID)
+	appLife, err := p.appService.GetApplicationLife(ctx, appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// Application no longer exists, make sure that any workers are stopped.
 		if err := p.ensureApplicationWorkerStopped(ctx, appUUID); err != nil {
@@ -213,7 +200,7 @@ func (p *firewaller) observeApplicationFirewallChange(
 	}
 
 	if format < charm.FormatV2 {
-		p.config.Logger.Debugf(
+		p.logger.Debugf(
 			ctx,
 			"application %q is for a v1 charm, no caas firewaller required",
 			appUUID,
@@ -235,7 +222,7 @@ func (p *firewaller) Wait() error {
 func (p *firewaller) loop() error {
 	ctx := p.catacomb.Context(context.Background())
 
-	w, err := p.config.ApplicationService.WatchApplications(ctx)
+	w, err := p.appService.WatchApplications(ctx)
 	if err != nil {
 		return errors.Errorf("getting application watcher: %w", err)
 	}
@@ -270,7 +257,7 @@ func (p *firewaller) loop() error {
 
 // charmFormat returns the [charm.Format] for the supplied application uuid.
 func (p *firewaller) charmFormat(ctx context.Context, appUUID application.UUID) (charm.Format, error) {
-	ch, _, err := p.config.ApplicationService.GetCharmByApplicationUUID(ctx, appUUID)
+	ch, _, err := p.appService.GetCharmByApplicationUUID(ctx, appUUID)
 	if err != nil {
 		return charm.FormatUnknown, errors.Errorf(
 			"getting charm information: %w", err,
