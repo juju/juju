@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
@@ -140,6 +141,66 @@ func (s *appWorkerSuite) TestWorkerCleanShutdownOnApplicationRemoval(c *tc.C) {
 		tc.ErrorIsNil,
 		tc.Commentf("expected clean worker shutdown on application removal"),
 	)
+}
+
+// TestWorkerPropogatesBrokerNotFoundError is a regression test for the
+// [applicationWorker] to make sure that when the broker returns a
+// [coreerrors.NotFound] it is propogated through the worker instead of being
+// discarded.
+func (s *appWorkerSuite) TestWorkerPropogatesBrokerNotFoundError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "mysql"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	// Create the ports watcher buffered with all of the events. A buffered
+	// channel avoids having to use goroutines to send the events.
+	portsChangeCh := make(chan struct{}, 1)
+	portsWatcher := watchertest.NewMockNotifyWatcher(portsChangeCh)
+	// 1st port change event.
+	portsChangeCh <- struct{}{}
+
+	portChange1 := network.GroupedPortRanges{
+		"": []network.PortRange{
+			network.MustParsePortRange("1000/tcp"),
+		},
+	}
+
+	appSvcEXP := s.applicationService.EXPECT()
+	appSvcEXP.GetApplicationName(gomock.Any(), appUUID).Return(appName, nil).AnyTimes()
+
+	portSvcExp := s.portService.EXPECT()
+	portSvcExp.WatchOpenedPortsForApplication(gomock.Any(), appUUID).Return(
+		portsWatcher, nil,
+	)
+	// Initial fetch on worker setup
+	portSvcExp.GetApplicationOpenedPortsByEndpoint(
+		gomock.Any(), appUUID,
+	).Return(network.GroupedPortRanges{}, nil)
+
+	// 1st change event for port change.
+	portSvcExp.GetApplicationOpenedPortsByEndpoint(
+		gomock.Any(), appUUID,
+	).Return(portChange1, nil)
+
+	brokerExp := s.broker.EXPECT()
+	brokerExp.Application(appName, caas.DeploymentStateful).Return(
+		s.brokerApp).AnyTimes()
+
+	brokerAppExp := s.brokerApp.EXPECT()
+	// 1st change event port update
+	brokerAppExp.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "1000-tcp",
+			Port:       1000,
+			TargetPort: 1000,
+			Protocol:   "tcp",
+		},
+	}, false).Return(coreerrors.NotFound) // NotFound error that cannot be ignored.
+
+	w := s.makeWorker(c, appUUID)
+	err := w.Wait()
+	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *appWorkerSuite) TestWorker(c *tc.C) {
