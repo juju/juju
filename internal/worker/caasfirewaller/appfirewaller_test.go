@@ -4,7 +4,7 @@
 package caasfirewaller
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
+// appFirewallerSuite defines a set of tests for confirming the ccontracts on
+// offer by the [appFirewaller] worker.
 type appFirewallerSuite struct {
 	portService        *mocks.MockPortService
 	applicationService *mocks.MockApplicationService
@@ -29,7 +31,8 @@ type appFirewallerSuite struct {
 	brokerApp          *caasmocks.MockApplication
 }
 
-func TestAppFirewallerSuite(t *stdtesting.T) {
+// TestAppFirewallerSuite runs the tests defined by [appFirewallerSuite].
+func TestAppFirewallerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &appFirewallerSuite{})
 }
@@ -85,12 +88,8 @@ func (s *appFirewallerSuite) TestWorkerCleanShutdownOnApplicationRemoval(c *tc.C
 
 	// Create the ports watcher buffered with all of the events. A buffered
 	// channel avoids having to use goroutines to send the events.
-	portsChangeCh := make(chan struct{}, 2)
+	portsChangeCh := make(chan struct{})
 	portsWatcher := watchertest.NewMockNotifyWatcher(portsChangeCh)
-	// 1st port change event.
-	portsChangeCh <- struct{}{}
-	// 2nd port change event but the application has been removed.
-	portsChangeCh <- struct{}{}
 
 	portChange1 := network.GroupedPortRanges{
 		"": []network.PortRange{
@@ -137,6 +136,11 @@ func (s *appFirewallerSuite) TestWorkerCleanShutdownOnApplicationRemoval(c *tc.C
 	}, false).Return(nil)
 
 	w := s.makeWorker(c, appUUID)
+
+	// 1st port change event.
+	portsChangeCh <- struct{}{}
+	// 2nd port change event but the application has been removed.
+	portsChangeCh <- struct{}{}
 	c.Check(
 		w.Wait(),
 		tc.ErrorIsNil,
@@ -156,10 +160,8 @@ func (s *appFirewallerSuite) TestWorkerPropogatesBrokerNotFoundError(c *tc.C) {
 
 	// Create the ports watcher buffered with all of the events. A buffered
 	// channel avoids having to use goroutines to send the events.
-	portsChangeCh := make(chan struct{}, 1)
+	portsChangeCh := make(chan struct{})
 	portsWatcher := watchertest.NewMockNotifyWatcher(portsChangeCh)
-	// 1st port change event.
-	portsChangeCh <- struct{}{}
 
 	portChange1 := network.GroupedPortRanges{
 		"": []network.PortRange{
@@ -200,27 +202,24 @@ func (s *appFirewallerSuite) TestWorkerPropogatesBrokerNotFoundError(c *tc.C) {
 	}, false).Return(coreerrors.NotFound) // NotFound error that cannot be ignored.
 
 	w := s.makeWorker(c, appUUID)
+
+	// 1st port change event.
+	portsChangeCh <- struct{}{}
 	err := w.Wait()
 	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
-func (s *appFirewallerSuite) TestWorker(c *tc.C) {
+// TestWorkerPortChanges is a happy path tests to assert several open port
+// changes for an application.
+func (s *appFirewallerSuite) TestWorkerPortChanges(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	appName := "mysql"
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
-	// Create the ports watcher buffered with all of the events. A buffered
-	// channel avoids having to use goroutines to send the events.
-	portsChangeCh := make(chan struct{}, 3)
+	portsChangeCh := make(chan struct{})
 	portsWatcher := watchertest.NewMockNotifyWatcher(portsChangeCh)
-	// 1st port change event.
-	portsChangeCh <- struct{}{}
-	// 2nd port change event.
-	portsChangeCh <- struct{}{}
-	// 3nd port change event.
-	portsChangeCh <- struct{}{}
 
 	gpr1 := network.GroupedPortRanges{
 		"": []network.PortRange{
@@ -280,9 +279,6 @@ func (s *appFirewallerSuite) TestWorker(c *tc.C) {
 		},
 	}, false).Return(nil)
 
-	// Create the worker var to capture the worker in the mock closure.
-	var w worker.Worker
-
 	// 3rd watcher change
 	brokerAppExp.UpdatePorts([]caas.ServicePort{
 		{
@@ -297,13 +293,18 @@ func (s *appFirewallerSuite) TestWorker(c *tc.C) {
 			TargetPort: 2000,
 			Protocol:   "udp",
 		},
-	}, false).DoAndReturn(func([]caas.ServicePort, bool) error {
-		// Last mock expect so we can kill the worker.
-		w.Kill()
-		return nil
-	})
+	}, false).Return(nil)
 
-	w = s.makeWorker(c, appUUID)
+	w := s.makeWorker(c, appUUID)
+
+	// 1st port change event.
+	portsChangeCh <- struct{}{}
+	// 2nd port change event.
+	portsChangeCh <- struct{}{}
+	// 3nd port change event.
+	portsChangeCh <- struct{}{}
+
+	w.Kill()
 	c.Check(
 		w.Wait(),
 		tc.ErrorIsNil,
