@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasfirewaller_test
+package caasfirewaller
 
 import (
 	"maps"
@@ -17,14 +17,12 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
 type manifoldSuite struct {
 	broker         *mocks.MockExtCAASBroker
 	domainServices *mocks.MockModelDomainServices
-	getter         dependency.Getter
 	worker         *mocks.MockWorker
 }
 
@@ -40,15 +38,11 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.broker = mocks.NewMockExtCAASBroker(ctrl)
 	s.domainServices = mocks.NewMockModelDomainServices(ctrl)
-	s.getter = s.newGetter(nil)
 	s.worker = mocks.NewMockWorker(ctrl)
-
-	//s.domainServices.EXPECT().Application()
 
 	c.Cleanup(func() {
 		s.broker = nil
 		s.domainServices = nil
-		s.getter = nil
 	})
 
 	return ctrl
@@ -86,7 +80,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 func (s *manifoldSuite) TestInputExpectations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	manifold := caasfirewaller.Manifold(s.validConfig(c.T))
+	manifold := Manifold(s.validConfig(c.T))
 	c.Check(manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
@@ -101,7 +95,7 @@ func (s *manifoldSuite) TestMissingInputs(c *tc.C) {
 			"broker":          s.broker,
 		})
 
-		manifold := caasfirewaller.Manifold(s.validConfig(t))
+		manifold := Manifold(s.validConfig(t))
 		_, err := manifold.Start(c.Context(), getter)
 		tc.Check(c, err, tc.ErrorIs, dependency.ErrMissing)
 	})
@@ -112,7 +106,7 @@ func (s *manifoldSuite) TestMissingInputs(c *tc.C) {
 			"domain-services": s.domainServices,
 		})
 
-		manifold := caasfirewaller.Manifold(s.validConfig(t))
+		manifold := Manifold(s.validConfig(t))
 		_, err := manifold.Start(c.Context(), getter)
 		tc.Check(c, err, tc.ErrorIs, dependency.ErrMissing)
 	})
@@ -124,12 +118,12 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	var workerStarted bool
-	newFirewallerWorker := func(caasfirewaller.FirewallerConfig) (worker.Worker, error) {
+	newFirewallerWorker := func(FirewallerConfig) (worker.Worker, error) {
 		workerStarted = true
 		return s.worker, nil
 	}
 
-	config := caasfirewaller.ManifoldConfig{
+	config := ManifoldConfig{
 		BrokerName:           "broker",
 		DomainServicesName:   "domain-services",
 		NewAppFirewallWorker: s.newAppFirewallWorker,
@@ -139,7 +133,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	s.domainServices.EXPECT().Application()
 
-	manifold := caasfirewaller.Manifold(config)
+	manifold := Manifold(config)
 	_, err := manifold.Start(c.Context(), s.newGetter(nil))
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(workerStarted, tc.IsTrue)
@@ -147,14 +141,12 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 func (s *manifoldSuite) newAppFirewallWorker(
 	coreapplication.UUID,
-	caasfirewaller.AppFirewallerConfig,
+	AppFirewallerConfig,
 ) (worker.Worker, error) {
 	return s.worker, nil
 }
 
-func (s *manifoldSuite) newFirewallerWorker(
-	caasfirewaller.FirewallerConfig,
-) (worker.Worker, error) {
+func (s *manifoldSuite) newFirewallerWorker(FirewallerConfig) (worker.Worker, error) {
 	return s.worker, nil
 }
 
@@ -167,8 +159,8 @@ func (s *manifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	return dt.StubGetter(resources)
 }
 
-func (s *manifoldSuite) validConfig(t *testing.T) caasfirewaller.ManifoldConfig {
-	return caasfirewaller.ManifoldConfig{
+func (s *manifoldSuite) validConfig(t *testing.T) ManifoldConfig {
+	return ManifoldConfig{
 		BrokerName:           "broker",
 		DomainServicesName:   "domain-services",
 		NewAppFirewallWorker: s.newAppFirewallWorker,
