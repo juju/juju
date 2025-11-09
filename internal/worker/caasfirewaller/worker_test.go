@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasfirewaller_test
+package caasfirewaller
 
 import (
 	"context"
@@ -22,12 +22,11 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
 type workerSuite struct {
-	config caasfirewaller.FirewallerConfig
+	config FirewallerConfig
 
 	appFirewallerWorker *mocks.MockWorker
 	applicationService  *mocks.MockApplicationService
@@ -61,8 +60,8 @@ func (s *workerSuite) appFirewallerWorkerCreator(
 
 // getValidConfig returns a valid [Config] that can be used for testing in this
 // suite.
-func (s *workerSuite) getValidConfig(t *stdtesting.T) caasfirewaller.FirewallerConfig {
-	return caasfirewaller.FirewallerConfig{
+func (s *workerSuite) getValidConfig(t *stdtesting.T) FirewallerConfig {
+	return FirewallerConfig{
 		ApplicationService: s.applicationService,
 		Logger:             loggertesting.WrapCheckLog(t),
 		WorkerCreator:      s.appFirewallerWorkerCreator,
@@ -154,7 +153,7 @@ func (s *workerSuite) TestStartStopAppWorkerOnLifeNotFoundError(c *tc.C) {
 		return nil
 	})
 
-	w, err := caasfirewaller.NewFirewallerWorker(s.getValidConfig(c.T))
+	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
 
 	<-doneCh
@@ -219,7 +218,7 @@ func (s *workerSuite) TestStartStopAppWorkerOnLifeDead(c *tc.C) {
 		return nil
 	})
 
-	w, err := caasfirewaller.NewFirewallerWorker(s.getValidConfig(c.T))
+	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
 
 	<-doneCh
@@ -256,7 +255,7 @@ func (s *workerSuite) TestStartStopAppWorkerOnCharmFormatNotFound(c *tc.C) {
 		nil, charm.CharmLocator{}, applicationerrors.ApplicationNotFound,
 	)
 
-	w, err := caasfirewaller.NewFirewallerWorker(s.getValidConfig(c.T))
+	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
 
 	<-doneCh
@@ -295,7 +294,7 @@ func (s *workerSuite) TestApplicationWithCharmFormatV1NotStarted(c *tc.C) {
 		charmInfo.Charm(), charm.CharmLocator{}, applicationerrors.ApplicationNotFound,
 	)
 
-	w, err := caasfirewaller.NewFirewallerWorker(s.getValidConfig(c.T))
+	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
 
 	<-doneCh
@@ -357,7 +356,7 @@ func (s *workerSuite) TestSingleWorkerPerApplication(c *tc.C) {
 	workerExp.Wait().Return(nil).AnyTimes()
 	workerExp.Kill().Times(1)
 
-	w, err := caasfirewaller.NewFirewallerWorker(s.getValidConfig(c.T))
+	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
 
 	<-doneCh
@@ -380,7 +379,7 @@ func (s *workerSuite) TestWatcherChannelCloseStopsWorker(c *tc.C) {
 		},
 	).AnyTimes()
 
-	w, err := caasfirewaller.NewFirewallerWorker(s.getValidConfig(c.T))
+	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
 
 	close(appWatcherChan)

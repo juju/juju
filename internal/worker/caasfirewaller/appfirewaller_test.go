@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasfirewaller_test
+package caasfirewaller
 
 import (
 	stdtesting "testing"
@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
@@ -61,9 +60,9 @@ func (s *appFirewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *appFirewallerSuite) makeWorker(
 	c *tc.C, appUUID coreapplication.UUID,
 ) worker.Worker {
-	w, err := caasfirewaller.NewAppFirewaller(
+	w, err := NewAppFirewaller(
 		appUUID,
-		caasfirewaller.AppFirewallerConfig{
+		AppFirewallerConfig{
 			ApplicationService: s.applicationService,
 			Broker:             s.broker,
 			PortService:        s.portService,
