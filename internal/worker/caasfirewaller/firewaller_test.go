@@ -4,7 +4,6 @@
 package caasfirewaller
 
 import (
-	"context"
 	"testing"
 
 	"github.com/juju/tc"
@@ -16,12 +15,12 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
@@ -122,11 +121,7 @@ func (s *firewallerSuite) TestStartStopAppWorkerOnLifeNotFoundError(c *tc.C) {
 	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), gomock.Any()).Return(
 		charmInfo.Charm(), charm.CharmLocator{}, nil,
 	).AnyTimes()
-	appSvcExp.WatchApplications(gomock.Any()).DoAndReturn(
-		func(context.Context) (watcher.Watcher[[]string], error) {
-			return appWatcher, nil
-		},
-	).AnyTimes()
+	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
 
 	// 1st set of events
 	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).Return(life.Alive, nil)
@@ -179,11 +174,7 @@ func (s *firewallerSuite) TestStartStopAppWorkerOnLifeDead(c *tc.C) {
 	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), gomock.Any()).Return(
 		charmInfo.Charm(), charm.CharmLocator{}, nil,
 	).AnyTimes()
-	appSvcExp.WatchApplications(gomock.Any()).DoAndReturn(
-		func(context.Context) (watcher.Watcher[[]string], error) {
-			return appWatcher, nil
-		},
-	).AnyTimes()
+	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
 
 	// 1st set of events
 	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).Return(life.Alive, nil)
@@ -290,11 +281,7 @@ func (s *firewallerSuite) TestSingleWorkerPerApplication(c *tc.C) {
 	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), gomock.Any()).Return(
 		charmInfo.Charm(), charm.CharmLocator{}, nil,
 	).AnyTimes()
-	appSvcExp.WatchApplications(gomock.Any()).DoAndReturn(
-		func(context.Context) (watcher.Watcher[[]string], error) {
-			return appWatcher, nil
-		},
-	).AnyTimes()
+	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
 
 	// 1st set of events
 	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).Return(
@@ -302,11 +289,7 @@ func (s *firewallerSuite) TestSingleWorkerPerApplication(c *tc.C) {
 	)
 
 	// 2nd set of events
-	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).DoAndReturn(
-		func(context.Context, coreapplication.UUID) (life.Value, error) {
-			return life.Alive, nil
-		},
-	)
+	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).Return(life.Alive, nil)
 
 	var workersCreated int
 	newAppFirewallerWorker :=
@@ -351,4 +334,54 @@ func (s *firewallerSuite) TestWatcherChannelCloseStopsWorker(c *tc.C) {
 
 	close(appWatcherChan)
 	c.Check(w.Wait(), tc.NotNil)
+}
+
+// TestFailedApplicationWorkerStopsFirewaller is a test to ensure that if a
+// child application worker of the [firewaller] worker fails then this cascades
+// ultimately shutting down the parent worker.
+func (s *firewallerSuite) TestFailedApplicationWorkerStopsFirewaller(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	app1UUID := tc.Must(c, coreapplication.NewUUID)
+
+	appWatcherChan := make(chan []string)
+	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
+
+	charmInfo := &charms.CharmInfo{
+		Meta: &internalcharm.Meta{},
+		// bases make it a v2 charm
+		Manifest: &internalcharm.Manifest{Bases: []internalcharm.Base{{}}},
+	}
+
+	appSvcExp := s.applicationService.EXPECT()
+	// Return v2 charm info for all apps any time. Not the focus of this test.
+	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), gomock.Any()).Return(
+		charmInfo.Charm(), charm.CharmLocator{}, nil,
+	).AnyTimes()
+	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
+
+	// 1st set of events
+	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).Return(
+		life.Alive, nil,
+	)
+
+	newAppFirewallerWorker :=
+		func(coreapplication.UUID) (worker.Worker, error) {
+			return NewFailingWorker(internaltesting.ShortWait)
+		}
+
+	workerExp := s.appFirewallerWorker.EXPECT()
+	workerExp.Kill().AnyTimes()
+	workerExp.Wait().Return(nil).AnyTimes()
+
+	w, err := NewFirewallerWorker(FirewallerConfig{
+		ApplicationService: s.applicationService,
+		Logger:             loggertesting.WrapCheckLog(c),
+		WorkerCreator:      newAppFirewallerWorker,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Trigger to start app workers.
+	appWatcherChan <- []string{app1UUID.String()}
+	c.Check(w.Wait(), tc.ErrorIs, FailingWorkerError)
 }
