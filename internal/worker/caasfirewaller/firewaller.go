@@ -202,7 +202,7 @@ func NewFirewallerWorker(config FirewallerConfig) (worker.Worker, error) {
 // observeApplicationFirewallChange observes and responds to a single event for
 // an application uuid. If the application exists and is alive this func will
 // make sure that a worker is running for the application. If the application
-// is dead or removed and previosuly created workers will be stopped and
+// is dead or removed and previously created workers will be stopped and
 // removed.
 //
 // Should the application not be using the v2 charm format it will be ignored
@@ -234,7 +234,7 @@ func (p *firewaller) observeApplicationFirewallChange(
 		return p.ensureApplicationWorkerStopped(ctx, appUUID)
 	} else if err != nil {
 		return errors.Errorf(
-			"determing charm v2 format for application %q: %w", appUUID, err,
+			"determining charm v2 format for application %q: %w", appUUID, err,
 		)
 	}
 

@@ -29,7 +29,7 @@ type AppFirewallerConfig struct {
 }
 
 // appFirewaller is a single application firewaller worker ensuring the exposed
-// ports of the application are refelcted in the broker.
+// ports of the application are reflected in the broker.
 type appFirewaller struct {
 	catacomb catacomb.Catacomb
 
