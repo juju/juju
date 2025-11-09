@@ -5,7 +5,7 @@ package caasfirewaller
 
 import (
 	"context"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -25,6 +25,8 @@ import (
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
+// firewallerSuite defines a set of tests for asserting the contract of the
+// [firewaller] worker.
 type firewallerSuite struct {
 	config FirewallerConfig
 
@@ -32,7 +34,8 @@ type firewallerSuite struct {
 	applicationService  *mocks.MockApplicationService
 }
 
-func TestFirewallerSuite(t *stdtesting.T) {
+// TestFirewallerSuite runs the tests defined in [firewallerSuite].
+func TestFirewallerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &firewallerSuite{})
 }
@@ -60,7 +63,7 @@ func (s *firewallerSuite) appFirewallerWorkerCreator(
 
 // getValidConfig returns a valid [Config] that can be used for testing in this
 // suite.
-func (s *firewallerSuite) getValidConfig(t *stdtesting.T) FirewallerConfig {
+func (s *firewallerSuite) getValidConfig(t *testing.T) FirewallerConfig {
 	return FirewallerConfig{
 		ApplicationService: s.applicationService,
 		Logger:             loggertesting.WrapCheckLog(t),
@@ -73,24 +76,24 @@ func (s *firewallerSuite) getValidConfig(t *stdtesting.T) FirewallerConfig {
 func (s *firewallerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	c.Run("valid", func(c *stdtesting.T) {
+	c.Run("valid", func(c *testing.T) {
 		config := s.getValidConfig(c)
 		tc.Check(c, config.Validate(), tc.ErrorIsNil)
 	})
 
-	c.Run("nil ApplicationService", func(c *stdtesting.T) {
+	c.Run("nil ApplicationService", func(c *testing.T) {
 		config := s.getValidConfig(c)
 		config.ApplicationService = nil
 		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
 	})
 
-	c.Run("missing logger", func(c *stdtesting.T) {
+	c.Run("missing logger", func(c *testing.T) {
 		config := s.getValidConfig(c)
 		config.Logger = nil
 		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
 	})
 
-	c.Run("nil WorkerCreator", func(c *stdtesting.T) {
+	c.Run("nil WorkerCreator", func(c *testing.T) {
 		config := s.getValidConfig(c)
 		config.WorkerCreator = nil
 		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
