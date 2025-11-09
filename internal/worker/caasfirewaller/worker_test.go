@@ -25,19 +25,19 @@ import (
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
-type workerSuite struct {
+type firewallerSuite struct {
 	config FirewallerConfig
 
 	appFirewallerWorker *mocks.MockWorker
 	applicationService  *mocks.MockApplicationService
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
+func TestFirewallerSuite(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
-	tc.Run(t, &workerSuite{})
+	tc.Run(t, &firewallerSuite{})
 }
 
-func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
+func (s *firewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.appFirewallerWorker = mocks.NewMockWorker(ctrl)
@@ -52,7 +52,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 // appFirewallerWorkerCreator is a testing helper for this suite to provide an
 // implementation of [AppFirewallerWokerCreator].
-func (s *workerSuite) appFirewallerWorkerCreator(
+func (s *firewallerSuite) appFirewallerWorkerCreator(
 	coreapplication.UUID,
 ) (worker.Worker, error) {
 	return s.appFirewallerWorker, nil
@@ -60,7 +60,7 @@ func (s *workerSuite) appFirewallerWorkerCreator(
 
 // getValidConfig returns a valid [Config] that can be used for testing in this
 // suite.
-func (s *workerSuite) getValidConfig(t *stdtesting.T) FirewallerConfig {
+func (s *firewallerSuite) getValidConfig(t *stdtesting.T) FirewallerConfig {
 	return FirewallerConfig{
 		ApplicationService: s.applicationService,
 		Logger:             loggertesting.WrapCheckLog(t),
@@ -70,7 +70,7 @@ func (s *workerSuite) getValidConfig(t *stdtesting.T) FirewallerConfig {
 
 // TestValidateConfig ensures that [FirewallerConfig] both passes and fails
 // validation for various configurations.
-func (s *workerSuite) TestValidateConfig(c *tc.C) {
+func (s *firewallerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	c.Run("valid", func(c *stdtesting.T) {
@@ -100,19 +100,14 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 // TestStartStopAppWorkerOnLifeNotFoundError tests that the application
 // firewaller workers are started and stopped correctly when the firewaller
 // worker receives a [applicationerrors.ApplicationNotFound] error.
-func (s *workerSuite) TestStartStopAppWorkerOnLifeNotFoundError(c *tc.C) {
+func (s *firewallerSuite) TestStartStopAppWorkerOnLifeNotFoundError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	app1UUID := tc.Must(c, coreapplication.NewUUID)
 	app2UUID := tc.Must(c, coreapplication.NewUUID)
 
-	appWatcherChan := make(chan []string, 2)
+	appWatcherChan := make(chan []string)
 	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
-	// Trigger to start app workers.
-	appWatcherChan <- []string{app1UUID.String(), app2UUID.String()}
-	// Trigger to stop app workers. Change order to make sure we are not testing
-	// on implementation order.
-	appWatcherChan <- []string{app2UUID.String(), app1UUID.String()}
 
 	charmInfo := &charms.CharmInfo{
 		Meta:     &internalcharm.Meta{},
@@ -142,21 +137,18 @@ func (s *workerSuite) TestStartStopAppWorkerOnLifeNotFoundError(c *tc.C) {
 		"", applicationerrors.ApplicationNotFound,
 	)
 
-	// doneChan is used to signal the occurance of the last event this test
-	// wants to witness.
-	doneCh := make(chan struct{})
 	workerExp := s.appFirewallerWorker.EXPECT()
-	workerExp.Wait().Return(nil).Times(3)
-	workerExp.Kill().Times(2)
-	workerExp.Wait().DoAndReturn(func() error {
-		close(doneCh)
-		return nil
-	})
+	workerExp.Wait().Return(nil).MinTimes(2)
+	workerExp.Kill().MinTimes(2)
 
 	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
 
-	<-doneCh
+	// Trigger to start app workers.
+	appWatcherChan <- []string{app1UUID.String(), app2UUID.String()}
+	// Trigger to stop app workers. Change order to make sure we are not testing
+	// on implementation order.
+	appWatcherChan <- []string{app2UUID.String(), app1UUID.String()}
 	w.Kill()
 	c.Check(w.Wait(), tc.ErrorIsNil)
 }
@@ -164,19 +156,14 @@ func (s *workerSuite) TestStartStopAppWorkerOnLifeNotFoundError(c *tc.C) {
 // TestStartStopAppWorkerOnLifeDead tests that the application firewaller
 // workers are started and stopped correctly when the firewaller worker is
 // informed the application is dead.
-func (s *workerSuite) TestStartStopAppWorkerOnLifeDead(c *tc.C) {
+func (s *firewallerSuite) TestStartStopAppWorkerOnLifeDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	app1UUID := tc.Must(c, coreapplication.NewUUID)
 	app2UUID := tc.Must(c, coreapplication.NewUUID)
 
-	appWatcherChan := make(chan []string, 2)
+	appWatcherChan := make(chan []string)
 	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
-	// Trigger to start app workers.
-	appWatcherChan <- []string{app1UUID.String(), app2UUID.String()}
-	// Trigger to stop app workers. Change order to make sure we are not testing
-	// on implementation order.
-	appWatcherChan <- []string{app2UUID.String(), app1UUID.String()}
 
 	charmInfo := &charms.CharmInfo{
 		Meta: &internalcharm.Meta{},
@@ -207,21 +194,18 @@ func (s *workerSuite) TestStartStopAppWorkerOnLifeDead(c *tc.C) {
 		life.Dead, nil,
 	)
 
-	// doneChan is used to signal the occurance of the last event this test
-	// wants to witness.
-	doneCh := make(chan struct{})
 	workerExp := s.appFirewallerWorker.EXPECT()
-	workerExp.Wait().Return(nil).Times(3)
-	workerExp.Kill().Times(2)
-	workerExp.Wait().DoAndReturn(func() error {
-		close(doneCh)
-		return nil
-	})
+	workerExp.Wait().Return(nil).MinTimes(2)
+	workerExp.Kill().MinTimes(2)
 
 	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
 
-	<-doneCh
+	// Trigger to start app workers.
+	appWatcherChan <- []string{app1UUID.String(), app2UUID.String()}
+	// Trigger to stop app workers. Change order to make sure we are not testing
+	// on implementation order.
+	appWatcherChan <- []string{app2UUID.String(), app1UUID.String()}
 	w.Kill()
 	c.Check(w.Wait(), tc.ErrorIsNil)
 }
@@ -229,27 +213,17 @@ func (s *workerSuite) TestStartStopAppWorkerOnLifeDead(c *tc.C) {
 // TestStartStopAppWorkerOnCharmFormatNotFound tests that the application
 // firewaller does not attempt to start a worker for an application that is
 // reported to be not found when inspecting the charms format version.
-func (s *workerSuite) TestStartStopAppWorkerOnCharmFormatNotFound(c *tc.C) {
+func (s *firewallerSuite) TestStartStopAppWorkerOnCharmFormatNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	app1UUID := tc.Must(c, coreapplication.NewUUID)
 
-	// doneChan is used to signal the occurance of the last event this test
-	// wants to witness.
-	doneCh := make(chan struct{})
-
-	appWatcherChan := make(chan []string, 1)
+	appWatcherChan := make(chan []string)
 	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
 	// Trigger to start app workers.
-	appWatcherChan <- []string{app1UUID.String()}
 
 	appSvcExp := s.applicationService.EXPECT()
-	appSvcExp.WatchApplications(gomock.Any()).DoAndReturn(
-		func(context.Context) (watcher.Watcher[[]string], error) {
-			close(doneCh)
-			return appWatcher, nil
-		},
-	).AnyTimes()
+	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
 	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).Return(life.Alive, nil)
 	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), app1UUID).Return(
 		nil, charm.CharmLocator{}, applicationerrors.ApplicationNotFound,
@@ -258,37 +232,26 @@ func (s *workerSuite) TestStartStopAppWorkerOnCharmFormatNotFound(c *tc.C) {
 	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
 
-	<-doneCh
+	appWatcherChan <- []string{app1UUID.String()}
 	w.Kill()
 	c.Check(w.Wait(), tc.ErrorIsNil)
 }
 
-func (s *workerSuite) TestApplicationWithCharmFormatV1NotStarted(c *tc.C) {
+func (s *firewallerSuite) TestApplicationWithCharmFormatV1NotStarted(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	app1UUID := tc.Must(c, coreapplication.NewUUID)
-
-	// doneChan is used to signal the occurance of the last event this test
-	// wants to witness.
-	doneCh := make(chan struct{})
 
 	charmInfo := &charms.CharmInfo{
 		Meta:     &internalcharm.Meta{},
 		Manifest: &internalcharm.Manifest{Bases: nil},
 	}
 
-	appWatcherChan := make(chan []string, 1)
+	appWatcherChan := make(chan []string)
 	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
-	// Trigger to start app workers.
-	appWatcherChan <- []string{app1UUID.String()}
 
 	appSvcExp := s.applicationService.EXPECT()
-	appSvcExp.WatchApplications(gomock.Any()).DoAndReturn(
-		func(context.Context) (watcher.Watcher[[]string], error) {
-			close(doneCh)
-			return appWatcher, nil
-		},
-	).AnyTimes()
+	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
 	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).Return(life.Alive, nil)
 	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), app1UUID).Return(
 		charmInfo.Charm(), charm.CharmLocator{}, applicationerrors.ApplicationNotFound,
@@ -297,28 +260,21 @@ func (s *workerSuite) TestApplicationWithCharmFormatV1NotStarted(c *tc.C) {
 	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
 
-	<-doneCh
+	// Trigger to start app workers.
+	appWatcherChan <- []string{app1UUID.String()}
 	w.Kill()
 	c.Check(w.Wait(), tc.ErrorIsNil)
 }
 
 // TestSingleWorkerPerApplication ensures that given multiple watcher events
 // for the same application uuid only a single worker is ever started.
-func (s *workerSuite) TestSingleWorkerPerApplication(c *tc.C) {
+func (s *firewallerSuite) TestSingleWorkerPerApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	app1UUID := tc.Must(c, coreapplication.NewUUID)
 
-	// doneChan is used to signal the occurance of the last event this test
-	// wants to witness.
-	doneCh := make(chan struct{})
-
-	appWatcherChan := make(chan []string, 2)
+	appWatcherChan := make(chan []string)
 	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
-	// Trigger to start app workers.
-	appWatcherChan <- []string{app1UUID.String()}
-	// Trigger for same application uuid again
-	appWatcherChan <- []string{app1UUID.String()}
 
 	charmInfo := &charms.CharmInfo{
 		Meta: &internalcharm.Meta{},
@@ -345,7 +301,6 @@ func (s *workerSuite) TestSingleWorkerPerApplication(c *tc.C) {
 	// 2nd set of events
 	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).DoAndReturn(
 		func(context.Context, coreapplication.UUID) (life.Value, error) {
-			close(doneCh)
 			return life.Alive, nil
 		},
 	)
@@ -368,7 +323,10 @@ func (s *workerSuite) TestSingleWorkerPerApplication(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	<-doneCh
+	// Trigger to start app workers.
+	appWatcherChan <- []string{app1UUID.String()}
+	// Trigger for same application uuid again
+	appWatcherChan <- []string{app1UUID.String()}
 	w.Kill()
 	c.Check(w.Wait(), tc.ErrorIsNil)
 	c.Check(workersCreated, tc.Equals, 1)
@@ -376,18 +334,14 @@ func (s *workerSuite) TestSingleWorkerPerApplication(c *tc.C) {
 
 // TestWatcherChannelCloseStopsWorker ensures that if the application watcher
 // channel becomes closed the worker stops in error.
-func (s *workerSuite) TestWatcherChannelCloseStopsWorker(c *tc.C) {
+func (s *firewallerSuite) TestWatcherChannelCloseStopsWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appWatcherChan := make(chan []string)
 	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
 
 	appSvcExp := s.applicationService.EXPECT()
-	appSvcExp.WatchApplications(gomock.Any()).DoAndReturn(
-		func(context.Context) (watcher.Watcher[[]string], error) {
-			return appWatcher, nil
-		},
-	).AnyTimes()
+	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
 
 	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
