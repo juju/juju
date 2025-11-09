@@ -60,7 +60,7 @@ func (s *appFirewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *appFirewallerSuite) makeWorker(
 	c *tc.C, appUUID coreapplication.UUID,
 ) worker.Worker {
-	w, err := NewAppFirewaller(
+	w, err := NewAppFirewallerWorker(
 		appUUID,
 		AppFirewallerConfig{
 			ApplicationService: s.applicationService,

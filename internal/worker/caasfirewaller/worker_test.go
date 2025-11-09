@@ -51,7 +51,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 // appFirewallerWorkerCreator is a testing helper for this suite to provide an
-// implementation of [ApplicationWorkerCreator].
+// implementation of [AppFirewallerWokerCreator].
 func (s *workerSuite) appFirewallerWorkerCreator(
 	coreapplication.UUID,
 ) (worker.Worker, error) {
@@ -350,18 +350,28 @@ func (s *workerSuite) TestSingleWorkerPerApplication(c *tc.C) {
 		},
 	)
 
-	workerExp := s.appFirewallerWorker.EXPECT()
-	// Make sure application worker is correctly started and shut down with the
-	// firewaller worker.
-	workerExp.Wait().Return(nil).AnyTimes()
-	workerExp.Kill().Times(1)
+	var workersCreated int
+	newAppFirewallerWorker :=
+		func(coreapplication.UUID) (worker.Worker, error) {
+			workersCreated++
+			return s.appFirewallerWorker, nil
+		}
 
-	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
+	workerExp := s.appFirewallerWorker.EXPECT()
+	workerExp.Kill().AnyTimes()
+	workerExp.Wait().Return(nil).AnyTimes()
+
+	w, err := NewFirewallerWorker(FirewallerConfig{
+		ApplicationService: s.applicationService,
+		Logger:             loggertesting.WrapCheckLog(c),
+		WorkerCreator:      newAppFirewallerWorker,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	<-doneCh
 	w.Kill()
 	c.Check(w.Wait(), tc.ErrorIsNil)
+	c.Check(workersCreated, tc.Equals, 1)
 }
 
 // TestWatcherChannelCloseStopsWorker ensures that if the application watcher

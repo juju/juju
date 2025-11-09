@@ -20,7 +20,7 @@ import (
 )
 
 // AppFirewallerConfig is the configuration for starting a new
-// [AppFirewaller].
+// [appFirewaller].
 type AppFirewallerConfig struct {
 	ApplicationService ApplicationService
 	Broker             CAASBroker
@@ -28,9 +28,9 @@ type AppFirewallerConfig struct {
 	Logger             logger.Logger
 }
 
-// AppFirewaller is a single application firewaller worker ensuring the exposed
+// appFirewaller is a single application firewaller worker ensuring the exposed
 // ports of the application are refelcted in the broker.
-type AppFirewaller struct {
+type appFirewaller struct {
 	catacomb catacomb.Catacomb
 
 	appUUID            application.UUID
@@ -45,7 +45,7 @@ type AppFirewaller struct {
 // current open port requirements are reflected on the application via the
 // [PortMutator]. This func returns the latest [network.GroupedPortRanges] that
 // have been applied to the application.
-func (w *AppFirewaller) ensureOpenPorts(
+func (w *appFirewaller) ensureOpenPorts(
 	ctx context.Context,
 	mutator PortMutator,
 	lastCheckPoint network.GroupedPortRanges,
@@ -72,7 +72,7 @@ func (w *AppFirewaller) ensureOpenPorts(
 }
 
 // getPortMutator returns the portMutator for the current application.
-func (w *AppFirewaller) getPortMutator(ctx context.Context) (PortMutator, error) {
+func (w *appFirewaller) getPortMutator(ctx context.Context) (PortMutator, error) {
 	appName, err := w.applicationService.GetApplicationName(ctx, w.appUUID)
 	if err != nil {
 		return nil, errors.Errorf("getting application %q name: %w", w.appUUID, err)
@@ -83,11 +83,11 @@ func (w *AppFirewaller) getPortMutator(ctx context.Context) (PortMutator, error)
 }
 
 // Kill is part of the worker.Worker interface.
-// Kill sets this [AppFirewaller] to dying with a nil error shutting down the
+// Kill sets this [appFirewaller] to dying with a nil error shutting down the
 // main loop and any child workers.
 //
 // Implements the [worker.Worker] interface.
-func (w *AppFirewaller) Kill() {
+func (w *appFirewaller) Kill() {
 	w.catacomb.Kill(nil)
 }
 
@@ -97,7 +97,7 @@ func (w *AppFirewaller) Kill() {
 //
 // loop returns when the worker is placed into a dying state or an expected
 // error occurs.
-func (w *AppFirewaller) loop() (err error) {
+func (w *appFirewaller) loop() (err error) {
 	ctx := w.catacomb.Context(context.Background())
 	defer func() {
 		// If the application has been deleted, we can return nil.
@@ -172,11 +172,11 @@ func (w *AppFirewaller) loop() (err error) {
 	}
 }
 
-// NewAppFirewaller constructs and runs a new [AppFirewaller].
+// NewAppFirewallerWorker constructs and runs a new [appFirewaller].
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the configuration is invalid.
-func NewAppFirewaller(
+func NewAppFirewallerWorker(
 	appUUID application.UUID,
 	config AppFirewallerConfig,
 ) (worker.Worker, error) {
@@ -184,7 +184,7 @@ func NewAppFirewaller(
 		return nil, errors.Errorf("validating configuration: %w", err)
 	}
 
-	w := &AppFirewaller{
+	w := &appFirewaller{
 		applicationService: config.ApplicationService,
 		appUUID:            appUUID,
 		broker:             config.Broker,
@@ -204,7 +204,7 @@ func NewAppFirewaller(
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *AppFirewaller) Wait() error {
+func (w *appFirewaller) Wait() error {
 	return w.catacomb.Wait()
 }
 
