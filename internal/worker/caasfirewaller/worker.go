@@ -20,7 +20,7 @@ import (
 
 // applicationWorkerCreator describes a func that is capable of starting new
 // application firewall worker.
-type ApplicationWorkerCreator func(
+type AppFirewallerWokerCreator func(
 	appUUID application.UUID,
 ) (worker.Worker, error)
 
@@ -28,7 +28,7 @@ type ApplicationWorkerCreator func(
 type FirewallerConfig struct {
 	ApplicationService ApplicationService
 	Logger             logger.Logger
-	WorkerCreator      ApplicationWorkerCreator
+	WorkerCreator      AppFirewallerWokerCreator
 }
 
 // firewaller is a worker responsible for watching applications in the model and
@@ -39,53 +39,7 @@ type firewaller struct {
 	logger     logger.Logger
 
 	appWorkers    map[application.UUID]worker.Worker
-	workerCreator ApplicationWorkerCreator
-}
-
-// Validate takes the worker [FirewallerConfig] and checks that each field is set to an
-// acceptable value for the worker to operate.
-//
-// The following errors may be returned:
-// - [coreerrors.NotValid] when a required field has an invalid value.
-func (config FirewallerConfig) Validate() error {
-	if config.ApplicationService == nil {
-		return errors.New("not valid nil ApplicationService").Add(
-			coreerrors.NotValid,
-		)
-	}
-	if config.Logger == nil {
-		return errors.New("not valid nil Logger").Add(
-			coreerrors.NotValid,
-		)
-	}
-	if config.WorkerCreator == nil {
-		return errors.New("not valid nil WorkerCreator").Add(
-			coreerrors.NotValid,
-		)
-	}
-	return nil
-}
-
-// NewFirewallerWorker starts and returns a new CAAS firewaller worker watching
-// and responding to application firewall events in the model.
-func NewFirewallerWorker(config FirewallerConfig) (worker.Worker, error) {
-	if err := config.Validate(); err != nil {
-		return nil, errors.Errorf("validating worker configuration: %w", err)
-	}
-
-	p := &firewaller{
-		appService:    config.ApplicationService,
-		logger:        config.Logger,
-		appWorkers:    make(map[application.UUID]worker.Worker),
-		workerCreator: config.WorkerCreator,
-	}
-
-	err := catacomb.Invoke(catacomb.Plan{
-		Name: "caas-firewaller",
-		Site: &p.catacomb,
-		Work: p.loop,
-	})
-	return p, err
+	workerCreator AppFirewallerWokerCreator
 }
 
 // ensureApplicationWorkerStarted ensures that a firewall worker exists for the
@@ -151,9 +105,98 @@ func (p *firewaller) ensureApplicationWorkerStopped(
 	return nil
 }
 
+// isV2Charm works out if the charm backing the application uuid is on the v2
+// format returning true or false.
+//
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist.
+func (p *firewaller) isV2Charm(
+	ctx context.Context, appUUID application.UUID,
+) (bool, error) {
+	if _, ok := p.appWorkers[appUUID]; ok {
+		// If the application uuid already has a started worker then it can be
+		// inferred that it is a V2 charm. This avoids excess trips to the
+		// service.
+		return true, nil
+	}
+
+	ch, _, err := p.appService.GetCharmByApplicationUUID(ctx, appUUID)
+	if err != nil {
+		return false, errors.Errorf(
+			"getting charm information: %w", err,
+		)
+	}
+
+	if charm.MetaFormat(ch) < charm.FormatV2 {
+		return false, nil
+	}
+	return true, nil
+}
+
 // Kill is part of the worker.Worker interface.
 func (p *firewaller) Kill() {
 	p.catacomb.Kill(nil)
+}
+
+// loop runs indefinitely until this worker is stopped. For each watched
+// application in the model it ensures that a corresponding application firewall
+// worker is started or stopped based on the life of the application.
+func (p *firewaller) loop() error {
+	ctx := p.catacomb.Context(context.Background())
+
+	w, err := p.appService.WatchApplications(ctx)
+	if err != nil {
+		return errors.Errorf("getting application watcher: %w", err)
+	}
+	if err := p.catacomb.Add(w); err != nil {
+		return errors.Errorf(
+			"adding application watcher to the worker's catacomb: %w", err,
+		)
+	}
+
+	for {
+		select {
+		case <-p.catacomb.Dying():
+			return p.catacomb.ErrDying()
+
+		case apps, ok := <-w.Changes():
+			if !ok {
+				return errors.New(
+					"application watcher's channel closed unexpectedly",
+				)
+			}
+
+			for _, app := range apps {
+				appUUID := application.UUID(app)
+				err := p.observeApplicationFirewallChange(ctx, appUUID)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+// NewFirewallerWorker starts and returns a new CAAS firewaller worker watching
+// and responding to application firewall events in the model.
+func NewFirewallerWorker(config FirewallerConfig) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Errorf("validating worker configuration: %w", err)
+	}
+
+	p := &firewaller{
+		appService:    config.ApplicationService,
+		logger:        config.Logger,
+		appWorkers:    make(map[application.UUID]worker.Worker),
+		workerCreator: config.WorkerCreator,
+	}
+
+	err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-firewaller",
+		Site: &p.catacomb,
+		Work: p.loop,
+	})
+	return p, err
 }
 
 // observeApplicationFirewallChange observes and responds to a single event for
@@ -207,74 +250,31 @@ func (p *firewaller) observeApplicationFirewallChange(
 	return p.ensureApplicationWorkerStarted(ctx, appUUID)
 }
 
+// Validate takes the worker [FirewallerConfig] and checks that each field is set to an
+// acceptable value for the worker to operate.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when a required field has an invalid value.
+func (config FirewallerConfig) Validate() error {
+	if config.ApplicationService == nil {
+		return errors.New("not valid nil ApplicationService").Add(
+			coreerrors.NotValid,
+		)
+	}
+	if config.Logger == nil {
+		return errors.New("not valid nil Logger").Add(
+			coreerrors.NotValid,
+		)
+	}
+	if config.WorkerCreator == nil {
+		return errors.New("not valid nil WorkerCreator").Add(
+			coreerrors.NotValid,
+		)
+	}
+	return nil
+}
+
 // Wait is part of the worker.Worker interface.
 func (p *firewaller) Wait() error {
 	return p.catacomb.Wait()
-}
-
-// loop runs indefinitely until this worker is stopped. For each watched
-// application in the model it ensures that a corresponding application firewall
-// worker is started or stopped based on the life of the application.
-func (p *firewaller) loop() error {
-	ctx := p.catacomb.Context(context.Background())
-
-	w, err := p.appService.WatchApplications(ctx)
-	if err != nil {
-		return errors.Errorf("getting application watcher: %w", err)
-	}
-	if err := p.catacomb.Add(w); err != nil {
-		return errors.Errorf(
-			"adding application watcher to the worker's catacomb: %w", err,
-		)
-	}
-
-	for {
-		select {
-		case <-p.catacomb.Dying():
-			return p.catacomb.ErrDying()
-
-		case apps, ok := <-w.Changes():
-			if !ok {
-				return errors.New(
-					"application watcher's channel closed unexpectedly",
-				)
-			}
-
-			for _, app := range apps {
-				appUUID := application.UUID(app)
-				err := p.observeApplicationFirewallChange(ctx, appUUID)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-}
-
-// isV2Charm works out if the charm backing the application uuid is on the v2
-// format returning true or false.
-//
-// The following errors may be returned:
-// - [applicationerrors.ApplicationNotFound] if the application does not exist.
-func (p *firewaller) isV2Charm(
-	ctx context.Context, appUUID application.UUID,
-) (bool, error) {
-	if _, ok := p.appWorkers[appUUID]; ok {
-		// If the application uuid already has a started worker then it can be
-		// inferred that it is a V2 charm. This avoids excess trips to the
-		// service.
-		return true, nil
-	}
-
-	ch, _, err := p.appService.GetCharmByApplicationUUID(ctx, appUUID)
-	if err != nil {
-		return false, errors.Errorf(
-			"getting charm information: %w", err,
-		)
-	}
-
-	if charm.MetaFormat(ch) < charm.FormatV2 {
-		return false, nil
-	}
-	return true, nil
 }
