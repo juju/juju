@@ -32,7 +32,7 @@ type WorkerSuite struct {
 	config agentconfigupdater.WorkerConfig
 
 	controllerConfig        controller.Config
-	controllerConifgService *MockControllerConfigService
+	controllerConfigService *MockControllerConfigService
 }
 
 func TestWorkerSuite(t *stdtesting.T) {
@@ -102,7 +102,7 @@ func (s *WorkerSuite) TestNormalStart(c *tc.C) {
 
 	ch := make(chan []string)
 
-	s.controllerConifgService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		close(start)
 		return watchertest.NewMockStringsWatcher(ch), nil
 	})
@@ -166,6 +166,47 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 	newConfig := maps.Clone(s.controllerConfig)
 	d := time.Second * 2
 	newConfig[controller.QueryTracingThreshold] = d.String()
+
+	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case ch <- []string{}:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not sent")
+	}
+
+	select {
+	case <-dispatched1:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	// Snap channel is the same, worker still alive.
+	workertest.CheckAlive(c, w)
+
+	select {
+	case ch <- []string{}:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not sent")
+	}
+
+	select {
+	case <-dispatched2:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateDqliteBusyTimeout(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newConfig := maps.Clone(s.controllerConfig)
+	d := time.Second * 2
+	newConfig[controller.DqliteBusyTimeout] = d.String()
 
 	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
 	defer workertest.DirtyKill(c, w)
@@ -445,12 +486,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.controllerConifgService = NewMockControllerConfigService(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	s.agent = &mockAgent{
 		conf: mockConfig{
 			queryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 			queryTracingThreshold:              controller.DefaultQueryTracingThreshold,
+			dqliteBusyTimeout:                  controller.DefaultDqliteBusyTimeout,
 			openTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
 			openTelemetryEndpoint:              "",
 			openTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
@@ -461,9 +503,10 @@ func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	}
 	s.config = agentconfigupdater.WorkerConfig{
 		Agent:                              s.agent,
-		ControllerConfigService:            s.controllerConifgService,
+		ControllerConfigService:            s.controllerConfigService,
 		QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 		QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
+		DqliteBusyTimeout:                  controller.DefaultDqliteBusyTimeout,
 		OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
 		OpenTelemetryEndpoint:              "",
 		OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
@@ -475,6 +518,7 @@ func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerConfig = controller.Config{
 		controller.QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 		controller.QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
+		controller.DqliteBusyTimeout:                  controller.DefaultDqliteBusyTimeout,
 		controller.OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
 		controller.OpenTelemetryEndpoint:              "",
 		controller.OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
@@ -492,16 +536,16 @@ func (s *WorkerSuite) runScenario(c *tc.C, newConfig controller.Config) (worker.
 	dispatched1 := make(chan struct{})
 	dispatched2 := make(chan struct{})
 
-	s.controllerConifgService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		close(start)
 		return watchertest.NewMockStringsWatcher(ch), nil
 	})
 	gomock.InOrder(
-		s.controllerConifgService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (controller.Config, error) {
+		s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (controller.Config, error) {
 			close(dispatched1)
 			return s.controllerConfig, nil
 		}),
-		s.controllerConifgService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (controller.Config, error) {
+		s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (controller.Config, error) {
 			close(dispatched2)
 			return newConfig, nil
 		}),

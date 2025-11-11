@@ -680,6 +680,44 @@ func (c *MockNodeManagerWithAddressOptionCall) DoAndReturn(f func(string) app.Op
 	return c
 }
 
+// WithBusyTimeoutOption mocks base method.
+func (m *MockNodeManager) WithBusyTimeoutOption() app.Option {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithBusyTimeoutOption")
+	ret0, _ := ret[0].(app.Option)
+	return ret0
+}
+
+// WithBusyTimeoutOption indicates an expected call of WithBusyTimeoutOption.
+func (mr *MockNodeManagerMockRecorder) WithBusyTimeoutOption() *MockNodeManagerWithBusyTimeoutOptionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithBusyTimeoutOption", reflect.TypeOf((*MockNodeManager)(nil).WithBusyTimeoutOption))
+	return &MockNodeManagerWithBusyTimeoutOptionCall{Call: call}
+}
+
+// MockNodeManagerWithBusyTimeoutOptionCall wrap *gomock.Call
+type MockNodeManagerWithBusyTimeoutOptionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNodeManagerWithBusyTimeoutOptionCall) Return(arg0 app.Option) *MockNodeManagerWithBusyTimeoutOptionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNodeManagerWithBusyTimeoutOptionCall) Do(f func() app.Option) *MockNodeManagerWithBusyTimeoutOptionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNodeManagerWithBusyTimeoutOptionCall) DoAndReturn(f func() app.Option) *MockNodeManagerWithBusyTimeoutOptionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WithClusterOption mocks base method.
 func (m *MockNodeManager) WithClusterOption(arg0 []string) app.Option {
 	m.ctrl.T.Helper()

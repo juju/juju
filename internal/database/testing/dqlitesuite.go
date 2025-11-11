@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
@@ -102,6 +103,7 @@ func (s *DqliteSuite) SetUpTest(c *tc.C) {
 	s.dqlite, err = app.New(s.dbPath,
 		app.WithAddress(endpoint),
 		app.WithTracing(client.LogDebug),
+		app.WithBusyTimeout(time.Second),
 		app.WithLogFunc(func(level client.LogLevel, msg string, args ...any) {
 			switch level {
 			case client.LogDebug:

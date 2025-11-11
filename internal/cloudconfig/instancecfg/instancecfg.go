@@ -520,6 +520,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		configParams.AgentLogfileMaxSizeMB = cfg.ControllerConfig.AgentLogfileMaxSizeMB()
 		configParams.QueryTracingEnabled = cfg.ControllerConfig.QueryTracingEnabled()
 		configParams.QueryTracingThreshold = cfg.ControllerConfig.QueryTracingThreshold()
+		configParams.DqliteBusyTimeout = cfg.ControllerConfig.DqliteBusyTimeout()
 		configParams.OpenTelemetryEnabled = cfg.ControllerConfig.OpenTelemetryEnabled()
 		configParams.OpenTelemetryEndpoint = cfg.ControllerConfig.OpenTelemetryEndpoint()
 		configParams.OpenTelemetryInsecure = cfg.ControllerConfig.OpenTelemetryInsecure()

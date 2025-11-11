@@ -492,6 +492,44 @@ func (c *MockConfigDirCall) DoAndReturn(f func() string) *MockConfigDirCall {
 	return c
 }
 
+// DqliteBusyTimeout mocks base method.
+func (m *MockConfig) DqliteBusyTimeout() time.Duration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DqliteBusyTimeout")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+// DqliteBusyTimeout indicates an expected call of DqliteBusyTimeout.
+func (mr *MockConfigMockRecorder) DqliteBusyTimeout() *MockConfigDqliteBusyTimeoutCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DqliteBusyTimeout", reflect.TypeOf((*MockConfig)(nil).DqliteBusyTimeout))
+	return &MockConfigDqliteBusyTimeoutCall{Call: call}
+}
+
+// MockConfigDqliteBusyTimeoutCall wrap *gomock.Call
+type MockConfigDqliteBusyTimeoutCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockConfigDqliteBusyTimeoutCall) Return(arg0 time.Duration) *MockConfigDqliteBusyTimeoutCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockConfigDqliteBusyTimeoutCall) Do(f func() time.Duration) *MockConfigDqliteBusyTimeoutCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockConfigDqliteBusyTimeoutCall) DoAndReturn(f func() time.Duration) *MockConfigDqliteBusyTimeoutCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DqlitePort mocks base method.
 func (m *MockConfig) DqlitePort() (int, bool) {
 	m.ctrl.T.Helper()

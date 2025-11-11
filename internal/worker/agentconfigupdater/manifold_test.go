@@ -295,29 +295,15 @@ type mockConfig struct {
 	caiSet bool
 	cai    controller.ControllerAgentInfo
 
-	queryTracingEnabled    bool
-	queryTracingEnabledSet bool
-
-	queryTracingThreshold    time.Duration
-	queryTracingThresholdSet bool
-
-	openTelemetryEnabled    bool
-	openTelemetryEnabledSet bool
-
-	openTelemetryEndpoint    string
-	openTelemetryEndpointSet bool
-
-	openTelemetryInsecure    bool
-	openTelemetryInsecureSet bool
-
-	openTelemetryStackTraces    bool
-	openTelemetryStackTracesSet bool
-
-	openTelemetrySampleRatio    float64
-	openTelemetrySampleRatioSet bool
-
-	openTelemetryTailSamplingThreshold    time.Duration
-	openTelemetryTailSamplingThresholdSet bool
+	queryTracingEnabled                bool
+	queryTracingThreshold              time.Duration
+	dqliteBusyTimeout                  time.Duration
+	openTelemetryEnabled               bool
+	openTelemetryEndpoint              string
+	openTelemetryInsecure              bool
+	openTelemetryStackTraces           bool
+	openTelemetrySampleRatio           float64
+	openTelemetryTailSamplingThreshold time.Duration
 }
 
 func (mc *mockConfig) Tag() names.Tag {
@@ -350,7 +336,6 @@ func (mc *mockConfig) QueryTracingEnabled() bool {
 
 func (mc *mockConfig) SetQueryTracingEnabled(enabled bool) {
 	mc.queryTracingEnabled = enabled
-	mc.queryTracingEnabledSet = true
 }
 
 func (mc *mockConfig) QueryTracingThreshold() time.Duration {
@@ -362,7 +347,17 @@ func (mc *mockConfig) QueryTracingThreshold() time.Duration {
 
 func (mc *mockConfig) SetQueryTracingThreshold(threshold time.Duration) {
 	mc.queryTracingThreshold = threshold
-	mc.queryTracingThresholdSet = true
+}
+
+func (mc *mockConfig) DqliteBusyTimeout() time.Duration {
+	if mc.dqliteBusyTimeout == 0 {
+		return controller.DefaultDqliteBusyTimeout
+	}
+	return mc.dqliteBusyTimeout
+}
+
+func (mc *mockConfig) SetDqliteBusyTimeout(timeout time.Duration) {
+	mc.dqliteBusyTimeout = timeout
 }
 
 func (mc *mockConfig) OpenTelemetryEnabled() bool {
@@ -371,7 +366,6 @@ func (mc *mockConfig) OpenTelemetryEnabled() bool {
 
 func (mc *mockConfig) SetOpenTelemetryEnabled(enabled bool) {
 	mc.openTelemetryEnabled = enabled
-	mc.openTelemetryEnabledSet = true
 }
 
 func (mc *mockConfig) OpenTelemetryEndpoint() string {
@@ -380,7 +374,6 @@ func (mc *mockConfig) OpenTelemetryEndpoint() string {
 
 func (mc *mockConfig) SetOpenTelemetryEndpoint(endpoint string) {
 	mc.openTelemetryEndpoint = endpoint
-	mc.openTelemetryEndpointSet = true
 }
 
 func (mc *mockConfig) OpenTelemetryInsecure() bool {
@@ -389,7 +382,6 @@ func (mc *mockConfig) OpenTelemetryInsecure() bool {
 
 func (mc *mockConfig) SetOpenTelemetryInsecure(enabled bool) {
 	mc.openTelemetryInsecure = enabled
-	mc.openTelemetryInsecureSet = true
 }
 
 func (mc *mockConfig) OpenTelemetryStackTraces() bool {
@@ -398,7 +390,6 @@ func (mc *mockConfig) OpenTelemetryStackTraces() bool {
 
 func (mc *mockConfig) SetOpenTelemetryStackTraces(enabled bool) {
 	mc.openTelemetryStackTraces = enabled
-	mc.openTelemetryStackTracesSet = true
 }
 
 func (mc *mockConfig) OpenTelemetrySampleRatio() float64 {
@@ -410,7 +401,6 @@ func (mc *mockConfig) OpenTelemetrySampleRatio() float64 {
 
 func (mc *mockConfig) SetOpenTelemetrySampleRatio(ratio float64) {
 	mc.openTelemetrySampleRatio = ratio
-	mc.openTelemetrySampleRatioSet = true
 }
 
 func (mc *mockConfig) OpenTelemetryTailSamplingThreshold() time.Duration {
@@ -422,7 +412,6 @@ func (mc *mockConfig) OpenTelemetryTailSamplingThreshold() time.Duration {
 
 func (mc *mockConfig) SetOpenTelemetryTailSamplingThreshold(dur time.Duration) {
 	mc.openTelemetryTailSamplingThreshold = dur
-	mc.openTelemetryTailSamplingThresholdSet = true
 }
 
 func (mc *mockConfig) LogDir() string {

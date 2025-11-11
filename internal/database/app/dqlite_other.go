@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/errors"
 	_ "github.com/mattn/go-sqlite3"
@@ -66,6 +67,13 @@ func WithLogFunc(log client.LogFunc) Option {
 // WithTracing will emit a log message at the given level every time a
 // statement gets executed.
 func WithTracing(level client.LogLevel) Option {
+	return func() {}
+}
+
+// WithBusyTimeout sets the timeout for how long a database operation will wait
+// for a lock to be released before returning an error, tailoring the amount of
+// time a writer will wait for others to finish writing on the same database.
+func WithBusyTimeout(timeout time.Duration) Option {
 	return func() {}
 }
 

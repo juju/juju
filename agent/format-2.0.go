@@ -62,6 +62,7 @@ type format_2_0Serialization struct {
 	SystemIdentity        string        `yaml:"systemidentity,omitempty"`
 	QueryTracingEnabled   bool          `yaml:"querytracingenabled,omitempty"`
 	QueryTracingThreshold time.Duration `yaml:"querytracingthreshold,omitempty"`
+	DqliteBusyTimeout     time.Duration `yaml:"dqlitebusytimeout,omitempty"`
 
 	OpenTelemetryEnabled               bool          `yaml:"opentelemetryenabled,omitempty"`
 	OpenTelemetryEndpoint              string        `yaml:"opentelemetryendpoint,omitempty"`
@@ -126,6 +127,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 
 		queryTracingEnabled:   format.QueryTracingEnabled,
 		queryTracingThreshold: format.QueryTracingThreshold,
+		dqliteBusyTimeout:     format.DqliteBusyTimeout,
 
 		openTelemetryEnabled:               format.OpenTelemetryEnabled,
 		openTelemetryInsecure:              format.OpenTelemetryInsecure,
@@ -194,6 +196,7 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 
 		QueryTracingEnabled:   config.queryTracingEnabled,
 		QueryTracingThreshold: config.queryTracingThreshold,
+		DqliteBusyTimeout:     config.dqliteBusyTimeout,
 
 		OpenTelemetryEnabled:               config.openTelemetryEnabled,
 		OpenTelemetryInsecure:              config.openTelemetryInsecure,

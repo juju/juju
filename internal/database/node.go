@@ -230,6 +230,13 @@ func (m *NodeManager) WithTracingOption() app.Option {
 	return app.WithTracing(client.LogNone)
 }
 
+// WithBusyTimeoutOption returns a Dqlite application Option that sets
+// the busy timeout based on the agent configuration.
+func (m *NodeManager) WithBusyTimeoutOption() app.Option {
+	timeout := m.cfg.DqliteBusyTimeout()
+	return app.WithBusyTimeout(max(timeout, 0))
+}
+
 // WithPreferredCloudLocalAddressOption uses the input network config source to
 // return a local-cloud address to which to bind Dqlite, provided that a unique
 // one can be determined.

@@ -47,6 +47,7 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.WithBusyTimeoutOption().Return(nil)
 
 	// We may or may not get this call.
 	mgrExp.SetClusterToLocalNode(gomock.Any()).Return(nil).AnyTimes()
@@ -84,6 +85,7 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *tc.C) {
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.WithBusyTimeoutOption().Return(nil)
 	mgrExp.SetClusterToLocalNode(gomock.Any()).Return(nil)
 
 	// App gets started, we time out waiting, then we close it.
@@ -122,6 +124,7 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *tc.C) {
 	mgrExp.WithTLSOption().Return(nil, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil).Times(2)
 	mgrExp.WithTracingOption().Return(nil).Times(2)
+	mgrExp.WithBusyTimeoutOption().Return(nil).Times(2)
 
 	// App gets started, we time out waiting, then we close it both times.
 	appExp := s.dbApp.EXPECT()
@@ -166,6 +169,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *tc.C) {
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.WithBusyTimeoutOption().Return(nil)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil)
 
 	// Expects 1 attempt to start and 2 attempts to reconfigure.
@@ -265,6 +269,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *tc.C) {
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.WithBusyTimeoutOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -309,6 +314,7 @@ func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *tc.C
 	mgrExp.IsLoopbackPreferred().Return(false).MinTimes(1)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.WithBusyTimeoutOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -345,6 +351,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *tc
 	mgrExp.IsLoopbackPreferred().Return(false).Times(3)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.WithBusyTimeoutOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -415,6 +422,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *tc.C) {
 
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.WithBusyTimeoutOption().Return(nil)
 
 	// These are the expectations around reconfiguring
 	// the cluster and local node.
@@ -494,6 +502,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.WithBusyTimeoutOption().Return(nil)
 
 	// If this is a loopback preferred node, we do not invoke the TLS or
 	// cluster options.

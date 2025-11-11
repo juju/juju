@@ -140,6 +140,10 @@ func (c *configFromEnv) OpenTelemetryEnabled() bool {
 	panic("not implemented")
 }
 
+func (c *configFromEnv) DqliteBusyTimeout() time.Duration {
+	panic("not implemented")
+}
+
 func (c *configFromEnv) OpenTelemetryEndpoint() string {
 	panic("not implemented")
 }

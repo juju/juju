@@ -106,6 +106,7 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Model:                              cfg.APIInfo.ModelTag,
 		QueryTracingEnabled:                cfg.Controller.QueryTracingEnabled(),
 		QueryTracingThreshold:              cfg.Controller.QueryTracingThreshold(),
+		DqliteBusyTimeout:                  cfg.Controller.DqliteBusyTimeout(),
 		OpenTelemetryEnabled:               cfg.Controller.OpenTelemetryEnabled(),
 		OpenTelemetryEndpoint:              cfg.Controller.OpenTelemetryEndpoint(),
 		OpenTelemetryInsecure:              cfg.Controller.OpenTelemetryInsecure(),
