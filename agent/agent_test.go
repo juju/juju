@@ -630,12 +630,12 @@ func (*suite) TestSetDqliteBusyTimeout(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, tc.ErrorIsNil)
 
-	queryTracingThreshold := conf.DqliteBusyTimeout()
-	c.Assert(queryTracingThreshold, tc.Equals, attributeParams.DqliteBusyTimeout)
+	dqliteBusyTimeout := conf.DqliteBusyTimeout()
+	c.Assert(dqliteBusyTimeout, tc.Equals, attributeParams.DqliteBusyTimeout)
 
 	conf.SetDqliteBusyTimeout(time.Second * 10)
-	queryTracingThreshold = conf.DqliteBusyTimeout()
-	c.Assert(queryTracingThreshold, tc.Equals, time.Second*10, tc.Commentf("dqlute busy timeout not updated"))
+	dqliteBusyTimeout = conf.DqliteBusyTimeout()
+	c.Assert(dqliteBusyTimeout, tc.Equals, time.Second*10, tc.Commentf("dqlite busy timeout not updated"))
 }
 
 func (*suite) TestSetOpenTelemetryEnabled(c *tc.C) {
