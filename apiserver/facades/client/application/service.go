@@ -192,13 +192,13 @@ type ApplicationService interface {
 	// GetApplicationLife looks up the life of the specified application.
 	GetApplicationLife(context.Context, coreapplication.UUID) (life.Value, error)
 
-	// GetApplicationStorageInfo returns the storage directives set for an application,
+	// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
 	// keyed to the storage name. If the application does not have any storage
 	// directives set then an empty result is returned.
 	//
 	// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
 	// error is returned.
-	GetApplicationStorageInfo(ctx context.Context, uuid coreapplication.UUID) (map[string]application.ApplicationStorageInfo, error)
+	GetApplicationStorageDirectivesInfo(ctx context.Context, uuid coreapplication.UUID) (map[string]application.ApplicationStorageInfo, error)
 
 	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
@@ -425,13 +425,6 @@ type StatusService interface {
 	// SetRemoteRelationStatus sets the status of the relation to the status
 	// provided.
 	SetRemoteRelationStatus(ctx context.Context, relationUUID corerelation.UUID, statusInfo status.StatusInfo) error
-}
-
-type StoragePoolService interface {
-	// GetStoragePoolByUUID returns the storage pool with the UUID.
-	// The following errors can be expected:
-	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-	GetStoragePoolByUUID(ctx context.Context, poolUUID domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error)
 }
 
 // BlockChecker defines the block-checking functionality required by

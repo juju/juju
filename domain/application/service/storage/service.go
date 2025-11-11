@@ -91,13 +91,13 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
 	DetachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID) error
 
-	// GetApplicationStorageInfo returns the storage directives set for an application,
+	// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
 	// keyed to the storage name. If the application does not have any storage
 	// directives set then an empty result is returned.
 	//
 	// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
 	// error is returned.
-	GetApplicationStorageInfo(
+	GetApplicationStorageDirectivesInfo(
 		ctx context.Context,
 		appUUID coreapplication.UUID,
 	) (map[string]application.ApplicationStorageInfo, error)

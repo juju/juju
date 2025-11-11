@@ -2003,7 +2003,7 @@ func (s *applicationSuite) TestSetRelationsSuspendedNotFound(c *tc.C) {
 	})
 }
 
-func (s *applicationSuite) TestGetApplicationStorageInfo(c *tc.C) {
+func (s *applicationSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -2020,7 +2020,7 @@ func (s *applicationSuite) TestGetApplicationStorageInfo(c *tc.C) {
 	poolName := "my-loop"
 	size := uint64(20)
 	count := uint64(1)
-	s.applicationService.EXPECT().GetApplicationStorageInfo(
+	s.applicationService.EXPECT().GetApplicationStorageDirectivesInfo(
 		gomock.Any(),
 		appUUID,
 	).Return(
@@ -2040,19 +2040,15 @@ func (s *applicationSuite) TestGetApplicationStorageInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
-	constraints := res.Results[0].StorageConstraints
 
-	c.Assert(constraints, tc.HasLen, 1)
-	logConstraints := constraints["logs"]
-	c.Assert(
-		logConstraints,
-		tc.DeepEquals,
-		params.StorageDirectives{
+	sc := res.Results[0].StorageConstraints
+	c.Check(sc, tc.DeepEquals, map[string]params.StorageDirectives{
+		"logs": {
 			Pool:    poolName,
 			SizeMiB: &size,
 			Count:   &count,
 		},
-	)
+	})
 }
 
 func (s *applicationSuite) setupAPI(c *tc.C) {
