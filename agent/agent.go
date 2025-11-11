@@ -894,6 +894,12 @@ func (c *configInternal) DqliteBusyTimeout() time.Duration {
 
 // SetDqliteBusyTimeout implements configSetterOnly.
 func (c *configInternal) SetDqliteBusyTimeout(v time.Duration) {
+	// If the value is negative, set it to zero, we don't want negative
+	// timeouts. We can't error out here as this method is called from config
+	// change processing and that doesn't handle errors (annoyingly).
+	if v < 0 {
+		v = 0
+	}
 	c.dqliteBusyTimeout = v
 }
 

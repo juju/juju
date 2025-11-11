@@ -72,6 +72,9 @@ func WithTracing(level client.LogLevel) Option {
 // that is the amount of time a writer will wait for others to finish writing
 // on the same database.
 func WithBusyTimeout(timeout time.Duration) Option {
+	if timeout < 0 {
+		timeout = 0
+	}
 	return app.WithBusyTimeout(timeout)
 }
 
