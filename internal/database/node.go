@@ -234,7 +234,7 @@ func (m *NodeManager) WithTracingOption() app.Option {
 // the busy timeout based on the agent configuration.
 func (m *NodeManager) WithBusyTimeoutOption() app.Option {
 	timeout := m.cfg.DqliteBusyTimeout()
-	return app.WithBusyTimeout(timeout)
+	return app.WithBusyTimeout(max(timeout, 0))
 }
 
 // WithPreferredCloudLocalAddressOption uses the input network config source to
