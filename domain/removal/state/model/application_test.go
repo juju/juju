@@ -499,7 +499,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
 
 	// Delete any units associated with the application.
-	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String())
+	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
@@ -572,7 +572,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Delete any units associated with the application.
-	err := st.DeleteUnit(c.Context(), unitUUIDs[0].String())
+	err := st.DeleteUnit(c.Context(), unitUUIDs[0].String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
@@ -606,7 +606,7 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Delete any units associated with the application.
-	err := st.DeleteUnit(c.Context(), unitUUIDs[0].String())
+	err := st.DeleteUnit(c.Context(), unitUUIDs[0].String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)

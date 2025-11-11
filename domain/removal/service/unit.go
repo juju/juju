@@ -51,7 +51,7 @@ type UnitState interface {
 	GetUnitLife(ctx context.Context, unitUUID string) (life.Life, error)
 
 	// DeleteUnit removes a unit from the database completely.
-	DeleteUnit(ctx context.Context, unitUUID string) error
+	DeleteUnit(ctx context.Context, unitUUID string, force bool) error
 
 	// GetApplicationNameAndUnitNameByUnitUUID retrieves the application name
 	// and unit name for a unit identified by the input UUID. If the unit does
@@ -353,7 +353,7 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("getting charm for unit %q: %w", job.EntityUUID, err)
 	}
 
-	if err := s.modelState.DeleteUnit(ctx, job.EntityUUID); errors.Is(err, applicationerrors.UnitNotFound) {
+	if err := s.modelState.DeleteUnit(ctx, job.EntityUUID, job.Force); errors.Is(err, applicationerrors.UnitNotFound) {
 		// The unit has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil

@@ -319,7 +319,7 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 
 // MarkModelAsDead marks the model with the input UUID as dead.
 // If there are model dependents, then this will return an error.
-func (st *State) MarkModelAsDead(ctx context.Context, mUUID string) error {
+func (st *State) MarkModelAsDead(ctx context.Context, mUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -343,7 +343,7 @@ AND    life_id = 1`, modelUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		err = st.checkNoModelDependents(ctx, tx)
+		err = st.checkNoModelDependents(ctx, tx, force)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -358,7 +358,7 @@ AND    life_id = 1`, modelUUID)
 }
 
 // DeleteModelArtifacts deletes all artifacts associated with a model.
-func (st *State) DeleteModelArtifacts(ctx context.Context, mUUID string) error {
+func (st *State) DeleteModelArtifacts(ctx context.Context, mUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -395,7 +395,7 @@ WHERE uuid = $entityUUID.uuid;
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 
-		err = st.checkNoModelDependents(ctx, tx)
+		err = st.checkNoModelDependents(ctx, tx, force)
 		if err != nil {
 			return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
 		}
@@ -483,7 +483,12 @@ WHERE  model_uuid = $entityUUID.uuid;`, model, modelUUID)
 	return life.Life(model.Life), nil
 }
 
-func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX) error {
+func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX, force bool) error {
+	// If we're forcing, we don't care about dependents.
+	if force {
+		return nil
+	}
+
 	var count count
 
 	// We only care about applications and machines (for IAAS models). We assume
