@@ -38,13 +38,13 @@ const (
 	storageNamespace    = domainsequence.StaticNamespace("storage")
 )
 
-// GetApplicationStorageInfo returns the storage directives set for an application,
+// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
 // keyed to the storage name. If the application does not have any storage
 // directives set then an empty result is returned.
 //
 // If the application does not exist, then a [applicationerrors.ApplicationNotFound]
 // error is returned.
-func (st *State) GetApplicationStorageInfo(
+func (st *State) GetApplicationStorageDirectivesInfo(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
 ) (map[string]application.ApplicationStorageInfo, error) {
@@ -74,7 +74,7 @@ SELECT &applicationStorageInfo.* FROM (
 
 	storageInfoResult := []applicationStorageInfo{}
 
-	if err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf(
@@ -92,7 +92,8 @@ SELECT &applicationStorageInfo.* FROM (
 			return nil
 		}
 		return err
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, errors.Capture(err)
 	}
 

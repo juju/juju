@@ -59,25 +59,26 @@ func (s *Service) GetApplicationStorageDirectives(
 	uuid coreapplication.UUID,
 ) ([]application.StorageDirective, error) {
 	if uuid.Validate() != nil {
-		return nil, coreerrors.NotValid
+		return nil, errors.New("application uuid is not valid").Add(coreerrors.NotValid)
 	}
 	return s.st.GetApplicationStorageDirectives(ctx, uuid)
 }
 
-// GetApplicationStorageInfo returns the storage directives set for an application,
+// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
 // keyed to the storage name. If the application does not have any storage
 // directives set then an empty result is returned.
 //
-// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
-// error is returned.
-func (s *Service) GetApplicationStorageInfo(
+// The following errors may be expected:
+// - [coreerrors.NotValid] when the supplied application uuid is not valid.
+// - [applicationerrors.ApplicationNotFound] if the application does not exist.
+func (s *Service) GetApplicationStorageDirectivesInfo(
 	ctx context.Context,
 	uuid coreapplication.UUID,
 ) (map[string]application.ApplicationStorageInfo, error) {
 	if uuid.Validate() != nil {
-		return nil, coreerrors.NotValid
+		return nil, errors.New("application uuid is not valid").Add(coreerrors.NotValid)
 	}
-	return s.st.GetApplicationStorageInfo(ctx, uuid)
+	return s.st.GetApplicationStorageDirectivesInfo(ctx, uuid)
 }
 
 // MakeApplicationStorageDirectiveArgs creates a slice of
