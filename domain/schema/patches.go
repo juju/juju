@@ -4,7 +4,6 @@
 package schema
 
 import (
-	"embed"
 	"io/fs"
 	"slices"
 	"strings"
@@ -13,10 +12,10 @@ import (
 )
 
 const (
-	patchName = ".patch.sql"
+	patchName = ".PATCH.sql"
 )
 
-func readPatches(entries []fs.DirEntry, fs embed.FS, fileName func(string) string) ([]func() schema.Patch, []func() schema.Patch) {
+func readPatches(entries []fs.DirEntry, fs fs.ReadFileFS, fileName func(string) string) ([]func() schema.Patch, []func() schema.Patch) {
 	var names []string
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -41,7 +40,7 @@ func readPatches(entries []fs.DirEntry, fs embed.FS, fileName func(string) strin
 			return schema.MakePatch(string(data))
 		}
 
-		if strings.HasSuffix(strings.ToLower(name), patchName) {
+		if strings.HasSuffix(name, patchName) {
 			postPatches = append(postPatches, fn)
 			continue
 		}
