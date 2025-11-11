@@ -234,9 +234,9 @@ const (
 	QueryTracingThreshold = "query-tracing-threshold"
 
 	// DqliteBusyTimeout sets the timeout for how long a database operation will
-	// wait for a lock to be released before returning an error (SQLITE_BUSY),
-	// that is the amount of time a writer will wait for others to finish
-	// writing on the same database.
+	// wait for a lock to be released before returning an error, that is the
+	// amount of time a writer will wait for others to finish writing on the
+	// same database.
 	DqliteBusyTimeout = "dqlite-busy-timeout"
 
 	// OpenTelemetryEnabled returns whether open telemetry is enabled.
@@ -418,8 +418,8 @@ const (
 
 	// DefaultDqliteBusyTimeout is the default value for the timeout for how
 	// long a database operation will wait for a lock to be released before
-	// returning an error (SQLITE_BUSY), that is the amount of time a writer
-	// will wait for others to finish writing on the same database.
+	// returning an error, tailoring the amount of time a writer will wait for
+	// others to finish writing on the same database.
 	DefaultDqliteBusyTimeout = 1 * time.Second
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
@@ -1016,9 +1016,8 @@ func (c Config) QueryTracingThreshold() time.Duration {
 }
 
 // DqliteBusyTimeout returns the timeout for how long a database operation will
-// wait for a lock to be released before returning an error (SQLITE_BUSY),
-// that is the amount of time a writer will wait for others to finish
-// writing on the same database.
+// wait for a lock to be released before returning an error, that is the amount
+// of time a writer will wait for others to finish writing on the same database.
 func (c Config) DqliteBusyTimeout() time.Duration {
 	return c.durationOrDefault(DqliteBusyTimeout, DefaultDqliteBusyTimeout)
 }
