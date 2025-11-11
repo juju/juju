@@ -324,29 +324,33 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 				Add(removalerrors.EntityStillAlive)
 		}
 
-		// Check that there are no units.
-		var numUnits count
-		err = tx.Query(ctx, unitsStmt, applicationUUID).Get(&numUnits)
-		if err != nil {
-			return errors.Errorf("querying application units: %w", err)
-		} else if numUnits := numUnits.Count; numUnits > 0 {
-			// It is required that all units have been completely removed
-			// before the application can be removed.
-			return errors.Errorf("cannot delete application as it still has %d unit(s)", numUnits).
-				Add(applicationerrors.ApplicationHasUnits).
-				Add(removalerrors.RemovalJobIncomplete)
-		}
+		// If we're not forcing, we need to ensure that there are no units
+		// or relations associated with the application.
+		if !force {
+			// Check that there are no units.
+			var numUnits count
+			err = tx.Query(ctx, unitsStmt, applicationUUID).Get(&numUnits)
+			if err != nil {
+				return errors.Errorf("querying application units: %w", err)
+			} else if numUnits := numUnits.Count; numUnits > 0 {
+				// It is required that all units have been completely removed
+				// before the application can be removed.
+				return errors.Errorf("cannot delete application as it still has %d unit(s)", numUnits).
+					Add(applicationerrors.ApplicationHasUnits).
+					Add(removalerrors.RemovalJobIncomplete)
+			}
 
-		var numRelations count
-		err = tx.Query(ctx, relationsStmt, applicationUUID).Get(&numRelations)
-		if err != nil {
-			return errors.Errorf("querying application relations: %w", err)
-		} else if numRelations := numRelations.Count; numRelations > 0 {
-			// It is required that all relations have been completely removed
-			// before the application can be removed.
-			return errors.Errorf("cannot delete application as it still has %d relation(s)", numRelations).
-				Add(applicationerrors.ApplicationHasRelations).
-				Add(removalerrors.RemovalJobIncomplete)
+			var numRelations count
+			err = tx.Query(ctx, relationsStmt, applicationUUID).Get(&numRelations)
+			if err != nil {
+				return errors.Errorf("querying application relations: %w", err)
+			} else if numRelations := numRelations.Count; numRelations > 0 {
+				// It is required that all relations have been completely removed
+				// before the application can be removed.
+				return errors.Errorf("cannot delete application as it still has %d relation(s)", numRelations).
+					Add(applicationerrors.ApplicationHasRelations).
+					Add(removalerrors.RemovalJobIncomplete)
+			}
 		}
 
 		var offers []entityUUID

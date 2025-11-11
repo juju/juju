@@ -537,7 +537,7 @@ AND    life_id = 1`, unitUUID)
 }
 
 // DeleteUnit removes a unit from the database completely.
-func (st *State) DeleteUnit(ctx context.Context, unitUUID string) error {
+func (st *State) DeleteUnit(ctx context.Context, unitUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)

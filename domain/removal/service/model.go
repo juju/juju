@@ -68,10 +68,10 @@ type ModelState interface {
 	GetModelLife(ctx context.Context, modelUUID string) (life.Life, error)
 
 	// MarkModelAsDead marks the model with the input UUID as dead.
-	MarkModelAsDead(ctx context.Context, modelUUID string) error
+	MarkModelAsDead(ctx context.Context, modelUUID string, force bool) error
 
 	// DeleteModelArtifacts deletes all artifacts associated with a model.
-	DeleteModelArtifacts(ctx context.Context, modelUUID string) error
+	DeleteModelArtifacts(ctx context.Context, modelUUID string, force bool) error
 }
 
 // RemoveModel checks if a model with the input name exists.
@@ -226,7 +226,7 @@ func (s *Service) removeModel(
 // database itself. That is done by the undertaker worker.
 // The model must be dead before it can be deleted.
 // If the model is alive or dying, an error will be returned.
-func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID) error {
+func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID, force bool) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -258,11 +258,11 @@ func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID) error {
 		}
 	}
 
-	if err := s.modelState.DeleteModelArtifacts(ctx, modelUUID.String()); err != nil {
+	if err := s.modelState.DeleteModelArtifacts(ctx, modelUUID.String(), force); err != nil {
 		return errors.Errorf("deleting model artifacts: %w", err)
 	}
 
-	if err := s.controllerState.DeleteModel(ctx, modelUUID.String()); err != nil {
+	if err := s.controllerState.DeleteModel(ctx, modelUUID.String(), force); err != nil {
 		return errors.Errorf("deleting model: %w", err)
 	}
 
@@ -339,7 +339,7 @@ func (s *Service) processModelJob(ctx context.Context, job removal.Job) error {
 		}
 	}
 
-	if err := s.modelState.MarkModelAsDead(ctx, job.EntityUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+	if err := s.modelState.MarkModelAsDead(ctx, job.EntityUUID, job.Force); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return errors.Errorf("marking model %q as dead: %w", job.EntityUUID, err)
 	}
 

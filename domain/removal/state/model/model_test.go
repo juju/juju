@@ -280,7 +280,7 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 
 	modelUUID := s.getModelUUID(c)
 
-	err := st.DeleteModelArtifacts(c.Context(), modelUUID)
+	err := st.DeleteModelArtifacts(c.Context(), modelUUID, false)
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
 	s.advanceModelLife(c, modelUUID, life.Dead)
@@ -289,10 +289,10 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 	s.advanceMachineLife(c, machineUUID, life.Dead)
 	s.advanceInstanceLife(c, machineUUID, life.Dead)
 
-	err = st.DeleteModelArtifacts(c.Context(), modelUUID)
+	err = st.DeleteModelArtifacts(c.Context(), modelUUID, false)
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 
-	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.DeleteMachine(c.Context(), machineUUID.String(), false)
@@ -301,7 +301,7 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.DeleteModelArtifacts(c.Context(), modelUUID)
+	err = st.DeleteModelArtifacts(c.Context(), modelUUID, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The model should be gone.
@@ -313,7 +313,7 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 func (s *modelSuite) TestDeleteModelNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteModelArtifacts(c.Context(), "0")
+	err := st.DeleteModelArtifacts(c.Context(), "0", false)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 

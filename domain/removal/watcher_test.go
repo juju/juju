@@ -177,7 +177,7 @@ func (s *watcherSuite) TestWatchEntityRemovals(c *tc.C) {
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
-		err := modelState.DeleteUnit(c.Context(), unitUUID)
+		err := modelState.DeleteUnit(c.Context(), unitUUID, false)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
