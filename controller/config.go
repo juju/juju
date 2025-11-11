@@ -1162,7 +1162,7 @@ func Validate(c Config) error {
 	}
 
 	if v, err := parseDuration(c, AgentRateLimitRate); err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "parsing %s in configuration", AgentRateLimitRate)
 	} else if err == nil {
 		if v == 0 {
 			return errors.Errorf("%s cannot be zero", AgentRateLimitRate)
@@ -1176,7 +1176,7 @@ func Validate(c Config) error {
 	}
 
 	if v, err := parseDuration(c, MaxDebugLogDuration); err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "parsing %s in configuration", MaxDebugLogDuration)
 	} else if err == nil {
 		if v == 0 {
 			return errors.Errorf("%s cannot be zero", MaxDebugLogDuration)
@@ -1304,7 +1304,7 @@ func Validate(c Config) error {
 	}
 
 	if v, err := parseDuration(c, QueryTracingThreshold); err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "parsing %s in configuration", QueryTracingThreshold)
 	} else if err == nil {
 		if v < 0 {
 			return errors.Errorf("%s value %q must be a positive duration", QueryTracingThreshold, v)
@@ -1312,7 +1312,7 @@ func Validate(c Config) error {
 	}
 
 	if v, err := parseDuration(c, DqliteBusyTimeout); err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "parsing %s in configuration", DqliteBusyTimeout)
 	} else if err == nil {
 		if v < 0 {
 			return errors.Errorf("%s value %q must be a positive duration", DqliteBusyTimeout, v)
@@ -1328,7 +1328,7 @@ func Validate(c Config) error {
 	}
 
 	if v, err := parseDuration(c, OpenTelemetryTailSamplingThreshold); err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "parsing %s in configuration", OpenTelemetryTailSamplingThreshold)
 	} else if err == nil {
 		if v < 0 {
 			return errors.Errorf("%s value %q must be a positive duration", OpenTelemetryTailSamplingThreshold, v)
