@@ -257,6 +257,8 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 	return st.runRawTransaction(ops)
 }
 
+// PopulateApplicationStorageUniqueID has the responsibility of populating the
+// `storage-unique-id` field in the application document.
 func PopulateApplicationStorageUniqueID(
 	pool *StatePool,
 	getStorageUniqueIDs func(

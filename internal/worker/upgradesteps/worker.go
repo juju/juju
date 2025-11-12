@@ -318,6 +318,7 @@ func (w *upgradeSteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	if err := w.entity.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil); err != nil {
 		return errors.Trace(err)
 	}
+
 	stBackend := upgrades.NewStateBackend(w.pool)
 	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
