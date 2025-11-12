@@ -264,17 +264,16 @@ func PopulateApplicationStorageUniqueID(
 		model *Model,
 	) ([]AppAndStorageID, error),
 ) error {
-	logger.Infof("[adis] inside PopulateApplicationStorageUniqueID")
 	// Run for each model because we want to backfill for every application.
 	return runForAllModelStates(pool, func(st *State) error {
 		model, err := st.Model()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Infof("[adis] trying to upgrade applications for model %q", model.Name())
+		logger.Debugf("trying to populate storage unique ID for apps in model %q", model.Name())
 
 		if model.Type() != ModelTypeCAAS {
-			logger.Infof("[adis] skipping because model %q is not a caas model", model.Name())
+			logger.Debugf("skipping because model %q is not a caas model", model.Name())
 			return nil
 		}
 
@@ -299,12 +298,11 @@ func PopulateApplicationStorageUniqueID(
 			})
 		}
 
-		logger.Infof("[adis] going to migrate %d apps", len(apps))
+		logger.Debugf("have %d apps to populate storage unique IDs", len(apps))
 
 		appsWithStorageUniqueIDs, err := getStorageUniqueIDs(apps, model)
 		if err != nil {
-			logger.Infof("[adis] failed to get storage unique ids in model %q has error %s", model.UUID(), err)
-			return err
+			return errors.Annotate(err, "getting storage unique IDs")
 		}
 
 		var ops []txn.Op

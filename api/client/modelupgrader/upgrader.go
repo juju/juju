@@ -6,7 +6,6 @@ package modelupgrader
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -61,7 +60,6 @@ func (c *Client) UpgradeModel(
 		IgnoreAgentVersions: ignoreAgentVersions,
 		DryRun:              druRun,
 	}
-	log.Printf("[adis] upgrade model. args: %+v\n", args)
 	var result params.UpgradeModelResult
 	err := c.facade.FacadeCall("UpgradeModel", args, &result)
 	if err != nil {
