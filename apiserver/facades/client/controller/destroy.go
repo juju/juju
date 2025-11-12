@@ -88,6 +88,11 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 		return apiservererrors.ServerError(err)
 	}
 
+	// Remove the controller and controller model. This will return the
+	// hosted models that also need to be removed. We don't do this within
+	// the removal service, as that doesn't have access to select other
+	// databases from inside of the service. I don't think we want to add
+	// that complexity for just this one use case.
 	childModelUUIDs, err := removalService.RemoveController(ctx, force, maxWait)
 	if err != nil {
 		c.logger.Warningf(ctx, "failed destroying controller: %v", err)
