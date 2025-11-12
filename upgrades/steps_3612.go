@@ -3,7 +3,7 @@
 
 package upgrades
 
-// stateStepsFor3612 returns upgrade steps for Juju 3.6.11 that manipulate state directly.
+// stateStepsFor3612 returns upgrade steps for Juju 3.6.12 that manipulate state directly.
 func stateStepsFor3612() []Step {
 	return []Step{
 		&upgradeStep{

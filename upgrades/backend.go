@@ -57,6 +57,8 @@ func (s stateBackend) SplitMigrationStatusMessages() error {
 	return state.SplitMigrationStatusMessages(s.pool)
 }
 
+// PopulateApplicationStorageUniqueID runs an upgrade to backfill CAAS apps
+// storage unique IDs.
 func (s stateBackend) PopulateApplicationStorageUniqueID() error {
 	return state.PopulateApplicationStorageUniqueID(s.pool, GetStorageUniqueID(NewK8sClient))
 }
@@ -87,7 +89,7 @@ type kubernetesClient struct {
 // GetStorageUniqueID attempts to grab the storage unique ID for each app
 // in the given model.
 // The storage unique ID is saved in annotations in a statefulset and for legacy
-// applications are saved in a deploymen or daemonset.
+// applications are saved in a deployment or daemonset.
 func GetStorageUniqueID(newK8sClient newK8sFunc) func(
 	apps []state.AppAndStorageID,
 	model *state.Model,
