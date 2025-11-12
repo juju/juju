@@ -7,16 +7,17 @@ import (
 	"context"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	jujukubernetes "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 // StateBackend provides an interface for upgrading the global state database.
@@ -41,8 +42,7 @@ func NewStateBackend(pool *state.StatePool) StateBackend {
 }
 
 type stateBackend struct {
-	pool                   *state.StatePool
-	getStorageUniqueIDFunc func() func(appName string, model *state.Model) (string, error)
+	pool *state.StatePool
 }
 
 // AddVirtualHostKeys runs an upgrade to
