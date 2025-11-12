@@ -16,6 +16,12 @@ var _ = func() {
 	_ = applyToAllModelSettings(nil, nil)
 }
 
+type AppAndStorageID struct {
+	Id              string
+	Name            string
+	StorageUniqueID string
+}
+
 // runForAllModelStates will run runner function for every model passing a state
 // for that model.
 //
@@ -251,17 +257,16 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 	return st.runRawTransaction(ops)
 }
 
-func PopulateApplicationStorageUniqueID(pool *StatePool, getStorageUniqueID func(appName string, model *Model) (string, error)) error {
+func PopulateApplicationStorageUniqueID(
+	pool *StatePool,
+	getStorageUniqueIDs func(
+		applications []AppAndStorageID,
+		model *Model,
+	) ([]AppAndStorageID, error),
+) error {
 	logger.Infof("[adis] inside PopulateApplicationStorageUniqueID")
-	st, err := pool.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var ops []txn.Op
-
 	// Run for each model because we want to backfill for every application.
-	err = runForAllModelStates(pool, func(st *State) error {
+	return runForAllModelStates(pool, func(st *State) error {
 		model, err := st.Model()
 		if err != nil {
 			return errors.Trace(err)
@@ -273,48 +278,46 @@ func PopulateApplicationStorageUniqueID(pool *StatePool, getStorageUniqueID func
 			return nil
 		}
 
-		logger.Infof("[adis] model %q preparing for populating storage id", model.Name())
-
 		applications, closer := st.db().GetCollection(applicationsC)
 		defer closer()
 
-		// Fetch the list of applications with an empty storageUniqueID.
+		// Fetch the list of applications with an empty appsWithStorageUniqueIDs.
 		// This ensures we don't repeat the upgrade for applications that have
-		// been populated with a storageUniqueID.
+		// been populated with a appsWithStorageUniqueIDs.
 		query := bson.M{"storage-unique-id": bson.M{"$exists": false}}
 		fields := bson.M{"_id": 1, "name": 1}
 		iter := applications.Find(query).Select(fields).Iter()
 		defer iter.Close()
 
+		apps := make([]AppAndStorageID, 0)
+
 		var app bson.M
 		for iter.Next(&app) {
-			docId := app["_id"].(string)
-			name := app["name"].(string)
-
-			logger.Infof("[adis] trying to get storage unique id for app %q in model %q", name, model.UUID())
-
-			// Gives us the storageUniqueID for the application which we save to mongo.
-			storageUniqueID, err := getStorageUniqueID(name, model)
-			if err != nil {
-				logger.Infof("[adis] app %q in model %q has error %s", name, model.UUID(), err)
-				return err
-			}
-
-			logger.Infof("[adis] app %q in model %q has storageuniqueid %q", name, model.UUID(), storageUniqueID)
-
-			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     docId,
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{{"storage-unique-id", storageUniqueID}}}},
+			apps = append(apps, AppAndStorageID{
+				Id:   app["_id"].(string),
+				Name: app["name"].(string),
 			})
 		}
-		return nil
+
+		logger.Infof("[adis] going to migrate %d apps", len(apps))
+
+		appsWithStorageUniqueIDs, err := getStorageUniqueIDs(apps, model)
+		if err != nil {
+			logger.Infof("[adis] failed to get storage unique ids in model %q has error %s", model.UUID(), err)
+			return err
+		}
+
+		var ops []txn.Op
+		for _, a := range appsWithStorageUniqueIDs {
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     a.Id,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"storage-unique-id", a.StorageUniqueID},
+				}}},
+			})
+		}
+		return st.runRawTransaction(ops)
 	})
-
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return st.runRawTransaction(ops)
 }

@@ -6,6 +6,7 @@ package upgrades
 import (
 	"context"
 	"fmt"
+
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	jujukubernetes "github.com/juju/juju/internal/provider/kubernetes"
@@ -83,23 +84,26 @@ type kubernetesClient struct {
 	config *rest.Config
 }
 
-func GetStorageUniqueID(newK8sClient newK8sFunc) func(appName string, model *state.Model) (string, error) {
-	k8sClientsByModel := make(map[string]kubernetesClient)
-	return func(appName string, model *state.Model) (string, error) {
-		// We open a k8s client for each model.
-		if _, ok := k8sClientsByModel[model.UUID()]; !ok {
-			k8sClient, cfg, err := newK8sClient(model)
-			if err != nil {
-				return "", err
-			}
-			k8sClientsByModel[model.UUID()] = kubernetesClient{k8sClient, cfg}
-			logger.Infof("[adis] creating a k8s client for model %q", model.UUID())
-		}
-
-		k8sClient := k8sClientsByModel[model.UUID()]
-		namespace, err := jujukubernetes.NamespaceForModel(model.Name(), model.ControllerUUID(), k8sClient.config)
+// GetStorageUniqueID attempts to grab the storage unique ID for each app
+// in the given model.
+// The storage unique ID is saved in annotations in a statefulset and for legacy
+// applications are saved in a deploymen or daemonset.
+func GetStorageUniqueID(newK8sClient newK8sFunc) func(
+	apps []state.AppAndStorageID,
+	model *state.Model,
+) ([]state.AppAndStorageID, error) {
+	return func(apps []state.AppAndStorageID,
+		model *state.Model) ([]state.AppAndStorageID, error) {
+		k8sClient, cfg, err := newK8sClient(model)
 		if err != nil {
-			return "", err
+			return nil, err
+		}
+		k8sClient = kubernetesClient{k8sClient, cfg}
+		logger.Infof("[adis] creating a k8s client for model %q", model.UUID())
+
+		namespace, err := jujukubernetes.NamespaceForModel(model.Name(), model.ControllerUUID(), cfg)
+		if err != nil {
+			return nil, err
 		}
 
 		isLegacyDeployment := func(appName string) (bool, error) {
@@ -131,53 +135,91 @@ func GetStorageUniqueID(newK8sClient newK8sFunc) func(appName string, model *sta
 			}
 			return storageUniqueID, nil
 		}
+		k8sApps := make([]state.AppAndStorageID, 0, len(apps))
 
-		deploymentName := appName
-		isLegacy, err := isLegacyDeployment(appName)
-		if err != nil {
-			return "", err
-		}
-		if isLegacy {
-			deploymentName = "juju-operator-" + appName
-		}
+		for _, a := range apps {
+			foundDeployment := false
+			deploymentName := a.Name
+			isLegacy, err := isLegacyDeployment(a.Name)
+			if err != nil {
+				return nil, err
+			}
+			if isLegacy {
+				deploymentName = "juju-operator-" + a.Name
+			}
 
-		// We have to find the resource where the storageUniqueID
-		// is saved in annotation. While modern charms are deployed as
-		// statefulsets, due to legacy deployments, we also have to check
-		// for deployments and daemonsets resource.
-		sts, err := k8sClient.AppsV1().
-			StatefulSets(namespace).
-			Get(context.Background(), deploymentName, v1.GetOptions{})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return "", err
-		}
-		if err == nil {
-			logger.Infof("[adis] found sts for app %q with annotations %+v", appName, sts.Annotations)
-			return getUniqueIDFromAnnotation(sts.Annotations)
-		}
+			// We have to find the resource where the storageUniqueID
+			// is saved in annotation. While modern charms are deployed as
+			// statefulsets, due to legacy deployments, we also have to check
+			// for deployments and daemonsets resource.
+			sts, err := k8sClient.AppsV1().
+				StatefulSets(namespace).
+				Get(context.Background(), deploymentName, v1.GetOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return nil, err
+			}
+			if err == nil {
+				logger.Infof("[adis] found sts for app %q with annotations %+v", a.Name, sts.Annotations)
+				storageUniqueID, err := getUniqueIDFromAnnotation(sts.Annotations)
+				if err != nil {
+					return nil, err
+				}
+				k8sApps = append(k8sApps, state.AppAndStorageID{
+					Id:              a.Id,
+					Name:            a.Name,
+					StorageUniqueID: storageUniqueID,
+				})
+				foundDeployment = true
+			}
 
-		deployment, err := k8sClient.AppsV1().
-			Deployments(namespace).
-			Get(context.Background(), deploymentName, v1.GetOptions{})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return "", err
-		}
-		if err == nil {
-			logger.Infof("[adis] found deployment for app %q with annotations %+v", appName, deployment.Annotations)
-			return getUniqueIDFromAnnotation(deployment.Annotations)
-		}
+			// The app doesn't exist in statefulset so we look at the deployment
+			// resource.
+			deployment, err := k8sClient.AppsV1().
+				Deployments(namespace).
+				Get(context.Background(), deploymentName, v1.GetOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return nil, err
+			}
+			if err == nil {
+				logger.Infof("[adis] found deployment for app %q with annotations %+v", a.Name, deployment.Annotations)
+				storageUniqueID, err := getUniqueIDFromAnnotation(deployment.Annotations)
+				if err != nil {
+					return nil, err
+				}
+				k8sApps = append(k8sApps, state.AppAndStorageID{
+					Id:              a.Id,
+					Name:            a.Name,
+					StorageUniqueID: storageUniqueID,
+				})
+				foundDeployment = true
+			}
 
-		daemonSet, err := k8sClient.AppsV1().
-			DaemonSets(namespace).
-			Get(context.Background(), deploymentName, v1.GetOptions{})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return "", err
-		}
-		if err == nil {
-			logger.Infof("[adis] found daemonset for app %q with annotations %+v", appName, daemonSet.Annotations)
-			return getUniqueIDFromAnnotation(daemonSet.Annotations)
-		}
+			// The app doesn't exist in deployment so we look at the daemonset
+			// resource.
+			daemonSet, err := k8sClient.AppsV1().
+				DaemonSets(namespace).
+				Get(context.Background(), deploymentName, v1.GetOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return nil, err
+			}
+			if err == nil {
+				logger.Infof("[adis] found daemonset for app %q with annotations %+v", a.Name, daemonSet.Annotations)
+				storageUniqueID, err := getUniqueIDFromAnnotation(daemonSet.Annotations)
+				if err != nil {
+					return nil, err
+				}
+				k8sApps = append(k8sApps, state.AppAndStorageID{
+					Id:              a.Id,
+					Name:            a.Name,
+					StorageUniqueID: storageUniqueID,
+				})
+				foundDeployment = true
+			}
 
-		return "", fmt.Errorf("cannot find k8s deployment for app %q", appName)
+			if !foundDeployment {
+				return nil, fmt.Errorf("cannot find k8s deployment for app %q in model %q", a.Name, model.Name())
+			}
+		}
+		return k8sApps, nil
 	}
 }
