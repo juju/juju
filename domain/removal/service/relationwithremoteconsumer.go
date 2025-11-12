@@ -134,6 +134,8 @@ func (s *Service) processRelationWithRemoteConsumerRemovalJob(ctx context.Contex
 		return errors.Errorf("getting remote relation %q life: %w", job.EntityUUID, err)
 	}
 
+	// If the relation is alive, we cannot delete it even with force. This is
+	// programming error if we've reached this point and we're still alive.
 	if l == life.Alive {
 		return errors.Errorf("remote relation %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
