@@ -99,7 +99,6 @@ func GetStorageUniqueID(newK8sClient newK8sFunc) func(
 			return nil, err
 		}
 		k8sClient = kubernetesClient{k8sClient, cfg}
-		logger.Infof("[adis] creating a k8s client for model %q", model.UUID())
 
 		namespace, err := jujukubernetes.NamespaceForModel(model.Name(), model.ControllerUUID(), cfg)
 		if err != nil {
@@ -159,7 +158,7 @@ func GetStorageUniqueID(newK8sClient newK8sFunc) func(
 				return nil, err
 			}
 			if err == nil {
-				logger.Infof("[adis] found sts for app %q with annotations %+v", a.Name, sts.Annotations)
+				logger.Debugf("found sts for app %q with annotations %+v", a.Name, sts.Annotations)
 				storageUniqueID, err := getUniqueIDFromAnnotation(sts.Annotations)
 				if err != nil {
 					return nil, err
@@ -181,7 +180,7 @@ func GetStorageUniqueID(newK8sClient newK8sFunc) func(
 				return nil, err
 			}
 			if err == nil {
-				logger.Infof("[adis] found deployment for app %q with annotations %+v", a.Name, deployment.Annotations)
+				logger.Debugf("found deployment for app %q with annotations %+v", a.Name, deployment.Annotations)
 				storageUniqueID, err := getUniqueIDFromAnnotation(deployment.Annotations)
 				if err != nil {
 					return nil, err
@@ -203,7 +202,7 @@ func GetStorageUniqueID(newK8sClient newK8sFunc) func(
 				return nil, err
 			}
 			if err == nil {
-				logger.Infof("[adis] found daemonset for app %q with annotations %+v", a.Name, daemonSet.Annotations)
+				logger.Debugf("found daemonset for app %q with annotations %+v", a.Name, daemonSet.Annotations)
 				storageUniqueID, err := getUniqueIDFromAnnotation(daemonSet.Annotations)
 				if err != nil {
 					return nil, err
