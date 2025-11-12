@@ -566,36 +566,6 @@ func (mr *MockImageServerMockRecorder) GetImages() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImages", reflect.TypeOf((*MockImageServer)(nil).GetImages))
 }
 
-// GetImagesAllProjects mocks base method.
-func (m *MockImageServer) GetImagesAllProjects() ([]api.Image, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetImagesAllProjects")
-	ret0, _ := ret[0].([]api.Image)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetImagesAllProjects indicates an expected call of GetImagesAllProjects.
-func (mr *MockImageServerMockRecorder) GetImagesAllProjects() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImagesAllProjects", reflect.TypeOf((*MockImageServer)(nil).GetImagesAllProjects))
-}
-
-// GetImagesAllProjectsWithFilter mocks base method.
-func (m *MockImageServer) GetImagesAllProjectsWithFilter(arg0 []string) ([]api.Image, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetImagesAllProjectsWithFilter", arg0)
-	ret0, _ := ret[0].([]api.Image)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetImagesAllProjectsWithFilter indicates an expected call of GetImagesAllProjectsWithFilter.
-func (mr *MockImageServerMockRecorder) GetImagesAllProjectsWithFilter(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImagesAllProjectsWithFilter", reflect.TypeOf((*MockImageServer)(nil).GetImagesAllProjectsWithFilter), arg0)
-}
-
 // GetImagesWithFilter mocks base method.
 func (m *MockImageServer) GetImagesWithFilter(arg0 []string) ([]api.Image, error) {
 	m.ctrl.T.Helper()
@@ -663,6 +633,20 @@ func NewMockInstanceServer(ctrl *gomock.Controller) *MockInstanceServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockInstanceServer) EXPECT() *MockInstanceServerMockRecorder {
 	return m.recorder
+}
+
+// CheckExtension mocks base method.
+func (m *MockInstanceServer) CheckExtension(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckExtension", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckExtension indicates an expected call of CheckExtension.
+func (mr *MockInstanceServerMockRecorder) CheckExtension(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckExtension", reflect.TypeOf((*MockInstanceServer)(nil).CheckExtension), arg0)
 }
 
 // ConsoleContainer mocks base method.
@@ -3505,6 +3489,21 @@ func (mr *MockInstanceServerMockRecorder) GetNetworkACLs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkACLs", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkACLs))
 }
 
+// GetNetworkACLsAllProjects mocks base method.
+func (m *MockInstanceServer) GetNetworkACLsAllProjects() ([]api.NetworkACL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkACLsAllProjects")
+	ret0, _ := ret[0].([]api.NetworkACL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkACLsAllProjects indicates an expected call of GetNetworkACLsAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetNetworkACLsAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkACLsAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkACLsAllProjects))
+}
+
 // GetNetworkAllocations mocks base method.
 func (m *MockInstanceServer) GetNetworkAllocations(arg0 bool) ([]api.NetworkAllocations, error) {
 	m.ctrl.T.Helper()
@@ -3795,6 +3794,21 @@ func (mr *MockInstanceServerMockRecorder) GetNetworkZones() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkZones", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkZones))
 }
 
+// GetNetworkZonesAllProjects mocks base method.
+func (m *MockInstanceServer) GetNetworkZonesAllProjects() ([]api.NetworkZone, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkZonesAllProjects")
+	ret0, _ := ret[0].([]api.NetworkZone)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkZonesAllProjects indicates an expected call of GetNetworkZonesAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetNetworkZonesAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkZonesAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkZonesAllProjects))
+}
+
 // GetNetworks mocks base method.
 func (m *MockInstanceServer) GetNetworks() ([]api.Network, error) {
 	m.ctrl.T.Helper()
@@ -3808,6 +3822,21 @@ func (m *MockInstanceServer) GetNetworks() ([]api.Network, error) {
 func (mr *MockInstanceServerMockRecorder) GetNetworks() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworks", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworks))
+}
+
+// GetNetworksAllProjects mocks base method.
+func (m *MockInstanceServer) GetNetworksAllProjects() ([]api.Network, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworksAllProjects")
+	ret0, _ := ret[0].([]api.Network)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworksAllProjects indicates an expected call of GetNetworksAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetNetworksAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworksAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworksAllProjects))
 }
 
 // GetOperation mocks base method.
@@ -4025,6 +4054,21 @@ func (mr *MockInstanceServerMockRecorder) GetProfiles() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfiles", reflect.TypeOf((*MockInstanceServer)(nil).GetProfiles))
 }
 
+// GetProfilesAllProjects mocks base method.
+func (m *MockInstanceServer) GetProfilesAllProjects() ([]api.Profile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProfilesAllProjects")
+	ret0, _ := ret[0].([]api.Profile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProfilesAllProjects indicates an expected call of GetProfilesAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetProfilesAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfilesAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetProfilesAllProjects))
+}
+
 // GetProject mocks base method.
 func (m *MockInstanceServer) GetProject(arg0 string) (*api.Project, string, error) {
 	m.ctrl.T.Helper()
@@ -4223,6 +4267,21 @@ func (m *MockInstanceServer) GetStoragePoolBuckets(arg0 string) ([]api.StorageBu
 func (mr *MockInstanceServerMockRecorder) GetStoragePoolBuckets(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBuckets", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBuckets), arg0)
+}
+
+// GetStoragePoolBucketsAllProjects mocks base method.
+func (m *MockInstanceServer) GetStoragePoolBucketsAllProjects(arg0 string) ([]api.StorageBucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolBucketsAllProjects", arg0)
+	ret0, _ := ret[0].([]api.StorageBucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolBucketsAllProjects indicates an expected call of GetStoragePoolBucketsAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetStoragePoolBucketsAllProjects(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBucketsAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBucketsAllProjects), arg0)
 }
 
 // GetStoragePoolNames mocks base method.
