@@ -49,6 +49,8 @@ const (
 	// RelationWithRemoteConsumerJob indicates a job to remove a relation with
 	// a remote consumer.
 	RelationWithRemoteConsumerJob
+	// ControllerModelJob indicates a job to remove a controller model.
+	ControllerModelJob
 )
 
 // String is used in logging output make job type identifiers readable.
@@ -85,6 +87,8 @@ func (t JobType) String() string {
 		return "relation with remote offerer"
 	case RelationWithRemoteConsumerJob:
 		return "relation with remote consumer"
+	case ControllerModelJob:
+		return "controller model"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}

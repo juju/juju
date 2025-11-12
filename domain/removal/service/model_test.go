@@ -36,7 +36,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -85,7 +85,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), true).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(true, nil)
@@ -122,7 +122,7 @@ func (s *modelSuite) TestRemoveModelForceNoWaitSuccess(c *tc.C) {
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), true).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -145,7 +145,7 @@ func (s *modelSuite) TestRemoveModelForceWaitSuccess(c *tc.C) {
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), true).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -173,7 +173,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInModelButInController(c *tc.C) {
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -195,7 +195,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInControllerButInModel(c *tc.C) {
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(false, nil)
-	cExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -214,7 +214,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInBothControllerAndModel(c *tc.C) {
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(false, nil)
-	cExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)

@@ -49,9 +49,10 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 	return modelExists, errors.Capture(err)
 }
 
-// EnsureModelNotAliveCascade ensures that there is no model identified
-// by the input model UUID, that is still alive.
-func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) error {
+// EnsureModelNotAlive ensures that there is no model identified
+// by the input model UUID, that is still alive. This does not cascade, as
+// it is only used to set the model life to dying.
+func (st *State) EnsureModelNotAlive(ctx context.Context, modelUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
