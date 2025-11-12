@@ -41,7 +41,7 @@ func (s *workerSuite) TestRemoveDeadModel(c *tc.C) {
 	s.controllerModelService.EXPECT().GetDeadModels(gomock.Any()).Return([]model.UUID{model.UUID("model-1")}, nil)
 
 	s.removalServiceGetter.EXPECT().GetRemovalService(gomock.Any(), model.UUID("model-1")).Return(s.removalService, nil)
-	s.removalService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
+	s.removalService.EXPECT().DeleteModel(gomock.Any(), false).Return(nil)
 
 	done := make(chan struct{})
 	s.dbDeleter.EXPECT().DeleteDB("model-1").DoAndReturn(func(s string) error {
@@ -78,7 +78,7 @@ func (s *workerSuite) TestRemoveDeadModelNotFound(c *tc.C) {
 	s.controllerModelService.EXPECT().GetDeadModels(gomock.Any()).Return([]model.UUID{model.UUID("model-1")}, nil)
 
 	s.removalServiceGetter.EXPECT().GetRemovalService(gomock.Any(), model.UUID("model-1")).Return(s.removalService, nil)
-	s.removalService.EXPECT().DeleteModel(gomock.Any()).Return(modelerrors.NotFound)
+	s.removalService.EXPECT().DeleteModel(gomock.Any(), false).Return(modelerrors.NotFound)
 
 	done := make(chan struct{})
 	s.dbDeleter.EXPECT().DeleteDB("model-1").DoAndReturn(func(s string) error {
@@ -115,7 +115,7 @@ func (s *workerSuite) TestRemoveDeadModelDBNotFound(c *tc.C) {
 	s.controllerModelService.EXPECT().GetDeadModels(gomock.Any()).Return([]model.UUID{model.UUID("model-1")}, nil)
 
 	s.removalServiceGetter.EXPECT().GetRemovalService(gomock.Any(), model.UUID("model-1")).Return(s.removalService, nil)
-	s.removalService.EXPECT().DeleteModel(gomock.Any()).Return(coredatabase.ErrDBNotFound)
+	s.removalService.EXPECT().DeleteModel(gomock.Any(), false).Return(coredatabase.ErrDBNotFound)
 
 	done := make(chan struct{})
 	s.dbDeleter.EXPECT().DeleteDB("model-1").DoAndReturn(func(s string) error {

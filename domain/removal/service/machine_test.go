@@ -310,7 +310,7 @@ func (s *machineSuite) TestExecuteJobForMachineInstanceDying(c *tc.C) {
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)
 }
 
 func (s *machineSuite) TestExecuteJobForMachineDyingReleaseAddresses(c *tc.C) {
