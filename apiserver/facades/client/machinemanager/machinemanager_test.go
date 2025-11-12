@@ -133,7 +133,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 	c.Assert(machines.Machines, tc.HasLen, 2)
 }
 
-func (s *AddMachineManagerSuite) TestAddMachinesContainer(c *tc.C) {
+func (s *AddMachineManagerSuite) TestAddMachinesContainerPlacement(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -141,6 +141,39 @@ func (s *AddMachineManagerSuite) TestAddMachinesContainer(c *tc.C) {
 		Base:      &params.Base{Name: "ubuntu", Channel: "22.04"},
 		Jobs:      []coremodel.MachineJob{coremodel.JobHostUnits},
 		Placement: &instance.Placement{Scope: string(instance.LXD), Directive: "0"},
+	}
+
+	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "22.04/stable",
+			OSType:  deployment.Ubuntu,
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: "0",
+		},
+	}).Return(machineservice.AddMachineResults{
+		MachineName:      coremachine.Name("0"),
+		ChildMachineName: ptr(coremachine.Name("0/lxd/0")),
+	}, nil)
+
+	machines, err := s.api.AddMachines(c.Context(), params.AddMachines{MachineParams: []params.AddMachineParams{apiParams}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines.Machines, tc.HasLen, 1)
+	c.Check(machines.Machines[0].Machine, tc.Equals, "0/lxd/0")
+	c.Check(machines.Machines[0].Error, tc.IsNil)
+}
+
+func (s *AddMachineManagerSuite) TestAddMachinesContainerMembers(c *tc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	apiParams := params.AddMachineParams{
+		Base:          &params.Base{Name: "ubuntu", Channel: "22.04"},
+		Jobs:          []coremodel.MachineJob{coremodel.JobHostUnits},
+		ContainerType: instance.LXD,
+		ParentId:      "0",
 	}
 
 	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
@@ -292,9 +325,9 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
 				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
+					{Tag: "unit-foo-0"},
+					{Tag: "unit-foo-1"},
+					{Tag: "unit-foo-2"},
 				},
 			},
 		}},
@@ -322,17 +355,17 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *t
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
 				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
+					{Tag: "unit-foo-0"},
+					{Tag: "unit-foo-1"},
+					{Tag: "unit-foo-2"},
 				},
 				DestroyedContainers: []params.DestroyMachineResult{{
 					Info: &params.DestroyMachineInfo{
 						MachineId: "0/lxd/0",
 						DestroyedUnits: []params.Entity{
-							{"unit-foo-0"},
-							{"unit-foo-1"},
-							{"unit-foo-2"},
+							{Tag: "unit-foo-0"},
+							{Tag: "unit-foo-1"},
+							{Tag: "unit-foo-2"},
 						},
 					},
 				}},
@@ -368,9 +401,9 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *tc.C)
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
 				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
+					{Tag: "unit-foo-0"},
+					{Tag: "unit-foo-1"},
+					{Tag: "unit-foo-2"},
 				},
 			},
 		}},
@@ -403,9 +436,9 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *tc.C
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
 				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
+					{Tag: "unit-foo-0"},
+					{Tag: "unit-foo-1"},
+					{Tag: "unit-foo-2"},
 				},
 			},
 		}},
@@ -435,17 +468,17 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
 				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
+					{Tag: "unit-foo-0"},
+					{Tag: "unit-foo-1"},
+					{Tag: "unit-foo-2"},
 				},
 				DestroyedContainers: []params.DestroyMachineResult{{
 					Info: &params.DestroyMachineInfo{
 						MachineId: "0/lxd/0",
 						DestroyedUnits: []params.Entity{
-							{"unit-foo-0"},
-							{"unit-foo-1"},
-							{"unit-foo-2"},
+							{Tag: "unit-foo-0"},
+							{Tag: "unit-foo-1"},
+							{Tag: "unit-foo-2"},
 						},
 					},
 				}},
