@@ -7,11 +7,14 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/collections/set"
+
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -187,4 +190,48 @@ func (s *Service) controllerModelScheduleRemoval(
 
 	s.logger.Infof(ctx, "scheduled removal job %q for controller model %q", jobUUID, modelUUID)
 	return jobUUID, nil
+}
+
+// processControllerModelJob waits until all hosted models are removed from the
+// controller database. It will then schedule the removal job for the controller
+// model.
+func (s *Service) processControllerModelJob(ctx context.Context, job removal.Job) error {
+	if job.RemovalType != removal.ControllerModelJob {
+		return errors.Errorf("job type: %q not valid for controller model removal", job.RemovalType).Add(
+			removalerrors.RemovalJobTypeNotValid)
+	}
+
+	modelUUIDs, err := s.controllerState.GetModelUUIDs(ctx)
+	if err != nil {
+		return errors.Errorf("retrieving model UUIDs from controller: %w", err)
+	}
+
+	remnants := set.NewStrings(modelUUIDs...)
+	remnants.Remove(job.EntityUUID)
+	if remnants.Size() > 0 {
+		// There are still models in the controller, so we need to wait
+		// until they are all removed.
+		return errors.Errorf("controller model %q removal job %q waiting for hosted models to be removed",
+			job.EntityUUID, job.UUID).Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	// We've safely removed all models, we can now schedule the removal
+	// of the controller model.
+
+	// This is the only place where we should schedule the removal job within
+	// another removal job, otherwise we could end up in a non-deterministic
+	// loop.
+
+	removalUUID, err := s.removeModel(ctx, model.UUID(job.EntityUUID), job.Force, job.ScheduledFor.Sub(s.clock.Now().UTC()))
+	if errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("controller model %q does not exist, removal job %q complete", job.EntityUUID, job.UUID).
+			Add(removalerrors.RemovalModelRemoved)
+	} else if err != nil {
+		return errors.Errorf("scheduling removal of controller model %q: %w", job.EntityUUID, err)
+	}
+
+	s.logger.Infof(ctx, "scheduled removal job %q for controller model %q from controller model removal job %q",
+		removalUUID, job.EntityUUID, job.UUID)
+
+	return nil
 }
