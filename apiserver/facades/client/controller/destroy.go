@@ -73,6 +73,11 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 		return apiservererrors.ServerError(err)
 	}
 
+	var force bool
+	if args.Force != nil {
+		force = *args.Force
+	}
+
 	var maxWait time.Duration
 	if args.MaxWait != nil {
 		maxWait = *args.MaxWait
@@ -83,14 +88,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 		return apiservererrors.ServerError(err)
 	}
 
-	// Force isn't set here because using force will ensure that the controller
-	// and all it's models are removed with force. This isn't desired behaviour.
-	// Instead, the removal service will determine if force is required based
-	// on the state of the controller model.
-	// If the controller model is already dying, force will be used and the
-	// maxWait time will be applied. The modelForce will indicate to the
-	// removal of the hosted models if force should be used.
-	childModelUUIDs, modelForce, err := removalService.RemoveController(ctx, maxWait)
+	childModelUUIDs, err := removalService.RemoveController(ctx, force, maxWait)
 	if err != nil {
 		c.logger.Warningf(ctx, "failed destroying controller: %v", err)
 		return apiservererrors.ServerError(err)
@@ -103,7 +101,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 			return apiservererrors.ServerError(err)
 		}
 
-		if _, err := removalService.RemoveModel(ctx, modelUUID, modelForce, maxWait); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		if _, err := removalService.RemoveModel(ctx, modelUUID, force, maxWait); err != nil && !errors.Is(err, modelerrors.NotFound) {
 			c.logger.Warningf(ctx, "failed destroying controller: %v", err)
 			return apiservererrors.ServerError(err)
 		}

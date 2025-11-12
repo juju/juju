@@ -43,32 +43,35 @@ type ControllerState interface {
 	DeleteModel(ctx context.Context, modelUUID string) error
 }
 
-// RemoveController checks if a model is the controller model, and will set the
-// controller model to dying and then will set all models to dying. This should
-// also ensure that no new models can be created in the controller if it is set
-// to dying.
-//
-// The removal of the controller will always use force as we need to remove the
-// controller model. Passing in force will remove all entities from the mortal
-// coil and not do any proper clean up. Instead, we need to first attempt a
-// graceful removal, then it can be called again, which will check the
-// controller model life state. If it is already dying, which will indicate
-// that a previous removal attempt was made, then we can set force to true and
-// use the maxWait time.
-// The maxWait will always use the new input value, which will be used when
-// removing the controller model.
+// RemoveController sets the controller model to dying and returns the
+// hosted model UUIDs that will also need to be scheduled for removal.
+// This does not cascade the removal of any other artifacts in the model
+// directly. That is done when all models are completely removed and the
+// controller model will be scheduled for removal then. This prevents the
+// controller model from being removed before all hosted models are removed.
 func (s *Service) RemoveController(
 	ctx context.Context,
+	force bool,
 	wait time.Duration,
-) ([]model.UUID, bool, error) {
+) ([]model.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Get all the models in the controller, we can then iterate through
-	// them and set them to dying.
+	// Ensure that we're actually the controller model, otherwise the flow
+	// cannot proceed.
+	if ok, err := s.modelState.IsControllerModel(ctx, s.modelUUID.String()); errors.Is(err, modelerrors.NotFound) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	} else if !ok {
+		return nil, errors.Errorf("model %q is not the controller model", s.modelUUID)
+	}
+
+	// Get all the hosted models in the controller, the result can then be
+	// iterated over to ensure that they are not alive.
 	modelUUIDs, err := s.controllerState.GetModelUUIDs(ctx)
 	if err != nil {
-		return nil, false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	var filteredModelUUIDs []model.UUID
@@ -81,29 +84,12 @@ func (s *Service) RemoveController(
 		filteredModelUUIDs = append(filteredModelUUIDs, typedUUID)
 	}
 
-	if ok, err := s.modelState.IsControllerModel(ctx, s.modelUUID.String()); errors.Is(err, modelerrors.NotFound) {
-		return filteredModelUUIDs, true, nil
-	} else if err != nil {
-		return nil, false, errors.Capture(err)
-	} else if !ok {
-		return nil, false, errors.Errorf("model %q is not the controller model", s.modelUUID)
-	}
-
-	// If the controller model is already dying, we can set force to true and
-	// use the maxWait time.
-	var modelForce bool
-	if lifeState, err := s.modelState.GetModelLife(ctx, s.modelUUID.String()); err != nil {
-		return nil, false, errors.Capture(err)
-	} else if lifeState != life.Alive {
-		modelForce = true
-	}
-
 	// We're the controller model, so we can proceed with the removal.
-	if _, err := s.removeControllerModel(ctx, modelForce, wait); err != nil {
-		return nil, false, errors.Capture(err)
+	if _, err := s.removeControllerModel(ctx, force, wait); err != nil {
+		return filteredModelUUIDs, errors.Capture(err)
 	}
 
-	return filteredModelUUIDs, modelForce, nil
+	return filteredModelUUIDs, nil
 }
 
 // removeControllerModel sets the controller model to dying, this does not
