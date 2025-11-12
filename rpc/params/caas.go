@@ -59,8 +59,8 @@ type CAASApplicationProvisioningInfo struct {
 	CharmURL             string                       `json:"charm-url,omitempty"`
 	Trust                bool                         `json:"trust,omitempty"`
 	Scale                int                          `json:"scale,omitempty"`
+	StorageUniqueID      string                       `json:"storage-unique-id"`
 	Error                *Error                       `json:"error,omitempty"`
-	StorageUniqueID      string                       `json:"storage-unique-id,omitempty"`
 }
 
 // KubernetesFilesystemUnitAttachmentParams holds the parameters for
