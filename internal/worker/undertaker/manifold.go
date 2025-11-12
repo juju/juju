@@ -38,7 +38,7 @@ type GetControllerModelServiceFunc func(ctx context.Context, getter dependency.G
 // database.
 type RemovalService interface {
 	// DeleteModel removes the model with the given UUID from the database.
-	DeleteModel(ctx context.Context) error
+	DeleteModel(ctx context.Context, force bool) error
 }
 
 // RemovalServiceGetter is an interface that defines a method to get a removal
@@ -176,8 +176,8 @@ type removalService struct {
 	modelUUID      model.UUID
 }
 
-func (s *removalService) DeleteModel(ctx context.Context) error {
-	if err := s.removalService.DeleteModel(ctx, s.modelUUID); err != nil {
+func (s *removalService) DeleteModel(ctx context.Context, force bool) error {
+	if err := s.removalService.DeleteModel(ctx, s.modelUUID, force); err != nil {
 		return errors.Errorf("removal service delete model: %w", err)
 	}
 	return nil

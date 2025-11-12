@@ -193,7 +193,10 @@ func (w *modelWorker) loop() error {
 }
 
 func (w *modelWorker) deleteModel(ctx context.Context) error {
-	if err := w.removalService.DeleteModel(ctx); err != nil && !errors.IsOneOf(err,
+	// TODO (stickupkid): Wire up force flag. We'll have to check if there
+	// is a removal job for the model and if it was marked with force.
+	// This could also be done in the removal service itself.
+	if err := w.removalService.DeleteModel(ctx, false); err != nil && !errors.IsOneOf(err,
 		coredatabase.ErrDBNotFound,
 		modelerrors.NotFound,
 	) {
