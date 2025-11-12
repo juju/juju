@@ -286,6 +286,8 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 		return errors.Errorf("getting application %q life: %w", job.EntityUUID, err)
 	}
 
+	// If the application is alive, we cannot delete it even with force. This is
+	// programming error if we've reached this point and we're still alive.
 	if l == life.Alive {
 		return errors.Errorf("application %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}

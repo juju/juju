@@ -339,6 +339,8 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 		return errors.Errorf("getting machine %q life: %w", job.EntityUUID, err)
 	}
 
+	// If the machine is alive, we cannot delete it even with force. This is
+	// programming error if we've reached this point and we're still alive.
 	if l == life.Alive {
 		return errors.Errorf("machine %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
@@ -352,11 +354,11 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 			return errors.Errorf("getting instance %q life: %w", job.EntityUUID, err)
 		}
 
-		// This instance hasn't yet been marked as dead, so we
-		// will not delete it yet.
+		// This instance hasn't yet been marked as dead, so we will not delete
+		// it yet.
 		if l != life.Dead {
 			return errors.Errorf("machine instance %q is not dead", job.EntityUUID).Add(
-				removalerrors.RemovalJobIncomplete)
+				removalerrors.EntityNotDead)
 		}
 	}
 

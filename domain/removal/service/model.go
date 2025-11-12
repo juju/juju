@@ -241,10 +241,18 @@ func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID, force b
 		return errors.Errorf("getting model %q life: %w", modelUUID, err)
 	}
 
+	// If the model is alive, we cannot delete it even with force. This is
+	// programming error if we've reached this point and we're still alive.
 	if modelLife == life.Alive || controllerLife == life.Alive {
 		return errors.Errorf("model %q is still alive", modelUUID).Add(removalerrors.EntityStillAlive)
-	} else if modelLife == life.Dying || controllerLife == life.Dying {
-		return errors.Errorf("model %q is dying", modelUUID).Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	// If we're not using force, ensure that the life of the model is dead
+	// and not dying. If it is dying, we cannot delete it yet.
+	if !force {
+		if modelLife == life.Dying || controllerLife == life.Dying {
+			return errors.Errorf("model %q is dying", modelUUID).Add(removalerrors.EntityNotDead)
+		}
 	}
 
 	// Attempt to destroy the provider of the model. This is best effort,
@@ -320,22 +328,25 @@ func (s *Service) processModelJob(ctx context.Context, job removal.Job) error {
 		return errors.Errorf("model %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	// If this is the controller model, we need to ensure that any other
-	// models are also not alive/dying.
-	if isController, err := s.modelState.IsControllerModel(ctx, job.EntityUUID); err != nil {
-		return errors.Capture(err)
-	} else if isController {
-		models, err := s.controllerState.GetModelUUIDs(ctx)
-		if err != nil {
-			return errors.Errorf("getting controller model UUIDs: %w", err)
-		}
+	// If we're not using force and this is the controller model, we need to
+	// ensure that any other models are also not alive/dying. If we're using
+	// force, we can skip this check.
+	if !job.Force {
+		if isController, err := s.modelState.IsControllerModel(ctx, job.EntityUUID); err != nil {
+			return errors.Capture(err)
+		} else if isController {
+			models, err := s.controllerState.GetModelUUIDs(ctx)
+			if err != nil {
+				return errors.Errorf("getting controller model UUIDs: %w", err)
+			}
 
-		modelsExist, err := s.aliveOrDyingModelsExist(ctx, models)
-		if err != nil {
-			return errors.Errorf("checking if all models are dead: %w", err)
-		} else if modelsExist {
-			return errors.Errorf("cannot remove controller model %q while other models are not dead", job.EntityUUID).Add(
-				removalerrors.RemovalJobIncomplete)
+			modelsExist, err := s.aliveOrDyingModelsExist(ctx, models)
+			if err != nil {
+				return errors.Errorf("checking if all models are dead: %w", err)
+			} else if modelsExist {
+				return errors.Errorf("cannot remove controller model %q while other models are not dead", job.EntityUUID).Add(
+					removalerrors.RemovalJobIncomplete)
+			}
 		}
 	}
 

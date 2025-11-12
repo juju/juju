@@ -176,7 +176,9 @@ func (s *Service) remoteApplicationOffererScheduleRemoval(
 
 // processRemoteApplicationOffererRemovalJob deletes a remote application offerer
 // if it is dying. Note that we do not need transactionality here:
-//   - Life can only advance - it cannot become alive if dying or dead.
+//
+// - Life can only advance
+// - it cannot become alive if dying or dead.
 func (s *Service) processRemoteApplicationOffererRemovalJob(ctx context.Context, job removal.Job) error {
 	if job.RemovalType != removal.RemoteApplicationOffererJob {
 		return errors.Errorf("job type: %q not valid for remote application offerer removal", job.RemovalType).Add(
