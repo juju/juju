@@ -674,6 +674,18 @@ func (mr *MockApplicationMockRecorder) SetStatusHistory(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatusHistory", reflect.TypeOf((*MockApplication)(nil).SetStatusHistory), arg0)
 }
 
+// SetStorageUniqueID mocks base method.
+func (m *MockApplication) SetStorageUniqueID(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetStorageUniqueID", arg0)
+}
+
+// SetStorageUniqueID indicates an expected call of SetStorageUniqueID.
+func (mr *MockApplicationMockRecorder) SetStorageUniqueID(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStorageUniqueID", reflect.TypeOf((*MockApplication)(nil).SetStorageUniqueID), arg0)
+}
+
 // SetTools mocks base method.
 func (m *MockApplication) SetTools(arg0 description.AgentToolsArgs) {
 	m.ctrl.T.Helper()
@@ -726,6 +738,20 @@ func (m *MockApplication) StorageDirectives() map[string]description.StorageDire
 func (mr *MockApplicationMockRecorder) StorageDirectives() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageDirectives", reflect.TypeOf((*MockApplication)(nil).StorageDirectives))
+}
+
+// StorageUniqueID mocks base method.
+func (m *MockApplication) StorageUniqueID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StorageUniqueID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// StorageUniqueID indicates an expected call of StorageUniqueID.
+func (mr *MockApplicationMockRecorder) StorageUniqueID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageUniqueID", reflect.TypeOf((*MockApplication)(nil).StorageUniqueID))
 }
 
 // Subordinate mocks base method.
