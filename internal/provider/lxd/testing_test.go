@@ -285,9 +285,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Stub:               s.Stub,
 		StorageIsSupported: true,
 		Server: &api.Server{
-			ServerPut: api.ServerPut{
-				Config: map[string]interface{}{},
-			},
 			Environment: api.ServerEnvironment{
 				Certificate: "server-cert",
 			},

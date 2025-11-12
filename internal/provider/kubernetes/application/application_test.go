@@ -6,6 +6,7 @@ package application_test
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -14,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
+	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -1215,15 +1217,33 @@ func (s *applicationSuite) TestDeleteStateful(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.applier.EXPECT().Delete(resources.NewStatefulSet(s.client.AppsV1().StatefulSets("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewService(s.client.CoreV1().Services("test"), "test", "gitlab-endpoints", nil)),
-		s.applier.EXPECT().Delete(resources.NewService(s.client.CoreV1().Services("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewSecret(s.client.CoreV1().Secrets("test"), "test", "gitlab-application-config", nil)),
-		s.applier.EXPECT().Delete(resources.NewRoleBinding(s.client.RbacV1().RoleBindings("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewRole(s.client.RbacV1().Roles("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding(s.client.RbacV1().ClusterRoleBindings(), "test-gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewClusterRole(s.client.RbacV1().ClusterRoles(), "test-gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewServiceAccount(s.client.CoreV1().ServiceAccounts("test"), "test", "gitlab", nil)),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewStatefulSet(
+				s.client.AppsV1().StatefulSets("test"), "test", "gitlab", nil).StatefulSet}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewService(
+				s.client.CoreV1().Services("test"), "test", "gitlab-endpoints", nil).Service}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewService(
+				s.client.CoreV1().Services("test"), "test", "gitlab", nil).Service}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewSecret(
+				s.client.CoreV1().Secrets("test"), "test", "gitlab-application-config", nil).Secret}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewRoleBinding(
+				s.client.RbacV1().RoleBindings("test"), "test", "gitlab", nil).RoleBinding}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewRole(
+				s.client.RbacV1().Roles("test"), "test", "gitlab", nil).Role}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewClusterRoleBinding(
+				s.client.RbacV1().ClusterRoleBindings(), "test-gitlab", nil).ClusterRoleBinding}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewClusterRole(
+				s.client.RbacV1().ClusterRoles(), "test-gitlab", nil).ClusterRole}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewServiceAccount(
+				s.client.CoreV1().ServiceAccounts("test"), "test", "gitlab", nil).ServiceAccount}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 	)
 	c.Assert(app.Delete(), jc.ErrorIsNil)
@@ -1234,14 +1254,30 @@ func (s *applicationSuite) TestDeleteStateless(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.applier.EXPECT().Delete(resources.NewDeployment(s.client.AppsV1().Deployments("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewService(s.client.CoreV1().Services("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewSecret(s.client.CoreV1().Secrets("test"), "test", "gitlab-application-config", nil)),
-		s.applier.EXPECT().Delete(resources.NewRoleBinding(s.client.RbacV1().RoleBindings("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewRole(s.client.RbacV1().Roles("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding(s.client.RbacV1().ClusterRoleBindings(), "test-gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewClusterRole(s.client.RbacV1().ClusterRoles(), "test-gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewServiceAccount(s.client.CoreV1().ServiceAccounts("test"), "test", "gitlab", nil)),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewDeployment(
+				s.client.AppsV1().Deployments("test"), "test", "gitlab", nil).Deployment}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewService(
+				s.client.CoreV1().Services("test"), "test", "gitlab", nil).Service}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewSecret(
+				s.client.CoreV1().Secrets("test"), "test", "gitlab-application-config", nil).Secret}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewRoleBinding(
+				s.client.RbacV1().RoleBindings("test"), "test", "gitlab", nil).RoleBinding}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewRole(
+				s.client.RbacV1().Roles("test"), "test", "gitlab", nil).Role}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewClusterRoleBinding(
+				s.client.RbacV1().ClusterRoleBindings(), "test-gitlab", nil).ClusterRoleBinding}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewClusterRole(
+				s.client.RbacV1().ClusterRoles(), "test-gitlab", nil).ClusterRole}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewServiceAccount(
+				s.client.CoreV1().ServiceAccounts("test"), "test", "gitlab", nil).ServiceAccount}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 	)
 	c.Assert(app.Delete(), jc.ErrorIsNil)
@@ -1252,14 +1288,30 @@ func (s *applicationSuite) TestDeleteDaemon(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.applier.EXPECT().Delete(resources.NewDaemonSet(s.client.AppsV1().DaemonSets("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewService(s.client.CoreV1().Services("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewSecret(s.client.CoreV1().Secrets("test"), "test", "gitlab-application-config", nil)),
-		s.applier.EXPECT().Delete(resources.NewRoleBinding(s.client.RbacV1().RoleBindings("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewRole(s.client.RbacV1().Roles("test"), "test", "gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding(s.client.RbacV1().ClusterRoleBindings(), "test-gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewClusterRole(s.client.RbacV1().ClusterRoles(), "test-gitlab", nil)),
-		s.applier.EXPECT().Delete(resources.NewServiceAccount(s.client.CoreV1().ServiceAccounts("test"), "test", "gitlab", nil)),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewDaemonSet(
+				s.client.AppsV1().DaemonSets("test"), "test", "gitlab", nil).DaemonSet}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewService(
+				s.client.CoreV1().Services("test"), "test", "gitlab", nil).Service}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewSecret(
+				s.client.CoreV1().Secrets("test"), "test", "gitlab-application-config", nil).Secret}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewRoleBinding(
+				s.client.RbacV1().RoleBindings("test"), "test", "gitlab", nil).RoleBinding}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewRole(
+				s.client.RbacV1().Roles("test"), "test", "gitlab", nil).Role}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewClusterRoleBinding(
+				s.client.RbacV1().ClusterRoleBindings(), "test-gitlab", nil).ClusterRoleBinding}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewClusterRole(
+				s.client.RbacV1().ClusterRoles(), "test-gitlab", nil).ClusterRole}),
+		s.applier.EXPECT().Delete(resourceMatcher{
+			expectedResource: resources.NewServiceAccount(
+				s.client.CoreV1().ServiceAccounts("test"), "test", "gitlab", nil).ServiceAccount}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 	)
 	c.Assert(app.Delete(), jc.ErrorIsNil)
@@ -1587,9 +1639,10 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
+	deployment := resources.NewDeployment(s.client.AppsV1().Deployments("test"), "test", "gitlab", updatedMainResource)
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Apply(resources.NewDeployment(s.client.AppsV1().Deployments("test"), "test", "gitlab", updatedMainResource)),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: updatedSvcResource.Service}),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: deployment.Deployment}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
@@ -1716,9 +1769,10 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
+	ss := resources.NewStatefulSet(s.client.AppsV1().StatefulSets("test"), "test", "gitlab", updatedMainResource)
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Apply(resources.NewStatefulSet(s.client.AppsV1().StatefulSets("test"), "test", "gitlab", updatedMainResource)),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: updatedSvcResource.Service}),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: ss.StatefulSet}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
@@ -1805,9 +1859,10 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *gc.C) {
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
+	ds := resources.NewDaemonSet(s.client.AppsV1().DaemonSets("test"), "test", "gitlab", updatedMainResource)
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Apply(resources.NewDaemonSet(s.client.AppsV1().DaemonSets("test"), "test", "gitlab", updatedMainResource)),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: updatedSvcResource.Service}),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: ds.DaemonSet}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
@@ -1898,10 +1953,10 @@ func (s *applicationSuite) TestUpdatePortsWithExistingPorts(c *gc.C) {
 	updatedSvcResource2nd.PatchType = &replacePortsPatchType
 
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(updatedSvcResource),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: updatedSvcResource.Service}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 
-		s.applier.EXPECT().Apply(updatedSvcResource2nd),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: updatedSvcResource2nd.Service}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
@@ -1952,7 +2007,7 @@ func (s *applicationSuite) TestUpdatePortsStateless(c *gc.C) {
 	updatedSvcResource.PatchType = &replacePortsPatchType
 
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(updatedSvcResource),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: updatedSvcResource.Service}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
@@ -1986,7 +2041,7 @@ func (s *applicationSuite) TestUpdatePortsStateful(c *gc.C) {
 	updatedSvcResource.PatchType = &replacePortsPatchType
 
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(updatedSvcResource),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: updatedSvcResource.Service}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
@@ -1997,6 +2052,44 @@ func (s *applicationSuite) TestUpdatePortsStateful(c *gc.C) {
 			Protocol:   "TCP",
 		},
 	}, false), jc.ErrorIsNil)
+}
+
+type resourceMatcher struct {
+	expectedResource any
+}
+
+func (m resourceMatcher) Matches(x interface{}) bool {
+	req, ok := x.(resources.Resource)
+	if !ok {
+		return false
+	}
+	switch res := req.(type) {
+	case *resources.Service:
+		return reflect.DeepEqual(m.expectedResource, res.Service)
+	case *resources.Deployment:
+		return reflect.DeepEqual(m.expectedResource, res.Deployment)
+	case *resources.Secret:
+		return reflect.DeepEqual(m.expectedResource, res.Secret)
+	case *resources.StatefulSet:
+		return reflect.DeepEqual(m.expectedResource, res.StatefulSet)
+	case *resources.DaemonSet:
+		return reflect.DeepEqual(m.expectedResource, res.DaemonSet)
+	case *resources.RoleBinding:
+		return reflect.DeepEqual(m.expectedResource, res.RoleBinding)
+	case *resources.Role:
+		return reflect.DeepEqual(m.expectedResource, res.Role)
+	case *resources.ClusterRoleBinding:
+		return reflect.DeepEqual(m.expectedResource, res.ClusterRoleBinding)
+	case *resources.ClusterRole:
+		return reflect.DeepEqual(m.expectedResource, res.ClusterRole)
+	case *resources.ServiceAccount:
+		return reflect.DeepEqual(m.expectedResource, res.ServiceAccount)
+	}
+	return false
+}
+
+func (m resourceMatcher) String() string {
+	return pretty.Sprint(m.expectedResource)
 }
 
 func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *gc.C) {
@@ -2020,7 +2113,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *gc.C) {
 	updatedSvcResource.PatchType = &replacePortsPatchType
 
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(updatedSvcResource),
+		s.applier.EXPECT().Apply(resourceMatcher{expectedResource: updatedSvcResource.Service}),
 		s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
