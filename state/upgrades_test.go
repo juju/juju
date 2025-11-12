@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/juju/errors"
@@ -271,7 +272,10 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 
 	appMigratedCount := 0
 
-	getStorageUniqueID := func() func(appName string, _ *Model) (string, error) {
+	getStorageUniqueID := func(
+		apps []AppAndStorageID,
+		model *Model,
+	) ([]AppAndStorageID, error) {
 		fakeK8s := map[string][]appNameAndID{
 			model1.UUID(): {
 				{
@@ -298,23 +302,32 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 				},
 			},
 		}
-		return func(appName string, model *Model) (string, error) {
-			k8sDeployment, ok := fakeK8s[model.UUID()]
-			if !ok {
-				return "", errors.Errorf("unknown model %q", model.UUID())
-			}
-			for _, app := range k8sDeployment {
-				if app.appName == appName {
-					appMigratedCount++
-					return app.uniqueID, nil
-				}
+
+		appsAndStorageIDs := make([]AppAndStorageID, 0, len(apps))
+		k8sDeployment, ok := fakeK8s[model.UUID()]
+		if !ok {
+			return nil, errors.Errorf("unknown model %q", model.UUID())
+		}
+		for _, app := range apps {
+			index := slices.IndexFunc(k8sDeployment, func(a appNameAndID) bool {
+				return a.appName == app.Name
+			})
+			if index == -1 {
+				c.Fatalf("app %q not found, this should not happen", app.Name)
 			}
 
-			return "", errors.Errorf("could not find app %q", appName)
+			appMigratedCount++
+			appsAndStorageIDs = append(appsAndStorageIDs, AppAndStorageID{
+				Id:              app.Id,
+				Name:            app.Name,
+				StorageUniqueID: k8sDeployment[index].uniqueID,
+			})
 		}
+
+		return appsAndStorageIDs, nil
 	}
 
-	err = PopulateApplicationStorageUniqueID(s.pool, getStorageUniqueID())
+	err = PopulateApplicationStorageUniqueID(s.pool, getStorageUniqueID)
 	c.Assert(err, gc.IsNil)
 	c.Assert(appMigratedCount, gc.Equals, 4)
 }
