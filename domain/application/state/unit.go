@@ -1474,13 +1474,13 @@ func (st *State) placeIAASUnitMachine(
 		NetNodeUUID: args.MachineNetNodeUUID,
 		MachineUUID: args.MachineUUID,
 	}
+	st.logger.Debugf(ctx, "placing unit with args: %#v", placeMachineArgs)
+
 	machineNames, err := machinestate.PlaceMachine(
 		ctx, tx, st, st.clock, placeMachineArgs,
 	)
 	if err != nil {
-		return nil, errors.Errorf(
-			"performing unit placement %+v: %w", args.Placement, err,
-		)
+		return nil, errors.Errorf("performing unit placement %#v: %w", args.Placement, err)
 	}
 
 	return machineNames, nil

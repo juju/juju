@@ -78,10 +78,6 @@ func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.Add
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	provider, err := s.providerGetter(ctx)
-	if err != nil {
-		return AddMachineResults{}, errors.Errorf("getting provider for create machine: %w", err)
-	}
 	os, err := encodeOSType(args.Platform.OSType)
 	if err != nil {
 		return AddMachineResults{}, errors.Capture(err)
@@ -90,6 +86,7 @@ func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.Add
 	if err != nil {
 		return AddMachineResults{}, errors.Capture(err)
 	}
+
 	mergedCons, err := s.mergeMachineAndModelConstraints(ctx, args.Constraints)
 	if err != nil {
 		return AddMachineResults{}, errors.Capture(err)
@@ -98,10 +95,15 @@ func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.Add
 		Base:        base,
 		Constraints: mergedCons,
 	}
+
 	// We only precheck placement directive with the provider if the placement
 	// type is provider.
 	if args.Directive.Type == deployment.PlacementTypeProvider {
 		precheckInstanceParams.Placement = args.Directive.Directive
+	}
+	provider, err := s.providerGetter(ctx)
+	if err != nil {
+		return AddMachineResults{}, errors.Errorf("getting provider for create machine: %w", err)
 	}
 	if err := provider.PrecheckInstance(ctx, precheckInstanceParams); err != nil {
 		return AddMachineResults{}, errors.Errorf("prechecking instance for create machine: %w", err)

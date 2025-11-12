@@ -120,6 +120,8 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 	return results, nil
 }
 
+// addOneMachine processes a single machine addition.
+// TODO (manadart 2025-11-12): This should all be inside the service layer.
 func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMachineParams) (coremachine.Name, error) {
 	if p.ParentId != "" && p.ContainerType == "" {
 		return "", internalerrors.New("parent machine specified without container type")
@@ -135,6 +137,9 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 		p.Nonce = ""
 		p.HardwareCharacteristics = instance.HardwareCharacteristics{}
 		p.Addrs = nil
+	}
+	if p.ContainerType != "" && p.ContainerType != instance.LXD {
+		return "", internalerrors.New("invalid container type")
 	}
 
 	var base corebase.Base
@@ -159,6 +164,24 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	}
 	if parsedPlacement.Type == deployment.PlacementTypeProvider && parsedPlacement.Directive != mm.modelUUID.String() {
 		return "", internalerrors.Errorf("invalid model id %q", parsedPlacement.Directive)
+	}
+
+	// Prior to Juju 4, the logic was to populate ContainerType and ParentId
+	// from placement, and then call a specific state method to add a container
+	// inside another machine.
+	//
+	// This is now inverted. We only have one method and it handles all forms of
+	// placement, so we back-fill placement from ContainerType and ParentId.
+	// Validation above ensures we have an empty placement at this point.
+	//
+	// This actually makes ContainerType and ParentId redundant if bundle
+	// deployment were to populate placement instead. However, given that
+	// bundles and the current client API are to be phased out, we need not
+	// undertake that work as a priority.
+	if p.ContainerType != "" {
+		parsedPlacement.Type = deployment.PlacementTypeContainer
+		parsedPlacement.Container = deployment.ContainerTypeLXD
+		parsedPlacement.Directive = p.ParentId
 	}
 
 	var n *string

@@ -95,7 +95,12 @@ func (s *providerServiceSuite) TestAddMachineProviderNotSupported(c *tc.C) {
 	service := NewProviderService(
 		s.state, s.statusHistory, providerGetter, nil, clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	_, err := service.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
+	_, err := service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
