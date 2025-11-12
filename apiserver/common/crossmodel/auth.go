@@ -5,6 +5,7 @@ package crossmodel
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -36,6 +37,13 @@ const (
 	// is next used. If a machine takes longer, that's ok, a new discharge
 	// will be obtained.
 	offerPermissionExpiryTime = 3 * time.Minute
+
+	// rootKeyErrorMessage is used to identify errors where the macaroon
+	// root key cannot be found in storage meaning it was not minted
+	// by this controller.
+	// The error string comes from the bakery package and we can't
+	// check against a specific error type.
+	rootKeyErrorMessage = "macaroon not found in storage"
 )
 
 // RelationInfoFromMacaroons returns any relation and offer in the macaroons' declared caveats.
@@ -332,6 +340,10 @@ func (a *authenticator) checkMacaroons(
 	}
 
 	cause := err
+	if strings.Contains(errors.Details(err), rootKeyErrorMessage) {
+		return nil, apiservererrors.ErrPerm
+	}
+
 	if cause == nil {
 		cause = errors.New("invalid cmr macaroon")
 	}

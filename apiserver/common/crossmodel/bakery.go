@@ -84,12 +84,14 @@ func NewLocalOfferBakery(
 	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: key.Public}
 	localOfferBakery := bakery.New(
 		bakery.BakeryParams{
-			Checker:       checker,
-			RootKeyStore:  store,
-			Locator:       locator,
-			Key:           key,
-			OpsAuthorizer: CrossModelAuthorizer{},
-			Location:      location,
+			Checker:      checker,
+			RootKeyStore: store,
+			Locator:      locator,
+			Key:          key,
+			// Note (alesstimec): we should not be authorizing operations
+			// other than those already authorized.
+			//OpsAuthorizer: CrossModelAuthorizer{},
+			Location: location,
 		},
 	)
 	bakery := &bakeryutil.ExpirableStorageBakery{
