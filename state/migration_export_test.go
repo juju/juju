@@ -587,11 +587,14 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		c.Assert(addr.Scope(), gc.Equals, "local-cloud")
 		c.Assert(addr.Type(), gc.Equals, "ipv4")
 		c.Assert(addr.Origin(), gc.Equals, "provider")
+		c.Assert(exported.StorageUniqueID(), gc.Equals, application.GetStorageUniqueID())
+		c.Assert(exported.StorageUniqueID(), gc.Not(gc.Equals), "")
 	} else {
 		c.Assert(exported.PodSpec(), gc.Equals, "")
 		c.Assert(exported.CloudService(), gc.IsNil)
 		_, err := application.AgentTools()
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(exported.StorageUniqueID(), gc.Equals, "")
 	}
 
 	if dbModel.Type() == state.ModelTypeCAAS && isSidecar {
