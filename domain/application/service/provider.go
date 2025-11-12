@@ -114,7 +114,7 @@ func (s *ProviderService) CreateIAASApplication(
 
 	appName, appArg, unitArgs, err := s.makeIAASApplicationArg(ctx, name, charm, origin, args, units...)
 	if err != nil {
-		return "", errors.Errorf("preparing IAAS application args: %w", err)
+		return "", errors.Errorf("preparing application args: %w", err)
 	}
 
 	// Precheck any instances that are being created.
@@ -127,16 +127,16 @@ func (s *ProviderService) CreateIAASApplication(
 
 	appID, machineNames, err := s.st.CreateIAASApplication(ctx, appName, appArg, unitArgs)
 	if err != nil {
-		return "", errors.Errorf("creating IAAS application %q: %w", appName, err)
+		return "", errors.Errorf("creating application %q: %w", appName, err)
 	}
 
-	s.logger.Infof(ctx, "created IAAS application %q with ID %q", appName, appID)
+	s.logger.Infof(ctx, "created application %q with ID %q", appName, appID)
 
 	if args.ApplicationStatus != nil {
 		if err := s.statusHistory.RecordStatus(
 			ctx, status.ApplicationNamespace.WithID(appName), *args.ApplicationStatus,
 		); err != nil {
-			s.logger.Warningf(ctx, "recording IAAS application status history: %w", err)
+			s.logger.Warningf(ctx, "recording application status history: %w", err)
 		}
 	}
 	s.recordInitMachinesStatusHistory(ctx, machineNames)
@@ -295,7 +295,7 @@ func (s *ProviderService) AddIAASUnits(
 		ctx, units, storageDirectives, origin.Platform, constraints.DecodeConstraints(cons),
 	)
 	if err != nil {
-		return nil, nil, errors.Errorf("making IAAS unit args: %w", err)
+		return nil, nil, errors.Errorf("making unit args: %w", err)
 	}
 
 	if err := s.precheckInstances(
@@ -308,7 +308,7 @@ func (s *ProviderService) AddIAASUnits(
 
 	unitNames, machineNames, err := s.st.AddIAASUnits(ctx, appUUID, args...)
 	if err != nil {
-		return nil, nil, errors.Errorf("adding IAAS units to application %q: %w", appName, err)
+		return nil, nil, errors.Errorf("adding units to application %q: %w", appName, err)
 	}
 
 	for i, name := range unitNames {
@@ -605,7 +605,7 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 		cons, err = s.resolveApplicationConstraints(ctx, args.Constraints)
 		if err != nil {
 			return "", application.AddIAASApplicationArg{}, nil,
-				errors.Errorf("merging IAAS application and model constraints: %w", err)
+				errors.Errorf("merging application and model constraints: %w", err)
 		}
 
 		// Sometimes the arch on the origin platform is not set. But sometimes an arch
@@ -627,7 +627,7 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 
 	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
 	if err != nil {
-		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing IAAS application args: %w", err)
+		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing application args: %w", err)
 	}
 	addIAASApplicationArgs := application.AddIAASApplicationArg{
 		BaseAddApplicationArg: arg,
@@ -643,7 +643,7 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 		ctx, units, storageDirectives, arg.Platform, constraints.DecodeConstraints(cons),
 	)
 	if err != nil {
-		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
+		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making unit args: %w", err)
 	}
 
 	return appName, addIAASApplicationArgs, unitArgs, nil

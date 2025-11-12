@@ -1475,7 +1475,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 		Constraints: coreconstraints.MustParse("arch=arm64"),
 	})
 	c.Check(err, tc.ErrorIs, rErr)
-	c.Assert(err, tc.ErrorMatches, `creating IAAS application "foo": boom`)
+	c.Assert(err, tc.ErrorMatches, `creating application "foo": boom`)
 }
 
 //func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
