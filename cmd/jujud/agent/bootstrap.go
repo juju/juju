@@ -412,6 +412,8 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		isCAAS:       isCAAS,
 		unitPassword: controllerUnitPassword,
 		sshProxyPort: args.ControllerConfig.SSHServerPort(),
+		apiPort:      args.ControllerConfig.APIPort(),
+		needHttp:     args.ControllerConfig.AutocertDNSName() != "",
 	}
 	if err := c.deployControllerCharm(st, charmArgs); err != nil {
 		return errors.Annotate(err, "cannot deploy controller application")

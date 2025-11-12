@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
-	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -293,6 +292,7 @@ func BootstrapInstance(
 		}
 		return nil, nil, nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
+	// TODO: Check if this can be removed. As of now, removing it breaks bootstrap on EC2 but not on GCE.
 	modelFw, ok := env.(models.ModelFirewaller)
 	if ok {
 		envIPV6CIDRSupport := false
@@ -302,7 +302,7 @@ func BootstrapInstance(
 				return nil, nil, nil, errors.Annotate(err, "checking IPV6 CIDRs support to cloud provider")
 			}
 		}
-		if err := openControllerModelPorts(callCtx, modelFw, args.ControllerConfig, env.Config(), envIPV6CIDRSupport); err != nil {
+		if err := openControllerModelPorts(callCtx, modelFw, env.Config(), envIPV6CIDRSupport); err != nil {
 			return nil, nil, nil, errors.Annotate(err, "cannot open SSH")
 		}
 	}
@@ -375,26 +375,9 @@ func startInstanceZones(env environs.Environ, ctx envcontext.ProviderCallContext
 // This is all that is required for the bootstrap to continue. Further configured
 // rules will be opened by the firewaller, Once it has started
 func openControllerModelPorts(callCtx envcontext.ProviderCallContext,
-	modelFw models.ModelFirewaller, controllerConfig controller.Config, cfg *config.Config, envIPV6CIDRSupport bool) error {
-	defaultCIDRs := []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR}
+	modelFw models.ModelFirewaller, cfg *config.Config, envIPV6CIDRSupport bool) error {
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), cfg.SSHAllow()...),
-		firewall.NewIngressRule(network.PortRange{
-			Protocol: "tcp",
-			FromPort: controllerConfig.APIPort(),
-			ToPort:   controllerConfig.APIPort(),
-		}, defaultCIDRs...),
-	}
-
-	if controllerConfig.AutocertDNSName() != "" {
-		// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
-		rules = append(rules,
-			firewall.NewIngressRule(network.PortRange{
-				Protocol: "tcp",
-				FromPort: 80,
-				ToPort:   80,
-			}, defaultCIDRs...),
-		)
 	}
 
 	// Strip IPV6 CIDRS from the collected ingress rule list if substrates do not support IPV6 CIDRs.
