@@ -4,11 +4,12 @@
 package upgrades_test
 
 import (
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 )
 
 var v3612 = version.MustParse("3.6.12")
