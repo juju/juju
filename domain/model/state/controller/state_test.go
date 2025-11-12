@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -184,6 +183,9 @@ func (m *stateSuite) TestCloudTypeMissing(c *tc.C) {
 // TestModelCloudInfo tests the happy path for getting a models
 // cloud name and credential.
 func (m *stateSuite) TestModelCloudInfo(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 	// We are relying on the model setup as part of this suite.
 	cloudName, regionName, err := st.GetModelCloudInfo(
@@ -195,32 +197,39 @@ func (m *stateSuite) TestModelCloudInfo(c *tc.C) {
 	c.Check(regionName, tc.Equals, "my-region")
 }
 
-// TestModelCloudInfoController is testing the cloud name and cloud region returned for
-// the controller model and owner. This is the common pattern that this state func
-// will be used for so we have made a special case to continuously test this.
+// TestModelCloudInfoController is testing the cloud name and cloud region
+// returned for the controller model and owner. This is the common pattern that
+// this state func will be used for so we have made a special case to
+// continuously test this.
 func (m *stateSuite) TestModelCloudInfoController(c *tc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 
-	// We need to first inject a model that does not have a cloud credential set
-	err := st.Create(
-		c.Context(),
-		modelUUID,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: m.userName,
-				Name:  "foobar",
+	// We need to first inject a model that does not have a cloud credential
+	// set.
+	err := m.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := Create(
+			ctx,
+			preparer{},
+			tx,
+			modelUUID,
+			coremodel.IAAS,
+			model.GlobalModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Credential: corecredential.Key{
+					Cloud: "my-cloud",
+					Owner: m.userName,
+					Name:  "foobar",
+				},
+				Name:          coremodel.ControllerModelName,
+				Qualifier:     "prod",
+				AdminUsers:    []user.UUID{m.userUUID},
+				SecretBackend: juju.BackendName,
 			},
-			Name:          coremodel.ControllerModelName,
-			Qualifier:     "prod",
-			AdminUsers:    []user.UUID{m.userUUID},
-			SecretBackend: juju.BackendName,
-		},
-	)
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We need to establish the fact that the model created above is in fact the
@@ -252,6 +261,9 @@ func (m *stateSuite) TestModelCloudInfoNotFound(c *tc.C) {
 }
 
 func (m *stateSuite) TestGetModelCloudAndCredential(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 	// We are relying on the model setup as part of this suite.
 	cloudUUID, credentialUUID, err := st.GetModelCloudAndCredential(
@@ -273,6 +285,9 @@ func (m *stateSuite) TestGetModelCloudAndCredentialNotFound(c *tc.C) {
 }
 
 func (m *stateSuite) TestGetModel(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	runner := m.TxnRunnerFactory()
 
 	modelSt := NewState(runner)
@@ -304,24 +319,30 @@ func (m *stateSuite) TestGetModelSeedInformationNotActivated(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 
 	modelSt := NewState(runner)
-	err := modelSt.Create(
-		c.Context(),
-		modelUUID,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
+
+	err := m.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := Create(
+			ctx,
+			preparer{},
+			tx,
+			modelUUID,
+			coremodel.IAAS,
+			model.GlobalModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Credential: corecredential.Key{
+					Cloud: "my-cloud",
+					Owner: usertesting.GenNewName(c, "test-user"),
+					Name:  "foobar",
+				},
+				Name:          "my-amazing-model",
+				Qualifier:     "prod",
+				AdminUsers:    []user.UUID{m.userUUID},
+				SecretBackend: juju.BackendName,
 			},
-			Name:          "my-amazing-model",
-			Qualifier:     "prod",
-			AdminUsers:    []user.UUID{m.userUUID},
-			SecretBackend: juju.BackendName,
-		},
-	)
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	controllerUUID, err := uuid.UUIDFromString(m.SeedControllerUUID(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -349,12 +370,12 @@ func (m *stateSuite) TestGetModelSeedInformationNotActivated(c *tc.C) {
 // TestGetModelInfoActivated tests that [State.GetModelSeedInformation] returns
 // information about a model when it is activated.
 func (m *stateSuite) TestGetModelSeedInformationActivated(c *tc.C) {
+	controllerUUID := m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	runner := m.TxnRunnerFactory()
 
 	userName, err := user.NewName("test-user")
-	c.Assert(err, tc.ErrorIsNil)
-
-	controllerUUID, err := uuid.UUIDFromString(m.SeedControllerUUID(c))
 	c.Assert(err, tc.ErrorIsNil)
 
 	modelSt := NewState(runner)
@@ -398,8 +419,8 @@ func (m *stateSuite) TestGetModelNotFound(c *tc.C) {
 // with the same uuid as one that already exists we get back a
 // [modelerrors.AlreadyExists] error.
 func (m *stateSuite) TestCreateModelWithExisting(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	runner, err := m.TxnRunnerFactory()(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -428,8 +449,8 @@ func (m *stateSuite) TestCreateModelWithExisting(c *tc.C) {
 // new model with a different uuid but the same owner and name as one that
 // exists we get back a [modelerrors.AlreadyExists] error.
 func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	modelSt := NewState(m.TxnRunnerFactory())
 	testUUID := tc.Must(c, coremodel.NewUUID)
@@ -450,8 +471,8 @@ func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *tc.C) {
 }
 
 func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	modelSt := NewState(m.TxnRunnerFactory())
 	testUUID := tc.Must(c, coremodel.NewUUID)
@@ -472,8 +493,8 @@ func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *tc.C) {
 }
 
 func (m *stateSuite) TestCreateWithEmptyRegion(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	// If there is a controller model, we'll use that region when creating
 	// a new model with an empty region.
@@ -508,8 +529,8 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *tc.C) {
 }
 
 func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	modelSt := NewState(m.TxnRunnerFactory())
 
@@ -562,8 +583,8 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *tc.C) {
 }
 
 func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDifferentCloudNames(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	modelSt := NewState(m.TxnRunnerFactory())
 
@@ -632,8 +653,8 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 // a model with a user/owner that does not exist a [accesserrors.NotFound] error
 // is returned.
 func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	modelSt := NewState(m.TxnRunnerFactory())
 	testUUID := tc.Must(c, coremodel.NewUUID)
@@ -657,8 +678,8 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *tc.C) {
 // new model with an owner that has been removed from the Juju user base that
 // the operation fails with a [accesserrors.NotFound] error.
 func (m *stateSuite) TestCreateModelWithRemovedOwner(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -697,8 +718,8 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *tc.C) {
 // TestCreateModelVerifyPermissionSet is here to test that a permission is
 // created for the owning user when a model is created.
 func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	modelSt := NewState(m.TxnRunnerFactory())
 	testUUID := tc.Must(c, coremodel.NewUUID)
@@ -733,8 +754,8 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *tc.C) {
 }
 
 func (m *stateSuite) TestCreateModelWithInvalidCloud(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	modelSt := NewState(m.TxnRunnerFactory())
 	testUUID := tc.Must(c, coremodel.NewUUID)
@@ -807,6 +828,8 @@ func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *tc.C) {
 // regression test discovered during DQlite development where we messed up the
 // logic assuming that a cloud region was always set for a model.
 func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
 	err := cloudSt.CreateCloud(c.Context(), m.userName, uuid.MustNewUUID().String(),
 		cloud.Cloud{
@@ -850,7 +873,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *tc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Name:          "controller",
+			Name:          "foo",
 			Qualifier:     "prod",
 			AdminUsers:    []user.UUID{m.userUUID},
 			SecretBackend: kubernetes.BackendName,
@@ -870,8 +893,8 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *tc.C) {
 // model. Specifically:
 // - Authorized keys onto the model.
 func (m *stateSuite) TestDeleteModel(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	keyManagerState := keymanagerstate.NewState(m.TxnRunnerFactory())
 	err := keyManagerState.AddPublicKeysForUser(
@@ -930,6 +953,9 @@ func (m *stateSuite) TestDeleteModelNotFound(c *tc.C) {
 // TestListModelUUIDs is testing that once we have created several models calling
 // list returns all the models created.
 func (m *stateSuite) TestListModelUUIDs(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	uuid1 := tc.Must(c, coremodel.NewUUID)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(
@@ -979,16 +1005,13 @@ func (m *stateSuite) TestListModelUUIDs(c *tc.C) {
 
 	uuids, err := modelSt.ListModelUUIDs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(uuids, tc.HasLen, 3)
-
-	uuidsSet := set.NewStrings()
-	for _, uuid := range uuids {
-		uuidsSet.Add(uuid.String())
-	}
-
-	c.Check(uuidsSet.Contains(uuid1.String()), tc.IsTrue)
-	c.Check(uuidsSet.Contains(uuid2.String()), tc.IsTrue)
-	c.Check(uuidsSet.Contains(m.uuid.String()), tc.IsTrue)
+	c.Assert(uuids, tc.HasLen, 4)
+	c.Check(uuids, tc.SameContents, []coremodel.UUID{
+		m.controllerModelUUID,
+		m.uuid,
+		uuid1,
+		uuid2,
+	})
 }
 
 // TestRegisterModelNamespaceNotFound is asserting that when we ask for the
@@ -1022,6 +1045,9 @@ func (m *stateSuite) TestNamespaceForModelNoModel(c *tc.C) {
 // TestNamespaceForModel is testing the happy path for a successful model
 // creation that a namespace is returned with no errors.
 func (m *stateSuite) TestNamespaceForModel(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 	namespace, err := st.NamespaceForModel(c.Context(), m.uuid)
 	c.Check(err, tc.ErrorIsNil)
@@ -1031,6 +1057,9 @@ func (m *stateSuite) TestNamespaceForModel(c *tc.C) {
 // TestNamespaceForModelDeleted tests that after we have deleted a model we can
 // no longer get back the database namespace.
 func (m *stateSuite) TestNamespaceForModelDeleted(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 	err := st.Delete(c.Context(), m.uuid)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1054,6 +1083,9 @@ func (m *stateSuite) TestListUserModelUUIDsUserNotFound(c *tc.C) {
 // TestListUserModelUUIDs is testing the happy path of getting all of the model
 // uuids that a given user has access to.
 func (m *stateSuite) TestListUserModelUUIDs(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	// Make the first model that is not owned by the user we will be testing
 	// with.
 	modelUUID1 := tc.Must(c, coremodel.NewUUID)
@@ -1152,8 +1184,8 @@ func (m *stateSuite) TestModelsForNonExistantUser(c *tc.C) {
 }
 
 func (m *stateSuite) TestAllModels(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	modelSt := NewState(m.TxnRunnerFactory())
 	models, err := modelSt.ListAllModels(c.Context())
@@ -1197,6 +1229,8 @@ func (m *stateSuite) TestAllModels(c *tc.C) {
 // secret backend that doesn't exist during model creation we back an error that
 // satisfies [secretbackenderrors.NotFound]
 func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+
 	uuid := tc.Must(c, coremodel.NewUUID)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(
@@ -1233,6 +1267,9 @@ func (m *stateSuite) TestGetModelByNameNotFound(c *tc.C) {
 // checking that we can retrieve the model established in SetUpTest by username
 // and model name.
 func (m *stateSuite) TestGetModelByName(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	modelSt := NewState(m.TxnRunnerFactory())
 	model, err := modelSt.GetModelByName(c.Context(), "prod", "my-test-model")
 	c.Check(err, tc.ErrorIsNil)
@@ -1260,8 +1297,8 @@ func (m *stateSuite) TestGetModelByName(c *tc.C) {
 // was unable to clean up all the references to the original model.
 // Bug report: https://bugs.launchpad.net/juju/+bug/2072601
 func (m *stateSuite) TestCleanupBrokenModel(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	st := NewState(m.TxnRunnerFactory())
 
@@ -1323,24 +1360,30 @@ func (m *stateSuite) TestIsControllerModelDDL(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 
-	// We need to first inject a model that does not have a cloud credential set
-	err := modelSt.Create(
-		c.Context(),
-		modelUUID,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud: "my-cloud",
-			Credential: corecredential.Key{
+	// We need to first inject a model that does not have a cloud credential
+	// set.
+	err := m.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := Create(
+			ctx,
+			preparer{},
+			tx,
+			modelUUID,
+			coremodel.IAAS,
+			model.GlobalModelCreationArgs{
 				Cloud: "my-cloud",
-				Owner: m.userName,
-				Name:  "foobar",
+				Credential: corecredential.Key{
+					Cloud: "my-cloud",
+					Owner: m.userName,
+					Name:  "foobar",
+				},
+				Name:          coremodel.ControllerModelName,
+				Qualifier:     "prod",
+				AdminUsers:    []user.UUID{m.userUUID},
+				SecretBackend: juju.BackendName,
 			},
-			Name:          coremodel.ControllerModelName,
-			Qualifier:     "prod",
-			AdminUsers:    []user.UUID{m.userUUID},
-			SecretBackend: juju.BackendName,
-		},
-	)
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We need to establish the fact that the model created above is in fact the
@@ -1357,7 +1400,7 @@ func (m *stateSuite) TestIsControllerModelDDL(c *tc.C) {
 			modelUUID.String(),
 		).Scan(&isControllerModel)
 	})
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isControllerModel, tc.IsTrue)
 
 	var count int
@@ -1366,7 +1409,19 @@ func (m *stateSuite) TestIsControllerModelDDL(c *tc.C) {
 			"SELECT count(*) FROM v_model WHERE is_controller_model = false",
 		).Scan(&count)
 	})
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	m.createModel(c, m.uuid, m.userUUID)
+
+	// reset count
+	count = 0
+	err = m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(
+			"SELECT count(*) FROM v_model WHERE is_controller_model = false",
+		).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
 
 	// reset count
@@ -1376,7 +1431,7 @@ func (m *stateSuite) TestIsControllerModelDDL(c *tc.C) {
 			"SELECT count(*) FROM v_model WHERE is_controller_model = true",
 		).Scan(&count)
 	})
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
 }
 
@@ -1388,23 +1443,28 @@ func (m *stateSuite) TestGetControllerModel(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 
 	// We need to first inject a model that does not have a cloud credential set
-	err := modelSt.Create(
-		c.Context(),
-		modelUUID,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud: "my-cloud",
-			Credential: corecredential.Key{
+	err := m.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := Create(
+			ctx,
+			preparer{},
+			tx,
+			modelUUID,
+			coremodel.IAAS,
+			model.GlobalModelCreationArgs{
 				Cloud: "my-cloud",
-				Owner: m.userName,
-				Name:  "foobar",
+				Credential: corecredential.Key{
+					Cloud: "my-cloud",
+					Owner: m.userName,
+					Name:  "foobar",
+				},
+				Name:          coremodel.ControllerModelName,
+				Qualifier:     "prod",
+				AdminUsers:    []user.UUID{m.userUUID},
+				SecretBackend: juju.BackendName,
 			},
-			Name:          coremodel.ControllerModelName,
-			Qualifier:     "prod",
-			AdminUsers:    []user.UUID{m.userUUID},
-			SecretBackend: juju.BackendName,
-		},
-	)
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We need to establish the fact that the model created above is in fact the
@@ -1442,6 +1502,8 @@ func (m *stateSuite) TestGetControllerModelNotFound(c *tc.C) {
 }
 
 func (m *stateSuite) TestGetUserModelSummary(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+
 	modelSt := NewState(m.TxnRunnerFactory())
 	// Add a second model (one was added in SetUpTest).
 	modelUUID := m.createTestModel(c, modelSt, "my-test-model-2", m.userUUID)
@@ -1495,6 +1557,9 @@ func (m *stateSuite) TestGetUserModelSummaryModelNotFound(c *tc.C) {
 // model that the user doesn't have access to results in a
 // [accesserrors.AccessNotFound] error.
 func (m *stateSuite) TestGetUserModelSummaryNoAccess(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	modelSt := NewState(m.TxnRunnerFactory())
 	userUUID := usertesting.GenUserUUID(c)
 	userName := usertesting.GenNewName(c, "tlm")
@@ -1515,6 +1580,9 @@ func (m *stateSuite) TestGetUserModelSummaryNoAccess(c *tc.C) {
 
 // TestGetModelSummary is asserting the happy path of [State.GetModelSummary].
 func (m *stateSuite) TestGetModelSummary(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	modelSt := NewState(m.TxnRunnerFactory())
 	summary, err := modelSt.GetModelSummary(c.Context(), m.uuid)
 	c.Check(err, tc.ErrorIsNil)
@@ -1538,6 +1606,9 @@ func (m *stateSuite) TestGetModelSummaryModelNotFound(c *tc.C) {
 }
 
 func (m *stateSuite) TestGetModelUsers(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	// Add test users.
@@ -1599,6 +1670,9 @@ func (m *stateSuite) TestGetModelStateModelNotFound(c *tc.C) {
 // status. The model is in a normal state and so we are asserting the response
 // from the point of the model having nothing interesting to report.
 func (m *stateSuite) TestGetModelState(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 
 	mSt, err := st.GetModelState(c.Context(), m.uuid)
@@ -1615,6 +1689,9 @@ func (m *stateSuite) TestGetModelState(c *tc.C) {
 // cloud credential is invalid, the model state is updated to indicate this with
 // the invalid reason.
 func (m *stateSuite) TestGetModelStateInvalidCredentials(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 	result, err := st.GetModel(c.Context(), m.uuid)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1640,6 +1717,9 @@ func (m *stateSuite) TestGetModelStateInvalidCredentials(c *tc.C) {
 // TestGetModelStateDestroying is asserting that when the model's life is set to
 // destroying that the model state is updated to reflect this.
 func (m *stateSuite) TestGetModelStateDestroying(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 
 	err := m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1675,6 +1755,8 @@ UPDATE model SET life_id = 1 WHERE uuid = ?
 // With this test, we can ensure that future modifications to the SQL layer do not unintentionally
 // break functionality, preserving accessibility and consistent behavior for models with nil credentials.
 func (m *stateSuite) TestGetEmptyCredentialsModel(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+
 	// Define the test cases for different model types
 	testCases := []struct {
 		modelType coremodel.ModelType
@@ -1720,68 +1802,6 @@ func (m *stateSuite) TestGetEmptyCredentialsModel(c *tc.C) {
 		c.Check(retrievedModel.Name, tc.Equals, modelCreationArgs.Name)
 		c.Check(retrievedModel.Qualifier.String(), tc.Equals, "prod")
 	}
-}
-
-// createSuperuser adds a new user with permissions on a model.
-func (m *stateSuite) createModelUser(
-	c *tc.C,
-	accessState *accessstate.State,
-	name user.Name,
-	createdByUUID user.UUID,
-	accessLevel permission.Access,
-	modelUUID coremodel.UUID,
-) user.UUID {
-	userUUID, err := user.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	err = accessState.AddUserWithPermission(
-		c.Context(),
-		userUUID,
-		name,
-		name.Name(),
-		false,
-		createdByUUID,
-		permission.AccessSpec{
-			Access: accessLevel,
-			Target: permission.ID{
-				ObjectType: permission.Model,
-				Key:        modelUUID.String(),
-			},
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	return userUUID
-}
-
-func (m *stateSuite) createTestModel(c *tc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
-	modelUUID := m.createTestModelWithoutActivation(c, modelSt, name, creatorUUID)
-	c.Assert(modelSt.Activate(c.Context(), modelUUID), tc.ErrorIsNil)
-	return modelUUID
-}
-
-func (m *stateSuite) createTestModelWithoutActivation(
-	c *tc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
-
-	modelUUID := tc.Must(c, coremodel.NewUUID)
-	err := modelSt.Create(
-		c.Context(),
-		modelUUID,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
-			},
-			Name:          name,
-			Qualifier:     "prod",
-			AdminUsers:    []user.UUID{creatorUUID},
-			SecretBackend: juju.BackendName,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	return modelUUID
 }
 
 // TestCloudSupportsAuthTypeTrue is asserting the happy path that for a valid
@@ -1867,23 +1887,28 @@ func (m *stateSuite) TestGetControllerModelUUID(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 
-	err := modelSt.Create(
-		c.Context(),
-		modelUUID,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud: "my-cloud",
-			Credential: corecredential.Key{
+	err := m.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := Create(
+			ctx,
+			preparer{},
+			tx,
+			modelUUID,
+			coremodel.IAAS,
+			model.GlobalModelCreationArgs{
 				Cloud: "my-cloud",
-				Owner: m.userName,
-				Name:  "foobar",
+				Credential: corecredential.Key{
+					Cloud: "my-cloud",
+					Owner: m.userName,
+					Name:  "foobar",
+				},
+				Name:          coremodel.ControllerModelName,
+				Qualifier:     "prod",
+				AdminUsers:    []user.UUID{m.userUUID},
+				SecretBackend: juju.BackendName,
 			},
-			Name:          coremodel.ControllerModelName,
-			Qualifier:     "prod",
-			AdminUsers:    []user.UUID{m.userUUID},
-			SecretBackend: juju.BackendName,
-		},
-	)
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We need to establish the fact that the model created above is in fact the
@@ -1911,6 +1936,9 @@ func (m *stateSuite) TestGetControllerModelUUIDNotFound(c *tc.C) {
 // are returned. It verifies cases for activated, non-activated, and
 // non-existent model UUIDs.
 func (m *stateSuite) TestGetActivatedModelUUIDs(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 
 	// Test no input model UUIDs.
@@ -1946,6 +1974,9 @@ func (m *stateSuite) TestGetActivatedModelUUIDs(c *tc.C) {
 }
 
 func (m *stateSuite) TestGetDeadModels(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 
 	// Test no input model UUIDs.
@@ -1978,6 +2009,8 @@ func (m *stateSuite) TestGetDeadModels(c *tc.C) {
 }
 
 func (m *stateSuite) TestGetModelLife(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 
 	modelUUID := m.createTestModel(c, st, "my-unactivated-model", m.userUUID)
@@ -1988,6 +2021,8 @@ func (m *stateSuite) TestGetModelLife(c *tc.C) {
 }
 
 func (m *stateSuite) TestGetModelLifeDying(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 
 	modelUUID := m.createTestModel(c, st, "my-unactivated-model", m.userUUID)
@@ -2015,6 +2050,8 @@ func (m *stateSuite) TestGetModelLifeNotFound(c *tc.C) {
 }
 
 func (m *stateSuite) TestGetModelLifeNotActivated(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 
 	modelUUID := m.createTestModelWithoutActivation(c, st, "my-unactivated-model", m.userUUID)
@@ -2024,8 +2061,8 @@ func (m *stateSuite) TestGetModelLifeNotActivated(c *tc.C) {
 }
 
 func (m *stateSuite) TestCheckModelExists(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	st := NewState(m.TxnRunnerFactory())
 	exists, err := st.CheckModelExists(c.Context(), m.uuid)
@@ -2042,8 +2079,8 @@ func (m *stateSuite) TestCheckModelDoesNotExist(c *tc.C) {
 }
 
 func (m *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
-	CreateControllerModel(c, m.TxnRunner(), m.controllerModelUUID, m.userUUID)
-	CreateModel(c, m.TxnRunnerFactory(), m.uuid, m.userUUID)
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
 
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	st := NewState(m.TxnRunnerFactory())
@@ -2081,6 +2118,8 @@ func (m *stateSuite) TestHasValidCredentialModelNotFound(c *tc.C) {
 }
 
 func (m *stateSuite) TestHasValidCredentialTrue(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 	modelUUID := m.createTestModel(c, st, "testing-valid-credential-model", m.userUUID)
 
@@ -2090,6 +2129,8 @@ func (m *stateSuite) TestHasValidCredentialTrue(c *tc.C) {
 }
 
 func (m *stateSuite) TestHasValidCredentialFalse(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+
 	st := NewState(m.TxnRunnerFactory())
 	modelUUID := m.createTestModel(c, st, "testing-invalid-credential-model", m.userUUID)
 
@@ -2179,4 +2220,125 @@ func (m *stateSuite) TestDefaultCloudCredentialLabelForOwner(c *tc.C) {
 	name, err = st.DefaultCloudCredentialNameForOwner(c.Context(), user, "my-cloud")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(name, tc.Equals, "credential2")
+}
+
+// createControllerModel creates a the database for use in tests.
+func (m *stateSuite) createControllerModel(c *tc.C, controllerModelUUID coremodel.UUID, userUUID user.UUID) uuid.UUID {
+	// Before we can create the model, we need to create a controller model.
+	// This ensures that we
+	err := m.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := Create(c.Context(), preparer{}, tx, controllerModelUUID, coremodel.IAAS, model.GlobalModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: usertesting.GenNewName(c, "test-user"),
+				Name:  "foobar",
+			},
+			Name:          "controller",
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{userUUID},
+			SecretBackend: juju.BackendName,
+		})
+		if err != nil {
+			return err
+		}
+
+		activator := GetActivator()
+		return activator(ctx, preparer{}, tx, controllerModelUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	u, err := uuid.UUIDFromString(m.SeedControllerTable(c, controllerModelUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	return u
+}
+
+// createModel creates a model in the database for use in tests.
+func (m *stateSuite) createModel(c *tc.C, modelUUID coremodel.UUID, userUUID user.UUID) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	err := modelSt.Create(
+		c.Context(),
+		modelUUID,
+		coremodel.IAAS,
+		model.GlobalModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: usertesting.GenNewName(c, "test-user"),
+				Name:  "foobar",
+			},
+			Name:          "my-test-model",
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{userUUID},
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = modelSt.Activate(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// createSuperuser adds a new user with permissions on a model.
+func (m *stateSuite) createModelUser(
+	c *tc.C,
+	accessState *accessstate.State,
+	name user.Name,
+	createdByUUID user.UUID,
+	accessLevel permission.Access,
+	modelUUID coremodel.UUID,
+) user.UUID {
+	userUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	err = accessState.AddUserWithPermission(
+		c.Context(),
+		userUUID,
+		name,
+		name.Name(),
+		false,
+		createdByUUID,
+		permission.AccessSpec{
+			Access: accessLevel,
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        modelUUID.String(),
+			},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return userUUID
+}
+
+func (m *stateSuite) createTestModel(c *tc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
+	modelUUID := m.createTestModelWithoutActivation(c, modelSt, name, creatorUUID)
+	c.Assert(modelSt.Activate(c.Context(), modelUUID), tc.ErrorIsNil)
+	return modelUUID
+}
+
+func (m *stateSuite) createTestModelWithoutActivation(
+	c *tc.C, modelSt *State, name string, creatorUUID user.UUID,
+) coremodel.UUID {
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	err := modelSt.Create(
+		c.Context(),
+		modelUUID,
+		coremodel.IAAS,
+		model.GlobalModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: usertesting.GenNewName(c, "test-user"),
+				Name:  "foobar",
+			},
+			Name:          name,
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{creatorUUID},
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return modelUUID
 }
