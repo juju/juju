@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"slices"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/worker/v4"
@@ -168,7 +167,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			return false
 		},
 		ShouldRestart: internalworker.ShouldRunnerRestart,
-		RestartDelay:  time.Second * 10,
+		RestartDelay:  internalworker.RestartDelay,
 		Clock:         config.Clock,
 		Logger:        internalworker.WrapLogger(config.Logger),
 	})

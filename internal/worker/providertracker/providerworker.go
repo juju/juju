@@ -5,7 +5,6 @@ package providertracker
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -110,7 +109,7 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 				database.ErrDBNotFound,
 			)
 		},
-		RestartDelay: time.Second * 10,
+		RestartDelay: internalworker.RestartDelay,
 		Clock:        config.Clock,
 		Logger:       internalworker.WrapLogger(config.Logger),
 	})

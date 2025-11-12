@@ -199,7 +199,9 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		IsFatal: func(error) bool { return false },
 
 		// For any failures, try again in 1 minute.
-		RestartDelay: time.Minute,
+		RestartDelay: func(attempts int, lastErr error) time.Duration {
+			return time.Minute
+		},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

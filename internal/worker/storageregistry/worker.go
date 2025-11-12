@@ -88,8 +88,10 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*storageRegistryWo
 		ShouldRestart: func(err error) bool {
 			return !errors.Is(err, database.ErrDBDead)
 		},
-		RestartDelay: time.Second * 10,
-		Logger:       internalworker.WrapLogger(cfg.Logger),
+		RestartDelay: func(attempts int, lastErr error) time.Duration {
+			return time.Second * 10
+		},
+		Logger: internalworker.WrapLogger(cfg.Logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

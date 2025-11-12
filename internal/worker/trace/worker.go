@@ -111,7 +111,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*tracerWorker, err
 		IsFatal: func(err error) bool {
 			return false
 		},
-		RestartDelay: time.Second * 10,
+		RestartDelay: internalworker.RestartDelay,
 		Logger:       internalworker.WrapLogger(cfg.Logger),
 	})
 	if err != nil {

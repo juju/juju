@@ -6,6 +6,7 @@ package modelworkermanager_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
-	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 )
@@ -189,7 +189,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	c.Assert(config, tc.DeepEquals, modelworkermanager.Config{
 		Authority:                     s.authority,
 		ModelMetrics:                  dummyModelMetrics{},
-		ErrorDelay:                    jworker.RestartDelay,
+		ErrorDelay:                    time.Second * 3,
 		LeaseManager:                  s.leaseManager,
 		Logger:                        s.logger,
 		LogSinkGetter:                 dummyLogSinkGetter{},

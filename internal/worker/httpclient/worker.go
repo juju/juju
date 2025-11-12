@@ -82,8 +82,10 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*httpClientWorker,
 		IsFatal: func(err error) bool {
 			return false
 		},
-		RestartDelay: time.Second * 10,
-		Logger:       internalworker.WrapLogger(cfg.Logger),
+		RestartDelay: func(attempts int, lastErr error) time.Duration {
+			return time.Second * 10
+		},
+		Logger: internalworker.WrapLogger(cfg.Logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

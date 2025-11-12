@@ -9,7 +9,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"math/rand/v2"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -149,7 +148,7 @@ func NewWorker(cfg WorkerConfig) (*dbReplWorker, error) {
 			return !errors.Is(err, database.ErrDBDead) &&
 				!errors.Is(err, database.ErrDBNotFound)
 		},
-		RestartDelay: time.Second * 1,
+		RestartDelay: internalworker.RestartDelay,
 		Logger:       internalworker.WrapLogger(cfg.Logger),
 	})
 	if err != nil {

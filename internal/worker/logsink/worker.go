@@ -5,7 +5,6 @@ package logsink
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -69,7 +69,7 @@ func newWorker(cfg Config, internalState chan string) (worker.Worker, error) {
 		ShouldRestart: func(err error) bool {
 			return !errors.Is(err, logger.ErrLoggerDying)
 		},
-		RestartDelay: time.Second,
+		RestartDelay: internalworker.RestartDelay,
 		Clock:        cfg.Clock,
 	})
 	if err != nil {

@@ -5,6 +5,7 @@ package modelworkermanager
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
-	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 )
 
@@ -179,7 +179,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ModelMetrics:                  config.ModelMetrics,
 		LogSinkGetter:                 logSinkGetter,
 		NewModelWorker:                config.NewModelWorker,
-		ErrorDelay:                    jworker.RestartDelay,
+		ErrorDelay:                    time.Second * 3,
 		DomainServicesGetter:          domainServicesGetter,
 		LeaseManager:                  leaseManager,
 		ModelService:                  controllerDomainServices.Model(),

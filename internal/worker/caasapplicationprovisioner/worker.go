@@ -13,7 +13,6 @@ package caasapplicationprovisioner
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -195,7 +194,7 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 		Name:         "provisioner",
 		Clock:        config.Clock,
 		IsFatal:      func(error) bool { return false },
-		RestartDelay: 3 * time.Second,
+		RestartDelay: internalworker.RestartDelay,
 		Logger:       internalworker.WrapLogger(config.Logger.Child("runner")),
 	})
 	if err != nil {

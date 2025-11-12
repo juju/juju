@@ -106,8 +106,10 @@ func newWorker(cfg WorkerConfig, internalState chan string) (*remoteWorker, erro
 		},
 		// Backoff for 5 seconds before restarting a worker.
 		// This is a lifetime for the life of an API connection.
-		RestartDelay: time.Second * 5,
-		Logger:       internalworker.WrapLogger(cfg.Logger),
+		RestartDelay: func(attempts int, lastErr error) time.Duration {
+			return time.Second * 5
+		},
+		Logger: internalworker.WrapLogger(cfg.Logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

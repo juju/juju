@@ -89,7 +89,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ShouldRestart: internalworker.ShouldRunnerRestart,
 		Clock:         config.Clock,
 		Logger:        internalworker.WrapLogger(config.Logger),
-		RestartDelay:  config.RestartDelay,
+		RestartDelay: func(attempts int, lastErr error) time.Duration {
+			return config.RestartDelay
+		},
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
