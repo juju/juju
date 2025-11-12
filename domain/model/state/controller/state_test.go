@@ -62,7 +62,7 @@ func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
 }
 
-// insertÇloud is a helper method to create new cloud's in the database during
+// insertCloud is a helper method to create new cloud's in the database during
 // testing.
 func (m *stateSuite) insertCloud(c *tc.C, cloud cloud.Cloud) {
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
