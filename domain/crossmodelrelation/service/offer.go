@@ -42,6 +42,13 @@ type ModelOfferState interface {
 		offerName string,
 	) (crossmodelrelation.ConsumeDetails, error)
 
+	// GetOfferConnections returns a map of offer UUIDs to a slice of the
+	// offer's  connections
+	GetOfferConnections(
+		ctx context.Context,
+		offerUUIDs []string,
+	) (map[string][]crossmodelrelation.OfferConnection, error)
+
 	// GetOfferDetails returns the OfferDetail of every offer in the model.
 	// No error is returned if offers are found.
 	GetOfferDetails(context.Context, crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)
@@ -230,6 +237,46 @@ func (s *Service) GetOffers(
 		details = append(details, outputWithUsers...)
 	}
 	return details, nil
+}
+
+// GetOffersWithConnections returns offer details for all offers satisfying any of the
+// provided filters, including offer connections
+func (s *Service) GetOffersWithConnections(
+	ctx context.Context,
+	filters []OfferFilter,
+) ([]*crossmodelrelation.OfferDetailWithConnections, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	details, err := s.GetOffers(ctx, filters)
+	if err != nil {
+		return nil, errors.Errorf("getting offer details: %w", err)
+	}
+
+	offerUUIDs := transform.Slice(
+		details,
+		func(in *crossmodelrelation.OfferDetail) string { return in.OfferUUID },
+	)
+
+	connections, err := s.modelState.GetOfferConnections(ctx, offerUUIDs)
+	if err != nil {
+		return nil, errors.Errorf("getting offer connections: %w", err)
+	}
+
+	output := make([]*crossmodelrelation.OfferDetailWithConnections, len(details))
+	for i, detail := range details {
+		output[i] = &crossmodelrelation.OfferDetailWithConnections{
+			OfferDetail: *detail,
+		}
+		offerConnections, ok := connections[detail.OfferUUID]
+		if ok {
+			// There is no requirement that every offer have connections.
+			output[i].OfferConnections = offerConnections
+		}
+
+	}
+
+	return output, nil
 }
 
 func (s *Service) addOfferUsers(

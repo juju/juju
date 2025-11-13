@@ -635,30 +635,34 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 		Source:       charm.CharmHubSource,
 		Architecture: architecture.AMD64,
 	}
-	offerDetails := []*crossmodelrelation.OfferDetail{
+	offerDetails := []*crossmodelrelation.OfferDetailWithConnections{
 		{
-			OfferUUID:              uuid.MustNewUUID().String(),
-			OfferName:              domainFilters[0].OfferName,
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "db"},
+			OfferDetail: crossmodelrelation.OfferDetail{
+				OfferUUID:              uuid.MustNewUUID().String(),
+				OfferName:              domainFilters[0].OfferName,
+				ApplicationName:        "test-app",
+				ApplicationDescription: "testing application",
+				CharmLocator:           charmLocator,
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{Name: "db"},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{{Name: "george", Access: permission.ConsumeAccess}},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "george", Access: permission.ConsumeAccess}},
 		}, {
-			OfferUUID:              uuid.MustNewUUID().String(),
-			OfferName:              domainFilters[1].OfferName,
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "endpoint"},
+			OfferDetail: crossmodelrelation.OfferDetail{
+				OfferUUID:              uuid.MustNewUUID().String(),
+				OfferName:              domainFilters[1].OfferName,
+				ApplicationName:        "test-app",
+				ApplicationDescription: "testing application",
+				CharmLocator:           charmLocator,
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{Name: "endpoint"},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 		},
 	}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(offerDetails, nil)
 
 	filters := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -683,7 +687,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.ApplicationOfferDetailsV5.SourceModelTag", tc.Ignore)
 	mc.AddExpr("_.ApplicationOfferDetailsV5.OfferUUID", tc.IsUUID)
-	c.Assert(obtained.Results[0], mc, params.ApplicationOfferAdminDetailsV5{
+	c.Check(obtained.Results[0], mc, params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 			OfferURL:               "fred-external/prod.hosted-db2",
 			OfferName:              "hosted-db2",
@@ -737,7 +741,7 @@ func (s *offerSuite) TestListApplicationOffersError(c *tc.C) {
 			OfferName: "testing",
 		},
 	}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(nil, errors.New("some error"))
+	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(nil, errors.New("some error"))
 
 	filters := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -834,30 +838,32 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 		Source:       charm.CharmHubSource,
 		Architecture: architecture.AMD64,
 	}
-	offerDetails := []*crossmodelrelation.OfferDetail{
+	offerDetails := []*crossmodelrelation.OfferDetailWithConnections{
 		{
-			OfferUUID:              uuid.MustNewUUID().String(),
-			OfferName:              domainFilters[0].OfferName,
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "db"},
+			OfferDetail: crossmodelrelation.OfferDetail{OfferUUID: uuid.MustNewUUID().String(),
+				OfferName:              domainFilters[0].OfferName,
+				ApplicationName:        "test-app",
+				ApplicationDescription: "testing application",
+				CharmLocator:           charmLocator,
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{Name: "db"},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{{Name: "george", Access: permission.ConsumeAccess}},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "george", Access: permission.ConsumeAccess}},
 		}, {
-			OfferUUID:              uuid.MustNewUUID().String(),
-			OfferName:              domainFilters[1].OfferName,
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "endpoint"},
+			OfferDetail: crossmodelrelation.OfferDetail{OfferUUID: uuid.MustNewUUID().String(),
+				OfferName:              domainFilters[1].OfferName,
+				ApplicationName:        "test-app",
+				ApplicationDescription: "testing application",
+				CharmLocator:           charmLocator,
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{Name: "endpoint"},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 		},
 	}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(offerDetails, nil)
 
 	filters := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -937,30 +943,32 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 		Source:       charm.CharmHubSource,
 		Architecture: architecture.AMD64,
 	}
-	offerDetails := []*crossmodelrelation.OfferDetail{
+	offerDetails := []*crossmodelrelation.OfferDetailWithConnections{
 		{
-			OfferUUID:              uuid.MustNewUUID().String(),
-			OfferName:              "hosted-db2",
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "db"},
-			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "george", Access: permission.ConsumeAccess}},
-		}, {
-			OfferUUID:              uuid.MustNewUUID().String(),
-			OfferName:              "testing",
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "endpoint"},
-			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
-		},
+			OfferDetail: crossmodelrelation.OfferDetail{
+				OfferUUID:              uuid.MustNewUUID().String(),
+				OfferName:              "hosted-db2",
+				ApplicationName:        "test-app",
+				ApplicationDescription: "testing application",
+				CharmLocator:           charmLocator,
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{Name: "db"},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{{Name: "george", Access: permission.ConsumeAccess}},
+			}}, {
+			OfferDetail: crossmodelrelation.OfferDetail{
+				OfferUUID:              uuid.MustNewUUID().String(),
+				OfferName:              "testing",
+				ApplicationName:        "test-app",
+				ApplicationDescription: "testing application",
+				CharmLocator:           charmLocator,
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{Name: "endpoint"},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
+			}},
 	}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), []crossmodelrelationservice.OfferFilter{{}}).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), []crossmodelrelationservice.OfferFilter{{}}).Return(offerDetails, nil)
 
 	filters := params.OfferFilters{Filters: []params.OfferFilter{{}}}
 
@@ -1065,7 +1073,7 @@ func (s *offerSuite) TestFindApplicationOffersError(c *tc.C) {
 			OfferName: "testing",
 		},
 	}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(nil, errors.New("some error"))
+	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(nil, errors.New("some error"))
 
 	filters := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -1188,30 +1196,32 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 		Source:       charm.CharmHubSource,
 		Architecture: architecture.AMD64,
 	}
-	offerDetails := []*crossmodelrelation.OfferDetail{
+	offerDetails := []*crossmodelrelation.OfferDetailWithConnections{
 		{
-			OfferUUID:              uuid.MustNewUUID().String(),
-			OfferName:              domainFilters[0].OfferName,
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "db"},
+			OfferDetail: crossmodelrelation.OfferDetail{OfferUUID: uuid.MustNewUUID().String(),
+				OfferName:              domainFilters[0].OfferName,
+				ApplicationName:        "test-app",
+				ApplicationDescription: "testing application",
+				CharmLocator:           charmLocator,
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{Name: "db"},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{{Name: "george", Access: permission.ConsumeAccess}},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "george", Access: permission.ConsumeAccess}},
 		}, {
-			OfferUUID:              uuid.MustNewUUID().String(),
-			OfferName:              domainFilters[1].OfferName,
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "endpoint"},
+			OfferDetail: crossmodelrelation.OfferDetail{OfferUUID: uuid.MustNewUUID().String(),
+				OfferName:              domainFilters[1].OfferName,
+				ApplicationName:        "test-app",
+				ApplicationDescription: "testing application",
+				CharmLocator:           charmLocator,
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{Name: "endpoint"},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 		},
 	}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(offerDetails, nil)
 	args := params.OfferURLs{
 		OfferURLs: []string{"fred-external/test-model.hosted-db2", "fred-external/test-model.testing"},
 	}
@@ -1287,20 +1297,21 @@ func (s *offerSuite) TestApplicationOffersMixSuccessAndFail(c *tc.C) {
 		Source:       charm.CharmHubSource,
 		Architecture: architecture.AMD64,
 	}
-	offerDetails := []*crossmodelrelation.OfferDetail{
+	offerDetails := []*crossmodelrelation.OfferDetailWithConnections{
 		{
-			OfferUUID:              uuid.MustNewUUID().String(),
-			OfferName:              domainFilters[0].OfferName,
-			ApplicationName:        "test-app",
-			ApplicationDescription: "testing application",
-			CharmLocator:           charmLocator,
-			Endpoints: []crossmodelrelation.OfferEndpoint{
-				{Name: "endpoint"},
+			OfferDetail: crossmodelrelation.OfferDetail{OfferUUID: uuid.MustNewUUID().String(),
+				OfferName:              domainFilters[0].OfferName,
+				ApplicationName:        "test-app",
+				ApplicationDescription: "testing application",
+				CharmLocator:           charmLocator,
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{Name: "endpoint"},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 		},
 	}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(offerDetails, nil)
 	args := params.OfferURLs{
 		OfferURLs: []string{"fred-external/test-model.hosted-db2:endpoint", "fred-external/test-model.testing"},
 	}
@@ -1356,8 +1367,9 @@ func (s *offerSuite) TestApplicationOffersNotFound(c *tc.C) {
 			OfferName: "testing",
 		},
 	}
-	offerDetails := []*crossmodelrelation.OfferDetail{}
-	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	offerDetails := []*crossmodelrelation.OfferDetailWithConnections{}
+	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(offerDetails, nil)
+
 	args := params.OfferURLs{
 		OfferURLs: []string{"fred-external/test-model.testing"},
 	}
@@ -1369,7 +1381,7 @@ func (s *offerSuite) TestApplicationOffersNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedOffers.Results, tc.HasLen, 1)
 	c.Check(obtainedOffers.Results[0].Error, tc.DeepEquals, &params.Error{
-		Message: `application offer "fred-external/test-model.testing"`,
+		Message: `application offer "fred-external/test-model.testing" not found`,
 		Code:    params.CodeNotFound,
 	})
 }
@@ -1576,6 +1588,7 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 			{Name: "endpoint"},
 		},
 	}
+
 	offerURL, _ := corecrossmodel.ParseOfferURL("fred-external/test-model.hosted-mysql")
 	s.crossModelRelationService.EXPECT().GetConsumeDetails(gomock.Any(), offerURL).Return(consumeDetails, nil)
 

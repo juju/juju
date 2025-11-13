@@ -276,9 +276,6 @@ func (api *OffersAPI) getApplicationOffersDetails(
 			offerDetails.OfferURL = corecrossmodel.MakeURL(m.Qualifier.String(), m.Name, offerDetails.OfferName, "")
 			result = append(result, offerDetails)
 		}
-
-		// TODO (cmr)
-		// Add offer connections if apiUser is superuser, model or offer admin
 	}
 	return result, nil
 }
@@ -358,7 +355,7 @@ func (api *OffersAPI) applicationOffersFromModel(
 		return nil, errors.Capture(err)
 	}
 
-	offers, err := crossModelRelationService.GetOffers(ctx, filters)
+	offers, err := crossModelRelationService.GetOffersWithConnections(ctx, filters)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -366,12 +363,21 @@ func (api *OffersAPI) applicationOffersFromModel(
 	// Process data.
 	var results []params.ApplicationOfferAdminDetailsV5
 	for _, appOffer := range offers {
+		if appOffer == nil {
+			continue
+		}
+
 		offerParams := api.makeOfferParams(
 			model.UUID(modelUUID),
-			appOffer,
+			appOffer.OfferDetail,
 			apiUser,
 			apiUserDisplayName,
 			requiredAccess,
+		)
+		offerConnections := api.makeOfferConnections(
+			modelUUID,
+			requiredAccess,
+			appOffer.OfferConnections,
 		)
 
 		charmURL, err := charms.CharmURLFromLocator(appOffer.CharmLocator.Name, appOffer.CharmLocator)
@@ -382,21 +388,46 @@ func (api *OffersAPI) applicationOffersFromModel(
 			ApplicationOfferDetailsV5: *offerParams,
 			ApplicationName:           appOffer.ApplicationName,
 			CharmURL:                  charmURL,
+			Connections:               offerConnections,
 		})
 	}
 	return results, nil
 }
 
+func (api *OffersAPI) makeOfferConnections(
+	modelUUID string,
+	requiredAccess permission.Access,
+	offerConnections []crossmodelrelation.OfferConnection,
+) []params.OfferConnection {
+
+	// Add offer connections if the required access is Admin only.
+	if offerConnections == nil || requiredAccess != permission.AdminAccess {
+		return nil
+	}
+
+	return transform.Slice(offerConnections, func(in crossmodelrelation.OfferConnection) params.OfferConnection {
+		return params.OfferConnection{
+			SourceModelTag: names.NewModelTag(modelUUID).String(),
+			RelationId:     in.RelationId,
+			Username:       in.Username,
+			Endpoint:       in.Endpoint,
+			Status: params.EntityStatus{
+				Status: in.Status,
+				Info:   in.Message,
+				Since:  in.Since,
+			},
+			IngressSubnets: in.IngressSubnets,
+		}
+	})
+}
+
 func (api *OffersAPI) makeOfferParams(
 	modelUUID model.UUID,
-	offer *crossmodelrelation.OfferDetail,
+	offer crossmodelrelation.OfferDetail,
 	apiUser names.UserTag,
 	apiUserDisplayName string,
 	apiUserAccess permission.Access,
 ) *params.ApplicationOfferDetailsV5 {
-	if offer == nil {
-		return nil
-	}
 	result := params.ApplicationOfferDetailsV5{
 		SourceModelTag:         names.NewModelTag(modelUUID.String()).String(),
 		OfferName:              offer.OfferName,
@@ -413,36 +444,48 @@ func (api *OffersAPI) makeOfferParams(
 		})
 	}
 
+	result.Users = addUsersToApplicationOfferDetails(apiUser, apiUserDisplayName, apiUserAccess, offer.OfferUsers)
+
+	return &result
+}
+
+func addUsersToApplicationOfferDetails(
+	apiUser names.UserTag,
+	apiUserDisplayName string,
+	apiUserAccess permission.Access,
+	offerUsers []crossmodelrelation.OfferUser,
+) []params.OfferUserDetails {
+	result := make([]params.OfferUserDetails, 0)
+
 	// All OfferUsers only provided if apiUserAccess if Admin.
 	if apiUserAccess != permission.AdminAccess {
-		result.Users = append(result.Users, params.OfferUserDetails{
+		result = append(result, params.OfferUserDetails{
 			UserName:    apiUser.Id(),
 			DisplayName: apiUserDisplayName,
-			Access:      findOfferUserAccess(apiUser.Id(), offer.OfferUsers).String(),
+			Access:      findOfferUserAccess(apiUser.Id(), offerUsers).String(),
 		})
-		return &result
+		return result
 	}
 
 	var apiUserFound bool
-	for _, offerUser := range offer.OfferUsers {
+	for _, offerUser := range offerUsers {
 		if offerUser.Name == apiUser.Id() {
 			apiUserFound = true
 		}
-		result.Users = append(result.Users, params.OfferUserDetails{
+		result = append(result, params.OfferUserDetails{
 			UserName:    offerUser.Name,
 			DisplayName: offerUser.DisplayName,
 			Access:      offerUser.Access.String(),
 		})
 	}
 	if !apiUserFound {
-		result.Users = append(result.Users, params.OfferUserDetails{
+		result = append(result, params.OfferUserDetails{
 			UserName:    apiUser.Id(),
 			DisplayName: apiUserDisplayName,
 			Access:      permission.AdminAccess.String(),
 		})
 	}
-
-	return &result
+	return result
 }
 
 func findOfferUserAccess(userName string, in []crossmodelrelation.OfferUser) permission.Access {
@@ -768,7 +811,7 @@ func (api *OffersAPI) getApplicationOffers(ctx context.Context, apiUser names.Us
 		if !ok {
 			results[i].Error = &params.Error{
 				Code:    params.CodeNotFound,
-				Message: fmt.Sprintf("application offer %q", urlStr),
+				Message: fmt.Sprintf("application offer %q not found", urlStr),
 			}
 			continue
 		}
