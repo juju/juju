@@ -28,7 +28,7 @@ const (
 	txnInTxn       = "cannot start a transaction within a transaction"
 
 	// ErrTxnInTxn is an error indicating that an attempt was made
-	// to start atransaction when we already had one in flight.
+	// to start a transaction when we already had one in flight.
 	ErrTxnInTxn = errors.ConstError(txnInTxn)
 )
 
@@ -216,7 +216,16 @@ func (t *RetryingTxnRunner) commit(ctx context.Context, tx committable) (err err
 		span.End()
 	}()
 
-	return errors.Trace(tx.Commit())
+	if err = tx.Commit(); err != nil {
+		if errors.Is(err, sql.ErrTxDone) && ctx.Err() != nil {
+			// If the transaction is already marked done due to context
+			// cancellation, we indicate success so that no subsequent retries
+			// occur. This relies on upstream callers appropriately handling
+			// said context.
+			err = nil
+		}
+	}
+	return errors.Trace(err)
 }
 
 // rollback, as with commit above facilitates tracing transaction rollbacks.
@@ -229,8 +238,8 @@ func (t *RetryingTxnRunner) rollback(ctx context.Context, tx rollbackable) {
 	defer func() { span.End() }()
 
 	if err := tx.Rollback(); err != nil {
-		// The transaction may already have been rolled back
-		// by context cancellation.
+		// The transaction may already have been rolled back by context
+		// cancellation. Only log a warning if it was otherwise.
 		if !errors.Is(err, sql.ErrTxDone) || ctx.Err() == nil {
 			t.logger.Warningf(ctx, "failed to rollback transaction: %v", err)
 		}
@@ -284,9 +293,7 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 		defer t.tracePool.Put(dtracer)
 
 		dtracer.prepare(tracer, txnID)
-
 		ctx = tracing.WithTracer(ctx, dtracer)
-
 		queryable = dtracer
 	} else {
 		// If the logger is trace enabled, then we can use the log tracer. The
@@ -296,9 +303,7 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 		defer t.loggerPool.Put(ltrace)
 
 		ltrace.prepare(txnID)
-
 		ctx = tracing.WithTracer(ctx, ltrace)
-
 		queryable = ltrace
 	}
 
