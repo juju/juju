@@ -247,6 +247,9 @@ type ServerConfig struct {
 	// DBDeleter is used to delete databases by namespace.
 	DBDeleter database.DBDeleter
 
+	// ClusterDescriber describes the database cluster.
+	ClusterDescriber database.ClusterDescriber
+
 	// TracerGetter returns a tracer for the given namespace, this is used
 	// for opentelmetry tracing.
 	TracerGetter trace.TracerGetter
@@ -301,6 +304,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.DBDeleter == nil {
 		return errors.NotValidf("missing DBDeleter")
+	}
+	if c.ClusterDescriber == nil {
+		return errors.NotValidf("missing ClusterDescriber")
 	}
 	if c.DomainServicesGetter == nil {
 		return errors.NotValidf("missing DomainServicesGetter")
@@ -380,6 +386,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		macaroonHTTPClient:       cfg.MacaroonHTTPClient,
 		dbGetter:                 cfg.DBGetter,
 		dbDeleter:                cfg.DBDeleter,
+		clusterDescriber:         cfg.ClusterDescriber,
 		domainServicesGetter:     cfg.DomainServicesGetter,
 		controllerDomainServices: controllerDomainServices,
 		tracerGetter:             cfg.TracerGetter,

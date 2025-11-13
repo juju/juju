@@ -18,6 +18,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
+	"github.com/juju/juju/core/database"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -152,6 +153,9 @@ type ModelContext interface {
 	// - [ErrorHTTPClientForPurposeNotFound] when no http client can be found
 	// for the requested [HTTPClientPurpose].
 	HTTPClient(corehttp.Purpose) (HTTPClient, error)
+
+	// ClusterDescriber describes the database cluster.
+	ClusterDescriber() database.ClusterDescriber
 
 	// MachineTag returns the current machine tag.
 	MachineTag() names.Tag

@@ -270,6 +270,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var clusterDescriber database.ClusterDescriber
+	if err := getter.Get(config.DBAccessorName, &clusterDescriber); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var domainServicesGetter services.DomainServicesGetter
 	if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
 		return nil, errors.Trace(err)
@@ -334,6 +339,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		MacaroonHTTPClient:                macaroonHTTPClient,
 		DBGetter:                          dbGetter,
 		DBDeleter:                         dbDeleter,
+		ClusterDescriber:                  clusterDescriber,
 		DomainServicesGetter:              domainServicesGetter,
 		ControllerConfigService:           controllerConfigService,
 		TracerGetter:                      tracerGetter,

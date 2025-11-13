@@ -6,6 +6,7 @@ package database
 import (
 	"context"
 
+	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -57,4 +58,11 @@ type DBDeleter interface {
 	//    just the removal of the worker. Deletion of the database will be
 	//    handled once it's supported by dqlite.
 	DeleteDB(namespace string) error
+}
+
+// ClusterDescriber describes the ability to get cluster details.
+type ClusterDescriber interface {
+	// ClusterDetails returns the node information for
+	// Dqlite nodes configured to be in the cluster.
+	ClusterDetails(context.Context) ([]dqlite.NodeInfo, error)
 }

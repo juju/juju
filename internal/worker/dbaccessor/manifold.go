@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
+	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
@@ -167,6 +168,11 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 	case *coredatabase.DBDeleter:
 		var target coredatabase.DBDeleter = w
 		*out = target
+	case *coredatabase.ClusterDescriber:
+		var target coredatabase.ClusterDescriber = &clusterDetailer{
+			nodeManager: w.cfg.NodeManager,
+		}
+		*out = target
 	default:
 		return errors.Errorf("expected output of *database.DBGetter or *database.DBDeleter, got %T", out)
 	}
@@ -183,4 +189,16 @@ func IAASNodeManager(cfg agent.Config, logger logger.Logger, slowQueryLogger cor
 // the loopback address for Dqlite.
 func CAASNodeManager(cfg agent.Config, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
 	return database.NewNodeManager(cfg, true, logger, slowQueryLogger)
+}
+
+type clusterDetailer struct {
+	nodeManager NodeManager
+}
+
+// ClusterDetails returns the node information for Dqlite nodes configured to be
+// in the cluster.
+func (c *clusterDetailer) ClusterDetails(ctx context.Context) ([]dqlite.NodeInfo, error) {
+	// TODO (stickupkid): We probably want to cache this result, as it could
+	// be expensive to fetch repeatedly from the underlying YAML store.
+	return c.nodeManager.ClusterServers(ctx)
 }
