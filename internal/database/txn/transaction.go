@@ -162,9 +162,7 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 		}
 
 		if err := fn(ctx, tx); err != nil {
-			if rErr := t.rollback(ctx, tx); rErr != nil {
-				t.logger.Warningf(ctx, "failed to rollback transaction: %v", rErr)
-			}
+			t.rollback(ctx, tx)
 			return errors.Trace(err)
 		}
 
@@ -196,9 +194,7 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 		}
 
 		if err := fn(ctx, tx); err != nil {
-			if rErr := t.rollback(ctx, tx); rErr != nil {
-				t.logger.Warningf(ctx, "failed to rollback transaction: %v", rErr)
-			}
+			t.rollback(ctx, tx)
 			return errors.Trace(err)
 		}
 
@@ -224,18 +220,21 @@ func (t *RetryingTxnRunner) commit(ctx context.Context, tx committable) (err err
 }
 
 // rollback, as with commit above facilitates tracing transaction rollbacks.
-func (t *RetryingTxnRunner) rollback(ctx context.Context, tx rollbackable) (err error) {
+func (t *RetryingTxnRunner) rollback(ctx context.Context, tx rollbackable) {
 	if t.logger.IsLevelEnabled(logger.TRACE) {
 		t.logger.Tracef(ctx, "running txn (id: %d) with query: ROLLBACK", ctx.Value(txnIDKey))
 	}
 
 	_, span := trace.Start(ctx, traceName("rollback"))
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer func() { span.End() }()
 
-	return errors.Trace(tx.Rollback())
+	if err := tx.Rollback(); err != nil {
+		// The transaction may already have been rolled back
+		// by context cancellation.
+		if !errors.Is(err, sql.ErrTxDone) || ctx.Err() == nil {
+			t.logger.Warningf(ctx, "failed to rollback transaction: %v", err)
+		}
+	}
 }
 
 // Retry defines a generic retry function for applying a function that
