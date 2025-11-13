@@ -6,7 +6,7 @@ on:
 jobs:
   tests:
     name: "Unit Tests"
-    runs-on: ${{ matrix.os }}
+    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
     strategy:
       fail-fast: true
       matrix:
@@ -22,21 +22,13 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
-    - name: "Install musl & dqlite (Ubuntu)"
-      if: (matrix.os == 'ubuntu-latest')
+    - name: "Install musl & dqlite"
       shell: bash
       run: |
         sudo make MUSL_CROSS_COMPILE=0 musl-install dqlite-install
 
-    - name: "Test (Ubuntu)"
-      if: (matrix.os == 'ubuntu-latest')
+    - name: "Test"
       shell: bash
       run: |
-        TEST_TIMEOUT="30m" make cover-test
+        TEST_TIMEOUT="30m" TEST_ARGS="-coverprofile=profile.out -race" make cover-test
 
-    - name: "Test (macOS)"
-      if: (matrix.os == 'macOS-latest')
-      shell: bash
-      run: |
-        go test -race ./cmd/juju/... -coverprofile=coverage.txt -covermode=atomic -timeout=15m
-        go test -race ./cmd/plugins/... -coverprofile=coverage.txt -covermode=atomic -timeout=15m

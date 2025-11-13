@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       check-build: ${{ steps.filter-files.outputs.check-build }}
+      check-client: ${{ steps.filter-files.outputs.check-client }}
       check-unit: ${{ steps.filter-files.outputs.check-unit }}
       check-migrate: ${{ steps.filter-files.outputs.check-migrate }}
       check-upgrade: ${{ steps.filter-files.outputs.check-upgrade }}
@@ -35,6 +36,12 @@ jobs:
               - 'go.mod'
               - '.github/workflows/build.yml'
               - 'scripts/dqlite/**'
+              - 'Makefile'
+              - 'make_functions.sh'
+            check-client:
+              - '**.go'
+              - 'go.mod'
+              - '.github/workflows/client-tests.yml'
               - 'Makefile'
               - 'make_functions.sh'
             check-unit:
@@ -106,6 +113,12 @@ jobs:
     if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-docs == 'true'
     uses: ./.github/workflows/docs.yml
 
+  client:
+    needs: [changed-files]
+    name: Unit Tests
+    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-client == 'true'
+    uses: ./.github/workflows/client-tests.yml
+
   unit:
     needs: [changed-files]
     name: Unit Tests
@@ -146,6 +159,7 @@ jobs:
                 && ${{ needs.snap.result == 'success' || needs.snap.result == 'skipped' }} \
                 && ${{ needs.generate.result == 'success' || needs.generate.result == 'skipped' }} \
                 && ${{ needs.docs.result == 'success' || needs.docs.result == 'skipped' }} \
+                && ${{ needs.client.result == 'success' || needs.client.result == 'skipped' }} \
                 && ${{ needs.unit.result == 'success' || needs.unit.result == 'skipped' }} \
                 && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \
                 && ${{ needs.terraform.result != 'fix me' || needs.terraform.result == 'skipped' }} \

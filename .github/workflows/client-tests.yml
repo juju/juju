@@ -1,0 +1,30 @@
+name: "Client Tests"
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test-client:
+    name: "Client Tests"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macOS-latest]
+
+    steps:
+    - name: "Checkout"
+      uses: actions/checkout@v4
+
+    - name: "Set up Go"
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: "Test client (macOS)"
+      if: (matrix.os == 'macOS-latest')
+      shell: bash
+      run: |
+        go test -race ./cmd/juju/... -coverprofile=coverage.txt -covermode=atomic -timeout=15m
+        go test -race ./cmd/plugins/... -coverprofile=coverage.txt -covermode=atomic -timeout=15m
