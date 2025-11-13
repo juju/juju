@@ -274,6 +274,44 @@ func (c *MockStorageV1InterfaceVolumeAttachmentsCall) DoAndReturn(f func() v12.V
 	return c
 }
 
+// VolumeAttributesClasses mocks base method.
+func (m *MockStorageV1Interface) VolumeAttributesClasses() v12.VolumeAttributesClassInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VolumeAttributesClasses")
+	ret0, _ := ret[0].(v12.VolumeAttributesClassInterface)
+	return ret0
+}
+
+// VolumeAttributesClasses indicates an expected call of VolumeAttributesClasses.
+func (mr *MockStorageV1InterfaceMockRecorder) VolumeAttributesClasses() *MockStorageV1InterfaceVolumeAttributesClassesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VolumeAttributesClasses", reflect.TypeOf((*MockStorageV1Interface)(nil).VolumeAttributesClasses))
+	return &MockStorageV1InterfaceVolumeAttributesClassesCall{Call: call}
+}
+
+// MockStorageV1InterfaceVolumeAttributesClassesCall wrap *gomock.Call
+type MockStorageV1InterfaceVolumeAttributesClassesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageV1InterfaceVolumeAttributesClassesCall) Return(arg0 v12.VolumeAttributesClassInterface) *MockStorageV1InterfaceVolumeAttributesClassesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageV1InterfaceVolumeAttributesClassesCall) Do(f func() v12.VolumeAttributesClassInterface) *MockStorageV1InterfaceVolumeAttributesClassesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageV1InterfaceVolumeAttributesClassesCall) DoAndReturn(f func() v12.VolumeAttributesClassInterface) *MockStorageV1InterfaceVolumeAttributesClassesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockStorageClassInterface is a mock of StorageClassInterface interface.
 type MockStorageClassInterface struct {
 	ctrl     *gomock.Controller

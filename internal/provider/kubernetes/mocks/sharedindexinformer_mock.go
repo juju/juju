@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
@@ -75,6 +76,45 @@ func (c *MockSharedIndexInformerAddEventHandlerCall) Do(f func(cache.ResourceEve
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSharedIndexInformerAddEventHandlerCall) DoAndReturn(f func(cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error)) *MockSharedIndexInformerAddEventHandlerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AddEventHandlerWithOptions mocks base method.
+func (m *MockSharedIndexInformer) AddEventHandlerWithOptions(arg0 cache.ResourceEventHandler, arg1 cache.HandlerOptions) (cache.ResourceEventHandlerRegistration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddEventHandlerWithOptions", arg0, arg1)
+	ret0, _ := ret[0].(cache.ResourceEventHandlerRegistration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddEventHandlerWithOptions indicates an expected call of AddEventHandlerWithOptions.
+func (mr *MockSharedIndexInformerMockRecorder) AddEventHandlerWithOptions(arg0, arg1 any) *MockSharedIndexInformerAddEventHandlerWithOptionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddEventHandlerWithOptions", reflect.TypeOf((*MockSharedIndexInformer)(nil).AddEventHandlerWithOptions), arg0, arg1)
+	return &MockSharedIndexInformerAddEventHandlerWithOptionsCall{Call: call}
+}
+
+// MockSharedIndexInformerAddEventHandlerWithOptionsCall wrap *gomock.Call
+type MockSharedIndexInformerAddEventHandlerWithOptionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSharedIndexInformerAddEventHandlerWithOptionsCall) Return(arg0 cache.ResourceEventHandlerRegistration, arg1 error) *MockSharedIndexInformerAddEventHandlerWithOptionsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSharedIndexInformerAddEventHandlerWithOptionsCall) Do(f func(cache.ResourceEventHandler, cache.HandlerOptions) (cache.ResourceEventHandlerRegistration, error)) *MockSharedIndexInformerAddEventHandlerWithOptionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSharedIndexInformerAddEventHandlerWithOptionsCall) DoAndReturn(f func(cache.ResourceEventHandler, cache.HandlerOptions) (cache.ResourceEventHandlerRegistration, error)) *MockSharedIndexInformerAddEventHandlerWithOptionsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -458,6 +498,42 @@ func (c *MockSharedIndexInformerRunCall) DoAndReturn(f func(<-chan struct{})) *M
 	return c
 }
 
+// RunWithContext mocks base method.
+func (m *MockSharedIndexInformer) RunWithContext(arg0 context.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RunWithContext", arg0)
+}
+
+// RunWithContext indicates an expected call of RunWithContext.
+func (mr *MockSharedIndexInformerMockRecorder) RunWithContext(arg0 any) *MockSharedIndexInformerRunWithContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunWithContext", reflect.TypeOf((*MockSharedIndexInformer)(nil).RunWithContext), arg0)
+	return &MockSharedIndexInformerRunWithContextCall{Call: call}
+}
+
+// MockSharedIndexInformerRunWithContextCall wrap *gomock.Call
+type MockSharedIndexInformerRunWithContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSharedIndexInformerRunWithContextCall) Return() *MockSharedIndexInformerRunWithContextCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSharedIndexInformerRunWithContextCall) Do(f func(context.Context)) *MockSharedIndexInformerRunWithContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSharedIndexInformerRunWithContextCall) DoAndReturn(f func(context.Context)) *MockSharedIndexInformerRunWithContextCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetTransform mocks base method.
 func (m *MockSharedIndexInformer) SetTransform(arg0 cache.TransformFunc) error {
 	m.ctrl.T.Helper()
@@ -530,6 +606,44 @@ func (c *MockSharedIndexInformerSetWatchErrorHandlerCall) Do(f func(cache.WatchE
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSharedIndexInformerSetWatchErrorHandlerCall) DoAndReturn(f func(cache.WatchErrorHandler) error) *MockSharedIndexInformerSetWatchErrorHandlerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetWatchErrorHandlerWithContext mocks base method.
+func (m *MockSharedIndexInformer) SetWatchErrorHandlerWithContext(arg0 cache.WatchErrorHandlerWithContext) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetWatchErrorHandlerWithContext", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetWatchErrorHandlerWithContext indicates an expected call of SetWatchErrorHandlerWithContext.
+func (mr *MockSharedIndexInformerMockRecorder) SetWatchErrorHandlerWithContext(arg0 any) *MockSharedIndexInformerSetWatchErrorHandlerWithContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetWatchErrorHandlerWithContext", reflect.TypeOf((*MockSharedIndexInformer)(nil).SetWatchErrorHandlerWithContext), arg0)
+	return &MockSharedIndexInformerSetWatchErrorHandlerWithContextCall{Call: call}
+}
+
+// MockSharedIndexInformerSetWatchErrorHandlerWithContextCall wrap *gomock.Call
+type MockSharedIndexInformerSetWatchErrorHandlerWithContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSharedIndexInformerSetWatchErrorHandlerWithContextCall) Return(arg0 error) *MockSharedIndexInformerSetWatchErrorHandlerWithContextCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSharedIndexInformerSetWatchErrorHandlerWithContextCall) Do(f func(cache.WatchErrorHandlerWithContext) error) *MockSharedIndexInformerSetWatchErrorHandlerWithContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSharedIndexInformerSetWatchErrorHandlerWithContextCall) DoAndReturn(f func(cache.WatchErrorHandlerWithContext) error) *MockSharedIndexInformerSetWatchErrorHandlerWithContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

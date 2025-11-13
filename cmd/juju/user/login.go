@@ -385,6 +385,9 @@ func (c *loginCommand) publicControllerLogin(
 	var oidcLogin bool
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
 		internallogger.GetLogger("juju.cmd.loginprovider"),
+		api.NewClientCredentialsLoginProviderFromEnvironment(
+			func() { oidcLogin = true },
+		),
 		c.SessionTokenLoginFactory().NewLoginProvider(
 			sessionToken,
 			ctx.Stderr,

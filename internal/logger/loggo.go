@@ -214,6 +214,7 @@ func (c loggoLoggerContext) Config() logger.Config {
 // writer exists with the specified name, an error is returned.
 //
 // Note: we're relying on loggo.Writer here, until we do model level logging.
+//
 // Deprecated: This will be removed in the future and is only here whilst
 // we cut things across.
 func (c loggoLoggerContext) AddWriter(name string, writer loggo.Writer) error {

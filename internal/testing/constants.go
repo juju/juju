@@ -14,6 +14,7 @@ import (
 // ShortWait is a reasonable amount of time to block waiting for something that
 // shouldn't actually happen. (as in, the test suite will *actually* wait this
 // long before continuing)
+//
 // Deprecated: use core/testing.ShortWait instead. This is so you don't bring
 // in extra dependencies from this package.
 const ShortWait = coretesting.ShortWait
@@ -23,6 +24,7 @@ const ShortWait = coretesting.ShortWait
 // suite should proceed without sleeping at all, but just in case. It is long
 // so that we don't have spurious failures without actually slowing down the
 // test suite
+//
 // Deprecated: use core/testing.LongWait instead. This is so you don't bring
 // in extra dependencies from this package.
 const LongWait = coretesting.LongWait

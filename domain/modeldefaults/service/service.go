@@ -103,6 +103,7 @@ type State interface {
 	// a model's config. These include things like the model's name and uuid.
 	// If no model exists for the provided uuid then a [modelerrors.NotFound]
 	// error is returned.
+	//
 	// Deprecated: this is only to support legacy callers.
 	ModelMetadataDefaults(context.Context, coremodel.UUID) (map[string]string, error)
 

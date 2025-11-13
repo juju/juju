@@ -103,6 +103,7 @@ type NetworkConfig struct {
 
 	// ProviderNetworkId is a provider-specific id for the network this
 	// interface is part of.
+	//
 	// Deprecated: no longer written or read.
 	ProviderNetworkId string `json:"provider-network-id"`
 
@@ -188,11 +189,13 @@ type NetworkConfig struct {
 
 	// ProviderSubnetId is a provider-specific subnet id, to which the
 	// interface is attached to.
+	//
 	// Deprecated: no longer written or read.
 	ProviderSubnetId string `json:"provider-subnet-id"`
 
 	// ProviderAddressId is the provider-specific id of the assigned address,
 	// if supported and known.
+	//
 	// Deprecated: no longer written or read.
 	ProviderAddressId string `json:"provider-address-id"`
 }

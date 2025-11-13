@@ -46,6 +46,82 @@ func (m *MockAdmissionregistrationV1beta1Interface) EXPECT() *MockAdmissionregis
 	return m.recorder
 }
 
+// MutatingAdmissionPolicies mocks base method.
+func (m *MockAdmissionregistrationV1beta1Interface) MutatingAdmissionPolicies() v1beta11.MutatingAdmissionPolicyInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MutatingAdmissionPolicies")
+	ret0, _ := ret[0].(v1beta11.MutatingAdmissionPolicyInterface)
+	return ret0
+}
+
+// MutatingAdmissionPolicies indicates an expected call of MutatingAdmissionPolicies.
+func (mr *MockAdmissionregistrationV1beta1InterfaceMockRecorder) MutatingAdmissionPolicies() *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPoliciesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MutatingAdmissionPolicies", reflect.TypeOf((*MockAdmissionregistrationV1beta1Interface)(nil).MutatingAdmissionPolicies))
+	return &MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPoliciesCall{Call: call}
+}
+
+// MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPoliciesCall wrap *gomock.Call
+type MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPoliciesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPoliciesCall) Return(arg0 v1beta11.MutatingAdmissionPolicyInterface) *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPoliciesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPoliciesCall) Do(f func() v1beta11.MutatingAdmissionPolicyInterface) *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPoliciesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPoliciesCall) DoAndReturn(f func() v1beta11.MutatingAdmissionPolicyInterface) *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPoliciesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MutatingAdmissionPolicyBindings mocks base method.
+func (m *MockAdmissionregistrationV1beta1Interface) MutatingAdmissionPolicyBindings() v1beta11.MutatingAdmissionPolicyBindingInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MutatingAdmissionPolicyBindings")
+	ret0, _ := ret[0].(v1beta11.MutatingAdmissionPolicyBindingInterface)
+	return ret0
+}
+
+// MutatingAdmissionPolicyBindings indicates an expected call of MutatingAdmissionPolicyBindings.
+func (mr *MockAdmissionregistrationV1beta1InterfaceMockRecorder) MutatingAdmissionPolicyBindings() *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPolicyBindingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MutatingAdmissionPolicyBindings", reflect.TypeOf((*MockAdmissionregistrationV1beta1Interface)(nil).MutatingAdmissionPolicyBindings))
+	return &MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPolicyBindingsCall{Call: call}
+}
+
+// MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPolicyBindingsCall wrap *gomock.Call
+type MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPolicyBindingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPolicyBindingsCall) Return(arg0 v1beta11.MutatingAdmissionPolicyBindingInterface) *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPolicyBindingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPolicyBindingsCall) Do(f func() v1beta11.MutatingAdmissionPolicyBindingInterface) *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPolicyBindingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPolicyBindingsCall) DoAndReturn(f func() v1beta11.MutatingAdmissionPolicyBindingInterface) *MockAdmissionregistrationV1beta1InterfaceMutatingAdmissionPolicyBindingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MutatingWebhookConfigurations mocks base method.
 func (m *MockAdmissionregistrationV1beta1Interface) MutatingWebhookConfigurations() v1beta11.MutatingWebhookConfigurationInterface {
 	m.ctrl.T.Helper()

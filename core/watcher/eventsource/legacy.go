@@ -98,6 +98,7 @@ type MultiWatcher[T any] struct {
 // NewMultiNotifyWatcher creates a NotifyWatcher that combines
 // each of the NotifyWatchers passed in. Each watcher's initial
 // event is consumed, and a single initial event is sent.
+//
 // Deprecated: use NewMultiValueWatcher instead.
 func NewMultiNotifyWatcher(ctx context.Context, watchers ...Watcher[struct{}]) (*MultiWatcher[struct{}], error) {
 	applier := func(_, _ struct{}) struct{} {
@@ -109,6 +110,7 @@ func NewMultiNotifyWatcher(ctx context.Context, watchers ...Watcher[struct{}]) (
 // NewMultiStringsWatcher creates a strings watcher (Watcher[[]string]) that
 // combines each of the (strings) watchers passed in. Each watcher's initial
 // event is consumed, and a single initial event is sent.
+//
 // Deprecated: this should not be used. Use NewMultiValueWatcher instead.
 func NewMultiStringsWatcher(ctx context.Context, watchers ...Watcher[[]string]) (*MultiWatcher[[]string], error) {
 	applier := func(staging, in []string) []string {
@@ -121,6 +123,7 @@ func NewMultiStringsWatcher(ctx context.Context, watchers ...Watcher[[]string]) 
 // each of the NotifyWatchers passed in. Each watcher's initial
 // event is consumed, and a single initial event is sent.
 // Subsequent events are not coalesced.
+//
 // Deprecated: use NewMultiValueWatcher instead.
 func NewMultiWatcher[T any](ctx context.Context, applier Applier[T], watchers ...Watcher[T]) (*MultiWatcher[T], error) {
 	workers := make([]worker.Worker, len(watchers))

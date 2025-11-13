@@ -340,6 +340,7 @@ func (api *ProvisionerAPI) WatchAllContainers(ctx context.Context, args params.W
 
 // SetSupportedContainers updates the list of containers supported by the
 // machines passed in args.
+//
 // Deprecated: This method doesn't do anything and can be removed in the future.
 func (api *ProvisionerAPI) SetSupportedContainers(ctx context.Context, args params.MachineContainersParams) (params.ErrorResults, error) {
 	return params.ErrorResults{

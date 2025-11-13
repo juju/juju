@@ -175,6 +175,7 @@ type ModelExporter interface {
 
 // LegacyStateExporter describes interface on state required to export a
 // model.
+//
 // Deprecated: This is being replaced with the ModelExporter.
 type LegacyStateExporter interface {
 	// Export generates an abstract representation of a model.

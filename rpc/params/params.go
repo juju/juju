@@ -816,6 +816,7 @@ type IsControllerResults struct {
 }
 
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.
+//
 // Deprecated: Jobs is being deprecated. Use IsController instead.
 type JobsResult struct {
 	Jobs  []string `json:"jobs"`

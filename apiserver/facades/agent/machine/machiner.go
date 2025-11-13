@@ -331,6 +331,7 @@ func (api *MachinerAPI) SetStatus(ctx context.Context, args params.SetStatus) (p
 }
 
 // SetMachineAddresses is not supported in MachinerAPI at version 5.
+//
 // Deprecated: SetMachineAddresses is being deprecated.
 func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	return params.ErrorResults{
@@ -339,6 +340,7 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 }
 
 // Jobs is not supported in MachinerAPI at version 5.
+//
 // Deprecated: Jobs is being deprecated. Use IsController instead.
 func (api *MachinerAPIv5) Jobs(ctx context.Context, args params.Entities) (params.JobsResults, error) {
 	results := params.JobsResults{

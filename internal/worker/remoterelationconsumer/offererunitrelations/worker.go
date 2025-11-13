@@ -37,6 +37,7 @@ type RelationUnitChange struct {
 
 	// DeprecatedDepartedUnits represents the units that have departed in this
 	// relation.
+	//
 	// Deprecated: this will be removed in future releases in favour of using
 	// AvailableUnits. We can then determine departed units by comparing
 	// the previous set of available units with the current set.

@@ -46,6 +46,44 @@ func (m *MockNetworkingV1Interface) EXPECT() *MockNetworkingV1InterfaceMockRecor
 	return m.recorder
 }
 
+// IPAddresses mocks base method.
+func (m *MockNetworkingV1Interface) IPAddresses() v12.IPAddressInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IPAddresses")
+	ret0, _ := ret[0].(v12.IPAddressInterface)
+	return ret0
+}
+
+// IPAddresses indicates an expected call of IPAddresses.
+func (mr *MockNetworkingV1InterfaceMockRecorder) IPAddresses() *MockNetworkingV1InterfaceIPAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPAddresses", reflect.TypeOf((*MockNetworkingV1Interface)(nil).IPAddresses))
+	return &MockNetworkingV1InterfaceIPAddressesCall{Call: call}
+}
+
+// MockNetworkingV1InterfaceIPAddressesCall wrap *gomock.Call
+type MockNetworkingV1InterfaceIPAddressesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingV1InterfaceIPAddressesCall) Return(arg0 v12.IPAddressInterface) *MockNetworkingV1InterfaceIPAddressesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingV1InterfaceIPAddressesCall) Do(f func() v12.IPAddressInterface) *MockNetworkingV1InterfaceIPAddressesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingV1InterfaceIPAddressesCall) DoAndReturn(f func() v12.IPAddressInterface) *MockNetworkingV1InterfaceIPAddressesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IngressClasses mocks base method.
 func (m *MockNetworkingV1Interface) IngressClasses() v12.IngressClassInterface {
 	m.ctrl.T.Helper()
@@ -194,6 +232,44 @@ func (c *MockNetworkingV1InterfaceRESTClientCall) Do(f func() rest.Interface) *M
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkingV1InterfaceRESTClientCall) DoAndReturn(f func() rest.Interface) *MockNetworkingV1InterfaceRESTClientCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ServiceCIDRs mocks base method.
+func (m *MockNetworkingV1Interface) ServiceCIDRs() v12.ServiceCIDRInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ServiceCIDRs")
+	ret0, _ := ret[0].(v12.ServiceCIDRInterface)
+	return ret0
+}
+
+// ServiceCIDRs indicates an expected call of ServiceCIDRs.
+func (mr *MockNetworkingV1InterfaceMockRecorder) ServiceCIDRs() *MockNetworkingV1InterfaceServiceCIDRsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceCIDRs", reflect.TypeOf((*MockNetworkingV1Interface)(nil).ServiceCIDRs))
+	return &MockNetworkingV1InterfaceServiceCIDRsCall{Call: call}
+}
+
+// MockNetworkingV1InterfaceServiceCIDRsCall wrap *gomock.Call
+type MockNetworkingV1InterfaceServiceCIDRsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingV1InterfaceServiceCIDRsCall) Return(arg0 v12.ServiceCIDRInterface) *MockNetworkingV1InterfaceServiceCIDRsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingV1InterfaceServiceCIDRsCall) Do(f func() v12.ServiceCIDRInterface) *MockNetworkingV1InterfaceServiceCIDRsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingV1InterfaceServiceCIDRsCall) DoAndReturn(f func() v12.ServiceCIDRInterface) *MockNetworkingV1InterfaceServiceCIDRsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

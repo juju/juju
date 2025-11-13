@@ -210,6 +210,7 @@ const (
 
 	// CAASOperatorImagePath sets the URL of the docker image
 	// used for the application operator.
+	//
 	// Deprecated: use CAASImageRepo
 	CAASOperatorImagePath = "caas-operator-image-path"
 
@@ -972,6 +973,7 @@ func (c Config) JujuManagementSpace() network.SpaceName {
 
 // CAASOperatorImagePath sets the URL of the docker image
 // used for the application operator.
+//
 // Deprecated: use CAASImageRepo
 func (c Config) CAASOperatorImagePath() string {
 	return c.asString(CAASOperatorImagePath)
