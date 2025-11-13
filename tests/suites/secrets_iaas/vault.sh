@@ -6,7 +6,7 @@ run_secrets_vault() {
 
 	prepare_vault
 
-	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" ca-cert="$(cat $VAULT_CAPATH)"
+	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" ca-cert="$(cat "$VAULT_CAPATH")"
 
 	model_name='model-secrets-vault-charm-owned'
 	add_model "$model_name"
@@ -49,7 +49,7 @@ run_secret_drain() {
 	add_model "$model_name"
 
 	vault_backend_name='myvault'
-	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
+	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" ca-cert="$(cat "$VAULT_CAPATH")"
 
 	juju --show-log deploy jameinel-ubuntu-lite
 	wait_for "active" '.applications["ubuntu-lite"] | ."application-status".current'
@@ -100,7 +100,7 @@ run_user_secret_drain() {
 	prepare_vault
 
 	vault_backend_name='myvault'
-	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
+	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" ca-cert="$(cat "$VAULT_CAPATH")"
 
 	model_name='model-user-secrets-drain'
 	add_model "$model_name"
