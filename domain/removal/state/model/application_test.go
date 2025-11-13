@@ -516,6 +516,74 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 	s.checkNoCharmsExist(c)
 }
 
+func (s *applicationSuite) TestDeleteIAASApplicationWithForce(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{},
+	)
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	// We always expect the unit to be at least "dying" before deletion.
+	// Otherwise, this is a programmatic error.
+	s.advanceUnitLife(c, unitUUIDs[0], life.Dying)
+	s.advanceApplicationLife(c, appUUID, life.Dying)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// This should fail because the application has units.
+	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+
+	// Now we can delete the application.
+	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The application should be gone.
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	s.checkNoCharmsExist(c)
+}
+
+func (s *applicationSuite) TestDeleteIAASApplicationWithUnitsWithForce(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{},
+	)
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	s.advanceUnitLife(c, unitUUIDs[0], life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// This should fail because the application has units.
+	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+
+	// Now we can delete the application.
+	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The application should be gone.
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	s.checkNoCharmsExist(c)
+}
+
 func (s *applicationSuite) TestDeleteIAASApplicationWithRelations(c *tc.C) {
 	appSvc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, appSvc, "app1")
@@ -668,6 +736,7 @@ func (s *applicationSuite) TestDeleteApplicationNotWipingDeviceConstraints(c *tc
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
 	_, err = svc.CreateIAASApplication(c.Context(), "app2", &stubCharm{name: "test-charm"}, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
@@ -711,6 +780,7 @@ func (s *applicationSuite) TestDeleteApplicationNotWipingDeviceConstraints(c *tc
 	c.Assert(devices, tc.HasLen, 1)
 	c.Assert(devices["bitcoinminer"].Count, tc.Equals, 20)
 }
+
 func (s *applicationSuite) TestDeleteApplicationWithObjectstoreResource(c *tc.C) {
 	// Arrange: Two apps that share a resource object
 	appSvc := s.setupApplicationService(c)
