@@ -5,12 +5,10 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -308,15 +306,6 @@ func (s *Service) backendConfigInfo(
 	return info, nil
 }
 
-func convertConfigToString(config map[string]interface{}) map[string]string {
-	if len(config) == 0 {
-		return nil
-	}
-	return transform.Map(config, func(k string, v interface{}) (string, string) {
-		return k, fmt.Sprintf("%v", v)
-	})
-}
-
 // BackendSummaryInfoForModel returns a summary of the secret backends
 // which contain secrets from the specified model.
 func (s *Service) BackendSummaryInfoForModel(ctx context.Context, modelUUID coremodel.UUID) ([]*SecretBackendInfo, error) {
@@ -495,7 +484,7 @@ func (s *Service) CreateSecretBackend(ctx context.Context, backend coresecrets.S
 			},
 			BackendType:         backend.BackendType,
 			TokenRotateInterval: backend.TokenRotateInterval,
-			Config:              convertConfigToString(backend.Config),
+			Config:              backend.Config,
 			NextRotateTime:      nextRotateTime,
 		},
 	)
@@ -555,7 +544,7 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 			return errors.Capture(err)
 		}
 	}
-	params.Config = convertConfigToString(cfgToApply)
+	params.Config = cfgToApply
 
 	if params.TokenRotateInterval != nil && *params.TokenRotateInterval > 0 {
 		if !provider.HasAuthRefresh(p) {
@@ -618,7 +607,7 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	} else {
 		_, err = s.st.UpdateSecretBackend(ctx, secretbackend.UpdateSecretBackendParams{
 			BackendIdentifier: secretbackend.BackendIdentifier{ID: backendID},
-			Config:            convertConfigToString(auth.Config),
+			Config:            auth.Config,
 		})
 		if err == nil {
 			next, _ := coresecrets.NextBackendRotateTime(s.clock.Now(), *backendInfo.TokenRotateInterval)

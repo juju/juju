@@ -40,7 +40,7 @@ func (s *typesSuite) TestToSecretBackends(c *tc.C) {
 				Valid:    true,
 			},
 			ConfigName:    "config11",
-			ConfigContent: "content11",
+			ConfigContent: tc.Must1(c, encodeConfigValue, "content11"),
 		},
 		{
 			ID:          "uuid1",
@@ -51,7 +51,7 @@ func (s *typesSuite) TestToSecretBackends(c *tc.C) {
 				Valid:    true,
 			},
 			ConfigName:    "config12",
-			ConfigContent: "content12",
+			ConfigContent: tc.Must1(c, encodeConfigValue, "content12"),
 		},
 		{
 			ID:          "uuid2",
@@ -61,7 +61,7 @@ func (s *typesSuite) TestToSecretBackends(c *tc.C) {
 				Valid: false,
 			},
 			ConfigName:    "config21",
-			ConfigContent: "content21",
+			ConfigContent: tc.Must1(c, encodeConfigValue, "content21"),
 		},
 		{
 			ID:          "uuid3",
@@ -72,7 +72,7 @@ func (s *typesSuite) TestToSecretBackends(c *tc.C) {
 				Valid:    true,
 			},
 			ConfigName:    "config31",
-			ConfigContent: "content31",
+			ConfigContent: tc.Must1(c, encodeConfigValue, "content31"),
 		},
 		{
 			ID:          "uuid1",
@@ -83,7 +83,7 @@ func (s *typesSuite) TestToSecretBackends(c *tc.C) {
 				Valid:    true,
 			},
 			ConfigName:    "config13",
-			ConfigContent: "content13",
+			ConfigContent: tc.Must1(c, encodeConfigValue, "content13"),
 		},
 		{
 			ID:          "uuid4",
@@ -95,17 +95,35 @@ func (s *typesSuite) TestToSecretBackends(c *tc.C) {
 			Name:          "name5",
 			BackendType:   "vault",
 			ConfigName:    "config51",
-			ConfigContent: "content51",
+			ConfigContent: tc.Must1(c, encodeConfigValue, "content51"),
 		},
 		{
 			ID:            "uuid5",
 			Name:          "name5",
 			BackendType:   "vault",
 			ConfigName:    "config52",
-			ConfigContent: "content52",
+			ConfigContent: tc.Must1(c, encodeConfigValue, "content52"),
+		},
+		{
+			ID:          "uuid6",
+			Name:        "name6",
+			BackendType: "vault",
+			ConfigName:  "slice",
+			ConfigContent: tc.Must1(c, encodeConfigValue, any([]any{`some
+lines`, "some-other-lines"})),
+		},
+		{
+			ID:          "uuid6",
+			Name:        "name6",
+			BackendType: "vault",
+			ConfigName:  "map",
+			ConfigContent: tc.Must1(c, encodeConfigValue, any(map[string]any{
+				"key1": "value1",
+				"key2": "value2",
+			})),
 		},
 	}
-	result := rows.toSecretBackends()
+	result := rows.toSecretBackends(c.Context(), loggertesting.WrapCheckLog(c))
 	c.Assert(result, tc.DeepEquals, []*secretbackend.SecretBackend{
 		{
 			ID:                  "uuid1",
@@ -147,6 +165,18 @@ func (s *typesSuite) TestToSecretBackends(c *tc.C) {
 			Config: map[string]any{
 				"config51": "content51",
 				"config52": "content52",
+			},
+		},
+		{
+			ID:          "uuid6",
+			Name:        "name6",
+			BackendType: "vault",
+			Config: map[string]any{
+				"slice": []any{"some\nlines", "some-other-lines"},
+				"map": map[string]any{
+					"key1": "value1",
+					"key2": "value2",
+				},
 			},
 		},
 	})

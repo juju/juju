@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -331,7 +332,8 @@ func (rows secretBackendRows) toSecretBackends() []*secretbackend.SecretBackend 
 			currentBackend = &backend
 			result = append(result, currentBackend)
 		}
-		if row.ConfigName == "" || row.ConfigContent == "" {
+		decodedContent := decodeConfigValue(row.ConfigContent)
+		if str, ok := decodedContent.(string); row.ConfigName == "" || decodedContent == nil || (ok && str == "") {
 			// No config for this row.
 			continue
 		}
@@ -339,9 +341,17 @@ func (rows secretBackendRows) toSecretBackends() []*secretbackend.SecretBackend 
 		if currentBackend.Config == nil {
 			currentBackend.Config = make(map[string]any)
 		}
-		currentBackend.Config[row.ConfigName] = row.ConfigContent
+		currentBackend.Config[row.ConfigName] = decodedContent
 	}
 	return result
+}
+
+// decodeParameterValue decodes the input string stored in the DB
+// to its original type.
+func decodeConfigValue(storedStr string) any {
+	var value any
+	_ = json.Unmarshal([]byte(storedStr), &value)
+	return value
 }
 
 // secretBackendForK8sModelRow represents a single joined result from
