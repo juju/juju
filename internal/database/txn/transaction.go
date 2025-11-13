@@ -235,7 +235,6 @@ func (t *RetryingTxnRunner) rollback(ctx context.Context, tx rollbackable) {
 	}
 
 	_, span := trace.Start(ctx, traceName("rollback"))
-	defer func() { span.End() }()
 
 	if err := tx.Rollback(); err != nil {
 		// The transaction may already have been rolled back by context
@@ -243,7 +242,10 @@ func (t *RetryingTxnRunner) rollback(ctx context.Context, tx rollbackable) {
 		if !errors.Is(err, sql.ErrTxDone) || ctx.Err() == nil {
 			t.logger.Warningf(ctx, "failed to rollback transaction: %v", err)
 		}
+		span.RecordError(err)
 	}
+
+	span.End()
 }
 
 // Retry defines a generic retry function for applying a function that
