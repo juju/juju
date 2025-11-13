@@ -330,6 +330,11 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 		return errors.Errorf("machine %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
+	l, err = s.modelState.GetInstanceLife(ctx, job.EntityUUID)
+	if err != nil && !errors.Is(err, machineerrors.MachineNotFound) {
+		return errors.Errorf("getting instance %q life: %w", job.EntityUUID, err)
+	}
+
 	// If the job is not using force, we need to check that the machine is not
 	// alive, and that the instance is dead. That way we don't delete machines
 	// that are still transitioning or are in use.
