@@ -78,7 +78,7 @@ This is the case for the Unmanaged provider, as described below.
 
 #### Unmanaged
 
-For the Unmanaged provider, space support differs somewhat from other providers. The `reload-spaces` command does not discover subnets. Instead, each time a manual machine is provisioned, its discovered network devices are used to update Juju's known subnet list.
+For the Unmanaged provider, space support differs somewhat from other providers. The `reload-spaces` command does not discover subnets. Instead, each time a machine is manually added, its discovered network devices are used to update Juju's known subnet list.
 
 Accordingly, the machines to be used in an Unmanaged provider must be provisioned by Juju before their subnets can be grouped into spaces. When provisioning a machine results in discovery of a new subnet, that subnet will reside in the _alpha_ space.
 

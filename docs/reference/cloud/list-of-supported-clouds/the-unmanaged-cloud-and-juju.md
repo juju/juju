@@ -27,7 +27,7 @@ As the differences related to (1) are already documented generically in the rest
 
 ## Notes on `juju add-cloud`
 
-Type in Juju: `manual`
+Type in Juju: `unmanaged`
 
 Name in Juju: User-defined.
 

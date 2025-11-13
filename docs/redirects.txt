@@ -1,5 +1,6 @@
 # <old URL> <new URL>
 
+reference/cloud/list-of-supported-clouds/the-manual-cloud-and-juju reference/cloud/list-of-supported-clouds/the-unmanaged-cloud-and-juju
 reference/charm/charm-development-best-practices/ reference/charm
 # redirects after updating landing pages
 explanation/performance-with-juju explanation/juju-performance

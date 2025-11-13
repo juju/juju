@@ -11,12 +11,12 @@ Google GCE <the-google-gce-cloud-and-juju>
 Google GKE <the-google-gke-cloud-and-juju>
 LXD <the-lxd-cloud-and-juju>
 MAAS <the-maas-cloud-and-juju>
-Unmanaged <the-unmanaged-cloud-and-juju>
 MicroK8s <the-microk8s-cloud-and-juju>
 Microsoft Azure <the-microsoft-azure-cloud-and-juju>
 Microsoft AKS <the-microsoft-aks-cloud-and-juju>
 OpenStack <the-openstack-cloud-and-juju>
 Oracle OCI <the-oracle-oci-cloud-and-juju>
+Unmanaged <the-unmanaged-cloud-and-juju>
 VMware vSphere <the-vmware-vsphere-cloud-and-juju>
 ```
 
@@ -29,10 +29,10 @@ Juju supports all of the following clouds. Click to find out more about using yo
 - {ref}`Google GCE <cloud-gce>`
 - {ref}`LXD <cloud-lxd>`
 - {ref}`MAAS <cloud-maas>`
-- {ref}`Unmanaged <cloud-unmanaged>`
 - {ref}`Microsoft Azure <cloud-azure>`
 - {ref}`OpenStack <cloud-openstack>`
 - {ref}`Oracle OCI <cloud-oci>`
+- {ref}`Unmanaged <cloud-unmanaged>`
 - {ref}`VMware vSphere <cloud-vsphere>`
 
 (list-of-supported-kubernetes-clouds)=
