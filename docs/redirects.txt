@@ -1,6 +1,8 @@
 # <old URL> <new URL>
 
 reference/cloud/list-of-supported-clouds/the-manual-cloud-and-juju reference/cloud/list-of-supported-clouds/the-unmanaged-cloud-and-juju
+contributor/reference/architectural-overview contributor/reference
+contributor/howto/create-new-mongo-db-collection contributor/howto
 reference/charm/charm-development-best-practices/ reference/charm
 # redirects after updating landing pages
 explanation/performance-with-juju explanation/juju-performance
