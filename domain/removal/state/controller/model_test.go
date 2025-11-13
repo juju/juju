@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -79,6 +80,107 @@ func (s *modelSuite) TestGetModelUUIDs(c *tc.C) {
 
 	expectedUUID := s.getModelUUID(c)
 	c.Check(modelUUIDs[0], tc.DeepEquals, expectedUUID)
+}
+
+func (s *modelSuite) TestMarkModelAsDeadNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.MarkModelAsDead(c.Context(), "non-existent-model-uuid")
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *modelSuite) TestMarkModelAsDeadStillAlive(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.MarkModelAsDead(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *modelSuite) TestMarkModelAsDeadDying(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 1 WHERE uuid = ?", modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.MarkModelAsDead(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelSuite) TestMarkModelAsDeadAlreadyDead(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 2 WHERE uuid = ?", modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.MarkModelAsDead(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelSuite) TestDeleteModel(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 2 WHERE uuid = ?", modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteModel(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure the model is gone.
+	exists, err := st.ModelExists(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+}
+
+func (s *modelSuite) TestDeleteModelDyingModel(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 1 WHERE uuid = ?", modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteModel(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+}
+
+func (s *modelSuite) TestDeleteModelDyingModelWithForce(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 1 WHERE uuid = ?", modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteModel(c.Context(), modelUUID, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure the model is gone.
+	exists, err := st.ModelExists(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
 }
 
 func (s *modelSuite) getModelUUID(c *tc.C) string {
