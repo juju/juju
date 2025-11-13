@@ -17,7 +17,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
-	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
@@ -1162,6 +1161,15 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+// TestGetUnitsK8sPodInfoNoK8sUnits ensures that if there are no Kubernetes
+// units in the model that a nil error is returned with an empty result.
+func (s *unitStateSuite) TestGetUnitsK8sPodInfoNoK8sUnits(c *tc.C) {
+	s.createIAASApplicationWithNUnits(c, "iaas-app", life.Alive, 2)
+	infos, err := s.state.GetUnitsK8sPodInfo(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(infos, tc.HasLen, 0)
+}
+
 func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 	// Arrange: 2 applications with 1 unit each, and a third application with a dead unit.
 	app1UUID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
@@ -1178,8 +1186,7 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 	})
 	uuids, err := s.state.getApplicationUnits(c.Context(), app1UUID)
 	c.Assert(err, tc.ErrorIsNil)
-	unitNameApp1, err := s.state.GetUnitNameForUUID(c.Context(), uuids[0])
-	c.Assert(err, tc.ErrorIsNil)
+	app1Unit1UUID := uuids[0]
 
 	app2UUID := s.createCAASApplication(c, "bar", life.Alive, application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
@@ -1189,19 +1196,15 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 			ProviderID: "bar-id",
 			Ports:      ptr([]string{"777"}),
 			Address: ptr(application.ContainerAddress{
-				Value: "10.6.6.7/24",
+				Value: "2001:0DB8::BEEF:FACE/128",
 			}),
 		},
 	})
 	uuids, err = s.state.getApplicationUnits(c.Context(), app2UUID)
 	c.Assert(err, tc.ErrorIsNil)
-	unitNameApp2, err := s.state.GetUnitNameForUUID(c.Context(), uuids[0])
-	c.Assert(err, tc.ErrorIsNil)
+	app2Unit1UUID := uuids[0]
 
-	app1UUID3 := s.createCAASApplication(c, "zoo", life.Alive, application.AddCAASUnitArg{
-		AddUnitArg: application.AddUnitArg{
-			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
-		},
+	app3UUID := s.createCAASApplication(c, "zoo", life.Alive, application.AddCAASUnitArg{
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "zoo-id",
 			Ports:      ptr([]string{"666", "668"}),
@@ -1210,25 +1213,34 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 			}),
 		},
 	})
-	uuids, err = s.state.getApplicationUnits(c.Context(), app1UUID3)
+	uuids, err = s.state.getApplicationUnits(c.Context(), app3UUID)
 	c.Assert(err, tc.ErrorIsNil)
+	app3Unit1UUID := uuids[0]
 	// Set the unit for the third app to Dead, to verify it is not returned.
-	s.setUnitLife(c, uuids[0], life.Dead)
+	s.setUnitLife(c, app3Unit1UUID, life.Dead)
 
 	// Act:
-	infos, err := s.state.GetUnitsK8sPodInfo(c.Context())
+	k8sPodInfo, err := s.state.GetUnitsK8sPodInfo(c.Context())
+
 	// Assert: only the 2 alive units are returned.
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(infos, tc.HasLen, 2)
-	c.Check(infos[unitNameApp1], tc.DeepEquals, application.K8sPodInfo{
-		ProviderID: "foo-id",
-		Address:    "10.6.6.6/24",
-		Ports:      []string{"666", "668"},
-	})
-	c.Check(infos[unitNameApp2], tc.DeepEquals, application.K8sPodInfo{
-		ProviderID: "bar-id",
-		Address:    "10.6.6.7/24",
-		Ports:      []string{"777"},
+	c.Check(k8sPodInfo, tc.DeepEquals, map[string]internalapplication.UnitK8sInformation{
+		app1Unit1UUID.String(): {
+			Addresses: []string{
+				"10.6.6.6/24",
+			},
+			Ports:      []string{"666", "668"},
+			ProviderID: "foo-id",
+			UnitName:   "foo/0",
+		},
+		app2Unit1UUID.String(): {
+			Addresses: []string{
+				"2001:0DB8::BEEF:FACE/128",
+			},
+			Ports:      []string{"777"},
+			ProviderID: "bar-id",
+			UnitName:   "bar/0",
+		},
 	})
 }
 
@@ -1262,7 +1274,7 @@ func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info.ProviderID, tc.Equals, network.Id("some-id"))
+	c.Check(info.ProviderID, tc.Equals, "some-id")
 	c.Check(info.Address, tc.Equals, "10.6.6.6/24")
 	c.Check(info.Ports, tc.DeepEquals, []string{"666", "668"})
 }
@@ -1276,7 +1288,7 @@ func (s *unitStateSuite) TestGetUnitK8sPodInfoNoInfo(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info.ProviderID, tc.Equals, network.Id(""))
+	c.Check(info.ProviderID, tc.Equals, "")
 	c.Check(info.Address, tc.Equals, "")
 	c.Check(info.Ports, tc.DeepEquals, []string{})
 }

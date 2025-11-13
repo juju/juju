@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -145,8 +146,16 @@ type UnitState interface {
 	// - [applicationerrors.UnitIsDead] if the unit is dead
 	GetUnitK8sPodInfo(context.Context, coreunit.Name) (application.K8sPodInfo, error)
 
-	// GetUnitsK8sPodInfo returns information about the k8s pods for all alive units.
-	GetUnitsK8sPodInfo(ctx context.Context) (map[coreunit.Name]application.K8sPodInfo, error)
+	// GetUnitsK8sPodInfo returns Kubernetes related information for each unit
+	// in the model that is running inside of a Kubernetes pod. If no Kubernetes
+	// based units are found than an empty result is returned.
+	//
+	// This function WILL return ip address values for each pod in a
+	// deterministic order. IP addresses will be order based on how public they
+	// are, ipv6 addresses before ipv4 addresses and then natural sort over of
+	// value. This ordering exists so that the user always get a deterministic
+	// result.
+	GetUnitsK8sPodInfo(ctx context.Context) (map[string]internal.UnitK8sInformation, error)
 
 	// GetAllUnitNames returns a slice of all unit names in the model.
 	GetAllUnitNames(context.Context) ([]coreunit.Name, error)
@@ -717,7 +726,29 @@ func (s *Service) GetUnitsK8sPodInfo(ctx context.Context) (map[coreunit.Name]app
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetUnitsK8sPodInfo(ctx)
+	stateUnitsInfo, err := s.st.GetUnitsK8sPodInfo(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make(map[coreunit.Name]application.K8sPodInfo, len(stateUnitsInfo))
+	for _, info := range stateUnitsInfo {
+		var suggestedAddress string
+		if len(info.Addresses) != 0 {
+			// We take the first address because the expectation is that they
+			// have been order into a deterministic order. However we should
+			// be returning all addresses to the caller and this needs to get
+			// fixed.
+			suggestedAddress = info.Addresses[0]
+		}
+		rval[coreunit.Name(info.UnitName)] = application.K8sPodInfo{
+			Address:    suggestedAddress,
+			ProviderID: info.ProviderID,
+			Ports:      info.Ports,
+		}
+	}
+
+	return rval, nil
 }
 
 // GetUnitSubordinates returns the names of all the subordinate units of the

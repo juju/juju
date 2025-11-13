@@ -435,7 +435,7 @@ type UnitAttributes struct {
 
 // K8sPodInfo contains information about a unit's k8s pod.
 type K8sPodInfo struct {
-	ProviderID network.Id
+	ProviderID string
 	Address    string
 	Ports      []string
 }

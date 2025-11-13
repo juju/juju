@@ -220,8 +220,8 @@ type unitK8sPodPort struct {
 }
 
 type unitK8sPodInfo struct {
-	ProviderID sql.Null[network.Id] `db:"provider_id"`
-	Address    sql.Null[string]     `db:"address"`
+	ProviderID string           `db:"provider_id"`
+	Address    sql.Null[string] `db:"address"`
 }
 
 type ipAddress struct {
@@ -1298,17 +1298,30 @@ type bindingToTable struct {
 	BindingType bindingTable `db:"binding_type"`
 }
 
-type infoQuerydb struct {
-	LifeID int `db:"life_id"`
+// unitK8s represents the kubernetes interformation about a unit.
+type unitK8s struct {
+	Name       string `db:"name"`
+	ProviderID string `db:"provider_id"`
+	UnitUUID   string `db:"unit_uuid"`
 }
 
-type unitK8sPodInfoWithName struct {
-	UnitName   string               `db:"name"`
-	ProviderID sql.Null[network.Id] `db:"provider_id"`
-	Address    sql.Null[string]     `db:"address"`
-	Ports      string               `db:"ports"`
+// unitK8sIPAddress represents a single ip address for a kubernetes unit.
+type unitK8sIPAddress struct {
+	UnitUUID       string `db:"unit_uuid"`
+	IPAddressValue string `db:"address_value"`
+}
+
+// unitK8sPort represents a single row from the k8s_pod_port table.
+type unitK8sPort struct {
+	UnitUUID string `db:"unit_uuid"`
+	Port     string `db:"port"`
 }
 
 type charmModifiedVersion struct {
 	Version uint64 `db:"charm_modified_version"`
+}
+
+// ipAddressScopeID represents the scope_id column for the ip_address table.
+type ipAddressScopeID struct {
+	ScopeID int `db:"scope_id"`
 }
