@@ -264,6 +264,35 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	}
 }
 
+// ListFiles returns a list of all files in the object store, namespaced
+// to the model.
+// This only lists the files that are present in the local file system. This
+// might not be accurate if there are files being added or removed during
+// the listing operation (it's not atomic).
+func (t *fileObjectStore) ListFiles(ctx context.Context) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(t.path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(t.path, path)
+		if err != nil {
+			return err
+		}
+
+		files = append(files, rel)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("listing files: %w", err)
+	}
+	return files, nil
+}
+
 // Put stores data from reader at path, namespaced to the model.
 func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) (objectstore.UUID, error) {
 	response := make(chan response, 1)
@@ -350,6 +379,36 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	case resp := <-response:
 		if resp.err != nil {
 			return errors.Errorf("removing blob: %w", resp.err)
+		}
+		return nil
+	}
+}
+
+// PruneFile removes the file at path, but doesn't check the metadata. This
+// just removes the file from the file system, and is used by the pruner to
+// remove files that are not referenced in the metadata.
+func (t *fileObjectStore) PruneFile(ctx context.Context, path string) error {
+	response := make(chan response, 1)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
+	case t.requests <- request{
+		op:       opPrune,
+		path:     path,
+		response: response,
+	}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
+	case resp := <-response:
+		if resp.err != nil {
+			return errors.Errorf("pruning file: %w", resp.err)
 		}
 		return nil
 	}
@@ -495,6 +554,16 @@ func (t *fileObjectStore) loop() error {
 
 				case req.response <- response{
 					err: t.remove(ctx, req.path),
+				}:
+				}
+
+			case opPrune:
+				select {
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
+
+				case req.response <- response{
+					err: t.pruneFile(ctx, req.path),
 				}:
 				}
 
@@ -788,6 +857,19 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
 			return errors.Errorf("remove metadata: %w", err)
 		}
+		return t.deleteObject(ctx, hash)
+	})
+}
+
+func (t *fileObjectStore) pruneFile(ctx context.Context, path string) error {
+	t.logger.Debugf(ctx, "pruning object %q from file storage", path)
+
+	hash := filepath.Base(path)
+	return t.withLock(ctx, hash, func(ctx context.Context) error {
+		// TODO (stickupkid): Don't delete if the mod time is too recent. This
+		// should prevent accidentally deleting files that are being written.
+		// Although, the locking mechanism should prevent that anyway. It's
+		// just an extra safety measure.
 		return t.deleteObject(ctx, hash)
 	})
 }

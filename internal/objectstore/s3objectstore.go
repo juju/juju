@@ -225,6 +225,21 @@ func (t *s3ObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix stri
 	}
 }
 
+// ListFiles returns a list of all files in the object store, namespaced
+// to the model.
+func (t *s3ObjectStore) ListFiles(ctx context.Context) ([]string, error) {
+	var files []string
+	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+		var err error
+		files, err = s.ListObjects(ctx, t.rootBucket)
+		return err
+	}); err != nil {
+		return nil, errors.Errorf("listing files: %w", err)
+	}
+
+	return files, nil
+}
+
 // Put stores data from reader at path, namespaced to the model.
 func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) (objectstore.UUID, error) {
 	response := make(chan response)
@@ -298,6 +313,36 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 		return t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:       opRemove,
+		path:     path,
+		response: response,
+	}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
+	case resp := <-response:
+		if resp.err != nil {
+			return errors.Errorf("removing blob: %w", resp.err)
+		}
+		return nil
+	}
+}
+
+// PruneFile removes the file at path but does not check the metadata. This
+// is used by the pruner to remove files that are not referenced in
+// the metadata.
+func (t *s3ObjectStore) PruneFile(ctx context.Context, path string) error {
+	response := make(chan response)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
+	case t.requests <- request{
+		op:       opPrune,
 		path:     path,
 		response: response,
 	}:
@@ -470,6 +515,16 @@ func (t *s3ObjectStore) loop() error {
 
 				case req.response <- response{
 					err: t.remove(ctx, req.path),
+				}:
+				}
+
+			case opPrune:
+				select {
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
+
+				case req.response <- response{
+					err: t.pruneFile(ctx, req.path),
 				}:
 				}
 
@@ -675,6 +730,19 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 			return errors.Errorf("remove metadata: %w", err)
 		}
 
+		return t.deleteObject(ctx, hash)
+	})
+}
+
+func (t *s3ObjectStore) pruneFile(ctx context.Context, path string) error {
+	t.logger.Debugf(ctx, "pruning object %q from file storage", path)
+
+	hash := filepath.Base(path)
+	return t.withLock(ctx, hash, func(ctx context.Context) error {
+		// TODO (stickupkid): Don't delete if the mod time is too recent. This
+		// should prevent accidentally deleting files that are being written.
+		// Although, the locking mechanism should prevent that anyway. It's
+		// just an extra safety measure.
 		return t.deleteObject(ctx, hash)
 	})
 }

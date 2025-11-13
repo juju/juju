@@ -727,6 +727,57 @@ func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `size mismatch for ".*foo.txt".*`)
 }
 
+func (s *s3ObjectStoreSuite) TestPruneFileNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexSHA384 := s.calculateHexSHA384(c, content)
+
+	s.expectClaim(hexSHA384, 1)
+	s.expectRelease(hexSHA384, 1)
+
+	fileName := fmt.Sprintf("some/path/%s", hexSHA384)
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath(hexSHA384)).Return(errors.NotFoundf("not found"))
+
+	store := s.newS3ObjectStore(c)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	err := store.PruneFile(c.Context(), fileName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *s3ObjectStoreSuite) TestPruneFileWithHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexSHA384 := s.calculateHexSHA384(c, content)
+
+	s.expectClaim(hexSHA384, 1)
+	s.expectRelease(hexSHA384, 1)
+
+	// Test that prune can work with just the hash as the path
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath(hexSHA384)).Return(nil)
+
+	store := s.newS3ObjectStore(c)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	err := store.PruneFile(c.Context(), hexSHA384)
+	c.Assert(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, store)
+}
+
 func (s *s3ObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 

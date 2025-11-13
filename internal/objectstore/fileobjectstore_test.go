@@ -1059,6 +1059,65 @@ func (s *fileObjectStoreSuite) TestList(c *tc.C) {
 	workertest.CleanKill(c, store)
 }
 
+func (s *fileObjectStoreSuite) TestPruneFile(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := s.expectWatch()
+
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
+
+	s.expectClaim(hash384, 2)
+	s.expectRelease(hash384, 2)
+
+	path := c.MkDir()
+
+	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
+	}).Return("", nil)
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.expectStartup(c, ch)
+
+	_, err := store.Put(c.Context(), "foo", strings.NewReader("some content"), 12)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.expectFileDoesExist(c, path, hash384)
+
+	err = store.PruneFile(c.Context(), hash384)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.expectFileDoesNotExist(c, path, hash384)
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *fileObjectStoreSuite) TestPruneFileNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := s.expectWatch()
+
+	s.expectClaim("nonexistent", 1)
+	s.expectRelease("nonexistent", 1)
+
+	path := c.MkDir()
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.expectStartup(c, ch)
+
+	err := store.PruneFile(c.Context(), "nonexistent")
+	c.Assert(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, store)
+}
+
 func (s *fileObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 

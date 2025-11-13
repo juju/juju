@@ -127,6 +127,10 @@ type ReadObjectStore interface {
 	//
 	// If no object is found, an [objectstore.ObjectNotFound] error is returned.
 	GetBySHA256Prefix(context.Context, string) (io.ReadCloser, int64, error)
+
+	// ListFiles returns a list of all files in the object store, namespaced
+	// to the model.
+	ListFiles(context.Context) ([]string, error)
 }
 
 // WriteObjectStore represents an object store that can only be written to.
@@ -140,6 +144,11 @@ type WriteObjectStore interface {
 
 	// Remove removes data at path, namespaced to the model.
 	Remove(ctx context.Context, path string) error
+
+	// PruneFile removes the file at the path, but does not check the metadata.
+	// This is used by the pruner to remove files that are not referenced in
+	// the metadata.
+	PruneFile(ctx context.Context, path string) error
 }
 
 // ObjectStoreRemover is an interface that provides a method to remove all

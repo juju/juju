@@ -56,6 +56,7 @@ const (
 	opGetBySHA256Prefix
 	opPut
 	opRemove
+	opPrune
 )
 
 type request struct {

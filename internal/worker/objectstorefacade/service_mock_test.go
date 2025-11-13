@@ -223,6 +223,83 @@ func (c *MockObjectStoreGetBySHA256PrefixCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// ListFiles mocks base method.
+func (m *MockObjectStore) ListFiles(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListFiles", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListFiles indicates an expected call of ListFiles.
+func (mr *MockObjectStoreMockRecorder) ListFiles(arg0 any) *MockObjectStoreListFilesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFiles", reflect.TypeOf((*MockObjectStore)(nil).ListFiles), arg0)
+	return &MockObjectStoreListFilesCall{Call: call}
+}
+
+// MockObjectStoreListFilesCall wrap *gomock.Call
+type MockObjectStoreListFilesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockObjectStoreListFilesCall) Return(arg0 []string, arg1 error) *MockObjectStoreListFilesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockObjectStoreListFilesCall) Do(f func(context.Context) ([]string, error)) *MockObjectStoreListFilesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockObjectStoreListFilesCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockObjectStoreListFilesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PruneFile mocks base method.
+func (m *MockObjectStore) PruneFile(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PruneFile", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PruneFile indicates an expected call of PruneFile.
+func (mr *MockObjectStoreMockRecorder) PruneFile(arg0, arg1 any) *MockObjectStorePruneFileCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PruneFile", reflect.TypeOf((*MockObjectStore)(nil).PruneFile), arg0, arg1)
+	return &MockObjectStorePruneFileCall{Call: call}
+}
+
+// MockObjectStorePruneFileCall wrap *gomock.Call
+type MockObjectStorePruneFileCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockObjectStorePruneFileCall) Return(arg0 error) *MockObjectStorePruneFileCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockObjectStorePruneFileCall) Do(f func(context.Context, string) error) *MockObjectStorePruneFileCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockObjectStorePruneFileCall) DoAndReturn(f func(context.Context, string) error) *MockObjectStorePruneFileCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Put mocks base method.
 func (m *MockObjectStore) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64) (objectstore.UUID, error) {
 	m.ctrl.T.Helper()
