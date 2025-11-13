@@ -25,6 +25,11 @@ import (
 
 const (
 	DefaultTimeout = time.Second * 30
+	txnInTxn       = "cannot start a transaction within a transaction"
+
+	// ErrTxnInTxn is an error indicating that an attempt was made
+	// to start atransaction when we already had one in flight.
+	ErrTxnInTxn = errors.ConstError(txnInTxn)
 )
 
 // committable describes the ability to commit a transaction.
@@ -145,6 +150,14 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 	return t.run(ctx, func(ctx context.Context) error {
 		tx, err := db.Begin(ctx, nil)
 		if err != nil {
+			// This was lifted from the LXD code.
+			// It has been observed that we can get into a strange state when
+			// Dqlite is busy performing a checkpoint operation.
+			// This is an attempt to save an otherwise poisoned database.
+			if strings.Contains(err.Error(), txnInTxn) {
+				_, _ = db.PlainDB().Exec("ROLLBACK")
+				return ErrTxnInTxn
+			}
 			return errors.Trace(err)
 		}
 
@@ -171,6 +184,14 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 	return t.run(ctx, func(ctx context.Context) error {
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
+			// This was lifted from the LXD code.
+			// It has been observed that we can get into a strange state when
+			// Dqlite is busy performing a checkpoint operation.
+			// This is an attempt to save an otherwise poisoned database.
+			if strings.Contains(err.Error(), txnInTxn) {
+				_, _ = db.Exec("ROLLBACK")
+				return ErrTxnInTxn
+			}
 			return errors.Trace(err)
 		}
 
