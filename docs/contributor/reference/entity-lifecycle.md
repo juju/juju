@@ -491,6 +491,8 @@ responsible for:
 
 Machines can in theory have multiple jobs, but in current practice do not.
 
+<!--
+TODO: Rewrite this to match Juju 4.
 ## Implementation
 
 All state change operations are mediated by the mgo/txn package, which provides
@@ -507,4 +509,4 @@ Beyond the plans detailed above, it is important to note that an agent that is
 failing to meet its responsibilities can have a somewhat distressing impact on
 the rest of the system. To counteract this, we have implemented a --force
 flag to remove-unit and remove-machine that forcibly sets an entity to
-Dead while maintaining consistency and sanity across all references.
+Dead while maintaining consistency and sanity across all references. -->
