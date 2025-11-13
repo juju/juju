@@ -115,7 +115,7 @@ jobs:
 
   client:
     needs: [changed-files]
-    name: Unit Tests
+    name: Client Tests
     if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-client == 'true'
     uses: ./.github/workflows/client-tests.yml
 

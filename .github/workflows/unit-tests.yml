@@ -22,12 +22,7 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
-    - name: "Install musl & dqlite"
-      shell: bash
-      run: |
-        sudo make MUSL_CROSS_COMPILE=0 musl-install dqlite-install
-
-    - name: "Test"
+    - name: "Unit Test"
       shell: bash
       run: |
         TEST_TIMEOUT="30m" TEST_ARGS="-coverprofile=profile.out -race" make cover-test
