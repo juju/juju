@@ -37,18 +37,19 @@ var (
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
-	AgentName            string
-	Clock                clock.Clock
-	TLSConfig            *tls.Config
-	Mux                  *apiserverhttp.Mux
-	MuxShutdownWait      time.Duration
-	LogDir               string
-	Logger               Logger
-	PrometheusRegisterer prometheus.Registerer
-	Hub                  *pubsub.StructuredHub
-	APIPort              int
-	APIPortOpenDelay     time.Duration
-	ControllerAPIPort    int
+	AgentName             string
+	Clock                 clock.Clock
+	TLSConfig             *tls.Config
+	Mux                   *apiserverhttp.Mux
+	MuxShutdownWait       time.Duration
+	LogDir                string
+	Logger                Logger
+	PrometheusRegisterer  prometheus.Registerer
+	Hub                   *pubsub.StructuredHub
+	APIPort               int
+	APIPortOpenDelay      time.Duration
+	ControllerAPIPort     int
+	IdleConnectionTimeout time.Duration
 }
 
 // Validate validates the API server configuration.
@@ -135,8 +136,9 @@ func (w *Worker) Wait() error {
 func (w *Worker) Report() map[string]interface{} {
 	w.mu.Lock()
 	result := map[string]interface{}{
-		"api-port": w.config.APIPort,
-		"status":   w.status,
+		"api-port":                w.config.APIPort,
+		"status":                  w.status,
+		"idle-connection-timeout": w.config.IdleConnectionTimeout,
 	}
 	if w.holdable != nil {
 		result["ports"] = w.holdable.report()
@@ -166,9 +168,14 @@ func (w *Worker) loop() error {
 		logger: w.logger,
 	}, "", 0) // no prefix and no flags so log.Logger doesn't add extra prefixes
 	server := &http.Server{
-		Handler:   w.config.Mux,
-		TLSConfig: w.config.TLSConfig,
-		ErrorLog:  serverLog,
+		Handler:     w.config.Mux,
+		TLSConfig:   w.config.TLSConfig,
+		ErrorLog:    serverLog,
+		IdleTimeout: w.config.IdleConnectionTimeout,
+		// As recommended by Copilot: the Read/Write timeouts should only affect the initial handshake.
+		// Once it has been upgraded to Websocket, then gorilla takes over the read/write deadlines.
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 60 * time.Second,
 	}
 	go func() {
 		err := server.Serve(tls.NewListener(w.holdable, w.config.TLSConfig))

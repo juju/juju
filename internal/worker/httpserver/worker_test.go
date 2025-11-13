@@ -395,11 +395,12 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 		"status":     "waiting for signal to open agent port",
 	}
 	report := map[string]interface{}{
-		"api-port":            s.config.APIPort,
-		"api-port-open-delay": s.config.APIPortOpenDelay,
-		"controller-api-port": s.config.ControllerAPIPort,
-		"status":              "running",
-		"ports":               reportPorts,
+		"api-port":                s.config.APIPort,
+		"api-port-open-delay":     s.config.APIPortOpenDelay,
+		"controller-api-port":     s.config.ControllerAPIPort,
+		"idle-connection-timeout": s.config.IdleConnectionTimeout,
+		"status":                  "running",
+		"ports":                   reportPorts,
 	}
 	c.Check(worker.Report(), jc.DeepEquals, report)
 

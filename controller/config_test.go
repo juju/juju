@@ -211,6 +211,18 @@ var newConfigTests = []struct {
 	},
 	expectError: `api-port-open-delay: conversion to duration: time: missing unit in duration "15"`,
 }, {
+	about: "idle-connection-timeout not a string",
+	config: controller.Config{
+		controller.IdleConnectionTimeout: 99,
+	},
+	expectError: `idle-connection-timeout: expected string or time.Duration, got int\(99\)`,
+}, {
+	about: "idle-connection-timeout not a duration",
+	config: controller.Config{
+		controller.IdleConnectionTimeout: "99",
+	},
+	expectError: `idle-connection-timeout: conversion to duration: time: missing unit in duration "99"`,
+}, {
 	about: "txn-prune-sleep-time not a duration",
 	config: controller.Config{
 		controller.PruneTxnSleepTime: "15",
