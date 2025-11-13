@@ -231,13 +231,17 @@ func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID, force b
 	defer span.End()
 
 	controllerLife, err := s.controllerState.GetModelLife(ctx, modelUUID.String())
-	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+	if errors.Is(err, modelerrors.NotFound) {
+		controllerLife = life.Dead
+	} else if err != nil {
 		return errors.Errorf("getting controller model %q life: %w", modelUUID, err)
 	}
 
 	// We should ensure that the model is dead before we delete it.
 	modelLife, err := s.modelState.GetModelLife(ctx, modelUUID.String())
-	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+	if errors.Is(err, modelerrors.NotFound) {
+		modelLife = life.Dead
+	} else if err != nil {
 		return errors.Errorf("getting model %q life: %w", modelUUID, err)
 	}
 

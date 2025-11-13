@@ -224,6 +224,149 @@ func (s *modelSuite) TestRemoveModelNotFoundInBothControllerAndModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
+func (s *modelSuite) TestDeleteModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, nil)
+	cExp.DeleteModel(gomock.Any(), "some-model-uuid", false).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, nil)
+	mExp.DeleteModelArtifacts(gomock.Any(), "some-model-uuid", false).Return(nil)
+
+	s.provider.EXPECT().Destroy(gomock.Any()).Return(nil)
+
+	err := s.newService(c).DeleteModel(c.Context(), "some-model-uuid", false)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelSuite) TestDeleteModelControllerAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Alive, nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, nil)
+
+	err := s.newService(c).DeleteModel(c.Context(), "some-model-uuid", false)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *modelSuite) TestDeleteModelModelAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Alive, nil)
+
+	err := s.newService(c).DeleteModel(c.Context(), "some-model-uuid", false)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *modelSuite) TestDeleteModelControllerGetModelLifeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, errors.Errorf("the front fell off"))
+
+	err := s.newService(c).DeleteModel(c.Context(), "some-model-uuid", false)
+	c.Assert(err, tc.ErrorMatches, `.*the front fell off`)
+}
+
+func (s *modelSuite) TestDeleteModelControllerGetModelLifeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(-1, modelerrors.NotFound)
+	cExp.DeleteModel(gomock.Any(), "some-model-uuid", false).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, nil)
+	mExp.DeleteModelArtifacts(gomock.Any(), "some-model-uuid", false).Return(nil)
+
+	s.provider.EXPECT().Destroy(gomock.Any()).Return(nil)
+
+	err := s.newService(c).DeleteModel(c.Context(), "some-model-uuid", false)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelSuite) TestDeleteModelModelGetModelLifeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, errors.Errorf("the front fell off"))
+
+	err := s.newService(c).DeleteModel(c.Context(), "some-model-uuid", false)
+	c.Assert(err, tc.ErrorMatches, `.*the front fell off`)
+}
+
+func (s *modelSuite) TestDeleteModelModelGetModelLifeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, nil)
+	cExp.DeleteModel(gomock.Any(), "some-model-uuid", false).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(-1, modelerrors.NotFound)
+	mExp.DeleteModelArtifacts(gomock.Any(), "some-model-uuid", false).Return(nil)
+
+	s.provider.EXPECT().Destroy(gomock.Any()).Return(nil)
+
+	err := s.newService(c).DeleteModel(c.Context(), "some-model-uuid", false)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelSuite) TestDeleteModelControllerGetModelLifeDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dying, nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, nil)
+
+	err := s.newService(c).DeleteModel(c.Context(), "some-model-uuid", false)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)
+}
+
+func (s *modelSuite) TestDeleteModelModelGetModelLifeDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dead, nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dying, nil)
+
+	err := s.newService(c).DeleteModel(c.Context(), "some-model-uuid", false)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)
+}
+
+func (s *modelSuite) TestDeleteModelDyingWithForce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dying, nil)
+	cExp.DeleteModel(gomock.Any(), "some-model-uuid", true).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelLife(gomock.Any(), "some-model-uuid").Return(life.Dying, nil)
+	mExp.DeleteModelArtifacts(gomock.Any(), "some-model-uuid", true).Return(nil)
+
+	s.provider.EXPECT().Destroy(gomock.Any()).Return(nil)
+
+	err := s.newService(c).DeleteModel(c.Context(), "some-model-uuid", true)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *modelSuite) TestProcessJobInvalidJobType(c *tc.C) {
 	var invalidJobType removal.JobType = 500
 
