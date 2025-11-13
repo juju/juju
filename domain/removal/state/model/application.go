@@ -383,6 +383,10 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			return errors.Errorf("deleting application resources: %w", err)
 		}
 
+		if err := st.deleteApplicationUnits(ctx, tx, aUUID, force); err != nil {
+			return errors.Errorf("deleting application units: %w", err)
+		}
+
 		if err := st.deleteSimpleApplicationReferences(ctx, tx, aUUID); err != nil {
 			return errors.Errorf("deleting simple application references: %w", err)
 		}
@@ -620,6 +624,32 @@ WHERE  uuid = $entityUUID.uuid`, appID)
 
 	if err := tx.Query(ctx, deleteApplicationAnnotationStmt, appID).Run(); err != nil {
 		return errors.Errorf("removing application annotations: %w", err)
+	}
+	return nil
+}
+
+func (st *State) deleteApplicationUnits(ctx context.Context, tx *sqlair.TX, aUUID string, force bool) error {
+	appID := entityUUID{UUID: aUUID}
+
+	getUnitUUIDsStmt, err := st.Prepare(`
+SELECT uuid AS &entityUUID.uuid
+FROM unit
+WHERE application_uuid = $entityUUID.uuid
+`, entityUUID{})
+
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var unitUUIDs []entityUUID
+	if err := tx.Query(ctx, getUnitUUIDsStmt, appID).GetAll(&unitUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting application unit UUIDs: %w", err)
+	}
+
+	for _, unit := range unitUUIDs {
+		if err := st.deleteUnit(ctx, tx, unit.UUID, force); err != nil {
+			return errors.Errorf("deleting unit %q: %w", unit.UUID, err)
+		}
 	}
 	return nil
 }
