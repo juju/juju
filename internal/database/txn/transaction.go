@@ -23,15 +23,19 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
-// committable represents a transaction interface that can be used for
-// committing a transaction.
+const (
+	DefaultTimeout = time.Second * 30
+)
+
+// committable describes the ability to commit a transaction.
 type committable interface {
 	Commit() error
 }
 
-const (
-	DefaultTimeout = time.Second * 30
-)
+// rollbackable describes the ability to roll back a transaction.
+type rollbackable interface {
+	Rollback() error
+}
 
 // RetryStrategy defines a function for retrying a transaction.
 type RetryStrategy func(context.Context, func() error) error
@@ -145,7 +149,7 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 		}
 
 		if err := fn(ctx, tx); err != nil {
-			if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
+			if rErr := t.rollback(ctx, tx); rErr != nil {
 				t.logger.Warningf(ctx, "failed to rollback transaction: %v", rErr)
 			}
 			return errors.Trace(err)
@@ -171,7 +175,7 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 		}
 
 		if err := fn(ctx, tx); err != nil {
-			if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
+			if rErr := t.rollback(ctx, tx); rErr != nil {
 				t.logger.Warningf(ctx, "failed to rollback transaction: %v", rErr)
 			}
 			return errors.Trace(err)
@@ -181,25 +185,36 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 	})
 }
 
-// Commit is split out as we can't pass a context directly to the commit. To
-// enable tracing, we need to just wrap the commit call. All other traces are
-// done at the dqlite level.
+// commit is split out as we can't pass a context directly to the commit.
+// To enable tracing, we need to just wrap the commit call.
+// All other traces are done at the dqlite level.
 func (t *RetryingTxnRunner) commit(ctx context.Context, tx committable) (err error) {
 	if t.logger.IsLevelEnabled(logger.TRACE) {
 		t.logger.Tracef(ctx, "running txn (id: %d) with query: COMMIT", ctx.Value(txnIDKey))
 	}
 
-	// Hardcode the name of the span
 	_, span := trace.Start(ctx, traceName("commit"))
 	defer func() {
 		span.RecordError(err)
 		span.End()
 	}()
 
-	if err := tx.Commit(); err != nil && err != sql.ErrTxDone {
-		return errors.Trace(err)
+	return errors.Trace(tx.Commit())
+}
+
+// rollback, as with commit above facilitates tracing transaction rollbacks.
+func (t *RetryingTxnRunner) rollback(ctx context.Context, tx rollbackable) (err error) {
+	if t.logger.IsLevelEnabled(logger.TRACE) {
+		t.logger.Tracef(ctx, "running txn (id: %d) with query: ROLLBACK", ctx.Value(txnIDKey))
 	}
-	return nil
+
+	_, span := trace.Start(ctx, traceName("rollback"))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	return errors.Trace(tx.Rollback())
 }
 
 // Retry defines a generic retry function for applying a function that
