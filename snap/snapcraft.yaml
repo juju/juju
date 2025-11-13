@@ -255,7 +255,7 @@ parts:
     plugin: nil
     source: .
     build-snaps:
-      - go/1.24/stable
+      - go/1.25/stable
     build-packages:
       - musl-tools
     override-build: |
@@ -280,7 +280,7 @@ parts:
     plugin: nil
     source: .
     build-snaps:
-      - go/1.24/stable
+      - go/1.25/stable
     override-build: |
       set -ex
 

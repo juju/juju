@@ -46,6 +46,20 @@ func (m *MockNetworkingV1beta1Interface) EXPECT() *MockNetworkingV1beta1Interfac
 	return m.recorder
 }
 
+// IPAddresses mocks base method.
+func (m *MockNetworkingV1beta1Interface) IPAddresses() v1beta11.IPAddressInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IPAddresses")
+	ret0, _ := ret[0].(v1beta11.IPAddressInterface)
+	return ret0
+}
+
+// IPAddresses indicates an expected call of IPAddresses.
+func (mr *MockNetworkingV1beta1InterfaceMockRecorder) IPAddresses() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPAddresses", reflect.TypeOf((*MockNetworkingV1beta1Interface)(nil).IPAddresses))
+}
+
 // IngressClasses mocks base method.
 func (m *MockNetworkingV1beta1Interface) IngressClasses() v1beta11.IngressClassInterface {
 	m.ctrl.T.Helper()
@@ -86,6 +100,20 @@ func (m *MockNetworkingV1beta1Interface) RESTClient() rest.Interface {
 func (mr *MockNetworkingV1beta1InterfaceMockRecorder) RESTClient() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RESTClient", reflect.TypeOf((*MockNetworkingV1beta1Interface)(nil).RESTClient))
+}
+
+// ServiceCIDRs mocks base method.
+func (m *MockNetworkingV1beta1Interface) ServiceCIDRs() v1beta11.ServiceCIDRInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ServiceCIDRs")
+	ret0, _ := ret[0].(v1beta11.ServiceCIDRInterface)
+	return ret0
+}
+
+// ServiceCIDRs indicates an expected call of ServiceCIDRs.
+func (mr *MockNetworkingV1beta1InterfaceMockRecorder) ServiceCIDRs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceCIDRs", reflect.TypeOf((*MockNetworkingV1beta1Interface)(nil).ServiceCIDRs))
 }
 
 // MockIngressV1Beta1Interface is a mock of IngressInterface interface.

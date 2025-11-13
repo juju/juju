@@ -15,17 +15,19 @@ run_api_imports() {
 
 run_go() {
 	VER=$(golangci-lint --version | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2)
-	if [[ ${VER} != "1.64" ]] && [[ ${VER} != "v1.64" ]]; then
-		(echo >&2 -e '\nError: golangci-lint version does not match 1.64. Please upgrade/downgrade to the right version.')
+	if [[ ${VER} != "2.6" ]] && [[ ${VER} != "v2.6" ]]; then
+		(echo >&2 -e "\nError: golangci-lint version ${VER} does not match 2.6. Please upgrade/downgrade to the right version.")
 		exit 1
 	fi
 	OUT=$(golangci-lint run -c .github/golangci-lint.config.yaml 2>&1)
-	if [[ -n ${OUT} ]]; then
+	chk=$(echo "${OUT}" | grep -E "^0 issues" || true)
+	if [[ -z ${chk} ]]; then
 		(echo >&2 "\\nError: linter has issues:\\n\\n${OUT}")
 		exit 1
 	fi
 	OUT=$(golangci-lint run -c .github/golangci-lint.config.experimental.yaml 2>&1)
-	if [[ -n ${OUT} ]]; then
+	chk=$(echo "${OUT}" | grep -E "^0 issues" || true)
+	if [[ -z ${chk} ]]; then
 		(echo >&2 "\\nError: experimental linter has issues:\\n\\n${OUT}")
 		exit 1
 	fi
@@ -57,6 +59,11 @@ run_govulncheck() {
 		# https://pkg.go.dev/vuln/GO-2024-3313
 		"GO-2024-3312"
 		"GO-2024-3313"
+		# false positive vulnerabilities in github.com/canonical/lxd. These are resolved in lxd-5.21.4.
+		# https://pkg.go.dev/vuln/GO-2025-3999
+		# https://pkg.go.dev/vuln/GO-2025-4003
+		"GO-2025-3999"
+		"GO-2025-4003"
 		# The vulnerability below is for a method not used since Juju 1.x.
 		# https://pkg.go.dev/vuln/GO-2025-3798
 		"GO-2025-3798"

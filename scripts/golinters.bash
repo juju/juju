@@ -22,7 +22,7 @@ if [[ "${CGO_ENABLED}" != "1" ]]; then
 fi
 
 $GOPATH/bin/golangci-lint run \
-    --disable-all \
+    --disable=all \
     --no-config \
     --max-issues-per-linter=50 \
     --max-same-issues=50 \
