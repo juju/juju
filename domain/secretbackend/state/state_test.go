@@ -137,7 +137,7 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 			Name: "my-backend",
 		},
 		BackendType: "vault",
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -302,7 +302,7 @@ WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
 			var k, v string
 			err = rows.Scan(&k, &v)
 			c.Check(err, tc.IsNil)
-			actual.Config[k] = v
+			actual.Config[k] = tc.Must1(c, decodeConfigValue, v)
 		}
 	} else {
 		var count int
@@ -329,7 +329,7 @@ func (s *stateSuite) TestCreateSecretBackendFailed(c *tc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "",
 		},
 	})
@@ -344,7 +344,7 @@ func (s *stateSuite) TestCreateSecretBackendFailed(c *tc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]string{
+		Config: map[string]any{
 			"": "value1",
 		},
 	})
@@ -364,7 +364,7 @@ func (s *stateSuite) TestCreateSecretBackend(c *tc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -423,7 +423,7 @@ func (s *stateSuite) TestUpsertSecretBackendInvalidArg(c *tc.C) {
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "vault",
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "",
 		},
 	})
@@ -434,7 +434,7 @@ func (s *stateSuite) TestUpsertSecretBackendInvalidArg(c *tc.C) {
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "vault",
-		Config: map[string]string{
+		Config: map[string]any{
 			"": "value1",
 		},
 	})
@@ -454,7 +454,7 @@ func (s *stateSuite) TestUpdateSecretBackend(c *tc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -501,7 +501,7 @@ func (s *stateSuite) TestUpdateSecretBackend(c *tc.C) {
 		},
 		TokenRotateInterval: &newRotateInternal,
 		NextRotateTime:      &newNextRotateTime,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1-updated",
 			"key3": "value3",
 		},
@@ -532,7 +532,7 @@ func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *tc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -610,7 +610,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *tc.C) {
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID: backendID2,
 		},
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "",
 		},
 	})
@@ -621,7 +621,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *tc.C) {
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID: backendID2,
 		},
-		Config: map[string]string{
+		Config: map[string]any{
 			"": "value1",
 		},
 	})
@@ -900,7 +900,7 @@ func (s *stateSuite) TestListSecretBackendsIAAS(c *tc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal1,
 		NextRotateTime:      &nextRotateTime1,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key3": "value3",
 			"key4": "value4",
 		},
@@ -979,7 +979,7 @@ func (s *stateSuite) TestListSecretBackendsCAAS(c *tc.C) {
 		BackendType:         "kubernetes",
 		TokenRotateInterval: &rotateInternal2,
 		NextRotateTime:      &nextRotateTime2,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key5": "value5",
 			"key6": "value6",
 		},
@@ -1047,7 +1047,7 @@ func (s *stateSuite) TestListSecretBackendIDs(c *tc.C) {
 			Name: "my-backend1",
 		},
 		BackendType: "vault",
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -1065,7 +1065,7 @@ func (s *stateSuite) TestListSecretBackendIDs(c *tc.C) {
 		BackendType:         "kubernetes",
 		TokenRotateInterval: &rotateInternal2,
 		NextRotateTime:      &nextRotateTime2,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key3": "value3",
 			"key4": "value4",
 		},
@@ -1097,7 +1097,7 @@ func (s *stateSuite) assertListSecretBackendsForModelIAAS(c *tc.C, includeEmpty 
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal1,
 		NextRotateTime:      &nextRotateTime1,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -1125,7 +1125,7 @@ func (s *stateSuite) assertListSecretBackendsForModelIAAS(c *tc.C, includeEmpty 
 		BackendType:         "kubernetes",
 		TokenRotateInterval: &rotateInternal2,
 		NextRotateTime:      &nextRotateTime2,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key3": "value3",
 			"key4": "value4",
 		},
@@ -1214,7 +1214,7 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *tc.C, includeEmpty 
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal1,
 		NextRotateTime:      &nextRotateTime1,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -1242,7 +1242,7 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *tc.C, includeEmpty 
 		BackendType:         "kubernetes",
 		TokenRotateInterval: &rotateInternal2,
 		NextRotateTime:      &nextRotateTime2,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key3": "value3",
 			"key4": "value4",
 		},
@@ -1438,7 +1438,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *tc.C) {
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID: backendID,
 		},
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -1511,7 +1511,7 @@ func (s *stateSuite) TestGetSecretBackend(c *tc.C) {
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID: backendID,
 		},
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},

@@ -67,7 +67,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 			BackendType:         "vault",
 			TokenRotateInterval: &rotateInternal,
 			NextRotateTime:      &nextRotateTime,
-			Config: map[string]string{
+			Config: map[string]any{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -86,7 +86,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 			BackendType:         "vault",
 			TokenRotateInterval: &rotateInternal,
 			NextRotateTime:      &nextRotateTime,
-			Config: map[string]string{
+			Config: map[string]any{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -115,7 +115,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 			ID: backendID1,
 		},
 		NewName: &nameChange,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1-updated",
 			"key3": "value3",
 		},
@@ -132,7 +132,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 		},
 		TokenRotateInterval: &newRotateInternal,
 		NextRotateTime:      &newNextRotateTime,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1-updated",
 			"key3": "value3",
 		},
@@ -217,7 +217,7 @@ func (s *watcherSuite) createModel(c *tc.C, st *state.State, txnRunner database.
 			Name: "my-backend",
 		},
 		BackendType: "vault",
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},

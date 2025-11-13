@@ -30,7 +30,7 @@ type CreateSecretBackendParams struct {
 	BackendType         string
 	TokenRotateInterval *time.Duration
 	NextRotateTime      *time.Time
-	Config              map[string]string
+	Config              map[string]any
 }
 
 // Validate checks that the parameters are valid.
@@ -50,7 +50,9 @@ func (p CreateSecretBackendParams) Validate() error {
 				"%w: empty config key for %q", backenderrors.NotValid, p.Name)
 
 		}
-		if v == "" {
+		// Config values must be non-nil and non-empty strings.
+		// Nil values are rejected to ensure all config entries are explicitly set.
+		if str, ok := v.(string); v == nil || (ok && str == "") {
 			return errors.Errorf(
 				"%w: empty config value for %q", backenderrors.NotValid, p.Name)
 
@@ -65,7 +67,7 @@ type UpdateSecretBackendParams struct {
 	NewName             *string
 	TokenRotateInterval *time.Duration
 	NextRotateTime      *time.Time
-	Config              map[string]string
+	Config              map[string]any
 }
 
 // Validate checks that the parameters are valid.
@@ -88,10 +90,9 @@ func (p UpdateSecretBackendParams) Validate() error {
 				"%w: empty config key for %q", backenderrors.NotValid, p.ID)
 
 		}
-		if v == "" {
+		if str, ok := v.(string); v == nil || (ok && str == "") {
 			return errors.Errorf(
 				"%w: empty config value for %q", backenderrors.NotValid, p.ID)
-
 		}
 	}
 	return nil
