@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       check-build: ${{ steps.filter-files.outputs.check-build }}
-      check-client: ${{ steps.filter-files.outputs.check-client }}
+      check-unit: ${{ steps.filter-files.outputs.check-unit }}
       check-migrate: ${{ steps.filter-files.outputs.check-migrate }}
       check-upgrade: ${{ steps.filter-files.outputs.check-upgrade }}
       check-terraform: ${{ steps.filter-files.outputs.check-terraform }}
