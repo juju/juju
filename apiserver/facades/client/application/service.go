@@ -192,6 +192,14 @@ type ApplicationService interface {
 	// GetApplicationLife looks up the life of the specified application.
 	GetApplicationLife(context.Context, coreapplication.UUID) (life.Value, error)
 
+	// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
+	// keyed to the storage name. If the application does not have any storage
+	// directives set then an empty result is returned.
+	//
+	// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
+	// error is returned.
+	GetApplicationStorageDirectivesInfo(ctx context.Context, uuid coreapplication.UUID) (map[string]application.ApplicationStorageInfo, error)
+
 	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
 

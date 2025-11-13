@@ -40,6 +40,78 @@ const (
 	storageNamespace    = domainsequence.StaticNamespace("storage")
 )
 
+// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
+// keyed to the storage name. If the application does not have any storage
+// directives set then an empty result is returned.
+//
+// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
+// error is returned.
+func (st *State) GetApplicationStorageDirectivesInfo(
+	ctx context.Context,
+	appUUID coreapplication.UUID,
+) (map[string]application.ApplicationStorageInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	appUUIDInput := entityUUID{UUID: appUUID.String()}
+
+	query, err := st.Prepare(`
+SELECT &applicationStorageInfo.* FROM (
+	SELECT  asd.count,
+			asd.size_mib,
+			asd.storage_name,
+			sp.name as storage_pool_name
+	FROM application_storage_directive asd
+	JOIN storage_pool sp ON sp.uuid = asd.storage_pool_uuid
+	WHERE asd.application_uuid = $entityUUID.uuid
+)
+		`,
+		appUUIDInput, applicationStorageInfo{},
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	storageInfoResult := []applicationStorageInfo{}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking application %q exists: %w", appUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"application %q does not exist", appUUID,
+			).Add(applicationerrors.ApplicationNotFound)
+		}
+
+		err = tx.Query(ctx, query, appUUIDInput).GetAll(&storageInfoResult)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Preallocate map with expected size since each storage name
+	appStorage := make(map[string]application.ApplicationStorageInfo, len(storageInfoResult))
+	for _, info := range storageInfoResult {
+		appStorage[info.StorageName] = application.ApplicationStorageInfo{
+			StoragePoolName: info.StoragePoolName,
+			SizeMiB:         info.SizeMiB,
+			Count:           info.Count,
+		}
+	}
+
+	return appStorage, nil
+}
+
 // GetApplicationStorageDirectives returns the storage directives that are
 // set for an application . If the application does not have any storage
 // directives set then an empty result is returned.

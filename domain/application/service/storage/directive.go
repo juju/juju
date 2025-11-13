@@ -7,6 +7,7 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -57,7 +58,27 @@ func (s *Service) GetApplicationStorageDirectives(
 	ctx context.Context,
 	uuid coreapplication.UUID,
 ) ([]application.StorageDirective, error) {
+	if uuid.Validate() != nil {
+		return nil, errors.New("application uuid is not valid").Add(coreerrors.NotValid)
+	}
 	return s.st.GetApplicationStorageDirectives(ctx, uuid)
+}
+
+// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
+// keyed to the storage name. If the application does not have any storage
+// directives set then an empty result is returned.
+//
+// The following errors may be expected:
+// - [coreerrors.NotValid] when the supplied application uuid is not valid.
+// - [applicationerrors.ApplicationNotFound] if the application does not exist.
+func (s *Service) GetApplicationStorageDirectivesInfo(
+	ctx context.Context,
+	uuid coreapplication.UUID,
+) (map[string]application.ApplicationStorageInfo, error) {
+	if uuid.Validate() != nil {
+		return nil, errors.New("application uuid is not valid").Add(coreerrors.NotValid)
+	}
+	return s.st.GetApplicationStorageDirectivesInfo(ctx, uuid)
 }
 
 // MakeApplicationStorageDirectiveArgs creates a slice of
