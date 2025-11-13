@@ -80,6 +80,7 @@ type SubnetState interface {
 	// GetSubnet returns the subnet by UUID.
 	GetSubnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
 	// GetSubnetsByCIDR returns the subnets by CIDR.
+	//
 	// Deprecated: this method should be removed when we re-work the API
 	// for moving subnets.
 	GetSubnetsByCIDR(ctx context.Context, cidrs ...string) (network.SubnetInfos, error)

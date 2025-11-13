@@ -78,8 +78,8 @@ run_context_background() {
 
 run_go() {
 	VER=$(golangci-lint --version | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2)
-	if [[ ${VER} != "2.5" ]] && [[ ${VER} != "v2.5.0" ]]; then
-		(echo >&2 -e '\nError: golangci-lint version does not match 2.5.0. Please upgrade/downgrade to the right version.')
+	if [[ ${VER} != "2.6" ]] && [[ ${VER} != "v2.6" ]]; then
+		(echo >&2 -e "\nError: golangci-lint version ${VER} does not match 2.6. Please upgrade/downgrade to the right version.")
 		exit 1
 	fi
 	OUT=$(golangci-lint run -c .golangci.yml 2>&1 | sed '/0 issues./d')
@@ -136,15 +136,11 @@ run_govulncheck() {
 		# The vulnerability below is for a method not used since Juju 1.x.
 		# https://pkg.go.dev/vuln/GO-2025-3798
 		"GO-2025-3798"
-		# TODO(nvinuesa): this ignore is only temporary until we update
-		# LXD to a tagged version that includes the fixes and we address the
-		# breaking changes from it.
+		# false positive vulnerabilities in github.com/canonical/lxd. These are resolved in lxd-5.21.4.
+		# https://pkg.go.dev/vuln/GO-2025-3999
+		# https://pkg.go.dev/vuln/GO-2025-4003
 		"GO-2025-3999"
-		"GO-2025-4000"
-		"GO-2025-4001"
-		"GO-2025-4002"
 		"GO-2025-4003"
-		"GO-2025-4005"
 	)
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 

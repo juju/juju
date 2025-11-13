@@ -93,6 +93,7 @@ type Resource struct {
 	// PendingID identifies that this resource is pending and
 	// distinguishes it from other pending resources with the same model
 	// ID (and from the active resource).
+	//
 	// Deprecated: it is not used anymore in 4.0.
 	PendingID string `json:"pending-id"`
 

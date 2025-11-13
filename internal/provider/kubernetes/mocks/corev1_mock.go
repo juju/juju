@@ -167,6 +167,45 @@ func (c *MockEventInterfaceCreateWithEventNamespaceCall) DoAndReturn(f func(*v1.
 	return c
 }
 
+// CreateWithEventNamespaceWithContext mocks base method.
+func (m *MockEventInterface) CreateWithEventNamespaceWithContext(arg0 context.Context, arg1 *v1.Event) (*v1.Event, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateWithEventNamespaceWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*v1.Event)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateWithEventNamespaceWithContext indicates an expected call of CreateWithEventNamespaceWithContext.
+func (mr *MockEventInterfaceMockRecorder) CreateWithEventNamespaceWithContext(arg0, arg1 any) *MockEventInterfaceCreateWithEventNamespaceWithContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateWithEventNamespaceWithContext", reflect.TypeOf((*MockEventInterface)(nil).CreateWithEventNamespaceWithContext), arg0, arg1)
+	return &MockEventInterfaceCreateWithEventNamespaceWithContextCall{Call: call}
+}
+
+// MockEventInterfaceCreateWithEventNamespaceWithContextCall wrap *gomock.Call
+type MockEventInterfaceCreateWithEventNamespaceWithContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockEventInterfaceCreateWithEventNamespaceWithContextCall) Return(arg0 *v1.Event, arg1 error) *MockEventInterfaceCreateWithEventNamespaceWithContextCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockEventInterfaceCreateWithEventNamespaceWithContextCall) Do(f func(context.Context, *v1.Event) (*v1.Event, error)) *MockEventInterfaceCreateWithEventNamespaceWithContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockEventInterfaceCreateWithEventNamespaceWithContextCall) DoAndReturn(f func(context.Context, *v1.Event) (*v1.Event, error)) *MockEventInterfaceCreateWithEventNamespaceWithContextCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Delete mocks base method.
 func (m *MockEventInterface) Delete(arg0 context.Context, arg1 string, arg2 v11.DeleteOptions) error {
 	m.ctrl.T.Helper()
@@ -442,6 +481,45 @@ func (c *MockEventInterfacePatchWithEventNamespaceCall) DoAndReturn(f func(*v1.E
 	return c
 }
 
+// PatchWithEventNamespaceWithContext mocks base method.
+func (m *MockEventInterface) PatchWithEventNamespaceWithContext(arg0 context.Context, arg1 *v1.Event, arg2 []byte) (*v1.Event, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PatchWithEventNamespaceWithContext", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.Event)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PatchWithEventNamespaceWithContext indicates an expected call of PatchWithEventNamespaceWithContext.
+func (mr *MockEventInterfaceMockRecorder) PatchWithEventNamespaceWithContext(arg0, arg1, arg2 any) *MockEventInterfacePatchWithEventNamespaceWithContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PatchWithEventNamespaceWithContext", reflect.TypeOf((*MockEventInterface)(nil).PatchWithEventNamespaceWithContext), arg0, arg1, arg2)
+	return &MockEventInterfacePatchWithEventNamespaceWithContextCall{Call: call}
+}
+
+// MockEventInterfacePatchWithEventNamespaceWithContextCall wrap *gomock.Call
+type MockEventInterfacePatchWithEventNamespaceWithContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockEventInterfacePatchWithEventNamespaceWithContextCall) Return(arg0 *v1.Event, arg1 error) *MockEventInterfacePatchWithEventNamespaceWithContextCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockEventInterfacePatchWithEventNamespaceWithContextCall) Do(f func(context.Context, *v1.Event, []byte) (*v1.Event, error)) *MockEventInterfacePatchWithEventNamespaceWithContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockEventInterfacePatchWithEventNamespaceWithContextCall) DoAndReturn(f func(context.Context, *v1.Event, []byte) (*v1.Event, error)) *MockEventInterfacePatchWithEventNamespaceWithContextCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Search mocks base method.
 func (m *MockEventInterface) Search(arg0 *runtime.Scheme, arg1 runtime.Object) (*v1.EventList, error) {
 	m.ctrl.T.Helper()
@@ -477,6 +555,45 @@ func (c *MockEventInterfaceSearchCall) Do(f func(*runtime.Scheme, runtime.Object
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockEventInterfaceSearchCall) DoAndReturn(f func(*runtime.Scheme, runtime.Object) (*v1.EventList, error)) *MockEventInterfaceSearchCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SearchWithContext mocks base method.
+func (m *MockEventInterface) SearchWithContext(arg0 context.Context, arg1 *runtime.Scheme, arg2 runtime.Object) (*v1.EventList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SearchWithContext", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.EventList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SearchWithContext indicates an expected call of SearchWithContext.
+func (mr *MockEventInterfaceMockRecorder) SearchWithContext(arg0, arg1, arg2 any) *MockEventInterfaceSearchWithContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchWithContext", reflect.TypeOf((*MockEventInterface)(nil).SearchWithContext), arg0, arg1, arg2)
+	return &MockEventInterfaceSearchWithContextCall{Call: call}
+}
+
+// MockEventInterfaceSearchWithContextCall wrap *gomock.Call
+type MockEventInterfaceSearchWithContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockEventInterfaceSearchWithContextCall) Return(arg0 *v1.EventList, arg1 error) *MockEventInterfaceSearchWithContextCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockEventInterfaceSearchWithContextCall) Do(f func(context.Context, *runtime.Scheme, runtime.Object) (*v1.EventList, error)) *MockEventInterfaceSearchWithContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockEventInterfaceSearchWithContextCall) DoAndReturn(f func(context.Context, *runtime.Scheme, runtime.Object) (*v1.EventList, error)) *MockEventInterfaceSearchWithContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -555,6 +672,45 @@ func (c *MockEventInterfaceUpdateWithEventNamespaceCall) Do(f func(*v1.Event) (*
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockEventInterfaceUpdateWithEventNamespaceCall) DoAndReturn(f func(*v1.Event) (*v1.Event, error)) *MockEventInterfaceUpdateWithEventNamespaceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateWithEventNamespaceWithContext mocks base method.
+func (m *MockEventInterface) UpdateWithEventNamespaceWithContext(arg0 context.Context, arg1 *v1.Event) (*v1.Event, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateWithEventNamespaceWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*v1.Event)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateWithEventNamespaceWithContext indicates an expected call of UpdateWithEventNamespaceWithContext.
+func (mr *MockEventInterfaceMockRecorder) UpdateWithEventNamespaceWithContext(arg0, arg1 any) *MockEventInterfaceUpdateWithEventNamespaceWithContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateWithEventNamespaceWithContext", reflect.TypeOf((*MockEventInterface)(nil).UpdateWithEventNamespaceWithContext), arg0, arg1)
+	return &MockEventInterfaceUpdateWithEventNamespaceWithContextCall{Call: call}
+}
+
+// MockEventInterfaceUpdateWithEventNamespaceWithContextCall wrap *gomock.Call
+type MockEventInterfaceUpdateWithEventNamespaceWithContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockEventInterfaceUpdateWithEventNamespaceWithContextCall) Return(arg0 *v1.Event, arg1 error) *MockEventInterfaceUpdateWithEventNamespaceWithContextCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockEventInterfaceUpdateWithEventNamespaceWithContextCall) Do(f func(context.Context, *v1.Event) (*v1.Event, error)) *MockEventInterfaceUpdateWithEventNamespaceWithContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockEventInterfaceUpdateWithEventNamespaceWithContextCall) DoAndReturn(f func(context.Context, *v1.Event) (*v1.Event, error)) *MockEventInterfaceUpdateWithEventNamespaceWithContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2363,6 +2519,45 @@ func (c *MockPodInterfaceUpdateEphemeralContainersCall) Do(f func(context.Contex
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockPodInterfaceUpdateEphemeralContainersCall) DoAndReturn(f func(context.Context, string, *v1.Pod, v11.UpdateOptions) (*v1.Pod, error)) *MockPodInterfaceUpdateEphemeralContainersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateResize mocks base method.
+func (m *MockPodInterface) UpdateResize(arg0 context.Context, arg1 string, arg2 *v1.Pod, arg3 v11.UpdateOptions) (*v1.Pod, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateResize", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*v1.Pod)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateResize indicates an expected call of UpdateResize.
+func (mr *MockPodInterfaceMockRecorder) UpdateResize(arg0, arg1, arg2, arg3 any) *MockPodInterfaceUpdateResizeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateResize", reflect.TypeOf((*MockPodInterface)(nil).UpdateResize), arg0, arg1, arg2, arg3)
+	return &MockPodInterfaceUpdateResizeCall{Call: call}
+}
+
+// MockPodInterfaceUpdateResizeCall wrap *gomock.Call
+type MockPodInterfaceUpdateResizeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockPodInterfaceUpdateResizeCall) Return(arg0 *v1.Pod, arg1 error) *MockPodInterfaceUpdateResizeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockPodInterfaceUpdateResizeCall) Do(f func(context.Context, string, *v1.Pod, v11.UpdateOptions) (*v1.Pod, error)) *MockPodInterfaceUpdateResizeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockPodInterfaceUpdateResizeCall) DoAndReturn(f func(context.Context, string, *v1.Pod, v11.UpdateOptions) (*v1.Pod, error)) *MockPodInterfaceUpdateResizeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

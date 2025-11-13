@@ -299,6 +299,9 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	// user-pass or macaroons.
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
 		internallogger.GetLogger("juju.cmd.loginprovider"),
+		api.NewClientCredentialsLoginProviderFromEnvironment(
+			func() { supportsOIDCLogin = true },
+		),
 		api.NewSessionTokenLoginProvider(
 			"",
 			ctx.Stderr,

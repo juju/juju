@@ -390,11 +390,13 @@ type RemoteRelationChangeEvent struct {
 
 	// DepartedUnits contains the ids of units that have departed
 	// the relation since the last change.
+	//
 	// Deprecated: Use InScopeUnits will tell us which units are expected
 	// to be alive and in-scope. Anything else should be treated as departed.
 	DepartedUnits []int `json:"departed-units,omitempty"`
 
 	// UnitCount is the number of units still in relation scope.
+	//
 	// Deprecated: Use len(InScopeUnits) instead.
 	UnitCount int `json:"unit-count"`
 }

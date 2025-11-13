@@ -122,6 +122,82 @@ func (c *MockAdmissionregistrationV1InterfaceRESTClientCall) DoAndReturn(f func(
 	return c
 }
 
+// ValidatingAdmissionPolicies mocks base method.
+func (m *MockAdmissionregistrationV1Interface) ValidatingAdmissionPolicies() v12.ValidatingAdmissionPolicyInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidatingAdmissionPolicies")
+	ret0, _ := ret[0].(v12.ValidatingAdmissionPolicyInterface)
+	return ret0
+}
+
+// ValidatingAdmissionPolicies indicates an expected call of ValidatingAdmissionPolicies.
+func (mr *MockAdmissionregistrationV1InterfaceMockRecorder) ValidatingAdmissionPolicies() *MockAdmissionregistrationV1InterfaceValidatingAdmissionPoliciesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidatingAdmissionPolicies", reflect.TypeOf((*MockAdmissionregistrationV1Interface)(nil).ValidatingAdmissionPolicies))
+	return &MockAdmissionregistrationV1InterfaceValidatingAdmissionPoliciesCall{Call: call}
+}
+
+// MockAdmissionregistrationV1InterfaceValidatingAdmissionPoliciesCall wrap *gomock.Call
+type MockAdmissionregistrationV1InterfaceValidatingAdmissionPoliciesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAdmissionregistrationV1InterfaceValidatingAdmissionPoliciesCall) Return(arg0 v12.ValidatingAdmissionPolicyInterface) *MockAdmissionregistrationV1InterfaceValidatingAdmissionPoliciesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAdmissionregistrationV1InterfaceValidatingAdmissionPoliciesCall) Do(f func() v12.ValidatingAdmissionPolicyInterface) *MockAdmissionregistrationV1InterfaceValidatingAdmissionPoliciesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAdmissionregistrationV1InterfaceValidatingAdmissionPoliciesCall) DoAndReturn(f func() v12.ValidatingAdmissionPolicyInterface) *MockAdmissionregistrationV1InterfaceValidatingAdmissionPoliciesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ValidatingAdmissionPolicyBindings mocks base method.
+func (m *MockAdmissionregistrationV1Interface) ValidatingAdmissionPolicyBindings() v12.ValidatingAdmissionPolicyBindingInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidatingAdmissionPolicyBindings")
+	ret0, _ := ret[0].(v12.ValidatingAdmissionPolicyBindingInterface)
+	return ret0
+}
+
+// ValidatingAdmissionPolicyBindings indicates an expected call of ValidatingAdmissionPolicyBindings.
+func (mr *MockAdmissionregistrationV1InterfaceMockRecorder) ValidatingAdmissionPolicyBindings() *MockAdmissionregistrationV1InterfaceValidatingAdmissionPolicyBindingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidatingAdmissionPolicyBindings", reflect.TypeOf((*MockAdmissionregistrationV1Interface)(nil).ValidatingAdmissionPolicyBindings))
+	return &MockAdmissionregistrationV1InterfaceValidatingAdmissionPolicyBindingsCall{Call: call}
+}
+
+// MockAdmissionregistrationV1InterfaceValidatingAdmissionPolicyBindingsCall wrap *gomock.Call
+type MockAdmissionregistrationV1InterfaceValidatingAdmissionPolicyBindingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAdmissionregistrationV1InterfaceValidatingAdmissionPolicyBindingsCall) Return(arg0 v12.ValidatingAdmissionPolicyBindingInterface) *MockAdmissionregistrationV1InterfaceValidatingAdmissionPolicyBindingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAdmissionregistrationV1InterfaceValidatingAdmissionPolicyBindingsCall) Do(f func() v12.ValidatingAdmissionPolicyBindingInterface) *MockAdmissionregistrationV1InterfaceValidatingAdmissionPolicyBindingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAdmissionregistrationV1InterfaceValidatingAdmissionPolicyBindingsCall) DoAndReturn(f func() v12.ValidatingAdmissionPolicyBindingInterface) *MockAdmissionregistrationV1InterfaceValidatingAdmissionPolicyBindingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ValidatingWebhookConfigurations mocks base method.
 func (m *MockAdmissionregistrationV1Interface) ValidatingWebhookConfigurations() v12.ValidatingWebhookConfigurationInterface {
 	m.ctrl.T.Helper()

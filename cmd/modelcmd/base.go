@@ -23,11 +23,13 @@ import (
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
 	k8sproxy "github.com/juju/juju/internal/provider/kubernetes/proxy"
 	proxyerrors "github.com/juju/juju/internal/proxy/errors"
@@ -610,12 +612,17 @@ func newAPIConnectionParams(
 	}
 
 	if controllerDetails.OIDCLogin {
-		dialOpts.LoginProvider = sessionLoginFactory.NewLoginProvider(
-			accountDetails.SessionToken,
-			cmdOut,
-			func(sessionToken string) {
-				accountDetails.SessionToken = sessionToken
-			},
+		// If the controller is OIDCLogin, we know it is capable of device and client credential flows.
+		dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+			internallogger.GetLogger("juju.cmd.loginprovider"),
+			api.NewClientCredentialsLoginProviderFromEnvironment(func() {}),
+			sessionLoginFactory.NewLoginProvider(
+				accountDetails.SessionToken,
+				cmdOut,
+				func(sessionToken string) {
+					accountDetails.SessionToken = sessionToken
+				},
+			),
 		)
 	}
 

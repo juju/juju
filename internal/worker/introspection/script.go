@@ -38,6 +38,7 @@ func (osFileReaderWriter) WriteFile(filename string, data []byte, perm os.FileMo
 // WriteProfileFunctions writes the shellFuncs below to a file in the
 // /etc/profile.d directory so all bash terminals can easily access the
 // introspection worker.
+//
 // Deprecated: use UpdateProfileFunction with a FileReaderWriter.
 func WriteProfileFunctions(profileDir string) error {
 	return UpdateProfileFunctions(osFileReaderWriter{}, profileDir)

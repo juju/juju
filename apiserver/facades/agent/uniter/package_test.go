@@ -41,6 +41,7 @@ import (
 //
 // Suites embedding this base are skipped.
 // Testing factory functionality is removed.
+//
 // Deprecated: Retained for test documentation purposes.
 type uniterSuiteBase struct {
 	testing.ApiServerSuite

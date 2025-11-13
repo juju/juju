@@ -57,9 +57,8 @@ func (s *rbacSuite) TestEnsureRoleBinding(c *tc.C) {
 	ctx := c.Context()
 	rbName := "rb-name"
 	// Check that role binding does not exist initially.
-	res, err := s.k8sclient.client.RbacV1().RoleBindings(s.k8sclient.namespace).Get(ctx, rbName, v1.GetOptions{})
+	_, err := s.k8sclient.client.RbacV1().RoleBindings(s.k8sclient.namespace).Get(ctx, rbName, v1.GetOptions{})
 	c.Assert(k8serrors.IsNotFound(err), tc.Equals, true)
-	c.Assert(res, tc.IsNil)
 
 	// Ensure role binding should create the role binding.
 	rb, cleanupsForCreate, err := s.k8sclient.ensureRoleBinding(ctx, &rbacv1.RoleBinding{
@@ -78,7 +77,7 @@ func (s *rbacSuite) TestEnsureRoleBinding(c *tc.C) {
 	c.Assert(rb.Name, tc.Equals, rbName)
 
 	// Get the role binding to check it was created correctly.
-	res, err = s.k8sclient.client.RbacV1().RoleBindings(s.k8sclient.namespace).Get(ctx, rbName, v1.GetOptions{})
+	res, err := s.k8sclient.client.RbacV1().RoleBindings(s.k8sclient.namespace).Get(ctx, rbName, v1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Name, tc.Equals, rbName)
 	c.Assert(res.Labels, tc.DeepEquals, map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
@@ -120,9 +119,8 @@ func (s *rbacSuite) TestUpdateClusterRole(c *tc.C) {
 			},
 		},
 	}
-	cr, err := s.k8sclient.updateClusterRole(ctx, clusterRoleUpdate)
+	_, err := s.k8sclient.updateClusterRole(ctx, clusterRoleUpdate)
 	c.Assert(errors.Is(err, errors.NotFound), tc.Equals, true)
-	c.Assert(cr, tc.IsNil)
 
 	// Create the cluster role.
 	clusterRoleCreated := &rbacv1.ClusterRole{
@@ -146,7 +144,7 @@ func (s *rbacSuite) TestUpdateClusterRole(c *tc.C) {
 	c.Assert(created.Rules, tc.DeepEquals, clusterRoleCreated.Rules)
 
 	// Update the cluster role and assert that the rules are updated correctly.
-	cr, err = s.k8sclient.updateClusterRole(ctx, clusterRoleUpdate)
+	cr, err := s.k8sclient.updateClusterRole(ctx, clusterRoleUpdate)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cr.Name, tc.Equals, "cluster-role-name")
 	c.Assert(cr.Rules, tc.DeepEquals, clusterRoleUpdate.Rules)

@@ -80,6 +80,9 @@ linters:
       - _deps
       - _build
       - tests/tmp.*
+      - third_party$
+      - builtin$
+      - examples$
     rules:
       - path: (.+)_test\.go
         linters:
@@ -105,3 +108,6 @@ formatters:
       - _deps
       - _build
       - tests/tmp.*
+      - third_party$
+      - builtin$
+      - examples$

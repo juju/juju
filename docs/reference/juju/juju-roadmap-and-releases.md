@@ -52,10 +52,17 @@ ADD WHEN FIXED.
 Juju 3.6 series is LTS
 ```
 
-### 🔸 **Juju 3.6.10**
-🗓️ 23 Sep 2025
+### 🔸 **Juju 3.6.11**
+🗓️ 21 Oct 2025
 
-For a detailed list of every commit in this release, refer to the [Github Release Notes](https://github.com/juju/juju/releases/tag/v3.6.10).
+This is a bug fix release primarily to address 2 regressions in the 3.6.10 release. As such, the 3.6.10 release is revoked.
+
+The release notes below document the entire change set from 3.6.9.
+
+As well as the regression fixes, the 3.6.11 release also contains updates to the secrets backend to improve the performance of dealing
+with 1000s of secret revisions.
+
+For a detailed list of every commit in this release, refer to the [Github 3.6.11 Release Notes](https://github.com/juju/juju/releases/tag/v3.6.11).
 
 ⚙️ Features:
 
@@ -148,6 +155,7 @@ Many documentation improvements have been done for this release. Highlights incl
 - visual enhancements to tips and notes
 - removal of command aliases from CLI doc to reduce clutter
 - hook and storage reference doc improvements
+- add missing model configuration attributes
 
 * fix: update secret-set hook tool help by @dimaqq in https://github.com/juju/juju/pull/20567
 * docs: update starter pack by @tmihoc in https://github.com/juju/juju/pull/20419
@@ -163,8 +171,42 @@ Many documentation improvements have been done for this release. Highlights incl
 * docs: add caution banner for 3.5 EOL by @nvinuesa in https://github.com/juju/juju/pull/20570
 * doc: remove command aliases from cli reference doc by @wallyworld in https://github.com/juju/juju/pull/20584
 * feat(docs): export dark-mode SVGs in Excalidraw converter by @anvial in https://github.com/juju/juju/pull/20420
+* docs: add client ref, add changes from autogen, fix formatting in ref… by @tmihoc in https://github.com/juju/juju/pull/20572
+* docs: add missing model configs by @tmihoc in https://github.com/juju/juju/pull/20678
+* docs: add assets and data flows to security doc by @tmihoc in https://github.com/juju/juju/pull/20731
+* docs: stress the importance of secret removal by @manadart in https://github.com/juju/juju/pull/20792
 
 🛠️ Fixes:
+
+#### Juju infrastructure
+The commits below fix a regression in 3.6.10 which could in some circumstances cause a deadlock when closing
+a web socket connection.
+* fix: close response body when we get an error by @manadart in https://github.com/juju/juju/pull/20732
+* fix: add close http body linter and address warnings by @kian99 in https://github.com/juju/juju/pull/20761
+* fix: set IO deadlines without lock on websocket close by @manadart in https://github.com/juju/juju/pull/20744
+* feat: tighten up API client closure by @manadart in https://github.com/juju/juju/pull/20778
+
+#### Secrets
+The commits below contain a fix to ensure obsolete secret revisions are purged from unit state, preventing unbounded
+growth when individual revisions are purged. There's also a fix to secret deletion to prevent removal of secret
+revisions partially matching the one asked for. Included as well are various performance improvements to better
+handle 1000s of secret revisions.
+
+* fix: add missing model-uuid index to secretRevisions by @manadart in https://github.com/juju/juju/pull/20688
+* fix: secret collection indexes by @manadart in https://github.com/juju/juju/pull/20695
+* fix: add a script for cleaning up unitstate by @jameinel in https://github.com/juju/juju/pull/20783
+* fix: make secret-remove hook command idempotent by @wallyworld in https://github.com/juju/juju/pull/20796
+* fix: purge obsolete revision from unit state when revision is removed by @wallyworld in https://github.com/juju/juju/pull/20862
+* fix: allow secret-remove --revision to be called multiple times by @jameinel in https://github.com/juju/juju/pull/20806
+* refactor: improve regex used to query secret artefacts in state by @wallyworld in https://github.com/juju/juju/pull/20829
+* refactor: improve marking of orphaned revisions by @wallyworld in https://github.com/juju/juju/pull/20861
+* refactor: optimise secret + revision metadata fetching for units by @hpidcock in https://github.com/juju/juju/pull/20878
+* feat: add a script for cleaning up obsolete secrets by @jameinel in https://github.com/juju/juju/pull/20720
+
+#### Juju refresh command
+In some cases, the `juju refresh` command could panic.
+
+* fix(refresh): fix panic in juju refresh when the channel is nil by @SimoneDutto in https://github.com/juju/juju/pull/20868
 
 #### Openstack
 The 3.6.9 release introduced a [regression](https://github.com/juju/juju/issues/20513) when running on Openstack clouds where security groups are disabled.
@@ -180,6 +222,14 @@ Using images configured for pro support is fixed.
 * fix: use `disk-type` instead of `type` when querying disk type on gce by @adglkh in https://github.com/juju/juju/pull/20557
 
 #### Kubernetes
+The mutating web hook created a misnamed label on pods which cause a regression when deploying certain charms. 
+
+* fix: mutating web hook now attaches correct labels to k8s app resources by @wallyworld in https://github.com/juju/juju/pull/20774
+
+Destroying a kubernetes controller could sometimes result in an error.
+
+* fix: destroy/kill-controller for CAAS environs by @luci1900 in https://github.com/juju/juju/pull/20758
+
 Deletion of applications deployed using sidecar charms now also deletes any Kubernetes resources created directly by the charm
 and not managed by Juju. These include:
 - custom resource definitions
