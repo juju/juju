@@ -269,6 +269,52 @@ where  r.uuid = ?`, removalUUID,
 	ensureRemovalJob("removal-uuid")
 }
 
+func (s *modelSuite) TestMarkModelAsDeadNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.MarkModelAsDead(c.Context(), "foo", false)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *modelSuite) TestMarkModelAsDeadStillAlive(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	err := st.MarkModelAsDead(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *modelSuite) TestMarkModelAsDeadStillDying(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	s.advanceModelLife(c, modelUUID, life.Dying)
+
+	err := st.MarkModelAsDead(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelSuite) TestMarkModelAsDead(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	err := st.MarkModelAsDead(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+
+	s.advanceModelLife(c, modelUUID, life.Dying)
+
+	err = st.MarkModelAsDead(c.Context(), modelUUID, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkModelLife(c, modelUUID, life.Dead)
+}
+
 func (s *modelSuite) TestDeleteModel(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
