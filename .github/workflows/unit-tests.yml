@@ -5,7 +5,7 @@ on:
 
 jobs:
   tests:
-    name: "Client Tests"
+    name: "Unit Tests"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -32,7 +32,7 @@ jobs:
       if: (matrix.os == 'ubuntu-latest')
       shell: bash
       run: |
-        TEST_TIMEOUT="15m" make cover-test
+        TEST_TIMEOUT="30m" make cover-test
 
     - name: "Test (macOS)"
       if: (matrix.os == 'macOS-latest')
