@@ -1,16 +1,16 @@
-name: "Client Tests"
+name: "Unit Tests"
 on:
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  test-client-ubuntu:
+  tests:
     name: "Client Tests"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macOS-latest]
+        os: [ubuntu-latest, macOS-latest]
 
     steps:
     - name: "Checkout"
@@ -28,15 +28,13 @@ jobs:
       run: |
         sudo make MUSL_CROSS_COMPILE=0 musl-install dqlite-install
 
-    - name: "Test client (Ubuntu)"
+    - name: "Test (Ubuntu)"
       if: (matrix.os == 'ubuntu-latest')
       shell: bash
       run: |
-        # Jenkins can perform the full jujud testing.
-        TEST_PACKAGES=./cmd/juju/... COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
-        TEST_PACKAGES=./cmd/plugins/... COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
+        COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
 
-    - name: "Test client (macOS)"
+    - name: "Test (macOS)"
       if: (matrix.os == 'macOS-latest')
       shell: bash
       run: |

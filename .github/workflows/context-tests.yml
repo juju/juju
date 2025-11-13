@@ -37,10 +37,10 @@ jobs:
               - 'scripts/dqlite/**'
               - 'Makefile'
               - 'make_functions.sh'
-            check-client:
+            check-unit:
               - '**.go'
               - 'go.mod'
-              - '.github/workflows/client-tests.yml'
+              - '.github/workflows/unit-tests.yml'
               - 'scripts/dqlite/**'
               - 'Makefile'
               - 'make_functions.sh'
@@ -106,11 +106,11 @@ jobs:
     if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-docs == 'true'
     uses: ./.github/workflows/docs.yml
 
-  client:
+  unit:
     needs: [changed-files]
-    name: Client Tests
-    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-client == 'true'
-    uses: ./.github/workflows/client-tests.yml
+    name: Unit Tests
+    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-unit == 'true'
+    uses: ./.github/workflows/unit-tests.yml
 
   terraform:
     needs: [changed-files]
@@ -132,7 +132,7 @@ jobs:
     uses: ./.github/workflows/upgrade.yml
 
   result-check:
-    needs: [build,snap,generate,docs,client,terraform,migrate,upgrade]
+    needs: [build,snap,generate,docs,unit,terraform,migrate,upgrade]
     runs-on: ubuntu-latest
     name: Check Tests Passed
     if: always() && !cancelled()
@@ -146,7 +146,7 @@ jobs:
                 && ${{ needs.snap.result == 'success' || needs.snap.result == 'skipped' }} \
                 && ${{ needs.generate.result == 'success' || needs.generate.result == 'skipped' }} \
                 && ${{ needs.docs.result == 'success' || needs.docs.result == 'skipped' }} \
-                && ${{ needs.client.result == 'success' || needs.client.result == 'skipped' }} \
+                && ${{ needs.unit.result == 'success' || needs.unit.result == 'skipped' }} \
                 && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \
                 && ${{ needs.terraform.result != 'fix me' || needs.terraform.result == 'skipped' }} \
                 && ${{ needs.upgrade.result == 'success' || needs.upgrade.result == 'skipped' }}; then
