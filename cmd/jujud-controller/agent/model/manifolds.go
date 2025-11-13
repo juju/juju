@@ -476,12 +476,11 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
-				BrokerName:         providerTrackerName,
-				DomainServicesName: domainServicesName,
-				ControllerUUID:     agentConfig.Controller().Id(),
-				ModelUUID:          agentConfig.Model().Id(),
-				NewWorker:          caasfirewaller.NewWorker,
-				Logger:             config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
+				BrokerName:           providerTrackerName,
+				DomainServicesName:   domainServicesName,
+				NewAppFirewallWorker: caasfirewaller.NewAppFirewallerWorker,
+				NewFirewallWorker:    caasfirewaller.NewFirewallerWorker,
+				Logger:               config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
 			},
 		)),
 
