@@ -233,7 +233,7 @@ Controls: {ref}`controls-user-authentication`
 (assets-database)=
 ### Database
 
-Overview: Juju stores all its state and operational data in a database powered by Dqlite or MongoDB. This includes model configurations, status of applications, and historical logs. This database can only be accessed by authorized entities (controllers, agents, or administrators), following proper authentication. All passwords saved in the database are hashed and salted. Juju is careful not to store sensitive information in logs.
+Overview: Juju stores all its state and operational data in a database powered by Dqlite. This includes model configurations, status of applications, and historical logs. This database can only be accessed by authorized entities (controllers, agents, or administrators), following proper authentication. All passwords saved in the database are hashed and salted. Juju is careful not to store sensitive information in logs.
 
 Owned by: Controller.
 
@@ -529,7 +529,7 @@ Controls: {ref}`controls-tls-encryption`
 (data-flows-database-database)=
 ### Database - Database
 
-Overview: The data flow between Juju databases occurs in high-availability (HA) configurations where multiple instances of the Juju controller are set up to ensure redundancy and fault tolerance. In an HA setup, each Juju controller has its own instance of the Juju database (usually backed by MongoDB or, more recently, Dqlite) that needs to stay synchronized with the others.
+Overview: The data flow between Juju databases occurs in high-availability (HA) configurations where multiple instances of the Juju controller are set up to ensure redundancy and fault tolerance. In an HA setup, each Juju controller has its own instance of the Juju database (backed by Dqlite) that needs to stay synchronized with the others.
 
 Example threats:
 - {ref}`threats-availability`: An attacker could overwhelm one or both Juju DB instances with excessive or malformed synchronization requests, effectively causing a DoS condition.
