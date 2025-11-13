@@ -6,6 +6,7 @@ package schema
 import (
 	"embed"
 	"fmt"
+	"path/filepath"
 
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/domain/schema/model/triggers"
@@ -116,7 +117,7 @@ func ModelDDL() *schema.Schema {
 	}
 
 	patches, postPatches := readPatches(entries, modelSchemaDir, func(s string) string {
-		return fmt.Sprintf("model/sql/%s", s)
+		return filepath.Join("model/sql", s)
 	})
 
 	// Changestream triggers.
