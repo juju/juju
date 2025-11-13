@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/pinger"
 	"github.com/juju/juju/core/securitylog"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -312,6 +313,32 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 			authenticated = true
 			a.root.authInfo = authInfo
 			result.controllerMachineLogin = authInfo.Controller
+
+			if authInfo.Tag.Kind() != names.UserTagKind {
+				break
+			}
+
+			authUser, err := user.NewName(authInfo.Tag.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			_, err = a.root.domainServices.Access().GetUserByName(ctx, authUser)
+			if err != nil {
+				if errors.Is(err, accesserrors.UserNotFound) && !authUser.IsLocal() {
+					adminUser, err := a.root.domainServices.Access().GetUserByName(ctx, user.AdminUserName)
+					if err != nil {
+						return nil, errors.Annotatef(err, "getting admin user %q", user.AdminUserName)
+					}
+
+					err = a.root.domainServices.Access().AddExternalUser(ctx, authUser, authUser.String(), adminUser.UUID)
+					if err != nil && !errors.Is(err, accesserrors.UserAlreadyExists) {
+						return nil, errors.Trace(err)
+					}
+					break
+				}
+				return nil, errors.Trace(err)
+			}
 			break
 		}
 
