@@ -202,6 +202,8 @@ func (rows secretBackendRows) toSecretBackends(ctx context.Context, logger logge
 		}
 		decodedContent, err := decodeConfigValue(row.ConfigContent)
 		if err != nil {
+			// This is unexpected and shouldn't happen unless encoding changes
+			// look at `domain/secretbackend/state/encode.go`.
 			logger.Warningf(ctx, "failed to decode config value %q: %v", row.ConfigName, err)
 			continue
 		}

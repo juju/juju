@@ -50,6 +50,8 @@ func (p CreateSecretBackendParams) Validate() error {
 				"%w: empty config key for %q", backenderrors.NotValid, p.Name)
 
 		}
+		// Config values must be non-nil and non-empty strings.
+		// Nil values are rejected to ensure all config entries are explicitly set.
 		if str, ok := v.(string); v == nil || (ok && str == "") {
 			return errors.Errorf(
 				"%w: empty config value for %q", backenderrors.NotValid, p.Name)

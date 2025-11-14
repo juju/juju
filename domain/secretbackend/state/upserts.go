@@ -84,8 +84,7 @@ ON CONFLICT (backend_uuid, name) DO UPDATE SET
 	for k, v := range cfg {
 		encoded, err := encodeConfigValue(v)
 		if err != nil {
-			s.logger.Errorf(ctx, "cannot encode secret backend config value for %q: %s", k, err)
-			continue
+			return errors.Errorf("cannot encode secret backend config value for %q: %s", k, err)
 		}
 		// TODO: this needs to be fixed once the sqlair supports bulk insert.
 		err = tx.Query(ctx, upsertConfigStmt, SecretBackendConfig{
@@ -98,5 +97,4 @@ ON CONFLICT (backend_uuid, name) DO UPDATE SET
 		}
 	}
 	return nil
-
 }

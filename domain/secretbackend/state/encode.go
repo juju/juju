@@ -16,7 +16,7 @@ func encodeConfigValue(value any) (string, error) {
 	return string(str), err
 }
 
-// decodeParameterValue decodes the input string stored in the DB
+// decodeConfigValue decodes the input string stored in the DB
 // to its original type.
 func decodeConfigValue(storedStr string) (any, error) {
 	var value any
@@ -25,7 +25,7 @@ func decodeConfigValue(storedStr string) (any, error) {
 		return nil, err
 	}
 	if str, ok := value.(string); ok && str == "" {
-		return value, errors.New("empty string")
+		return nil, errors.New("empty string")
 	}
 	return value, nil
 }
