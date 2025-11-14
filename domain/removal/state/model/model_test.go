@@ -403,10 +403,24 @@ func (s *modelSuite) TestIsControllerModelNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
+func (s *modelSuite) TestHasModelRemovalJobUsedForceNoJobFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+	usedForce, err := st.HasModelRemovalJobUsedForce(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usedForce, tc.IsTrue)
+}
+
 func (s *modelSuite) TestHasModelRemovalJobUsedForceNotForced(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	modelUUID := s.getModelUUID(c)
+
+	removalUUID := tc.Must(c, uuid.NewUUID).String()
+	err := st.ModelScheduleRemoval(c.Context(), removalUUID, modelUUID, false, time.Now().UTC())
+	c.Assert(err, tc.ErrorIsNil)
+
 	usedForce, err := st.HasModelRemovalJobUsedForce(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(usedForce, tc.IsFalse)

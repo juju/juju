@@ -328,26 +328,47 @@ func (st *State) HasModelRemovalJobUsedForce(ctx context.Context, modelUUID stri
 
 	entityUUIDParam := entityUUID{UUID: modelUUID}
 
+	type forced struct {
+		Force bool `db:"force"`
+	}
+
 	queryStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &count.count
+SELECT force AS &forced.*
 FROM removal
 WHERE entity_uuid = $entityUUID.uuid
 AND   removal_type_id = 4
-AND   force = 1
-`, entityUUIDParam, count{})
+`, entityUUIDParam, forced{})
 	if err != nil {
 		return false, errors.Errorf("preparing has model removal job used force query: %w", err)
 	}
 
-	var forceCount count
+	var result []forced
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, queryStmt, entityUUIDParam).Get(&forceCount); err != nil {
+		if err := tx.Query(ctx, queryStmt, entityUUIDParam).GetAll(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("running has model removal job used force query: %w", err)
 		}
 		return nil
 	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
 
-	return forceCount.Count > 0, errors.Capture(err)
+	// If there are no removal jobs for the model uuid, then this is the
+	// likely event that the model has run the scheduling of the removal and
+	// force was used in that job and we've now got detritus from that.
+	if len(result) == 0 {
+		return true, nil
+	}
+
+	var forcedResult bool
+	for _, force := range result {
+		if force.Force {
+			forcedResult = true
+			break
+		}
+	}
+
+	return forcedResult, errors.Capture(err)
 }
 
 // MarkModelAsDead marks the model with the input UUID as dead.
@@ -519,6 +540,7 @@ WHERE  model_uuid = $entityUUID.uuid;`, model, modelUUID)
 func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX, force bool) error {
 	// If we're forcing, we don't care about dependents.
 	if force {
+		st.logger.Infof(ctx, "force flag set, skipping model dependents check")
 		return nil
 	}
 
