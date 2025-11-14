@@ -283,7 +283,7 @@ type RemovalService interface {
 	MarkMachineAsDead(context.Context, coremachine.UUID) error
 
 	// DeleteMachine attempts to delete the specified machine from state entirely.
-	DeleteMachine(context.Context, coremachine.UUID) error
+	DeleteMachine(context.Context, coremachine.UUID, bool) error
 
 	// MarkInstanceAsDead marks the machine's cloud instance as dead. It will not
 	// remove the instance as that is a separate operation. This will advance the

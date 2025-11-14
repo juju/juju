@@ -54,7 +54,7 @@ type MachineState interface {
 
 	// DeleteMachine deletes the specified machine and any dependent child
 	// records.
-	DeleteMachine(ctx context.Context, mName string) error
+	DeleteMachine(ctx context.Context, mName string, force bool) error
 
 	// MarkInstanceAsDead marks the machine cloud instance with the input UUID as
 	// dead.
@@ -266,7 +266,7 @@ func (s *Service) MarkMachineAsDead(ctx context.Context, machineUUID machine.UUI
 }
 
 // DeleteMachine attempts to delete the specified machine from state entirely.
-func (s *Service) DeleteMachine(ctx context.Context, machineUUID machine.UUID) error {
+func (s *Service) DeleteMachine(ctx context.Context, machineUUID machine.UUID, force bool) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -277,7 +277,7 @@ func (s *Service) DeleteMachine(ctx context.Context, machineUUID machine.UUID) e
 		return errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
 	}
 
-	return s.modelState.DeleteMachine(ctx, machineUUID.String())
+	return s.modelState.DeleteMachine(ctx, machineUUID.String(), force)
 }
 
 // MarkInstanceAsDead marks the machine's cloud instance as dead. It will not
@@ -367,7 +367,7 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 		return errors.Errorf("releasing addresses for machine %q: %w", job.EntityUUID, err)
 	}
 
-	if err := s.modelState.DeleteMachine(ctx, job.EntityUUID); errors.Is(err, machineerrors.MachineNotFound) {
+	if err := s.modelState.DeleteMachine(ctx, job.EntityUUID, job.Force); errors.Is(err, machineerrors.MachineNotFound) {
 		// The machine has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil

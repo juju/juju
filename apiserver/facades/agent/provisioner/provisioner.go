@@ -1578,7 +1578,10 @@ func (api *ProvisionerAPI) Remove(ctx context.Context, args params.Entities) (pa
 			continue
 		}
 
-		err = api.removalService.DeleteMachine(ctx, machineUUID)
+		// TODO (stickupkid): We should workout whether we want to force
+		// removal based on the current state of the removal process. For now
+		// we always pass false.
+		err = api.removalService.DeleteMachine(ctx, machineUUID, false)
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", tag.Id())
 			continue
