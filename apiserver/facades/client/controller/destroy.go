@@ -33,9 +33,8 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	}
 
 	isControllerModel, err := c.modelInfoService.IsControllerModel(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return apiservererrors.ServerError(err)
-
 	} else if !isControllerModel {
 		return apiservererrors.ServerError(errors.BadRequestf("current model is not the controller model"))
 	}
@@ -44,7 +43,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	if err != nil {
 		return apiservererrors.ServerError(err)
 	}
-	if err := ensureNotBlocked(ctx, c.modelService, c.blockCommandServiceGetter, modelUUIDs, c.logger); err != nil {
+	if err := ensureNotBlocked(ctx, c.blockCommandServiceGetter, modelUUIDs, c.logger); err != nil {
 		return apiservererrors.ServerError(err)
 	}
 
@@ -78,6 +77,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	if args.Force != nil {
 		force = *args.Force
 	}
+
 	var maxWait time.Duration
 	if args.MaxWait != nil {
 		maxWait = *args.MaxWait
@@ -87,9 +87,29 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	if err != nil {
 		return apiservererrors.ServerError(err)
 	}
-	if err := removalService.RemoveController(ctx, force, maxWait); err != nil {
+
+	// Remove the controller and controller model. This will return the
+	// hosted models that also need to be removed. We don't do this within
+	// the removal service, as that doesn't have access to select other
+	// databases from inside of the service. I don't think we want to add
+	// that complexity for just this one use case.
+	childModelUUIDs, err := removalService.RemoveController(ctx, force, maxWait)
+	if err != nil {
 		c.logger.Warningf(ctx, "failed destroying controller: %v", err)
 		return apiservererrors.ServerError(err)
+	}
+
+	for _, modelUUID := range childModelUUIDs {
+		c.logger.Infof(ctx, "removing hosted model %s", modelUUID.String())
+		removalService, err := c.removalServiceGetter(ctx, modelUUID)
+		if err != nil {
+			return apiservererrors.ServerError(err)
+		}
+
+		if _, err := removalService.RemoveModel(ctx, modelUUID, force, maxWait); err != nil && !errors.Is(err, modelerrors.NotFound) {
+			c.logger.Warningf(ctx, "failed removing model %q: %v", modelUUID, err)
+			return apiservererrors.ServerError(err)
+		}
 	}
 
 	return nil
@@ -97,7 +117,6 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 
 func ensureNotBlocked(
 	ctx context.Context,
-	modelService ModelService,
 	blockCommandServiceGetter func(context.Context, model.UUID) (BlockCommandService, error),
 	uuids []model.UUID,
 	logger corelogger.Logger,
