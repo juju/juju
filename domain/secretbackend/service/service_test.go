@@ -1126,7 +1126,7 @@ func (s *serviceSuite) TestCreateSecretBackend(c *tc.C) {
 		BackendType:         vault.BackendType,
 		TokenRotateInterval: ptr(200 * time.Minute),
 		NextRotateTime:      ptr(now.Add(150 * time.Minute)),
-		Config:              convertConfigToString(addedConfig),
+		Config:              addedConfig,
 	}).Return("backend-uuid", nil)
 	s.mockRegistry.EXPECT().NewBackend(&provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -1244,7 +1244,7 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *tc.C, byName, skipPing bool)
 		NewName:             ptr("new-name"),
 		TokenRotateInterval: ptr(200 * time.Minute),
 		NextRotateTime:      ptr(now.Add(150 * time.Minute)),
-		Config:              convertConfigToString(updatedConfig),
+		Config:              updatedConfig,
 	}).Return("", nil)
 	s.mockRegistry.EXPECT().Type().Return("vault").AnyTimes()
 	if !skipPing {
@@ -1264,7 +1264,7 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *tc.C, byName, skipPing bool)
 	arg.BackendIdentifier = identifier
 	arg.NewName = ptr("new-name")
 	arg.TokenRotateInterval = ptr(200 * time.Minute)
-	arg.Config = map[string]string{
+	arg.Config = map[string]any{
 		"tls-server-name": "server-name",
 	}
 
@@ -1332,7 +1332,7 @@ func (s *serviceSuite) TestRotateBackendToken(c *tc.C) {
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID: "backend-uuid",
 		},
-		Config: map[string]string{
+		Config: map[string]any{
 			"endpoint": "http://vault",
 			"token":    "3h20m0s",
 		},
@@ -1372,7 +1372,7 @@ func (s *serviceSuite) TestRotateBackendTokenRetry(c *tc.C) {
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID: "backend-uuid",
 		},
-		Config: map[string]string{
+		Config: map[string]any{
 			"endpoint": "http://vault",
 			"token":    "3h20m0s",
 		},

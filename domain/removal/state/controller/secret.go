@@ -6,12 +6,14 @@ package controller
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"sort"
 
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/credential"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -244,7 +246,7 @@ WHERE b.%s = $M.identifier`, columName)
 	if err != nil {
 		return nil, errors.Errorf("querying secret backends: %w", err)
 	}
-	return rows.toSecretBackends()[0], nil
+	return rows.toSecretBackends(ctx, s.logger)[0], nil
 }
 
 type modelDetails struct {
@@ -307,7 +309,9 @@ type SecretBackendRow struct {
 // secretBackendRows represents a slice of SecretBackendRow.
 type secretBackendRows []SecretBackendRow
 
-func (rows secretBackendRows) toSecretBackends() []*secretbackend.SecretBackend {
+// toSecretBackends converts secretBackendRows to secretbackend.SecretBackend
+// slice.
+func (rows secretBackendRows) toSecretBackends(ctx context.Context, logger logger.Logger) []*secretbackend.SecretBackend {
 	// Sort the rows by backend name to ensure that we group the config.
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i].Name < rows[j].Name
@@ -331,17 +335,33 @@ func (rows secretBackendRows) toSecretBackends() []*secretbackend.SecretBackend 
 			currentBackend = &backend
 			result = append(result, currentBackend)
 		}
-		if row.ConfigName == "" || row.ConfigContent == "" {
-			// No config for this row.
+		decodedContent, err := decodeConfigValue(row.ConfigContent)
+		if err != nil {
+			// This is unexpected and shouldn't happen unless encoding changes
+			// look at `domain/secretbackend/state/encode.go`.
+			logger.Warningf(ctx, "failed to decode config value %q: %v", row.ConfigName, err)
 			continue
 		}
 
 		if currentBackend.Config == nil {
 			currentBackend.Config = make(map[string]any)
 		}
-		currentBackend.Config[row.ConfigName] = row.ConfigContent
+		currentBackend.Config[row.ConfigName] = decodedContent
 	}
 	return result
+}
+
+// decodeConfigValue decodes the stored JSON string into an any value.
+func decodeConfigValue(storedStr string) (any, error) {
+	var value any
+	err := json.Unmarshal([]byte(storedStr), &value)
+	if err != nil {
+		return nil, err
+	}
+	if str, ok := value.(string); ok && str == "" {
+		return value, errors.New("empty string")
+	}
+	return value, nil
 }
 
 // secretBackendForK8sModelRow represents a single joined result from

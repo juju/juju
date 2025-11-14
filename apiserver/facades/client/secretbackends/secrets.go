@@ -5,9 +5,7 @@ package secretbackends
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -84,9 +82,7 @@ func (s *SecretBackendsAPI) UpdateSecretBackends(ctx context.Context, args param
 			Reset:    arg.Reset,
 		}
 		if len(arg.Config) > 0 {
-			params.Config = transform.Map(arg.Config, func(k string, v interface{}) (string, string) {
-				return k, fmt.Sprintf("%v", v)
-			})
+			params.Config = arg.Config
 		}
 		err := s.backendService.UpdateSecretBackend(ctx, params)
 		result.Results[i].Error = apiservererrors.ServerError(err)
