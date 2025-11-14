@@ -35,7 +35,7 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
 	username := names.NewUserTag("admin")
 	password := jujutesting.AdminSecret
 
-	lp := api.NewLegacyLoginProvider(username, password, "", nil, nil, nil)
+	lp := api.NewLegacyLoginProvider(username, password, "", nil, nil)
 	apiState, err := api.Open(&api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
@@ -52,7 +52,7 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *gc.C) {
 	info := s.APIInfo(c)
 	password := jujutesting.AdminSecret
 
-	lp := api.NewLegacyLoginProvider(nil, password, "", nil, nil, nil)
+	lp := api.NewLegacyLoginProvider(nil, password, "", nil, nil)
 	_, err := api.Open(&api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
@@ -83,7 +83,6 @@ func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *gc.C) {
 		nonce,
 		[]macaroon.Slice{},
 		nil,
-		nil,
 	)
 	got, err := lp.AuthHeader()
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,7 +100,6 @@ func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeaderWithNilTag(c
 		password,
 		nonce,
 		[]macaroon.Slice{},
-		nil,
 		nil,
 	)
 	got, err := lp.AuthHeader()

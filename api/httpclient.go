@@ -96,7 +96,7 @@ func (doer httpRequestDoer) Do(req *http.Request) (*http.Response, error) {
 // AuthHTTPRequest adds Juju auth info (username, password, nonce, macaroons)
 // to the given HTTP request, suitable for sending to a Juju API server.
 func AuthHTTPRequest(req *http.Request, info *Info) error {
-	lp := NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, nil, nil)
+	lp := NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, nil)
 	return authHTTPRequest(req, lp)
 }
 

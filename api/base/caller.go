@@ -66,6 +66,11 @@ type MacaroonDischarger interface {
 	// third party caveats in m, and returns a slice containing all
 	// of them bound to m.
 	DischargeAll(ctx context.Context, m *bakery.Macaroon) (macaroon.Slice, error)
+	// CookieJar returns an http.CookieJar used to store macaroon cookies.
+	CookieJar() http.CookieJar
+	// HandleError allows the discharger to inspect and possibly
+	// handle errors returned from API calls.
+	HandleError(ctx context.Context, reqURL *url.URL, err error) error
 }
 
 // StreamConnector is implemented by the client-facing State object.
