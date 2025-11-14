@@ -1774,17 +1774,17 @@ func (m *MockRemovalService) EXPECT() *MockRemovalServiceMockRecorder {
 }
 
 // DeleteMachine mocks base method.
-func (m *MockRemovalService) DeleteMachine(arg0 context.Context, arg1 machine.UUID, arg2 bool) error {
+func (m *MockRemovalService) DeleteMachine(arg0 context.Context, arg1 machine.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteMachine", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DeleteMachine", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteMachine indicates an expected call of DeleteMachine.
-func (mr *MockRemovalServiceMockRecorder) DeleteMachine(arg0, arg1, arg2 any) *MockRemovalServiceDeleteMachineCall {
+func (mr *MockRemovalServiceMockRecorder) DeleteMachine(arg0, arg1 any) *MockRemovalServiceDeleteMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMachine", reflect.TypeOf((*MockRemovalService)(nil).DeleteMachine), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMachine", reflect.TypeOf((*MockRemovalService)(nil).DeleteMachine), arg0, arg1)
 	return &MockRemovalServiceDeleteMachineCall{Call: call}
 }
 
@@ -1800,13 +1800,13 @@ func (c *MockRemovalServiceDeleteMachineCall) Return(arg0 error) *MockRemovalSer
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemovalServiceDeleteMachineCall) Do(f func(context.Context, machine.UUID, bool) error) *MockRemovalServiceDeleteMachineCall {
+func (c *MockRemovalServiceDeleteMachineCall) Do(f func(context.Context, machine.UUID) error) *MockRemovalServiceDeleteMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemovalServiceDeleteMachineCall) DoAndReturn(f func(context.Context, machine.UUID, bool) error) *MockRemovalServiceDeleteMachineCall {
+func (c *MockRemovalServiceDeleteMachineCall) DoAndReturn(f func(context.Context, machine.UUID) error) *MockRemovalServiceDeleteMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

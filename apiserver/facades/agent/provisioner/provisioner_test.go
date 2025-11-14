@@ -679,7 +679,7 @@ func (s *provisionerMockSuite) TestRemove(c *tc.C) {
 	machineName := coremachine.Name("1")
 	machineUUID := machinetesting.GenUUID(c)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.removalService.EXPECT().DeleteMachine(gomock.Any(), machineUUID, false).Return(nil)
+	s.removalService.EXPECT().DeleteMachine(gomock.Any(), machineUUID).Return(nil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-1"},

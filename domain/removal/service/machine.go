@@ -56,6 +56,11 @@ type MachineState interface {
 	// records.
 	DeleteMachine(ctx context.Context, mName string, force bool) error
 
+	// HasMachineRemovalJobUsedForce returns true if the machine has a removal
+	// job that uses force. Once force is used, it cannot be undone and it will
+	// always return true.
+	HasMachineRemovalJobUsedForce(ctx context.Context, machineUUID string) (bool, error)
+
 	// MarkInstanceAsDead marks the machine cloud instance with the input UUID as
 	// dead.
 	MarkInstanceAsDead(ctx context.Context, mUUID string) error
@@ -266,7 +271,7 @@ func (s *Service) MarkMachineAsDead(ctx context.Context, machineUUID machine.UUI
 }
 
 // DeleteMachine attempts to delete the specified machine from state entirely.
-func (s *Service) DeleteMachine(ctx context.Context, machineUUID machine.UUID, force bool) error {
+func (s *Service) DeleteMachine(ctx context.Context, machineUUID machine.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -275,6 +280,15 @@ func (s *Service) DeleteMachine(ctx context.Context, machineUUID machine.UUID, f
 		return errors.Errorf("checking if machine exists: %w", err)
 	} else if !exists {
 		return errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
+	}
+
+	// Locate if any removal jobs have used force for this machine. Any removal
+	// job that has used force will taint all future removal attempts. We
+	// don't currently remove any prior removal jobs, so once force is used, it
+	// will always be used.
+	force, err := s.modelState.HasMachineRemovalJobUsedForce(ctx, machineUUID.String())
+	if err != nil && !errors.Is(err, removalerrors.RemovalJobNotFound) {
+		return errors.Errorf("getting machine %q removal job: %w", machineUUID, err)
 	}
 
 	return s.modelState.DeleteMachine(ctx, machineUUID.String(), force)
