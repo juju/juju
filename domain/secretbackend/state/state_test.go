@@ -634,7 +634,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailedForInternalBackend(c *tc.C) {
 	_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID:   backendID,
-			Name: "my-backend",
+			Name: juju.BackendName,
 		},
 		BackendType: "controller",
 	})
@@ -656,7 +656,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailedForKubernetesBackend(c *tc.C) 
 	_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID:   backendID,
-			Name: "my-backend",
+			Name: kubernetes.BackendName,
 		},
 		BackendType: "kubernetes",
 	})
@@ -779,7 +779,7 @@ func (s *stateSuite) TestDeleteSecretBackendFailedForInternalBackend(c *tc.C) {
 	_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID:   backendID,
-			Name: "my-backend",
+			Name: juju.BackendName,
 		},
 		BackendType: "controller",
 	})
@@ -795,7 +795,7 @@ func (s *stateSuite) TestDeleteSecretBackendFailedForKubernetesBackend(c *tc.C) 
 	_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID:   backendID,
-			Name: "my-backend",
+			Name: kubernetes.BackendName,
 		},
 		BackendType: "kubernetes",
 	})
