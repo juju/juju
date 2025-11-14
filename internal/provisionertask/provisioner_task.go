@@ -164,6 +164,7 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 		wp:                           workerpool.NewWorkerPool(cfg.Logger, cfg.NumProvisionWorkers),
 		wpSizeChan:                   make(chan int, 1),
 		eventProcessedCb:             cfg.EventProcessedCb,
+		fsms:                         make(map[string]*MachineFSM),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "provisioner-task",
@@ -209,6 +210,7 @@ type provisionerTask struct {
 	machinesStopDeferred     map[string]bool                              // machine IDs which were set as dead while starting. They will be stopped once they are online.
 	availabilityZoneMachines []*AvailabilityZoneMachine
 	instances                map[instance.Id]instances.Instance // instanceID -> instance
+	fsms                     map[string]*MachineFSM             // machine ID -> FSM for tracking machine state.
 
 	// A worker pool for starting/stopping instances in parallel.
 	wp         *workerpool.WorkerPool
