@@ -6,7 +6,7 @@
 :hidden:
 :glob:
 
-Juju 4.0 <juju4>
+Juju 4.0 <juju40/index>
 Juju 3.6 (LTS) <Juju3.6>
 Juju 2.9 (LTS) <juju2.9>
 ```

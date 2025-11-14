@@ -1,7 +1,5 @@
 (juju29)=
 # Juju 2.9 (LTS)
-
-## ⭐ **Juju 2.9**
 > Currently in Security Fix Only support
 >
 >  April 2032: expected end of security fix support
