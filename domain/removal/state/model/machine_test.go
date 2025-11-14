@@ -1350,7 +1350,7 @@ func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 	// The machine should be gone.
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsFalse)
+	c.Check(exists, tc.Equals, false)
 
 	// And its net node should also be deleted.
 	var count int
@@ -1506,6 +1506,44 @@ func (s *machineSuite) TestDeleteMachineDying(c *tc.C) {
 	c.Check(exists, tc.Equals, true)
 }
 
+func (s *machineSuite) TestDeleteMachineDyingWithForce(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dying)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	// Grab the net node UUID before deletion so we can verify it's removed.
+	var netNodeUUID string
+	err = s.DB().QueryRow("SELECT net_node_uuid FROM machine WHERE uuid = ?", machineUUID.String()).Scan(&netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(netNodeUUID, tc.Not(tc.Equals), "")
+
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The machine should be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// And its net node should also be deleted.
+	var count int
+	err = s.DB().QueryRow("SELECT count(*) FROM net_node WHERE uuid = ?", netNodeUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 func (s *machineSuite) TestDeleteMachineInstanceDying(c *tc.C) {
 	svc := s.setupMachineService(c)
 	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
@@ -1530,6 +1568,44 @@ func (s *machineSuite) TestDeleteMachineInstanceDying(c *tc.C) {
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, true)
+}
+
+func (s *machineSuite) TestDeleteMachineInstanceDyingWithForce(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dying)
+
+	// Grab the net node UUID before deletion so we can verify it's removed.
+	var netNodeUUID string
+	err = s.DB().QueryRow("SELECT net_node_uuid FROM machine WHERE uuid = ?", machineUUID.String()).Scan(&netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(netNodeUUID, tc.Not(tc.Equals), "")
+
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The machine should be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// And its net node should also be deleted.
+	var count int
+	err = s.DB().QueryRow("SELECT count(*) FROM net_node WHERE uuid = ?", netNodeUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 }
 
 func (s *machineSuite) TestDeleteMachineWithContainers(c *tc.C) {

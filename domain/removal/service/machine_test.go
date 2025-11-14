@@ -356,7 +356,7 @@ func (s *machineSuite) TestExecuteJobForMachineDyingReleaseAddressesNoAddresses(
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{}, nil)
-	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteMachine(gomock.Any(), j.EntityUUID, false).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -400,8 +400,12 @@ func (s *machineSuite) TestExecuteJobForMachineDyingDeleteMachineWithForce(c *tc
 =======
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
+<<<<<<< HEAD
 	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(nil)
 >>>>>>> a7573d5b7c (feat: add tests for instance not being dead)
+=======
+	exp.DeleteMachine(gomock.Any(), j.EntityUUID, true).Return(nil)
+>>>>>>> c89b830331 (feat: allow force deletion of a machine)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	s.provider.EXPECT().ReleaseContainerAddresses(gomock.Any(), []string{"foo"}).Return(nil)
@@ -441,12 +445,16 @@ func (s *machineSuite) TestExecuteJobForMachineAndInstanceDyingWithForce(c *tc.C
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
 <<<<<<< HEAD
+<<<<<<< HEAD
 	exp.DeleteMachine(gomock.Any(), j.EntityUUID, true).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	s.provider.EXPECT().ReleaseContainerAddresses(gomock.Any(), []string{"foo"}).Return(errors.Errorf("network error"))
 =======
 	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(nil)
+=======
+	exp.DeleteMachine(gomock.Any(), j.EntityUUID, true).Return(nil)
+>>>>>>> c89b830331 (feat: allow force deletion of a machine)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	s.provider.EXPECT().ReleaseContainerAddresses(gomock.Any(), []string{"foo"}).Return(nil)
@@ -467,7 +475,7 @@ func (s *machineSuite) TestExecuteJobForMachineAlreadyRemoved(c *tc.C) {
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
-	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(machineerrors.MachineNotFound)
+	exp.DeleteMachine(gomock.Any(), j.EntityUUID, false).Return(machineerrors.MachineNotFound)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	s.provider.EXPECT().ReleaseContainerAddresses(gomock.Any(), []string{"foo"}).Return(nil)
@@ -485,7 +493,7 @@ func (s *machineSuite) TestExecuteJobForMachineFailedRemoval(c *tc.C) {
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
-	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(errors.Errorf("the front fell off"))
+	exp.DeleteMachine(gomock.Any(), j.EntityUUID, false).Return(errors.Errorf("the front fell off"))
 
 	s.provider.EXPECT().ReleaseContainerAddresses(gomock.Any(), []string{"foo"}).Return(nil)
 
