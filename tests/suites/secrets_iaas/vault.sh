@@ -6,7 +6,7 @@ run_secrets_vault() {
 
 	prepare_vault
 
-	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
+	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" ca-cert="$(cat "$VAULT_CAPATH")"
 
 	model_name='model-secrets-vault-charm-owned'
 	add_model "$model_name"
@@ -48,14 +48,14 @@ run_secret_drain() {
 	add_model "$model_name"
 
 	vault_backend_name='myvault'
-	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
+	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" ca-cert="$(cat "$VAULT_CAPATH")"
 
-	juju --show-log deploy easyrsa
-	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
-	wait_for "easyrsa" "$(idle_condition "easyrsa" 0 0)"
+	juju --show-log deploy jameinel-ubuntu-lite
+	wait_for "active" '.applications["ubuntu-lite"] | ."application-status".current'
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite" 0)"
 
-	secret_owned_by_unit=$(juju exec --unit easyrsa/0 -- secret-add --owner unit owned-by=easyrsa/0)
-	secret_owned_by_app=$(juju exec --unit easyrsa/0 -- secret-add owned-by=easyrsa-app)
+	secret_owned_by_unit=$(juju exec --unit ubuntu-lite/0 -- secret-add --owner unit owned-by=ubuntu-lite/0)
+	secret_owned_by_app=$(juju exec --unit ubuntu-lite/0 -- secret-add owned-by=ubuntu-lite-app)
 
 	juju show-secret --reveal "$secret_owned_by_unit"
 	juju show-secret --reveal "$secret_owned_by_app"
@@ -99,16 +99,16 @@ run_user_secret_drain() {
 	prepare_vault
 
 	vault_backend_name='myvault'
-	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
+	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" ca-cert="$(cat "$VAULT_CAPATH")"
 
 	model_name='model-user-secrets-drain'
 	add_model "$model_name"
 	juju --show-log model-config secret-backend="$vault_backend_name" -m "$model_name"
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
-	juju --show-log deploy easyrsa
-	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
-	wait_for "easyrsa" "$(idle_condition "easyrsa" 0 0)"
+	juju --show-log deploy ubuntu-lite
+	wait_for "active" '.applications["ubuntu-lite"] | ."application-status".current'
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite" 0)"
 
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
@@ -116,8 +116,8 @@ run_user_secret_drain() {
 	juju show-secret --reveal "$secret_uri"
 	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 1
 
-	juju --show-log grant-secret "$secret_uri" easyrsa
-	check_contains "$(juju exec --unit easyrsa/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+	juju --show-log grant-secret "$secret_uri" ubuntu-lite
+	check_contains "$(juju exec --unit ubuntu-lite/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
 	# change the secret backend to internal.
 	juju model-config secret-backend=auto
@@ -151,7 +151,7 @@ run_user_secret_drain() {
 	done
 
 	# ensure the application can still read the user secret.
-	check_contains "$(juju exec --unit easyrsa/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+	check_contains "$(juju exec --unit ubuntu-lite/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
 	juju show-secret --reveal mysecret
 	juju show-secret --reveal anothersecret
@@ -164,17 +164,22 @@ prepare_vault() {
 	add_model "model-vault-provider"
 
 	if ! which "vault" >/dev/null 2>&1; then
-		sudo snap install vault --channel=1.8/stable
+		sudo snap install vault
 	fi
 
 	# If no databases are related, vault will be auto configured to
 	# use its embedded raft storage backend for storage and HA.
-	juju --show-log deploy vault --channel=1.8/stable
+	juju --show-log deploy vault --channel 1.18
 	juju --show-log expose vault
 
 	wait_for "blocked" "$(workload_status vault 0).current"
 	vault_public_addr=$(juju status --format json | jq -r '.applications.vault.units."vault/0"."public-address"')
-	export VAULT_ADDR="http://${vault_public_addr}:8200"
+	export VAULT_ADDR="https://${vault_public_addr}:8200"
+	mkdir -p ~/snap/vault/common/
+	TMP=$(mktemp -d ~/snap/vault/common/cacert-XXXXX)
+	cert_juju_secret_id=$(juju secrets --format=yaml | yq 'to_entries | .[] | select(.value.label == "self-signed-vault-ca-certificate") | .key')
+	juju show-secret "${cert_juju_secret_id}" --reveal --format=yaml | yq '.[].content.certificate' >"$TMP/vault.pem"
+	export VAULT_CAPATH="$TMP/vault.pem"
 	vault status || true
 	vault_init_output=$(vault operator init -key-shares=5 -key-threshold=3 -format json)
 	vault_token=$(echo "$vault_init_output" | jq -r .root_token)
