@@ -330,10 +330,10 @@ type watcherMapperData struct {
 	Suspended    bool   `db:"suspended"`
 }
 
-// applicationUUIDAndName is used to get the UUID and name of an application.
-type applicationUUIDAndName struct {
-	ID   application.UUID `db:"uuid"`
-	Name string           `db:"name"`
+// nameAndUUID is used to represent a UUID and name.
+type nameAndUUID struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
 }
 
 // rows is used to count the number of rows found.
