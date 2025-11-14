@@ -780,6 +780,31 @@ func (s *SecretsSuite) TestUpdateRotateInterval(c *gc.C) {
 	})
 }
 
+func (s *SecretsSuite) TestUpdateRotateIntervalAfterCurrent(c *gc.C) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(60 * time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateHourly),
+			NextRotateTime: ptr(next),
+			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	next = now.Add(24 * time.Hour).Round(time.Second).UTC()
+	s.assertUpdatedSecret(c, md, 1, state.UpdateSecretParams{
+		LeaderToken:    &fakeToken{},
+		RotatePolicy:   ptr(secrets.RotateDaily),
+		NextRotateTime: ptr(next),
+	})
+}
+
 func (s *SecretsSuite) TestUpdateExpiry(c *gc.C) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -1056,7 +1081,9 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	expected.LatestRevision = expectedRevision
 	if update.RotatePolicy != nil {
 		expected.RotatePolicy = *update.RotatePolicy
-		expected.NextRotateTime = update.NextRotateTime
+		if original.NextRotateTime.After(*update.NextRotateTime) {
+			expected.NextRotateTime = update.NextRotateTime
+		}
 	}
 	if update.Description != nil {
 		expected.Description = *update.Description
@@ -1119,9 +1146,9 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 			c.Assert(md.LatestExpireTime, gc.Equals, update.ExpireTime.Round(time.Second).UTC())
 		}
 	}
-	if update.NextRotateTime != nil {
+	if expected.NextRotateTime != nil {
 		nextTime := state.GetSecretNextRotateTime(c, s.State, md.URI.ID)
-		c.Assert(nextTime, gc.Equals, *update.NextRotateTime)
+		c.Assert(nextTime, gc.Equals, *expected.NextRotateTime)
 	}
 }
 

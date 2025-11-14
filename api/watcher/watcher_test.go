@@ -521,7 +521,7 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 	})
 	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
-	nexRotateTime := time.Now().Add(time.Hour)
+	nexRotateTime := time.Now().Add(2 * time.Hour)
 	_, err := store.CreateSecret(uri, state.CreateSecretParams{
 		Owner: unit.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
@@ -593,7 +593,7 @@ func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
 
 	store := state.NewSecrets(s.State)
 
-	nexRotateTime := time.Now().Add(24 * time.Hour).Round(time.Second)
+	nexRotateTime := time.Now().Add(time.Hour).Round(time.Second)
 	_, err := store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken:    &fakeToken{},
 		NextRotateTime: ptr(nexRotateTime),
@@ -628,7 +628,7 @@ func (s *watcherSuite) setupSecretExpiryWatcher(
 	})
 	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
-	nexRotateTime := time.Now().Add(time.Hour)
+	nexRotateTime := time.Now().Add(2 * time.Hour)
 	_, err := store.CreateSecret(uri, state.CreateSecretParams{
 		Owner: unit.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
@@ -694,7 +694,7 @@ func (s *watcherSuite) TestSecretsExpiryWatcher(c *gc.C) {
 
 	store := state.NewSecrets(s.State)
 
-	nexRotateTime := time.Now().Add(24 * time.Hour).Round(time.Second)
+	nexRotateTime := time.Now().Add(time.Hour).Round(time.Second)
 	_, err := store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken:    &fakeToken{},
 		NextRotateTime: ptr(nexRotateTime),

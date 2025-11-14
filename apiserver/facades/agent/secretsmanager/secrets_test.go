@@ -373,7 +373,6 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	p.Checksum = "deadbeef"
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil).Times(2)
 	s.secretsState.EXPECT().UpdateSecret(&expectURI, p).DoAndReturn(
 		func(uri *coresecrets.URI, p state.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
@@ -452,7 +451,6 @@ func (s *SecretsManagerSuite) TestUpdateSecretDuplicateLabel(c *gc.C) {
 	)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil)
 	s.expectSecretAccessQuery(2)
 
 	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
