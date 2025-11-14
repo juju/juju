@@ -27,12 +27,6 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
 	return GetJujuOCIImagePathFromControllerCfg(cfg.Controller, cfg.JujuVersion)
 }
 
-func (cfg *ControllerPodConfig) dbVersion() (semversion.Number, error) {
-	snapChannel := "4.4/stable"
-	vers := strings.Split(snapChannel, "/")[0] + ".0"
-	return semversion.Parse(vers)
-}
-
 // IsJujuOCIImage returns true if the image path is for a Juju operator.
 func IsJujuOCIImage(imagePath string) bool {
 	return strings.Contains(imagePath, JujudOCIName+":")
