@@ -67,6 +67,11 @@ type ModelState interface {
 	// GetModelLife retrieves the life state of a model.
 	GetModelLife(ctx context.Context, modelUUID string) (life.Life, error)
 
+	// HasModelRemovalJobUsedForce returns true if the model has a removal job
+	// that uses force. Once force is used, it cannot be undone and it will
+	// always return true.
+	HasModelRemovalJobUsedForce(ctx context.Context, modelUUID string) (bool, error)
+
 	// MarkModelAsDead marks the model with the input UUID as dead.
 	MarkModelAsDead(ctx context.Context, modelUUID string, force bool) error
 
@@ -226,7 +231,7 @@ func (s *Service) removeModel(
 // database itself. That is done by the undertaker worker.
 // The model must be dead before it can be deleted.
 // If the model is alive or dying, an error will be returned.
-func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID, force bool) error {
+func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -249,6 +254,15 @@ func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID, force b
 	// programming error if we've reached this point and we're still alive.
 	if modelLife == life.Alive || controllerLife == life.Alive {
 		return errors.Errorf("model %q is still alive", modelUUID).Add(removalerrors.EntityStillAlive)
+	}
+
+	// Locate if any removal jobs have used force for this model. Any removal
+	// job that has used force will taint all future removal attempts. We
+	// don't currently remove any prior removal jobs, so once force is used, it
+	// will always be used.
+	force, err := s.modelState.HasModelRemovalJobUsedForce(ctx, modelUUID.String())
+	if err != nil && !errors.Is(err, removalerrors.RemovalJobNotFound) {
+		return errors.Errorf("getting model %q removal job: %w", modelUUID, err)
 	}
 
 	// If we're not using force, ensure that the life of the model is dead

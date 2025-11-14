@@ -14,6 +14,9 @@ const (
 	// a removal job using logic for an incompatible type.
 	RemovalJobTypeNotValid = errors.ConstError("removal job type not valid")
 
+	// RemovalJobNotFound indicates that a removal job was not found.
+	RemovalJobNotFound = errors.ConstError("removal job not found")
+
 	// RemovalModelRemoved indicates that a model removal job was
 	// attempted, but the model was already removed. This should cause the
 	// removal worker to remove itself.

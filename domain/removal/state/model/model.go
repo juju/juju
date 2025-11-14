@@ -317,6 +317,39 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 	return life, errors.Capture(err)
 }
 
+// HasModelRemovalJobUsedForce returns true if the model has a removal job
+// that uses force. Once force is used, it cannot be undone and it will
+// always return true.
+func (st *State) HasModelRemovalJobUsedForce(ctx context.Context, modelUUID string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	entityUUIDParam := entityUUID{UUID: modelUUID}
+
+	queryStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM removal
+WHERE entity_uuid = $entityUUID.uuid
+AND   removal_type_id = 4
+AND   force = 1
+`, entityUUIDParam, count{})
+	if err != nil {
+		return false, errors.Errorf("preparing has model removal job used force query: %w", err)
+	}
+
+	var forceCount count
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, queryStmt, entityUUIDParam).Get(&forceCount); err != nil {
+			return errors.Errorf("running has model removal job used force query: %w", err)
+		}
+		return nil
+	})
+
+	return forceCount.Count > 0, errors.Capture(err)
+}
+
 // MarkModelAsDead marks the model with the input UUID as dead.
 // If there are model dependents, then this will return an error.
 func (st *State) MarkModelAsDead(ctx context.Context, mUUID string, force bool) error {
