@@ -20,7 +20,6 @@ import (
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	semversion "github.com/juju/juju/core/semversion"
-	mongo "github.com/juju/juju/internal/mongo"
 	names "github.com/juju/names/v6"
 	shell "github.com/juju/utils/v4/shell"
 	gomock "go.uber.org/mock/gomock"
@@ -756,45 +755,6 @@ func (c *MockConfigModelCall) Do(f func() names.ModelTag) *MockConfigModelCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockConfigModelCall) DoAndReturn(f func() names.ModelTag) *MockConfigModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// MongoInfo mocks base method.
-func (m *MockConfig) MongoInfo() (*mongo.MongoInfo, bool) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoInfo")
-	ret0, _ := ret[0].(*mongo.MongoInfo)
-	ret1, _ := ret[1].(bool)
-	return ret0, ret1
-}
-
-// MongoInfo indicates an expected call of MongoInfo.
-func (mr *MockConfigMockRecorder) MongoInfo() *MockConfigMongoInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoInfo", reflect.TypeOf((*MockConfig)(nil).MongoInfo))
-	return &MockConfigMongoInfoCall{Call: call}
-}
-
-// MockConfigMongoInfoCall wrap *gomock.Call
-type MockConfigMongoInfoCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigMongoInfoCall) Return(arg0 *mongo.MongoInfo, arg1 bool) *MockConfigMongoInfoCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigMongoInfoCall) Do(f func() (*mongo.MongoInfo, bool)) *MockConfigMongoInfoCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigMongoInfoCall) DoAndReturn(f func() (*mongo.MongoInfo, bool)) *MockConfigMongoInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2115,45 +2075,6 @@ func (c *MockConfigSetterModelCall) Do(f func() names.ModelTag) *MockConfigSette
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockConfigSetterModelCall) DoAndReturn(f func() names.ModelTag) *MockConfigSetterModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// MongoInfo mocks base method.
-func (m *MockConfigSetter) MongoInfo() (*mongo.MongoInfo, bool) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoInfo")
-	ret0, _ := ret[0].(*mongo.MongoInfo)
-	ret1, _ := ret[1].(bool)
-	return ret0, ret1
-}
-
-// MongoInfo indicates an expected call of MongoInfo.
-func (mr *MockConfigSetterMockRecorder) MongoInfo() *MockConfigSetterMongoInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoInfo", reflect.TypeOf((*MockConfigSetter)(nil).MongoInfo))
-	return &MockConfigSetterMongoInfoCall{Call: call}
-}
-
-// MockConfigSetterMongoInfoCall wrap *gomock.Call
-type MockConfigSetterMongoInfoCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigSetterMongoInfoCall) Return(arg0 *mongo.MongoInfo, arg1 bool) *MockConfigSetterMongoInfoCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigSetterMongoInfoCall) Do(f func() (*mongo.MongoInfo, bool)) *MockConfigSetterMongoInfoCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigSetterMongoInfoCall) DoAndReturn(f func() (*mongo.MongoInfo, bool)) *MockConfigSetterMongoInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -228,14 +228,6 @@ type BootstrapConfig struct {
 	// server.
 	ControllerAgentInfo controller.ControllerAgentInfo
 
-	// JujuDbSnapPath is the path to a .snap file that will be used as the juju-db
-	// service.
-	JujuDbSnapPath string
-
-	// JujuDbSnapAssertions is a path to a .assert file that will be used
-	// to verify the .snap at JujuDbSnapPath
-	JujuDbSnapAssertionsPath string
-
 	// ControllerServiceType is the service type of a k8s controller.
 	ControllerServiceType string
 
@@ -637,30 +629,6 @@ func copyToolsList(in coretools.List) coretools.List {
 		out[i] = &copied
 	}
 	return out
-}
-
-// SetSnapSource annotates the instance configuration
-// with the location of a local .snap to upload during
-// the instance's provisioning.
-func (cfg *InstanceConfig) SetSnapSource(snapPath string, snapAssertionsPath string) error {
-	if snapPath == "" {
-		return nil
-	}
-
-	_, err := os.Stat(snapPath)
-	if err != nil {
-		return errors.Annotatef(err, "unable set local snap (at %s)", snapPath)
-	}
-
-	_, err = os.Stat(snapAssertionsPath)
-	if err != nil {
-		return errors.Annotatef(err, "unable set local snap .assert (at %s)", snapAssertionsPath)
-	}
-
-	cfg.Bootstrap.JujuDbSnapPath = snapPath
-	cfg.Bootstrap.JujuDbSnapAssertionsPath = snapAssertionsPath
-
-	return nil
 }
 
 // SetControllerCharm annotates the instance configuration

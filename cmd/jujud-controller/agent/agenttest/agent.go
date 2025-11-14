@@ -239,14 +239,6 @@ func (s *AgentSuite) InitAgent(c *tc.C, a cmd.Command, args ...string) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *AgentSuite) AssertCannotOpenState(c *tc.C, tag names.Tag, dataDir string) {
-	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, ok := config.MongoInfo()
-	c.Assert(ok, tc.IsFalse)
-}
-
 // findTCPPort finds an unused TCP port and returns it.
 // Use of this function has an inherent race condition - another
 // process may claim the port before we try to use it.

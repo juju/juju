@@ -19,7 +19,6 @@ import (
 const (
 	JujudOCINamespace = "ghcr.io/juju"
 	JujudOCIName      = "jujud-operator"
-	JujudbOCIName     = "juju-db"
 	CharmBaseName     = "charm-base"
 )
 
@@ -32,25 +31,6 @@ func (cfg *ControllerPodConfig) dbVersion() (semversion.Number, error) {
 	snapChannel := "4.4/stable"
 	vers := strings.Split(snapChannel, "/")[0] + ".0"
 	return semversion.Parse(vers)
-}
-
-// GetJujuDbOCIImagePath returns the juju-db oci image path.
-func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
-	details, err := docker.NewImageRepoDetails(cfg.Controller.CAASImageRepo())
-	if err != nil {
-		return "", errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
-	}
-	imageRepo := details.Repository
-	if imageRepo == "" {
-		imageRepo = JujudOCINamespace
-	}
-	path := fmt.Sprintf("%s/%s", imageRepo, JujudbOCIName)
-	mongoVers, err := cfg.dbVersion()
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot parse %q from controller config", "4.4/stable")
-	}
-	tag := fmt.Sprintf("%d.%d", mongoVers.Major, mongoVers.Minor)
-	return tagImagePath(path, tag)
 }
 
 // IsJujuOCIImage returns true if the image path is for a Juju operator.
