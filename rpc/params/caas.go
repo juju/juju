@@ -59,6 +59,7 @@ type CAASApplicationProvisioningInfo struct {
 	CharmURL             string                       `json:"charm-url,omitempty"`
 	Trust                bool                         `json:"trust,omitempty"`
 	Scale                int                          `json:"scale,omitempty"`
+	StorageUniqueID      string                       `json:"storage-unique-id"`
 	Error                *Error                       `json:"error,omitempty"`
 }
 
@@ -79,6 +80,9 @@ type CAASApplicationFilesystemProvisioningInfo struct {
 
 	// FilesystemUnitAttachments maps filesystem IDs to unit attachment parameters.
 	FilesystemUnitAttachments map[string][]KubernetesFilesystemUnitAttachmentParams `json:"filesystem-unit-attachments,omitempty"`
+
+	// StorageUniqueID is used to construct the PVC name for an application.
+	StorageUniqueID string
 }
 
 // DockerImageInfo holds the details for a Docker resource type.

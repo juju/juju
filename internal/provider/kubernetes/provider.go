@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
-	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 )
 
@@ -178,7 +177,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	return newK8sBroker(
 		args.ControllerUUID, k8sRestConfig, args.Config, namespace,
 		NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
-		utils.RandomPrefix, jujuclock.WallClock)
+		jujuclock.WallClock)
 }
 
 // NamespaceForModel returns the namespace which is associated with the specified model.

@@ -1401,6 +1401,7 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		DesiredScale:         a.DesiredScale(),
 		Placement:            a.Placement(),
 		HasResources:         a.HasResources(),
+		StorageUniqueID:      a.StorageUniqueID(),
 	}
 
 	if ps := a.ProvisioningState(); ps != nil {

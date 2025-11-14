@@ -46,15 +46,14 @@ type StateImporter interface {
 // model UUID passed.
 type ClaimerFunc func(string) (leadership.Claimer, error)
 
-// ImportModel deserializes a model description from the bytes, transforms
+// ImportModel takes a deserialized a model, transforms
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
-func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (*state.Model, *state.State, error) {
-	model, err := description.Deserialize(bytes)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
+func ImportModel(
+	importer StateImporter,
+	getClaimer ClaimerFunc,
+	model description.Model,
+) (*state.Model, *state.State, error) {
 	dbModel, dbState, err := importer.Import(model)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

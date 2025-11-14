@@ -700,6 +700,13 @@ func (s *MigrationImportSuite) assertImportedApplication(
 		tools, err := imported.AgentTools()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tools.Version, gc.Equals, agentTools)
+		c.Assert(application.GetStorageUniqueID(), gc.Equals,
+			exported.GetStorageUniqueID())
+		c.Assert(application.GetStorageUniqueID(), gc.Not(gc.Equals), "")
+	} else {
+		// IAAS apps will have an empty storage unique ID because that field
+		// is specific for CAAS.
+		c.Assert(application.GetStorageUniqueID(), gc.Equals, "")
 	}
 }
 

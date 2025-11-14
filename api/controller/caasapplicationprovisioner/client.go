@@ -175,6 +175,7 @@ type ProvisioningInfo struct {
 	CharmURL             *charm.URL
 	Trust                bool
 	Scale                int
+	StorageUniqueID      string
 }
 
 // ProvisioningInfo returns the info needed to provision an operator for an application.
@@ -211,6 +212,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		CharmModifiedVersion: r.CharmModifiedVersion,
 		Trust:                r.Trust,
 		Scale:                r.Scale,
+		StorageUniqueID:      r.StorageUniqueID,
 	}
 	for _, fs := range r.Filesystems {
 		f, err := filesystemFromParams(fs)
@@ -543,6 +545,7 @@ func (c *Client) ProvisionerConfig() (params.CAASApplicationProvisionerConfig, e
 type FilesystemProvisioningInfo struct {
 	Filesystems               []storage.KubernetesFilesystemParams
 	FilesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams
+	StorageUniqueID           string
 }
 
 // FilesystemProvisioningInfo returns the filesystem info needed to provision an operator for an application.
@@ -572,5 +575,6 @@ func filesystemProvisioningInfoFromParams(in params.CAASApplicationFilesystemPro
 		return info, errors.Trace(err)
 	}
 	info.FilesystemUnitAttachments = fsUnitAttachments
+	info.StorageUniqueID = in.StorageUniqueID
 	return info, nil
 }
