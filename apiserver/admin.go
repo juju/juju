@@ -326,7 +326,6 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 		// Hide the fact that the model does not exist.
 		return nil, errors.Unauthorizedf("invalid entity name or password")
 	}
-	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
 	var tag names.Tag
 	if result.anonymousLogin {
 		tag = names.NewUserTag(api.AnonymousUsername)

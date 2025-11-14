@@ -11,6 +11,8 @@ import (
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // Mux is a pattern-based HTTP muxer, based on top of
@@ -55,8 +57,7 @@ func NewMux(opts ...muxOption) *Mux {
 	m := &Mux{
 		p:     pat.New(),
 		added: make(map[string][]patternHandler),
-		// TODO(jam): 2025-11-03 We could make the logger a muxOption instead
-		logger: loggo.GetLoggerWithLabels("juju.apiserver.http", "api"),
+		logger: loggo.GetLoggerWithLabels("juju.apiserver.http", corelogger.API),
 	}
 	for _, opt := range opts {
 		opt(m)

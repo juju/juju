@@ -162,8 +162,6 @@ func (w *Worker) URL() string {
 	}
 }
 
-var logger = loggo.GetLogger("juju.apiserver.httpserver")
-
 // extractRawFd gets the underlying file descriptor from the http connection.
 // This should only be used for informational purposes.
 func extractRawFd(c net.Conn) int {

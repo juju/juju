@@ -118,6 +118,7 @@ Juju logging is hierarchical and can be granular.
 ```unit``` refers to all logs related to a juju unit.
 #### label
 ```#label-name``` allows for logging based on a topic. Currently available topics are:
+  * api: log all API requests, whether they are RPC requests or whether they are raw HTTP requests.
   * cmr: cross model relations
   * cmr-auth: cross model relations authorization
   * charmhub: dealing with the charmhub client and callers
