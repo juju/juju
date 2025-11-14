@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/loggo/v2"
 )
 
 // ModelState describes methods for interacting with model state.
@@ -273,8 +272,6 @@ func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID) error {
 			return errors.Errorf("model %q is dying", modelUUID).Add(removalerrors.EntityNotDead)
 		}
 	}
-
-	loggo.GetLogger("***").Criticalf("Deleting model %q (force=%t)", modelUUID, force)
 
 	// Attempt to destroy the provider of the model. This is best effort,
 	// because we might not have all the model information available to do so.
