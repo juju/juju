@@ -208,6 +208,7 @@ func (st *State) Model() (*Model, error) {
 		st: st,
 	}
 	if err := model.refresh(st.modelTag.Id()); err != nil {
+		logger.Infof("[adis][state] refresh err: %s", err)
 		return nil, errors.Trace(err)
 	}
 	return model, nil

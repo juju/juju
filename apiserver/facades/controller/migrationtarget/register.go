@@ -6,12 +6,16 @@ package migrationtarget
 import (
 	"reflect"
 
-	"github.com/juju/errors"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/environs"
+	jujukubernetes "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -54,6 +58,7 @@ func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facades.FacadeVersions{},
+		newK8sClient,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -68,6 +73,7 @@ func newFacadeV2(ctx facade.Context) (*APIV2, error) {
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facades.FacadeVersions{},
+		newK8sClient,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -82,5 +88,22 @@ func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API,
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facadeVersions,
+		newK8sClient,
 	)
+}
+
+func newK8sClient(model *state.Model) (kubernetes.Interface, *rest.Config, error) {
+	g := stateenvirons.EnvironConfigGetter{Model: model}
+	cloudSpec, err := g.CloudSpec()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cfg, err := jujukubernetes.CloudSpecToK8sRestConfig(cloudSpec)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	k8sClient, err := kubernetes.NewForConfig(cfg)
+	return k8sClient, cfg, err
 }
