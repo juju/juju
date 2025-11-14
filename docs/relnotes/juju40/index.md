@@ -10,6 +10,6 @@
 
 ```
 
-Juju 4.0 is a massive release of Juju that introduces a few major architectural changes:
+The 4th generation of Juju is a massive achievement that introduces major changes:
 - Removal of MongoDB and moving towards a relational database approach based on dqlite
-- Major architectural and design changes towards reliability and maintainability
+- Architectural and design improvements towards reliability and maintainability
