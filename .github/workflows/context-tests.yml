@@ -144,7 +144,6 @@ jobs:
 
             # upgrades are currently broken because of missing sync-agent-binary
             # step. Until then, we skip checking its result.
-            # && ${{ needs.upgrade.result == 'success' || needs.upgrade.result == 'skipped' }} \
 
             if ${{ needs.build.result == 'success' || needs.build.result == 'skipped' }} \
                 && ${{ needs.snap.result == 'success' || needs.snap.result == 'skipped' }} \
