@@ -414,33 +414,11 @@ See also: {ref}`storage`
 
 **Set values.** You can set storage directives for an application during deployment or later.
 
-- To set storage directives for an application during deployment, run the `deploy` command with the `--storage` flag followed by the relevant key-value pair or a quotes-enclosed list of key-value pairs. For example, to deploy MySQL on a storage that has at least 6 GiB of memory using the rootfs pool:
+- To set storage directives for an application during deployment, run the `deploy` command with the `--storage` flag followed by the relevant key-value pair or a quotes-enclosed list of key-value pairs. For example, to deploy MySQL with a storage volume that has at least 6 GiB of memory using the `rootfs` pool:
 
 ``` text
 juju deploy mysql --storage pgdata=6G,rootfs,1
 ```
-
-````{dropdown} More examples
-
-Assuming a LXD cloud, to deploy PostgreSQL using a specific storage pool, you can use a combination of the `pool`, `size` and `count` specifications, as below
-
-``` text
-juju deploy postgresql --storage pgdata=lxd,1,3G
-```
-
-To deploy MySQL with a minimum size of 1.5 GiB using the default storage pool and default count of 1, execute:
-
-``` text
-juju deploy mysql --storage pgdata=1.5G
-```
-
-To deploy two units of MySQL using the rootFS storage pool with a default size of 1 GiB and default of count 1
-
-``` text
-juju deploy mysql -n 2 --storage database=rootfs
-```
-
-````
 
 ```{ibnote}
 See more: {ref}`command-juju-deploy`
