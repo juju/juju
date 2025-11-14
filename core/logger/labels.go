@@ -7,6 +7,9 @@ package logger
 type Label = string
 
 const (
+	// API defines a common API label to enable logging of all API connections and requests.
+	API Label = "api"
+
 	// HTTP defines a common HTTP request label.
 	HTTP Label = "http"
 

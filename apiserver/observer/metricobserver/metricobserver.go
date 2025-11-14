@@ -108,7 +108,7 @@ type metrics struct {
 func (*Observer) Login(entity names.Tag, _ names.ModelTag, _ bool, _ string) {}
 
 // Join is part of the observer.Observer interface.
-func (*Observer) Join(req *http.Request, connectionID uint64) {}
+func (*Observer) Join(req *http.Request, connectionID uint64, _ int) {}
 
 // Leave is part of the observer.Observer interface.
 func (*Observer) Leave() {}
