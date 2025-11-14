@@ -34,7 +34,7 @@ type triggerSecretsSuite struct {
 	resolver        resolver.Resolver
 	rotatedSecret   func(string)
 	expiredRevision func(string)
-	deletedSecrets  func([]string)
+	deletedSecrets  func(map[string][]int)
 }
 
 var _ = gc.Suite(&triggerSecretsSuite{})
@@ -54,9 +54,9 @@ func (s *triggerSecretsSuite) SetUpTest(_ *gc.C) {
 		if s.expiredRevision != nil {
 			s.expiredRevision(rev)
 		}
-	}, func(uris []string) {
+	}, func(deletedRevisions map[string][]int) {
 		if s.deletedSecrets != nil {
-			s.deletedSecrets(uris)
+			s.deletedSecrets(deletedRevisions)
 		}
 	},
 	)
@@ -320,6 +320,7 @@ func (s *changeSecretsSuite) TestNextOpNone(c *gc.C) {
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
+	s.tracker.EXPECT().CollectRemovedSecretObsoleteRevisions(nil).Return(nil)
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
@@ -378,6 +379,8 @@ func (s *removeSecretSuite) TestNextOpNoneExisting(c *gc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
+	s.tracker.EXPECT().CollectRemovedSecretObsoleteRevisions(s.remoteState.ObsoleteSecretRevisions).Return(nil)
+
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/666) hook")
@@ -398,6 +401,9 @@ func (s *removeSecretSuite) TestNextOpNextRevision(c *gc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
+
+	s.tracker.EXPECT().CollectRemovedSecretObsoleteRevisions(s.remoteState.ObsoleteSecretRevisions).Return(nil)
+
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/668) hook")
@@ -418,6 +424,9 @@ func (s *removeSecretSuite) TestNextOpNone(c *gc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
+
+	s.tracker.EXPECT().CollectRemovedSecretObsoleteRevisions(s.remoteState.ObsoleteSecretRevisions).Return(nil)
+
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
@@ -429,25 +438,23 @@ type secretDeletedSuite struct {
 	mockCallbacks *operationmocks.MockCallbacks
 	resolver      resolver.Resolver
 
-	deleted []string
+	deleted map[string][]int
 }
 
 var _ = gc.Suite(&secretDeletedSuite{})
 
-func (s *secretDeletedSuite) SetUpTest(_ *gc.C) {
-	s.remoteState = remotestate.Snapshot{
-		Life: life.Alive,
-	}
-}
-
 func (s *secretDeletedSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	logger := loggo.GetLogger("test")
-	s.resolver = secrets.NewSecretsResolver(logger, s.mockTracker, nil, nil, func(uris []string) {
-		s.deleted = uris
+	s.remoteState = remotestate.Snapshot{
+		Life: life.Alive,
+	}
+	s.deleted = nil
+	s.mockTracker = mocks.NewMockSecretStateTracker(ctlr)
+	s.resolver = secrets.NewSecretsResolver(logger, s.mockTracker, nil, nil, func(deletedRevisions map[string][]int) {
+		s.deleted = deletedRevisions
 	})
 	s.mockCallbacks = operationmocks.NewMockCallbacks(ctlr)
-	s.mockTracker = mocks.NewMockSecretStateTracker(ctlr)
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
 		Callbacks: s.mockCallbacks,
 		Logger:    loggo.GetLogger("test"),
@@ -456,12 +463,15 @@ func (s *secretDeletedSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *secretDeletedSuite) TestNextOpNotInstalled(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
 		},
 	}
-	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
+	s.remoteState.DeletedSecretRevisions = map[string][]int{"secret:9m4e2mr0ui3e8a215n4g": {}}
 
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
@@ -477,10 +487,35 @@ func (s *secretDeletedSuite) TestNextOp(c *gc.C) {
 			Installed: true,
 		},
 	}
-	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
+	s.remoteState.DeletedSecretRevisions = map[string][]int{"secret:9m4e2mr0ui3e8a215n4g": {}}
+
+	s.mockTracker.EXPECT().CollectRemovedSecretObsoleteRevisions(nil).Return(nil)
+
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "process removed secrets: [secret:9m4e2mr0ui3e8a215n4g]")
+	c.Assert(op.String(), jc.Contains, "secret:9m4e2mr0ui3e8a215n4g: []")
+}
+
+func (s *secretDeletedSuite) TestNextOpObsoleteDeleted(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	s.remoteState.ObsoleteSecretRevisions = map[string][]int{"secret:9m4e2mr0ui3e8a215n4g": {4, 5, 6}}
+
+	s.mockTracker.EXPECT().CollectRemovedSecretObsoleteRevisions(
+		s.remoteState.ObsoleteSecretRevisions).Return(map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {1, 2, 3},
+	})
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), jc.Contains, "secret:9m4e2mr0ui3e8a215n4g: [1 2 3]")
 }
 
 func (s *secretDeletedSuite) TestCommit(c *gc.C) {
@@ -493,7 +528,10 @@ func (s *secretDeletedSuite) TestCommit(c *gc.C) {
 			Installed: true,
 		},
 	}
-	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
+	s.remoteState.DeletedSecretRevisions = map[string][]int{"secret:9m4e2mr0ui3e8a215n4g": {666}}
+
+	s.mockTracker.EXPECT().CollectRemovedSecretObsoleteRevisions(nil).Return(nil)
+
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -502,9 +540,9 @@ func (s *secretDeletedSuite) TestCommit(c *gc.C) {
 	_, err = op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 
-	s.mockCallbacks.EXPECT().SecretsRemoved([]string{"secret:9m4e2mr0ui3e8a215n4g"}).Return(nil)
+	s.mockCallbacks.EXPECT().SecretsRemoved(map[string][]int{"secret:9m4e2mr0ui3e8a215n4g": {666}}, nil).Return(nil)
 
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.deleted, jc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
+	c.Assert(s.deleted, jc.DeepEquals, map[string][]int{"secret:9m4e2mr0ui3e8a215n4g": {666}})
 }

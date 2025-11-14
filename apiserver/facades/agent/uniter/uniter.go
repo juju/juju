@@ -2896,8 +2896,17 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 	if len(changes.SecretDeletes) > 0 {
 		result, err := u.SecretsManagerAPI.RemoveSecrets(params.DeleteSecretArgs{Args: changes.SecretDeletes})
+		nilOrNotFound := err == nil
 		if err == nil {
-			err = result.Combine()
+			for _, r := range result.Results {
+				if r.Error != nil && !params.IsCodeNotFound(r.Error) {
+					nilOrNotFound = false
+					break
+				}
+			}
+			if !nilOrNotFound {
+				err = result.Combine()
+			}
 		}
 		if err != nil {
 			return errors.Annotate(err, "removing secrets")

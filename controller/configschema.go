@@ -21,6 +21,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogExcludeMethods:           schema.List(schema.String()),
 	APIPort:                          schema.ForceInt(),
 	APIPortOpenDelay:                 schema.TimeDuration(),
+	IdleConnectionTimeout:            schema.TimeDuration(),
 	ControllerAPIPort:                schema.ForceInt(),
 	ControllerName:                   schema.NonEmptyString(ControllerName),
 	StatePort:                        schema.ForceInt(),
@@ -68,6 +69,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AgentRateLimitRate:               schema.Omit,
 	APIPort:                          DefaultAPIPort,
 	APIPortOpenDelay:                 DefaultAPIPortOpenDelay,
+	IdleConnectionTimeout:            DefaultIdleConnectionTimeout,
 	ControllerAPIPort:                schema.Omit,
 	ControllerName:                   schema.Omit,
 	AuditingEnabled:                  DefaultAuditingEnabled,
@@ -162,6 +164,13 @@ var ConfigSchema = environschema.Fields{
 between when the controller has been deemed to be ready to open 
 the api-port and when the api-port is actually opened 
 (only used when a controller-api-port value is set).`,
+	},
+	IdleConnectionTimeout: {
+		Type: environschema.Tstring,
+		Description: `The time the controller will wait between
+resets of all idle connections. By default, every 10 minutes
+the controller will close all idle connections.
+`,
 	},
 	ControllerAPIPort: {
 		Type: environschema.Tint,

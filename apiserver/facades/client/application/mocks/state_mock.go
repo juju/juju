@@ -568,6 +568,111 @@ func (mr *MockSecretsStoreMockRecorder) DeleteSecret(arg0 any, arg1 ...any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockSecretsStore)(nil).DeleteSecret), varargs...)
 }
 
+// GetOwnedSecretMetadataAsApp mocks base method.
+func (m *MockSecretsStore) GetOwnedSecretMetadataAsApp(arg0 names.ApplicationTag, arg1 *secrets.URI) (*secrets.SecretMetadataOwnerIdent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretMetadataAsApp", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.SecretMetadataOwnerIdent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretMetadataAsApp indicates an expected call of GetOwnedSecretMetadataAsApp.
+func (mr *MockSecretsStoreMockRecorder) GetOwnedSecretMetadataAsApp(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretMetadataAsApp", reflect.TypeOf((*MockSecretsStore)(nil).GetOwnedSecretMetadataAsApp), arg0, arg1)
+}
+
+// GetOwnedSecretMetadataAsUnit mocks base method.
+func (m *MockSecretsStore) GetOwnedSecretMetadataAsUnit(arg0 names.UnitTag, arg1 *secrets.URI) (*secrets.SecretMetadataOwnerIdent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretMetadataAsUnit", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.SecretMetadataOwnerIdent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretMetadataAsUnit indicates an expected call of GetOwnedSecretMetadataAsUnit.
+func (mr *MockSecretsStoreMockRecorder) GetOwnedSecretMetadataAsUnit(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretMetadataAsUnit", reflect.TypeOf((*MockSecretsStore)(nil).GetOwnedSecretMetadataAsUnit), arg0, arg1)
+}
+
+// GetOwnedSecretMetadataByLabelAsApp mocks base method.
+func (m *MockSecretsStore) GetOwnedSecretMetadataByLabelAsApp(arg0 names.ApplicationTag, arg1 string) (*secrets.SecretMetadataOwnerIdent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretMetadataByLabelAsApp", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.SecretMetadataOwnerIdent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretMetadataByLabelAsApp indicates an expected call of GetOwnedSecretMetadataByLabelAsApp.
+func (mr *MockSecretsStoreMockRecorder) GetOwnedSecretMetadataByLabelAsApp(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretMetadataByLabelAsApp", reflect.TypeOf((*MockSecretsStore)(nil).GetOwnedSecretMetadataByLabelAsApp), arg0, arg1)
+}
+
+// GetOwnedSecretMetadataByLabelAsUnit mocks base method.
+func (m *MockSecretsStore) GetOwnedSecretMetadataByLabelAsUnit(arg0 names.UnitTag, arg1 string) (*secrets.SecretMetadataOwnerIdent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretMetadataByLabelAsUnit", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.SecretMetadataOwnerIdent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretMetadataByLabelAsUnit indicates an expected call of GetOwnedSecretMetadataByLabelAsUnit.
+func (mr *MockSecretsStoreMockRecorder) GetOwnedSecretMetadataByLabelAsUnit(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretMetadataByLabelAsUnit", reflect.TypeOf((*MockSecretsStore)(nil).GetOwnedSecretMetadataByLabelAsUnit), arg0, arg1)
+}
+
+// GetOwnedSecretRevisionsAsUnit mocks base method.
+func (m *MockSecretsStore) GetOwnedSecretRevisionsAsUnit(arg0 names.UnitTag) (map[secrets.URI][]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretRevisionsAsUnit", arg0)
+	ret0, _ := ret[0].(map[secrets.URI][]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretRevisionsAsUnit indicates an expected call of GetOwnedSecretRevisionsAsUnit.
+func (mr *MockSecretsStoreMockRecorder) GetOwnedSecretRevisionsAsUnit(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretRevisionsAsUnit", reflect.TypeOf((*MockSecretsStore)(nil).GetOwnedSecretRevisionsAsUnit), arg0)
+}
+
+// GetOwnedSecretRevisionsByIDAsLeaderUnit mocks base method.
+func (m *MockSecretsStore) GetOwnedSecretRevisionsByIDAsLeaderUnit(arg0 names.UnitTag, arg1 *secrets.URI) ([]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretRevisionsByIDAsLeaderUnit", arg0, arg1)
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretRevisionsByIDAsLeaderUnit indicates an expected call of GetOwnedSecretRevisionsByIDAsLeaderUnit.
+func (mr *MockSecretsStoreMockRecorder) GetOwnedSecretRevisionsByIDAsLeaderUnit(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretRevisionsByIDAsLeaderUnit", reflect.TypeOf((*MockSecretsStore)(nil).GetOwnedSecretRevisionsByIDAsLeaderUnit), arg0, arg1)
+}
+
+// GetOwnedSecretRevisionsByIDAsUnit mocks base method.
+func (m *MockSecretsStore) GetOwnedSecretRevisionsByIDAsUnit(arg0 names.UnitTag, arg1 *secrets.URI) ([]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnedSecretRevisionsByIDAsUnit", arg0, arg1)
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnedSecretRevisionsByIDAsUnit indicates an expected call of GetOwnedSecretRevisionsByIDAsUnit.
+func (mr *MockSecretsStoreMockRecorder) GetOwnedSecretRevisionsByIDAsUnit(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnedSecretRevisionsByIDAsUnit", reflect.TypeOf((*MockSecretsStore)(nil).GetOwnedSecretRevisionsByIDAsUnit), arg0, arg1)
+}
+
 // GetSecret mocks base method.
 func (m *MockSecretsStore) GetSecret(arg0 *secrets.URI) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
@@ -704,19 +809,34 @@ func (mr *MockSecretsStoreMockRecorder) UpdateSecret(arg0, arg1 any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockSecretsStore)(nil).UpdateSecret), arg0, arg1)
 }
 
-// WatchObsolete mocks base method.
-func (m *MockSecretsStore) WatchObsolete(arg0 []names.Tag) (state.StringsWatcher, error) {
+// WatchDeleted mocks base method.
+func (m *MockSecretsStore) WatchDeleted(arg0 []names.Tag) (state.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchObsolete", arg0)
+	ret := m.ctrl.Call(m, "WatchDeleted", arg0)
+	ret0, _ := ret[0].(state.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchDeleted indicates an expected call of WatchDeleted.
+func (mr *MockSecretsStoreMockRecorder) WatchDeleted(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchDeleted", reflect.TypeOf((*MockSecretsStore)(nil).WatchDeleted), arg0)
+}
+
+// WatchObsolete mocks base method.
+func (m *MockSecretsStore) WatchObsolete(arg0 []names.Tag, arg1 bool) (state.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchObsolete", arg0, arg1)
 	ret0, _ := ret[0].(state.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchObsolete indicates an expected call of WatchObsolete.
-func (mr *MockSecretsStoreMockRecorder) WatchObsolete(arg0 any) *gomock.Call {
+func (mr *MockSecretsStoreMockRecorder) WatchObsolete(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsStore)(nil).WatchObsolete), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsStore)(nil).WatchObsolete), arg0, arg1)
 }
 
 // WatchRevisionsToPrune mocks base method.

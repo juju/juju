@@ -1,12 +1,29 @@
-linters-settings:
-  errcheck:
-    check-type-assertions: false
+version: "2"
+run:
+  tests: false
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
-run:
-  timeout: 30m
-  tests: false
-skip-dirs:
-  - _deps
+  settings:
+    errcheck:
+      check-type-assertions: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - _deps
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

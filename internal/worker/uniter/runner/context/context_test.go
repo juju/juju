@@ -1295,7 +1295,7 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
 	secretsBackend, err := secrets.NewClient(jujuSecretsAPI)
 	c.Assert(err, jc.ErrorIsNil)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsBackend)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{}, jujuSecretsAPI, secretsBackend)
 
 	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsBackend)
 
@@ -1693,7 +1693,43 @@ func (s *mockHookContextSuite) TestSecretRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretRemoves(), jc.DeepEquals, map[string]uniter.SecretDeleteArg{
 		uri.ID:  {URI: uri},
-		uri2.ID: {URI: uri2, Revision: ptr(666)}})
+		uri2.ID: {URI: uri2, Revisions: []int{666}}})
+}
+
+func (s *mockHookContextSuite) TestSecretRemoveMulti(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil).Times(2)
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+
+	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	uri3 := coresecrets.NewURI()
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
+		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: names.NewUnitTag("mariadb/666")},
+		uri3.ID: {Description: "third secret", LatestRevision: 669, Owner: names.NewUnitTag("mariadb/669")},
+	}, nil, nil)
+	err := hookContext.RemoveSecret(uri, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// It isn't an error, but the revision won't be tracked, because we're already deleting all revisions
+	err = hookContext.RemoveSecret(uri, ptr(555))
+	c.Assert(err, jc.ErrorIsNil)
+	err = hookContext.RemoveSecret(uri2, ptr(666))
+	c.Assert(err, jc.ErrorIsNil)
+	// We then remove all secrets after removing just one, so we also just remove all secrets
+	err = hookContext.RemoveSecret(uri2, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// In the third case, we just remove to exact revisions
+	err = hookContext.RemoveSecret(uri3, ptr(555))
+	c.Assert(err, jc.ErrorIsNil)
+	err = hookContext.RemoveSecret(uri3, ptr(666))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRemoves(), jc.DeepEquals, map[string]uniter.SecretDeleteArg{
+		uri.ID:  {URI: uri, Revisions: nil},
+		uri2.ID: {URI: uri2, Revisions: nil},
+		uri3.ID: {URI: uri3, Revisions: []int{555, 666}},
+	})
 }
 
 func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
@@ -2078,4 +2114,64 @@ func (s *mockHookContextSuite) TestHookCloudSpecK8s(c *gc.C) {
 		CACertificates:    []string{"start\ncadata\nend\n"},
 		IsControllerCloud: true,
 	})
+}
+
+func (s *mockHookContextSuite) TestSecretsMetadataLazyLoaded(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	called := false
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(called, jc.IsFalse)
+		called = true
+		c.Assert(objType, gc.Equals, "SecretsManager")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "GetSecretMetadata")
+		c.Check(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.ListSecretMetadataResults{})
+		*(result.(*params.ListSecretMetadataResults)) = params.ListSecretMetadataResults{
+			[]params.ListSecretMetadataResult{{
+				URI:      "secret:9m4e2mr0ui3e8a215n4g",
+				OwnerTag: names.NewUnitTag("wordpress/0").String(),
+			}},
+		}
+		return nil
+	})
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
+	context.SetEnvironmentHookContextSecret(hookContext, "", nil, jujuSecretsAPI, nil)
+
+	value, err := hookContext.SecretMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value, jc.DeepEquals, map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			Owner: names.NewUnitTag("wordpress/0"),
+		},
+	})
+
+	// Second time, it should not call the api.
+	value, err = hookContext.SecretMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value, jc.DeepEquals, map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			Owner: names.NewUnitTag("wordpress/0"),
+		},
+	})
+}
+
+func (s *mockHookContextSuite) TestSecretsMetadataLazyLoadedAlreadyLoaded(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	metadata := map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			Owner: names.NewUnitTag("wordpress/0"),
+		},
+	}
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, "", metadata, nil, nil)
+
+	value, err := hookContext.SecretMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value, jc.DeepEquals, metadata)
 }

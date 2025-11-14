@@ -177,18 +177,19 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	w, err := config.NewWorker(Config{
-		AgentName:            config.AgentName,
-		Clock:                config.Clock,
-		PrometheusRegisterer: config.PrometheusRegisterer,
-		Hub:                  hub,
-		TLSConfig:            tlsConfig,
-		Mux:                  mux,
-		MuxShutdownWait:      config.MuxShutdownWait,
-		LogDir:               config.LogDir,
-		Logger:               config.Logger,
-		APIPort:              controllerConfig.APIPort(),
-		APIPortOpenDelay:     controllerConfig.APIPortOpenDelay(),
-		ControllerAPIPort:    controllerConfig.ControllerAPIPort(),
+		AgentName:             config.AgentName,
+		Clock:                 config.Clock,
+		PrometheusRegisterer:  config.PrometheusRegisterer,
+		Hub:                   hub,
+		TLSConfig:             tlsConfig,
+		Mux:                   mux,
+		MuxShutdownWait:       config.MuxShutdownWait,
+		LogDir:                config.LogDir,
+		Logger:                config.Logger,
+		APIPort:               controllerConfig.APIPort(),
+		APIPortOpenDelay:      controllerConfig.APIPortOpenDelay(),
+		ControllerAPIPort:     controllerConfig.ControllerAPIPort(),
+		IdleConnectionTimeout: controllerConfig.IdleConnectionTimeout(),
 	})
 	if err != nil {
 		_ = stTracker.Done()

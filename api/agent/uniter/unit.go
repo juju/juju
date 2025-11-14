@@ -874,8 +874,8 @@ type SecretUpdateArg struct {
 
 // SecretDeleteArg holds parameters for deleting a secret.
 type SecretDeleteArg struct {
-	URI      *secrets.URI
-	Revision *int
+	URI       *secrets.URI
+	Revisions []int
 }
 
 // AddSecretCreates records requests to create secrets.
@@ -1043,13 +1043,9 @@ func (b *CommitHookParamsBuilder) AddSecretDeletes(deletes []SecretDeleteArg) {
 	}
 	b.arg.SecretDeletes = make([]params.DeleteSecretArg, len(deletes))
 	for i, d := range deletes {
-		var revs []int
-		if d.Revision != nil {
-			revs = []int{*d.Revision}
-		}
 		b.arg.SecretDeletes[i] = params.DeleteSecretArg{
 			URI:       d.URI.String(),
-			Revisions: revs,
+			Revisions: d.Revisions,
 		}
 	}
 }

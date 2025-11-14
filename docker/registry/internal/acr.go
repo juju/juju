@@ -68,7 +68,7 @@ func (c azureContainerRegistry) GetManifests(imageName, tag string) (*ManifestsR
 	return c.GetManifestsCommon(url)
 }
 
-// GetBlobs gets the archtecture of the image for the specified tag via blobs API.
+// GetBlobs gets the architecture of the image for the specified tag via blobs API.
 func (c azureContainerRegistry) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
 	url := c.url("/%s/blobs/%s", imageName, digest)
 	return c.GetBlobsCommon(url)

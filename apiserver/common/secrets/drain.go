@@ -68,7 +68,7 @@ func (s *SecretsDrainAPI) GetSecretsToDrain() (params.ListSecretResults, error) 
 			activeBackend = modelUUID
 		}
 	}
-	return GetSecretMetadata(
+	return GetSecretMetadataWithRevisions(
 		s.authTag, s.secretsState, s.leadershipChecker,
 		func(md *coresecrets.SecretMetadata, rev *coresecrets.SecretRevisionMetadata) bool {
 			if rev.ValueRef == nil {

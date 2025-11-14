@@ -239,9 +239,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 	)
 	informer := factory.Core().V1().Pods().Informer()
 
-	stopChan := make(chan struct{})
 	eventChan := make(chan error)
-	defer close(stopChan)
 	defer close(eventChan)
 
 	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -283,7 +281,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 		return errors.Trace(err)
 	}
 
-	go informer.Run(stopChan)
+	go informer.RunWithContext(ctx)
 
 	select {
 	case <-ctx.Done():

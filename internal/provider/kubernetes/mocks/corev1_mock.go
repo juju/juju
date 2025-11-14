@@ -95,6 +95,21 @@ func (mr *MockEventInterfaceMockRecorder) CreateWithEventNamespace(arg0 any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateWithEventNamespace", reflect.TypeOf((*MockEventInterface)(nil).CreateWithEventNamespace), arg0)
 }
 
+// CreateWithEventNamespaceWithContext mocks base method.
+func (m *MockEventInterface) CreateWithEventNamespaceWithContext(arg0 context.Context, arg1 *v1.Event) (*v1.Event, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateWithEventNamespaceWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*v1.Event)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateWithEventNamespaceWithContext indicates an expected call of CreateWithEventNamespaceWithContext.
+func (mr *MockEventInterfaceMockRecorder) CreateWithEventNamespaceWithContext(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateWithEventNamespaceWithContext", reflect.TypeOf((*MockEventInterface)(nil).CreateWithEventNamespaceWithContext), arg0, arg1)
+}
+
 // Delete mocks base method.
 func (m *MockEventInterface) Delete(arg0 context.Context, arg1 string, arg2 v11.DeleteOptions) error {
 	m.ctrl.T.Helper()
@@ -202,6 +217,21 @@ func (mr *MockEventInterfaceMockRecorder) PatchWithEventNamespace(arg0, arg1 any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PatchWithEventNamespace", reflect.TypeOf((*MockEventInterface)(nil).PatchWithEventNamespace), arg0, arg1)
 }
 
+// PatchWithEventNamespaceWithContext mocks base method.
+func (m *MockEventInterface) PatchWithEventNamespaceWithContext(arg0 context.Context, arg1 *v1.Event, arg2 []byte) (*v1.Event, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PatchWithEventNamespaceWithContext", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.Event)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PatchWithEventNamespaceWithContext indicates an expected call of PatchWithEventNamespaceWithContext.
+func (mr *MockEventInterfaceMockRecorder) PatchWithEventNamespaceWithContext(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PatchWithEventNamespaceWithContext", reflect.TypeOf((*MockEventInterface)(nil).PatchWithEventNamespaceWithContext), arg0, arg1, arg2)
+}
+
 // Search mocks base method.
 func (m *MockEventInterface) Search(arg0 *runtime.Scheme, arg1 runtime.Object) (*v1.EventList, error) {
 	m.ctrl.T.Helper()
@@ -215,6 +245,21 @@ func (m *MockEventInterface) Search(arg0 *runtime.Scheme, arg1 runtime.Object) (
 func (mr *MockEventInterfaceMockRecorder) Search(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Search", reflect.TypeOf((*MockEventInterface)(nil).Search), arg0, arg1)
+}
+
+// SearchWithContext mocks base method.
+func (m *MockEventInterface) SearchWithContext(arg0 context.Context, arg1 *runtime.Scheme, arg2 runtime.Object) (*v1.EventList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SearchWithContext", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.EventList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SearchWithContext indicates an expected call of SearchWithContext.
+func (mr *MockEventInterfaceMockRecorder) SearchWithContext(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchWithContext", reflect.TypeOf((*MockEventInterface)(nil).SearchWithContext), arg0, arg1, arg2)
 }
 
 // Update mocks base method.
@@ -245,6 +290,21 @@ func (m *MockEventInterface) UpdateWithEventNamespace(arg0 *v1.Event) (*v1.Event
 func (mr *MockEventInterfaceMockRecorder) UpdateWithEventNamespace(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateWithEventNamespace", reflect.TypeOf((*MockEventInterface)(nil).UpdateWithEventNamespace), arg0)
+}
+
+// UpdateWithEventNamespaceWithContext mocks base method.
+func (m *MockEventInterface) UpdateWithEventNamespaceWithContext(arg0 context.Context, arg1 *v1.Event) (*v1.Event, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateWithEventNamespaceWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*v1.Event)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateWithEventNamespaceWithContext indicates an expected call of UpdateWithEventNamespaceWithContext.
+func (mr *MockEventInterfaceMockRecorder) UpdateWithEventNamespaceWithContext(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateWithEventNamespaceWithContext", reflect.TypeOf((*MockEventInterface)(nil).UpdateWithEventNamespaceWithContext), arg0, arg1)
 }
 
 // Watch mocks base method.
@@ -973,6 +1033,21 @@ func (m *MockPodInterface) UpdateEphemeralContainers(arg0 context.Context, arg1 
 func (mr *MockPodInterfaceMockRecorder) UpdateEphemeralContainers(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEphemeralContainers", reflect.TypeOf((*MockPodInterface)(nil).UpdateEphemeralContainers), arg0, arg1, arg2, arg3)
+}
+
+// UpdateResize mocks base method.
+func (m *MockPodInterface) UpdateResize(arg0 context.Context, arg1 string, arg2 *v1.Pod, arg3 v11.UpdateOptions) (*v1.Pod, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateResize", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*v1.Pod)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateResize indicates an expected call of UpdateResize.
+func (mr *MockPodInterfaceMockRecorder) UpdateResize(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateResize", reflect.TypeOf((*MockPodInterface)(nil).UpdateResize), arg0, arg1, arg2, arg3)
 }
 
 // UpdateStatus mocks base method.

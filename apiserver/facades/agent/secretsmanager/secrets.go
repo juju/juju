@@ -64,6 +64,11 @@ type SecretsManagerAPIV1 struct {
 
 // SecretsManagerAPIV2 the secrets manager facade v2.
 type SecretsManagerAPIV2 struct {
+	*SecretsManagerAPIV3
+}
+
+// SecretsManagerAPIV3 the secrets manager facade v3.
+type SecretsManagerAPIV3 struct {
 	*SecretsManagerAPI
 }
 
@@ -449,9 +454,14 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	return consumer, nil
 }
 
+// GetSecretMetadata returns metadata with revisions for the caller's secrets.
+func (s *SecretsManagerAPIV3) GetSecretMetadata() (params.ListSecretResults, error) {
+	return commonsecrets.GetSecretMetadataWithRevisions(s.authTag, s.secretsState, s.leadershipChecker, nil)
+}
+
 // GetSecretMetadata returns metadata for the caller's secrets.
-func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error) {
-	return commonsecrets.GetSecretMetadata(s.authTag, s.secretsState, s.leadershipChecker, nil)
+func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretMetadataResults, error) {
+	return commonsecrets.GetSecretMetadata(s.authTag, s.secretsState, s.leadershipChecker)
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
@@ -684,32 +694,50 @@ func (s *SecretsManagerAPI) updateAppOwnedOrUnitOwnedSecretLabel(uri *coresecret
 	return errors.Trace(err)
 }
 
-func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecrets.URI, label string) (*coresecrets.SecretMetadata, error) {
+func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(
+	uri *coresecrets.URI, label string,
+) (*coresecrets.SecretMetadataOwnerIdent, error) {
 	notFoundErr := errors.NotFoundf("secret %q", uri)
 	if label != "" {
 		notFoundErr = errors.NotFoundf("secret with label %q", label)
 	}
 
-	filter := state.SecretsFilter{
-		OwnerTags: []names.Tag{s.authTag},
-	}
-	if s.authTag.Kind() == names.UnitTagKind {
-		// Units can access application owned secrets.
-		appOwner := names.NewApplicationTag(commonsecrets.AuthTagApp(s.authTag))
-		filter.OwnerTags = append(filter.OwnerTags, appOwner)
-	}
-	mds, err := s.secretsState.ListSecrets(filter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, md := range mds {
-		if uri != nil && md.URI.ID == uri.ID {
-			return md, nil
-		}
-		if label != "" && md.Label == label {
-			return md, nil
+	if uri != nil {
+		switch tag := s.authTag.(type) {
+		case names.UnitTag:
+			md, err := s.secretsState.GetOwnedSecretMetadataAsUnit(tag, uri)
+			if errors.Is(err, errors.NotFound) {
+				err = notFoundErr
+			}
+			return md, errors.Trace(err)
+		case names.ApplicationTag:
+			md, err := s.secretsState.GetOwnedSecretMetadataAsApp(tag, uri)
+			if errors.Is(err, errors.NotFound) {
+				err = notFoundErr
+			}
+			return md, errors.Trace(err)
 		}
 	}
+
+	if label != "" {
+		switch tag := s.authTag.(type) {
+		case names.UnitTag:
+			md, err := s.secretsState.GetOwnedSecretMetadataByLabelAsUnit(
+				tag, label)
+			if errors.Is(err, errors.NotFound) {
+				err = notFoundErr
+			}
+			return md, errors.Trace(err)
+		case names.ApplicationTag:
+			md, err := s.secretsState.GetOwnedSecretMetadataByLabelAsApp(
+				tag, label)
+			if errors.Is(err, errors.NotFound) {
+				err = notFoundErr
+			}
+			return md, errors.Trace(err)
+		}
+	}
+
 	return nil, notFoundErr
 }
 
@@ -914,7 +942,20 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 //
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
+func (s *SecretsManagerAPIV3) WatchObsolete(args params.Entities) (params.StringsWatchResult, error) {
+	return s.watchObsolete(args, true)
+}
+
+// WatchObsolete returns a watcher for notifying when:
+//   - a secret revision owed by the entity no longer
+//     has any consumers
+//
+// Obsolete revisions results are "uri/revno".
 func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsWatchResult, error) {
+	return s.watchObsolete(args, false)
+}
+
+func (s *SecretsManagerAPI) watchObsolete(args params.Entities, legacy bool) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	owners := make([]names.Tag, len(args.Entities))
 	for i, arg := range args.Entities {
@@ -935,7 +976,51 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 		}
 		owners[i] = ownerTag
 	}
-	w, err := s.secretsState.WatchObsolete(owners)
+	w, err := s.secretsState.WatchObsolete(owners, legacy)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if changes, ok := <-w.Changes(); ok {
+		result.StringsWatcherId = s.resources.Register(w)
+		result.Changes = changes
+	} else {
+		err = watcher.EnsureErr(w)
+		result.Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+// WatchDeleted is not implemented on version 3.
+func (s *SecretsManagerAPIV3) WatchDeleted(_ struct{}) {}
+
+// WatchDeleted returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity is deleted
+//
+// Deleted revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (s *SecretsManagerAPI) WatchDeleted(args params.Entities) (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	owners := make([]names.Tag, len(args.Entities))
+	for i, arg := range args.Entities {
+		ownerTag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
+			return result, apiservererrors.ErrPerm
+		}
+		// Only unit leaders can watch application secrets.
+		// TODO(wallyworld) - temp fix for old podspec charms
+		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
+			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+		}
+		owners[i] = ownerTag
+	}
+	w, err := s.secretsState.WatchDeleted(owners)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -1147,5 +1232,93 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs
 		result.Error = apiservererrors.ServerError(one(arg))
 		results.Results[i] = result
 	}
+	return results, nil
+}
+
+// UnitOwnedSecretsAndRevisions is not implemented on version 3.
+func (s *SecretsManagerAPIV3) UnitOwnedSecretsAndRevisions(_ struct{}) {}
+
+// UnitOwnedSecretsAndRevisions returns all secret URIs and revision IDs for all
+// secrets owned by the given unit.
+func (s *SecretsManagerAPI) UnitOwnedSecretsAndRevisions(arg params.Entity) (params.SecretRevisionIDsResults, error) {
+	var results params.SecretRevisionIDsResults
+	if !s.authorizer.AuthUnitAgent() && !s.authorizer.AuthApplicationAgent() {
+		return results, apiservererrors.ErrPerm
+	}
+	unitTag, err := names.ParseUnitTag(arg.Tag)
+	if err != nil {
+		return results, apiservererrors.ErrPerm
+	}
+	if !commonsecrets.IsSameApplication(s.authTag, unitTag) {
+		return results, apiservererrors.ErrPerm
+	}
+
+	info, err := s.secretsState.GetOwnedSecretRevisionsAsUnit(unitTag)
+	if err != nil {
+		return results, apiservererrors.ServerError(err)
+	}
+
+	results.Results = make([]params.SecretRevisionIDsResult, 0, len(info))
+	for id, revs := range info {
+		result := params.SecretRevisionIDsResult{
+			URI:       id.String(),
+			Revisions: revs,
+		}
+		results.Results = append(results.Results, result)
+	}
+
+	return results, nil
+}
+
+// OwnedSecretRevisions is not implemented on version 3.
+func (s *SecretsManagerAPIV3) OwnedSecretRevisions(_ struct{}) {}
+
+// OwnedSecretRevisions returns all the revision IDs for the given secret that
+// is owned by either the unit or the unit's application.
+func (s *SecretsManagerAPI) OwnedSecretRevisions(args params.SecretRevisionArgs) (params.SecretRevisionIDsResults, error) {
+	if !s.authorizer.AuthUnitAgent() && !s.authorizer.AuthApplicationAgent() {
+		return params.SecretRevisionIDsResults{}, apiservererrors.ErrPerm
+	}
+	unitTag, err := names.ParseUnitTag(args.Unit.Tag)
+	if err != nil {
+		return params.SecretRevisionIDsResults{}, apiservererrors.ErrPerm
+	}
+	if !commonsecrets.IsSameApplication(s.authTag, unitTag) {
+		return params.SecretRevisionIDsResults{}, apiservererrors.ErrPerm
+	}
+	// Unit leaders can also get metadata for secrets owned by the app.
+	// TODO(wallyworld) - temp fix for old podspec charms
+	isLeader, err := commonsecrets.IsLeaderUnit(unitTag, s.leadershipChecker)
+	if err != nil {
+		return params.SecretRevisionIDsResults{}, errors.Trace(err)
+	}
+
+	results := params.SecretRevisionIDsResults{
+		Results: make([]params.SecretRevisionIDsResult, len(args.SecretURIs)),
+	}
+	for i, secretID := range args.SecretURIs {
+		uri, err := coresecrets.ParseURI(secretID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		var revs []int
+		if isLeader {
+			revs, err = s.secretsState.GetOwnedSecretRevisionsByIDAsLeaderUnit(
+				unitTag, uri)
+		} else {
+			revs, err = s.secretsState.GetOwnedSecretRevisionsByIDAsUnit(
+				unitTag, uri)
+		}
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i] = params.SecretRevisionIDsResult{
+			URI:       secretID,
+			Revisions: revs,
+		}
+	}
+
 	return results, nil
 }

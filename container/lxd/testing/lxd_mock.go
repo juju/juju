@@ -566,36 +566,6 @@ func (mr *MockImageServerMockRecorder) GetImages() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImages", reflect.TypeOf((*MockImageServer)(nil).GetImages))
 }
 
-// GetImagesAllProjects mocks base method.
-func (m *MockImageServer) GetImagesAllProjects() ([]api.Image, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetImagesAllProjects")
-	ret0, _ := ret[0].([]api.Image)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetImagesAllProjects indicates an expected call of GetImagesAllProjects.
-func (mr *MockImageServerMockRecorder) GetImagesAllProjects() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImagesAllProjects", reflect.TypeOf((*MockImageServer)(nil).GetImagesAllProjects))
-}
-
-// GetImagesAllProjectsWithFilter mocks base method.
-func (m *MockImageServer) GetImagesAllProjectsWithFilter(arg0 []string) ([]api.Image, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetImagesAllProjectsWithFilter", arg0)
-	ret0, _ := ret[0].([]api.Image)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetImagesAllProjectsWithFilter indicates an expected call of GetImagesAllProjectsWithFilter.
-func (mr *MockImageServerMockRecorder) GetImagesAllProjectsWithFilter(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImagesAllProjectsWithFilter", reflect.TypeOf((*MockImageServer)(nil).GetImagesAllProjectsWithFilter), arg0)
-}
-
 // GetImagesWithFilter mocks base method.
 func (m *MockImageServer) GetImagesWithFilter(arg0 []string) ([]api.Image, error) {
 	m.ctrl.T.Helper()
@@ -663,6 +633,20 @@ func NewMockInstanceServer(ctrl *gomock.Controller) *MockInstanceServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockInstanceServer) EXPECT() *MockInstanceServerMockRecorder {
 	return m.recorder
+}
+
+// CheckExtension mocks base method.
+func (m *MockInstanceServer) CheckExtension(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckExtension", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckExtension indicates an expected call of CheckExtension.
+func (mr *MockInstanceServerMockRecorder) CheckExtension(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckExtension", reflect.TypeOf((*MockInstanceServer)(nil).CheckExtension), arg0)
 }
 
 // ConsoleContainer mocks base method.
@@ -976,8 +960,22 @@ func (mr *MockInstanceServerMockRecorder) CreateContainerTemplateFile(arg0, arg1
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainerTemplateFile", reflect.TypeOf((*MockInstanceServer)(nil).CreateContainerTemplateFile), arg0, arg1, arg2)
 }
 
+// CreateIdentityBearer mocks base method.
+func (m *MockInstanceServer) CreateIdentityBearer(arg0 api.IdentitiesBearerPost) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateIdentityBearer", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateIdentityBearer indicates an expected call of CreateIdentityBearer.
+func (mr *MockInstanceServerMockRecorder) CreateIdentityBearer(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIdentityBearer", reflect.TypeOf((*MockInstanceServer)(nil).CreateIdentityBearer), arg0)
+}
+
 // CreateIdentityProviderGroup mocks base method.
-func (m *MockInstanceServer) CreateIdentityProviderGroup(arg0 api.IdentityProviderGroup) error {
+func (m *MockInstanceServer) CreateIdentityProviderGroup(arg0 api.IdentityProviderGroupsPost) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateIdentityProviderGroup", arg0)
 	ret0, _ := ret[0].(error)
@@ -1264,6 +1262,20 @@ func (mr *MockInstanceServerMockRecorder) CreateNetworkZoneRecord(arg0, arg1 any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNetworkZoneRecord", reflect.TypeOf((*MockInstanceServer)(nil).CreateNetworkZoneRecord), arg0, arg1)
 }
 
+// CreatePlacementGroup mocks base method.
+func (m *MockInstanceServer) CreatePlacementGroup(arg0 api.PlacementGroupsPost) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreatePlacementGroup", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreatePlacementGroup indicates an expected call of CreatePlacementGroup.
+func (mr *MockInstanceServerMockRecorder) CreatePlacementGroup(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePlacementGroup", reflect.TypeOf((*MockInstanceServer)(nil).CreatePlacementGroup), arg0)
+}
+
 // CreateProfile mocks base method.
 func (m *MockInstanceServer) CreateProfile(arg0 api.ProfilesPost) error {
 	m.ctrl.T.Helper()
@@ -1393,6 +1405,21 @@ func (m *MockInstanceServer) CreateStoragePoolVolumeFromISO(arg0 string, arg1 lx
 func (mr *MockInstanceServerMockRecorder) CreateStoragePoolVolumeFromISO(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStoragePoolVolumeFromISO", reflect.TypeOf((*MockInstanceServer)(nil).CreateStoragePoolVolumeFromISO), arg0, arg1)
+}
+
+// CreateStoragePoolVolumeFromTarball mocks base method.
+func (m *MockInstanceServer) CreateStoragePoolVolumeFromTarball(arg0 string, arg1 lxd.StoragePoolVolumeBackupArgs) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateStoragePoolVolumeFromTarball", arg0, arg1)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateStoragePoolVolumeFromTarball indicates an expected call of CreateStoragePoolVolumeFromTarball.
+func (mr *MockInstanceServerMockRecorder) CreateStoragePoolVolumeFromTarball(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStoragePoolVolumeFromTarball", reflect.TypeOf((*MockInstanceServer)(nil).CreateStoragePoolVolumeFromTarball), arg0, arg1)
 }
 
 // CreateStoragePoolVolumeSnapshot mocks base method.
@@ -1697,18 +1724,18 @@ func (mr *MockInstanceServerMockRecorder) DeleteInstanceLogfile(arg0, arg1 any) 
 }
 
 // DeleteInstanceSnapshot mocks base method.
-func (m *MockInstanceServer) DeleteInstanceSnapshot(arg0, arg1 string) (lxd.Operation, error) {
+func (m *MockInstanceServer) DeleteInstanceSnapshot(arg0, arg1, arg2 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteInstanceSnapshot", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteInstanceSnapshot", arg0, arg1, arg2)
 	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DeleteInstanceSnapshot indicates an expected call of DeleteInstanceSnapshot.
-func (mr *MockInstanceServerMockRecorder) DeleteInstanceSnapshot(arg0, arg1 any) *gomock.Call {
+func (mr *MockInstanceServerMockRecorder) DeleteInstanceSnapshot(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInstanceSnapshot", reflect.TypeOf((*MockInstanceServer)(nil).DeleteInstanceSnapshot), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInstanceSnapshot", reflect.TypeOf((*MockInstanceServer)(nil).DeleteInstanceSnapshot), arg0, arg1, arg2)
 }
 
 // DeleteInstanceTemplateFile mocks base method.
@@ -1823,6 +1850,20 @@ func (mr *MockInstanceServerMockRecorder) DeleteNetworkZoneRecord(arg0, arg1 any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNetworkZoneRecord", reflect.TypeOf((*MockInstanceServer)(nil).DeleteNetworkZoneRecord), arg0, arg1)
 }
 
+// DeleteOIDCSession mocks base method.
+func (m *MockInstanceServer) DeleteOIDCSession(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteOIDCSession", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteOIDCSession indicates an expected call of DeleteOIDCSession.
+func (mr *MockInstanceServerMockRecorder) DeleteOIDCSession(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOIDCSession", reflect.TypeOf((*MockInstanceServer)(nil).DeleteOIDCSession), arg0)
+}
+
 // DeleteOperation mocks base method.
 func (m *MockInstanceServer) DeleteOperation(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -1835,6 +1876,20 @@ func (m *MockInstanceServer) DeleteOperation(arg0 string) error {
 func (mr *MockInstanceServerMockRecorder) DeleteOperation(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOperation", reflect.TypeOf((*MockInstanceServer)(nil).DeleteOperation), arg0)
+}
+
+// DeletePlacementGroup mocks base method.
+func (m *MockInstanceServer) DeletePlacementGroup(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeletePlacementGroup", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeletePlacementGroup indicates an expected call of DeletePlacementGroup.
+func (mr *MockInstanceServerMockRecorder) DeletePlacementGroup(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePlacementGroup", reflect.TypeOf((*MockInstanceServer)(nil).DeletePlacementGroup), arg0)
 }
 
 // DeleteProfile mocks base method.
@@ -1852,17 +1907,17 @@ func (mr *MockInstanceServerMockRecorder) DeleteProfile(arg0 any) *gomock.Call {
 }
 
 // DeleteProject mocks base method.
-func (m *MockInstanceServer) DeleteProject(arg0 string) error {
+func (m *MockInstanceServer) DeleteProject(arg0 string, arg1 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteProject", arg0)
+	ret := m.ctrl.Call(m, "DeleteProject", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteProject indicates an expected call of DeleteProject.
-func (mr *MockInstanceServerMockRecorder) DeleteProject(arg0 any) *gomock.Call {
+func (mr *MockInstanceServerMockRecorder) DeleteProject(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProject", reflect.TypeOf((*MockInstanceServer)(nil).DeleteProject), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProject", reflect.TypeOf((*MockInstanceServer)(nil).DeleteProject), arg0, arg1)
 }
 
 // DeleteStoragePool mocks base method.
@@ -3505,6 +3560,21 @@ func (mr *MockInstanceServerMockRecorder) GetNetworkACLs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkACLs", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkACLs))
 }
 
+// GetNetworkACLsAllProjects mocks base method.
+func (m *MockInstanceServer) GetNetworkACLsAllProjects() ([]api.NetworkACL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkACLsAllProjects")
+	ret0, _ := ret[0].([]api.NetworkACL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkACLsAllProjects indicates an expected call of GetNetworkACLsAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetNetworkACLsAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkACLsAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkACLsAllProjects))
+}
+
 // GetNetworkAllocations mocks base method.
 func (m *MockInstanceServer) GetNetworkAllocations(arg0 bool) ([]api.NetworkAllocations, error) {
 	m.ctrl.T.Helper()
@@ -3795,6 +3865,21 @@ func (mr *MockInstanceServerMockRecorder) GetNetworkZones() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkZones", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkZones))
 }
 
+// GetNetworkZonesAllProjects mocks base method.
+func (m *MockInstanceServer) GetNetworkZonesAllProjects() ([]api.NetworkZone, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkZonesAllProjects")
+	ret0, _ := ret[0].([]api.NetworkZone)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkZonesAllProjects indicates an expected call of GetNetworkZonesAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetNetworkZonesAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkZonesAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkZonesAllProjects))
+}
+
 // GetNetworks mocks base method.
 func (m *MockInstanceServer) GetNetworks() ([]api.Network, error) {
 	m.ctrl.T.Helper()
@@ -3808,6 +3893,96 @@ func (m *MockInstanceServer) GetNetworks() ([]api.Network, error) {
 func (mr *MockInstanceServerMockRecorder) GetNetworks() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworks", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworks))
+}
+
+// GetNetworksAllProjects mocks base method.
+func (m *MockInstanceServer) GetNetworksAllProjects() ([]api.Network, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworksAllProjects")
+	ret0, _ := ret[0].([]api.Network)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworksAllProjects indicates an expected call of GetNetworksAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetNetworksAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworksAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworksAllProjects))
+}
+
+// GetOIDCSession mocks base method.
+func (m *MockInstanceServer) GetOIDCSession(arg0 string) (*api.OIDCSession, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOIDCSession", arg0)
+	ret0, _ := ret[0].(*api.OIDCSession)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOIDCSession indicates an expected call of GetOIDCSession.
+func (mr *MockInstanceServerMockRecorder) GetOIDCSession(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOIDCSession", reflect.TypeOf((*MockInstanceServer)(nil).GetOIDCSession), arg0)
+}
+
+// GetOIDCSessionUUIDs mocks base method.
+func (m *MockInstanceServer) GetOIDCSessionUUIDs() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOIDCSessionUUIDs")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOIDCSessionUUIDs indicates an expected call of GetOIDCSessionUUIDs.
+func (mr *MockInstanceServerMockRecorder) GetOIDCSessionUUIDs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOIDCSessionUUIDs", reflect.TypeOf((*MockInstanceServer)(nil).GetOIDCSessionUUIDs))
+}
+
+// GetOIDCSessionUUIDsByEmail mocks base method.
+func (m *MockInstanceServer) GetOIDCSessionUUIDsByEmail(arg0 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOIDCSessionUUIDsByEmail", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOIDCSessionUUIDsByEmail indicates an expected call of GetOIDCSessionUUIDsByEmail.
+func (mr *MockInstanceServerMockRecorder) GetOIDCSessionUUIDsByEmail(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOIDCSessionUUIDsByEmail", reflect.TypeOf((*MockInstanceServer)(nil).GetOIDCSessionUUIDsByEmail), arg0)
+}
+
+// GetOIDCSessions mocks base method.
+func (m *MockInstanceServer) GetOIDCSessions() ([]api.OIDCSession, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOIDCSessions")
+	ret0, _ := ret[0].([]api.OIDCSession)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOIDCSessions indicates an expected call of GetOIDCSessions.
+func (mr *MockInstanceServerMockRecorder) GetOIDCSessions() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOIDCSessions", reflect.TypeOf((*MockInstanceServer)(nil).GetOIDCSessions))
+}
+
+// GetOIDCSessionsByEmail mocks base method.
+func (m *MockInstanceServer) GetOIDCSessionsByEmail(arg0 string) ([]api.OIDCSession, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOIDCSessionsByEmail", arg0)
+	ret0, _ := ret[0].([]api.OIDCSession)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOIDCSessionsByEmail indicates an expected call of GetOIDCSessionsByEmail.
+func (mr *MockInstanceServerMockRecorder) GetOIDCSessionsByEmail(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOIDCSessionsByEmail", reflect.TypeOf((*MockInstanceServer)(nil).GetOIDCSessionsByEmail), arg0)
 }
 
 // GetOperation mocks base method.
@@ -3948,6 +4123,82 @@ func (mr *MockInstanceServerMockRecorder) GetPermissionsInfo(arg0 any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPermissionsInfo", reflect.TypeOf((*MockInstanceServer)(nil).GetPermissionsInfo), arg0)
 }
 
+// GetPlacementGroup mocks base method.
+func (m *MockInstanceServer) GetPlacementGroup(arg0 string) (*api.PlacementGroup, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPlacementGroup", arg0)
+	ret0, _ := ret[0].(*api.PlacementGroup)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetPlacementGroup indicates an expected call of GetPlacementGroup.
+func (mr *MockInstanceServerMockRecorder) GetPlacementGroup(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlacementGroup", reflect.TypeOf((*MockInstanceServer)(nil).GetPlacementGroup), arg0)
+}
+
+// GetPlacementGroupNames mocks base method.
+func (m *MockInstanceServer) GetPlacementGroupNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPlacementGroupNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPlacementGroupNames indicates an expected call of GetPlacementGroupNames.
+func (mr *MockInstanceServerMockRecorder) GetPlacementGroupNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlacementGroupNames", reflect.TypeOf((*MockInstanceServer)(nil).GetPlacementGroupNames))
+}
+
+// GetPlacementGroupNamesAllProjects mocks base method.
+func (m *MockInstanceServer) GetPlacementGroupNamesAllProjects() (map[string][]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPlacementGroupNamesAllProjects")
+	ret0, _ := ret[0].(map[string][]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPlacementGroupNamesAllProjects indicates an expected call of GetPlacementGroupNamesAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetPlacementGroupNamesAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlacementGroupNamesAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetPlacementGroupNamesAllProjects))
+}
+
+// GetPlacementGroups mocks base method.
+func (m *MockInstanceServer) GetPlacementGroups() ([]api.PlacementGroup, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPlacementGroups")
+	ret0, _ := ret[0].([]api.PlacementGroup)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPlacementGroups indicates an expected call of GetPlacementGroups.
+func (mr *MockInstanceServerMockRecorder) GetPlacementGroups() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlacementGroups", reflect.TypeOf((*MockInstanceServer)(nil).GetPlacementGroups))
+}
+
+// GetPlacementGroupsAllProjects mocks base method.
+func (m *MockInstanceServer) GetPlacementGroupsAllProjects() ([]api.PlacementGroup, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPlacementGroupsAllProjects")
+	ret0, _ := ret[0].([]api.PlacementGroup)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPlacementGroupsAllProjects indicates an expected call of GetPlacementGroupsAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetPlacementGroupsAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlacementGroupsAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetPlacementGroupsAllProjects))
+}
+
 // GetPrivateImage mocks base method.
 func (m *MockInstanceServer) GetPrivateImage(arg0, arg1 string) (*api.Image, string, error) {
 	m.ctrl.T.Helper()
@@ -4023,6 +4274,21 @@ func (m *MockInstanceServer) GetProfiles() ([]api.Profile, error) {
 func (mr *MockInstanceServerMockRecorder) GetProfiles() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfiles", reflect.TypeOf((*MockInstanceServer)(nil).GetProfiles))
+}
+
+// GetProfilesAllProjects mocks base method.
+func (m *MockInstanceServer) GetProfilesAllProjects() ([]api.Profile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProfilesAllProjects")
+	ret0, _ := ret[0].([]api.Profile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProfilesAllProjects indicates an expected call of GetProfilesAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetProfilesAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfilesAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetProfilesAllProjects))
 }
 
 // GetProject mocks base method.
@@ -4223,6 +4489,21 @@ func (m *MockInstanceServer) GetStoragePoolBuckets(arg0 string) ([]api.StorageBu
 func (mr *MockInstanceServerMockRecorder) GetStoragePoolBuckets(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBuckets", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBuckets), arg0)
+}
+
+// GetStoragePoolBucketsAllProjects mocks base method.
+func (m *MockInstanceServer) GetStoragePoolBucketsAllProjects(arg0 string) ([]api.StorageBucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolBucketsAllProjects", arg0)
+	ret0, _ := ret[0].([]api.StorageBucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolBucketsAllProjects indicates an expected call of GetStoragePoolBucketsAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetStoragePoolBucketsAllProjects(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBucketsAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBucketsAllProjects), arg0)
 }
 
 // GetStoragePoolNames mocks base method.
@@ -4602,6 +4883,21 @@ func (mr *MockInstanceServerMockRecorder) IsClustered() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsClustered", reflect.TypeOf((*MockInstanceServer)(nil).IsClustered))
 }
 
+// IssueBearerIdentityToken mocks base method.
+func (m *MockInstanceServer) IssueBearerIdentityToken(arg0 string, arg1 api.IdentityBearerTokenPost) (*api.IdentityBearerToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IssueBearerIdentityToken", arg0, arg1)
+	ret0, _ := ret[0].(*api.IdentityBearerToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IssueBearerIdentityToken indicates an expected call of IssueBearerIdentityToken.
+func (mr *MockInstanceServerMockRecorder) IssueBearerIdentityToken(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueBearerIdentityToken", reflect.TypeOf((*MockInstanceServer)(nil).IssueBearerIdentityToken), arg0, arg1)
+}
+
 // MigrateContainer mocks base method.
 func (m *MockInstanceServer) MigrateContainer(arg0 string, arg1 api.ContainerPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
@@ -4972,6 +5268,20 @@ func (mr *MockInstanceServerMockRecorder) RenameNetworkACL(arg0, arg1 any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameNetworkACL", reflect.TypeOf((*MockInstanceServer)(nil).RenameNetworkACL), arg0, arg1)
 }
 
+// RenamePlacementGroup mocks base method.
+func (m *MockInstanceServer) RenamePlacementGroup(arg0 string, arg1 api.PlacementGroupPost) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RenamePlacementGroup", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RenamePlacementGroup indicates an expected call of RenamePlacementGroup.
+func (mr *MockInstanceServerMockRecorder) RenamePlacementGroup(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenamePlacementGroup", reflect.TypeOf((*MockInstanceServer)(nil).RenamePlacementGroup), arg0, arg1)
+}
+
 // RenameProfile mocks base method.
 func (m *MockInstanceServer) RenameProfile(arg0 string, arg1 api.ProfilePost) error {
 	m.ctrl.T.Helper()
@@ -5055,6 +5365,20 @@ func (m *MockInstanceServer) RequireAuthenticated(arg0 bool) {
 func (mr *MockInstanceServerMockRecorder) RequireAuthenticated(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequireAuthenticated", reflect.TypeOf((*MockInstanceServer)(nil).RequireAuthenticated), arg0)
+}
+
+// RevokeBearerIdentityToken mocks base method.
+func (m *MockInstanceServer) RevokeBearerIdentityToken(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeBearerIdentityToken", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RevokeBearerIdentityToken indicates an expected call of RevokeBearerIdentityToken.
+func (mr *MockInstanceServerMockRecorder) RevokeBearerIdentityToken(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeBearerIdentityToken", reflect.TypeOf((*MockInstanceServer)(nil).RevokeBearerIdentityToken), arg0)
 }
 
 // SendEvent mocks base method.
@@ -5484,6 +5808,20 @@ func (m *MockInstanceServer) UpdateNetworkZoneRecord(arg0, arg1 string, arg2 api
 func (mr *MockInstanceServerMockRecorder) UpdateNetworkZoneRecord(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateNetworkZoneRecord", reflect.TypeOf((*MockInstanceServer)(nil).UpdateNetworkZoneRecord), arg0, arg1, arg2, arg3)
+}
+
+// UpdatePlacementGroup mocks base method.
+func (m *MockInstanceServer) UpdatePlacementGroup(arg0 string, arg1 api.PlacementGroupPut, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdatePlacementGroup", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdatePlacementGroup indicates an expected call of UpdatePlacementGroup.
+func (mr *MockInstanceServerMockRecorder) UpdatePlacementGroup(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePlacementGroup", reflect.TypeOf((*MockInstanceServer)(nil).UpdatePlacementGroup), arg0, arg1, arg2)
 }
 
 // UpdateProfile mocks base method.

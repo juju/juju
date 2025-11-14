@@ -190,18 +190,19 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config := newWorkerArgs[0].(httpserver.Config)
 
 	c.Assert(config, jc.DeepEquals, httpserver.Config{
-		AgentName:            "machine-42",
-		Clock:                s.clock,
-		PrometheusRegisterer: &s.prometheusRegisterer,
-		Hub:                  s.hub,
-		TLSConfig:            s.tlsConfig,
-		Mux:                  s.mux,
-		APIPort:              1024,
-		APIPortOpenDelay:     5 * time.Second,
-		ControllerAPIPort:    2048,
-		MuxShutdownWait:      1 * time.Minute,
-		LogDir:               "log-dir",
-		Logger:               s.config.Logger,
+		AgentName:             "machine-42",
+		Clock:                 s.clock,
+		PrometheusRegisterer:  &s.prometheusRegisterer,
+		Hub:                   s.hub,
+		TLSConfig:             s.tlsConfig,
+		Mux:                   s.mux,
+		APIPort:               1024,
+		APIPortOpenDelay:      5 * time.Second,
+		ControllerAPIPort:     2048,
+		MuxShutdownWait:       1 * time.Minute,
+		LogDir:                "log-dir",
+		Logger:                s.config.Logger,
+		IdleConnectionTimeout: 30 * time.Second,
 	})
 }
 

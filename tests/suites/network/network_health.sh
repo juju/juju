@@ -65,6 +65,84 @@ check_accessibility() {
 	done
 }
 
+run_ip_address_change() {
+	echo
+
+	file="${TEST_DIR}/ip-address-change.txt"
+
+	ensure "ip-address-change" "${file}"
+	juju switch "ip-address-change"
+	juju deploy juju-qa-test -n 2
+
+	wait_for "juju-qa-test" "$(active_condition "juju-qa-test" 0)"
+
+	instance_0="$(juju show-machine 0 --format json | jq '.machines["0"] | .["instance-id"]' -r)"
+	instance_1="$(juju show-machine 1 --format json | jq '.machines["1"] | .["instance-id"]' -r)"
+
+	old_ip_instance_0="$(lxc exec "${instance_0}" -- hostname -i)"
+	old_ip_instance_1="$(lxc exec "${instance_1}" -- hostname -i)"
+
+	# Trigger an IP address change for machine 0.
+	lxc config device add "${instance_0}" eth0 none
+	sleep 5
+	lxc config device remove "${instance_0}" eth0
+	new_ip_instance_0="$(lxc exec "${instance_0}" -- hostname -i)"
+
+	# Check that the IP address are the same when running from lxc and juju.
+	new_ip_instance_0_from_jujuexec=""
+	attempt=0
+	echo "getting the new ip address for machine-0"
+	while true; do
+		new_ip_instance_0_from_jujuexec=$(timeout 5s juju exec --unit juju-qa-test/0 -- hostname -I || true)
+		if echo "${new_ip_instance_0_from_jujuexec}" | grep -qF "${new_ip_instance_0}"; then
+			# shellcheck disable=SC2046
+			echo $(green "ip address for machine-0 matches: ${new_ip_instance_0_from_jujuexec}")
+			break
+		fi
+
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 30 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "timeout: waiting for machine-0 ip change to ${new_ip_instance_0}")
+			exit 1
+		fi
+		sleep 5
+	done
+
+	check_not_contains "${new_ip_instance_0_from_jujuexec}" "${old_ip_instance_0}"
+
+	# Trigger an IP address change for machine 1.
+	lxc config device add "${instance_1}" eth0 none
+	sleep 5
+	lxc config device remove "${instance_1}" eth0
+	new_ip_instance_1="$(lxc exec "${instance_1}" -- hostname -i)"
+
+	# Check that the IP address are the same when running from lxc and juju.
+	new_ip_instance_1_from_jujuexec=""
+	attempt=0
+	echo "getting the new ip address for machine-1"
+	while true; do
+		new_ip_instance_1_from_jujuexec=$(timeout 5s juju exec --unit juju-qa-test/1 -- hostname -I || true)
+		if echo "${new_ip_instance_1_from_jujuexec}" | grep -qF "${new_ip_instance_1}"; then
+			# shellcheck disable=SC2046
+			echo $(green "ip address for machine-1 matches: ${new_ip_instance_1_from_jujuexec}")
+			break
+		fi
+
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 30 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "timeout: waiting for machine-1 ip change to ${new_ip_instance_1}")
+			exit 1
+		fi
+		sleep 5
+	done
+
+	check_not_contains "${new_ip_instance_1_from_jujuexec}" "${old_ip_instance_1}"
+
+	destroy_model "ip-address-change"
+}
+
 test_network_health() {
 	if [ "$(skip 'test_network_health')" ]; then
 		echo "==> TEST SKIPPED: test_network_health"
@@ -77,5 +155,11 @@ test_network_health() {
 		cd .. || exit
 
 		run "run_network_health"
+
+		if [ "${BOOTSTRAP_PROVIDER}" = "lxd" ]; then
+			run "run_ip_address_change"
+		else
+			echo "==> TEST SKIPPED: run_ip_address_change - tests for LXD only"
+		fi
 	)
 }

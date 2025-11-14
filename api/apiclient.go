@@ -139,15 +139,24 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		bakeryClient.Client = &httpc
 	}
 
-	// Technically when there's no CACert, we don't need this
-	// machinery, because we could just use http.DefaultTransport
+	httpsTransport := jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
+		TLSConfig: dialResult.tlsConfig,
+	})
+	// http.DefaultTransport uses 100 idle connections and 90s timeout.
+	// Old versions of juju/http were not setting this at all, which meant
+	// that we were not cleaning up idle connections. Since we are creating
+	// a new httpsTransport for each api.Open, we can set the MaxIdleConns
+	// all the way down to a single connection.
+	httpsTransport.MaxIdleConns = 1
+	httpsTransport.IdleConnTimeout = 90 * time.Second
+
+	// Technically, when there's no CACert, we don't need this
+	// machinery because we could just use http.DefaultTransport
 	// for everything, but it's easier just to leave it in place.
 	bakeryClient.Client.Transport = &hostSwitchingTransport{
 		primaryHost: dialResult.controllerRootAddr.Host,
-		primary: jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
-			TLSConfig: dialResult.tlsConfig,
-		}),
-		fallback: http.DefaultTransport,
+		primary:     httpsTransport,
+		fallback:    http.DefaultTransport,
 	}
 
 	host := PreferredHost(info)
@@ -1183,6 +1192,13 @@ func (s *state) APICall(facade string, vers int, id, method string, args, respon
 }
 
 func (s *state) Close() error {
+	// The bakery client for Macaroons uses a round-tripper, so it is not a
+	// connection in its own right, but we can get it to close any connections
+	// from completed requests that are still open.
+	// Note that this does nothing for connections in use, including those
+	// held open because someone failed to close a HTTP response body.
+	s.bakeryClient.Client.CloseIdleConnections()
+
 	err := s.client.Close()
 	select {
 	case <-s.closed:

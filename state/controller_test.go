@@ -38,6 +38,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.AgentRateLimitRate,
 		controller.AllowModelAccessKey,
 		controller.APIPortOpenDelay,
+		controller.IdleConnectionTimeout,
 		controller.AuditLogExcludeMethods,
 		controller.AutocertURLKey,
 		controller.AutocertDNSNameKey,

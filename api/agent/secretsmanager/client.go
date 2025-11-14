@@ -11,6 +11,7 @@ import (
 	commonsecretbackends "github.com/juju/juju/api/common/secretbackends"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/secrets"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -83,12 +84,10 @@ func (c *Client) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWa
 }
 
 // WatchObsolete returns a watcher for notifying when:
-//   - a secret owned by the entity is deleted
 //   - a secret revision owed by the entity no longer
 //     has any consumers
 //
-// Obsolete revisions results are "uri/revno" and deleted
-// secret results are "uri".
+// Obsolete revisions results are "uri/revno".
 func (c *Client) WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
 	args := params.Entities{Entities: make([]params.Entity, len(ownerTags))}
@@ -96,6 +95,29 @@ func (c *Client) WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, 
 		args.Entities[i] = params.Entity{Tag: tag.String()}
 	}
 	err := c.facade.FacadeCall("WatchObsolete", args, &result)
+	if err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, apiservererrors.RestoreError(result.Error)
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchDeleted returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity is deleted
+//
+// Deleted revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (c *Client) WatchDeleted(ownerTags ...names.Tag) (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	args := params.Entities{Entities: make([]params.Entity, len(ownerTags))}
+	for i, tag := range ownerTags {
+		args.Entities[i] = params.Entity{Tag: tag.String()}
+	}
+	err := c.facade.FacadeCall("WatchDeleted", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -140,13 +162,13 @@ func (c *Client) GetConsumerSecretsRevisionInfo(unitName string, uris []string) 
 }
 
 // SecretMetadata returns metadata for the specified secrets.
-func (c *Client) SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error) {
-	var results params.ListSecretResults
+func (c *Client) SecretMetadata() ([]coresecrets.SecretMetadata, error) {
+	var results params.ListSecretMetadataResults
 	err := c.facade.FacadeCall("GetSecretMetadata", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var result []coresecrets.SecretOwnerMetadata
+	var result []coresecrets.SecretMetadata
 	for _, info := range results.Results {
 		uri, err := coresecrets.ParseURI(info.URI)
 		if err != nil {
@@ -168,14 +190,7 @@ func (c *Client) SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error) {
 				Target: g.TargetTag, Scope: g.ScopeTag, Role: g.Role,
 			})
 		}
-		revisions := make([]int, len(info.Revisions))
-		for i, r := range info.Revisions {
-			revisions[i] = r.Revision
-		}
-		result = append(result, coresecrets.SecretOwnerMetadata{
-			Metadata:  md,
-			Revisions: revisions,
-		})
+		result = append(result, md)
 	}
 	return result, nil
 }
@@ -314,4 +329,54 @@ func (c *Client) Revoke(uri *coresecrets.URI, p *SecretRevokeGrantArgs) error {
 		return result.Error
 	}
 	return nil
+}
+
+// UnitOwnedSecretsAndRevisions returns all secret URIs and revision IDs for all
+// secrets owned by the given unit.
+func (c *Client) UnitOwnedSecretsAndRevisions(unit names.UnitTag) ([]coresecrets.SecretURIWithRevisions, error) {
+	arg := params.Entity{
+		Tag: unit.String(),
+	}
+	var results params.SecretRevisionIDsResults
+	if err := c.facade.FacadeCall("UnitOwnedSecretsAndRevisions", arg, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	ret := make([]coresecrets.SecretURIWithRevisions, len(results.Results))
+	for i, v := range results.Results {
+		if err := v.Error; err != nil {
+			return nil, errors.Trace(err)
+		}
+		uri, err := coresecrets.ParseURI(v.URI)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ret[i] = coresecrets.SecretURIWithRevisions{
+			URI:       uri,
+			Revisions: v.Revisions,
+		}
+	}
+	return ret, nil
+}
+
+// OwnedSecretRevisions returns all the revision IDs for the given secret that
+// is owned by either the unit or the unit's application.
+func (c *Client) OwnedSecretRevisions(unit names.UnitTag, uri *secrets.URI) ([]int, error) {
+	args := params.SecretRevisionArgs{
+		Unit: params.Entity{
+			Tag: unit.String(),
+		},
+		SecretURIs: []string{uri.String()},
+	}
+	var results params.SecretRevisionIDsResults
+	if err := c.facade.FacadeCall("OwnedSecretRevisions", args, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	return result.Revisions, nil
 }

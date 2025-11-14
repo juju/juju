@@ -5,13 +5,13 @@ package secrets
 
 import (
 	"reflect"
+	"slices"
 	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 )
@@ -19,7 +19,6 @@ import (
 // SecretsClient is used by the secrets tracker to access the Juju model.
 type SecretsClient interface {
 	remotestate.SecretsClient
-	SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error)
 }
 
 // Secrets generates storage hooks in response to changes to
@@ -83,20 +82,6 @@ func (s *Secrets) init() error {
 			s.secretsState.ConsumedSecretInfo = updated
 		}
 	}
-	metadata, err := s.client.SecretMetadata()
-	if err != nil {
-		return errors.Annotate(err, "reading secret metadata")
-	}
-	owned := set.NewStrings()
-	for _, md := range metadata {
-		owned.Add(md.Metadata.URI.String())
-	}
-	for uri := range s.secretsState.SecretObsoleteRevisions {
-		if !owned.Contains(uri) {
-			changed = true
-			delete(s.secretsState.SecretObsoleteRevisions, uri)
-		}
-	}
 	if !changed {
 		return nil
 	}
@@ -110,6 +95,49 @@ func (s *Secrets) ConsumedSecretRevision(uri string) int {
 	defer s.mu.Unlock()
 
 	return s.secretsState.ConsumedSecretInfo[uri]
+}
+
+// CollectRemovedSecretObsoleteRevisions takes the list of known obsolete
+// secrets and their revisions. It returns which secrets or revisions need to
+// be trimmed from the local secret state. Secrets where all the revisions are
+// to be trimmed have a length of 0.
+// CollectRemovedSecretObsoleteRevisions implements SecretStateTracker.
+func (s *Secrets) CollectRemovedSecretObsoleteRevisions(
+	known map[string][]int,
+) map[string][]int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.secretsState.SecretObsoleteRevisions) == 0 {
+		return nil
+	}
+
+	collected := map[string][]int{}
+	for id, trackedRevs := range s.secretsState.SecretObsoleteRevisions {
+		knownRevs, ok := known[id]
+		if !ok {
+			// Secret no longer exists, mark it for removal.
+			collected[id] = nil
+			continue
+		}
+		slices.Sort(knownRevs)
+
+		var lostRevs []int
+		for _, rev := range trackedRevs {
+			_, found := slices.BinarySearch(knownRevs, rev)
+			if !found {
+				lostRevs = append(lostRevs, rev)
+			}
+		}
+		if len(lostRevs) > 0 {
+			collected[id] = lostRevs
+		}
+	}
+
+	if len(collected) == 0 {
+		return nil
+	}
+
+	return collected
 }
 
 // SecretObsoleteRevisions implements SecretStateTracker.
@@ -149,14 +177,41 @@ func (s *Secrets) CommitHook(hi hook.Info) error {
 }
 
 // SecretsRemoved implements SecretStateTracker.
-func (s *Secrets) SecretsRemoved(uris []string) error {
+func (s *Secrets) SecretsRemoved(
+	deletedRevisions map[string][]int,
+	deletedObsoleteRevisions map[string][]int,
+) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, uri := range uris {
-		delete(s.secretsState.ConsumedSecretInfo, uri)
-		delete(s.secretsState.SecretObsoleteRevisions, uri)
+	for uri, revs := range deletedRevisions {
+		if len(revs) == 0 {
+			delete(s.secretsState.ConsumedSecretInfo, uri)
+			delete(s.secretsState.SecretObsoleteRevisions, uri)
+			continue
+		}
+		obsoleteRevs := set.NewInts(s.secretsState.SecretObsoleteRevisions[uri]...)
+		newObsoleteRevs := obsoleteRevs.Difference(set.NewInts(revs...)).SortedValues()
+		if len(newObsoleteRevs) == 0 {
+			delete(s.secretsState.SecretObsoleteRevisions, uri)
+		} else {
+			s.secretsState.SecretObsoleteRevisions[uri] = newObsoleteRevs
+		}
 	}
+	for uri, revs := range deletedObsoleteRevisions {
+		if len(revs) == 0 {
+			delete(s.secretsState.SecretObsoleteRevisions, uri)
+			continue
+		}
+		obsoleteRevs := set.NewInts(s.secretsState.SecretObsoleteRevisions[uri]...)
+		newObsoleteRevs := obsoleteRevs.Difference(set.NewInts(revs...)).SortedValues()
+		if len(newObsoleteRevs) == 0 {
+			delete(s.secretsState.SecretObsoleteRevisions, uri)
+		} else {
+			s.secretsState.SecretObsoleteRevisions[uri] = newObsoleteRevs
+		}
+	}
+	s.logger.Debugf("secret revisions removed from %q unit state: %v", s.unitTag.Id(), deletedRevisions)
 	if err := s.stateOps.Write(s.secretsState); err != nil {
 		return err
 	}

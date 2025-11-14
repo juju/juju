@@ -150,6 +150,32 @@ func (s *remoteApplicationSuite) TestUseSuppliedVersionForConsumerProxy(c *gc.C)
 	c.Assert(application.ConsumeVersion(), gc.Equals, 666)
 }
 
+func (s *remoteApplicationSuite) TestStateApplicationRemoveExisting(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	application, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  668,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(application.ConsumeVersion(), gc.Equals, 668)
+}
+
 func (s *remoteApplicationSuite) TestConsumeVersion(c *gc.C) {
 	c.Assert(s.application.ConsumeVersion(), gc.Equals, 1)
 	application, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{

@@ -327,6 +327,7 @@ By using various flags, you can specify a model (e.g., `-m controller`, to view 
 See more: {ref}`command-juju-model-constraints`
 ```
 
+(restrict-commands-on-a-model)=
 ## Restrict commands on a model
 
 **Disable commands.** To disable commands for the current model, run the `disable-command` followed by the name of the command group that you want to restrict and, optionally, a message. For example, the code below disables the ability to destroy the model and its controller:

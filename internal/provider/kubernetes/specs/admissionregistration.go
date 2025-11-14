@@ -116,7 +116,7 @@ func UpgradeK8sMutatingWebhookSpecV1Beta1(spec admissionregistrationv1beta1.Muta
 		hook.SideEffects = &sideEffects
 	}
 	if spec.ReinvocationPolicy != nil {
-		reinvocationPolicy := admissionregistrationv1.ReinvocationPolicyType(*spec.ReinvocationPolicy)
+		reinvocationPolicy := *spec.ReinvocationPolicy
 		hook.ReinvocationPolicy = &reinvocationPolicy
 	}
 	return hook

@@ -204,7 +204,6 @@ type SecretMetadata struct {
 	LatestExpireTime *time.Time
 	LatestChecksum   string
 	NextRotateTime   *time.Time
-	Revisions        []int
 	Access           []secrets.AccessInfo
 }
 

@@ -133,6 +133,21 @@ func LabelsForApp(name string, labelVersion constants.LabelVersion) labels.Set {
 	return LabelsMerge(result, LabelsJuju)
 }
 
+// LabelsForAppCreated returns the labels that should be on a k8s object that has been
+// created directly by a given application.
+func LabelsForAppCreated(appName, modelName, modelUUID, controllerUUID string, labelVersion constants.LabelVersion) labels.Set {
+	appLabels := LabelForKeyValue(
+		constants.LabelJujuAppCreatedBy, appName,
+	)
+	if labelVersion < constants.LabelVersion2 {
+		return appLabels
+	}
+	modelLabels := LabelsForModel(
+		modelName, modelUUID, controllerUUID, labelVersion,
+	)
+	return LabelsMerge(appLabels, modelLabels, LabelsJuju)
+}
+
 // SelectorLabelsForApp returns the pod selector labels that should be on
 // a k8s object for a given application name
 func SelectorLabelsForApp(name string, labelVersion constants.LabelVersion) labels.Set {
