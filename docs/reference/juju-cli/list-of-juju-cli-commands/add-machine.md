@@ -83,8 +83,8 @@ The command operates in three modes, depending on the options provided:
 
   - provision a new machine from the cloud (default, see "Provisioning
     a new machine")
-  - connect to a live computer and allocate it as a machine (see "Manual
-    provisioning")
+  - connect to a live computer and allocate it as a machine (see "Adding
+    a pre-existing machine")
   - create an operating system container (see "Container creation")
 
 The `add-machine` command is unavailable in Kubernetes clouds. Provisioning
@@ -112,12 +112,12 @@ about how to allocate the machine in the cloud. For example, one can direct
 the MAAS provider to acquire a particular node by specifying its hostname.
 
 
-### Manual provisioning
+### Adding a pre-existing machine
 
 Call `add-machine`  with the address of a network-accessible computer to
 allocate that machine to the model.
 
-Manual provisioning is the process of installing Juju on an existing machine
+This is the process of installing Juju on an existing machine
 and bringing it under Juju's management. The Juju controller must be able to
 access the new machine over the network.
 

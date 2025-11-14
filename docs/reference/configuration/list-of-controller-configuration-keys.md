@@ -219,6 +219,7 @@ for the jujud operator and mongo images.
 
 `caas-operator-image-path` sets the URL of the docker image
 used for the application operator.
+//
 Deprecated: use `caas-image-repo`.
 
 **Type:** string
@@ -257,6 +258,21 @@ Use a value of 0 to disable the limit.
 `controller-uuid` is the key for the controller UUID attribute.
 
 **Can be changed after bootstrap:** no
+
+
+(controller-config-dqlite-busy-timeout)=
+## `dqlite-busy-timeout`
+
+`dqlite-busy-timeout` sets the timeout for how long a database operation will
+wait for a lock to be released before returning an error, that is the
+amount of time a writer will wait for others to finish writing on the
+same database.
+
+**Type:** TimeDurationString
+
+**Default value:** 1s
+
+**Can be changed after bootstrap:** yes
 
 
 (controller-config-features)=
