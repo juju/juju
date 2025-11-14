@@ -56,6 +56,11 @@ type MachineState interface {
 	// records.
 	DeleteMachine(ctx context.Context, mName string, force bool) error
 
+	// HasMachineRemovalJobUsedForce returns true if the machine has a removal
+	// job that uses force. Once force is used, it cannot be undone and it will
+	// always return true.
+	HasMachineRemovalJobUsedForce(ctx context.Context, machineUUID string) (bool, error)
+
 	// MarkInstanceAsDead marks the machine cloud instance with the input UUID as
 	// dead.
 	MarkInstanceAsDead(ctx context.Context, mUUID string) error

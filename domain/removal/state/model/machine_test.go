@@ -39,7 +39,7 @@ func (s *machineSuite) TestMachineExists(c *tc.C) {
 
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, true)
+	c.Check(exists, tc.IsTrue)
 
 	exists, err = st.MachineExists(c.Context(), "not-today-henry")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1080,7 +1080,7 @@ where  r.uuid = ?`, "removal-uuid",
 
 	c.Check(removalType, tc.Equals, "machine")
 	c.Check(rUUID, tc.Equals, "some-machine-uuid")
-	c.Check(force, tc.Equals, true)
+	c.Check(force, tc.IsTrue)
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
@@ -1321,6 +1321,99 @@ func (s *machineSuite) TestMarkInstanceAsDeadMachineHasUnits(c *tc.C) {
 	s.checkInstanceLife(c, machineUUID.String(), life.Dying)
 }
 
+func (s *machineSuite) TestHasMachineRemovalJobUsedForce(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err = st.MachineScheduleRemoval(
+		c.Context(), "removal-uuid", machineUUID.String(), true, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	force, err := st.HasMachineRemovalJobUsedForce(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(force, tc.IsTrue)
+}
+
+func (s *machineSuite) TestHasMachineRemovalJobUsedForceWithoutForce(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err = st.MachineScheduleRemoval(
+		c.Context(), "removal-uuid", machineUUID.String(), false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	force, err := st.HasMachineRemovalJobUsedForce(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(force, tc.IsFalse)
+}
+
+func (s *machineSuite) TestHasMachineRemovalJobUsedForceTaintedPact(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err = st.MachineScheduleRemoval(
+		c.Context(), "removal-uuid-1", machineUUID.String(), true, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MachineScheduleRemoval(
+		c.Context(), "removal-uuid-2", machineUUID.String(), false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MachineScheduleRemoval(
+		c.Context(), "removal-uuid-3", machineUUID.String(), false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	force, err := st.HasMachineRemovalJobUsedForce(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(force, tc.IsTrue)
+}
+
+func (s *machineSuite) TestHasMachineRemovalJobUsedForceNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	force, err := st.HasMachineRemovalJobUsedForce(c.Context(), "foo-bar")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(force, tc.IsTrue)
+}
+
 func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 	svc := s.setupMachineService(c)
 	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
@@ -1350,7 +1443,7 @@ func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 	// The machine should be gone.
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, false)
+	c.Check(exists, tc.IsFalse)
 
 	// And its net node should also be deleted.
 	var count int
@@ -1503,7 +1596,7 @@ func (s *machineSuite) TestDeleteMachineDying(c *tc.C) {
 	// The machine should not be gone.
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, true)
+	c.Check(exists, tc.IsTrue)
 }
 
 func (s *machineSuite) TestDeleteMachineDyingWithForce(c *tc.C) {
@@ -1535,7 +1628,7 @@ func (s *machineSuite) TestDeleteMachineDyingWithForce(c *tc.C) {
 	// The machine should be gone.
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, false)
+	c.Check(exists, tc.IsFalse)
 
 	// And its net node should also be deleted.
 	var count int
@@ -1567,7 +1660,7 @@ func (s *machineSuite) TestDeleteMachineInstanceDying(c *tc.C) {
 	// The machine should not be gone.
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, true)
+	c.Check(exists, tc.IsTrue)
 }
 
 func (s *machineSuite) TestDeleteMachineInstanceDyingWithForce(c *tc.C) {
@@ -1599,7 +1692,7 @@ func (s *machineSuite) TestDeleteMachineInstanceDyingWithForce(c *tc.C) {
 	// The machine should be gone.
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, false)
+	c.Check(exists, tc.IsFalse)
 
 	// And its net node should also be deleted.
 	var count int
@@ -1649,7 +1742,7 @@ func (s *machineSuite) TestDeleteMachineWithContainers(c *tc.C) {
 	// The machine should not be gone.
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, true)
+	c.Check(exists, tc.IsTrue)
 }
 
 func (s *machineSuite) TestDeleteMachineWithUnits(c *tc.C) {
@@ -1669,7 +1762,7 @@ func (s *machineSuite) TestDeleteMachineWithUnits(c *tc.C) {
 	// The machine should not be gone.
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, true)
+	c.Check(exists, tc.IsTrue)
 }
 
 func (s *machineSuite) TestDeleteMachineWithOperation(c *tc.C) {
