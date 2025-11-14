@@ -14,6 +14,7 @@ howto/index
 reference/index
 explanation/index
 For contributors <contributor/index>
+relnotes/index
 ```
 
 Juju is an open source orchestration engine for software operators that enables the deployment, integration, and lifecycle management of applications in the cloud using special software operators called ‘charms’.
@@ -66,6 +67,14 @@ Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take 
 
 **Discussion and clarification** of key topics
 ```
+
+```{grid-item-card} [Juju Release Notes](/index)
+:link: relnotes/index
+:link-type: doc
+
+**Juju Release Notes **
+```
+
 
 ````
 
