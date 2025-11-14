@@ -317,9 +317,63 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 	return life, errors.Capture(err)
 }
 
+// HasModelRemovalJobUsedForce returns true if the model has a removal job
+// that uses force. Once force is used, it cannot be undone and it will
+// always return true.
+func (st *State) HasModelRemovalJobUsedForce(ctx context.Context, modelUUID string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	entityUUIDParam := entityUUID{UUID: modelUUID}
+
+	type forced struct {
+		Force bool `db:"force"`
+	}
+
+	queryStmt, err := st.Prepare(`
+SELECT force AS &forced.*
+FROM removal
+WHERE entity_uuid = $entityUUID.uuid
+AND   removal_type_id = 4
+`, entityUUIDParam, forced{})
+	if err != nil {
+		return false, errors.Errorf("preparing has model removal job used force query: %w", err)
+	}
+
+	var result []forced
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, queryStmt, entityUUIDParam).GetAll(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("running has model removal job used force query: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	// If there are no removal jobs for the model uuid, then this is the
+	// likely event that the model has run the scheduling of the removal and
+	// force was used in that job and we've now got detritus from that.
+	if len(result) == 0 {
+		return true, nil
+	}
+
+	var forcedResult bool
+	for _, force := range result {
+		if force.Force {
+			forcedResult = true
+			break
+		}
+	}
+
+	return forcedResult, errors.Capture(err)
+}
+
 // MarkModelAsDead marks the model with the input UUID as dead.
 // If there are model dependents, then this will return an error.
-func (st *State) MarkModelAsDead(ctx context.Context, mUUID string) error {
+func (st *State) MarkModelAsDead(ctx context.Context, mUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -343,7 +397,7 @@ AND    life_id = 1`, modelUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		err = st.checkNoModelDependents(ctx, tx)
+		err = st.checkNoModelDependents(ctx, tx, force)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -358,7 +412,7 @@ AND    life_id = 1`, modelUUID)
 }
 
 // DeleteModelArtifacts deletes all artifacts associated with a model.
-func (st *State) DeleteModelArtifacts(ctx context.Context, mUUID string) error {
+func (st *State) DeleteModelArtifacts(ctx context.Context, mUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -395,7 +449,7 @@ WHERE uuid = $entityUUID.uuid;
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 
-		err = st.checkNoModelDependents(ctx, tx)
+		err = st.checkNoModelDependents(ctx, tx, force)
 		if err != nil {
 			return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
 		}
@@ -483,7 +537,13 @@ WHERE  model_uuid = $entityUUID.uuid;`, model, modelUUID)
 	return life.Life(model.Life), nil
 }
 
-func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX) error {
+func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX, force bool) error {
+	// If we're forcing, we don't care about dependents.
+	if force {
+		st.logger.Infof(ctx, "force flag set, skipping model dependents check")
+		return nil
+	}
+
 	var count count
 
 	// We only care about applications and machines (for IAAS models). We assume

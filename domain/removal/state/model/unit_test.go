@@ -551,7 +551,7 @@ func (s *unitSuite) TestMarkUnitAsDeadNotFound(c *tc.C) {
 func (s *unitSuite) TestDeleteUnitNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteUnit(c.Context(), "blah")
+	err := st.DeleteUnit(c.Context(), "blah", false)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -588,7 +588,7 @@ VALUES (?, 'some-model', ?, 0)`
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Act
-	err = st.DeleteUnit(ctx, unitUUID.String())
+	err = st.DeleteUnit(ctx, unitUUID.String(), false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -625,7 +625,7 @@ func (s *unitSuite) TestDeleteSubordinateUnit(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.DeleteUnit(c.Context(), subUnitUUID.String())
+	err = st.DeleteUnit(c.Context(), subUnitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -652,13 +652,13 @@ func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 
 	_, err = s.DB().Exec(`DELETE FROM unit_principal`)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should be gone.
@@ -691,7 +691,7 @@ func (s *unitSuite) TestDeleteIAASUnitWithSubordinatesNotDying(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorMatches, `.*still alive.*`)
 }
 
@@ -711,7 +711,7 @@ func (s *unitSuite) TestDeleteIAASUnitWithOperation(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should be gone.
@@ -740,7 +740,7 @@ func (s *unitSuite) TestDeleteIAASUnitWithOperationExec(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should be gone.
@@ -768,7 +768,7 @@ func (s *unitSuite) TestDeleteIAASUnitWithOperationSpannedToSeveralUnit(c *tc.C)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should be gone.
@@ -795,7 +795,7 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 
 	s.expectK8sPodCount(c, unitUUID, 1)
 
-	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should be gone.
@@ -853,7 +853,7 @@ func (s *unitSuite) TestDeleteUnitWithDanglingCharmReference(c *tc.C) {
 
 	// Act: Delete the unit
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: The unit is deleted
@@ -908,7 +908,7 @@ func (s *unitSuite) TestDeleteCharmIfUnusedAfterUnitDeletion(c *tc.C) {
 
 	// Act: Delete the application, the unit and the charm.
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
@@ -982,7 +982,7 @@ func (s *unitSuite) TestDeleteCAASUnitNotAffectingOtherUnits(c *tc.C) {
 	// delete the first unit
 	s.advanceUnitLife(c, unitUUID, life.Dead)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should be gone.

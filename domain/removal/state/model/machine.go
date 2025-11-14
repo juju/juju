@@ -436,8 +436,7 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		err = st.checkNoMachineDependents(ctx, tx, machineUUID)
-		if err != nil {
+		if err := st.checkNoMachineDependents(ctx, tx, machineUUID, false); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -481,8 +480,7 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		err = st.checkNoMachineDependents(ctx, tx, machineUUID)
-		if err != nil {
+		if err := st.checkNoMachineDependents(ctx, tx, machineUUID, false); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -495,8 +493,62 @@ AND    life_id = 1`, machineUUID)
 	}))
 }
 
+// HasMachineRemovalJobUsedForce returns true if the machine has a removal job
+// that uses force. Once force is used, it cannot be undone and it will
+// always return true.
+func (st *State) HasMachineRemovalJobUsedForce(ctx context.Context, machineUUID string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	entityUUIDParam := entityUUID{UUID: machineUUID}
+
+	type forced struct {
+		Force bool `db:"force"`
+	}
+
+	queryStmt, err := st.Prepare(`
+SELECT force AS &forced.*
+FROM removal
+WHERE entity_uuid = $entityUUID.uuid
+AND   removal_type_id = 3
+`, entityUUIDParam, forced{})
+	if err != nil {
+		return false, errors.Errorf("preparing has machine removal job used force query: %w", err)
+	}
+
+	var result []forced
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, queryStmt, entityUUIDParam).GetAll(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("running has machine removal job used force query: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	// If there are no removal jobs for the machine uuid, then this is the
+	// likely event that the machine has run the scheduling of the removal and
+	// force was used in that job and we've now got detritus from that.
+	if len(result) == 0 {
+		return true, nil
+	}
+
+	var forcedResult bool
+	for _, force := range result {
+		if force.Force {
+			forcedResult = true
+			break
+		}
+	}
+
+	return forcedResult, errors.Capture(err)
+}
+
 // DeleteMachine deletes the specified machine and any dependent child records.
-func (st *State) DeleteMachine(ctx context.Context, mUUID string) error {
+func (st *State) DeleteMachine(ctx context.Context, mUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -534,7 +586,10 @@ WHERE uuid = $machine.uuid;
 		} else if mLife == life.Alive {
 			return errors.Errorf("cannot delete machine %q, machine is still alive", machineUUIDParam.UUID).
 				Add(removalerrors.EntityStillAlive)
-		} else if mLife == life.Dying {
+		}
+
+		// Check to see if the machine is in the dying state only if not forced.
+		if !force && mLife == life.Dying {
 			return errors.Errorf("waiting for machine to be dead before deletion").
 				Add(removalerrors.RemovalJobIncomplete)
 		}
@@ -554,12 +609,15 @@ WHERE uuid = $machine.uuid;
 			return errors.Errorf("getting machine instance life: %w", err)
 		} else if iLife == life.Alive {
 			return errors.Errorf("cannot delete machine %q, instance is still alive", machineUUIDParam.UUID)
-		} else if iLife == life.Dying {
+		}
+
+		// Check to see if the machine instance is in the dying state only if
+		// not forced.
+		if !force && iLife == life.Dying {
 			return errors.Errorf("waiting for instance to be dead before deletion").Add(removalerrors.RemovalJobIncomplete)
 		}
 
-		err = st.checkNoMachineDependents(ctx, tx, machineUUIDParam)
-		if err != nil {
+		if err := st.checkNoMachineDependents(ctx, tx, machineUUIDParam, force); err != nil {
 			return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
 		}
 
@@ -592,7 +650,11 @@ WHERE uuid = $machine.uuid;
 	return nil
 }
 
-func (st *State) checkNoMachineDependents(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
+func (st *State) checkNoMachineDependents(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID, force bool) error {
+	if force {
+		return nil
+	}
+
 	countContainersOnMachine, err := st.Prepare(`
 SELECT COUNT(*) AS &count.count
 FROM machine_parent

@@ -40,7 +40,7 @@ type ControllerState interface {
 	MarkModelAsDead(ctx context.Context, modelUUID string) error
 
 	// DeleteModel removes the model with the input UUID from the database.
-	DeleteModel(ctx context.Context, modelUUID string) error
+	DeleteModel(ctx context.Context, modelUUID string, force bool) error
 }
 
 // RemoveController sets the controller model to dying and returns the

@@ -537,12 +537,22 @@ AND    life_id = 1`, unitUUID)
 }
 
 // DeleteUnit removes a unit from the database completely.
-func (st *State) DeleteUnit(ctx context.Context, unitUUID string) error {
+func (st *State) DeleteUnit(ctx context.Context, unitUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.deleteUnit(ctx, tx, unitUUID, force)
+	})
+	if err != nil {
+		return errors.Errorf("delete unit transaction: %w", err)
+	}
+	return nil
+}
+
+func (st *State) deleteUnit(ctx context.Context, tx *sqlair.TX, unitUUID string, force bool) error {
 	// Get the net node UUID for the unit.
 	selectNetNodeStmt, err := st.Prepare(`
 SELECT    nn.uuid AS &entityUUID.uuid
@@ -571,65 +581,59 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		return errors.Errorf("preparing unit delete: %w", err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// We only prevent deletion if the unit is alive.
-		// This method is only called by the unit removal job, which will invoke
-		// it for a dying (not dead) unit only if the job is forced.
-		// That check is made in the service layer.
-		if uLife, err := st.getUnitLife(ctx, tx, unitUUID); err != nil {
-			return errors.Errorf("getting unit life for unit %q: %w", unitUUID, err)
-		} else if uLife == life.Alive {
-			return errors.Errorf("cannot delete unit %q as it is still alive", unitUUID).
-				Add(removalerrors.EntityStillAlive)
-		}
-
-		// Delete all tasks related to the unit, and eventually removes
-		// operations if they are empty after tasks deletion.
-		_, err := st.cleanupTasksAndOperationsByUnitUUID(ctx, tx, unitUUID)
-		if err != nil {
-			return errors.Errorf("deleting operations for unit %q: %w", unitUUID, err)
-		}
-
-		var netNodeUUIDRec entityUUID
-		if err := tx.Query(ctx, selectNetNodeStmt, unitUUIDRec).Get(&netNodeUUIDRec); errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.UnitNotFound
-		} else if err != nil {
-			return errors.Errorf("getting net node UUID for unit %q: %w", unitUUID, err)
-		}
-
-		// Ensure that the unit has no associated subordinates.
-		var numSubordinates entityAssociationCount
-		err = tx.Query(ctx, subordinateStmt, unitUUIDCount).Get(&numSubordinates)
-		if err != nil {
-			return errors.Errorf("getting number of subordinates for unit %q: %w", unitUUID, err)
-		} else if numSubordinates.Count > 0 {
-			// It is required that all units have been completely removed
-			// before the application can be removed.
-			return errors.Errorf("cannot delete unit as it still associated subordinates").
-				Add(removalerrors.RemovalJobIncomplete)
-		}
-
-		if err := st.deleteUnitAnnotations(ctx, tx, unitUUID); err != nil {
-			return errors.Errorf("deleting annotations for unit %q: %w", unitUUID, err)
-		}
-
-		if err := st.deleteK8sPod(ctx, tx, unitUUID, netNodeUUIDRec.UUID); err != nil {
-			return errors.Errorf("deleting cloud container for unit %q: %w", unitUUID, err)
-		}
-
-		if err := st.deleteForeignKeyUnitReferences(ctx, tx, unitUUID); err != nil {
-			return errors.Errorf("deleting unit references for unit %q: %w", unitUUID, err)
-		}
-
-		if err := tx.Query(ctx, deleteUnitStmt, unitUUIDRec).Run(); err != nil {
-			return errors.Errorf("deleting unit for unit %q: %w", unitUUID, err)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return errors.Errorf("delete unit transaction: %w", err)
+	// We only prevent deletion if the unit is alive.
+	// This method is only called by the unit removal job, which will invoke
+	// it for a dying (not dead) unit only if the job is forced.
+	// That check is made in the service layer.
+	if uLife, err := st.getUnitLife(ctx, tx, unitUUID); err != nil {
+		return errors.Errorf("getting unit life for unit %q: %w", unitUUID, err)
+	} else if uLife == life.Alive {
+		return errors.Errorf("cannot delete unit %q as it is still alive", unitUUID).
+			Add(removalerrors.EntityStillAlive)
 	}
+
+	// Delete all tasks related to the unit, and eventually removes
+	// operations if they are empty after tasks deletion.
+
+	if _, err := st.cleanupTasksAndOperationsByUnitUUID(ctx, tx, unitUUID); err != nil {
+		return errors.Errorf("deleting operations for unit %q: %w", unitUUID, err)
+	}
+
+	var netNodeUUIDRec entityUUID
+	if err := tx.Query(ctx, selectNetNodeStmt, unitUUIDRec).Get(&netNodeUUIDRec); errors.Is(err, sqlair.ErrNoRows) {
+		return applicationerrors.UnitNotFound
+	} else if err != nil {
+		return errors.Errorf("getting net node UUID for unit %q: %w", unitUUID, err)
+	}
+
+	// Ensure that the unit has no associated subordinates.
+	var numSubordinates entityAssociationCount
+	err = tx.Query(ctx, subordinateStmt, unitUUIDCount).Get(&numSubordinates)
+	if err != nil {
+		return errors.Errorf("getting number of subordinates for unit %q: %w", unitUUID, err)
+	} else if numSubordinates.Count > 0 && !force {
+		// It is required that all units have been completely removed
+		// before the application can be removed.
+		return errors.Errorf("cannot delete unit as it still associated subordinates").
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	if err := st.deleteUnitAnnotations(ctx, tx, unitUUID); err != nil {
+		return errors.Errorf("deleting annotations for unit %q: %w", unitUUID, err)
+	}
+
+	if err := st.deleteK8sPod(ctx, tx, unitUUID, netNodeUUIDRec.UUID); err != nil {
+		return errors.Errorf("deleting cloud container for unit %q: %w", unitUUID, err)
+	}
+
+	if err := st.deleteForeignKeyUnitReferences(ctx, tx, unitUUID); err != nil {
+		return errors.Errorf("deleting unit references for unit %q: %w", unitUUID, err)
+	}
+
+	if err := tx.Query(ctx, deleteUnitStmt, unitUUIDRec).Run(); err != nil {
+		return errors.Errorf("deleting unit for unit %q: %w", unitUUID, err)
+	}
+
 	return nil
 }
 

@@ -404,6 +404,7 @@ const (
 	InstanceStatusAllocating
 	InstanceStatusRunning
 	InstanceStatusProvisioningError
+	InstanceStatusStopped
 )
 
 // EncodeCloudInstanceStatus encodes a InstanceStatusType into
@@ -422,6 +423,8 @@ func EncodeCloudInstanceStatus(s InstanceStatusType) (int, error) {
 		result = 3
 	case InstanceStatusProvisioningError:
 		result = 4
+	case InstanceStatusStopped:
+		result = 5
 	default:
 		return -1, errors.Errorf("unknown status %q", s)
 	}
@@ -444,6 +447,8 @@ func DecodeCloudInstanceStatus(s string) (InstanceStatusType, error) {
 		result = InstanceStatusRunning
 	case "provisioning error":
 		result = InstanceStatusProvisioningError
+	case "stopped":
+		result = InstanceStatusStopped
 	default:
 		return 0, errors.Errorf("unknown status %q", s)
 	}

@@ -231,7 +231,7 @@ func (s *statusSuite) TestInstanceStatusValues(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		statusValues = append(statusValues, statusValue)
 	}
-	c.Assert(statusValues, tc.HasLen, 5)
+	c.Assert(statusValues, tc.HasLen, 6)
 	c.Check(statusValues[0].ID, tc.Equals, 0)
 	c.Check(statusValues[0].Name, tc.Equals, "unknown")
 	c.Check(statusValues[1].ID, tc.Equals, 1)
@@ -242,6 +242,8 @@ func (s *statusSuite) TestInstanceStatusValues(c *tc.C) {
 	c.Check(statusValues[3].Name, tc.Equals, "running")
 	c.Check(statusValues[4].ID, tc.Equals, 4)
 	c.Check(statusValues[4].Name, tc.Equals, "provisioning error")
+	c.Check(statusValues[5].ID, tc.Equals, 5)
+	c.Check(statusValues[5].Name, tc.Equals, "stopped")
 }
 
 func (s *statusSuite) TestInstanceStatusValuesConversion(c *tc.C) {
@@ -255,6 +257,7 @@ func (s *statusSuite) TestInstanceStatusValuesConversion(c *tc.C) {
 		{statusValue: "allocating", expected: 2},
 		{statusValue: "running", expected: 3},
 		{statusValue: "provisioning error", expected: 4},
+		{statusValue: "stopped", expected: 5},
 	}
 
 	for _, test := range tests {
@@ -298,6 +301,7 @@ func (s *statusSuite) TestInstanceStatusValuesAgainstDB(c *tc.C) {
 		{statusValue: "allocating", expected: 2},
 		{statusValue: "running", expected: 3},
 		{statusValue: "provisioning error", expected: 4},
+		{statusValue: "stopped", expected: 5},
 	}
 
 	for _, test := range tests {
