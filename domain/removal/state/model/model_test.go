@@ -62,6 +62,30 @@ func (s *modelSuite) TestGetModelLifeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
+func (s *modelSuite) TestEnsureModelNotAlive(c *tc.C) {
+	svc := s.setupApplicationService(c)
+
+	s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	err := st.EnsureModelNotAlive(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkModelLife(c, modelUUID, life.Dying)
+}
+
+func (s *modelSuite) TestEnsureModelNotAliveEmpty(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	err := st.EnsureModelNotAlive(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
 	svc := s.setupApplicationService(c)
 
@@ -163,6 +187,81 @@ where  r.uuid = ?`, removalUUID,
 		c.Assert(err, tc.ErrorIsNil)
 
 		c.Check(removalType, tc.Equals, "model")
+		c.Check(rUUID, tc.Equals, "some-model-uuid")
+		c.Check(force, tc.Equals, true)
+		c.Check(scheduledFor, tc.Equals, when)
+	}
+	ensureRemovalJob("removal-uuid")
+}
+
+func (s *modelSuite) TestControllerModelRemovalNormalSuccess(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.ControllerModelScheduleRemoval(
+		c.Context(),
+		"removal-uuid",
+		modelUUID, false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	ensureRemovalJob := func(removalUUID string, idType int) {
+		row := s.DB().QueryRow(
+			"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
+			removalUUID,
+		)
+		var (
+			removalTypeID int
+			rUUID         string
+			force         bool
+			scheduledFor  time.Time
+		)
+		err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+		c.Assert(err, tc.ErrorIsNil)
+
+		c.Check(removalTypeID, tc.Equals, idType)
+		c.Check(rUUID, tc.Equals, modelUUID)
+		c.Check(force, tc.Equals, false)
+		c.Check(scheduledFor, tc.Equals, when)
+	}
+
+	ensureRemovalJob("removal-uuid", 15)
+}
+
+func (s *modelSuite) TestControllerModelRemovalNotExistsSuccess(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.ControllerModelScheduleRemoval(
+		c.Context(),
+		"removal-uuid",
+		"some-model-uuid", true, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have two removal jobs scheduled immediately.
+	// It doesn't matter that the controller model does not exist.
+	// We rely on the worker to handle that fact.
+	ensureRemovalJob := func(removalUUID string) {
+		row := s.DB().QueryRow(`
+SELECT t.name, r.entity_uuid, r.force, r.scheduled_for 
+FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
+where  r.uuid = ?`, removalUUID,
+		)
+
+		var (
+			removalType  string
+			rUUID        string
+			force        bool
+			scheduledFor time.Time
+		)
+		err = row.Scan(&removalType, &rUUID, &force, &scheduledFor)
+		c.Assert(err, tc.ErrorIsNil)
+
+		c.Check(removalType, tc.Equals, "controller-model")
 		c.Check(rUUID, tc.Equals, "some-model-uuid")
 		c.Check(force, tc.Equals, true)
 		c.Check(scheduledFor, tc.Equals, when)

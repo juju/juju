@@ -59,12 +59,12 @@ func (s *modelSuite) TestGetModelLifeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
+func (s *modelSuite) TestEnsureModelNotAlive(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	modelUUID := s.getModelUUID(c)
 
-	err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, false)
+	err := st.EnsureModelNotAlive(c.Context(), modelUUID, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkModelLife(c, modelUUID, life.Dying)
