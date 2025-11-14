@@ -68,11 +68,11 @@ Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take 
 **Discussion and clarification** of key topics
 ```
 
-```{grid-item-card} [Juju Release Notes](/index)
+```{grid-item-card} [Release Notes](/index)
 :link: relnotes/index
 :link-type: doc
 
-**Juju Release Notes **
+**Release Notes **
 ```
 
 
