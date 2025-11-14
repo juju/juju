@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/semversion"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/mongo"
 )
 
 var logger = internallogger.GetLogger("juju.agent")
@@ -240,10 +239,6 @@ type Config interface {
 	// APIInfo returns details for connecting to the API server and
 	// reports whether the details are available.
 	APIInfo() (*api.Info, bool)
-
-	// MongoInfo returns details for connecting to the controller's mongo
-	// database and reports whether those details are available
-	MongoInfo() (*mongo.MongoInfo, bool)
 
 	// OldPassword returns the fallback password when connecting to the
 	// API server.
@@ -1044,49 +1039,6 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 		Tag:      c.tag,
 		Nonce:    c.nonce,
 		ModelTag: c.model,
-	}, true
-}
-
-// MongoInfo is defined on Config interface.
-func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
-	if c.apiDetails == nil || c.apiDetails.addresses == nil {
-		return nil, false
-	}
-	if _, ok = c.ControllerAgentInfo(); !ok {
-		return nil, false
-	}
-	addrs := c.apiDetails.addresses
-	var netAddrs network.SpaceAddresses
-	for _, addr := range addrs {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, false
-		}
-		if host == "localhost" {
-			continue
-		}
-		netAddrs = append(netAddrs, network.NewSpaceAddress(host))
-	}
-	// We should only be connecting to mongo on cloud local addresses,
-	// not fan or public etc.
-	hostPorts := network.SpaceAddressesWithPort(netAddrs, 37017)
-	mongoAddrs := hostPorts.AllMatchingScope(network.ScopeMatchCloudLocal)
-
-	// We return localhost first and then all addresses of known API
-	// endpoints - this lets us connect to other Mongo instances and start
-	// state even if our own Mongo has not started yet (see lp:1749383 #1).
-	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
-	// and when/if this changes localhost should resolve to IPv6 loopback
-	// in any case (lp:1644009). Review.
-	local := net.JoinHostPort("localhost", strconv.Itoa(37017))
-	mongoAddrs = append([]string{local}, mongoAddrs...)
-	logger.Debugf(context.TODO(), "potential mongo addresses: %v", mongoAddrs)
-	return &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  mongoAddrs,
-			CACert: c.caCert,
-		},
-		Tag: c.tag,
 	}, true
 }
 

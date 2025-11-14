@@ -39,7 +39,7 @@ jobs:
       CHARM_microk8s: snappass-test
       OCI_REGISTRY: 10.152.183.69
       UPGRADE_FLAGS_localhost: --build-agent
-      UPGRADE_FLAGS_microk8s: --agent-stream=develop
+      UPGRADE_FLAGS_microk8s: --agent-stream=devel
       MODEL_TYPE_localhost: iaas
       MODEL_TYPE_microk8s: caas
 

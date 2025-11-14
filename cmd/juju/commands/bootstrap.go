@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
 	"sort"
 	"strings"
 
@@ -220,24 +219,22 @@ type bootstrapCommand struct {
 
 	clock jujuclock.Clock
 
-	Constraints              constraints.Value
-	ConstraintsStr           common.ConstraintsFlag
-	BootstrapConstraints     constraints.Value
-	BootstrapConstraintsStr  common.BootstrapConstraintsFlag
-	BootstrapBase            string
-	BootstrapImage           string
-	BuildAgent               bool
-	JujuDbSnapPath           string
-	JujuDbSnapAssertionsPath string
-	MetadataSource           string
-	Placement                string
-	KeepBrokenEnvironment    bool
-	AutoUpgrade              bool
-	AgentVersionParam        string
-	AgentVersion             *semversion.Number
-	config                   common.ConfigFlag
-	modelDefaults            common.ConfigFlag
-	storagePool              common.ConfigFlag
+	Constraints             constraints.Value
+	ConstraintsStr          common.ConstraintsFlag
+	BootstrapConstraints    constraints.Value
+	BootstrapConstraintsStr common.BootstrapConstraintsFlag
+	BootstrapBase           string
+	BootstrapImage          string
+	BuildAgent              bool
+	MetadataSource          string
+	Placement               string
+	KeepBrokenEnvironment   bool
+	AutoUpgrade             bool
+	AgentVersionParam       string
+	AgentVersion            *semversion.Number
+	config                  common.ConfigFlag
+	modelDefaults           common.ConfigFlag
+	storagePool             common.ConfigFlag
 
 	showClouds          bool
 	showRegionsForCloud string
@@ -359,9 +356,6 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires `--bootstrap-constraints` specifying architecture)")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
-	f.StringVar(&c.JujuDbSnapPath, "db-snap", "",
-		"Path to a locally built `.snap` to use as the internal `juju-db` service.")
-	f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local `.assert` file. Requires `--db-snap`")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false,
@@ -387,36 +381,11 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
-	if c.JujuDbSnapPath != "" {
-		_, err := c.Filesystem().Stat(c.JujuDbSnapPath)
-		if err != nil {
-			return errors.Annotatef(err, "problem with --db-snap")
-		}
-	}
-
 	// Validate the bootstrap base looks like a base.
 	if c.BootstrapBase != "" {
 		if _, err := corebase.ParseBaseFromString(c.BootstrapBase); err != nil {
 			return errors.NotValidf("base %q", c.BootstrapBase)
 		}
-	}
-
-	// fill in JujuDbSnapAssertionsPath from the same directory as JujuDbSnapPath
-	if c.JujuDbSnapAssertionsPath == "" && c.JujuDbSnapPath != "" {
-		assertionsPath := strings.Replace(c.JujuDbSnapPath, path.Ext(c.JujuDbSnapPath), ".assert", -1)
-		logger.Debugf(context.TODO(), "--db-snap-asserts unset, assuming %v", assertionsPath)
-		c.JujuDbSnapAssertionsPath = assertionsPath
-	}
-
-	if c.JujuDbSnapAssertionsPath != "" {
-		_, err := c.Filesystem().Stat(c.JujuDbSnapAssertionsPath)
-		if err != nil {
-			return errors.Annotatef(err, "problem with --db-snap-asserts")
-		}
-	}
-
-	if c.JujuDbSnapAssertionsPath != "" && c.JujuDbSnapPath == "" {
-		return errors.New("--db-snap-asserts requires --db-snap")
 	}
 
 	if c.ControllerCharmPath != "" {
@@ -878,8 +847,6 @@ to create a new model to deploy %sworkloads.
 		ControllerServiceType:         bootstrapCfg.bootstrap.ControllerServiceType,
 		ControllerExternalName:        bootstrapCfg.bootstrap.ControllerExternalName,
 		ControllerExternalIPs:         append([]string(nil), bootstrapCfg.bootstrap.ControllerExternalIPs...),
-		JujuDbSnapPath:                c.JujuDbSnapPath,
-		JujuDbSnapAssertionsPath:      c.JujuDbSnapAssertionsPath,
 		StoragePools:                  bootstrapCfg.storagePools,
 		ControllerCharmPath:           c.ControllerCharmPath,
 		ControllerCharmChannel:        c.ControllerCharmChannel,

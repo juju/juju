@@ -103,12 +103,6 @@ rm -rf /var/lib/juju/raft/*
 
 echo "removing /var/run/juju/*"
 rm -rf /var/run/juju/*
-
-has_juju_db_snap=$(snap info juju-db | grep installed:)
-if [ ! -z "$has_juju_db_snap" ]; then
-  echo "removing juju-db snap and any persisted database data"
-  snap remove --purge juju-db
-fi
 `
 	// We look to see if the proxy line is there already as
 	// the unmanaged provider may have had it already.
@@ -393,9 +387,6 @@ func (w *userdataConfig) ConfigureJuju() error {
 	}
 
 	if w.icfg.Bootstrap != nil {
-		if err = w.addLocalSnapUpload(); err != nil {
-			return errors.Trace(err)
-		}
 		if err = w.addLocalControllerCharmsUpload(); err != nil {
 			return errors.Trace(err)
 		}
@@ -511,37 +502,6 @@ func (w *userdataConfig) configureBootstrap() error {
 	}
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
 	w.conf.AddScripts(strings.Join(bootstrapAgentArgs, " "))
-
-	return nil
-}
-
-func (w *userdataConfig) addLocalSnapUpload() error {
-	if w.icfg.Bootstrap == nil {
-		return nil
-	}
-
-	snapPath := w.icfg.Bootstrap.JujuDbSnapPath
-	assertionsPath := w.icfg.Bootstrap.JujuDbSnapAssertionsPath
-
-	if snapPath == "" {
-		return nil
-	}
-
-	logger.Infof(context.TODO(), "preparing to upload juju-db snap from %v", snapPath)
-	snapData, err := stdos.ReadFile(snapPath)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, snapName := path.Split(snapPath)
-	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapName), snapData, 0644)
-
-	logger.Infof(context.TODO(), "preparing to upload juju-db assertions from %v", assertionsPath)
-	snapAssertionsData, err := stdos.ReadFile(assertionsPath)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, snapAssertionsName := path.Split(assertionsPath)
-	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapAssertionsName), snapAssertionsData, 0644)
 
 	return nil
 }

@@ -278,7 +278,7 @@ func (m *ModelUpgraderAPI) dryRunUpgrade(
 	)
 
 	// Parse the agent stream.
-	if arg.AgentStream != "" {
+	if hasStreamChange {
 		targetStream, err = domainagentbinary.StreamFromCoreAgentBinaryStream(
 			agentbinary.AgentStream(arg.AgentStream),
 		)

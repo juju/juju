@@ -92,7 +92,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"internal/http",
 		"internal/logger",
 		"internal/macaroon",
-		"internal/mongo",
 		"internal/password",
 		"internal/pki",
 		"internal/proxy",
