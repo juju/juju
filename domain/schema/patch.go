@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	patchName = ".PATCH.sql"
+	pathFileSuffix = ".PATCH.sql"
 )
 
 func readPatches(entries []fs.DirEntry, fs fs.ReadFileFS, fileName func(string) string) ([]func() schema.Patch, []func() schema.Patch) {
@@ -40,7 +40,7 @@ func readPatches(entries []fs.DirEntry, fs fs.ReadFileFS, fileName func(string) 
 			return schema.MakePatch(string(data))
 		}
 
-		if strings.HasSuffix(name, patchName) {
+		if strings.HasSuffix(name, pathFileSuffix) {
 			postPatches = append(postPatches, fn)
 			continue
 		}
