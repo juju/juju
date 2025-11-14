@@ -2459,7 +2459,7 @@ WHERE sa.uuid = $entityUUID.uuid`, entityUUID{})
 	err = tx.Query(ctx, filesystemAttachmentStmt, attachmentUUID).Get(&fsaUUID)
 	if err == nil {
 		cascaded.FilesystemAttachmentUUID = &fsaUUID.UUID
-	} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	} else if !errors.Is(err, sqlair.ErrNoRows) {
 		return cascaded, errors.Errorf(
 			"running storage filesystem attachment query: %w", err,
 		)
@@ -2469,7 +2469,7 @@ WHERE sa.uuid = $entityUUID.uuid`, entityUUID{})
 	err = tx.Query(ctx, volumeAttachmentStmt, attachmentUUID).Get(&vaUUID)
 	if err == nil {
 		cascaded.VolumeAttachmentUUID = &vaUUID.UUID
-	} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	} else if !errors.Is(err, sqlair.ErrNoRows) {
 		return cascaded, errors.Errorf(
 			"running storage volume attachment query: %w", err,
 		)
@@ -2479,7 +2479,7 @@ WHERE sa.uuid = $entityUUID.uuid`, entityUUID{})
 	err = tx.Query(ctx, volumeAttachmentPlanStmt, attachmentUUID).Get(&vapUUID)
 	if err == nil {
 		cascaded.VolumeAttachmentPlanUUID = &vapUUID.UUID
-	} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	} else if !errors.Is(err, sqlair.ErrNoRows) {
 		return cascaded, errors.Errorf(
 			"running storage volume attachment plan query: %w", err,
 		)
