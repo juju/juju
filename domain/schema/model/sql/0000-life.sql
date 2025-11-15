@@ -3,6 +3,7 @@ CREATE TABLE life (
     value TEXT NOT NULL
 );
 
+
 INSERT INTO life VALUES
 (0, 'alive'),
 (1, 'dying'),
