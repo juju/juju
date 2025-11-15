@@ -66,6 +66,36 @@ jobs:
       - name: Lint SQL
         run: "sqlfluff lint --config .github/.sqlfluff domain/schema/**/sql/*.sql"
 
+  ddl-changes:
+    name: Check DDL Changes
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout
+        if: github.event.pull_request.base.ref != 'main'
+        uses: actions/checkout@v3
+
+      - name: Fetch base branch
+        if: github.event.pull_request.base.ref != 'main'
+        run: |
+          git remote add upstream "${{ github.event.pull_request.base.repo.clone_url }}"
+          git fetch --depth 1 upstream ${{ github.event.pull_request.base.ref }}
+
+      - name: Analyse diff
+        if: github.event.pull_request.base.ref != 'main'
+        run: |
+          changed_ddl=$(git diff --name-only upstream/${{ github.event.pull_request.base.ref }} |
+            grep -E 'domain/schema/.+/sql/.*\.sql$' |
+            grep -Ev '.*PATCH.sql' || true)
+
+          if [ -n "$changed_ddl" ]; then
+            echo "Detected changed to domain DDL files:"
+            echo "$changed_ddl"
+            echo
+            echo "To patch the domain DDL between patch versions, please use a .PATCH.sql file"
+            exit 1
+          fi
+
   conventional-commits:
     name: Check conventional commits
     runs-on: ubuntu-latest
