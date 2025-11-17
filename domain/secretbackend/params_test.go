@@ -59,7 +59,7 @@ func (s *paramsSuite) TestCreateSecretBackendParamsValidate(c *tc.C) {
 			Name: "backend-name",
 		},
 		BackendType: "vault",
-		Config: map[string]string{
+		Config: map[string]any{
 			"": "value",
 		},
 	}
@@ -73,7 +73,7 @@ func (s *paramsSuite) TestCreateSecretBackendParamsValidate(c *tc.C) {
 			Name: "backend-name",
 		},
 		BackendType: "vault",
-		Config: map[string]string{
+		Config: map[string]any{
 			"key": "",
 		},
 	}
@@ -112,7 +112,7 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *tc.C) {
 		BackendIdentifier: BackendIdentifier{
 			ID: "backend-id",
 		},
-		Config: map[string]string{
+		Config: map[string]any{
 			"": "value",
 		},
 	}
@@ -124,7 +124,7 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *tc.C) {
 		BackendIdentifier: BackendIdentifier{
 			ID: "backend-id",
 		},
-		Config: map[string]string{
+		Config: map[string]any{
 			"key": "",
 		},
 	}

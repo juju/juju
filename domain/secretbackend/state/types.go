@@ -86,7 +86,7 @@ type upsertSecretBackendParams struct {
 	BackendType         string
 	TokenRotateInterval *time.Duration
 	NextRotateTime      *time.Time
-	Config              map[string]string
+	Config              map[string]any
 }
 
 // Validate checks that the parameters are valid.
@@ -172,7 +172,7 @@ type SecretBackendRow struct {
 // secretBackendRows represents a slice of SecretBackendRow.
 type secretBackendRows []SecretBackendRow
 
-func (rows secretBackendRows) toSecretBackends() []*secretbackend.SecretBackend {
+func (rows secretBackendRows) toSecretBackends(ctx context.Context, logger logger.Logger) []*secretbackend.SecretBackend {
 	// Sort the rows by backend name to ensure that we group the config.
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i].Name < rows[j].Name
@@ -196,15 +196,21 @@ func (rows secretBackendRows) toSecretBackends() []*secretbackend.SecretBackend 
 			currentBackend = &backend
 			result = append(result, currentBackend)
 		}
-		if row.ConfigName == "" || row.ConfigContent == "" {
+		if row.ConfigName == "" {
 			// No config for this row.
 			continue
 		}
-
+		decodedContent, err := decodeConfigValue(row.ConfigContent)
+		if err != nil {
+			// This is unexpected and shouldn't happen unless encoding changes
+			// look at `domain/secretbackend/state/encode.go`.
+			logger.Warningf(ctx, "failed to decode config value %q: %v", row.ConfigName, err)
+			continue
+		}
 		if currentBackend.Config == nil {
 			currentBackend.Config = make(map[string]any)
 		}
-		currentBackend.Config[row.ConfigName] = row.ConfigContent
+		currentBackend.Config[row.ConfigName] = decodedContent
 	}
 	return result
 }
