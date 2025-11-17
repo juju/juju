@@ -584,6 +584,52 @@ func (s *storageProvisionerSuite) TestAttachFilesystemRetry(c *tc.C) {
 	})
 }
 
+func (s *storageProvisionerSuite) TestAttachFilesystemIncomplete(c *tc.C) {
+	filesystemInfoSet := make(chan interface{})
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
+	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
+		defer close(filesystemInfoSet)
+		return make([]params.ErrorResult, len(filesystems)), nil
+	}
+	filesystemAttachmentInfoSet := make(chan interface{})
+	filesystemAccessor.setFilesystemAttachmentInfo = func(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
+		defer close(filesystemAttachmentInfoSet)
+		return make([]params.ErrorResult, len(filesystemAttachments)), nil
+	}
+
+	// mockFunc's After will progress the current time by the specified
+	// duration and signal the channel immediately.
+	clock := &mockClock{}
+	var attachFilesystemTimes []time.Time
+
+	s.provider.attachFilesystemsFunc = func(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+		attachFilesystemTimes = append(attachFilesystemTimes, clock.Now())
+		return []storage.AttachFilesystemsResult{{Error: storage.FilesystemAttachParamsIncomplete}}, nil
+	}
+
+	args := &workerArgs{filesystems: filesystemAccessor, clock: clock, registry: s.registry}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), tc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageID{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
+	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
+	assertNoEvent(c, filesystemAttachmentInfoSet, "filesystem attachment info set event")
+	c.Assert(attachFilesystemTimes, tc.HasLen, 1)
+
+	// The first attempt should have been immediate: T0.
+	c.Assert(attachFilesystemTimes[0], tc.Equals, time.Time{})
+
+	c.Assert(args.statusSetter.args, tc.DeepEquals, []params.EntityStatusArgs{
+		{Tag: "filesystem-1", Status: "attaching", Info: ""}, // CreateFilesystems
+		// No update since the filesystem is missing attachment parameters.
+	})
+}
+
 func (s *storageProvisionerSuite) TestValidateVolumeParams(c *tc.C) {
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
