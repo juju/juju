@@ -415,25 +415,6 @@ func (s *provisionerSuite) TestEnsureDead(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *provisionerSuite) TestRemove(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	caller, machine := s.setupMachines(c, ctrl)
-
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "machine-666"}},
-	}
-	results := params.ErrorResults{
-		Results: []params.ErrorResult{{}},
-	}
-
-	s.expectCall(caller, "Remove", args, results)
-
-	err := machine.Remove(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *provisionerSuite) TestMarkForRemoval(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
