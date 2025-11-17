@@ -2728,20 +2728,17 @@ func getUniqueIDFromStatefulSet(
 	sts, err := k8sClient.AppsV1().
 		StatefulSets(namespace).
 		Get(ctx, deploymentName, v1.GetOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err != nil {
 		return "", err
 	}
-	if err == nil {
-		logger.Debugf("found sts for app %q with annotations %+v", deploymentName, sts.Annotations)
-		storageUniqueID, err := getUniqueIDFromAnnotation(
-			namespace, modelName, modelUUID, controllerUUID,
-			k8sClient, sts.Annotations)
-		if err != nil {
-			return "", err
-		}
-		return storageUniqueID, nil
+	logger.Debugf("found sts for app %q with annotations %+v", deploymentName, sts.Annotations)
+	storageUniqueID, err := getUniqueIDFromAnnotation(
+		namespace, modelName, modelUUID, controllerUUID,
+		k8sClient, sts.Annotations)
+	if err != nil {
+		return "", err
 	}
-	return "", errors.NotFoundf("sts for app %q", deploymentName)
+	return storageUniqueID, nil
 }
 
 func getUniqueIDFromDeployment(
@@ -2752,20 +2749,18 @@ func getUniqueIDFromDeployment(
 	deployment, err := k8sClient.AppsV1().
 		Deployments(namespace).
 		Get(ctx, deploymentName, v1.GetOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err != nil {
 		return "", err
 	}
-	if err == nil {
-		logger.Debugf("found deployment for app %q with annotations %+v", deploymentName, deployment.Annotations)
-		storageUniqueID, err := getUniqueIDFromAnnotation(
-			namespace, modelName, modelUUID, controllerUUID,
-			k8sClient, deployment.Annotations)
-		if err != nil {
-			return "", err
-		}
-		return storageUniqueID, nil
+
+	logger.Debugf("found deployment for app %q with annotations %+v", deploymentName, deployment.Annotations)
+	storageUniqueID, err := getUniqueIDFromAnnotation(
+		namespace, modelName, modelUUID, controllerUUID,
+		k8sClient, deployment.Annotations)
+	if err != nil {
+		return "", err
 	}
-	return "", errors.NotFoundf("deployment for app %q", deploymentName)
+	return storageUniqueID, nil
 }
 
 func getUniqueIDFromDaemonSet(
@@ -2776,21 +2771,19 @@ func getUniqueIDFromDaemonSet(
 	daemonSet, err := k8sClient.AppsV1().
 		DaemonSets(namespace).
 		Get(ctx, deploymentName, v1.GetOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err != nil {
 		return "", err
 	}
-	if err == nil {
-		logger.Debugf("found daemonset for app %q with annotations %+v",
-			deploymentName, daemonSet.Annotations)
-		storageUniqueID, err := getUniqueIDFromAnnotation(
-			namespace, modelName, modelUUID, controllerUUID,
-			k8sClient, daemonSet.Annotations)
-		if err != nil {
-			return "", err
-		}
-		return storageUniqueID, nil
+
+	logger.Debugf("found daemonset for app %q with annotations %+v",
+		deploymentName, daemonSet.Annotations)
+	storageUniqueID, err := getUniqueIDFromAnnotation(
+		namespace, modelName, modelUUID, controllerUUID,
+		k8sClient, daemonSet.Annotations)
+	if err != nil {
+		return "", err
 	}
-	return "", errors.NotFoundf("daemonset for app %q", deploymentName)
+	return storageUniqueID, nil
 }
 
 func getUniqueIDFromAnnotation(
