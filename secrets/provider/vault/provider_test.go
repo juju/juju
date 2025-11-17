@@ -341,3 +341,29 @@ func (s *providerSuite) TestNewBackend(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(jujuvault.MountPath(b), gc.Equals, "fred-06f00d")
 }
+
+func (s *providerSuite) TestNewBackendWithMountPath(c *gc.C) {
+	ctrl, newVaultClient := s.newVaultClient(c, nil)
+	defer ctrl.Finish()
+	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
+	p, err := provider.Provider(jujuvault.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg := &provider.ModelBackendConfig{
+		ModelName: "fred",
+		ModelUUID: coretesting.ModelTag.Id(),
+		BackendConfig: provider.BackendConfig{
+			BackendType: jujuvault.BackendType,
+			Config: map[string]interface{}{
+				"endpoint":        "http://vault-ip:8200/",
+				"token":           "vault-token",
+				"mount-path":      "/some/path/",
+				"ca-cert":         coretesting.CACert,
+				"tls-server-name": "tls-server",
+			},
+		},
+	}
+	b, err := p.NewBackend(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(jujuvault.MountPath(b), gc.Equals, "/some/path/fred-06f00d")
+}
