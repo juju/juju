@@ -2180,16 +2180,13 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *tc.C) {
 	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
 	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
 	relationUUID := s.addRelation(c)
-	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
 	// Add unit to application in the relation.
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	settings := map[string]string{"ingress-address": "x.x.x.x"}
-
-	// Add relation unit for the unit
-	s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
 	// Enter scope.
 	err := s.state.EnterScope(c.Context(), relationUUID, unitName, settings)
@@ -2209,20 +2206,20 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *tc.C) {
 
 	// EnterScope a second time, with change settings.
 	err = s.state.EnterScope(c.Context(), relationUUID, unitName, newSettings)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitAlreadyExists)
 
-	// Check the same relation unit uuid is found and the settings have
-	// changed.
-	newRelationUnitUUID := s.getRelationUnitInScope(c, relationUUID, unitUUID)
-	if c.Check(newRelationUnitUUID.Validate(), tc.ErrorIsNil) {
-		c.Check(newRelationUnitUUID.String(), tc.Equals, relationUnitUUID.String())
+	// Check the same relation unit uuid is found and the settings stayed the
+	// same.
+	obtainedRelationUnitUUID := s.getRelationUnitInScope(c, relationUUID, unitUUID)
+	if c.Check(obtainedRelationUnitUUID.Validate(), tc.ErrorIsNil) {
+		c.Check(obtainedRelationUnitUUID.String(), tc.Equals, relationUnitUUID.String())
 	}
 
 	newObtainedSettings := s.getRelationUnitSettings(c, relationUnitUUID)
-	c.Check(newObtainedSettings, tc.DeepEquals, newSettings)
+	c.Check(newObtainedSettings, tc.DeepEquals, settings)
 
 	newObtainedHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
-	c.Assert(newObtainedHash, tc.Not(tc.Equals), obtainedHash)
+	c.Assert(newObtainedHash, tc.Equals, obtainedHash)
 }
 
 // TestEnterScopeSubordinate checks that a subordinate unit can enter scope to

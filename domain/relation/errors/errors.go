@@ -68,6 +68,10 @@ const (
 	// relation does not exist.
 	RelationNotFound = errors.ConstError("relation not found")
 
+	// RelationUnitAlreadyExists describes an error that occurs when the
+	// unit has already entered scope.
+	RelationUnitAlreadyExists = errors.ConstError("relation unit already exists")
+
 	// RelationUUIDNotValid describes an error when the relation UUID is
 	// not valid.
 	RelationUUIDNotValid = errors.ConstError("relation UUID not valid")
