@@ -818,6 +818,47 @@ func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *tc.C) {
 	})
 }
 
+func (s *storageProvisionerSuite) TestValidateFilesystemParamsIncomplete(c *tc.C) {
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
+
+	validated := make(chan any)
+	s.provider.validateFilesystemParamsFunc = func(p storage.FilesystemParams) error {
+		close(validated)
+		return storage.FilesystemCreateParamsIncomplete
+	}
+
+	life := func(tags []names.Tag) ([]params.LifeResult, error) {
+		results := make([]params.LifeResult, len(tags))
+		for i := range results {
+			results[i].Life = life.Alive
+		}
+		return results, nil
+	}
+
+	args := &workerArgs{
+		filesystems: filesystemAccessor,
+		life: &mockLifecycleManager{
+			life: life,
+		},
+		registry: s.registry,
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), tc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageID{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
+	waitChannel(c, validated, "waiting for filesystem parameter validation")
+
+	c.Assert(args.statusSetter.args, tc.DeepEquals, []params.EntityStatusArgs{
+		// No status update for pending filesystem due to incomplete create
+		// parameters.
+	})
+}
+
 func (s *storageProvisionerSuite) TestFilesystemAdded(c *tc.C) {
 	expectedFilesystems := []params.Filesystem{{
 		FilesystemTag: "filesystem-1",
