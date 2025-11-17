@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"sort"
@@ -273,6 +274,7 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 	appMigratedCount := 0
 
 	getStorageUniqueID := func(
+		ctx context.Context,
 		apps []AppAndStorageID,
 		model *Model,
 	) ([]AppAndStorageID, error) {
@@ -286,9 +288,13 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 					appName:  "app2",
 					uniqueID: "uniqueid2",
 				},
+				// In practice, the unique ID in the annotation and in the document
+				// are always consistent. For testing purposes, I’ve made them differ
+				// to verify that app3 does not get backfilled, since the document
+				// already contains the unique ID.
 				{
 					appName:  "app3",
-					uniqueID: "uniqueid3",
+					uniqueID: "uniqueid3-not-backfilled",
 				},
 			},
 			model2.UUID(): {
@@ -330,4 +336,30 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 	err = PopulateApplicationStorageUniqueID(s.pool, getStorageUniqueID)
 	c.Assert(err, gc.IsNil)
 	c.Assert(appMigratedCount, gc.Equals, 4)
+
+	// Assert the values of storage unique ID in DB.
+	app1 := bson.M{}
+	err = appColl1.Find(bson.M{"name": "app1"}).One(&app1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app1["storage-unique-id"], gc.Equals, "uniqueid1")
+
+	app2 := bson.M{}
+	err = appColl1.Find(bson.M{"name": "app2"}).One(&app2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app2["storage-unique-id"], gc.Equals, "uniqueid2")
+
+	app3 := bson.M{}
+	err = appColl1.Find(bson.M{"name": "app3"}).One(&app3)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app3["storage-unique-id"], gc.Equals, "uniqueid3")
+
+	app4 := bson.M{}
+	err = appColl2.Find(bson.M{"name": "app4"}).One(&app4)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app4["storage-unique-id"], gc.Equals, "uniqueid4")
+
+	app5 := bson.M{}
+	err = appColl2.Find(bson.M{"name": "app5"}).One(&app5)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app5["storage-unique-id"], gc.Equals, "uniqueid5")
 }
