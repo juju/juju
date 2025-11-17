@@ -7,18 +7,18 @@ import (
 	"reflect"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/state"
+	"github.com/juju/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
 	jujukubernetes "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
