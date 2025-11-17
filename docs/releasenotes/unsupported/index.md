@@ -1,5 +1,5 @@
 (unsupported)=
-# Unsupported Juju Releases
+# Unsupported Juju releases
 
 ```{toctree}
 :titlesonly:
