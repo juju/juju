@@ -117,8 +117,6 @@ func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
 
 		activator := statecontroller.GetActivator()
 		return activator(ctx, preparer{}, tx, modelUUID)
-
-		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return modelUUID
