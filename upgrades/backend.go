@@ -59,7 +59,10 @@ func (s stateBackend) SplitMigrationStatusMessages() error {
 // PopulateApplicationStorageUniqueID runs an upgrade to backfill CAAS apps
 // storage unique IDs.
 func (s stateBackend) PopulateApplicationStorageUniqueID() error {
-	return state.PopulateApplicationStorageUniqueID(s.pool, GetStorageUniqueIDs(newK8sClient))
+	return state.PopulateApplicationStorageUniqueID(s.pool, GetStorageUniqueIDs(
+		newK8sClient,
+		jujukubernetes.NamespaceForModel),
+	)
 }
 
 // newK8sClient initializes a new k8s client for a given model.
@@ -80,12 +83,17 @@ func newK8sClient(model *state.Model) (kubernetes.Interface, *rest.Config, error
 }
 
 type newK8sFunc func(model *state.Model) (kubernetes.Interface, *rest.Config, error)
+type namespaceForModelFunc func(modelName string, controllerUUID string,
+	k8sRestConfig *rest.Config) (string, error)
 
 // GetStorageUniqueIDs attempts to grab the storage unique ID for each app
 // in the given model.
 // The storage unique ID is saved in annotations in a statefulset and for legacy
 // applications are saved in a deployment or daemonset.
-func GetStorageUniqueIDs(newK8sClient newK8sFunc) func(
+func GetStorageUniqueIDs(
+	newK8sClient newK8sFunc,
+	namespaceForModel namespaceForModelFunc,
+) func(
 	ctx context.Context,
 	apps []state.AppAndStorageID,
 	model *state.Model,
@@ -100,7 +108,7 @@ func GetStorageUniqueIDs(newK8sClient newK8sFunc) func(
 			return nil, err
 		}
 
-		namespace, err := jujukubernetes.NamespaceForModel(
+		namespace, err := namespaceForModel(
 			model.Name(), model.ControllerUUID(), cfg)
 		if err != nil {
 			return nil, err
@@ -128,6 +136,7 @@ func GetStorageUniqueIDs(newK8sClient newK8sFunc) func(
 					StorageUniqueID: storageUniqueID,
 				})
 				found = true
+				break
 			}
 
 			if !found {
