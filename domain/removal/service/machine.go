@@ -324,6 +324,8 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 		return errors.Errorf("getting machine %q life: %w", job.EntityUUID, err)
 	}
 
+	// The machine should never be alive, that is a programming error if it is.
+	// The machine should either be dying or dead.
 	if l == life.Alive {
 		return errors.Errorf("machine %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
@@ -333,16 +335,16 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 		return errors.Errorf("getting instance %q life: %w", job.EntityUUID, err)
 	}
 
-	// This instance hasn't yet been marked as dead, so we
-	// will not delete it yet.
-	if l != life.Dead {
+	// This instance hasn't yet been marked as dead, so we will not delete it
+	// yet if not forced.
+	if !job.Force && l != life.Dead {
 		return errors.Errorf("machine instance %q is not dead", job.EntityUUID).Add(
 			removalerrors.RemovalJobIncomplete)
 	}
 
 	// Do this before we delete the machine, so that we can release any
 	// addresses that the machine has allocated.
-	if err := s.releaseContainerAddresses(ctx, job.EntityUUID); err != nil {
+	if err := s.releaseContainerAddresses(ctx, job.EntityUUID, job.Force); err != nil {
 		return errors.Errorf("releasing addresses for machine %q: %w", job.EntityUUID, err)
 	}
 
@@ -357,7 +359,7 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 	return nil
 }
 
-func (s *Service) releaseContainerAddresses(ctx context.Context, machineUUID string) error {
+func (s *Service) releaseContainerAddresses(ctx context.Context, machineUUID string, force bool) error {
 	// Get the provider for releasing the machine addresses. If the provider
 	// does not support releasing addresses, we can return early.
 	provider, err := s.providerGetter(ctx)
@@ -384,8 +386,10 @@ func (s *Service) releaseContainerAddresses(ctx context.Context, machineUUID str
 	// addresses, then we need to handle the NotSupported error gracefully.
 	if err := provider.ReleaseContainerAddresses(ctx, addresses); errors.Is(err, coreerrors.NotSupported) {
 		return nil
-	} else if err != nil {
+	} else if err != nil && !force {
 		return errors.Errorf("releasing machine %q network interfaces: %w", machineUUID, err)
+	} else if err != nil && force {
+		s.logger.Warningf(ctx, "failed to release machine %q network interfaces: %v", machineUUID, err)
 	}
 
 	return nil
