@@ -6,6 +6,10 @@ package migrationtarget
 import (
 	"reflect"
 
+	"github.com/juju/description/v9"
+	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/state"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -15,7 +19,6 @@ import (
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/environs"
 	jujukubernetes "github.com/juju/juju/internal/provider/kubernetes"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -59,6 +62,7 @@ func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facades.FacadeVersions{},
 		newK8sClient,
+		migrationWrapper{},
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -74,6 +78,7 @@ func newFacadeV2(ctx facade.Context) (*APIV2, error) {
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facades.FacadeVersions{},
 		newK8sClient,
+		migrationWrapper{},
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -89,16 +94,12 @@ func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API,
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facadeVersions,
 		newK8sClient,
+		migrationWrapper{},
 	)
 }
 
-func newK8sClient(model *state.Model) (kubernetes.Interface, *rest.Config, error) {
-	g := stateenvirons.EnvironConfigGetter{Model: model}
-	cloudSpec, err := g.CloudSpec()
-	if err != nil {
-		return nil, nil, err
-	}
-
+// newK8sClient initializes a new kubernetes client.
+func newK8sClient(cloudSpec cloudspec.CloudSpec) (kubernetes.Interface, *rest.Config, error) {
 	cfg, err := jujukubernetes.CloudSpecToK8sRestConfig(cloudSpec)
 	if err != nil {
 		return nil, nil, err
@@ -106,4 +107,12 @@ func newK8sClient(model *state.Model) (kubernetes.Interface, *rest.Config, error
 
 	k8sClient, err := kubernetes.NewForConfig(cfg)
 	return k8sClient, cfg, err
+}
+
+// migrationWrapper implements [Migrator] and wraps around [migration.ImportModel]
+// for easy unit testing.
+type migrationWrapper struct{}
+
+func (m migrationWrapper) ImportModel(importer migration.StateImporter, getClaimer migration.ClaimerFunc, model description.Model) (*state.Model, *state.State, error) {
+	return migration.ImportModel(importer, getClaimer, model)
 }
