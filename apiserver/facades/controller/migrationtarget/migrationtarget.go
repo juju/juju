@@ -77,37 +77,6 @@ type APIV2 struct {
 	*APIV1
 }
 
-type kubernetesClient struct {
-	kubernetes.Interface
-	config *rest.Config
-}
-
-// baseModel implements [stateenvirons.baseModel].
-type baseModel struct {
-	descriptionModel description.Model
-	st               *state.State
-}
-
-func (m baseModel) Cloud() (cloud.Cloud, error) {
-	cloudName := m.descriptionModel.Cloud()
-	return m.st.Cloud(cloudName)
-}
-
-func (m baseModel) CloudRegion() string {
-	return m.descriptionModel.CloudRegion()
-}
-
-func (m baseModel) CloudCredential() (state.Credential, bool, error) {
-	cred := m.descriptionModel.CloudCredential()
-	credID := fmt.Sprintf("%s/%s/%s", cred.Cloud(), cred.Owner(), cred.Name())
-	if !names.IsValidCloudCredential(credID) {
-		return state.Credential{}, false, errors.NotValidf("cloud credential ID %q", credID)
-	}
-	credTag := names.NewCloudCredentialTag(credID)
-	cloudCredential, err := m.st.CloudCredential(credTag)
-	return cloudCredential, true, err
-}
-
 // NewAPI returns a new APIV1. Accepts a NewEnvironFunc and context.ProviderCallContext
 // for testing purposes.
 func NewAPI(
