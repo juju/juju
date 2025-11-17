@@ -368,12 +368,8 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	md, err := s.secretsState.GetSecret(uri)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	var nextRotateTime *time.Time
-	if !md.RotatePolicy.WillRotate() && arg.RotatePolicy.WillRotate() {
+	if arg.RotatePolicy.WillRotate() {
 		nextRotateTime = arg.RotatePolicy.NextRotateTime(s.clock.Now())
 	}
 	_, err = s.secretsState.UpdateSecret(uri, fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime))

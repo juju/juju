@@ -3265,11 +3265,17 @@ func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotateP
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Only update the rotation time if the new time is before
+	// the current rotate time.
+	newRotateTime := nextRotateTime.Round(time.Second).UTC()
+	if newRotateTime.After(doc.NextRotateTime) {
+		return nil, nil
+	}
 	return []txn.Op{{
 		C:      secretRotateC,
 		Id:     secretKey,
 		Assert: txn.DocExists,
-		Update: bson.M{"$set": bson.M{"next-rotate-time": nextRotateTime.Round(time.Second).UTC()}},
+		Update: bson.M{"$set": bson.M{"next-rotate-time": newRotateTime}},
 	}}, nil
 }
 
