@@ -2701,3 +2701,114 @@ func isStateful(pod *core.Pod) bool {
 	}
 	return false
 }
+
+type getUniqueIDFromK8sResourceFunc func(
+	ctx context.Context,
+	k8sClient kubernetes.Interface,
+	namespace, deploymentName, modelName, modelUUID, controllerUUID string,
+) (string, error)
+
+// StorageUniqueIDFinder holds a slice of func s.t. each func implements finding
+// a unique ID from a respective k8s resource.
+// We have to find the resource where the storageUniqueID
+// is saved in annotation. While modern charms are deployed as
+// statefulsets, due to legacy deployments, we also have to check
+// for deployments and daemonsets resource.
+var StorageUniqueIDFinder = []getUniqueIDFromK8sResourceFunc{
+	getUniqueIDFromStatefulSet,
+	getUniqueIDFromDeployment,
+	getUniqueIDFromDaemonSet,
+}
+
+func getUniqueIDFromStatefulSet(
+	ctx context.Context,
+	k8sClient kubernetes.Interface,
+	namespace, deploymentName, modelName, modelUUID, controllerUUID string,
+) (string, error) {
+	sts, err := k8sClient.AppsV1().
+		StatefulSets(namespace).
+		Get(ctx, deploymentName, v1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return "", err
+	}
+	if err == nil {
+		logger.Debugf("found sts for app %q with annotations %+v", deploymentName, sts.Annotations)
+		storageUniqueID, err := getUniqueIDFromAnnotation(
+			namespace, modelName, modelUUID, controllerUUID,
+			k8sClient, sts.Annotations)
+		if err != nil {
+			return "", err
+		}
+		return storageUniqueID, nil
+	}
+	return "", errors.NotFoundf("sts for app %q", deploymentName)
+}
+
+func getUniqueIDFromDeployment(
+	ctx context.Context,
+	k8sClient kubernetes.Interface,
+	namespace, deploymentName, modelName, modelUUID, controllerUUID string,
+) (string, error) {
+	deployment, err := k8sClient.AppsV1().
+		Deployments(namespace).
+		Get(ctx, deploymentName, v1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return "", err
+	}
+	if err == nil {
+		logger.Debugf("found deployment for app %q with annotations %+v", deploymentName, deployment.Annotations)
+		storageUniqueID, err := getUniqueIDFromAnnotation(
+			namespace, modelName, modelUUID, controllerUUID,
+			k8sClient, deployment.Annotations)
+		if err != nil {
+			return "", err
+		}
+		return storageUniqueID, nil
+	}
+	return "", errors.NotFoundf("deployment for app %q", deploymentName)
+}
+
+func getUniqueIDFromDaemonSet(
+	ctx context.Context,
+	k8sClient kubernetes.Interface,
+	namespace, deploymentName, modelName, modelUUID, controllerUUID string,
+) (string, error) {
+	daemonSet, err := k8sClient.AppsV1().
+		DaemonSets(namespace).
+		Get(ctx, deploymentName, v1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return "", err
+	}
+	if err == nil {
+		logger.Debugf("found daemonset for app %q with annotations %+v",
+			deploymentName, daemonSet.Annotations)
+		storageUniqueID, err := getUniqueIDFromAnnotation(
+			namespace, modelName, modelUUID, controllerUUID,
+			k8sClient, daemonSet.Annotations)
+		if err != nil {
+			return "", err
+		}
+		return storageUniqueID, nil
+	}
+	return "", errors.NotFoundf("daemonset for app %q", deploymentName)
+}
+
+func getUniqueIDFromAnnotation(
+	namespace, modelName, modelUUID, controllerUUID string,
+	k8sClient kubernetes.Interface,
+	annotations map[string]string,
+) (string, error) {
+	labelVersion, err := utils.MatchModelLabelVersion(
+		namespace, modelName, modelUUID,
+		controllerUUID, k8sClient.CoreV1().Namespaces())
+	if err != nil {
+		return "", err
+	}
+
+	appIDKey := utils.AnnotationKeyApplicationUUID(labelVersion)
+	storageUniqueID, ok := annotations[appIDKey]
+	if !ok {
+		return storage.RandomPrefix()
+	}
+	return storageUniqueID, nil
+}
