@@ -508,6 +508,18 @@ VALUES ($machinePlacement.*);
 	return nil
 }
 
+// We prepare these statements globally to avoid having them prepared inside
+// a transaction.
+var (
+	insertConstraintStmt         = sqlair.MustPrepare(`INSERT INTO "constraint"(*) VALUES ($setConstraint.*)`, setConstraint{})
+	insertConstraintTagsStmt     = sqlair.MustPrepare(`INSERT INTO constraint_tag(*) VALUES ($setConstraintTag.*)`, setConstraintTag{})
+	insertConstraintSpacesStmt   = sqlair.MustPrepare(`INSERT INTO constraint_space(*) VALUES ($setConstraintSpace.*)`, setConstraintSpace{})
+	insertConstraintZonesStmt    = sqlair.MustPrepare(`INSERT INTO constraint_zone(*) VALUES ($setConstraintZone.*)`, setConstraintZone{})
+	selectContainerTypeIDStmt    = sqlair.MustPrepare(`SELECT &containerTypeID.id FROM container_type WHERE value = $containerTypeVal.value`, containerTypeID{}, containerTypeVal{})
+	insertMachineConstraintsStmt = sqlair.MustPrepare(`INSERT INTO machine_constraint(*) VALUES ($setMachineConstraint.*)`, setMachineConstraint{})
+	selectSpaceStmt              = sqlair.MustPrepare(`SELECT &entityUUID.uuid FROM space WHERE name = $entityName.name`, entityUUID{}, entityName{})
+)
+
 func insertContainerType(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -547,59 +559,6 @@ func insertMachineConstraints(
 		return errors.Capture(err)
 	}
 	cUUIDStr := cUUID.String()
-
-	insertMachineConstraintsQuery := `
-INSERT INTO machine_constraint(*)
-VALUES ($setMachineConstraint.*)
-`
-	insertMachineConstraintsStmt, err := preparer.Prepare(insertMachineConstraintsQuery, setMachineConstraint{})
-	if err != nil {
-		return errors.Errorf("preparing insert machine constraints query: %w", err)
-	}
-
-	insertConstraintsQuery := `
-INSERT INTO "constraint"(*)
-VALUES ($setConstraint.*)
-`
-	insertConstraintStmt, err := preparer.Prepare(insertConstraintsQuery, setConstraint{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// note(gfouillet): the following Prepare statements use directly sqlair to
-	// avoid a clash with the same query in the application state.
-	// Both prepare uses a setConstraintTag/setConstraintSpace struct from
-	// different packages, which causes a conflict in sqlair.Query below.
-	// See https://github.com/juju/juju/pull/20882 for more details.
-	insertConstraintTagsQuery := `INSERT INTO constraint_tag(*) VALUES ($setConstraintTag.*)`
-	insertConstraintTagsStmt, err := sqlair.Prepare(insertConstraintTagsQuery, setConstraintTag{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	insertConstraintSpacesQuery := `INSERT INTO constraint_space(*) VALUES ($setConstraintSpace.*)`
-	insertConstraintSpacesStmt, err := sqlair.Prepare(insertConstraintSpacesQuery, setConstraintSpace{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Check that spaces provided as constraints do exist in the space table.
-	selectSpaceQuery := `SELECT &entityUUID.uuid FROM space WHERE name = $entityName.name`
-	selectSpaceStmt, err := preparer.Prepare(selectSpaceQuery, entityUUID{}, entityName{})
-	if err != nil {
-		return errors.Errorf("preparing select space query: %w", err)
-	}
-
-	insertConstraintZonesQuery := `INSERT INTO constraint_zone(*) VALUES ($setConstraintZone.*)`
-	insertConstraintZonesStmt, err := preparer.Prepare(insertConstraintZonesQuery, setConstraintZone{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	selectContainerTypeIDQuery := `SELECT &containerTypeID.id FROM container_type WHERE value = $containerTypeVal.value`
-	selectContainerTypeIDStmt, err := preparer.Prepare(selectContainerTypeIDQuery, containerTypeID{}, containerTypeVal{})
-	if err != nil {
-		return errors.Errorf("preparing select container type id query: %w", err)
-	}
 
 	var containerTypeID containerTypeID
 	if cons.Container != nil {
