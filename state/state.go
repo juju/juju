@@ -4,9 +4,7 @@
 package state
 
 import (
-	"crypto/rand"
 	"fmt"
-	"io"
 	"regexp"
 	"sort"
 	"strconv"
@@ -1291,7 +1289,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			StatusInfo: status.MessageWaitForContainer,
 			Updated:    nowNano,
 		}
-		if storageUniqueID, err = RandomPrefix(); err != nil {
+		if storageUniqueID, err = storage.RandomPrefix(); err != nil {
 			return nil, err
 		}
 	}
@@ -2672,13 +2670,4 @@ func TagFromDocID(docID string) names.Tag {
 	default:
 		return nil
 	}
-}
-
-// RandomPrefix returns a random string.
-func RandomPrefix() (string, error) {
-	var randPrefixBytes [4]byte
-	if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
-		return "", errors.Trace(err)
-	}
-	return fmt.Sprintf("%x", randPrefixBytes), nil
 }

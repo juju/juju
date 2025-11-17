@@ -3,6 +3,14 @@
 
 package storage
 
+import (
+	"crypto/rand"
+	"fmt"
+	"io"
+
+	"github.com/juju/errors"
+)
+
 // KubernetesFilesystemParams is a fully specified set of parameters for filesystem creation,
 // derived from one or more of user-specified storage constraints, a
 // storage pool definition, and charm storage metadata.
@@ -65,4 +73,13 @@ type KubernetesFilesystemUnitAttachmentParams struct {
 
 	// VolumeId is the storage provider's unique identifier for the volume.
 	VolumeId string
+}
+
+// RandomPrefix returns a random string.
+func RandomPrefix() (string, error) {
+	var randPrefixBytes [4]byte
+	if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
+		return "", errors.Trace(err)
+	}
+	return fmt.Sprintf("%x", randPrefixBytes), nil
 }
