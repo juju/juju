@@ -14,6 +14,7 @@ howto/index
 reference/index
 explanation/index
 For contributors <contributor/index>
+releasenotes/index
 ```
 
 Juju is an open source orchestration engine for software operators that enables the deployment, integration, and lifecycle management of applications in the cloud using special software operators called ‘charms’.
