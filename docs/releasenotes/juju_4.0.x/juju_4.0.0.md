@@ -29,8 +29,8 @@ Model migration will appear in next patch versions.
 
 * **Controller HA enablement**: Use controller scaling with `juju add-unit` in the controller model instead of `enable-ha`. 
 The `juju-ha-space` controller config item is removed in favour of binding the controller application `dbcluster` endpoint.
-* **Default `alpha` space assumption on MAAS**: There is no MAAS `alpha` space by default; use `set model-config 
-default-space=<space>` or bind endpoints explicitly before deploy.
+* **Default `alpha` space assumption on MAAS**: There is no MAAS `alpha` space by default; set the default space using the
+`default-space=<space>` model config or bind endpoints explicitly before deploy.
 * **LXD profiles for Kubernetes workloads**: LXD profiles are removed from `4.0`.
 * **Base/series commands (`juju set-application-base, juju upgrade-machine / machine-upgrade`)**: In-place base or 
 series switching via these commands is removed; use charm-defined upgrade flows.
