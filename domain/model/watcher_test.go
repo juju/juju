@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	stdtesting "testing"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -49,7 +50,7 @@ func TestWatcherSuite(t *stdtesting.T) {
 }
 
 func insertModelDependencies(c *tc.C, dbTxnRunnerFactory database.TxnRunnerFactory,
-	dbTxnRunner database.TxnRunner, userUUID user.UUID, userName user.Name) {
+	dbTxnRunner database.TxnRunner, userUUID user.UUID, userName user.Name) coremodel.UUID {
 	accessState := accessstate.NewState(dbTxnRunnerFactory, loggertesting.WrapCheckLog(c))
 
 	// Add a user so we can set model owner.
@@ -101,13 +102,40 @@ func insertModelDependencies(c *tc.C, dbTxnRunnerFactory database.TxnRunnerFacto
 
 	err = bootstrap.CreateDefaultBackends(coremodel.IAAS)(c.Context(), dbTxnRunner, dbTxnRunner)
 	c.Assert(err, tc.ErrorIsNil)
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	err = dbTxnRunner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := statecontroller.Create(
+			ctx,
+			preparer{},
+			tx,
+			modelUUID,
+			coremodel.IAAS,
+			domainmodel.GlobalModelCreationArgs{
+				Cloud:         "my-cloud",
+				Name:          coremodel.ControllerModelName,
+				Qualifier:     "admin",
+				AdminUsers:    []user.UUID{userUUID},
+				SecretBackend: juju.BackendName,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return modelUUID
 }
 
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.userUUID = usertesting.GenUserUUID(c)
 	s.userName = usertesting.GenNewName(c, "test-user")
-	insertModelDependencies(c, s.TxnRunnerFactory(), s.TxnRunner(), s.userUUID, s.userName)
+	controllerModelUUID := insertModelDependencies(c, s.TxnRunnerFactory(), s.TxnRunner(), s.userUUID, s.userName)
+
+	s.SeedControllerTable(c, controllerModelUUID)
 }
 
 func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
@@ -415,4 +443,10 @@ func (l statusHistoryGetter) GetStatusHistoryForModel(ctx context.Context, model
 
 	logger := loggerContext.GetLogger("juju.services")
 	return domain.NewStatusHistory(logger, l.clock), nil
+}
+
+type preparer struct{}
+
+func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, args...)
 }

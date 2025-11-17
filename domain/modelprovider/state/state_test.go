@@ -4,8 +4,10 @@
 package state
 
 import (
+	"context"
 	stdtesting "testing"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -94,18 +96,30 @@ func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
 	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelSt := statecontroller.NewState(s.TxnRunnerFactory())
-	err = modelSt.Create(ctx, modelUUID, coremodel.IAAS, model.GlobalModelCreationArgs{
-		Cloud:         "test",
-		CloudRegion:   "test-region",
-		Credential:    key,
-		Name:          "test",
-		Qualifier:     "prod",
-		AdminUsers:    []user.UUID{userUUID},
-		SecretBackend: juju.BackendName,
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err = statecontroller.Create(ctx,
+			preparer{},
+			tx,
+			modelUUID,
+			coremodel.IAAS,
+			model.GlobalModelCreationArgs{
+				Cloud:         "test",
+				CloudRegion:   "test-region",
+				Credential:    key,
+				Name:          "test",
+				Qualifier:     "prod",
+				AdminUsers:    []user.UUID{userUUID},
+				SecretBackend: juju.BackendName,
+			})
+		if err != nil {
+			return err
+		}
+
+		activator := statecontroller.GetActivator()
+		return activator(ctx, preparer{}, tx, modelUUID)
+
+		return nil
 	})
-	c.Assert(err, tc.ErrorIsNil)
-	err = modelSt.Activate(ctx, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	return modelUUID
 }
@@ -129,4 +143,10 @@ func (s *stateSuite) TestGetModelCloudAndCredentialNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	_, _, _, err := st.GetModelCloudAndCredential(c.Context(), uuid)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+type preparer struct{}
+
+func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, args...)
 }
