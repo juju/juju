@@ -6,7 +6,6 @@ package migrationtarget
 import (
 	stdctx "context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -14,14 +13,15 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
-	jujukubernetes "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/rpc/params"
@@ -33,6 +33,22 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
+
+type newK8sClientFunc func(
+	cloudSpec cloudspec.CloudSpec,
+) (kubernetes.Interface, *rest.Config, error)
+
+// Migrator provides an abstraction to import a given model. This was introduced
+// for easier mocking in unit tests.
+type Migrator interface {
+	// ImportModel receives a deserialized model to be imported in the new
+	// controller.
+	ImportModel(
+		importer migration.StateImporter,
+		getClaimer migration.ClaimerFunc,
+		model description.Model,
+	) (*state.Model, *state.State, error)
+}
 
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
@@ -46,7 +62,8 @@ type API struct {
 	getEnviron                      stateenvirons.NewEnvironFunc
 	CAASbrokerProvider              stateenvirons.NewCAASBrokerFunc
 	requiredMigrationFacadeVersions facades.FacadeVersions
-	newK8sClient                    func(model *state.Model) (kubernetes.Interface, *rest.Config, error)
+	newK8sClient                    newK8sClientFunc
+	migrator                        Migrator
 }
 
 // APIV1 implements the V1 version of the API facade.
@@ -64,6 +81,32 @@ type kubernetesClient struct {
 	config *rest.Config
 }
 
+// baseModel implements [stateenvirons.baseModel].
+type baseModel struct {
+	descriptionModel description.Model
+	st               *state.State
+}
+
+func (m baseModel) Cloud() (cloud.Cloud, error) {
+	cloudName := m.descriptionModel.Cloud()
+	return m.st.Cloud(cloudName)
+}
+
+func (m baseModel) CloudRegion() string {
+	return m.descriptionModel.CloudRegion()
+}
+
+func (m baseModel) CloudCredential() (state.Credential, bool, error) {
+	cred := m.descriptionModel.CloudCredential()
+	credID := fmt.Sprintf("%s/%s/%s", cred.Cloud(), cred.Owner(), cred.Name())
+	if !names.IsValidCloudCredential(credID) {
+		return state.Credential{}, false, errors.NotValidf("cloud credential ID %q", credID)
+	}
+	credTag := names.NewCloudCredentialTag(credID)
+	cloudCredential, err := m.st.CloudCredential(credTag)
+	return cloudCredential, true, err
+}
+
 // NewAPI returns a new APIV1. Accepts a NewEnvironFunc and context.ProviderCallContext
 // for testing purposes.
 func NewAPI(
@@ -71,7 +114,8 @@ func NewAPI(
 	getEnviron stateenvirons.NewEnvironFunc,
 	CAASbrokerProvider stateenvirons.NewCAASBrokerFunc,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
-	k8sClient func(model *state.Model) (kubernetes.Interface, *rest.Config, error),
+	newK8sClient newK8sClientFunc,
+	migrator Migrator,
 ) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
@@ -88,7 +132,8 @@ func NewAPI(
 		getEnviron:                      getEnviron,
 		CAASbrokerProvider:              CAASbrokerProvider,
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
-		newK8sClient:                    k8sClient,
+		newK8sClient:                    newK8sClient,
+		migrator:                        migrator,
 	}, nil
 }
 
@@ -173,139 +218,50 @@ func (api *API) Import(serialized params.SerializedModel) error {
 		return errors.Annotate(err, "deserializing model for import")
 	}
 
-	tag := descriptionModel.Tag()
-	model, release, err := api.getModel(tag.String())
-	if err != nil {
-		return errors.Annotate(err, "getting model for import")
-	}
-	defer release()
-
-	k8sClient, cfg, err := api.newK8sClient(model)
-	if err != nil {
-		return err
-	}
-	k8sClient = kubernetesClient{k8sClient, cfg}
-
-	// getStorageUniqueID finds the storage unique ID for a given CAAS app by
-	// searching through the annotation of these objects in these respective order:
-	//	- statefulset
-	//	- deployment
-	//	- daemonset
-	// It is used to backfill the storageUniqueID field of an application when
-	// migrating from models before 3.6.12 to 3.6.12 and greater.
-	getStorageUniqueID := func(app string, model *state.Model) (string, error) {
-		log.Printf("[adis][getStorageUniqueID] app: %s, model: %s\n", app, model.UUID())
-		namespace, err := jujukubernetes.NamespaceForModel(model.Name(), model.ControllerUUID(), cfg)
-		if err != nil {
-			return "", err
-		}
-
-		isLegacyDeployment := func(appName string) (bool, error) {
-			legacyName := "juju-operator-" + appName
-			_, getErr := k8sClient.AppsV1().
-				StatefulSets(namespace).
-				Get(stdctx.Background(), legacyName, v1.GetOptions{})
-
-			if getErr == nil {
-				return true, nil
-			}
-			if k8serrors.IsNotFound(err) {
-				return false, nil
-			}
-			return false, err
-		}
-
-		getUniqueIDFromAnnotation := func(annotations map[string]string) (string, error) {
-			labelVersion, err := utils.MatchModelLabelVersion(namespace, model.Name(), model.UUID(),
-				model.ControllerUUID(), k8sClient.CoreV1().Namespaces())
-			if err != nil {
-				return "", err
-			}
-
-			appIDKey := utils.AnnotationKeyApplicationUUID(labelVersion)
-			storageUniqueID, ok := annotations[appIDKey]
-			if !ok {
-				return state.RandomPrefix()
-			}
-			return storageUniqueID, nil
-		}
-
-		deploymentName := app
-		isLegacy, err := isLegacyDeployment(app)
-		if err != nil {
-			return "", err
-		}
-		if isLegacy {
-			deploymentName = "juju-operator-" + app
-		}
-
-		// We have to find the resource where the storageUniqueID
-		// is saved in annotation. While modern charms are deployed as
-		// statefulsets, due to legacy deployments, we also have to check
-		// for deployments and daemonsets resource.
-		sts, err := k8sClient.AppsV1().
-			StatefulSets(namespace).
-			Get(stdctx.Background(), deploymentName, v1.GetOptions{})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return "", err
-		}
-		if err == nil {
-			storageUniqueID, err := getUniqueIDFromAnnotation(sts.Annotations)
-			if err != nil {
-				return "", err
-			}
-			return storageUniqueID, nil
-		}
-
-		// The app doesn't exist in statefulset so we look at the deployment
-		// resource.
-		deployment, err := k8sClient.AppsV1().
-			Deployments(namespace).
-			Get(stdctx.Background(), deploymentName, v1.GetOptions{})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return "", err
-		}
-		if err == nil {
-			storageUniqueID, err := getUniqueIDFromAnnotation(deployment.Annotations)
-			if err != nil {
-				return "", err
-			}
-			return storageUniqueID, nil
-		}
-
-		// The app doesn't exist in deployment so we look at the daemonset
-		// resource.
-		daemonSet, err := k8sClient.AppsV1().
-			DaemonSets(namespace).
-			Get(stdctx.Background(), deploymentName, v1.GetOptions{})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return "", err
-		}
-		if err == nil {
-			storageUniqueID, err := getUniqueIDFromAnnotation(daemonSet.Annotations)
-			if err != nil {
-				return "", err
-			}
-			return storageUniqueID, nil
-		}
-
-		return "", errors.Errorf("could not find deployment for app %q", app)
-	}
-
+	// We have this condition to handle backfilling storage unique IDs for
+	// caas deployments with a missing storage ID in the application doc.
 	if descriptionModel.Type() == "caas" {
+		var k8sClient *kubernetesClient
+
 		for _, application := range descriptionModel.Applications() {
-			if application.StorageUniqueID() == "" {
-				storageUniqueID, err := getStorageUniqueID(
-					application.Name(),
-					model,
-				)
-				if err != nil {
-					return errors.Annotatef(err, "getting storage unique "+
-						"id for app %q", application.Name())
-				}
-				application.SetStorageUniqueID(storageUniqueID)
+			if application.StorageUniqueID() != "" {
+				continue
 			}
+
+			// We have detected an empty storage unique ID. It must be coming from
+			// an old model.
+			if k8sClient == nil {
+				k8s, err := api.initK8sClient(descriptionModel)
+				if err != nil {
+					return errors.Annotate(err, "initializing k8s client")
+				}
+				k8sClient = k8s
+			}
+
+			modelName, _ := descriptionModel.Config()["name"].(string)
+			modelUUID := descriptionModel.Tag().Id()
+
+			// We have to backfill the storage unique ID by grabbing
+			// it from the k8s annotations.
+			storageUniqueID, err := api.getStorageUniqueID(
+				application.Name(),
+				modelName,
+				modelUUID,
+				k8sClient,
+			)
+			if err != nil {
+				return errors.Annotatef(err, "getting storage unique "+
+					"id for app %q", application.Name())
+			}
+			application.SetStorageUniqueID(storageUniqueID)
 		}
+
+		_, st, err := api.migrator.ImportModel(controller, api.getClaimer, descriptionModel)
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		return err
 	}
 
 	_, st, err := migration.ImportModel(controller, api.getClaimer, descriptionModel)
@@ -319,16 +275,147 @@ func (api *API) Import(serialized params.SerializedModel) error {
 	return err
 }
 
+func (api *API) initK8sClient(descriptionModel description.Model) (*kubernetesClient, error) {
+	m := baseModel{
+		descriptionModel: descriptionModel,
+		st:               api.state,
+	}
+
+	cloudSpec, err := stateenvirons.CloudSpecForModel(m)
+	if err != nil {
+		return nil, errors.Annotate(err, "constructing cloud spec for import")
+	}
+
+	k8sClient, cfg, err := api.newK8sClient(cloudSpec)
+	if err != nil {
+		return nil, errors.Annotate(err, "initializing k8s client for import")
+	}
+	return &kubernetesClient{k8sClient, cfg}, nil
+}
+
+// getStorageUniqueID finds the storage unique ID for a given CAAS app by
+// searching through the annotation of these objects in these respective order:
+//  1. statefulset
+//  2. deployment
+//  3. daemonset
+//
+// It is used to backfill the storageUniqueID field of an application when
+// migrating from models before 3.6.12 to 3.6.12 and greater.
+func (api *API) getStorageUniqueID(
+	app,
+	modelName,
+	modelUUID string,
+	k8sClient kubernetes.Interface,
+) (string, error) {
+	// Only workload models can be migrated. We know that k8s namespace for a
+	// workload model is the model name.
+	namespace := modelName
+
+	isLegacyDeployment := func(appName string) (bool, error) {
+		legacyName := "juju-operator-" + appName
+		_, getErr := k8sClient.AppsV1().
+			StatefulSets(namespace).
+			Get(stdctx.Background(), legacyName, v1.GetOptions{})
+
+		if getErr == nil {
+			return true, nil
+		}
+		if k8serrors.IsNotFound(getErr) {
+			return false, nil
+		}
+		return false, getErr
+	}
+
+	// Remember that only workload models are migrated so we represent
+	// controllerUUID as an empty string to reuse [utils.MatchModelLabelVersion].
+	// The func uses it to match a controller model which we don't need.
+	controllerUUID := ""
+	getUniqueIDFromAnnotation := func(annotations map[string]string) (string, error) {
+		labelVersion, err := utils.MatchModelLabelVersion(
+			namespace, modelName, modelUUID,
+			controllerUUID, k8sClient.CoreV1().Namespaces(),
+		)
+		if err != nil {
+			return "", err
+		}
+
+		appIDKey := utils.AnnotationKeyApplicationUUID(labelVersion)
+		storageUniqueID, ok := annotations[appIDKey]
+		if !ok {
+			return state.RandomPrefix()
+		}
+		return storageUniqueID, nil
+	}
+
+	deploymentName := app
+	isLegacy, err := isLegacyDeployment(app)
+	if err != nil {
+		return "", err
+	}
+	if isLegacy {
+		deploymentName = "juju-operator-" + app
+	}
+
+	// We have to find the object where the storage unique ID
+	// is saved in the annotation. While modern charms are deployed as
+	// a statefulset object, due to legacy deployments, we also have to check
+	// for deployment and daemonset objects.
+	sts, err := k8sClient.AppsV1().
+		StatefulSets(namespace).
+		Get(stdctx.Background(), deploymentName, v1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return "", err
+	}
+	if err == nil {
+		storageUniqueID, err := getUniqueIDFromAnnotation(sts.Annotations)
+		if err != nil {
+			return "", err
+		}
+		return storageUniqueID, nil
+	}
+
+	// The app doesn't exist in statefulset so we look for a deployment
+	// object.
+	deployment, err := k8sClient.AppsV1().
+		Deployments(namespace).
+		Get(stdctx.Background(), deploymentName, v1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return "", err
+	}
+	if err == nil {
+		storageUniqueID, err := getUniqueIDFromAnnotation(deployment.Annotations)
+		if err != nil {
+			return "", err
+		}
+		return storageUniqueID, nil
+	}
+
+	// The app doesn't exist in deployment so we look for a daemonset
+	// object.
+	daemonSet, err := k8sClient.AppsV1().
+		DaemonSets(namespace).
+		Get(stdctx.Background(), deploymentName, v1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return "", err
+	}
+	if err == nil {
+		storageUniqueID, err := getUniqueIDFromAnnotation(daemonSet.Annotations)
+		if err != nil {
+			return "", err
+		}
+		return storageUniqueID, nil
+	}
+
+	return "", errors.Errorf("could not find deployment for app %q", app)
+}
+
 func (api *API) getModel(modelTag string) (*state.Model, func(), error) {
 	tag, err := names.ParseModelTag(modelTag)
 	if err != nil {
-		log.Printf("[adis][getmodel] parse err: %s", err)
-
 		return nil, nil, errors.Trace(err)
 	}
 	model, ph, err := api.pool.GetModel(tag.Id())
 	if err != nil {
-		log.Printf("[adis][getmodel] get err: %s", err)
 		return nil, nil, errors.Trace(err)
 	}
 	return model, func() { ph.Release() }, nil
