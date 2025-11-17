@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -336,25 +337,32 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 		c.Assert(cloud.IsControllerCloud, tc.Equals, false)
 	}
 
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelSt := statecontroller.NewState(s.TxnRunnerFactory())
 	modelstatetesting.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
-	err = modelSt.Create(
-		c.Context(),
-		modelUUID,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud:         testCloud.Name,
-			Name:          coremodel.ControllerModelName,
-			Qualifier:     "admin",
-			AdminUsers:    []user.UUID{user.UUID(s.adminUUID.String())},
-			SecretBackend: juju.BackendName,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
 
-	err = modelSt.Activate(c.Context(), modelUUID)
+	modelUUID := modeltesting.GenModelUUID(c)
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := statecontroller.Create(
+			ctx,
+			preparer{},
+			tx,
+			modelUUID,
+			coremodel.IAAS,
+			model.GlobalModelCreationArgs{
+				Cloud:         testCloud.Name,
+				Name:          coremodel.ControllerModelName,
+				Qualifier:     "admin",
+				AdminUsers:    []user.UUID{user.UUID(s.adminUUID.String())},
+				SecretBackend: juju.BackendName,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		activator := statecontroller.GetActivator()
+		return activator(ctx, preparer{}, tx, modelUUID)
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	clouds, err = st.ListClouds(c.Context())
@@ -522,4 +530,10 @@ func (s *stateSuite) TestGetCloudForUUID(c *tc.C) {
 	cloud, err := st.GetCloudForUUID(c.Context(), uuid)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(cloud, tc.DeepEquals, testCloud)
+}
+
+type preparer struct{}
+
+func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, args...)
 }

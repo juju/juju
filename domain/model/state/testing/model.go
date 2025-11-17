@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
 	corecredential "github.com/juju/juju/core/credential"
@@ -17,7 +18,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/model"
-	statecontroller "github.com/juju/juju/domain/model/state/controller"
+	controllermodel "github.com/juju/juju/domain/model/state/controller"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
@@ -145,28 +146,34 @@ func CreateTestModel(
 	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelSt := statecontroller.NewState(txnRunner)
-	err = modelSt.Create(
-		c.Context(),
-		modelUUID,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud:       name,
-			CloudRegion: regionName,
-			Credential: corecredential.Key{
-				Cloud: name,
-				Owner: userName,
-				Name:  "foobar",
+	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := controllermodel.Create(
+			ctx,
+			preparer{},
+			tx,
+			modelUUID,
+			coremodel.IAAS,
+			model.GlobalModelCreationArgs{
+				Cloud:       name,
+				CloudRegion: regionName,
+				Credential: corecredential.Key{
+					Cloud: name,
+					Owner: userName,
+					Name:  "foobar",
+				},
+				Name:          name,
+				Qualifier:     "prod",
+				AdminUsers:    []user.UUID{userUUID},
+				SecretBackend: juju.BackendName,
 			},
-			Name:          name,
-			Qualifier:     "prod",
-			AdminUsers:    []user.UUID{userUUID},
-			SecretBackend: juju.BackendName,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
+		)
+		if err != nil {
+			return err
+		}
 
-	err = modelSt.Activate(c.Context(), modelUUID)
+		activator := controllermodel.GetActivator()
+		return activator(ctx, preparer{}, tx, modelUUID)
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return modelUUID
@@ -175,7 +182,13 @@ func CreateTestModel(
 // DeleteTestModel is responsible for cleaning up a testing mode previously
 // created with [CreateTestModel].
 func DeleteTestModel(c *tc.C, ctx context.Context, txnRunner database.TxnRunnerFactory, modelUUID coremodel.UUID) {
-	modelSt := statecontroller.NewState(txnRunner)
+	modelSt := controllermodel.NewState(txnRunner)
 	err := modelSt.Delete(ctx, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+type preparer struct{}
+
+func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, args...)
 }
