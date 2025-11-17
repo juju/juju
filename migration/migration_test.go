@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/charm/v12"
-	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -50,15 +49,6 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 }
 
-func (s *ImportSuite) TestBadBytes(c *gc.C) {
-	bytes := []byte("not a model")
-	controller := state.NewController(s.StatePool)
-	model, st, err := migration.ImportModel(controller, fakeGetClaimer, bytes)
-	c.Check(st, gc.IsNil)
-	c.Check(model, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
-}
-
 func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string, getClaimer migration.ClaimerFunc) *state.State {
 	model, err := s.State.Export(leaders)
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,11 +62,8 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string, getClaime
 		"uuid": uuid,
 	})
 
-	bytes, err := description.Serialize(model)
-	c.Check(err, jc.ErrorIsNil)
-
 	controller := state.NewController(s.StatePool)
-	dbModel, dbState, err := migration.ImportModel(controller, getClaimer, bytes)
+	dbModel, dbState, err := migration.ImportModel(controller, getClaimer, model)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { dbState.Close() })
 
