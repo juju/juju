@@ -6,13 +6,14 @@ package caasfirewaller
 import (
 	"time"
 
-	"github.com/juju/juju/internal/errors"
 	"github.com/juju/worker/v4/catacomb"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // FailingWorker is a dummy test worker that will fail after defined duration.
 //
-// Used for simulating failing child workers and how this propogates through the
+// Used for simulating failing child workers and how this propagates through the
 // worker.
 type FailingWorker struct {
 	Catacomb catacomb.Catacomb

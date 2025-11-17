@@ -27,8 +27,6 @@ import (
 // firewallerSuite defines a set of tests for asserting the contract of the
 // [firewaller] worker.
 type firewallerSuite struct {
-	config FirewallerConfig
-
 	appFirewallerWorker *mocks.MockWorker
 	applicationService  *mocks.MockApplicationService
 }
