@@ -1,7 +1,5 @@
-(legacy)=
-# Legacy Juju Releases
-
-## **Before Juju 2.9 (all EOL)**
+(juju2xx)=
+# **Before Juju 2.9 (all EOL)**
 
 ### 🔸 **Juju 2.8**
 

@@ -1,15 +1,15 @@
-(relnotes)=
+(releasenotes)=
 # Release Notes
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 3
 :hidden:
 :glob:
 
-Juju 4.0 <juju40/index>
-Juju 3.6 (LTS) <Juju3.6>
-Juju 2.9 (LTS) <juju2.9>
-Out of Support <legacy>
+Juju 4.0 <juju_4.0.x/index>
+Juju 3.6 (LTS) <juju_3.6.x>
+Juju 2.9 (LTS) <juju_2.9.x>
+Out of Support <unsupported/index>
 ```
 
 > See also: {ref}`upgrade-your-deployment`
