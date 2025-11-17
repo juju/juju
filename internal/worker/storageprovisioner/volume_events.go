@@ -367,6 +367,10 @@ func processDeadVolumes(
 			destroy = append(destroy, tag)
 			continue
 		}
+		if params.IsCodeNotFound(result.Error) {
+			deps.config.Logger.Debugf(ctx, "dead volume %s is not found", tag.Id())
+			continue
+		}
 		if params.IsCodeNotProvisioned(result.Error) {
 			deps.config.Logger.Debugf(ctx, "volume %s is not provisioned, queuing for removal", tag.Id())
 			remove = append(remove, tag)

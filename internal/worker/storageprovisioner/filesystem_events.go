@@ -265,6 +265,10 @@ func processDeadFilesystems(ctx context.Context, deps *dependencies, tags []name
 			destroy = append(destroy, tag)
 			continue
 		}
+		if params.IsCodeNotFound(result.Error) {
+			deps.config.Logger.Debugf(ctx, "dead filesystem %s is not found", tag.Id())
+			continue
+		}
 		if params.IsCodeNotProvisioned(result.Error) {
 			deps.config.Logger.Debugf(ctx, "filesystem %s is not provisioned, queuing for removal", tag.Id())
 			remove = append(remove, tag)
