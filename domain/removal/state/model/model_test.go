@@ -295,7 +295,7 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 	err = st.DeleteUnit(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.DeleteMachine(c.Context(), machineUUID.String())
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
