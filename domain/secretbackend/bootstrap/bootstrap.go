@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	domainsecretbackend "github.com/juju/juju/domain/secretbackend"
+	"github.com/juju/juju/domain/secretbackend/internal"
 	"github.com/juju/juju/domain/secretbackend/state"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -44,7 +45,7 @@ func createBackend(ctx context.Context, tx *sqlair.TX, backendName string, backe
 	}
 	insertBackendStmt, err := sqlair.Prepare(`
 INSERT INTO secret_backend
-    (uuid, name, backend_type_id)
+    (uuid, name, backend_type_id, origin_id)
 VALUES ($SecretBackend.*)`, state.SecretBackend{})
 	if err != nil {
 		return errors.Capture(err)
@@ -55,6 +56,8 @@ VALUES ($SecretBackend.*)`, state.SecretBackend{})
 		Name:                backendName,
 		BackendTypeID:       backendType,
 		TokenRotateInterval: internaldatabase.NullDuration{},
+		// Backends created at bootstrap are considered built-in.
+		OriginID: int(internal.BuiltIn),
 	}).Run()
 	if err != nil {
 		return errors.Errorf("cannot create secret backend %q: %w", backendName, err)

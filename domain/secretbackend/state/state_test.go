@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -637,48 +638,19 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, fmt.Sprintf(`secret backend not valid: empty config key for %q`, backendID2))
 }
 
-func (s *stateSuite) TestUpdateSecretBackendFailedForInternalBackend(c *tc.C) {
-	backendID := uuid.MustNewUUID().String()
-	_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
-		BackendIdentifier: secretbackend.BackendIdentifier{
-			ID:   backendID,
-			Name: "my-backend",
-		},
-		BackendType: "controller",
-	})
-	c.Assert(err, tc.IsNil)
+func (s *stateSuite) TestUpdateSecretBackendFailedForBuiltInBackend(c *tc.C) {
+
+	backendUUID := s.addBuiltInBackend(c, "old-name")
 
 	newName := "my-backend-new"
-	_, err = s.state.UpdateSecretBackend(c.Context(), secretbackend.UpdateSecretBackendParams{
+	_, err := s.state.UpdateSecretBackend(c.Context(), secretbackend.UpdateSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{
-			ID: backendID,
+			ID: backendUUID,
 		},
 		NewName: &newName,
 	})
 	c.Assert(err, tc.ErrorIs, backenderrors.Forbidden)
-	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
-}
-
-func (s *stateSuite) TestUpdateSecretBackendFailedForKubernetesBackend(c *tc.C) {
-	backendID := uuid.MustNewUUID().String()
-	_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
-		BackendIdentifier: secretbackend.BackendIdentifier{
-			ID:   backendID,
-			Name: "my-backend",
-		},
-		BackendType: "kubernetes",
-	})
-	c.Assert(err, tc.IsNil)
-
-	newName := "my-backend-new"
-	_, err = s.state.UpdateSecretBackend(c.Context(), secretbackend.UpdateSecretBackendParams{
-		BackendIdentifier: secretbackend.BackendIdentifier{
-			ID: backendID,
-		},
-		NewName: &newName,
-	})
-	c.Assert(err, tc.ErrorIs, backenderrors.Forbidden)
-	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(`secret backend %q is immutable`, backendUUID))
 }
 
 func (s *stateSuite) TestDeleteSecretBackend(c *tc.C) {
@@ -782,36 +754,12 @@ WHERE backend_uuid = ?`[1:], backendID)
 	c.Assert(count, tc.Equals, 0)
 }
 
-func (s *stateSuite) TestDeleteSecretBackendFailedForInternalBackend(c *tc.C) {
-	backendID := uuid.MustNewUUID().String()
-	_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
-		BackendIdentifier: secretbackend.BackendIdentifier{
-			ID:   backendID,
-			Name: "my-backend",
-		},
-		BackendType: "controller",
-	})
-	c.Assert(err, tc.IsNil)
+func (s *stateSuite) TestDeleteSecretBackendFailedForBuiltInBackend(c *tc.C) {
+	backendUUID := s.addBuiltInBackend(c, "built-in-backend")
 
-	err = s.state.DeleteSecretBackend(c.Context(), secretbackend.BackendIdentifier{ID: backendID}, false)
+	err := s.state.DeleteSecretBackend(c.Context(), secretbackend.BackendIdentifier{ID: backendUUID}, false)
 	c.Assert(err, tc.ErrorIs, backenderrors.Forbidden)
-	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
-}
-
-func (s *stateSuite) TestDeleteSecretBackendFailedForKubernetesBackend(c *tc.C) {
-	backendID := uuid.MustNewUUID().String()
-	_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
-		BackendIdentifier: secretbackend.BackendIdentifier{
-			ID:   backendID,
-			Name: "my-backend",
-		},
-		BackendType: "kubernetes",
-	})
-	c.Assert(err, tc.IsNil)
-
-	err = s.state.DeleteSecretBackend(c.Context(), secretbackend.BackendIdentifier{ID: backendID}, false)
-	c.Assert(err, tc.ErrorIs, backenderrors.Forbidden)
-	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(`secret backend %q is immutable`, backendUUID))
 }
 
 func (s *stateSuite) TestDeleteSecretBackendInUseFail(c *tc.C) {
@@ -1850,6 +1798,19 @@ func (s *stateSuite) TestGetSecretBackendRotateChanges(c *tc.C) {
 	c.Assert(changes[1].ID, tc.Equals, backendID2)
 	c.Assert(changes[1].Name, tc.Equals, "my-backend2")
 	c.Assert(changes[1].NextTriggerTime.Equal(nextRotateTime2), tc.IsTrue)
+}
+
+func (s *stateSuite) addBuiltInBackend(c *tc.C, name string) string {
+	backendUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, txn *sql.Tx) error {
+		_, err := txn.ExecContext(ctx, `
+INSERT INTO secret_backend (uuid, name, backend_type_id, origin_id) 
+VALUES (?,?,0,0)`,
+			backendUUID, name)
+		return errors.Capture(err)
+	})
+	c.Assert(err, tc.IsNil)
+	return backendUUID
 }
 
 type preparer struct{}
