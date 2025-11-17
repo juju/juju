@@ -54,7 +54,7 @@ type MachineState interface {
 
 	// DeleteMachine deletes the specified machine and any dependent child
 	// records.
-	DeleteMachine(ctx context.Context, mName string) error
+	DeleteMachine(ctx context.Context, mName string, force bool) error
 
 	// MarkInstanceAsDead marks the machine cloud instance with the input UUID as
 	// dead.
@@ -346,7 +346,7 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 		return errors.Errorf("releasing addresses for machine %q: %w", job.EntityUUID, err)
 	}
 
-	if err := s.modelState.DeleteMachine(ctx, job.EntityUUID); errors.Is(err, machineerrors.MachineNotFound) {
+	if err := s.modelState.DeleteMachine(ctx, job.EntityUUID, job.Force); errors.Is(err, machineerrors.MachineNotFound) {
 		// The machine has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil
