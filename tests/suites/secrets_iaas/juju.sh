@@ -47,6 +47,16 @@ check_secrets() {
 	juju exec --unit dummy-source/0 -- secret-grant "$secret_owned_by_dummy_source_0" -r "$relation_id"
 	juju exec --unit dummy-source/0 -- secret-grant "$secret_owned_by_dummy_source" -r "$relation_id"
 
+	echo "Checking: secret-get by label - refresh with pending updates"
+	another_secret_owned_by_dummy_source=$(juju exec --unit dummy-source/0 -- secret-add value=1 --label=mysecret)
+	check_contains "$(juju exec --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=2; secret-get ${another_secret_owned_by_dummy_source} --refresh")" "2"
+	check_contains "$(juju exec --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=3; secret-get --label=mysecret --refresh")" "3"
+	check_contains "$(juju exec --unit dummy-source/0 -- "secret-get --label=mysecret")" "3"
+	check_contains "$(
+		juju exec --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=4"
+		juju exec --unit dummy-source/0 -- secret-get --label=mysecret --refresh
+	)" "4"
+
 	echo "Checking: secret-get by URI - consume content by ID"
 	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source_0" --label=consumer_label_secret_owned_by_dummy_source_0)" 'owned-by: dummy-source/0'
 	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source" --label=consumer_label_secret_owned_by_dummy_source)" 'owned-by: dummy-source-app'
@@ -96,6 +106,8 @@ check_secrets() {
 	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source_0" 2>&1)" 'not found'
 	juju exec --unit dummy-source/0 -- secret-remove "$secret_owned_by_dummy_source"
 	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source" 2>&1)" 'not found'
+	juju exec --unit dummy-source/0 -- secret-remove "$another_secret_owned_by_dummy_source"
+	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$another_secret_owned_by_dummy_source" 2>&1)" 'not found'
 }
 
 run_user_secrets() {
