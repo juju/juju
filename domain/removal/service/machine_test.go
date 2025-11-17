@@ -215,43 +215,6 @@ func (s *machineSuite) TestMarkMachineAsDeadError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
 }
 
-func (s *machineSuite) TestDeleteMachine(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	mUUID := machinetesting.GenUUID(c)
-
-	exp := s.modelState.EXPECT()
-	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.DeleteMachine(gomock.Any(), mUUID.String()).Return(nil)
-
-	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *machineSuite) TestDeleteMachineMachineDoesNotExist(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	mUUID := machinetesting.GenUUID(c)
-
-	exp := s.modelState.EXPECT()
-	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
-
-	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-func (s *machineSuite) TestDeleteMachineError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	mUUID := machinetesting.GenUUID(c)
-
-	exp := s.modelState.EXPECT()
-	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
-
-	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
-	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
-}
-
 func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

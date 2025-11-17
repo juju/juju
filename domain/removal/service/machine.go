@@ -265,21 +265,6 @@ func (s *Service) MarkMachineAsDead(ctx context.Context, machineUUID machine.UUI
 	return s.modelState.MarkMachineAsDead(ctx, machineUUID.String())
 }
 
-// DeleteMachine attempts to delete the specified machine from state entirely.
-func (s *Service) DeleteMachine(ctx context.Context, machineUUID machine.UUID) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	exists, err := s.modelState.MachineExists(ctx, machineUUID.String())
-	if err != nil {
-		return errors.Errorf("checking if machine exists: %w", err)
-	} else if !exists {
-		return errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
-	}
-
-	return s.modelState.DeleteMachine(ctx, machineUUID.String())
-}
-
 // MarkInstanceAsDead marks the machine's cloud instance as dead. It will not
 // remove the instance as that is a separate operation. This will advance the
 // instance's life to dead and will not allow it to be transitioned back to
