@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -16,6 +18,8 @@ var _ = func() {
 	_ = applyToAllModelSettings(nil, nil)
 }
 
+// AppAndStorageID represents an application with its id, name, and storage id.
+// It is used for backfilling an application's storage id during a controller upgrade.
 type AppAndStorageID struct {
 	Id              string
 	Name            string
@@ -262,6 +266,7 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 func PopulateApplicationStorageUniqueID(
 	pool *StatePool,
 	getStorageUniqueIDs func(
+		ctx context.Context,
 		applications []AppAndStorageID,
 		model *Model,
 	) ([]AppAndStorageID, error),
@@ -275,19 +280,19 @@ func PopulateApplicationStorageUniqueID(
 		logger.Debugf("trying to populate storage unique ID for apps in model %q", model.Name())
 
 		if model.Type() != ModelTypeCAAS {
-			logger.Debugf("skipping because model %q is not a caas model", model.Name())
+			logger.Debugf("skipping because model %q is not a k8s model", model.Name())
 			return nil
 		}
 
-		applications, closer := st.db().GetCollection(applicationsC)
+		applicationsColl, closer := st.db().GetCollection(applicationsC)
 		defer closer()
 
-		// Fetch the list of applications with an empty appsWithStorageUniqueIDs.
+		// Fetch the list of applications with an empty storage unique ID.
 		// This ensures we don't repeat the upgrade for applications that have
-		// been populated with a appsWithStorageUniqueIDs.
+		// been populated with a storage unique ID.
 		query := bson.M{"storage-unique-id": bson.M{"$exists": false}}
 		fields := bson.M{"_id": 1, "name": 1}
-		iter := applications.Find(query).Select(fields).Iter()
+		iter := applicationsColl.Find(query).Select(fields).Iter()
 		defer iter.Close()
 
 		apps := make([]AppAndStorageID, 0)
@@ -302,7 +307,7 @@ func PopulateApplicationStorageUniqueID(
 
 		logger.Debugf("have %d apps to populate storage unique IDs", len(apps))
 
-		appsWithStorageUniqueIDs, err := getStorageUniqueIDs(apps, model)
+		appsWithStorageUniqueIDs, err := getStorageUniqueIDs(context.Background(), apps, model)
 		if err != nil {
 			return errors.Annotate(err, "getting storage unique IDs")
 		}
