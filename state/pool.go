@@ -226,12 +226,10 @@ func (p *StatePool) Clock() clock.Clock {
 // if required.
 // If the State has been marked for removal, an error is returned.
 func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
-	logger.Infof("[adis][statepool] Get model %q", modelUUID)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	if p.pool == nil {
-		logger.Infof("[adis][statepool] it is closed")
 		return nil, errors.New("pool is closed")
 	}
 
@@ -242,11 +240,8 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 	item, ok := p.pool[modelUUID]
 	if ok && item.remove {
 		// Disallow further usage of a pool item marked for removal.
-		logger.Infof("[adis][statepool] it is to be removed")
 		return nil, errors.NewNotFound(nil, fmt.Sprintf("model %v has been removed", modelUUID))
 	}
-
-	logger.Infof("[adis][statepool] item %+v, ok %t", item, ok)
 
 	// We could use the tombstones map to check if the model has been removed
 	// from the pool and prevent it getting a new PooledState. But it means that
@@ -269,25 +264,20 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 		ps := newPooledState(item.state, p, modelUUID, false)
 		ps.itemKey = key
 		ps.removing = item.removing
-		logger.Infof("[adis][statepool] returning ps")
 		return ps, nil
 	}
 
 	// Don't create any new pool objects if the state pool is in the
 	// process of closing down.
 	if p.closing {
-		logger.Infof("[adis][statepool] closing")
 		return nil, errors.New("pool is closing")
 	}
 
-	logger.Infof("[adis][statepool] calling open state")
 	// We need a new state and pool item.
 	st, err := p.openState(modelUUID)
 	if err != nil {
-		logger.Infof("[adis][statepool] got an error opening it, err: %s", err)
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("[adis][statepool] i have opened it with st %+v", st)
 	removing := make(chan struct{})
 	p.pool[modelUUID] = &PoolItem{
 		modelUUID: modelUUID,
@@ -297,7 +287,6 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 		},
 		removing: removing,
 	}
-	logger.Infof("[adis][statepool] now gonna call newpooledstate")
 	ps := newPooledState(st, p, modelUUID, false)
 	ps.itemKey = key
 	ps.removing = removing
@@ -315,11 +304,9 @@ func (p *StatePool) openState(modelUUID string) (*State, error) {
 		p.systemState.maxTxnAttempts,
 	)
 	if err != nil {
-		logger.Infof("[adis][openstate] new with err %s", err)
 		return nil, errors.Trace(err)
 	}
 	if err := newSt.startWorkers(p.hub); err != nil {
-		logger.Infof("[adis][openstate] start with err %s", err)
 		return nil, errors.Trace(err)
 	}
 	return newSt, nil
