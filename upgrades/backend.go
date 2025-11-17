@@ -60,9 +60,10 @@ func (s stateBackend) SplitMigrationStatusMessages() error {
 // PopulateApplicationStorageUniqueID runs an upgrade to backfill CAAS apps
 // storage unique IDs.
 func (s stateBackend) PopulateApplicationStorageUniqueID() error {
-	return state.PopulateApplicationStorageUniqueID(s.pool, GetStorageUniqueID(NewK8sClient))
+	return state.PopulateApplicationStorageUniqueID(s.pool, GetStorageUniqueIDs(NewK8sClient))
 }
 
+// NewK8sClient initializes a new k8s client for a given model.
 func NewK8sClient(model *state.Model) (kubernetes.Interface, *rest.Config, error) {
 	g := stateenvirons.EnvironConfigGetter{Model: model}
 	cloudSpec, err := g.CloudSpec()
@@ -86,11 +87,11 @@ type kubernetesClient struct {
 	config *rest.Config
 }
 
-// GetStorageUniqueID attempts to grab the storage unique ID for each app
+// GetStorageUniqueIDs attempts to grab the storage unique ID for each app
 // in the given model.
 // The storage unique ID is saved in annotations in a statefulset and for legacy
 // applications are saved in a deployment or daemonset.
-func GetStorageUniqueID(newK8sClient newK8sFunc) func(
+func GetStorageUniqueIDs(newK8sClient newK8sFunc) func(
 	apps []state.AppAndStorageID,
 	model *state.Model,
 ) ([]state.AppAndStorageID, error) {
@@ -102,7 +103,8 @@ func GetStorageUniqueID(newK8sClient newK8sFunc) func(
 		}
 		k8sClient = kubernetesClient{k8sClient, cfg}
 
-		namespace, err := jujukubernetes.NamespaceForModel(model.Name(), model.ControllerUUID(), cfg)
+		namespace, err := jujukubernetes.NamespaceForModel(
+			model.Name(), model.ControllerUUID(), cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +125,8 @@ func GetStorageUniqueID(newK8sClient newK8sFunc) func(
 		}
 
 		getUniqueIDFromAnnotation := func(annotations map[string]string) (string, error) {
-			labelVersion, err := utils.MatchModelLabelVersion(namespace, model.Name(), model.UUID(),
+			labelVersion, err := utils.MatchModelLabelVersion(
+				namespace, model.Name(), model.UUID(),
 				model.ControllerUUID(), k8sClient.CoreV1().Namespaces())
 			if err != nil {
 				return "", err
@@ -218,7 +221,8 @@ func GetStorageUniqueID(newK8sClient newK8sFunc) func(
 			}
 
 			if !foundDeployment {
-				return nil, fmt.Errorf("cannot find k8s deployment for app %q in model %q", a.Name, model.Name())
+				return nil, fmt.Errorf("cannot find k8s deployment for "+
+					"app %q in model %q", a.Name, model.Name())
 			}
 		}
 		return k8sApps, nil
