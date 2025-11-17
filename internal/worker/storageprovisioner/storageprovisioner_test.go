@@ -2345,16 +2345,35 @@ func (s *caasStorageProvisionerSuite) TestRemoveFilesystems(c *tc.C) {
 		MachineTag: "unit-mariadb-1", AttachmentTag: "filesystem-1",
 	}}
 
+	expectedFilesystems := []names.Tag{
+		names.NewFilesystemTag("1"),
+	}
+
 	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
-		c.Assert(ids, tc.DeepEquals, expectedAttachmentIds)
+		c.Check(ids, tc.DeepEquals, expectedAttachmentIds)
 		return []params.LifeResult{{Life: life.Dying}}, nil
 	}
 
-	removed := make(chan interface{})
+	detached := make(chan interface{})
+	fsLife := life.Dying
 	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
-		c.Assert(ids, tc.DeepEquals, expectedAttachmentIds)
-		close(removed)
+		c.Check(ids, tc.DeepEquals, expectedAttachmentIds)
+		close(detached)
+		fsLife = life.Dead
 		return make([]params.ErrorResult, len(ids)), nil
+	}
+
+	removed := make(chan interface{})
+	remove := func(t []names.Tag) ([]params.ErrorResult, error) {
+		c.Check(t, tc.DeepEquals, expectedFilesystems)
+		close(removed)
+		return make([]params.ErrorResult, len(t)), nil
+	}
+	life := func(t []names.Tag) ([]params.LifeResult, error) {
+		c.Check(t, tc.DeepEquals, expectedFilesystems)
+		return []params.LifeResult{{
+			Life: fsLife,
+		}}, nil
 	}
 
 	args := &workerArgs{
@@ -2362,6 +2381,8 @@ func (s *caasStorageProvisionerSuite) TestRemoveFilesystems(c *tc.C) {
 		life: &mockLifecycleManager{
 			attachmentLife:    attachmentLife,
 			removeAttachments: removeAttachments,
+			life:              life,
+			remove:            remove,
 		},
 		registry: s.registry,
 	}
@@ -2369,9 +2390,12 @@ func (s *caasStorageProvisionerSuite) TestRemoveFilesystems(c *tc.C) {
 	defer func() { c.Assert(w.Wait(), tc.IsNil) }()
 	defer w.Kill()
 
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
 	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageID{{
 		MachineTag: "unit-mariadb-1", AttachmentTag: "filesystem-1",
 	}}
+	waitChannel(c, detached, "waiting for filesystem to be detached")
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
 	waitChannel(c, removed, "waiting for filesystem to be removed")
 }
 
