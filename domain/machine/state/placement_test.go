@@ -660,6 +660,58 @@ WHERE m.net_node_uuid = ?
 	c.Check(directive, tc.Equals, "zone=eu-west-1")
 }
 
+func (s *placementSuite) TestPlaceMachineWithSpacesConstraint(c *tc.C) {
+	// Arrange: Create spaces.
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO space (uuid, name) VALUES
+	(?, ?),
+	(?, ?)`,
+		"0", "space1",
+		"1", "space2",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Arrange: Create a machine with space constraints.
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+			MachineUUID: machinetesting.GenUUID(c),
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+			Constraints: constraints.Constraints{
+				Spaces: ptr([]constraints.SpaceConstraint{
+					{SpaceName: "space1", Exclude: false},
+					{SpaceName: "space2", Exclude: true},
+				}),
+			},
+		})
+		return err
+	})
+	// Assert: the placement succeeds.
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Try to place a machine with a non-existent space constraint.
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+			MachineUUID: machinetesting.GenUUID(c),
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+			Constraints: constraints.Constraints{
+				Spaces: ptr([]constraints.SpaceConstraint{
+					{SpaceName: "nonexistent-space", Exclude: false},
+				}),
+			},
+		})
+		return err
+	})
+	// Assert: the placement fails with an error about the missing space.
+	c.Assert(err, tc.ErrorMatches, `.*space "nonexistent-space" does not exist.*`)
+	c.Assert(err, tc.ErrorIs, machineerrors.InvalidMachineConstraints)
+}
+
 // TestCreateMachineWithName_PopulatesHardwareCharacteristics verifies that machines can be created
 // with their hardware characteristics. This is required for the manual provider.
 func (s *placementSuite) TestCreateMachineWithName_PopulatesHardwareCharacteristics(c *tc.C) {

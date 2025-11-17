@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalapplication "github.com/juju/juju/domain/application/internal"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
@@ -576,6 +577,67 @@ func (s *unitStateSuite) TestAddIAASUnits(c *tc.C) {
 		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status:  status.UnitAgentStatusExecuting,
+					Message: "test",
+					Data:    []byte(`{"foo": "bar"}`),
+					Since:   now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusActive,
+					Message: "test",
+					Data:    []byte(`{"foo": "bar"}`),
+					Since:   now,
+				},
+			},
+		},
+	}
+
+	unitNames, machineNames, err := s.state.AddIAASUnits(c.Context(), appID, u)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(unitNames, tc.HasLen, 1)
+	unitName := unitNames[0]
+	c.Check(unitName, tc.Equals, coreunit.Name("foo/0"))
+	c.Assert(machineNames, tc.HasLen, 1)
+	machineName := machineNames[0]
+	c.Check(machineName, tc.Equals, coremachine.Name("0"))
+
+	var unitUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", unitName).Scan(&unitUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.assertUnitStatus(
+		c, "unit_agent", coreunit.UUID(unitUUID),
+		int(u.AgentStatus.Status), u.AgentStatus.Message,
+		u.AgentStatus.Since, u.AgentStatus.Data)
+	s.assertUnitStatus(
+		c, "unit_workload", coreunit.UUID(unitUUID),
+		int(u.WorkloadStatus.Status), u.WorkloadStatus.Message,
+		u.WorkloadStatus.Since, u.WorkloadStatus.Data)
+}
+
+func (s *unitStateSuite) TestAddIAASUnitWithSpaceConstraint(c *tc.C) {
+	appID := s.createIAASApplication(c, "foo", life.Alive)
+	s.addSpace(c, "beta")
+
+	now := ptr(time.Now())
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	u := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
+		AddUnitArg: application.AddUnitArg{
+			Constraints: constraints.Constraints{
+				Spaces: ptr([]constraints.SpaceConstraint{
+					{SpaceName: "beta", Exclude: false},
+				}),
+			},
 			NetNodeUUID: netNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
