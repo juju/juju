@@ -36,16 +36,14 @@ func NewLegacyLoginProvider(
 	password string,
 	nonce string,
 	macaroons []macaroon.Slice,
-	bakeryClient *httpbakery.Client,
 	cookieURL *url.URL,
 ) *legacyLoginProvider {
 	return &legacyLoginProvider{
-		tag:          tag,
-		password:     password,
-		nonce:        nonce,
-		macaroons:    macaroons,
-		bakeryClient: bakeryClient,
-		cookieURL:    cookieURL,
+		tag:       tag,
+		password:  password,
+		nonce:     nonce,
+		macaroons: macaroons,
+		cookieURL: cookieURL,
 	}
 }
 
@@ -57,7 +55,7 @@ type legacyLoginProvider struct {
 	password     string
 	nonce        string
 	macaroons    []macaroon.Slice
-	bakeryClient *httpbakery.Client
+	bakeryClient base.MacaroonDischarger
 	cookieURL    *url.URL
 }
 
@@ -105,7 +103,7 @@ func (p *legacyLoginProvider) addCookiesToHeader(h http.Header) error {
 	}
 	var cookies []*http.Cookie
 	if p.bakeryClient != nil {
-		cookies = p.bakeryClient.Client.Jar.Cookies(p.cookieURL)
+		cookies = p.bakeryClient.CookieJar().Cookies(p.cookieURL)
 		for _, c := range cookies {
 			req.AddCookie(c)
 		}
@@ -136,6 +134,10 @@ func (p *legacyLoginProvider) Login(ctx context.Context, caller base.APICaller) 
 	if p.tag != nil {
 		authTag = p.tag.String()
 	}
+	// Store the bakery client for later use in AuthHeader()
+	// when we want to authenticate HTTP requests.
+	p.bakeryClient = caller.BakeryClient()
+
 	request := &params.LoginRequest{
 		AuthTag:       authTag,
 		Credentials:   p.password,
@@ -156,7 +158,7 @@ func (p *legacyLoginProvider) Login(ctx context.Context, caller base.APICaller) 
 		// Add any macaroons from the cookie jar that might work for
 		// authenticating the login request.
 		request.Macaroons = append(request.Macaroons,
-			httpbakery.MacaroonsForURL(p.bakeryClient.Jar, p.cookieURL)...,
+			httpbakery.MacaroonsForURL(p.bakeryClient.CookieJar(), p.cookieURL)...,
 		)
 	}
 	var result params.LoginResult
@@ -235,7 +237,7 @@ func (p *legacyLoginProvider) Login(ctx context.Context, caller base.APICaller) 
 			return nil, errors.Trace(err)
 		}
 		// Add the macaroons that have been saved by HandleError to our login request.
-		request.Macaroons = httpbakery.MacaroonsForURL(p.bakeryClient.Jar, p.cookieURL)
+		request.Macaroons = httpbakery.MacaroonsForURL(p.bakeryClient.CookieJar(), p.cookieURL)
 		result = params.LoginResult{} // zero result
 		err = caller.APICall("Admin", 3, "", "Login", request, &result)
 		if err != nil {
