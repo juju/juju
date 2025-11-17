@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
+	"github.com/juju/juju/migration"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +28,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
-	"github.com/juju/juju/apiserver/facades/controller/migrationtarget/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -59,7 +58,7 @@ type Suite struct {
 	callContext   context.ProviderCallContext
 	leaders       map[string]string
 
-	migrator *mocks.MockMigrator
+	importModelNoOp migrationtarget.ImportModelFunc
 }
 
 var _ = gc.Suite(&Suite{})
@@ -74,7 +73,7 @@ type caasSuite struct {
 	callContext   context.ProviderCallContext
 	leaders       map[string]string
 
-	migrator *mocks.MockMigrator
+	importModel migrationtarget.ImportModelFunc
 }
 
 var _ = gc.Suite(&caasSuite{})
@@ -104,12 +103,13 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	}
 
 	s.leaders = map[string]string{}
-}
-
-func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.migrator = mocks.NewMockMigrator(ctrl)
-	return ctrl
+	s.importModelNoOp = func(
+		importer migration.StateImporter,
+		getClaimer migration.ClaimerFunc,
+		model description.Model,
+	) (*state.Model, *state.State, error) {
+		return nil, nil, nil
+	}
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
@@ -574,11 +574,8 @@ func (s *Suite) newAPI(
 	environFunc stateenvirons.NewEnvironFunc,
 	brokerFunc stateenvirons.NewCAASBrokerFunc,
 ) (*migrationtarget.API, error) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
 	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc,
-		brokerFunc, facades.FacadeVersions{}, nil, s.migrator)
+		brokerFunc, facades.FacadeVersions{}, nil, s.importModelNoOp)
 	return api, err
 }
 
@@ -593,11 +590,8 @@ func (s *Suite) newAPIWithFacadeVersions(c *gc.C,
 	brokerFunc stateenvirons.NewCAASBrokerFunc,
 	versions facades.FacadeVersions,
 ) (*migrationtarget.API, error) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
 	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc,
-		versions, nil, s.migrator)
+		versions, nil, s.importModelNoOp)
 	return api, err
 }
 
@@ -723,12 +717,16 @@ func (s *caasSuite) SetUpTest(c *gc.C) {
 		Auth_:      s.authorizer,
 	}
 	s.leaders = map[string]string{}
-}
-
-func (s *caasSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.migrator = mocks.NewMockMigrator(ctrl)
-	return ctrl
+	s.importModel = func(
+		importer migration.StateImporter,
+		getClaimer migration.ClaimerFunc,
+		model description.Model,
+	) (*state.Model, *state.State, error) {
+		// Make sure that the storage unique ID for this application is indeed
+		// backfilled. It was initially empty when exported in [makeSerializedModel].
+		c.Assert(model.Applications()[0].StorageUniqueID(), gc.Equals, "uniqueid")
+		return nil, s.facadeContext.State(), nil
+	}
 }
 
 func (s *caasSuite) mustNewAPIWithK8s(
@@ -737,24 +735,20 @@ func (s *caasSuite) mustNewAPIWithK8s(
 		cloudSpec cloudspec.CloudSpec,
 	) (kubernetes.Interface, *rest.Config, error),
 ) *migrationtarget.API {
-	api, err := s.newAPIWithK8s(c, nil, nil, newK8sClient)
+	api, err := s.newAPIWithK8s(nil, nil, newK8sClient)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
 
 func (s *caasSuite) newAPIWithK8s(
-	c *gc.C,
 	environFunc stateenvirons.NewEnvironFunc,
 	brokerFunc stateenvirons.NewCAASBrokerFunc,
 	newK8sClient func(
 		cloudSpec cloudspec.CloudSpec,
 	) (kubernetes.Interface, *rest.Config, error),
 ) (*migrationtarget.API, error) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
 	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc,
-		brokerFunc, facades.FacadeVersions{}, newK8sClient, s.migrator)
+		brokerFunc, facades.FacadeVersions{}, newK8sClient, s.importModel)
 	return api, err
 }
 
@@ -830,20 +824,10 @@ func (s *caasSuite) TestImportPopulateStorageUniqueID(c *gc.C) {
 			return k8sClient, nil, nil
 		})
 
+	// Turn the model into a serialized format.
 	serializedModel := s.makeSerializedModel(c)
-	// Make sure that the storage unique ID for this application is indeed
-	// backfilled. It was initially empty when exported in [makeSerializedModel].
-	s.migrator.EXPECT().ImportModel(
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
-	).DoAndReturn(
-		func(_ interface{}, _ interface{}, m description.Model) (*state.Model, *state.State, error) {
-			c.Assert(m.Applications()[0].StorageUniqueID(), gc.Equals, "uniqueid")
-			return nil, s.facadeContext.State(), nil
-		},
-	)
 
+	// Do the import.
 	err = api.Import(params.SerializedModel{Bytes: serializedModel})
 	c.Assert(err, jc.ErrorIsNil)
 }
